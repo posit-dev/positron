@@ -100,7 +100,7 @@ def dxf(
 # --- Pandas tests ---
 
 
-def test_convert_filter_is_null_true_pandas(dxf: DataExplorerConvertFixture):
+def test_convert_pandas_filter_is_null_true(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema_for(test_df)
     b_is_null = _filter("is_null", schema[1])
@@ -138,12 +138,13 @@ def test_convert_filter_is_null_true_pandas(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_empty_pandas(dxf: DataExplorerConvertFixture):
-    data = {
-        "a": ["foo1", "foo2", "", "2FOO", "FOO3", "bar1", "2BAR"],
-        "b": [1, 11, 31, 22, 24, 62, 89],
-    }
-    test_df = pd.DataFrame(data)
+def test_convert_pandas_filter_empty(dxf: DataExplorerConvertFixture):
+    test_df = pd.DataFrame(
+        {
+            "a": ["foo1", "foo2", "", "2FOO", "FOO3", "bar1", "2BAR"],
+            "b": [1, 11, 31, 22, 24, 62, 89],
+        }
+    )
 
     dxf.register_table("test_df", test_df)
     schema = dxf.get_schema("test_df")
@@ -167,17 +168,18 @@ def test_convert_filter_empty_pandas(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_search_pandas(dxf: DataExplorerConvertFixture):
-    data = {
-        "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
-        "b": [1, 11, 31, 22, 24, 62, 89],
-    }
-    test_df = pd.DataFrame(data)
+def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
+    test_df = pd.DataFrame(
+        {
+            "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
+            "b": [1, 11, 31, 22, 24, 62, 89],
+        }
+    )
 
     dxf.register_table("test_df", test_df)
     schema = dxf.get_schema("test_df")
 
-    # (search_type, column_schema, term, case_sensitive)
+    # (search_type, column_schema, term, case_sensitive, boolean mask)
     # TODO (iz): make this more DRY since we have another test for search filters
     cases = [
         (
@@ -246,7 +248,7 @@ def test_convert_filter_search_pandas(dxf: DataExplorerConvertFixture):
         ),
     ]
 
-    for search_type, column_schema, term, cs, expected_df in cases:
+    for search_type, column_schema, term, cs, mask in cases:
         search_filter = _search_filter(
             column_schema,
             term,
@@ -255,7 +257,7 @@ def test_convert_filter_search_pandas(dxf: DataExplorerConvertFixture):
         )
 
         # For pandas, convert the boolean mask to a filtered dataframe
-        expected_df = test_df[expected_df.astype(bool)]
+        expected_df = test_df[mask.astype(bool)]
         dxf.check_conversion_case(
             test_df,
             expected_df,
@@ -264,7 +266,7 @@ def test_convert_filter_search_pandas(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_between_pandas(dxf: DataExplorerConvertFixture):
+def test_convert_pandas_filter_between(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema("simple")
 
@@ -275,6 +277,7 @@ def test_convert_filter_between_pandas(dxf: DataExplorerConvertFixture):
 
     for column_schema, left_value, right_value in cases:
         col = test_df.iloc[:, column_schema["column_index"]]
+
         ex_between = test_df[(col >= left_value) & (col <= right_value)]
         ex_not_between = test_df[(col < left_value) | (col > right_value)]
 
@@ -292,9 +295,10 @@ def test_convert_filter_between_pandas(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_compare_pandas(dxf: DataExplorerConvertFixture):
+def test_convert_pandas_filter_compare(dxf: DataExplorerConvertFixture):
+    # Just use the 'a' column to smoke test comparison filters on
+    # integers
     test_df = SIMPLE_PANDAS_DF
-    # Just use the 'a' column to smoke test comparison filters on integers
     column = "a"
     schema = dxf.get_schema("simple")
 
@@ -306,14 +310,14 @@ def test_convert_filter_compare_pandas(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_datetimetz_pandas(dxf: DataExplorerConvertFixture):
+def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
+    tz = pytz.timezone("US/Eastern")
+
     test_df = pd.DataFrame(
         {
             "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
         }
     )
-    tz = pytz.timezone("US/Eastern")
-
     dxf.register_table("dtz", test_df)
     schema = dxf.get_schema("dtz")
 
@@ -327,9 +331,9 @@ def test_convert_filter_datetimetz_pandas(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_sort_and_filter_pandas(dxf: DataExplorerConvertFixture):
-    test_df = SIMPLE_PANDAS_DF
+def test_convert_pandas_sort_and_filter(dxf: DataExplorerConvertFixture):
     # Test that we can convert a sort and filter operation
+    test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema("simple")
     filt = [_compare_filter(schema[2], FilterComparisonOp.Eq, "foo")]
 
@@ -346,7 +350,7 @@ def test_convert_sort_and_filter_pandas(dxf: DataExplorerConvertFixture):
     )
 
 
-def test_convert_series_filter_and_sort_pandas(dxf: DataExplorerConvertFixture):
+def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
     # Test filtering and sorting on pandas Series
     series_data = [5, 2, 8, 1, 9, 3, 7, 4, 6]
     test_series = pd.Series(series_data, name="values")
@@ -387,8 +391,8 @@ def test_convert_series_filter_and_sort_pandas(dxf: DataExplorerConvertFixture):
 
         # Test not_between
         not_between_series = test_series[(test_series < left_val) | (test_series > right_val)]
-        expected_df = pd.DataFrame({"values": not_between_series})
         filt = _not_between_filter(schema[0], str(left_val), str(right_val))
+        expected_df = pd.DataFrame({"values": not_between_series})
         dxf.check_conversion_case(
             test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
         )
@@ -425,7 +429,7 @@ def test_convert_series_filter_and_sort_pandas(dxf: DataExplorerConvertFixture):
 # --- Polars tests ---
 
 
-def test_convert_filter_is_null_true_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_filter_is_null_true(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_POLARS_DF
     schema = dxf.get_schema_for(test_df)
     b_is_null = _filter("is_null", schema[1])
@@ -463,7 +467,7 @@ def test_convert_filter_is_null_true_polars(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_empty_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_filter_empty(dxf: DataExplorerConvertFixture):
     data = {
         "a": ["foo1", "foo2", "", "2FOO", "FOO3", "bar1", "2BAR"],
         "b": [1, 11, 31, 22, 24, 62, 89],
@@ -492,7 +496,7 @@ def test_convert_filter_empty_polars(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_search_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_filter_search(dxf: DataExplorerConvertFixture):
     data = {
         "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
         "b": [1, 11, 31, 22, 24, 62, 89],
@@ -587,7 +591,7 @@ def test_convert_filter_search_polars(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_between_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_filter_between(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_POLARS_DF
     schema = dxf.get_schema("simple")
 
@@ -619,7 +623,7 @@ def test_convert_filter_between_polars(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_compare_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_filter_compare(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_POLARS_DF
     # Just use the 'a' column to smoke test comparison filters on integers
     column = "a"
@@ -633,7 +637,7 @@ def test_convert_filter_compare_polars(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_filter_datetimetz_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_filter_datetimetz(dxf: DataExplorerConvertFixture):
     test_df = pl.DataFrame(
         {
             "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
@@ -654,7 +658,7 @@ def test_convert_filter_datetimetz_polars(dxf: DataExplorerConvertFixture):
         )
 
 
-def test_convert_sort_and_filter_polars(dxf: DataExplorerConvertFixture):
+def test_convert_polars_sort_and_filter(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_POLARS_DF
     # Test that we can convert a sort and filter operation
     schema = dxf.get_schema("simple")
