@@ -46,6 +46,12 @@ export async function startR(): Promise<[RSession, vscode.Disposable, ArkLsp]> {
 	const lsp = await Promise.race([lspReady, lspTimeout]);
 
 	const disposable = toDisposable(async () => {
+		// This avoids RPC errors in Positron clients when session is disposed too soon:
+		// https://github.com/posit-dev/positron/blob/a6c2109d/src/vs/workbench/api/browser/positron/mainThreadLanguageRuntime.ts#L1351-L1355
+		// Can we (should we?) finish ongoing RPCs with a timeout on shutdown, in a
+		// way that's synchronised with the runtime cleanup?
+		await delay(300);
+
 		const deleted = await positron.runtime.deleteSession(session.metadata.sessionId);
 		if (!deleted) {
 			throw new Error(`Can't delete session ${session.metadata.sessionId}`);
