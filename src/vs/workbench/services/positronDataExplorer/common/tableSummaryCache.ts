@@ -149,6 +149,7 @@ export class TableSummaryCache extends Disposable {
 	) {
 		// Call the base class's constructor.
 		super();
+		console.log('[Cache] Constructor called - new TableSummaryCache instance created');
 	}
 
 	/**
@@ -309,6 +310,9 @@ export class TableSummaryCache extends Disposable {
 		if (invalidateCache) {
 			this._columnSchemaCache.clear();
 			this._columnProfileCache.clear();
+			// IMPORTANT: We intentionally do NOT clear _requestedSparklines here 
+			// to preserve user's explicit sparkline requests across cache invalidations
+			console.log(`[Cache] Cache invalidated but preserving sparklines. Requested sparklines:`, Array.from(this._requestedSparklines));
 		}
 
 		// Cache the column schema that was returned.
@@ -550,6 +554,7 @@ export class TableSummaryCache extends Disposable {
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
+		this._isLargeDataset = this._rows > LARGE_DATASET_THRESHOLD;
 
 		// Update the column profile cache.
 		await this.updateColumnProfileCache(
@@ -595,7 +600,9 @@ export class TableSummaryCache extends Disposable {
 	 * @returns True if the sparkline has been requested.
 	 */
 	isSparklineRequested(columnIndex: number): boolean {
-		return this._requestedSparklines.has(columnIndex);
+		const result = this._requestedSparklines.has(columnIndex);
+		console.log(`[Cache] isSparklineRequested(${columnIndex}) = ${result}, set size: ${this._requestedSparklines.size}, set contents:`, Array.from(this._requestedSparklines));
+		return result;
 	}
 
 	/**
@@ -603,14 +610,21 @@ export class TableSummaryCache extends Disposable {
 	 * @param columnIndex The column index.
 	 */
 	async requestSparkline(columnIndex: number): Promise<void> {
+		console.log(`[Cache] requestSparkline(${columnIndex}) - BEFORE: set contents:`, Array.from(this._requestedSparklines));
+
 		// Add to the requested set
 		this._requestedSparklines.add(columnIndex);
+		console.log(`[Cache] requestSparkline(${columnIndex}) - AFTER ADD: set contents:`, Array.from(this._requestedSparklines));
+
+		// Fire onDidUpdate immediately so UI can react to the state change
+		this._onDidUpdateEmitter.fire();
 
 		// Clear the existing cache entry to force a refresh
 		this._columnProfileCache.delete(columnIndex);
 
 		// Re-fetch the profile for this specific column with sparkline included
 		await this.updateColumnProfileCache([columnIndex]);
+		console.log(`[Cache] requestSparkline(${columnIndex}) - AFTER UPDATE: set contents:`, Array.from(this._requestedSparklines));
 	}
 
 	//#endregion Public Methods

@@ -445,6 +445,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the table summary cache for subscribing to events.
+	 * @returns The table summary cache.
+	 */
+	get tableSummaryCache(): TableSummaryCache {
+		return this._tableSummaryCache;
+	}
+
+	/**
 	 * Sets the column name search filter.
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */

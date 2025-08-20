@@ -7,7 +7,7 @@
 import './columnSummaryCell.css';
 
 // React.
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
@@ -49,8 +49,27 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
+	console.log(`[ColumnSummaryCell] Rendering column ${props.columnIndex}`);
+
 	// Context hooks.
 	const context = usePositronDataGridContext();
+
+	// Track sparkline requested state at the parent level
+	const [sparklineRequested, setSparklineRequested] = useState(
+		() => props.instance.isSparklineRequested(props.columnIndex)
+	);
+
+	// Listen for cache updates
+	useEffect(() => {
+		const disposable = props.instance.tableSummaryCache.onDidUpdate(() => {
+			const newState = props.instance.isSparklineRequested(props.columnIndex);
+			if (newState !== sparklineRequested) {
+				console.log(`[Column ${props.columnIndex}] Parent state update: ${sparklineRequested} -> ${newState}`);
+				setSparklineRequested(newState);
+			}
+		});
+		return () => disposable.dispose();
+	}, [props.columnIndex, props.instance, sparklineRequested]);
 
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
@@ -85,7 +104,14 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const ColumnSparkline = () => {
 		// Check if this is a large dataset (synchronous now)
 		const isLargeDataset = props.instance.isLargeDataset();
-		const isSparklineRequested = props.instance.isSparklineRequested(props.columnIndex);
+
+		// Use parent's state
+		console.log(`[Column ${props.columnIndex}] Render - sparklineRequested (from parent state):`, sparklineRequested);
+
+		// Also check what data is available
+		const columnHistogram = props.instance.getColumnProfileSmallHistogram(props.columnIndex);
+		const columnFrequencyTable = props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex);
+		console.log(`[Column ${props.columnIndex}] Data available - histogram:`, !!columnHistogram, 'frequencyTable:', !!columnFrequencyTable);
 
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
@@ -93,15 +119,19 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				case ColumnDisplayType.Number:
 				case ColumnDisplayType.Boolean:
 				case ColumnDisplayType.String:
+					console.log(`[Column ${props.columnIndex}] shouldShowSparkline: true for type ${props.columnSchema.type_display}`);
 					return true;
 				default:
+					console.log(`[Column ${props.columnIndex}] shouldShowSparkline: false for type ${props.columnSchema.type_display}`);
 					return false;
 			}
 		};
 
 		// Check if sparkline computation should be skipped for large datasets
 		const shouldSkipSparklineForLargeDataset = () => {
-			return isLargeDataset && !isSparklineRequested;
+			const result = isLargeDataset && !sparklineRequested;
+			console.log(`[Column ${props.columnIndex}] shouldSkipSparklineForLargeDataset: isLargeDataset=${isLargeDataset}, sparklineRequested=${sparklineRequested}, result=${result}`);
+			return result;
 		};
 
 		/**
@@ -148,28 +178,58 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		 * need to be explicitly requested by the user.
 		 */
 		const SparklineClickToCompute = () => {
-			const handleClick = (e: React.MouseEvent) => {
+			// Reference for hover tooltip
+			const sparklineRef = useRef<HTMLDivElement>(undefined!);
+
+			const handleClick = async (e: React.MouseEvent) => {
 				// Stop propagation to prevent parent handlers from interfering
 				e.stopPropagation();
 				e.preventDefault();
 
-				// Request the sparkline for this column - don't await to avoid blocking
-				props.instance.requestSparkline(props.columnIndex).catch(err => {
-					console.error('Failed to request sparkline:', err);
+				console.log(`[Column ${props.columnIndex}] Button clicked! Before request - sparklineRequested (state):`, sparklineRequested);
+				console.log(`[Column ${props.columnIndex}] Before request - isRequested (cache):`, props.instance.isSparklineRequested(props.columnIndex));
+				console.log(`[Column ${props.columnIndex}] Before request - data available:`, {
+					histogram: !!props.instance.getColumnProfileSmallHistogram(props.columnIndex),
+					frequencyTable: !!props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex)
 				});
+
+				// Immediately update parent state
+				setSparklineRequested(true);
+
+				try {
+					// Request the sparkline for this column
+					await props.instance.requestSparkline(props.columnIndex);
+					console.log(`[Column ${props.columnIndex}] After request - isRequested (cache):`, props.instance.isSparklineRequested(props.columnIndex));
+					console.log(`[Column ${props.columnIndex}] After request - data available:`, {
+						histogram: !!props.instance.getColumnProfileSmallHistogram(props.columnIndex),
+						frequencyTable: !!props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex)
+					});
+					// Note: Parent component will re-render when cache updates
+				} catch (err) {
+					console.error('Failed to request sparkline:', err);
+					// Revert state on error
+					setSparklineRequested(false);
+				}
 			};
 
 			return (
 				<div
+					ref={sparklineRef}
 					className='column-sparkline click-to-compute'
 					style={{
 						width: SPARKLINE_WIDTH,
 						height: SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT,
 						cursor: 'pointer'
 					}}
-					onClick={handleClick}
-					onMouseDown={(e) => e.stopPropagation()}
-					title='Click to compute sparkline for this large dataset'
+					onMouseDown={handleClick}
+					onClick={(e) => e.stopPropagation()}
+					onMouseLeave={() => props.instance.hoverManager.hideHover()}
+					onMouseOver={() =>
+						props.instance.hoverManager.showHover(
+							sparklineRef.current,
+							'Click to compute column profile sparkline'
+						)
+					}
 				>
 					<svg
 						className='vector-histogram click-to-compute-sparkline'
@@ -197,9 +257,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 								y={SPARKLINE_HEIGHT / 2}
 								textAnchor='middle'
 								dominantBaseline='central'
-								fontSize={10}
+								fontSize={9}
 							>
-								Click
+								Compute
 							</text>
 						</g>
 					</svg>
@@ -570,6 +630,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
+	console.log(`[Column ${props.columnIndex}] expanded=${expanded}`);
 
 	// Set the summary stats supported flag.
 	let summaryStatsSupported;
@@ -606,7 +667,14 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		<div
 			className='column-summary'
 			onDoubleClick={props.onDoubleClick}
-			onMouseDown={() => {
+			onMouseDown={(e) => {
+				// Check if the click is on the sparkline button
+				const target = e.target as HTMLElement;
+				if (target.closest('.click-to-compute')) {
+					// Don't handle mouseDown if it's on the sparkline button
+					e.stopPropagation();
+					return;
+				}
 				props.instance.scrollToRow(props.columnIndex);
 				props.instance.setCursorRow(props.columnIndex);
 			}}
