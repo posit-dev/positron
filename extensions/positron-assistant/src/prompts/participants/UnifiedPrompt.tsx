@@ -39,11 +39,6 @@ interface UnifiedPromptProps extends BasePromptElementProps {
 	 * Whether this is a text editing request (for editor mode)
 	 */
 	isTextEdit?: boolean;
-
-	/**
-	 * File extension for language-specific guidance (for editor mode)
-	 */
-	fileExtension?: string;
 }
 
 /**
@@ -73,12 +68,6 @@ export class UnifiedPrompt extends PromptElement<UnifiedPromptProps> {
 						priority={75}
 					/>
 				)}
-				{this.shouldIncludeFileExtensionGuidance() && (
-					<FileExtensionGuidance
-						extension={this.props.fileExtension!}
-						priority={85}
-					/>
-				)}
 			</SystemMessage>
 		);
 	}
@@ -102,43 +91,5 @@ export class UnifiedPrompt extends PromptElement<UnifiedPromptProps> {
 	private shouldIncludeFilepaths(): boolean {
 		// Include filepaths when explicitly requested (mainly for chat/agent/edit modes)
 		return this.props.includeFilepaths === true;
-	}
-
-	private shouldIncludeFileExtensionGuidance(): boolean {
-		// Only for editor participant with a file extension
-		return this.props.participantType === 'editor' && !!this.props.fileExtension;
-	}
-}
-
-/**
- * Component that provides file extension-specific guidance
- */
-class FileExtensionGuidance extends PromptElement<{ extension: string } & BasePromptElementProps> {
-	render() {
-		const guidance = this.getExtensionGuidance(this.props.extension);
-		return <>{guidance}</>;
-	}
-
-	private getExtensionGuidance(extension: string): string {
-		switch (extension.toLowerCase()) {
-			case 'py':
-				return 'You are working with Python code. Follow PEP 8 style guidelines and use appropriate Python idioms.';
-			case 'r':
-				return 'You are working with R code. Use tidyverse conventions where appropriate and follow R style guidelines.';
-			case 'js':
-			case 'ts':
-				return 'You are working with JavaScript/TypeScript. Follow modern ES6+ conventions and use appropriate TypeScript types when applicable.';
-			case 'sql':
-				return 'You are working with SQL. Use appropriate formatting and follow SQL best practices.';
-			case 'md':
-				return 'You are working with Markdown. Use proper Markdown syntax and formatting.';
-			case 'json':
-				return 'You are working with JSON. Ensure proper JSON syntax and formatting.';
-			case 'yaml':
-			case 'yml':
-				return 'You are working with YAML. Use proper indentation and YAML syntax.';
-			default:
-				return `You are working with ${extension} files. Use appropriate syntax and conventions for this file type.`;
-		}
 	}
 }
