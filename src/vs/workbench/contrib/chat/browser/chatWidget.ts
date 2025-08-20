@@ -1566,6 +1566,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.refreshParsedInput();
 			this.renderFollowups();
 		}));
+		// --- Start Positron ---
+		this._register(this.languageModelsService.onDidChangeLanguageModels(() => {
+			this.renderWelcomeViewContentIfNeeded();
+		}));
+		// --- End Positron ---
 
 
 		const enabledToolSetsAndTools = this.input.selectedToolsModel.entries.map(value => {

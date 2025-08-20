@@ -246,7 +246,7 @@ export interface ILanguageModelsService {
 	set currentProvider(provider: IPositronChatProvider | undefined);
 
 	/** Fires when the current language model provider is changed. */
-	onDidChangeCurrentProvider: Event<string>;
+	onDidChangeCurrentProvider: Event<string | undefined>;
 
 	/** Fires when the registered providers change */
 	onDidChangeProviders: Event<ILanguageModelsChangeEvent>;
@@ -338,11 +338,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	// The order is important since consumers (e.g. ChatInputPart) may query language
 	// models for the current provider in an onDidChangeLanguageModels event handler.
 
-	// private readonly _onDidChangeLanguageModels = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
-
 	// Add the current provider and corresponding event.
 	private _currentProvider?: IPositronChatProvider;
-	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<string>());
+	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<string | undefined>());
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
 
 	// Positron re-added this in the 1.103.0 merge
@@ -358,7 +356,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private readonly _hasUserSelectableModels: IContextKey<boolean>;
 	private readonly _onLanguageModelChange = this._store.add(new Emitter<void>());
 
-	// TODO: use this to detect model provider change?
 	readonly onDidChangeLanguageModels: Event<void> = this._onLanguageModelChange.event;
 
 	constructor(
@@ -435,7 +432,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 					if (provider) {
 						this._onDidChangeCurrentProvider.fire(firstSelectableProvider);
 					}
-					// const provider = this.getProviderFromLanguageModelMetadata(event.);
 				}
 			} else if (currentProvider && event.removed) {
 				// There is a current provider and models were removed.
@@ -678,6 +674,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 			// Reverse order so that the context update is performed after changing the state
 			const isDeleted = this._providers.delete(vendor);
 			if (isDeleted) {
+				if (this.currentProvider?.id === vendor) {
+					this.currentProvider = undefined;
+					this._onDidChangeCurrentProvider.fire(undefined);
+				}
 				this._onDidChangeProviders.fire({ removed: [vendor] });
 				this._logService.trace('[LM] Unregistered language model chat', vendor);
 			}
