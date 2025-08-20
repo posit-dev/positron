@@ -285,7 +285,7 @@ export interface RawComm {
 
     /** Clear resources and sends `comm_close` to backend comm (unless the channel
      * was closed by the backend already). */
-    dispose: () => void;
+    dispose: () => Promise<void>;
 }
 
 /**
@@ -293,7 +293,9 @@ export interface RawComm {
  * The messages are buffered and must be received as long as the channel is open.
  * Dispose to close.
  */
-export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable {}
+export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable {
+    next(): Promise<IteratorResult<T>>;
+}
 
 /**
  * Message from the backend.

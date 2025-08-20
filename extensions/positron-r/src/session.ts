@@ -16,6 +16,7 @@ import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
 import { LOGGER, supervisorApi } from './extension.js';
+import { ArkComm } from './ark-comm';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -44,6 +45,13 @@ interface Locale {
 export class RSession implements positron.LanguageRuntimeSession, vscode.Disposable {
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
+
+	/** The Ark Comm for direct communication with the kernel */
+	private _arkComm?: ArkComm;
+
+	get arkComm(): ArkComm | undefined {
+		return this._arkComm;
+	}
 
 	/** Queue for LSP events */
 	private _lspQueue: PQueue;
@@ -394,6 +402,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this._consoleWidthDisposable = undefined;
 
 		await this._lsp.dispose();
+		if (this._arkComm) {
+			await this._arkComm.dispose();
+		}
 		if (this._kernel) {
 			await this._kernel.dispose();
 		}
@@ -836,6 +847,20 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			await this._dapComm!.createComm();
 
 			this.startDapMessageLoop();
+		} catch (err) {
+			LOGGER.error(`Error starting DAP: ${err}`);
+		}
+	}
+
+	// Only called from tests for now
+	async startArkComm(): Promise<void> {
+		try {
+			if (!this._kernel) {
+				throw new Error('Kernel not started');
+			}
+
+			this._arkComm = new ArkComm(this._kernel);
+			await this._arkComm!.createComm();
 		} catch (err) {
 			LOGGER.error(`Error starting DAP: ${err}`);
 		}

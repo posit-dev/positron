@@ -39,8 +39,7 @@ export async function startR(): Promise<[RSession, vscode.Disposable, ArkLsp]> {
 
 	const lspReady = session.waitLsp();
 	const lspTimeout = (async () => {
-		await delay(2000);
-		undefined
+		await delay(5000);
 	})();
 
 	const lsp = await Promise.race([lspReady, lspTimeout]);

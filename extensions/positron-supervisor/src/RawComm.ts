@@ -60,7 +60,16 @@ export class RawCommImpl implements vscode.Disposable {
 		};
 
 		const request = new CommMsgRequest(id, commMsg);
-		return [true, await this.session.sendRequest(request)];
+		const reply = await this.session.sendRequest(request);
+
+		if (reply.data.error !== undefined) {
+			throw new Error('TODO');
+		}
+		if (reply.data.result === undefined) {
+			throw new Error(`Internal error in ${this.id}: undefined result for request ${msg}`);
+		}
+
+		return [true, reply.data.result];
 	}
 
 	close() {
@@ -77,7 +86,7 @@ export class RawCommImpl implements vscode.Disposable {
 		this.session.sendCommand(commClose);
 	}
 
-	dispose() {
+	async dispose(): Promise<void> {
 		this.close();
 		for (const disposable of this.disposables) {
 			disposable.dispose();
