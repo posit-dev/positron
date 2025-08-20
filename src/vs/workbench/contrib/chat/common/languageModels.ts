@@ -343,6 +343,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<string | undefined>());
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
 
+	// Track if we're in the initial setup phase to avoid changing provider during chat requests
+	private _isInitialSetup = true;
+
 	// Positron re-added this in the 1.103.0 merge
 	private readonly _onDidChangeProviders = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
 	readonly onDidChangeProviders = this._onDidChangeProviders.event;
@@ -369,6 +372,19 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 		this._store.add(this.onDidChangeLanguageModels(() => {
 			this._hasUserSelectableModels.set(this._modelCache.size > 0 && Array.from(this._modelCache.values()).some(model => model.isUserSelectable));
+
+			// --- Start Positron ---
+			// Only auto-set provider during initial setup or if the current provider becomes unavailable
+			if (!this._currentProvider && this._modelCache.size > 0 && this._isInitialSetup) {
+				const availableProviders = this.getLanguageModelProviders();
+				if (availableProviders.length > 0) {
+					this._currentProvider = availableProviders[0];
+					this._onDidChangeCurrentProvider.fire(availableProviders[0].id);
+					// Mark the end of initial setup after first provider is set
+					this._isInitialSetup = false;
+				}
+			}
+			// --- End Positron ---
 		}));
 
 		this._store.add(languageModelExtensionPoint.setHandler((extensions) => {
@@ -422,57 +438,49 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 		// --- Start Positron ---
 		this._store.add(this._onDidChangeProviders.event((event) => {
+			this._logService.trace('[LM] onDidChangeProviders fired', event);
 			const currentProvider = this._currentProvider;
-			if (!currentProvider && event.added && event.added.length > 0) {
-				// There is no current provider and models were added, update the current provider
-				// using the first added user-selectable model.
-				const firstSelectableProvider = event.added[0];
-				if (firstSelectableProvider) {
-					const provider = this._providers.get(firstSelectableProvider);
-					if (provider) {
-						this._onDidChangeCurrentProvider.fire(firstSelectableProvider);
+
+			// Only auto-set provider during initial setup if there's no current provider
+			if (!currentProvider && event.added && event.added.length > 0 && this._isInitialSetup) {
+				// Set the first available provider as current
+				const firstProvider = event.added[0];
+				if (firstProvider) {
+					// Create a proper provider object by looking up the vendor info
+					const vendorInfo = this._vendors.get(firstProvider);
+					if (vendorInfo) {
+						this._logService.trace('[LM] Auto-setting current provider during initial setup', firstProvider);
+						this.currentProvider = {
+							id: firstProvider,
+							displayName: vendorInfo.displayName
+						};
+						// Mark the end of initial setup after first provider is set
+						this._isInitialSetup = false;
 					}
 				}
-			} else if (currentProvider && event.removed) {
-				// There is a current provider and models were removed.
-				// If no user-selectable models are left for the current provider,
-				// switch to the next available provider.
-				const hasCurrentProvider = Array.from(this._modelCache.values())
-					.some((model) => model.isUserSelectable &&
-						model.family === currentProvider.id);
-				if (!hasCurrentProvider) {
-
-					if (event.removed?.includes(currentProvider.id)) {
-						// No user-selectable models left for the current provider,
-						// switch to the next available provider.
-						this.currentProvider = this.getLanguageModelProviders()[0];
-					}
+			} else if (currentProvider && event.removed && event.removed.includes(currentProvider.id)) {
+				// Only change provider if the current one was actually removed/disposed
+				this._logService.trace('[LM] Current provider was removed, switching to next available', currentProvider.id);
+				const availableProviders = this.getLanguageModelProviders();
+				if (availableProviders.length > 0) {
+					this.currentProvider = availableProviders[0];
+				} else {
+					this.currentProvider = undefined;
 				}
 			}
 
-			// Now that the current provider is updated, fire the public language model changed event.
+			// Fire the public language model changed event
 			this._onLanguageModelChange.fire();
 		}));
 
-		this._store.add(this._onLanguageModelChange.event((event) => {
-			// Get the first model from _modelCache if it exists
-			const firstModel = this._modelCache.values().next().value;
-
-			if (firstModel) {
-				this._currentProvider = {
-					id: firstModel.family,
-					displayName: firstModel.providerName ?? firstModel.family
-				};
-				this._onDidChangeCurrentProvider.fire(firstModel.family);
-			}
-		}));
-
-		// // Restore the current provider from storage, if it exists.
+		// Restore the current provider from storage, if it exists.
 		const storedCurrentProvider = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
 		if (storedCurrentProvider) {
 			// Set privately to avoid writing to storage again.
 			this._currentProvider = storedCurrentProvider;
 			this._onDidChangeCurrentProvider.fire(storedCurrentProvider.id);
+			// Mark the end of initial setup since we have a stored provider
+			this._isInitialSetup = false;
 		}
 		// --- End Positron ---
 	}
@@ -514,29 +522,27 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	/**
 	 * Gets the available providers, including their display names. This is done by
-	 * resolving the models from each provider since 1.103.0 changed the way it tracks
-	 * providers. The language model service doesn't know anything about providers beyond
-	 * the id.
+	 * using the current model cache to determine what providers are available.
 	 *
 	 * @returns The available providers with their display names
 	 */
 	getLanguageModelProviders(): IPositronChatProvider[] {
 		const seenProviderIds = new Set<string>();
 		const providers: IPositronChatProvider[] = [];
-		this.resolveLanguageModels(Array.from(this._vendors.keys()), true).then(() => {
-			for (const model of this._modelCache.values()) {
-				if (seenProviderIds.has(model.family) ||
-					// Only consider user-selectable models.
-					!model.isUserSelectable) {
-					continue;
-				}
-				seenProviderIds.add(model.family);
-				providers.push({
-					displayName: model.providerName ?? model.family,
-					id: model.family
-				});
+
+		for (const model of this._modelCache.values()) {
+			if (seenProviderIds.has(model.family) ||
+				// Only consider user-selectable models.
+				!model.isUserSelectable) {
+				continue;
 			}
-		});
+			seenProviderIds.add(model.family);
+			providers.push({
+				displayName: model.providerName ?? model.family,
+				id: model.family
+			});
+		}
+
 		return providers;
 	}
 
@@ -556,9 +562,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	set currentProvider(provider: IPositronChatProvider | undefined) {
 		this._currentProvider = provider;
-		if (provider) {
-			this._onDidChangeCurrentProvider.fire(provider.id);
-		}
+		this._onDidChangeCurrentProvider.fire(provider?.id);
 		this._storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
 	}
 	// --- End Positron ---
@@ -654,18 +658,19 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 		this._providers.set(vendor, provider);
 
-		// --- Start Positron ---
-		this._onDidChangeProviders.fire({ added: [vendor] });
-		// --- End Positron ---
-
 		// TODO @lramos15 - Smarter restore logic. Don't activate all providers, but only those which were known to need restoring
 		this.resolveLanguageModels(vendor, true).then(() => {
+			// --- Start Positron ---
+			// Fire the provider change event after models are resolved so UI knows usable providers are available
+			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
+			this._onDidChangeProviders.fire({ added: [vendor] });
+			// --- End Positron ---
 			this._onLanguageModelChange.fire();
 		});
 
 		return toDisposable(() => {
 			this._logService.trace('[LM] UNregistered language model provider', vendor);
-			this._clearModelCache(vendor);
+
 			// --- Start Positron ---
 			/* ORIGINAL
 			this._providers.delete(vendor);
@@ -675,9 +680,19 @@ export class LanguageModelsService implements ILanguageModelsService {
 			const isDeleted = this._providers.delete(vendor);
 			if (isDeleted) {
 				if (this.currentProvider?.id === vendor) {
-					this.currentProvider = undefined;
-					this._onDidChangeCurrentProvider.fire(undefined);
+					// Current provider was removed, try to set the next available provider
+					// First get available providers before clearing cache
+					const availableProviders = this.getLanguageModelProviders().filter(p => p.id !== vendor);
+					if (availableProviders.length > 0) {
+						this.currentProvider = availableProviders[0];
+						this._logService.trace('[LM] Set next available provider after removal', availableProviders[0].id);
+					} else {
+						this.currentProvider = undefined;
+						this._logService.trace('[LM] No providers available after removal');
+					}
 				}
+				// Clear the model cache for this vendor after handling provider switching
+				this._clearModelCache(vendor);
 				this._onDidChangeProviders.fire({ removed: [vendor] });
 				this._logService.trace('[LM] Unregistered language model chat', vendor);
 			}
