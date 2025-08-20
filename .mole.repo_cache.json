@@ -1,0 +1,20 @@
+{
+ "npm::boolbase=1.0.0": "https://github.com/fb55/boolbase",
+ "npm::emitter-listener=1.1.2": "https://github.com/othiym23/emitter-listener",
+ "npm::expand-template=2.0.3": "https://github.com/ralphtheninja/expand-template",
+ "npm::positron-assistant=0.0.1": "https://npmjs.com/package/positron-assistant/v/0.0.1",
+ "npm::positron-code-cells=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-connections=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-duckdb=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-environment=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-ipywidgets=0.0.1": "https://npmjs.com/package/positron-ipywidgets/v/0.0.1",
+ "npm::positron-notebooks-helpers=1.0.0": "https://github.com/posit-dev/positron",
+ "npm::positron-proxy=1.0.0": "https://github.com/posit-dev/positron",
+ "npm::positron-r=0.0.2": "https://github.com/posit-dev/positron",
+ "npm::positron-reticulate=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-run-app=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-runtime-debugger=0.0.1": "https://npmjs.com/package/positron-runtime-debugger/v/0.0.1",
+ "npm::positron-supervisor=0.0.1": "https://github.com/posit-dev/positron",
+ "npm::positron-viewer=1.0.0": "https://github.com/posit-dev/positron",
+ "npm::winreg=1.2.5": "https://github.com/fresc81/node-winreg"
+}

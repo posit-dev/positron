@@ -1,0 +1,55 @@
+['npm::@emmetio/html-matcher=0.3.3']
+# package.json has incorrect license code
+license = ['MIT']
+
+['npm::@github/copilot-language-server=*']
+# see copilot-language-server-releases repo
+license = ['MIT']
+attribution = [
+  'Copyright (c) 2025 GitHub'
+]
+
+['npm::@vscode/codicons=*']
+# Parent folder to extensions
+license = ['CC-BY-4.0', 'MIT']
+attribution = [
+  'Copyright (c) Microsoft Corporation'
+]
+
+['npm::@xterm/headless=*']
+# attribution in source code
+attribution = [
+  'Copyright (c) The xterm.js authors',
+  'Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)'
+]
+
+['npm::buffers=0.1.1']
+# Original repo is gone, package.json lists no license
+# Developer added license information in third-party repo
+license = ['MIT/X11']
+url = 'https://github.com/bitpay/node-buffers/tree/master'
+
+['npm::expand-template=2.0.3']
+# package.json has extra WTFPL license referenced, but not present
+license = ['MIT']
+
+['npm::import-in-the-middle=1.13.1']
+# includes LICENSE-3rdparty.csv that we can't parse
+license_files = ['spdx://APACHE-2.0']
+
+['npm::keytar=*']
+# mocked dependency of extensions/microsoft-authentication
+ignored = true
+
+['npm::open-remote-ssh=0.0.46']
+# No explicit attribution in repo
+license = ['MIT']
+attribution = [
+  'Copyright (c) 2022 open-remote-ssh contributors'
+]
+
+['npm::vscode-extensions=*']
+# Parent folder to extensions
+attribution = [
+  'Copyright (c) Microsoft Corporation (MIT License)'
+]

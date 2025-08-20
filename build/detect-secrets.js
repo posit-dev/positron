@@ -230,6 +230,8 @@ const noVerify = '--no-verify';
 const excludeFiles = [
 	`.*${baselineFileName}`,
 	'.*cgmanifest.json',
+	'.mole.repo_cache.json',
+	'.mole.scan_cache.json',
 	'.*/html-manager/dist/embed-amd.js',
 	'src/vs/base/test/common/filters.perf.data.js',
 	'.*/test/browser/recordings/windows11.*',

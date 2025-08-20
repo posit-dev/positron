@@ -1,0 +1,96 @@
+overrides = "mole-overrides.toml"
+
+[output.positron]
+template = "positron/licenses/pro/index.qmd.template"
+destination = "positron/licenses/pro/index.qmd"
+format = "markdown"
+
+[formats.text]
+underline = { char="-" }
+nameless_license = """
+
+License text:
+
+%(text)s
+"""
+named_license = """
+
+%(name)s text:
+
+%(text)s
+"""
+multi_license = """
+
+License text (%(names)s):
+
+%(text)s
+"""
+
+[formats.markdown]
+toc_line = "- [%(name)s](#%(anchor)s) (%(licenses)s)"
+package = """
+### [%(name)s](%(url)s) {#%(anchor)s}
+%(attribution)s
+%(messages)s
+%(license)s"""
+shared_license = """
+### %(name)s {#%(ltype)s}
+
+%(text)s
+"""
+
+[repos]
+ARK_PATH = "../ark"
+AIR_PATH = "../air"
+CODICONS_PATH = "../positron-codicons"
+KALLICHORE_PATH = "../kallichore"
+
+[groups.npm]
+positron = "."
+codicons = ["CODICONS_PATH", ""]
+extensions = "extensions/*/package.json"
+
+[groups.rust]
+ark = ["ARK_PATH", "crates/*/Cargo.toml"]
+air = ["AIR_PATH", "crates/*"]
+kallichore = ["KALLICHORE_PATH", "crates/*"]
+
+[collections]
+positron_collection = ["positron", "extensions", "kallichore", "codicons"]
+air_collection = ["air"]
+ark_collection = ["ark"]
+
+[spdx-overrides]
+# Contains an SPDX identifier for one of the sub-licenses
+'https://github.com/nodejs/node/raw/main/LICENSE' = ['MIT-with-additional']
+
+[relabel]
+'npm::@babel/' = 'Babel.js'
+'npm::babel-runtime=' = 'Babel.js'
+'npm::codemirror' = 'CodeMirror'
+'npm::@codemirror/' = 'CodeMirror'
+'npm::@electron/' = 'Electron'
+'npm::@emotion/' = 'emotion'
+'npm::lodash' = 'lodash'
+'npm::@floating-ui/' = 'Floating UI'
+'npm::@fluent-ui/' = 'FluentUI'
+'npm::@jupyterlab/' = 'JupyterLab'
+'npm::@lezer/' = 'Lezer'
+'npm::@lumino/' = 'Lumino'
+'npm::npm' = 'npm'
+'npm::@npmcli/' = 'npm'
+'npm::prosemirror-utils' = 'ProseMirror Utils'
+'npm::prosemirror' = 'ProseMirror'
+'npm::$quarto/' = 'Quarto VS Code Extension'
+'npm::@radix-ui/' = 'Radix UI'
+'npm::react=' = 'React'
+'npm::react-dom=' = 'React DOM'
+'npm::side-channel' = 'side-channel'
+'npm::@tailwindcss/' = 'Tailwind CSS'
+'npm::tailwindcss=' = 'Tailwind CSS'
+'npm::tuf-js' = 'tuf-js'
+'npm::@tufjs/' = 'tuf-js'
+'npm::@verdaccio/' = 'Verdaccio'
+'npm::vue=' = 'Vue.js'
+'npm::@vue/' = 'Vue.js'
+'npm::@yarnpkg/' = 'Yarn'
