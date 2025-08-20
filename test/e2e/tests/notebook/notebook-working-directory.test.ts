@@ -17,6 +17,8 @@ test.describe('Notebook Working Directory Configuration', {
 	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
 }, () => {
 
+	test.beforeAll(async function ({ python }) { });
+
 	test.afterEach(async function ({ app }) {
 		await app.workbench.notebooks.closeNotebookWithoutSaving();
 	});
