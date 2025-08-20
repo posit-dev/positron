@@ -806,14 +806,10 @@
                 },
                 "python.locator": {
                     "default": "native",
-                    "description": "%python.locator.description%",
+                    "markdownDescription": "%python.locator.description%",
                     "enum": [
                         "js",
                         "native"
-                    ],
-                    "tags": [
-                        "onExP",
-                        "preview"
                     ],
                     "scope": "machine-overridable",
                     "type": "string"
