@@ -31,7 +31,7 @@ import { JupyterChannel } from './jupyter/JupyterChannel';
 import { InputReplyCommand } from './jupyter/InputReplyCommand';
 import { RpcReplyCommand } from './jupyter/RpcReplyCommand';
 import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
-import { Comm } from './Comm';
+import { Client } from './Client';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
@@ -147,7 +147,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _profileChannel: vscode.OutputChannel | undefined;
 
 	/** A map of active comms connected to Positron clients */
-	private readonly _clients: Map<string, Comm> = new Map();
+	private readonly _clients: Map<string, Client> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
 	private readonly _rawComms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
@@ -782,7 +782,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 			const commOpen = new CommOpenCommand(msg, metadata);
 			await this.sendCommand(commOpen);
-			this._clients.set(id, new Comm(id, type));
+			this._clients.set(id, new Client(id, type));
 
 			// If we have any pending UI comm requests and we just created the
 			// UI comm, send them now
@@ -820,7 +820,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// If we don't have a comm object for this comm, create one
 				if (!this._clients.has(key)) {
 					// Should this be renamed to Client?
-					this._clients.set(key, new Comm(key, target));
+					this._clients.set(key, new Client(key, target));
 				}
 
 				// If we just discovered a UI comm, send any pending UI comm
