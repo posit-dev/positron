@@ -1351,7 +1351,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	public override dispose(): void {
 		// Cancel any pending RPCs
 		for (const [id, pending] of this._pendingRpcs) {
-			pending.error(new Error('The language runtime exited before the RPC completed.'));
+			pending.error(new Error(`The language runtime exited before RPC completed for client '${this.getClientId()}'.`));
 			this.deletePendingRpc(id);
 		}
 
