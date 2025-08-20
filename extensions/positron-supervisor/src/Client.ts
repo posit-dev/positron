@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Simple representation of a comm (communications channel) between the client
- * and the kernel
+ * Simple representation of a client (and its underlying comm) between Positron and the kernel
  */
-export class Comm {
+export class Client {
 	/**
-	 * Create a new comm representation
+	 * Create a new client representation
 	 *
-	 * @param id The unique ID of the comm instance @param target The comm
-	 * @param target The comm's target name (also known as its type); can be any
+	 * @param id The unique ID of the comm/client instance.
+	 * @param target The comm/client's target name (also known as its type); can be any
 	 * string. Positron-specific comms are listed in its `RuntimeClientType`
 	 * enum.
 	 */
