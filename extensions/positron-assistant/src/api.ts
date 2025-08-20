@@ -4,8 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { PromptElement } from '@vscode/prompt-tsx';
 import { PositronAssistant } from './prompts/components/content/PositronAssistant.js';
+import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
+import { TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants.js';
+import { isWorkspaceOpen } from './utils.js';
+import { PositronAssistantToolName } from './types.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -18,8 +23,175 @@ export class PositronAssistantApi {
 	 * Generates assistant prompt content.
 	 *
 	 * The returned content should be wrapped in an AssistantMessage.
+	 *
+	 * @param request The chat request to generate content for.
+	 * @returns A PromptElement that renders the assistant content.
 	 */
 	public generateAssistantPrompt(request: any): PromptElement<any, any> {
 		return new PositronAssistant({ request: request.request ? request.request : request });
 	}
+
+	/**
+	 * Gets the set of enabled tools for a chat request.
+	 *
+	 * @param request The chat request to get enabled tools for.
+	 * @param tools The list of tools to filter.
+	 *
+	 * @returns The list of enabled tool names.
+	 */
+	public getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Array<string> {
+		return getEnabledTools(request, tools);
+	}
+}
+
+/**
+ * Gets the set of enabled tools for a chat request.
+ */
+export function getEnabledTools(
+	request: vscode.ChatRequest,
+	tools: readonly vscode.LanguageModelToolInformation[],
+	positronParticipantId?: string): Array<string> {
+
+	const enabledTools: Array<string> = [];
+
+	// See IChatRuntimeSessionContext for the structure of the active
+	// session context objects
+	const activeSessions: Set<string> = new Set();
+	let hasVariables = false;
+	let hasConsoleSessions = false;
+	for (const reference of request.references) {
+		const value = reference.value as any;
+
+		// Build a list of languages for which we have active sessions.
+		if (value.activeSession) {
+			activeSessions.add(value.activeSession.languageId);
+			if (value.activeSession.mode === positron.LanguageRuntimeSessionMode.Console) {
+				hasConsoleSessions = true;
+			}
+		}
+
+		// Check if there are variables defined in the session.
+		if (value.variables && value.variables.length > 0) {
+			hasVariables = true;
+		}
+	}
+
+	// Define more readable variables for filtering.
+	const inChatPane = request.location2 === undefined;
+	const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
+	const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
+	const isEditMode = positronParticipantId === ParticipantID.Edit;
+	const isAgentMode = positronParticipantId === ParticipantID.Agent ||
+		positronParticipantId === undefined;
+	const isStreamingInlineEditor = isStreamingEditsEnabled() &&
+		(positronParticipantId === ParticipantID.Editor || positronParticipantId === ParticipantID.Notebook);
+
+	for (const tool of tools) {
+		// Don't allow any tools in the terminal.
+		if (positronParticipantId === ParticipantID.Terminal) {
+			continue;
+		}
+
+		// If streaming edits are enabled, don't allow any tools in inline editor chats.
+		if (isStreamingInlineEditor) {
+			continue;
+		}
+
+		// If the tool requires a workspace, but no workspace is open, don't allow the tool.
+		if (tool.tags.includes(TOOL_TAG_REQUIRES_WORKSPACE) && !isWorkspaceOpen()) {
+			continue;
+		}
+
+		// If the tool requires an active session, but no active session
+		// is available, don't allow the tool.
+		if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIVE_SESSION) && activeSessions.size === 0) {
+			continue;
+		}
+
+		// If the tool requires a session to be active for a specific
+		// language, but no active session is available for that
+		// language, don't allow the tool.
+		for (const tag of tool.tags) {
+			if (tag.startsWith(TOOL_TAG_REQUIRES_ACTIVE_SESSION + ':') &&
+				!activeSessions.has(tag.split(':')[1])) {
+				continue;
+			}
+		}
+
+		// If the tool is designed for Positron Assistant but we don't have a
+		// Positron assistant ID, skip it.
+		if (tool.name.startsWith('positron') && positronParticipantId === undefined) {
+			continue;
+		}
+
+		switch (tool.name) {
+			// Only include the execute code tool in the Chat pane; the other
+			// panes do not have an affordance for confirming executions.
+			//
+			// CONSIDER: It would be better for us to introspect the tool itself
+			// to see if it requires confirmation, but that information isn't
+			// currently exposed in `vscode.LanguageModelChatTool`.
+			case PositronAssistantToolName.ExecuteCode:
+				// The tool can only be used with console sessions and
+				// when in agent mode; it does not currently support
+				// notebook mode.
+				if (!(inChatPane && hasConsoleSessions && isAgentMode)) {
+					continue;
+				}
+				break;
+			// Only include the documentEdit tool in an editor and if there is
+			// no selection.
+			case PositronAssistantToolName.DocumentEdit:
+				if (!(inEditor && !hasSelection)) {
+					continue;
+				}
+				break;
+			// Only include the selectionEdit tool in an editor and if there is
+			// a selection.
+			case PositronAssistantToolName.SelectionEdit:
+				if (!(inEditor && hasSelection)) {
+					continue;
+				}
+				break;
+			// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
+			case PositronAssistantToolName.EditFile:
+				if (!(isEditMode || isAgentMode)) {
+					continue;
+				}
+				break;
+			// Only include the documentCreate tool in the chat pane in edit or agent mode.
+			case PositronAssistantToolName.DocumentCreate:
+				if (!inChatPane || !(isEditMode || isAgentMode)) {
+					continue;
+				}
+				break;
+			// Only include the getTableSummary tool for Python sessions until supported in R
+			case PositronAssistantToolName.GetTableSummary:
+				// TODO: Remove the python-specific restriction when the tool is
+				// supported in R
+				// https://github.com/posit-dev/positron/issues/8343 The logic
+				// above with TOOL_TAG_REQUIRES_ACTIVE_SESSION will handle
+				// checking for active sessions once this is removed.  We'll
+				// still want to check that variables are defined.
+				if (!(activeSessions.has('python') && hasVariables)) {
+					continue
+				}
+				break;
+			// Only include the inspectVariables tool if there are variables defined.
+			case PositronAssistantToolName.InspectVariables:
+				if (!hasVariables) {
+					continue;
+				}
+				break;
+		}
+
+		// Final check: if we're in agent mode, the tool is marked for use with
+		// Assistant, or the ID is undefined (i.e. this is from Copilot),
+		// include the tool.
+		if (isAgentMode || tool.tags.includes('positron-assistant')) {
+			enabledTools.push(tool.name);
+		}
+	}
+
+	return enabledTools;
 }

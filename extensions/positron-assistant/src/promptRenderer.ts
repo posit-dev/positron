@@ -166,9 +166,18 @@ export class PromptRenderer {
 
 				log.trace('renderPrompt completed successfully. Messages:', result.messages);
 
+				// Debug logging to identify problematic messages
+				if (result.messages && Array.isArray(result.messages)) {
+					result.messages.forEach((msg: any, index: number) => {
+						if (!msg || typeof msg !== 'object' || typeof msg.role !== 'string') {
+							log.warn(`Message at index ${index} has unexpected structure:`, msg);
+						}
+					});
+				}
+
 				// Extract system messages and combine them
 				const systemMessages = result.messages
-					.filter((msg: any) => msg && typeof msg === 'object' && msg.role === 'system')
+					.filter((msg: any) => msg && typeof msg === 'object' && typeof msg.role === 'string' && msg.role === 'system')
 					.map((msg: any) => {
 						if (typeof msg.content === 'string') {
 							return msg.content;

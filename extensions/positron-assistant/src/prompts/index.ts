@@ -7,7 +7,6 @@
 export { PromptRenderer } from '../promptRenderer';
 
 // Base components
-export { SystemMessage } from './components/base/SystemMessage';
 export { ActivationSteering } from './components/base/ActivationSteering';
 
 // Content components

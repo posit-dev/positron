@@ -9,7 +9,6 @@ import {
 	SystemMessage
 } from '@vscode/prompt-tsx';
 import { ActivationSteering } from '../components/base/ActivationSteering';
-import { CommunicationGuidelines } from '../components/base/CommunicationGuidelines';
 import { LanguageInstructions } from '../components/language/LanguageInstructions';
 import { FilepathsContent } from '../components/content/FilepathsContent';
 
@@ -61,11 +60,6 @@ export class UnifiedPrompt extends PromptElement<UnifiedPromptProps> {
 				<ActivationSteering
 					participantType={participantType}
 					priority={100}
-				/>
-				<CommunicationGuidelines
-					includeCodeGeneration={this.shouldIncludeCodeGeneration()}
-					includeTerminalGuidance={this.shouldIncludeTerminalGuidance()}
-					priority={90}
 				/>
 				{this.shouldIncludeLanguageInstructions() && (
 					<LanguageInstructions
