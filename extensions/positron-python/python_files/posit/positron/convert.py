@@ -131,12 +131,7 @@ class CodeConverter:
             if comparison:
                 comparisons.append(comparison)
 
-        if len(comparisons) == 1 and comparisons:
-            # Single comparison
-            method_chain_setup, method_chain_parts = self._format_single_filter(comparisons[0])
-        elif comparisons:
-            # Multiple comparisons
-            method_chain_setup, method_chain_parts = self._format_multi_filter(comparisons)
+        method_chain_setup, method_chain_parts = self._format_filter(comparisons)
 
         return method_chain_setup, method_chain_parts
 
@@ -170,24 +165,7 @@ class CodeConverter:
 
         return method_chain_setup, method_chain_parts
 
-    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Format a single filter comparison into method chain parts.
-
-        Parameters
-        ----------
-        comparison : str
-            The comparison string to format.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple of setup and method chain parts.
-        """
-        raise NotImplementedError("Subclasses must implement _format_single_filter method")
-
-    def _format_multi_filter(
-        self, comparisons: List[str]
-    ) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
         """Format multiple filter comparisons into method chain parts.
 
         Parameters
@@ -200,7 +178,7 @@ class CodeConverter:
         tuple[List[StrictStr], List[StrictStr]]
             Tuple of setup and method chain parts.
         """
-        raise NotImplementedError("Subclasses must implement _format_multi_filter method")
+        raise NotImplementedError("Subclasses must implement _format_filter method")
 
 
 class PandasConverter(CodeConverter):
@@ -216,14 +194,10 @@ class PandasConverter(CodeConverter):
             sort_handler_class=PandasSortHandler,
         )
 
-    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
-        # Single comparison, use direct indexing syntax
-        return [], [f"[{comparison}]"]
-
-    def _format_multi_filter(
-        self, comparisons: List[str]
-    ) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
         # Multiple comparisons, create filter mask
+        if len(comparisons) == 1:
+            return [], [f"[{comparisons[0]}]"]
         setup = [f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}"]
         parts = ["[filter_mask]"]
         return setup, parts
@@ -253,13 +227,10 @@ class PolarsConverter(CodeConverter):
             code[-1] = code[-1] + ".to_pandas()"
         return code
 
-    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
-        # Single comparison, use .filter() method
-        return [], [f".filter({comparison})"]
-
-    def _format_multi_filter(
-        self, comparisons: List[str]
-    ) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+        if len(comparisons) == 1:
+            # If there's only one comparison, use it directly
+            return [], [f".filter({comparisons[0]})"]
         # Multiple comparisons, create expression and use .filter() method
         setup = [f"filter_expr = {' & '.join(f'({comp})' for comp in comparisons)}"]
         parts = [".filter(filter_expr)"]
@@ -453,31 +424,7 @@ class PandasFilterHandler(FilterHandler):
     def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
         super().__init__(filter_key, table_name, was_series=was_series)
 
-    def _convert_between_filter(self) -> str:
-        assert isinstance(self.filter_key.params, FilterBetween)
-        is_between = self.filter_key.filter_type == RowFilterType.Between
-        left = self.filter_key.params.left_value
-        right = self.filter_key.params.right_value
-        operator = "" if is_between else "~"
-        return f"{operator}{self.table_name}{self.column_name}.between({left}, {right})"
-
-    def _convert_compare_filter(self) -> str:
-        """Handle comparison filters such as equals, not equals, greater than, etc.
-
-        Returns
-        -------
-        str
-            Filter comparison code string.
-        """
-        assert isinstance(self.filter_key.params, FilterComparison)
-        op = (
-            "=="
-            if self.filter_key.params.op.value == FilterComparisonOp.Eq
-            else self.filter_key.params.op.value
-        )
-
-        value = self.filter_key.params.value
-
+    def _format_value(self, value):
         if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
             value = repr(value)
 
@@ -491,17 +438,31 @@ class PandasFilterHandler(FilterHandler):
             if tz:
                 value += f", tz={tz!r}"
             value += ")"
+        return value
+
+    def _convert_between_filter(self) -> str:
+        assert isinstance(self.filter_key.params, FilterBetween)
+        is_between = self.filter_key.filter_type == RowFilterType.Between
+        operator = "" if is_between else "~"
+
+        left = self.filter_key.params.left_value
+        right = self.filter_key.params.right_value
+        return f"{operator}{self.table_name}{self.column_name}.between({left}, {right})"
+
+    def _convert_compare_filter(self) -> str:
+        assert isinstance(self.filter_key.params, FilterComparison)
+        # need to handle equality operator, since we want == to determine equality, not =
+        op = (
+            "=="
+            if self.filter_key.params.op.value == FilterComparisonOp.Eq
+            else self.filter_key.params.op.value
+        )
+
+        value = self._format_value(self.filter_key.params.value)
 
         return f"{self.table_name}{self.column_name} {op} {value}"
 
     def _convert_text_search_filter(self) -> str:
-        """Handle text search filters such as contains, regex, startswith, and endswith.
-
-        Returns
-        -------
-        str
-            Text search filter code string.
-        """
         assert isinstance(self.filter_key.params, FilterTextSearch)
 
         column_access = f"{self.table_name}{self.column_name}"
@@ -555,35 +516,7 @@ class PolarsFilterHandler(FilterHandler):
         # we just need the column name without table reference
         self.col_expr = f"pl.col({filter_key.column_schema.column_name!r})"
 
-    def _convert_between_filter(self) -> str:
-        assert isinstance(self.filter_key.params, FilterBetween)
-        is_between = self.filter_key.filter_type == RowFilterType.Between
-        left = self.filter_key.params.left_value
-        right = self.filter_key.params.right_value
-
-        # Polars uses .is_between() function
-        if is_between:
-            return f"{self.col_expr}.is_between({left}, {right})"
-        else:
-            return f"~{self.col_expr}.is_between({left}, {right})"
-
-    def _convert_compare_filter(self) -> str:
-        """Handle comparison filters for Polars.
-
-        Returns
-        -------
-        str
-            Filter comparison code string.
-        """
-        assert isinstance(self.filter_key.params, FilterComparison)
-        op = (
-            "=="
-            if self.filter_key.params.op.value == FilterComparisonOp.Eq
-            else self.filter_key.params.op.value
-        )
-
-        value = self.filter_key.params.value
-
+    def _format_value(self, value):
         if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
             value = repr(value)
 
@@ -597,24 +530,40 @@ class PolarsFilterHandler(FilterHandler):
             if tz:
                 value += f"time_zone={tz!r}"
             value += ")"
+        return value
+
+    def _convert_between_filter(self) -> str:
+        assert isinstance(self.filter_key.params, FilterBetween)
+        is_between = self.filter_key.filter_type == RowFilterType.Between
+        left = self.filter_key.params.left_value
+        right = self.filter_key.params.right_value
+
+        # Polars uses .is_between() function
+        if is_between:
+            return f"{self.col_expr}.is_between({left}, {right})"
+        else:
+            return f"~{self.col_expr}.is_between({left}, {right})"
+
+    def _convert_compare_filter(self) -> str:
+        assert isinstance(self.filter_key.params, FilterComparison)
+        op = (
+            "=="
+            if self.filter_key.params.op.value == FilterComparisonOp.Eq
+            else self.filter_key.params.op.value
+        )
+
+        value = self._format_value(self.filter_key.params.value)
 
         return f"{self.col_expr} {op} {value}"
 
     def _convert_text_search_filter(self) -> str:
-        """Handle text search filters for Polars.
-
-        Returns
-        -------
-        str
-            Text search filter code string.
-        """
         assert isinstance(self.filter_key.params, FilterTextSearch)
 
         search_type = self.filter_key.params.search_type
         value = self.filter_key.params.term
         case_sensitive = self.filter_key.params.case_sensitive
 
-        # For case insensitive search in Polars
+        # use regex for all case sensitive searches, as recommended by Polars
         if not case_sensitive:
             value = "(?i)" + value
 
@@ -623,7 +572,7 @@ class PolarsFilterHandler(FilterHandler):
         elif search_type == TextSearchType.NotContains:
             return f"~{self.col_expr}.str.contains({value!r})"
         elif search_type == TextSearchType.RegexMatch:
-            return f"{self.col_expr}.str.contains({value!r}, literal=False)"
+            return f"{self.col_expr}.str.contains({value!r})"
         elif search_type == TextSearchType.StartsWith:
             return f"{self.col_expr}.str.starts_with({value!r})"
         elif search_type == TextSearchType.EndsWith:
