@@ -623,7 +623,7 @@ class PolarsFilterHandler(FilterHandler):
         elif search_type == TextSearchType.NotContains:
             return f"~{self.col_expr}.str.contains({value!r})"
         elif search_type == TextSearchType.RegexMatch:
-            return f"{self.col_expr}.str.contains({value!r})"
+            return f"{self.col_expr}.str.contains({value!r}, literal=False)"
         elif search_type == TextSearchType.StartsWith:
             return f"{self.col_expr}.str.starts_with({value!r})"
         elif search_type == TextSearchType.EndsWith:
@@ -635,7 +635,7 @@ class PolarsFilterHandler(FilterHandler):
         return f"{self.col_expr}.str.len_chars() == 0"
 
     def _convert_not_empty_filter(self) -> str:
-        return f"{self.col_expr}.str.len_chars() != 0"
+        return f"{self.col_expr}.str.len_chars() > 0"
 
     def _convert_is_null_filter(self) -> str:
         return f"{self.col_expr}.is_null()"
