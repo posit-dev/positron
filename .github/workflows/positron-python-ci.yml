@@ -433,6 +433,13 @@ jobs:
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
 
+      - name: Install pet binary for smoke tests
+        working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
+        run: npm run install-pet
+        env:
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        if: matrix.test-suite == 'smoke'
+
       - name: Run smoke tests
         env:
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
