@@ -109,6 +109,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** The language runtime's static metadata */
 	readonly runtimeMetadata: ILanguageRuntimeMetadata;
 
+	/** Information about the runtime that is only available after starting. */
+	readonly runtimeInfo: ILanguageRuntimeInfo | undefined;
+
 	/** The session's static metadata */
 	readonly metadata: IRuntimeSessionMetadata;
 

@@ -7,9 +7,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
-import { EXTENSION_ROOT_DIR } from './constants';
+import { MD_DIR } from './constants';
 
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
 export enum GitRepoChangeKind {
@@ -153,7 +152,7 @@ export async function generateCommitMessage(context: vscode.ExtensionContext) {
 	const stagedChanges = await getWorkspaceGitChanges(GitRepoChangeKind.Staged);
 	const gitChanges = stagedChanges.length > 0 ? stagedChanges : allChanges;
 
-	const system: string = await fs.promises.readFile(`${mdDir}/prompts/git/commit.md`, 'utf8');
+	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/git/commit.md`, 'utf8');
 	try {
 		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
 			if (changes.length > 0) {
