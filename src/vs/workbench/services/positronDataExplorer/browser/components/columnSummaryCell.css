@@ -131,7 +131,7 @@
 	fill: var(--vscode-input-background);
 	stroke: var(--vscode-input-border);
 	stroke-width: 1.5;
-	stroke-dasharray: 3, 2;
+	stroke-dasharray: none;
 	opacity: 0.8;
 	transition: all 0.15s ease;
 }
@@ -141,7 +141,6 @@
 	opacity: 1;
 	font-size: 9px;
 	font-weight: 500;
-	font-family: var(--vscode-font-family);
 	letter-spacing: 0.5px;
 	text-transform: uppercase;
 	transition: opacity 0.15s ease;

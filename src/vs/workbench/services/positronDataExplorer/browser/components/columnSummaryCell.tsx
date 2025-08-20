@@ -49,8 +49,6 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
-	console.log(`[ColumnSummaryCell] Rendering column ${props.columnIndex}`);
-
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
@@ -64,7 +62,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		const disposable = props.instance.tableSummaryCache.onDidUpdate(() => {
 			const newState = props.instance.isSparklineRequested(props.columnIndex);
 			if (newState !== sparklineRequested) {
-				console.log(`[Column ${props.columnIndex}] Parent state update: ${sparklineRequested} -> ${newState}`);
 				setSparklineRequested(newState);
 			}
 		});
@@ -106,12 +103,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		const isLargeDataset = props.instance.isLargeDataset();
 
 		// Use parent's state
-		console.log(`[Column ${props.columnIndex}] Render - sparklineRequested (from parent state):`, sparklineRequested);
-
-		// Also check what data is available
-		const columnHistogram = props.instance.getColumnProfileSmallHistogram(props.columnIndex);
-		const columnFrequencyTable = props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex);
-		console.log(`[Column ${props.columnIndex}] Data available - histogram:`, !!columnHistogram, 'frequencyTable:', !!columnFrequencyTable);
 
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
@@ -119,19 +110,15 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				case ColumnDisplayType.Number:
 				case ColumnDisplayType.Boolean:
 				case ColumnDisplayType.String:
-					console.log(`[Column ${props.columnIndex}] shouldShowSparkline: true for type ${props.columnSchema.type_display}`);
 					return true;
 				default:
-					console.log(`[Column ${props.columnIndex}] shouldShowSparkline: false for type ${props.columnSchema.type_display}`);
 					return false;
 			}
 		};
 
 		// Check if sparkline computation should be skipped for large datasets
 		const shouldSkipSparklineForLargeDataset = () => {
-			const result = isLargeDataset && !sparklineRequested;
-			console.log(`[Column ${props.columnIndex}] shouldSkipSparklineForLargeDataset: isLargeDataset=${isLargeDataset}, sparklineRequested=${sparklineRequested}, result=${result}`);
-			return result;
+			return isLargeDataset && !sparklineRequested;
 		};
 
 		/**
@@ -186,24 +173,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				e.stopPropagation();
 				e.preventDefault();
 
-				console.log(`[Column ${props.columnIndex}] Button clicked! Before request - sparklineRequested (state):`, sparklineRequested);
-				console.log(`[Column ${props.columnIndex}] Before request - isRequested (cache):`, props.instance.isSparklineRequested(props.columnIndex));
-				console.log(`[Column ${props.columnIndex}] Before request - data available:`, {
-					histogram: !!props.instance.getColumnProfileSmallHistogram(props.columnIndex),
-					frequencyTable: !!props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex)
-				});
-
 				// Immediately update parent state
 				setSparklineRequested(true);
 
 				try {
 					// Request the sparkline for this column
 					await props.instance.requestSparkline(props.columnIndex);
-					console.log(`[Column ${props.columnIndex}] After request - isRequested (cache):`, props.instance.isSparklineRequested(props.columnIndex));
-					console.log(`[Column ${props.columnIndex}] After request - data available:`, {
-						histogram: !!props.instance.getColumnProfileSmallHistogram(props.columnIndex),
-						frequencyTable: !!props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex)
-					});
 					// Note: Parent component will re-render when cache updates
 				} catch (err) {
 					console.error('Failed to request sparkline:', err);
@@ -630,7 +605,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
-	console.log(`[Column ${props.columnIndex}] expanded=${expanded}`);
 
 	// Set the summary stats supported flag.
 	let summaryStatsSupported;
