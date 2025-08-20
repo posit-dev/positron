@@ -161,7 +161,6 @@ def test_convert_pandas_filter_empty(dxf: DataExplorerConvertFixture):
             test_df[test_df["a"].str.len() > 0],
         ],
     ]
-
     for filter_set, expected_df in cases:
         dxf.check_conversion_case(
             test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
@@ -256,7 +255,6 @@ def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
             search_type=search_type,
         )
 
-        # For pandas, convert the boolean mask to a filtered dataframe
         expected_df = test_df[mask.astype(bool)]
         dxf.check_conversion_case(
             test_df,
@@ -396,7 +394,6 @@ def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
         dxf.check_conversion_case(
             test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
         )
-
     # Test sorting on Series
     sort_cases = [
         (True, test_series.sort_values(ascending=True)),
@@ -674,4 +671,19 @@ def test_convert_polars_sort_and_filter(dxf: DataExplorerConvertFixture):
         row_filters=filt,
         sort_keys=sort_keys,
         code_syntax_name="polars",
+    )
+
+
+def test_convert_polars_sort_to_pandas(dxf: DataExplorerConvertFixture):
+    # Test that we can convert a sort operation to pandas
+    test_df = SIMPLE_POLARS_DF
+    sort_keys = [{"column_index": 0, "ascending": True}]
+
+    expected_df = test_df.sort("a").to_pandas()
+
+    dxf.check_conversion_case(
+        test_df,
+        expected_df,
+        sort_keys=sort_keys,
+        code_syntax_name="pandas",
     )
