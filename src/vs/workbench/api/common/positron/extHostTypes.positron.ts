@@ -92,6 +92,12 @@ export enum LanguageRuntimeMessageType {
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
 
+	/** A message representing a debug event to the frontend */
+	DebugEvent = 'debug_event',
+
+	/** A message representing a debug reply to the frontend */
+	DebugReply = 'debug_reply',
+
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',
 
