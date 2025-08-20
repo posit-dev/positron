@@ -68,6 +68,10 @@ export class RawCommImpl implements vscode.Disposable {
 	}
 
 	closeAndNotify() {
+		if (this.closed) {
+			return;
+		}
+
 		this.close();
 		const commClose = new CommCloseCommand(this.id);
 		this.session.sendCommand(commClose);
