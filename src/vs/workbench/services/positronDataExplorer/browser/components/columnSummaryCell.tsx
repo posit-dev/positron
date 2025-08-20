@@ -196,8 +196,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						height: SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT,
 						cursor: 'pointer'
 					}}
-					onMouseDown={handleClick}
 					onClick={(e) => e.stopPropagation()}
+					onMouseDown={handleClick}
 					onMouseLeave={() => props.instance.hoverManager.hideHover()}
 					onMouseOver={() =>
 						props.instance.hoverManager.showHover(
@@ -209,8 +209,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					<svg
 						className='vector-histogram click-to-compute-sparkline'
 						shapeRendering='crispEdges'
-						viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT}`}
 						style={{ pointerEvents: 'none' }}
+						viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT}`}
 					>
 						<g>
 							<rect className='x-axis'
@@ -221,18 +221,18 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							/>
 							<rect className='placeholder-bg'
 								height={SPARKLINE_HEIGHT}
+								rx={2}
 								width={SPARKLINE_WIDTH}
 								x={0}
 								y={0}
-								rx={2}
 							/>
 							<text
 								className='click-to-compute-text'
-								x={SPARKLINE_WIDTH / 2}
-								y={SPARKLINE_HEIGHT / 2}
-								textAnchor='middle'
 								dominantBaseline='central'
 								fontSize={9}
+								textAnchor='middle'
+								x={SPARKLINE_WIDTH / 2}
+								y={SPARKLINE_HEIGHT / 2}
 							>
 								Compute
 							</text>
