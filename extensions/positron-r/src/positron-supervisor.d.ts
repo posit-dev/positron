@@ -306,6 +306,9 @@ export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable 
  *
  * If a request, the `handle` method _must_ be called.
  * Throw an error from `handle` to reject the request (e.g. if `method` is unknown).
+ *
+ * Note: Requests are currently not possible, see
+ * <https://github.com/posit-dev/positron/issues/2061>
  */
 export type CommBackendMessage =
 	| {
