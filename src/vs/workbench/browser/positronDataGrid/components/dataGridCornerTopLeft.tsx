@@ -7,9 +7,10 @@
 import './dataGridCornerTopLeft.css';
 
 // React.
-import React from 'react';
+import React, { useRef } from 'react';
 
 // Other dependencies.
+import * as nls from '../../../../nls.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
@@ -29,9 +30,28 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	// Ref for hover tooltip.
+	const containerRef = useRef<HTMLDivElement>(undefined!);
+
+	// Get hover manager from the instance.
+	const hoverManager = context.instance.hoverManager;
+
+	// Localized tooltip text.
+	const tooltipText = nls.localize(
+		'positronDataGrid.resetScrollPosition',
+		'Reset scroll position to top-left'
+	);
+
 	// Render.
 	return (
-		<div className='data-grid-corner-top-left' onClick={props.onClick}>
+		<div
+			ref={containerRef}
+			className='data-grid-corner-top-left'
+			title={!hoverManager ? tooltipText : undefined}
+			onClick={props.onClick}
+			onMouseLeave={hoverManager ? () => hoverManager.hideHover() : undefined}
+			onMouseOver={hoverManager ? () => hoverManager.showHover(containerRef.current, tooltipText) : undefined}
+		>
 			<div className='border-overlay' />
 			<VerticalSplitter
 				onBeginResize={() => ({

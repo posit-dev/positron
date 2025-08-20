@@ -304,7 +304,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the hover manager.
 	 */
-	get hoverManager() {
+	override get hoverManager() {
 		return this._hoverManager;
 	}
 
