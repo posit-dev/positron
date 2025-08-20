@@ -19,9 +19,9 @@ Summary:
  * |dplyr             |R        |<dplyr>                                    |dplyr                   |
  */
 
+import { MetricTargetType } from '../../utils/metrics/base.js';
 import { test, tags } from '../_test.setup';
 import { pandasDataFrameScript } from './helpers/convert-to-code-data.js';
-import { MetricTargetType } from '../../utils/metrics.js';
 
 const testCases: {
 	language: 'Python' | 'R';
@@ -114,26 +114,16 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await dataExplorer.filters.add('score', 'is greater than or equal to', '85'); // Alice (89.5), Charlie (95.0)
 			await dataExplorer.filters.add('is_student', 'is false');					  // Charlie only
 
-			metric.start();
+			await metric.dataExplorer.toCode(async () => {
+				// copy code and verify result is accurate
+				await dataExplorer.editorActionBar.clickButton('Convert to Code');
+				await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
+				await dataExplorer.convertToCodeModal.expectToBeVisible();
 
-			// copy code and verify result is accurate
-			await dataExplorer.editorActionBar.clickButton('Convert to Code');
-			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
-			await dataExplorer.convertToCodeModal.expectToBeVisible();
-
-			// verify the generated code is correct and has syntax highlights
-			await modals.expectToContainText(expectedGeneratedCode);
-			await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
-
-			await metric.dataExplorer.stopAndSend({
-				action: 'to_code',
-				target_type: dataFrameType,
-				target_description: 'filter_mask',
-				context_json: {
-					data_rows: await dataExplorer.grid.getRowCount(),
-					data_cols: await dataExplorer.grid.getColumnCount()
-				}
-			});
+				// verify the generated code is correct and has syntax highlights
+				await modals.expectToContainText(expectedGeneratedCode);
+				await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
+			}, dataFrameType);
 
 			// verify copy to clipboard behavior
 			await dataExplorer.convertToCodeModal.clickOK();

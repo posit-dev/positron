@@ -30,21 +30,11 @@ test.describe('Data Explorer - Large Data Frame', {
 		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await runCommand('python.execInConsole');
 
-		metric.start();
-
-		await variables.doubleClickVariableRow('df');
-		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
-		await dataExplorer.waitForIdle();
-
-		await metric.dataExplorer.stopAndSend({
-			action: 'load_data',
-			target_type: 'py.pandas.DataFrame',
-			target_description: 'large unique parquet',
-			context_json: {
-				data_rows: await dataExplorer.grid.getRowCount(),
-				data_cols: await dataExplorer.grid.getColumnCount()
-			}
-		});
+		await metric.dataExplorer.loadData(async () => {
+			await variables.doubleClickVariableRow('df');
+			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			await dataExplorer.waitForIdle();
+		}, 'py.pandas.DataFrame');
 
 		// Validate full grid by checking data in the bottom right corner
 		await dataExplorer.grid.clickLowerRightCorner();
@@ -65,19 +55,11 @@ test.describe('Data Explorer - Large Data Frame', {
 		await runCommand('r.sourceCurrentFile');
 
 		// Open Data Explorer for the data frame
-		metric.start();
-		await variables.doubleClickVariableRow('df2');
-		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
-		await dataExplorer.waitForIdle();
-		await metric.dataExplorer.stopAndSend({
-			action: 'load_data',
-			target_type: 'r.tibble',
-			target_description: 'large unique parquet',
-			context_json: {
-				data_rows: await dataExplorer.grid.getRowCount(),
-				data_cols: await dataExplorer.grid.getColumnCount()
-			}
-		});
+		await metric.dataExplorer.loadData(async () => {
+			await variables.doubleClickVariableRow('df2');
+			await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+			await dataExplorer.waitForIdle();
+		}, 'r.tibble');
 
 		// Validate full grid by checking data in the bottom right corner
 		await dataExplorer.grid.clickLowerRightCorner();

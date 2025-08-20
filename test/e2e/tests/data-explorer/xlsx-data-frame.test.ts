@@ -25,21 +25,11 @@ test.describe('Data Explorer - XLSX', {
 		await openFile(join('workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
 		await runCommand('python.execInConsole');
 
-		metric.start();
-
-		await variables.doubleClickVariableRow('df');
-		await editors.verifyTab('Data: df', { isVisible: true });
-		await dataExplorer.waitForIdle();
-
-		await metric.dataExplorer.stopAndSend({
-			action: 'load_data',
-			target_type: 'py.pandas.DataFrame',
-			target_description: 'open data frame from xlsx',
-			context_json: {
-				data_rows: await dataExplorer.grid.getRowCount(),
-				data_cols: await dataExplorer.grid.getColumnCount()
-			}
-		});
+		await metric.dataExplorer.loadData(async () => {
+			await variables.doubleClickVariableRow('df');
+			await editors.verifyTab('Data: df', { isVisible: true });
+			await dataExplorer.waitForIdle();
+		}, 'py.pandas.DataFrame');
 
 		await hotKeys.closeSecondarySidebar();
 		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
@@ -54,21 +44,11 @@ test.describe('Data Explorer - XLSX', {
 		await openFile(join('workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
 		await runCommand('r.sourceCurrentFile');
 
-		metric.start();
-
-		await variables.doubleClickVariableRow('df2');
-		await editors.verifyTab('Data: df2', { isVisible: true });
-		await dataExplorer.waitForIdle();
-
-		await metric.dataExplorer.stopAndSend({
-			action: 'load_data',
-			target_type: 'r.tibble',
-			target_description: 'open data frame from xlsx',
-			context_json: {
-				data_rows: await dataExplorer.grid.getRowCount(),
-				data_cols: await dataExplorer.grid.getColumnCount()
-			}
-		});
+		metric.dataExplorer.loadData(async () => {
+			await variables.doubleClickVariableRow('df2');
+			await editors.verifyTab('Data: df2', { isVisible: true });
+			await dataExplorer.waitForIdle();
+		}, 'r.tibble');
 
 		await hotKeys.closeSecondarySidebar();
 		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');

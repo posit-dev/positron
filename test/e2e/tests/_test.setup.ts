@@ -38,7 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-import { logMetric, DataExplorerMetric, NotebookMetric } from '../utils/metrics.js';
+import { recordDataFileLoad, recordDataFilter, recordDataSort, type MetricTargetType, type DataExplorerAutoContext, type DataExplorerShortcutOptions, recordToCode } from '../utils/metrics/index.js';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -439,41 +439,47 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'test', auto: true }],
 
 	metric: [async ({ logger, app }, use) => {
-		let startTime = 0;
+		const dataExplorerAutoContext: DataExplorerAutoContext = {
+			getRowCount: async () => {
+				return app.workbench.dataExplorer.grid.getRowCount();
+			},
+			getColumnCount: async () => {
+				return app.workbench.dataExplorer.grid.getColumnCount();
+			}
+		};
 
 		await use({
-			start: async () => {
-				startTime = Date.now();
-			},
 			dataExplorer: {
-				stopAndSend: async (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>) => {
-					if (startTime === 0) {
-						throw new Error('Metric start time not set. Call metric.start() before stopping.');
-					}
-					const duration = Date.now() - startTime;
-					const payload: DataExplorerMetric = {
-						feature_area: 'data_explorer',
-						...meta,
-						duration_ms: duration,
-					};
-
-					await logMetric(payload, !!app.code.electronApp, logger);
+				loadData: async <T>(
+					operation: () => Promise<T>,
+					targetType: MetricTargetType,
+					options?: DataExplorerShortcutOptions
+				): Promise<T> => {
+					return recordDataFileLoad(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				},
+				filter: async <T>(
+					operation: () => Promise<T>,
+					targetType: MetricTargetType,
+					options?: DataExplorerShortcutOptions
+				): Promise<T> => {
+					return recordDataFilter(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				},
+				sort: async <T>(
+					operation: () => Promise<T>,
+					targetType: MetricTargetType,
+					options?: DataExplorerShortcutOptions
+				): Promise<T> => {
+					return recordDataSort(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
+				},
+				toCode: async <T>(
+					operation: () => Promise<T>,
+					targetType: MetricTargetType,
+					options?: DataExplorerShortcutOptions
+				): Promise<T> => {
+					return recordToCode(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
 				}
 			},
-			notebooks: {
-				stopAndSend: async (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>) => {
-					const duration = Date.now() - startTime;
-					const payload: NotebookMetric = {
-						feature_area: 'notebooks',
-						...meta,
-						duration_ms: duration,
-					};
-
-					await logMetric(payload, !!app.code.electronApp, logger);
-				}
-			}
 		});
-
 	}, { scope: 'test' }],
 
 	cleanup: async ({ app }: any, use: (arg0: TestTeardown) => any) => {
@@ -566,7 +572,7 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
-	metric: Timer;
+	metric: RecordMetric;
 }
 
 interface WorkerFixtures {
@@ -592,12 +598,14 @@ export type CustomTestOptions = playwright.PlaywrightTestOptions & {
 	headless?: boolean;
 };
 
-type Timer = {
-	start: () => void;
+type RecordMetric = {
 	dataExplorer: {
-		stopAndSend: (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>) => Promise<void>;
+		loadData: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		filter: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		sort: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		toCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
 	};
-	notebooks: {
-		stopAndSend: (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>) => Promise<void>;
-	};
+	// notebooks: {
+	// 	runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<T>;
+	// };
 };
