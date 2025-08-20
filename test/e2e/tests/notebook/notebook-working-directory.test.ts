@@ -17,6 +17,8 @@ test.describe('Notebook Working Directory Configuration', {
 	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
 }, () => {
 
+	test.beforeAll(async function ({ python }) { });
+
 	test.afterEach(async function ({ app }) {
 		await app.workbench.notebooks.closeNotebookWithoutSaving();
 	});
@@ -67,6 +69,7 @@ test.describe('Notebook Working Directory Configuration', {
 
 async function verifyWorkingDirectoryEndsWith(notebooks: Notebooks, expectedEnd: string) {
 	await notebooks.openNotebook('working-directory.ipynb');
+	await notebooks.selectInterpreter('Python');
 	await notebooks.runAllCells();
 	await notebooks.assertCellOutput(new RegExp(`^'.*${expectedEnd}'$`));
 }
