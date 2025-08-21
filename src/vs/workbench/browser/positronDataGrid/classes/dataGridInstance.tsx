@@ -1580,39 +1580,52 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollPageUp() {
-		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
-		if (firstLayoutEntry && firstLayoutEntry.index > 1) {
-			// Find the layout entry that will be to first layout entry for the previous page.
-			let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
-			for (let index = firstLayoutEntry.index - 1; index >= 0; index--) {
-				// Get the layout entry.
-				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
-				if (layoutEntry) {
-					if (layoutEntry.start >= this.verticalScrollOffset - this.layoutHeight) {
-						lastFullyVisibleLayoutEntry = layoutEntry;
-					} else {
-						// Set the vertical scroll offset.
-						this.setVerticalScrollOffset(
-							lastFullyVisibleLayoutEntry?.start ?? layoutEntry.start
-						);
+		// Get the first unpinned layout entry.
+		const firstUnpinnedLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
+		if (firstUnpinnedLayoutEntry === undefined) {
+			return;
+		}
 
-						// Fetch data.
-						await this.fetchData();
+		// Get the first unpinned layout entry position.
+		const firstUnpinnedLayoutEntryPosition = this._rowLayoutManager.mapIndexToPosition(firstUnpinnedLayoutEntry.index);
+		if (firstUnpinnedLayoutEntryPosition === undefined) {
+			return;
+		}
 
-						// Fire the onDidUpdate event.
-						this.fireOnDidUpdateEvent();
+		// Find the layout entry that will be the first layout entry for the previous page.
+		let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
+		for (let position = firstUnpinnedLayoutEntryPosition - 1; position >= 0; position--) {
+			// Get the layout entry.
+			const layoutEntry = this._rowLayoutManager.getLayoutEntry(this._rowLayoutManager.mapPositionToIndex(position));
+			if (layoutEntry === undefined) {
+				return;
+			}
 
-						// Done.
-						return;
-					}
-				}
+			// Check if the layout entry is fully visible, note it; otherwise, scroll the viewport and return.
+			if (layoutEntry.start >= this.verticalScrollOffset - this.layoutHeight) {
+				lastFullyVisibleLayoutEntry = layoutEntry;
+			} else {
+				// Set the vertical scroll offset.
+				this.setVerticalScrollOffset(lastFullyVisibleLayoutEntry?.start ?? layoutEntry.start);
+
+				// Fetch data.
+				await this.fetchData();
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+
+				// Done.
+				return;
 			}
 		}
 
-		// Scroll to the top.
+		// If we drop through to here, scroll to the top.
 		this.setVerticalScrollOffset(0);
+
+		// Fetch data.
 		await this.fetchData();
+
+		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -1621,37 +1634,49 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollPageDown() {
-		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
-		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
-			// Find the layout entry that will be to first layout entry for the next page.
-			for (let index = firstLayoutEntry.index + 1; index < this.rows; index++) {
-				// Get the layout entry.
-				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
-				if (layoutEntry) {
-					if (layoutEntry.end >= this.verticalScrollOffset + this.layoutHeight) {
-						// Set the vertical scroll offset.
-						this.setVerticalScrollOffset(Math.min(
-							layoutEntry.start,
-							this.maximumVerticalScrollOffset
-						));
+		// Get the first unpinned layout entry.
+		const firstUnpinnedLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
+		if (firstUnpinnedLayoutEntry === undefined) {
+			return;
+		}
 
-						// Fetch data.
-						await this.fetchData();
+		// Get the first unpinned layout entry position.
+		const firstUnpinnedLayoutEntryPosition = this._rowLayoutManager.mapIndexToPosition(firstUnpinnedLayoutEntry.index);
+		if (firstUnpinnedLayoutEntryPosition === undefined) {
+			return;
+		}
 
-						// Fire the onDidUpdate event.
-						this.fireOnDidUpdateEvent();
+		// Scroll down to the next unpinned layout entry.
+		for (let position = firstUnpinnedLayoutEntryPosition + 1; position < this.rows; position++) {
+			// Get the layout entry.
+			const layoutEntry = this._rowLayoutManager.getLayoutEntry(this._rowLayoutManager.mapPositionToIndex(position));
+			if (layoutEntry === undefined) {
+				return;
+			}
 
-						// Done.
-						return;
-					}
-				}
+			// If the layout entry ends at or beyond the viewport, scroll to it.
+			if (layoutEntry.end >= this.verticalScrollOffset + this.layoutHeight) {
+				// Set the vertical scroll offset.
+				this.setVerticalScrollOffset(Math.min(layoutEntry.start, this.maximumVerticalScrollOffset));
+
+				// Fetch data.
+				await this.fetchData();
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+
+				// Done.
+				return;
 			}
 		}
 
-		// Scroll to the bottom.
+		// If we drop through to here, scroll to the bottom.
 		this.setVerticalScrollOffset(this.maximumVerticalScrollOffset);
+
+		// Fetch data.
 		await this.fetchData();
+
+		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
 
