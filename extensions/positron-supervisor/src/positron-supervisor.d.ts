@@ -143,11 +143,11 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 *   includes a field `port`.
 	 *
 	 * @param targetName The name of the comm target
-	 * @param host The IP address or host name for the server
+	 * @param ip_address The IP address to which the server should bind to.
 	 * @returns A promise that resolves to a tuple of [Comm, port number]
 	 *   once the server has been started on the backend side.
 	 */
-	createServerComm(targetName: string, host: string): Promise<[Comm, number]>;
+	createServerComm(targetName: string, ip_address: string): Promise<[Comm, number]>;
 
 	/**
 	 * Constructs a new DapComm instance.
