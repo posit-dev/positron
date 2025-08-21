@@ -7,6 +7,7 @@ import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientStatus } from 
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 
 /**
  * An enum representing the set of JSON-RPC error codes.
@@ -227,10 +228,18 @@ export class PositronBaseComm extends Disposable {
 			rpcArgs[paramNames[i]] = paramValues[i];
 		}
 
-		// Form the request object
+		// Generate a unique ID for this message.
+		const id = generateUuid();
+
+		// Form the JSON-RPC message nested in our Jupyter `comm_msg`. Note that the
+		// `id` field is not used for matching requests at the Jupyter transport
+		// level. It only expresses that this is a request, not a notification, as
+		// required by the JSON-RPC spec. This allows comms at the other end to
+		// determine whether they should respond to the message.
 		const request: any = {
 			jsonrpc: '2.0',
 			method: rpcName,
+			id
 		};
 
 		// Amend params if we have any (methods which take no parameters

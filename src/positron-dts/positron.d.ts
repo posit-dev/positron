@@ -683,7 +683,6 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Variables = 'positron.variables',
 		Lsp = 'positron.lsp',
-		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataExplorer = 'positron.dataExplorer',
 		Ui = 'positron.ui',
