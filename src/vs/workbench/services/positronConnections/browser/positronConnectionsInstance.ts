@@ -79,6 +79,8 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 				if (!icon || icon === '') {
 					icon = undefined;
 				} else if (!icon.startsWith("data:image/")) {
+					// icon paths starting with data:image/ are assumed to be data URI's
+					// not file paths.
 					icon = FileAccess.uriToBrowserUri(URI.file(icon)).toString();
 				}
 				object.metadata.icon = icon;
