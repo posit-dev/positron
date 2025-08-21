@@ -4142,15 +4142,6 @@
     "a9dba70e2d982208efdb69b3cef1f52536811f8dedb87599df1a0fba3cc1a879",
     "368de65f2cf0508ff07eda9cdc6243f43f51c8c03d2f50fb5caa69d4f7107616"
    ],
-   "npm::positron-assistant=0.0.1": {
-    "name": "Positron Assistant",
-    "path": "extensions/positron-assistant",
-    "version": "0.0.1",
-    "licenses": [
-     "Elastic-2.0"
-    ],
-    "pkg_name": "positron-assistant"
-   },
    "npm::@anthropic-ai/sdk=0.57.0": {
     "name": "@anthropic-ai/sdk",
     "path": "extensions/positron-assistant/node_modules/@anthropic-ai/sdk",
@@ -4762,16 +4753,6 @@
     },
     "homepage": "https://github.com/microsoft/vscode-uri#readme"
    },
-   "npm::positron-reticulate=0.0.1": {
-    "name": "Positron Reticulate",
-    "path": "extensions/positron-reticulate",
-    "version": "0.0.1",
-    "pkg_name": "positron-reticulate",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
-    }
-   },
    "npm::razor=1.0.0": {
     "name": "Razor Language Basics",
     "path": "extensions/razor",
@@ -4783,16 +4764,6 @@
     "repository": {
      "type": "git",
      "url": "https://github.com/microsoft/vscode.git"
-    }
-   },
-   "npm::positron-r=0.0.2": {
-    "name": "R",
-    "path": "extensions/positron-r",
-    "version": "0.0.2",
-    "pkg_name": "positron-r",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
     }
    },
    "npm::fs-extra=10.1.0": {
@@ -5464,16 +5435,6 @@
     "repository": {
      "type": "git",
      "url": "https://github.com/Microsoft/vscode-references-view"
-    }
-   },
-   "npm::positron-proxy=1.0.0": {
-    "name": "Positron Proxy",
-    "path": "extensions/positron-proxy",
-    "version": "1.0.0",
-    "pkg_name": "positron-proxy",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
     }
    },
    "npm::express=4.21.2": {
@@ -8010,16 +7971,6 @@
      "url": "https://github.com/microsoft/vscode.git"
     }
    },
-   "npm::positron-supervisor=0.0.1": {
-    "name": "Positron Kernel Supervisor",
-    "path": "extensions/positron-supervisor",
-    "version": "0.0.1",
-    "pkg_name": "positron-supervisor",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
-    }
-   },
    "npm::request=2.88.2": {
     "name": "request",
     "path": "extensions/positron-supervisor/node_modules/request",
@@ -9303,16 +9254,6 @@
     ],
     "pkg_name": "dart"
    },
-   "npm::positron-run-app=0.0.1": {
-    "name": "Positron Run App",
-    "path": "extensions/positron-run-app",
-    "version": "0.0.1",
-    "pkg_name": "positron-run-app",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
-    }
-   },
    "npm::latex=1.0.0": {
     "name": "LaTeX Language Basics",
     "path": "extensions/latex",
@@ -9584,16 +9525,6 @@
      "MIT"
     ],
     "pkg_name": "tas-client"
-   },
-   "npm::positron-environment=0.0.1": {
-    "name": "Environment",
-    "path": "extensions/positron-environment",
-    "version": "0.0.1",
-    "pkg_name": "positron-environment",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
-    }
    },
    "npm::microsoft-authentication=0.0.1": {
     "name": "Microsoft Account",
@@ -10137,16 +10068,6 @@
     "repository": {
      "type": "git",
      "url": "https://github.com/microsoft/vscode.git"
-    }
-   },
-   "npm::positron-duckdb=0.0.1": {
-    "name": "Positron DuckDB Wasm Support",
-    "path": "extensions/positron-duckdb",
-    "version": "0.0.1",
-    "pkg_name": "positron-duckdb",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
     }
    },
    "npm::@duckdb/duckdb-wasm=1.29.1-dev132.0": {
@@ -11154,26 +11075,6 @@
      "url": "https://github.com/microsoft/vscode.git"
     }
    },
-   "npm::positron-code-cells=0.0.1": {
-    "name": "Positron Code Cells",
-    "path": "extensions/positron-code-cells",
-    "version": "0.0.1",
-    "pkg_name": "positron-code-cells",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
-    }
-   },
-   "npm::positron-viewer=1.0.0": {
-    "name": "Positron Viewer",
-    "path": "extensions/positron-viewer",
-    "version": "1.0.0",
-    "pkg_name": "positron-viewer",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron.git"
-    }
-   },
    "npm::php=1.0.0": {
     "name": "PHP Language Basics",
     "path": "extensions/php",
@@ -11185,16 +11086,6 @@
     "repository": {
      "type": "git",
      "url": "https://github.com/microsoft/vscode.git"
-    }
-   },
-   "npm::positron-connections=0.0.1": {
-    "name": "Positron Connections",
-    "path": "extensions/positron-connections",
-    "version": "0.0.1",
-    "pkg_name": "positron-connections",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
     }
    },
    "npm::lua=1.0.0": {
@@ -11630,15 +11521,6 @@
      "type": "git",
      "url": "https://github.com/microsoft/vscode.git"
     }
-   },
-   "npm::positron-ipywidgets=0.0.1": {
-    "name": "Positron IPyWidgets",
-    "path": "extensions/positron-ipywidgets",
-    "version": "0.0.1",
-    "licenses": [
-     "Elastic-2.0"
-    ],
-    "pkg_name": "positron-ipywidgets"
    },
    "npm::theme-quietlight=1.0.0": {
     "name": "Quiet Light Theme",
@@ -13333,15 +13215,6 @@
      "type": "git",
      "url": "https://github.com/tj/commander.js.git"
     }
-   },
-   "npm::positron-runtime-debugger=0.0.1": {
-    "name": "Debugging",
-    "path": "extensions/positron-runtime-debugger",
-    "version": "0.0.1",
-    "licenses": [
-     "Elastic-2.0"
-    ],
-    "pkg_name": "positron-runtime-debugger"
    },
    "npm::@vscode/debugprotocol=1.68.0": {
     "name": "@vscode/debugprotocol",
@@ -16452,16 +16325,6 @@
      "url": "https://github.com/microsoft/vscode.git"
     }
    },
-   "npm::positron-notebooks-helpers=1.0.0": {
-    "name": "positron-notebooks-helpers",
-    "path": "extensions/positron-notebooks",
-    "version": "1.0.0",
-    "pkg_name": "positron-notebooks-helpers",
-    "repository": {
-     "type": "git",
-     "url": "https://github.com/posit-dev/positron"
-    }
-   },
    "npm::theme-kimbie-dark=1.0.0": {
     "name": "Kimbie Dark Theme",
     "path": "extensions/theme-kimbie-dark",
@@ -17450,8 +17313,8 @@
   },
   "air": {
    "!locks": [
-    "9908f62eea0c0bcbf8703ec852ce148d5ecb1c101b0fd153411b910ecabd31fe",
-    "4b5f8694dc5d7ba170d14128e2fc51d2306a0fee23a6c69d9073316f7601ddbf"
+    "4b5f8694dc5d7ba170d14128e2fc51d2306a0fee23a6c69d9073316f7601ddbf",
+    "9908f62eea0c0bcbf8703ec852ce148d5ecb1c101b0fd153411b910ecabd31fe"
    ],
    "!root": [
     "AIR_PATH",
