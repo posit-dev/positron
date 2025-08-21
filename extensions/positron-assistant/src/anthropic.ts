@@ -317,7 +317,7 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				// Skip other data parts.
 			}
 		} else {
-			throw new Error('Unsupported part type on user message');
+			log.warn(`Skipping unsupported part type on user message: ${JSON.stringify(part, null, 2)}`);
 		}
 	}
 	return {
