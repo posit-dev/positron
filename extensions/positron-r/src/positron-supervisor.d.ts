@@ -99,7 +99,7 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	createPositronLspClientId(): string;
 
 	/**
-	 * Start a raw comm for communication between frontend and backend.
+	 * Start a comm for communication between frontend and backend.
 	 *
 	 * Unlike Positron clients, this kind of comm is private to the calling
 	 * extension and its kernel. They open a direct line of communication that
@@ -124,12 +124,12 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	createComm(
 		target_name: string,
 		params?: Record<string, unknown>,
-	): Promise<RawComm>;
+	): Promise<Comm>;
 
 	/**
-	 * Create a raw server comm.
+	 * Create a server comm.
 	 *
-	 * Server comms are a special type of raw comms (see `createComm()`) that
+	 * Server comms are a special type of comms (see `createComm()`) that
 	 * wrap a TCP server (e.g. an LSP or DAP server). The backend is expected to
 	 * handle `comm_open` messages for `targetName` comms in the following way:
 	 *
@@ -144,10 +144,10 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 *
 	 * @param targetName The name of the comm target
 	 * @param host The IP address or host name for the server
-	 * @returns A promise that resolves to a tuple of [RawComm, port number]
+	 * @returns A promise that resolves to a tuple of [Comm, port number]
 	 *   once the server has been started on the backend side.
 	 */
-	createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
+	createServerComm(targetName: string, host: string): Promise<[Comm, number]>;
 
 	/**
 	 * Constructs a new DapComm instance.
@@ -263,7 +263,7 @@ export interface JupyterKernelExtra {
 }
 
 /**
- * Raw comm unmanaged by Positron.
+ * Comm between an extension and its kernel.
  *
  * This type of comm is not mapped to a Positron client. It lives entirely in
  * the extension space and allows a direct line of communication between an
@@ -273,7 +273,7 @@ export interface JupyterKernelExtra {
  * it. If the comm has not already been closed by the kernel, a client-initiated
  * `comm_close` message is emitted to clean the comm on the backend side.
  */
-export interface RawComm {
+export interface Comm {
 	/** The comm ID. */
 	id: string;
 
@@ -388,11 +388,11 @@ export interface DapComm {
 	readonly debugName: string;
 
 	/**
-	 * The raw comm for the DAP.
+	 * The comm for the DAP.
 	 * Use it to receive messages or make notifications and requests.
 	 * Defined after `createServerComm()` has been called.
 	 */
-	readonly comm?: RawComm;
+	readonly comm?: Comm;
 
 	/**
 	 * The port on which the DAP server is listening.
@@ -401,7 +401,7 @@ export interface DapComm {
 	readonly serverPort?: number;
 
 	/**
-	 * Create the raw server comm.
+	 * Create the server comm.
 	 *
 	 * Calls `JupyterLanguageRuntimeSession::createServerComm()`. The backend
 	 * comm handling for `targetName` is expected to start a DAP server and

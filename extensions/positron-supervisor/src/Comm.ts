@@ -40,7 +40,7 @@ export class CommRpcError extends CommError {
 	}
 }
 
-export class RawCommImpl implements vscode.Disposable {
+export class CommImpl implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private closed = false;
 

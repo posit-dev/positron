@@ -5,21 +5,21 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { JupyterLanguageRuntimeSession, RawComm } from './positron-supervisor';
+import { JupyterLanguageRuntimeSession, Comm } from './positron-supervisor';
 
 /**
  * A Debug Adapter Protocol (DAP) comm.
  * See `positron-supervisor.d.ts` for documentation.
  */
 export class DapComm {
-	public get comm(): RawComm | undefined {
+	public get comm(): Comm | undefined {
 		return this._comm;
 	}
 	public get port(): number | undefined {
 		return this._port;
 	}
 
-	private _comm?: RawComm;
+	private _comm?: Comm;
 	private _port?: number;
 
 	// Message counter used for creating unique message IDs

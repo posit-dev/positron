@@ -7,13 +7,13 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as testKit from './kit';
 import { RSession } from '../session';
-import { RawComm, CommBackendMessage } from '../positron-supervisor';
+import { Comm, CommBackendMessage } from '../positron-supervisor';
 import { whenTimeout } from '../util';
 
 suite('ArkComm', () => {
 	let session: RSession;
 	let sesDisposable: vscode.Disposable;
-	let comm: RawComm;
+	let comm: Comm;
 
 	suiteSetup(async () => {
 		const [ses, disposable] = await testKit.startR();
@@ -78,7 +78,7 @@ suite('ArkComm', () => {
 	});
 });
 
-async function assertNextMessage(comm: RawComm): Promise<CommBackendMessage> {
+async function assertNextMessage(comm: Comm): Promise<CommBackendMessage> {
 	const result = await Promise.race([
 		comm.receiver.next(),
 		whenTimeout(5000, () => assert.fail(`Timeout while expecting comm message on ${comm.id}`)),
@@ -88,7 +88,7 @@ async function assertNextMessage(comm: RawComm): Promise<CommBackendMessage> {
 	return result.value;
 }
 
-async function assertRequest(comm: RawComm, method: string, params?: Record<string, unknown>): Promise<any> {
+async function assertRequest(comm: Comm, method: string, params?: Record<string, unknown>): Promise<any> {
 	return await Promise.race([
 		comm.request(method, params),
 		whenTimeout(5000, () => assert.fail(`Timeout while expecting comm reply on ${comm.id}`)),
