@@ -464,9 +464,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/** Create a raw server comm. See `positron-supervisor.d.ts` for documentation. */
-	async createServerComm(target_name: string, host: string): Promise<[Comm, number]> {
-		this.log(`Starting server comm '${target_name}' for ${host}`);
-		const comm = await this.createComm(target_name, { ip_address: host });
+	async createServerComm(target_name: string, ip_address: string): Promise<[Comm, number]> {
+		this.log(`Starting server comm '${target_name}' for ${ip_address}`);
+		const comm = await this.createComm(target_name, { ip_address });
 
 		const result = await comm.receiver.next();
 
@@ -490,7 +490,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			throw new Error('`server_started` message doesn\'t include a port');
 		}
 
-		this.log(`Started server comm '${target_name}' for ${host} on port ${port}`);
+		this.log(`Started server comm '${target_name}' for ${ip_address} on port ${port}`);
 		return [comm, port];
 	}
 
