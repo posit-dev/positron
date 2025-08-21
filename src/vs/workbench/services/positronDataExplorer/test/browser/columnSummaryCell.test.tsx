@@ -11,29 +11,29 @@ import { mainWindow } from '../../../../../base/browser/window.js';
 
 import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js';
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
-import { ColumnDisplayType, SupportStatus, ColumnProfileType } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnDisplayType, SupportStatus, ColumnProfileType, SupportedFeatures } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
-export function createMockTableSummaryDataGridInstance(overrides = {}): TableSummaryDataGridInstance {
+/**
+ * Creates a minimal mock of TableSummaryDataGridInstance
+ */
+function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryDataGridInstance> = {}): TableSummaryDataGridInstance {
 	// Mock the hover manager
-	const mockHoverManager = {
+	const mockHoverManager: Partial<PositronActionBarHoverManager> = {
 		showHover: sinon.stub(),
 		hideHover: sinon.stub()
 	};
 
 	// Mock the configuration service
-	const mockConfigurationService = {};
+	const mockConfigurationService: Partial<IConfigurationService> = {};
 
-	// Mock supported features
-	const mockSupportedFeatures = {
+	const mockSupportedFeatures: SupportedFeatures = {
 		get_column_profiles: {
 			support_status: SupportStatus.Supported,
 			supported_types: [
-				{
-					profile_type: ColumnProfileType.SummaryStats,
-					support_status: SupportStatus.Supported
-				},
 				{
 					profile_type: ColumnProfileType.NullCount,
 					support_status: SupportStatus.Supported
@@ -50,7 +50,8 @@ export function createMockTableSummaryDataGridInstance(overrides = {}): TableSum
 		},
 		set_row_filters: {
 			support_status: SupportStatus.Supported,
-			supported_types: []
+			supported_types: [],
+			supports_conditions: SupportStatus.Supported
 		},
 		set_sort_columns: {
 			support_status: SupportStatus.Supported
@@ -64,32 +65,31 @@ export function createMockTableSummaryDataGridInstance(overrides = {}): TableSum
 		}
 	};
 
-	// Mock instance of TableSummaryDataGridInstance
-	const mockInstance = {
-		// Mock properties from DataGridInstance base class
+	const mockTableSummaryDataGridInstance: Partial<TableSummaryDataGridInstance> = {
 		cursorRowIndex: 0,
 		focused: false,
-		// Mock methods from DataGridInstance base class
-		scrollToRow: sinon.stub().resolves(),
-		setCursorRow: sinon.stub(),
-		// Mock properties from TableSummaryDataGridInstance
-		hoverManager: mockHoverManager,
-		configurationService: mockConfigurationService,
-		// Mock methods from TableSummaryDataGridInstance
-		getSupportedFeatures: sinon.stub().returns(mockSupportedFeatures),
-		isColumnExpanded: sinon.stub().returns(false),
-		toggleExpandColumn: sinon.stub().resolves(),
-		getColumnProfileNullCount: sinon.stub().returns(undefined),
-		getColumnProfileNullPercent: sinon.stub().returns(undefined),
-		getColumnProfileSummaryStats: sinon.stub().returns(undefined),
-		getColumnProfileSmallHistogram: sinon.stub().returns(undefined),
-		getColumnProfileLargeHistogram: sinon.stub().returns(undefined),
-		getColumnProfileSmallFrequencyTable: sinon.stub().returns(undefined),
-		getColumnProfileLargeFrequencyTable: sinon.stub().returns(undefined),
+
+		// Methods the component calls
+		getSupportedFeatures: () => mockSupportedFeatures,
+		getColumnProfileNullPercent: () => undefined,
+		getColumnProfileNullCount: () => undefined,
+		getColumnProfileSmallHistogram: () => undefined,
+		getColumnProfileSmallFrequencyTable: () => undefined,
+		isColumnExpanded: () => false,
+		scrollToRow: async () => { },
+		setCursorRow: () => { },
+		toggleExpandColumn: async () => { },
+
+		// Mock hover manager with basic methods
+		hoverManager: mockHoverManager as PositronActionBarHoverManager,
+		// Mock configuration service
+		configurationService: mockConfigurationService as IConfigurationService,
+
+		// Apply any overrides from the test
 		...overrides
 	};
 
-	return mockInstance as unknown as TableSummaryDataGridInstance;
+	return mockTableSummaryDataGridInstance as TableSummaryDataGridInstance;
 }
 
 suite('ColumnSummaryCell', () => {
@@ -118,8 +118,8 @@ suite('ColumnSummaryCell', () => {
 
 	test('displays 0% when getColumnProfileNullPercent return 0', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
-			getColumnProfileNullPercent: sinon.stub().returns(0),
-			getColumnProfileNullCount: sinon.stub().returns(0),
+			getColumnProfileNullPercent: () => 0,
+			getColumnProfileNullCount: () => 0,
 		});
 
 		root.render(
@@ -141,8 +141,8 @@ suite('ColumnSummaryCell', () => {
 
 	test('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
-			getColumnProfileNullPercent: sinon.stub().returns(0.5),
-			getColumnProfileNullCount: sinon.stub().returns(1),
+			getColumnProfileNullPercent: () => 0.5,
+			getColumnProfileNullCount: () => 1,
 		});
 
 		root.render(
@@ -164,8 +164,8 @@ suite('ColumnSummaryCell', () => {
 
 	test('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
-			getColumnProfileNullPercent: sinon.stub().returns(99.9),
-			getColumnProfileNullCount: sinon.stub().returns(999),
+			getColumnProfileNullPercent: () => 99.9,
+			getColumnProfileNullCount: () => 999,
 		});
 
 		root.render(
@@ -187,8 +187,8 @@ suite('ColumnSummaryCell', () => {
 
 	test('displays 100% when getColumnProfileNullPercent returns 100', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
-			getColumnProfileNullPercent: sinon.stub().returns(100),
-			getColumnProfileNullCount: sinon.stub().returns(1000),
+			getColumnProfileNullPercent: () => 100,
+			getColumnProfileNullCount: () => 1000,
 		});
 
 		root.render(
