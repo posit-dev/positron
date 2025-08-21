@@ -2,6 +2,9 @@
 # Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
+
+# ruff: noqa: PIE790
+import abc
 from typing import List, Optional
 
 from .data_explorer_comm import (
@@ -65,178 +68,6 @@ class MethodChainBuilder:
         return result
 
 
-class CodeConverter:
-    """Base class for generating dataframe code strings."""
-
-    def __init__(
-        self,
-        table,
-        table_name: str,
-        params: ConvertToCodeParams,
-        *,
-        was_series: bool = False,
-        filter_handler_class,
-        sort_handler_class,
-    ):
-        self.table = table
-        self.table_name: str = table_name
-        self.params: ConvertToCodeParams = params
-        self.was_series = was_series
-        self.syntax_name = params.code_syntax_name.code_syntax_name
-        self.filter_handler_class = filter_handler_class
-        self.sort_handler_class = sort_handler_class
-
-    def build_code(self) -> List[StrictStr]:
-        """Convert operations to code strings.
-
-        Returns
-        -------
-        List[StrictStr]
-            Generated code strings.
-        """
-        builder = MethodChainBuilder(self.table_name)
-
-        # Add operations to the builder
-        filter_setup, filter_chain = self._convert_row_filters()
-        sort_setup, sort_chain = self._convert_sort_keys()
-
-        builder.add_operation(filter_setup, filter_chain)
-        builder.add_operation(sort_setup, sort_chain)
-
-        return builder.build()
-
-    def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Take filters and convert them to code strings.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple of (method_chain_setup, method_chain_parts).
-        """
-        method_chain_setup = []
-        method_chain_parts = []
-        filters = self.params.row_filters
-
-        if not filters:
-            return method_chain_setup, method_chain_parts
-
-        comparisons = []
-        # process each filter key to some comparison string
-        # that can be used in the method chain
-        for filter_key in filters:
-            handler = self.filter_handler_class(
-                filter_key, self.table_name, was_series=self.was_series
-            )
-            comparison = handler.convert_filters()
-            if comparison:
-                comparisons.append(comparison)
-
-        method_chain_setup, method_chain_parts = self._format_filter(comparisons)
-
-        return method_chain_setup, method_chain_parts
-
-    def _convert_column_filters(
-        self,
-    ) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Convert a list of ColumnFilter objects to a tuple of code strings.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple containing preprocessing and method chain code strings.
-        """
-        raise NotImplementedError("Subclasses must implement _convert_column_filters method")
-
-    def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Generate code for sorting.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple of (method_chain_setup, method_chain_parts).
-        """
-        if not self.params.sort_keys:
-            return [], []
-
-        handler = self.sort_handler_class(
-            self.params.sort_keys, self.table, was_series=self.was_series
-        )
-        method_chain_setup, method_chain_parts = handler.convert_sorts()
-
-        return method_chain_setup, method_chain_parts
-
-    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Format multiple filter comparisons into method chain parts.
-
-        Parameters
-        ----------
-        comparisons : List[str]
-            List of comparison strings to format.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple of setup and method chain parts.
-        """
-        raise NotImplementedError("Subclasses must implement _format_filter method")
-
-
-class PandasConverter(CodeConverter):
-    def __init__(
-        self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
-    ):
-        super().__init__(
-            table,
-            table_name,
-            params,
-            was_series=was_series,
-            filter_handler_class=PandasFilterHandler,
-            sort_handler_class=PandasSortHandler,
-        )
-
-    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
-        # Multiple comparisons, create filter mask
-        if len(comparisons) == 1:
-            return [], [f"[{comparisons[0]}]"]
-        setup = [f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}"]
-        parts = ["[filter_mask]"]
-        return setup, parts
-
-
-class PolarsConverter(CodeConverter):
-    def __init__(
-        self,
-        table,
-        table_name: str,
-        params: ConvertToCodeParams,
-    ):
-        super().__init__(
-            table,
-            table_name,
-            params,
-            # was_series is always false, we don't support Polars Series in the data explorer
-            was_series=False,
-            filter_handler_class=PolarsFilterHandler,
-            sort_handler_class=PolarsSortHandler,
-        )
-
-    def build_code(self) -> List[StrictStr]:
-        code = super().build_code()
-        if self.params.code_syntax_name.code_syntax_name == "pandas":
-            # Append .to_pandas() to the end of the method chain for Polars conversion
-            code[-1] = code[-1] + ".to_pandas()"
-        return code
-
-    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
-        if len(comparisons) == 1:
-            # If there's only one comparison, use it directly
-            return [], [f".filter({comparisons[0]})"]
-        # Multiple comparisons, create expression and use .filter() method
-        setup = [f"filter_expr = {' & '.join(f'({comp})' for comp in comparisons)}"]
-        parts = [".filter(filter_expr)"]
-        return setup, parts
-
-
 class SortHandler:
     """Base class for sort handlers."""
 
@@ -258,6 +89,7 @@ class SortHandler:
         else:
             return self._convert_multi_sort()
 
+    @abc.abstractmethod
     def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Convert a single sort key to code.
 
@@ -266,8 +98,9 @@ class SortHandler:
         tuple[List[StrictStr], List[StrictStr]]
             Tuple of (method_chain_setup, method_chain_parts).
         """
-        raise NotImplementedError("Subclasses must implement _convert_single_sort method")
+        pass
 
+    @abc.abstractmethod
     def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Convert multiple sort keys to code.
 
@@ -276,7 +109,7 @@ class SortHandler:
         tuple[List[StrictStr], List[StrictStr]]
             Tuple of (method_chain_setup, method_chain_parts).
         """
-        raise NotImplementedError("Subclasses must implement _convert_multi_sort method")
+        pass
 
     def _get_column_names_from_indices(self) -> List[str]:
         """Extract column names from indices.
@@ -392,38 +225,44 @@ class FilterHandler:
 
         return None
 
+    @abc.abstractmethod
     def _convert_between_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_between_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_compare_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_compare_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_text_search_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_text_search_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_is_empty_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_is_empty_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_not_empty_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_not_empty_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_is_null_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_is_null_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_not_null_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_not_null_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_is_true_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_is_true_filter method")
+        pass
 
+    @abc.abstractmethod
     def _convert_is_false_filter(self) -> str:
-        raise NotImplementedError("Subclasses must implement _convert_is_false_filter method")
+        pass
 
 
 class PandasFilterHandler(FilterHandler):
-    def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
-        super().__init__(filter_key, table_name, was_series=was_series)
-
     def _format_value(self, value):
         if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
             value = repr(value)
@@ -513,7 +352,6 @@ class PolarsFilterHandler(FilterHandler):
     def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
         super().__init__(filter_key, table_name, was_series=was_series)
         # In Polars, we use column expressions without the DataFrame reference
-        # we just need the column name without table reference
         self.col_expr = f"pl.col({filter_key.column_schema.column_name!r})"
 
     def _format_value(self, value):
@@ -597,3 +435,154 @@ class PolarsFilterHandler(FilterHandler):
 
     def _convert_is_false_filter(self) -> str:
         return f"{self.col_expr} == False"
+
+
+class CodeConverter:
+    """Base class for generating dataframe code strings."""
+
+    filter_handler_class: Optional[FilterHandler] = None
+    sort_handler_class: Optional[SortHandler] = None
+
+    def __init__(
+        self,
+        table,
+        table_name: str,
+        params: ConvertToCodeParams,
+        *,
+        was_series: bool = False,
+    ):
+        self.table = table
+        self.table_name: str = table_name
+        self.params: ConvertToCodeParams = params
+        self.was_series = was_series
+        self.syntax_name = params.code_syntax_name.code_syntax_name
+
+    def build_code(self) -> List[StrictStr]:
+        """Convert operations to code strings.
+
+        Returns
+        -------
+        List[StrictStr]
+            Generated code strings.
+        """
+        builder = MethodChainBuilder(self.table_name)
+
+        # Add operations to the builder
+        filter_setup, filter_chain = self._convert_row_filters()
+        sort_setup, sort_chain = self._convert_sort_keys()
+
+        builder.add_operation(filter_setup, filter_chain)
+        builder.add_operation(sort_setup, sort_chain)
+
+        return builder.build()
+
+    def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Take filters and convert them to code strings.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
+        method_chain_setup = []
+        method_chain_parts = []
+        filters = self.params.row_filters
+
+        if not filters:
+            return method_chain_setup, method_chain_parts
+
+        comparisons = []
+        # process each filter key to some comparison string
+        # that can be used in the method chain
+        for filter_key in filters:
+            handler = self.filter_handler_class(
+                filter_key, self.table_name, was_series=self.was_series
+            )
+            comparison = handler.convert_filters()
+            if comparison:
+                comparisons.append(comparison)
+
+        method_chain_setup, method_chain_parts = self._format_filter(comparisons)
+
+        return method_chain_setup, method_chain_parts
+
+    @abc.abstractmethod
+    def _convert_column_filters(
+        self,
+    ) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Convert a list of ColumnFilter objects to a tuple of code strings.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple containing preprocessing and method chain code strings.
+        """
+        pass
+
+    def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Generate code for sorting.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
+        if not self.params.sort_keys:
+            return [], []
+
+        handler = self.sort_handler_class(
+            self.params.sort_keys, self.table, was_series=self.was_series
+        )
+        method_chain_setup, method_chain_parts = handler.convert_sorts()
+
+        return method_chain_setup, method_chain_parts
+
+    @abc.abstractmethod
+    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Format multiple filter comparisons into method chain parts.
+
+        Parameters
+        ----------
+        comparisons : List[str]
+            List of comparison strings to format.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of setup and method chain parts.
+        """
+        pass
+
+
+class PandasConverter(CodeConverter):
+    filter_handler_class = PandasFilterHandler
+    sort_handler_class = PandasSortHandler
+
+    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+        # Multiple comparisons, create filter mask
+        if len(comparisons) == 1:
+            return [], [f"[{comparisons[0]}]"]
+        setup = [f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}"]
+        parts = ["[filter_mask]"]
+        return setup, parts
+
+
+class PolarsConverter(CodeConverter):
+    filter_handler_class = PolarsFilterHandler
+    sort_handler_class = PolarsSortHandler
+
+    def build_code(self) -> List[StrictStr]:
+        code = super().build_code()
+        if self.params.code_syntax_name.code_syntax_name == "pandas":
+            # Append .to_pandas() to the end of the method chain for Polars conversion
+            code[-1] = code[-1] + ".to_pandas()"
+        return code
+
+    def _format_filter(self, comparisons: List[str]) -> tuple[List[StrictStr], List[StrictStr]]:
+        if len(comparisons) == 1:
+            # If there's only one comparison, use it directly
+            return [], [f".filter({comparisons[0]})"]
+        # Multiple comparisons, create expression and use .filter() method
+        setup = [f"filter_expr = {' & '.join(f'({comp})' for comp in comparisons)}"]
+        parts = [".filter(filter_expr)"]
+        return setup, parts
