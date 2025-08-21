@@ -70,7 +70,12 @@ export class ToolConfirmationSubPart extends BaseChatToolInvocationSubPart {
 			throw new Error('Confirmation messages are missing');
 		}
 		const { title, message, allowAutoConfirm, disclaimer } = toolInvocation.confirmationMessages;
-		const continueLabel = localize('continue', "Continue");
+		// --- Start Positron ---
+		// Use "Run Code" label for tools that are clearly about code execution
+		const continueLabel = toolInvocation.toolId === 'executeCode'
+			? localize('runCode', "Run Code")
+			: localize('continue', "Continue");
+		// --- End Positron ---
 		const continueKeybinding = keybindingService.lookupKeybinding(AcceptToolConfirmationActionId)?.getLabel();
 		const continueTooltip = continueKeybinding ? `${continueLabel} (${continueKeybinding})` : continueLabel;
 		const cancelLabel = localize('cancel', "Cancel");
