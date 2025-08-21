@@ -5,7 +5,7 @@
 
 # ruff: noqa: PIE790
 import abc
-from typing import List, Optional
+from typing import List, Optional, Type
 
 from .data_explorer_comm import (
     ColumnDisplayType,
@@ -440,8 +440,8 @@ class PolarsFilterHandler(FilterHandler):
 class CodeConverter:
     """Base class for generating dataframe code strings."""
 
-    filter_handler_class: Optional[FilterHandler] = None
-    sort_handler_class: Optional[SortHandler] = None
+    filter_handler_class: Optional[Type[FilterHandler]] = None
+    sort_handler_class: Optional[Type[SortHandler]] = None
 
     def __init__(
         self,
@@ -488,7 +488,7 @@ class CodeConverter:
         method_chain_parts = []
         filters = self.params.row_filters
 
-        if not filters:
+        if not self.filter_handler_class or not filters:
             return method_chain_setup, method_chain_parts
 
         comparisons = []
@@ -527,7 +527,7 @@ class CodeConverter:
         tuple[List[StrictStr], List[StrictStr]]
             Tuple of (method_chain_setup, method_chain_parts).
         """
-        if not self.params.sort_keys:
+        if not self.params.sort_keys or not self.sort_handler_class:
             return [], []
 
         handler = self.sort_handler_class(
