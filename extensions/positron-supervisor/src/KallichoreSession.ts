@@ -1939,7 +1939,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					this._rawComms.delete(closeMsg.comm_id);
 
 					const [comm, _] = commHandle;
-					comm.dispose();
+					comm.close();
 					return;
 				}
 
