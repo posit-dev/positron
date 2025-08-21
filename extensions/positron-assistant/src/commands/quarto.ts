@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 
 import { toLanguageModelChatMessage } from '../utils';
 import { PromptRenderer, QuartoContent } from '../prompts';
+import { PositronAssistantChatParticipant } from '../participants.js';
 
 export const EXPORT_QUARTO_COMMAND = 'exportQuarto';
 
@@ -65,4 +66,8 @@ export async function quartoHandler(
 			);
 		}
 	}
+}
+
+export function registerQuartoCommand() {
+	PositronAssistantChatParticipant.registerCommand(EXPORT_QUARTO_COMMAND, quartoHandler);
 }

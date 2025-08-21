@@ -18,6 +18,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private _executionCount = 0;
 	private _currentExecutionId = '';
 	private _variables: Map<string, any> = new Map();
+	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
@@ -33,6 +34,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 			inputPrompt: 'T>',
 			continuationPrompt: 'T+',
 		};
+	}
+
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
 	}
 
 	generateMessageId(): string {
@@ -194,6 +199,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		this._currentExecutionId = '';
 	}
 
+	async debug(_content: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		throw new Error('Not implemented.');
+	}
+
 	async isCodeFragmentComplete(_code: string): Promise<positron.RuntimeCodeFragmentStatus> {
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
@@ -345,7 +354,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
-		const info: positron.LanguageRuntimeInfo = {
+		this._runtimeInfo = {
 			banner: 'Test runtime',
 			implementation_version: '0.0.1',
 			language_version: '0.0.1',
@@ -355,7 +364,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 		}, 10);
-		return Promise.resolve(info);
+		return this._runtimeInfo;
 	}
 
 	async interrupt(): Promise<void> {

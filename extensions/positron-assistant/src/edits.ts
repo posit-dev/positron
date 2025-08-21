@@ -123,9 +123,7 @@ async function mapEdit(
 	block: string,
 	token: vscode.CancellationToken,
 ): Promise<string | null> {
-	// Use the renderSystemPrompt method to get the system instructions
 	const systemPrompt = await PromptRenderer.renderSystemPrompt(MapEditContent, {}, model);
-
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })

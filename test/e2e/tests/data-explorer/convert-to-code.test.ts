@@ -16,6 +16,7 @@ Summary:
  * |data.frame        |R        |<data.frame>                               |Tidyverse (or Base R)   |
  * |tibble            |R        |<tbl_df>                                   |Tidyverse               |
  * |data.table        |R        |<data.table>                               |data.table              |
+ * |dplyr             |R        |<dplyr>                                    |dplyr                   |
  */
 
 import { test, tags } from '../_test.setup';
@@ -106,7 +107,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await dataExplorer.filters.add('is_student', 'is false');                     // Charlie only
 
 			// copy code and verify result is accurate
-			await dataExplorer.clickConvertToCodeButton();
+			await dataExplorer.editorActionBar.clickButton('Convert to Code');
 			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
 			await dataExplorer.convertToCodeModal.expectToBeVisible();
 
@@ -119,7 +120,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await clipboard.expectClipboardTextToBe(expectedGeneratedCode + '\ndf[filter_mask]');
 			await toasts.expectToBeVisible('Copied to clipboard');
 		});
-	})
+	});
 
 	// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
 	// });

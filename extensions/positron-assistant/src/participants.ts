@@ -11,13 +11,13 @@ import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
-import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { PromptRenderer, UnifiedPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './prompts';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
+import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools } from './api.js';
 
@@ -109,10 +109,32 @@ export class ParticipantService implements vscode.Disposable {
 	}
 }
 
+/** Options about the participant modifiable by the chat request handler. */
+export interface PositronAssistantChatContext extends vscode.ChatContext {
+	/** The ID of the participant. */
+	participantId: ParticipantID;
+
+	/** The system prompt to use for the participant. */
+	systemPrompt: string;
+
+	/** The tools allowed for the participant. */
+	toolAvailability: Map<PositronAssistantToolName, boolean>;
+
+	/** The context from Positron core. */
+	readonly positronContext: Readonly<positron.ai.ChatContext>;
+
+	/** The context information that was attached to the request, if any. */
+	contextInfo?: Readonly<ContextInfo>;
+
+	/** Manually attach context information for the chat request. */
+	attachContextInfo: (messages: vscode.LanguageModelChatMessage2[]) => Promise<Readonly<ContextInfo> | undefined>;
+}
+
 /** Base class for Positron Assistant chat participants. */
 abstract class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	abstract id: ParticipantID;
 	private readonly _requests = new Map<string, ChatRequestData>();
+	private static readonly _commands = new WeakMap<typeof PositronAssistantParticipant, Record<string, IChatRequestHandler>>();
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -172,40 +194,105 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	) {
 		this._requests.set(request.id, { request, context, response });
 
-		// Select request handler based on the command issued by the user for this request
 		try {
-			switch (request.command) {
-				case EXPORT_QUARTO_COMMAND:
-					return await quartoHandler(request, context, response, token);
-				default:
-					return await this.defaultRequestHandler(request, context, response, token);
+			// Get an extended Assistant-specific chat context
+			const assistantContext = await this.getAssistantContext(request, context, response);
+
+			// Select request handler based on the command issued by the user for this request
+			if (request.command) {
+				if (request.command in this.commandRegistry) {
+					const handler = this.commandRegistry[request.command];
+					const handleDefault = () => this.defaultRequestHandler(request, assistantContext, response, token);
+					return await handler(request, assistantContext, response, token, handleDefault);
+				} else {
+					log.warn(`[participant] No command handler registered in participant ${this.id} for command: ${request.command}`);
+				}
 			}
+			return await this.defaultRequestHandler(request, assistantContext, response, token);
 		} finally {
 			this._requests.delete(request.id);
 		}
+	}
+
+	protected get commandRegistry(): Record<string, IChatRequestHandler> {
+		const constructor = this.constructor as typeof PositronAssistantParticipant;
+		if (!PositronAssistantParticipant._commands.has(constructor)) {
+			PositronAssistantParticipant._commands.set(constructor, {});
+		}
+		return PositronAssistantParticipant._commands.get(constructor)!;
+	}
+
+	public static registerCommand(command: string, handler: IChatRequestHandler) {
+		if (!PositronAssistantParticipant._commands.has(this)) {
+			PositronAssistantParticipant._commands.set(this, {});
+		}
+		PositronAssistantParticipant._commands.get(this)![command] = handler;
 	}
 
 	public getRequestData(chatRequestId: string): ChatRequestData | undefined {
 		return this._requests.get(chatRequestId);
 	}
 
-	private async defaultRequestHandler(
+	private async getAssistantContext(
 		request: vscode.ChatRequest,
 		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
-	) {
+	): Promise<PositronAssistantChatContext> {
 		// Render system prompt inline based on participant type
 		const systemMessages = await this.renderSystemPromptForParticipant(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
-		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
 
 		// List of tools for use by the language model.
 		const enabledTools = getEnabledTools(request, vscode.lm.tools, this.id);
+		const toolAvailability = new Map(
+			vscode.lm.tools.map(
+				tool => {
+					const available = (value: boolean) => [tool.name as PositronAssistantToolName, value] as [PositronAssistantToolName, boolean];
+
+					return available(enabledTools.includes(tool.name));
+				}));
+
+		const participant = this;
+		const assistantContext: PositronAssistantChatContext = {
+			...incomingContext,
+			participantId: this.id,
+			positronContext,
+			systemPrompt,
+			toolAvailability,
+			contextInfo: undefined,
+			async attachContextInfo(messages: vscode.LanguageModelChatMessage2[]) {
+				if (assistantContext.contextInfo) {
+					return assistantContext.contextInfo;
+				}
+
+				const info = assistantContext.contextInfo = await participant.getContextInfo(request, incomingContext, response, positronContext);
+				if (info) {
+					messages.push(info.message);
+				}
+				return info;
+			}
+		};
+
+		return assistantContext;
+	}
+
+	private async defaultRequestHandler(
+		request: vscode.ChatRequest,
+		context: PositronAssistantChatContext,
+		response: vscode.ChatResponseStream,
+		token: vscode.CancellationToken,
+	) {
+		const { systemPrompt, positronContext, toolAvailability, attachContextInfo } = context;
+
+		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
+
+		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
-			tool => enabledTools.includes(tool.name))
+			tool => toolAvailability.get(tool.name as PositronAssistantToolName) === true
+		);
 
 		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
 
@@ -231,10 +318,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// not cached. Since the context message is transiently added to each request, caching it
 		// will write a prompt prefix to the cache that will never be read. We will want to keep
 		// an eye on whether the order of user prompt and context message affects model responses.
-		const contextInfo = await this.getContextInfo(request, context, response, positronContext);
-		if (contextInfo) {
-			messages.push(contextInfo.message);
-		}
+		const contextInfo = await attachContextInfo(messages);
 
 		// Send the request to the language model.
 		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);
@@ -349,6 +433,26 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			default:
 				return `${participantType}-prompt`;
 		}
+	}
+
+	protected mapDiagnostics(diagnostics: vscode.Diagnostic[], selection?: vscode.Position | vscode.Range | vscode.Selection): string {
+		const severityMap = {
+			[vscode.DiagnosticSeverity.Error]: 'Error',
+			[vscode.DiagnosticSeverity.Warning]: 'Warning',
+			[vscode.DiagnosticSeverity.Information]: 'Information',
+			[vscode.DiagnosticSeverity.Hint]: 'Hint',
+		};
+		if (selection) {
+			if (selection instanceof vscode.Position) {
+				diagnostics = diagnostics.filter(d => d.range.contains(selection));
+			} else {
+				diagnostics = diagnostics.filter(d => {
+					const intersection = d.range.intersection(selection);
+					return intersection !== undefined && !intersection.isEmpty;
+				});
+			}
+		}
+		return diagnostics.map(d => `${d.range.start.line + 1}:${d.range.start.character + 1} - ${severityMap[d.severity]} - ${d.message}`).join('\n');
 	}
 
 	private async getContextInfo(
@@ -826,15 +930,27 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const selectedText = document.getText(selection);
 		const documentText = document.getText();
 		const filePath = uriToString(document.uri);
-		const editorNode = xml.node('editor',
-			[
-				xml.node('document', documentText, {
-					description: 'Full contents of the active file',
-				}),
-				xml.node('selection', selectedText, {
-					description: 'Selected text in the active file',
-				})
-			].join('\n'),
+
+		const editorNodes = [
+			xml.node('document', documentText, {
+				description: 'Full contents of the active file',
+			}),
+			xml.node('selection', selectedText, {
+				description: 'Selected text in the active file',
+			})
+		];
+
+		// If there are diagnostics for the file that contain the specified location, add them to the prompt.
+		const diagnostics = vscode.languages.getDiagnostics(document.uri);
+		if (diagnostics.length > 0) {
+			const diagnosticsText = this.mapDiagnostics(diagnostics, selection);
+			const diagnosticsNode = xml.node('diagnostics', diagnosticsText, {
+				description: 'Diagnostics for the active file',
+			});
+			editorNodes.push(diagnosticsNode);
+		}
+
+		const editorNode = xml.node('editor', editorNodes.join('\n'),
 			{
 				description: 'Current active editor',
 				filePath,

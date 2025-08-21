@@ -244,7 +244,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ['3.x']
         test-suite:
-          [ts-unit, venv, single-workspace, debugger, functional, smoke]
+          [ts-unit, venv, single-workspace, debugger, functional]
         # TODO: Add integration tests on windows and ubuntu. This requires updating
         # src/test/positron/testElectron.ts to support installing Positron on these platforms.
         exclude:
@@ -254,16 +254,12 @@ jobs:
             test-suite: debugger
           - os: windows-latest
             test-suite: single-workspace
-          - os: windows-latest
-            test-suite: smoke
           - os: ubuntu-latest
             test-suite: venv
           - os: ubuntu-latest
             test-suite: debugger
           - os: ubuntu-latest
             test-suite: single-workspace
-          - os: ubuntu-latest
-            test-suite: smoke
 
     steps:
       - name: Checkout
@@ -376,10 +372,6 @@ jobs:
           & $condaPythonPath ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} condaPath
           & $condaExecPath init --all
 
-      - name: Prepare VSIX for smoke tests
-        run: npm run package --allow-star-activation
-        if: matrix.test-suite == 'smoke'
-
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
           echo "CI_PYTHON_PATH=$(which python)" >> $GITHUB_ENV
@@ -433,9 +425,3 @@ jobs:
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
 
-      - name: Run smoke tests
-        env:
-          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-        run: |
-          npx tsc && node ./out/test/smokeTest.js
-        if: matrix.test-suite == 'smoke'
