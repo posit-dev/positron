@@ -10,6 +10,7 @@ import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from './languageRuntimeService.js';
 import { PlotRenderFormat, PositronPlotComm, IntrinsicSize } from './positronPlotComm.js';
+import { padBase64 } from './utils.js';
 
 /**
  * The type of operation being queued.
@@ -388,7 +389,7 @@ export class PositronPlotRenderQueue extends Disposable {
 					const renderTimeMs = finishedTime - startedTime;
 
 					// The server returned a rendered plot image; save it and resolve the promise
-					const uri = `data:${response.mime_type};base64,${this.padBase64(response.data)}`;
+					const uri = `data:${response.mime_type};base64,${padBase64(response.data)}`;
 					const renderResult: IRenderedPlot = {
 						size: operationRequest.size,
 						pixel_ratio: operationRequest.pixel_ratio!,
@@ -420,15 +421,6 @@ export class PositronPlotRenderQueue extends Disposable {
 			queuedOperation.operation.error(new Error(`Unknown operation type: ${operationRequest.type}`));
 			this._isProcessing = false;
 			this.processQueue();
-		}
-	}
-
-	private padBase64(base64: string): string {
-		const remainder = base64.length % 4;
-		if (remainder === 0) {
-			return base64; // No padding needed
-		} else {
-			return `${base64}${'='.repeat(4 - remainder)}`;
 		}
 	}
 

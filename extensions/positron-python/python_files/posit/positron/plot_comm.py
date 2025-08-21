@@ -209,6 +209,16 @@ class PlotFrontendEvent(str, enum.Enum):
     Show = "show"
 
 
+class UpdateParams(BaseModel):
+    """
+    Notification that a plot has been updated on the backend.
+    """
+
+    pre_render: Optional[PlotResult] = Field(
+        description="Optional pre-rendering data for immediate display",
+    )
+
+
 IntrinsicSize.update_forward_refs()
 
 PlotResult.update_forward_refs()
@@ -222,3 +232,5 @@ GetIntrinsicSizeRequest.update_forward_refs()
 RenderParams.update_forward_refs()
 
 RenderRequest.update_forward_refs()
+
+UpdateParams.update_forward_refs()

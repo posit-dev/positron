@@ -11,7 +11,7 @@ Positron is a next-generation data science IDE built on VS Code, designed for Py
 To work effectively on specific areas of Positron, ask Claude to include relevant context files:
 
 - **E2E Testing**: `Please read .claude/e2e-testing.md` - For working with Playwright end-to-end tests
-- **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development  
+- **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development
 - **Data Explorer**: `Please read .claude/data-explorer.md` - For data viewing and exploration features
 - **DuckDB Extension**: `Please read .claude/positron-duckdb.md` - For positron-duckdb extension development
 - **Console/REPL**: `Please read .claude/console.md` - For console and REPL functionality
@@ -46,40 +46,16 @@ timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
 npm test
 ```
 
-### Code Formatting
+### Code Formatting & Linting
 
-**🚨 CRITICAL: DO NOT USE PRETTIER**
+**AUTOMATIC FORMATTING ENABLED**
 
-Positron uses VSCode's built-in TypeScript formatter, not Prettier. Using Prettier will create formatting conflicts that are very difficult to resolve.
-
-**Correct way to format files:**
-```bash
-# Format specific TypeScript/JavaScript files using the project's formatter script
-node scripts/format.js <file1> [file2] [file3] ...
-
-# Examples:
-node scripts/format.js src/vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorer.tsx
-node scripts/format.js src/vs/workbench/services/positronDataExplorer/common/tableSummaryCache.ts
-
-# Format multiple files at once:
-node scripts/format.js file1.ts file2.tsx file3.js
-```
-
-**This script uses TypeScript's built-in formatter - the exact same formatter used by the pre-commit hook.**
+This project has a Claude Code hook configured that automatically handles most code formatting after every file edit.
 
 **Project formatting rules:**
-- Uses **tabs** (not spaces)  
+- Uses **tabs** (not spaces)
 - Uses **single quotes**
 - Inserts final newlines
-- VSCode's TypeScript formatter handles all formatting
-- ESLint with `@stylistic/eslint-plugin-ts` provides additional style rules
-
-**Never use:**
-- `prettier` or `npx prettier` commands
-- `npm run eslint` (runs on entire codebase, too broad)
-- Any other third-party formatters
-
-When editing files, format them with `node scripts/format.js <file_path>` to match the project's formatting standards exactly.
 
 ### Testing
 ```bash
@@ -137,7 +113,7 @@ When you must modify upstream VSCode files:
 
 #### Extensions
 - **Prefix:** Always start with `positron-`
-- **Style:** kebab-case after prefix  
+- **Style:** kebab-case after prefix
 - **Examples:** `positron-python`, `positron-connections`, `positron-run-app`
 
 #### Files and Components
