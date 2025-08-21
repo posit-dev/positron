@@ -300,7 +300,7 @@ export class LayoutManager {
 		// Remove any pinned indexes are no longer valid.
 		for (const pinnedIndex of this._pinnedIndexes) {
 			const pinnedIndexPosition = this.mapIndexToPosition(pinnedIndex);
-			if (pinnedIndexPosition < 0 || pinnedIndexPosition >= this._entryCount) {
+			if (pinnedIndexPosition && (pinnedIndexPosition < 0 || pinnedIndexPosition >= this._entryCount)) {
 				this._pinnedIndexes.delete(pinnedIndex);
 			}
 		}
@@ -311,11 +311,11 @@ export class LayoutManager {
 	 * @param index The index.
 	 * @returns The position.
 	 */
-	mapIndexToPosition(index: number): number {
+	mapIndexToPosition(index: number) {
 		if (!this._entryMap) {
 			return index;
 		} else {
-			return this._reverseEntryMap.get(index) ?? -1;
+			return this._reverseEntryMap.get(index);
 		}
 	}
 
@@ -324,11 +324,11 @@ export class LayoutManager {
 	 * @param position The position.
 	 * @returns The index.
 	 */
-	mapPositionToIndex(position: number): number {
+	mapPositionToIndex(position: number) {
 		if (!this._entryMap) {
 			return position;
 		} else {
-			return this._entryMap[position] ?? -1;
+			return this._entryMap[position];
 		}
 	}
 
@@ -696,7 +696,7 @@ export class LayoutManager {
 
 		// Get the layout entry position.
 		const layoutEntryPosition = this.mapIndexToPosition(layoutEntryIndex);
-		if (layoutEntryPosition === -1) {
+		if (layoutEntryPosition === undefined) {
 			return undefined;
 		}
 
@@ -705,16 +705,33 @@ export class LayoutManager {
 
 		// Adjust the start to account for pinned indexes. This is unavoidably O(n) over pinned indexes.
 		for (const pinnedIndex of this._pinnedIndexes) {
-			// If the pinned index is before the layout entry position, subtract the default size.
-			if (this.mapIndexToPosition(pinnedIndex) < layoutEntryPosition) {
+			// Get the pinned index position.
+			const pinnedIndexPosition = this.mapIndexToPosition(pinnedIndex);
+			if (pinnedIndexPosition === undefined) {
+				continue;
+			}
+
+			// If the pinned index position is before the layout entry position, subtract the default size.
+			if (pinnedIndexPosition < layoutEntryPosition) {
 				start -= this._defaultSize;
 			}
 		}
 
 		// Adjust the start to account for custom entry sizes. This is unavoidably O(n) over custom entry sizes.
 		for (const [customEntrySizeIndex, customEntrySize] of this._customEntrySizes) {
-			// If the custom entry size index is before the layout entry position, subtract the custom entry size.
-			if (!this._pinnedIndexes.has(customEntrySizeIndex) && this.mapIndexToPosition(customEntrySizeIndex) < layoutEntryPosition) {
+			// If the custom entry size index is pinned, skip it.
+			if (this.isPinnedIndex(customEntrySizeIndex)) {
+				continue;
+			}
+
+			// Get the custom entry size position.
+			const customEntrySizePosition = this.mapIndexToPosition(customEntrySizeIndex);
+			if (customEntrySizePosition === undefined) {
+				continue;
+			}
+
+			// If the custom entry size position is before the layout entry position, adjust the start for it.
+			if (customEntrySizePosition < layoutEntryPosition) {
 				start -= this._defaultSize;
 				start += customEntrySize;
 			}
@@ -722,8 +739,19 @@ export class LayoutManager {
 
 		// Adjust the start to account for entry sizes. This is unavoidably O(n) over entry sizes.
 		for (const [entrySizeIndex, entrySize] of this._entrySizes) {
-			// If the entry size index is before the layout entry position, subtract the entry size.
-			if (!this._pinnedIndexes.has(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex) && this.mapIndexToPosition(entrySizeIndex) < layoutEntryPosition) {
+			// If the entry size index is pinned, skip it.
+			if (this.isPinnedIndex(entrySizeIndex)) {
+				continue;
+			}
+
+			// Get the entry size position.
+			const entrySizePosition = this.mapIndexToPosition(entrySizeIndex);
+			if (entrySizePosition === undefined) {
+				continue;
+			}
+
+			// If the entry size position is before the layout entry position, adjust the start for it.
+			if (entrySizePosition < layoutEntryPosition) {
 				start -= this._defaultSize;
 				start += entrySize;
 			}
@@ -764,10 +792,8 @@ export class LayoutManager {
 
 		// Outside the binary search, get the pinned indexes, filtered custom entry sizes, and filtered entry sizes.
 		const pinnedIndexes = Array.from(this._pinnedIndexes);
-		const customEntrySizes = [...this._customEntrySizes.entries()]
-			.filter(([customEntrySizeIndex]) => !this.isPinnedIndex(customEntrySizeIndex));
-		const entrySizes = [...this._entrySizes.entries()]
-			.filter(([entrySizeIndex]) => !this.isPinnedIndex(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex));
+		const customEntrySizes = [...this._customEntrySizes.entries()].filter(([customEntrySizeIndex]) => !this.isPinnedIndex(customEntrySizeIndex));
+		const entrySizes = [...this._entrySizes.entries()].filter(([entrySizeIndex]) => !this.isPinnedIndex(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex));
 
 		// Binary search to find the first unpinned layout entry that contains the offset.
 		let leftPosition = 0;
@@ -784,14 +810,22 @@ export class LayoutManager {
 
 			// Adjust the start to account for pinned indexes. This is unavoidably O(n) over pinned indexes.
 			for (let i = 0; i < pinnedIndexes.length; i++) {
-				if (this.mapIndexToPosition(pinnedIndexes[i]) < middlePosition) {
+				const pinnedIndexPosition = this.mapIndexToPosition(pinnedIndexes[i]);
+				if (pinnedIndexPosition !== undefined && pinnedIndexPosition < middlePosition) {
 					start -= this._defaultSize;
 				}
 			}
 
 			// Adjust the start to account for custom entry sizes. This is unavoidably O(n) over custom entry sizes.
 			for (const [customEntrySizeIndex, customEntrySize] of customEntrySizes) {
-				if (this.mapIndexToPosition(customEntrySizeIndex) < middlePosition) {
+				// Get the custom entry size position.
+				const customEntrySizePosition = this.mapIndexToPosition(customEntrySizeIndex);
+				if (customEntrySizePosition === undefined) {
+					continue;
+				}
+
+				// If the custom entry size position is before the layout entry position, adjust the start for it.
+				if (customEntrySizePosition < middlePosition) {
 					start -= this._defaultSize;
 					start += customEntrySize;
 				}
@@ -799,7 +833,14 @@ export class LayoutManager {
 
 			// Adjust the start to account for entry sizes. This is unavoidably O(n) over entry sizes.
 			for (const [entrySizeIndex, entrySize] of entrySizes) {
-				if (this.mapIndexToPosition(entrySizeIndex) < middlePosition) {
+				// Get the entry size position.
+				const entrySizePosition = this.mapIndexToPosition(entrySizeIndex);
+				if (entrySizePosition === undefined) {
+					continue;
+				}
+
+				// If the entry size position is before the layout entry position, adjust the start for it.
+				if (entrySizePosition < middlePosition) {
 					start -= this._defaultSize;
 					start += entrySize;
 				}
