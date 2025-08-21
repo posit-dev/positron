@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { JupyterLanguageRuntimeSession, RawComm } from './positron-supervisor';
+import { JupyterLanguageRuntimeSession, Comm } from './positron-supervisor';
 import { LOGGER } from './extension';
 
 /**
@@ -14,11 +14,11 @@ import { LOGGER } from './extension';
 export class ArkComm implements vscode.Disposable {
 	readonly targetName: string = 'ark';
 
-	public get comm(): RawComm | undefined {
+	public get comm(): Comm | undefined {
 		return this._comm;
 	}
 
-	private _comm?: RawComm;
+	private _comm?: Comm;
 
 	constructor(
 		private session: JupyterLanguageRuntimeSession,
