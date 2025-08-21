@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import {
 	BackendState,
+	CodeSyntaxName,
 	ColumnDisplayType,
 	ColumnFilter,
 	ColumnFilterType,
@@ -21,6 +22,8 @@ import {
 	ColumnSortKey,
 	ColumnSummaryStats,
 	ColumnValue,
+	ConvertedCode,
+	ConvertToCodeParams,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataExplorerResponse,
@@ -1325,7 +1328,8 @@ END`;
 					]
 				},
 				convert_to_code: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{ code_syntax_name: 'SQL' }]
 				}
 			}
 		};
@@ -1639,6 +1643,18 @@ END`;
 		const numRows = Number(result.toArray()[0].num_rows);
 		return [numRows, numColumns];
 	}
+
+	async suggestCodeSyntaxes(): RpcResponse<CodeSyntaxName> {
+		return {
+			code_syntax_name: 'SQL'
+		};
+	}
+
+	async convertToCode(params: ConvertToCodeParams, uri: string): RpcResponse<ConvertedCode> {
+		return {
+			converted_code: ["SELECT * ", `FROM '${uri}'`, this._whereClause, this._sortClause]
+		};
+	}
 }
 
 /**
@@ -1808,6 +1824,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				return table.setSortColumns(rpc.params as SetSortColumnsParams);
 			case DataExplorerBackendRequest.SearchSchema:
 				return table.searchSchema(rpc.params as SearchSchemaParams);
+			case DataExplorerBackendRequest.SuggestCodeSyntax:
+				return table.suggestCodeSyntaxes();
+			case DataExplorerBackendRequest.ConvertToCode:
+				return table.convertToCode(rpc.params as ConvertToCodeParams, rpc.uri!);
 			case DataExplorerBackendRequest.SetColumnFilters:
 				return `${rpc.method} not yet implemented`;
 			default:
