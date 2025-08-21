@@ -147,6 +147,18 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
     createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
 
     /**
+     * Constructs a new DapComm instance.
+     * Must be disposed. See `DapComm` documentation.
+     *
+     * @param session The Jupyter language runtime session.
+     * @param targetName The name of the comm target.
+     * @param debugType The type of debugger, as required by `vscode.DebugConfiguration.type`.
+     * @param debugName The name of the debugger, as required by `vscode.DebugConfiguration.name`.
+     * @returns A new `DapComm` instance.
+     */
+    createDapComm(targetName: string, debugType: string, debugName: string): Promise<DapComm>;
+
+    /**
      * Method for emitting a message to the language server's Jupyter output
      * channel.
      *
@@ -229,16 +241,6 @@ export interface PositronSupervisorApi extends vscode.Disposable {
         sessionMetadata: positron.RuntimeSessionMetadata,
         dynState: positron.LanguageRuntimeDynState,
     ): Promise<JupyterLanguageRuntimeSession>;
-
-    /**
-     * The DAP comm class.
-     *
-     * Wraps a raw server comm (see `createServerComm()`) and provides an optional
-     * `handleMessage()` method for the standard DAP messages.
-     *
-     * Must be disposed. Disposing closes the comm if not already done.
-     */
-    readonly DapComm: typeof DapComm;
 }
 
 /** Specific functionality implemented by runtimes */
@@ -357,24 +359,17 @@ export type CommBackendMessage =
 /**
  * A Debug Adapter Protocol (DAP) comm.
  *
- * This wraps a raw comm that:
+ * This wraps a `Comm` that:
  *
  * - Implements the server protocol (see `createComm()` and
  *   `JupyterLanguageRuntimeSession::createServerComm()`).
  *
  * - Optionally handles a standard set of DAP comm messages.
+ *
+ * Must be disposed when no longer in use or if `comm.receiver` is exhausted.
+ * Disposing the `DapComm` automatically disposes of the nested `Comm`.
  */
-export class DapComm {
-    /**
-     * Constructs a new DapComm instance.
-     *
-     * @param session The Jupyter language runtime session.
-     * @param targetName The name of the comm target.
-     * @param debugType The type of debugger, as required by `vscode.DebugConfiguration.type`.
-     * @param debugName The name of the debugger, as required by `vscode.DebugConfiguration.name`.
-     */
-    constructor(session: JupyterLanguageRuntimeSession, targetName: string, debugType: string, debugName: string);
-
+export interface DapComm {
     /** The `targetName` passed to the constructor. */
     readonly targetName: string;
 
@@ -398,7 +393,7 @@ export class DapComm {
     readonly serverPort?: number;
 
     /**
-     * Crate the raw server comm.
+     * Create the raw server comm.
      *
      * Calls `JupyterLanguageRuntimeSession::createServerComm()`. The backend
      * comm handling for `targetName` is expected to start a DAP server and

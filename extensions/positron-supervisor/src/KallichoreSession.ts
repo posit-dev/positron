@@ -43,6 +43,7 @@ import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { CommBackendRequest, CommRpcMessage, RawCommImpl } from './RawComm';
 import { channel, Sender } from './Channel';
+import { DapComm } from './DapComm';
 
 /**
  * The reason for a disconnection event.
@@ -750,6 +751,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.sendCommand(commOpen);
 
 		return comm as RawComm;
+	}
+
+	/** Create DAP comm. See `positron-supervisor.d.ts` for documentation. */
+	async createDapComm(
+		targetName: string,
+		debugType: string,
+		debugName: string,
+	): Promise<DapComm> {
+		const comm = new DapComm(this, targetName, debugType, debugName);
+		await comm.createComm();
+		return comm;
 	}
 
 	/**

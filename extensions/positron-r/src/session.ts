@@ -841,10 +841,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				throw new Error('Kernel not started');
 			}
 
-			const api = await supervisorApi();
-
-			this._dapComm = new api.DapComm(this._kernel, 'ark_dap', 'ark', 'Ark Positron R');
-			await this._dapComm!.createComm();
+			this._dapComm = await this._kernel.createDapComm('ark_dap', 'ark', 'Ark Positron R');
 
 			// Not awaited: we're spawning an infinite async loop
 			this.startDapMessageLoop();
