@@ -67,9 +67,14 @@ export class LayoutManager {
 	private readonly _customEntrySizes = new Map<number, number>();
 
 	/**
-	 * The entry map.
+	 * The entry map. This is keyed by position and maps position to index.
 	 */
-	private _entryMap: number[] | undefined = undefined;
+	private _entryMap: number[] | undefined;
+
+	/**
+	 * The reverse entry map. This is keyed by index and maps index to position.
+	 */
+	private readonly _reverseEntryMap = new Map<number, number>();
 
 	/**
 	 * Gets the pinned indexes.
@@ -136,12 +141,12 @@ export class LayoutManager {
 
 		// Find the last unpinned entry index.
 		for (let position = this._entryCount - 1; position >= 0; position--) {
-			// Get the index at the position.
-			const indexAtPosition = this.mapPositionToIndex(position);
+			// Map the position to an index.
+			const index = this.mapPositionToIndex(position);
 
-			// If the index at the position is not pinned, return it.
-			if (!this.isPinnedIndex(indexAtPosition)) {
-				return indexAtPosition;
+			// If the index is not pinned, return it.
+			if (!this.isPinnedIndex(index)) {
+				return index;
 			}
 		}
 
@@ -188,6 +193,7 @@ export class LayoutManager {
 		this._pinnedLayoutEntriesSize = size;
 
 		// Return the pinned layout entries size.
+		console.log(`pinnedLayoutEntriesSize is ${size}`);
 		return size;
 	}
 
@@ -212,7 +218,7 @@ export class LayoutManager {
 
 		// Account for custom entry sizes by subtracting the default size and adding the custom entry size for each one.
 		for (const [customEntrySizeIndex, customEntrySize] of this._customEntrySizes) {
-			if (customEntrySizeIndex < this._entryCount && !this.isPinnedIndex(customEntrySizeIndex)) {
+			if (!this.isPinnedIndex(customEntrySizeIndex)) {
 				size -= this._defaultSize;
 				size += customEntrySize;
 			}
@@ -220,7 +226,7 @@ export class LayoutManager {
 
 		// Account for entry sizes by subtracting the default size and adding the entry size for each one.
 		for (const [entrySizeIndex, entrySize] of this._entrySizes) {
-			if (entrySizeIndex < this._entryCount && !this.isPinnedIndex(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex)) {
+			if (!this.isPinnedIndex(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex)) {
 				size -= this._defaultSize;
 				size += entrySize;
 			}
@@ -230,6 +236,7 @@ export class LayoutManager {
 		this._unpinnedLayoutEntriesSize = size;
 
 		// Return the calculated unpinned layout entries size.
+		console.log(`unpinnedLayoutEntriesSize is ${size}`);
 		return size;
 	}
 
@@ -240,42 +247,56 @@ export class LayoutManager {
 	/**
 	 * Sets the entries.
 	 * @param entryCount The entry count.
-	 * @param entrySizes The entry sizes, if any.
-	 * @param entryMap The entry map, if any.
+	 * @param entrySizes The entry sizes, if any. There must be exactly `entryCount` sizes.
+	 * @param entryMap The entry map, if any. There must be exactly `entryCount` entries.
 	 */
 	setEntries(entryCount: number, entrySizes: number[] | undefined = undefined, entryMap: number[] | undefined = undefined) {
-		// Invalidate cached calculations.
-		this.invalidateCachedCalculations();
+		this.timedLog('setEntries', true, () => {
+			// Invalidate cached calculations.
+			this.invalidateCachedCalculations();
 
-		// Set the entry count.
-		this._entryCount = entryCount;
+			// Set the entry count.
+			this._entryCount = entryCount;
 
-		// Set the entry sizes, if they were provided and are valid (i.e., they have the correct length).
-		// all entries are non-negative integers).
-		this._entrySizes.clear();
-		if (entrySizes?.length === this._entryCount) {
-			for (let i = 0; i < entrySizes.length; i++) {
-				this._entrySizes.set(i, entrySizes[i]);
+			// Set the entry sizes, if they were provided and are valid (i.e., they have the correct length).
+			// This is unavoidably O(n) over entry sizes.
+			this._entrySizes.clear();
+			if (entrySizes?.length === this._entryCount) {
+				for (let i = 0; i < entrySizes.length; i++) {
+					this._entrySizes.set(i, entrySizes[i]);
+				}
 			}
-		}
 
-		// Set the entry map, if it was provided and is valid (i.e., it has the correct length and
-		// all entries are non-negative integers and all entries are unique).
-		this._entryMap = entryMap?.length === this._entryCount &&
-			entryMap.every(i => Number.isInteger(i) && i >= 0) &&
-			new Set(entryMap).size === entryMap.length
-			? entryMap
-			: undefined;
-
-		// Remove any pinned indexes that are beyond the entry count. This has the effect of unpinning
-		// any pinned indexes that are no longer valid. The rest of the code in layout manager assumes
-		// that all pinned indexes are valid.
-		for (const pinnedIndex of this._pinnedIndexes) {
-			// If the pinned index is beyond the entry count, delete it.
-			if (pinnedIndex >= this._entryCount) {
-				this._pinnedIndexes.delete(pinnedIndex);
+			// For testing, create a reverse entry map.
+			entryMap = [];
+			for (let i = this._entryCount - 1; i >= 0; i--) {
+				entryMap.push(i);
 			}
-		}
+
+			// Set the entry map, if it was provided and is valid (i.e., it has the correct length).
+			this._entryMap = entryMap?.length === this._entryCount ? entryMap : undefined;
+
+			// Set the reverse entry map, if the entry map was provided. This is unavoidably O(n) over the entry map,
+			this.timedLog('reverseEntryMap', true, () => {
+				this._reverseEntryMap.clear();
+				if (this._entryMap) {
+					for (let position = 0; position < this._entryMap.length; position++) {
+						this._reverseEntryMap.set(this._entryMap[position], position);
+					}
+				}
+			});
+
+			// Remove any pinned indexes that are beyond the entry count. This has the effect of unpinning
+			// any pinned indexes that are no longer valid. The rest of the code in layout manager assumes
+			// that all pinned indexes are valid.
+			for (const pinnedIndex of this._pinnedIndexes) {
+				// If the pinned index is beyond the entry count, delete it.
+				if (pinnedIndex >= this._entryCount) {
+					this._pinnedIndexes.delete(pinnedIndex);
+				}
+			}
+
+		});
 	}
 
 	/**
@@ -443,9 +464,8 @@ export class LayoutManager {
 		const layoutEntries: ILayoutEntry[] = [firstLayoutEntry];
 		const layoutEnd = layoutOffset + layoutSize;
 
-		// Find the rest of the unpinned layout entries to return.
 		let start = firstLayoutEntry.end;
-		for (let index = firstLayoutEntry.index + 1; index < this._entryCount && start < layoutEnd; index++) {
+		for (let index = this.nextIndex(firstLayoutEntry.index); index !== undefined && start < layoutEnd; index = this.nextIndex(index)) {
 			// Skip pinned indexes.
 			if (this.isPinnedIndex(index)) {
 				continue;
@@ -502,7 +522,10 @@ export class LayoutManager {
 			}
 		} else {
 			// Get the position of the index in the entry map.
-			let position = this._entryMap.indexOf(index);
+			let position = this._reverseEntryMap.get(index);
+			if (position === undefined) {
+				return undefined;
+			}
 
 			// Return the previous unpinned entry map index, if found.
 			while (--position >= 0) {
@@ -529,23 +552,23 @@ export class LayoutManager {
 
 	/**
 	 * Returns the next index after the specified index.
-	 * @param index The index to get the next index for.
+	 * @param startingIndex The starting index to get the next index for.
 	 * @returns The next index, if found; otherwise, undefined.
 	 */
-	nextIndex(index: number): number | undefined {
+	nextIndex(startingIndex: number): number | undefined {
 		// Validate the index.
-		if (!this.validateIndex(index)) {
+		if (!this.validateIndex(startingIndex)) {
 			return undefined;
 		}
 
 		// If the index is pinned, return the next pinned index, if there is one; otherwise, return
 		// the first unpinned index, if there is one.
-		if (this.isPinnedIndex(index)) {
+		if (this.isPinnedIndex(startingIndex)) {
 			// Get the pinned indexes as an array.
 			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
 
 			// Get the pinned position.
-			const pinnedPosition = pinnedIndexesArray.indexOf(index);
+			const pinnedPosition = pinnedIndexesArray.indexOf(startingIndex);
 			if (pinnedPosition === -1) {
 				return undefined;
 			}
@@ -557,12 +580,12 @@ export class LayoutManager {
 
 			// The pinned position is the last pinned position, return the first unpinned index.
 			for (let position = 0; position < this._entryCount; position++) {
-				// Get the index at the position.
-				const indexAtPosition = this.mapPositionToIndex(position);
+				// Map the position to an index.
+				const index = this.mapPositionToIndex(position);
 
-				// If the index at the position is not pinned, return it.
-				if (!this.isPinnedIndex(indexAtPosition)) {
-					return indexAtPosition;
+				// If the index is not pinned, return it.
+				if (!this.isPinnedIndex(index)) {
+					return index;
 				}
 			}
 
@@ -572,14 +595,17 @@ export class LayoutManager {
 
 		// Return the next unpinned index.
 		if (!this._entryMap) {
-			for (let i = index + 1; i < this._entryCount; i++) {
+			for (let i = startingIndex + 1; i < this._entryCount; i++) {
 				if (!this.isPinnedIndex(i)) {
 					return i;
 				}
 			}
 		} else {
 			// Get the entry map position of the index.
-			let entryMapPosition = this._entryMap.indexOf(index);
+			let entryMapPosition = this._reverseEntryMap.get(startingIndex);
+			if (entryMapPosition === undefined) {
+				return undefined;
+			}
 
 			// Return the next unpinned index, if found.
 			while (++entryMapPosition < this._entryMap.length) {
@@ -599,80 +625,88 @@ export class LayoutManager {
 
 	/**
 	 * Gets a layout entry by its index.
-	 * @param index The index of the layout entry.
-	 * @returns The layout entry at the specified index, if found; otherwise, undefined.
+	 * @param layoutEntryIndex The index of the layout entry to get.
+	 * @returns The layout entry, if found; otherwise, undefined.
 	 */
-	getLayoutEntry(index: number): ILayoutEntry | undefined {
-		// Validate the index.
-		if (!this.validateIndex(index)) {
-			return undefined;
-		}
-
-		// If the index is pinned, return the pinned layout entry.
-		if (this.isPinnedIndex(index)) {
-			// Get the pinned indexes as an array.
-			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
-
-			// Get the pinned index position within the pinned indexes array.
-			const pinnedIndexPosition = pinnedIndexesArray.indexOf(index);
-
-			// Compute the start of the pinned index.
-			let start = 0;
-			for (let i = 0; i < pinnedIndexPosition; i++) {
-				start += this.entrySize(pinnedIndexesArray[i]);
+	getLayoutEntry(layoutEntryIndex: number): ILayoutEntry | undefined {
+		return this.timedLog<ILayoutEntry | undefined>('getLayoutEntry', false, () => {
+			// Validate the index.
+			if (!this.validateIndex(layoutEntryIndex)) {
+				return undefined;
 			}
 
-			// Return the pinned layout entry.
-			const size = this.entrySize(index);
+			// If the index is pinned, return the pinned layout entry.
+			if (this.isPinnedIndex(layoutEntryIndex)) {
+				// Get the pinned indexes as an array.
+				const pinnedIndexesArray = Array.from(this._pinnedIndexes);
+
+				// Get the pinned index position within the pinned indexes array.
+				const pinnedIndexPosition = pinnedIndexesArray.indexOf(layoutEntryIndex);
+				if (pinnedIndexPosition === -1) {
+					return undefined;
+				}
+
+				// Compute the start of the pinned index.
+				let start = 0;
+				for (let position = 0; position < pinnedIndexPosition; position++) {
+					start += this.entrySize(pinnedIndexesArray[position]);
+				}
+
+				// Return the pinned layout entry.
+				const size = this.entrySize(layoutEntryIndex);
+				return {
+					index: layoutEntryIndex,
+					start,
+					size,
+					end: start + size,
+				};
+			}
+
+			// Get the layout entry position.
+			const layoutEntryPosition = this.mapIndexToPosition(layoutEntryIndex);
+			if (layoutEntryPosition === -1) {
+				return undefined;
+			}
+
+			// Calculate the start as if there were no pinned indexes, no custom entry sizes, and no entry sizes.
+			let start = layoutEntryPosition * this._defaultSize;
+
+			// Adjust the start to account for pinned indexes, custom entry sizes, and entry sizes.
+			for (let position = 0; position < layoutEntryPosition; position++) {
+				// Get the layout entry index at the given position.
+				const positionIndex = this.mapPositionToIndex(position);
+
+				// Subtract the default size if the index is pinned.
+				if (this.isPinnedIndex(positionIndex)) {
+					start -= this._defaultSize;
+					continue;
+				}
+
+				// If the index has a custom entry size, adjust the start for it.
+				const customEntrySize = this._customEntrySizes.get(positionIndex);
+				if (customEntrySize !== undefined) {
+					start -= this._defaultSize;
+					start += customEntrySize;
+					continue;
+				}
+
+				// If the index has an entry size, adjust the start for it.
+				const entrySize = this._entrySizes.get(positionIndex);
+				if (entrySize !== undefined) {
+					start -= this._defaultSize;
+					start += entrySize;
+				}
+			}
+
+			// Return the layout entry.
+			const size = this.entrySize(layoutEntryIndex);
 			return {
-				index,
+				index: layoutEntryIndex,
 				start,
 				size,
 				end: start + size,
 			};
-		}
-
-		// Get the index at the position.
-		const indexAtPosition = this.mapPositionToIndex(index);
-
-		// Calculate the start position as if there were no pinned indexes, no custom entry sizes, and no entry sizes.
-		let start = indexAtPosition * this._defaultSize;
-
-		// Adjust the start position to account for pinned indexes, custom entry sizes, and entry sizes.
-		for (let i = 0; i < indexAtPosition; i++) {
-			// Get the adjust index at position.
-			const adjustIndexAtPosition = this.mapPositionToIndex(i);
-
-			// Subtract the default size of pinned indexes.
-			if (this.isPinnedIndex(adjustIndexAtPosition)) {
-				start -= this._defaultSize;
-				continue;
-			}
-
-			// Adjust the start to account for custom entry sizes.
-			const customEntrySize = this._customEntrySizes.get(adjustIndexAtPosition);
-			if (customEntrySize !== undefined) {
-				start -= this._defaultSize;
-				start += customEntrySize;
-				continue;
-			}
-
-			// Adjust the start to account for entry sizes.
-			const entrySize = this._entrySizes.get(adjustIndexAtPosition);
-			if (entrySize !== undefined) {
-				start -= this._defaultSize;
-				start += entrySize;
-			}
-		}
-
-		// Return the layout entry.
-		const size = this.entrySize(index);
-		return {
-			index,
-			start,
-			size,
-			end: start + size,
-		};
+		});
 	}
 
 	/**
@@ -681,125 +715,129 @@ export class LayoutManager {
 	 * @returns The first unpinned layout entry that contains the layout offset, or undefined if none is found.
 	 */
 	findFirstUnpinnedLayoutEntry(layoutOffset: number): ILayoutEntry | undefined {
-		// Return undefined if there are no entries or the layout offset is invalid.
-		if (!this._entryCount || layoutOffset < 0) {
-			return undefined;
-		}
-
-		// Shortcut for full-span layout: when the layout offset is 0, the default size is 0,
-		// and the entry count is 1, this represents a dynamically sized full-width column or
-		// full-height row. Return the only possible layout entry.
-		if (layoutOffset === 0 && this._defaultSize === 0 && this._entryCount === 1) {
-			return {
-				index: 0,
-				start: 0,
-				size: 0,
-				end: 0,
-			};
-		}
-
-		// Get the sorted pinned indexes, sorted custom entry sizes, and sorted entry sizes. These
-		// will be used to calculate the start of the middle index as efficiently as possible.
-		const pinnedIndexes = [...this._pinnedIndexes].sort((a, b) => a - b);
-		const sortedCustomEntrySizes = [...this._customEntrySizes.entries()]
-			.filter(([customEntrySizeIndex]) => !this.isPinnedIndex(customEntrySizeIndex))
-			.sort(([a], [b]) => a - b);
-		const sortedEntrySizes = [...this._entrySizes.entries()]
-			.filter(([entrySizeIndex]) => !this.isPinnedIndex(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex))
-			.sort(([a], [b]) => a - b);
-
-		// Binary search to find the first unpinned layout entry that contains the offset.
-		let leftPosition = 0;
-		let rightPosition = this._entryCount - 1;
-		while (leftPosition <= rightPosition) {
-			// Calculate the middle position.
-			const middlePosition = Math.floor((leftPosition + rightPosition) / 2);
-
-			// Compute the start.
-			let start = middlePosition * this._defaultSize;
-
-			// Adjust the start to account for pinned indexes.
-			for (let i = 0; i < pinnedIndexes.length; i++) {
-				const pinnedIndex = pinnedIndexes[i];
-				if (pinnedIndex < middlePosition) {
-					start -= this._defaultSize;
-				} else {
-					// No need to check further for pinned indexes.
-					break;
-				}
+		return this.timedLog<ILayoutEntry | undefined>('findFirstUnpinnedLayoutEntry', true, () => {
+			// Return undefined if there are no entries or the layout offset is invalid.
+			if (!this._entryCount || layoutOffset < 0) {
+				return undefined;
 			}
 
-			// Adjust the start to account for custom entry sizes.
-			for (const [customEntrySizeIndex, customEntrySize] of sortedCustomEntrySizes) {
-				if (customEntrySizeIndex < middlePosition) {
-					start -= this._defaultSize;
-					start += customEntrySize;
-				} else {
-					break;
-				}
-			}
-
-			// Adjust the start to account for entry sizes.
-			for (const [entrySizeIndex, entrySize] of sortedEntrySizes) {
-				if (entrySizeIndex < middlePosition) {
-					start -= this._defaultSize;
-					start += entrySize;
-				} else {
-					break;
-				}
-			}
-
-			// If the layout offset is less than the start, search the left half.
-			if (layoutOffset < start) {
-				rightPosition = middlePosition - 1;
-				continue;
-			}
-
-			// Now that we know the start, we can check if the layout offset is within the middle entry.
-			if (layoutOffset >= start && layoutOffset < start + this.entrySize(middlePosition)) {
-				// Set the first unpinned index.
-				let firstUnpinnedIndex = middlePosition;
-
-				// If the first unpinned index is pinned, scan backwards and forwards to find the first unpinned index.
-				if (this.isPinnedIndex(firstUnpinnedIndex)) {
-					// Scan backwards for the first unpinned index.
-					while (firstUnpinnedIndex >= 0 && this.isPinnedIndex(firstUnpinnedIndex)) {
-						firstUnpinnedIndex--;
-					}
-
-					// If scanning backwards for the first unpinned index didn't succeed, scan forwards for the first unpinned index.
-					if (firstUnpinnedIndex < 0) {
-						// Scan forwards for the first unpinned index.
-						firstUnpinnedIndex = middlePosition + 1;
-						while (firstUnpinnedIndex < this._entryCount && this.isPinnedIndex(firstUnpinnedIndex)) {
-							firstUnpinnedIndex++;
-						}
-
-						// If the first unpinned index was not found in either direction, return undefined.
-						if (firstUnpinnedIndex === this._entryCount) {
-							return undefined;
-						}
-					}
-				}
-
-				// Get the size of the first unpinned index.
-				const size = this.entrySize(firstUnpinnedIndex);
-
-				// Return the layout entry for the first unpinned index.
+			// Shortcut for full-span layout: when the layout offset is 0, the default size is 0,
+			// and the entry count is 1, this represents a dynamically sized full-width column or
+			// full-height row. Return the only possible layout entry.
+			if (layoutOffset === 0 && this._defaultSize === 0 && this._entryCount === 1) {
 				return {
-					index: firstUnpinnedIndex,
-					start,
-					size,
-					end: start + size,
+					index: 0,
+					start: 0,
+					size: 0,
+					end: 0,
 				};
 			}
 
-			// Setup the next binary search.
-			leftPosition = middlePosition + 1;
-		}
+			// Get the sorted pinned indexes, sorted custom entry size indexes, and sorted entry size
+			// indexes. These will be used to calculate the start of the middle index as efficiently as
+			// possible.
+			const pinnedIndexes = [...this._pinnedIndexes].sort((a, b) => a - b);
+			const sortedCustomEntrySizes = [...this._customEntrySizes.entries()]
+				.filter(([customEntrySizeIndex]) => !this.isPinnedIndex(customEntrySizeIndex))
+				.sort(([a], [b]) => a - b);
+			const sortedEntrySizes = [...this._entrySizes.entries()]
+				.filter(([entrySizeIndex]) => !this.isPinnedIndex(entrySizeIndex) && !this._customEntrySizes.has(entrySizeIndex))
+				.sort(([a], [b]) => a - b);
 
-		// The first layout entry was not found.
-		return undefined;
+			// Binary search to find the first unpinned layout entry that contains the offset.
+			let leftPosition = 0;
+			let rightPosition = this._entryCount - 1;
+			while (leftPosition <= rightPosition) {
+				// Calculate the middle position.
+				const middlePosition = Math.floor((leftPosition + rightPosition) / 2);
+
+				// Get the middle position.
+				const middleIndex = this.mapPositionToIndex(middlePosition);
+
+				// Compute the start of the middle position as if there were no pinned indexes, no custom entry sizes, and no entry sizes.
+				let start = middlePosition * this._defaultSize;
+
+				// Adjust the start to account for pinned indexes. This is unavoidably O(n) over pinned indexes.
+				for (let i = 0; i < pinnedIndexes.length; i++) {
+					if (this.mapIndexToPosition(pinnedIndexes[i]) < middlePosition) {
+						start -= this._defaultSize;
+					}
+				}
+
+				// Adjust the start to account for custom entry sizes. This is unavoidably O(n) over custom entry sizes.
+				for (const [customEntrySizeIndex, customEntrySize] of sortedCustomEntrySizes) {
+					if (this.mapIndexToPosition(customEntrySizeIndex) < middlePosition) {
+						start -= this._defaultSize;
+						start += customEntrySize;
+					}
+				}
+
+				// Adjust the start to account for entry sizes. This is unavoidably O(n) over entry sizes.
+				for (const [entrySizeIndex, entrySize] of sortedEntrySizes) {
+					if (this.mapIndexToPosition(entrySizeIndex) < middlePosition) {
+						start -= this._defaultSize;
+						start += entrySize;
+					}
+				}
+
+				// If the layout offset is less than the start, search the left half.
+				if (layoutOffset < start) {
+					rightPosition = middlePosition - 1;
+					continue;
+				}
+
+				// Now that we know the start, we can check if the layout offset is within the middle entry.
+				if (layoutOffset >= start && layoutOffset < start + this.entrySize(middleIndex)) {
+					// Set the first unpinned index.
+					let firstUnpinnedIndex = middleIndex;
+
+					// If the first unpinned index is pinned, scan backwards and forwards to find the first unpinned index.
+					if (this.isPinnedIndex(firstUnpinnedIndex)) {
+						// Scan backward from the middle position for the first unpinned index.
+						let backwardScanPosition = middlePosition;
+						while (--backwardScanPosition >= 0) {
+							const index = this.mapPositionToIndex(backwardScanPosition);
+							if (!this.isPinnedIndex(index)) {
+								firstUnpinnedIndex = index;
+								break;
+							}
+						}
+
+						// If backward scan fails, scan forward from the middle position.
+						if (backwardScanPosition === -1) {
+							let forwardScanPosition = middlePosition;
+							while (++forwardScanPosition < this._entryCount) {
+								const index = this.mapPositionToIndex(forwardScanPosition);
+								if (!this.isPinnedIndex(index)) {
+									firstUnpinnedIndex = index;
+									break;
+								}
+							}
+
+							// If the first unpinned index was not found in either direction, return undefined.
+							if (forwardScanPosition === this._entryCount) {
+								return undefined;
+							}
+						}
+					}
+
+					// Return the layout entry for the first unpinned index.
+					const size = this.entrySize(firstUnpinnedIndex);
+					return {
+						index: firstUnpinnedIndex,
+						start,
+						size,
+						end: start + size,
+					};
+				}
+
+				// Setup the next binary search.
+				leftPosition = middlePosition + 1;
+			}
+
+			// The first layout entry was not found.
+			return undefined;
+		});
 	}
 
 	//#endregion Public Methods
@@ -818,7 +856,7 @@ export class LayoutManager {
 		}
 
 		// Validate the index.
-		return !this._entryMap ? index < this._entryCount : this._entryMap.indexOf(index) !== -1;
+		return this._entryMap ? this._reverseEntryMap.has(index) : index < this._entryCount;
 	}
 
 	/**
@@ -830,9 +868,22 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Maps a layout position to its corresponding data index.
-	 * @param position The position within the visible or logical layout.
-	 * @returns The actual index into the data model.
+	 * Maps an index to a position.
+	 * @param index The index.
+	 * @returns The position.
+	 */
+	private mapIndexToPosition(index: number): number {
+		if (!this._entryMap) {
+			return index;
+		} else {
+			return this._reverseEntryMap.get(index) ?? -1;
+		}
+	}
+
+	/**
+	 * Maps a position to an index.
+	 * @param position The position.
+	 * @returns The index.
 	 */
 	private mapPositionToIndex(position: number): number {
 		return this._entryMap ? this._entryMap[position] : position;
@@ -858,6 +909,18 @@ export class LayoutManager {
 
 		// Return the default size.
 		return this._defaultSize;
+	}
+
+	private timedLog<T>(message: string, enabled: boolean, callback: () => T) {
+		const startTime = performance.now();
+		try {
+			return callback();
+		} finally {
+			const endTime = performance.now();
+			if (enabled) {
+				console.log(`${message} took ${endTime - startTime}ms`);
+			}
+		}
 	}
 
 	//#endregion Private Methods
