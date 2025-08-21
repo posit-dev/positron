@@ -51,9 +51,9 @@ export class Tag extends PromptElement<TagProps> {
 			<>
 				<KeepWith><TextChunk>{`<${name}${attrStr}>\n`}</TextChunk></KeepWith>
 				<TagInner priority={1} flexGrow={1}>{children}</TagInner>
-				<TextChunk><br /></TextChunk>
+				<TextChunk>{'\n'}</TextChunk>
 				<KeepWith><TextChunk>{`</${name}>`}</TextChunk></KeepWith>
-				<TextChunk><br /></TextChunk>
+				<TextChunk>{'\n'}</TextChunk>
 			</>
 		);
 	}
