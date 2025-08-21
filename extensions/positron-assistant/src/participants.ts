@@ -196,7 +196,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		token: vscode.CancellationToken,
 	) {
 		// Render system prompt inline based on participant type
-		const system = await this.renderSystemPromptForParticipant(request);
+		const systemMessages = await this.renderSystemPromptForParticipant(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -212,9 +212,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
 
-		// Start with the chat history.
+		// Start with the system messages
+		const messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] = [...systemMessages];
+
+		// Add the chat history.
 		// Note that context.history excludes tool calls and results.
-		const messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] = [...toLanguageModelChatMessage(context.history)];
+		messages.push(...toLanguageModelChatMessage(context.history));
 
 		// Add the user's prompt.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
@@ -234,7 +237,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 
 		// Send the request to the language model.
-		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
+		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);
 
 		return {
 			metadata: {
@@ -246,19 +249,17 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
 				// Include the context message if available
 				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
-				// Include the system prompt used for this request
-				systemPrompt: system,
 			},
 		};
 	}
 
-	private async renderSystemPromptForParticipant(request: vscode.ChatRequest): Promise<string> {
+	private async renderSystemPromptForParticipant(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
 		// Determine participant-specific props
 		const participantType = this.getParticipantType();
 		const props = await this.getUnifiedPromptProps(request, participantType);
 
 		try {
-			return await PromptRenderer.renderSystemPrompt(
+			return await PromptRenderer.renderToMessages(
 				UnifiedPrompt,
 				props,
 				request.model,
@@ -266,7 +267,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			);
 		} catch (error) {
 			console.error('Error rendering system prompt:', error);
-			return '';
+			return [];
 		}
 	}
 
@@ -291,7 +292,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	private async getUnifiedPromptProps(request: vscode.ChatRequest, participantType: 'chat' | 'agent' | 'terminal' | 'editor' | 'edit') {
 		const baseProps = {
 			participantType,
-			priority: 100
+			priority: 100,
+			role: 'system'
 		};
 
 		switch (participantType) {
@@ -615,7 +617,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		token: vscode.CancellationToken,
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
-		system: string,
+		system?: string,
 	): Promise<{ inputTokens?: number; outputTokens?: number } | undefined> {
 		if (token.isCancellationRequested) {
 			return;
@@ -703,7 +705,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					})
 				),
 			];
-			return this.sendLanguageModelRequest(request, response, token, newMessages, tools, system);
+			return this.sendLanguageModelRequest(request, response, token, newMessages, tools);
 		}
 
 		// Return token usage information

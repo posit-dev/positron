@@ -298,6 +298,49 @@ export class PromptRenderer {
 	}
 
 	/**
+	 * Render a prompt-tsx component directly to VS Code chat messages.
+	 * This is the preferred method for message-based rendering.
+	 *
+	 * @param ctor The JSX component constructor to render
+	 * @param props The props for the component
+	 * @param model Language model for rendering
+	 * @param cacheKey Optional cache key for performance optimization
+	 * @returns Promise resolving to an array of VS Code chat messages
+	 */
+	static async renderToMessages<P extends BasePromptElementProps>(
+		ctor: PromptElementCtor<P, any>,
+		props: P,
+		model: vscode.LanguageModelChat,
+		cacheKey?: string
+	): Promise<vscode.LanguageModelChatMessage[]> {
+		try {
+			const endpoint: IChatEndpointInfo = {
+				modelMaxPromptTokens: 128000 // Default reasonable limit
+			};
+
+			const tokenSource = new vscode.CancellationTokenSource();
+			const result = await renderPrompt(
+				ctor,
+				props,
+				endpoint,
+				model,
+				undefined, // progress
+				tokenSource.token
+			);
+
+			// Convert the result messages to VS Code LanguageModelChatMessage array
+			const messages = result.messages as vscode.LanguageModelChatMessage[];
+
+			log.trace(`renderToMessages completed successfully. Generated ${messages.length} messages`);
+			return messages;
+		} catch (error) {
+			const msg = `Failed to render ${ctor.name} to messages with props ${JSON.stringify(props)}: ${error}`;
+			log.error(msg);
+			throw new Error(msg);
+		}
+	}
+
+	/**
 	 * Clear all caches.
 	 */
 	static clearCache(): void {

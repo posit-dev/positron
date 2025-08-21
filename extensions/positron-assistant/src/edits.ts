@@ -123,12 +123,14 @@ async function mapEdit(
 	block: string,
 	token: vscode.CancellationToken,
 ): Promise<string | null> {
-	const system: string = await PromptRenderer.render(MapEditContent, {});
+	// Use the renderSystemPrompt method to get the system instructions
+	const systemPrompt = await PromptRenderer.renderSystemPrompt(MapEditContent, {}, model);
+
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })
 		)
-	], { modelOptions: { system } }, token);
+	], { modelOptions: { system: systemPrompt } }, token);
 
 	let replacement = '';
 	for await (const delta of response.text) {

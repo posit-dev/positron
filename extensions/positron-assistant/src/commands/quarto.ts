@@ -19,7 +19,7 @@ export async function quartoHandler(
 	response: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ) {
-	const system = await PromptRenderer.render(QuartoContent, {});
+	const systemPrompt = await PromptRenderer.renderSystemPrompt(QuartoContent, {}, request.model);
 
 	response.markdown(vscode.l10n.t('Okay!'));
 	response.progress(vscode.l10n.t('Creating new Quarto document...'));
@@ -36,7 +36,7 @@ export async function quartoHandler(
 
 	response.progress(vscode.l10n.t('Writing Quarto document...'));
 	const modelResponse = await request.model.sendRequest(messages, {
-		modelOptions: { system },
+		modelOptions: { system: systemPrompt },
 	}, token);
 
 	for await (const chunk of modelResponse.text) {
