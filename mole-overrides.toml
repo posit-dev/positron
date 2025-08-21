@@ -31,6 +31,11 @@ attribution = [
 'Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)'
 ]
 
+['npm::apache-arrow=*']
+# License file includes too many supplemental copyrights
+# License text explains situation
+attribution = ['Copyright 2016-2024 The Apache Software Foundation']
+
 ['npm::bat=1.0.0']
 # Built-in extensions from Code OSS upstream
 attribution = ['Copyright (c) Microsoft Corporation']
@@ -394,3 +399,79 @@ attribution = ['Copyright (c) Microsoft Corporation']
 # Built-in extensions from Code OSS upstream
 attribution = ['Copyright (c) Microsoft Corporation']
 
+['rust::anstream']
+# If not renamed explicitly, gets merged into anstyle
+rename = 'anstream'
+
+['rust::anstyle-query']
+# If not renamed explicitly, gets merged into anstyle
+rename = 'anstyle-query'
+
+['rust::biome*']
+# Some subpackages lack detectable attribution
+attribution = ['Copyright 2023 Biome Developers and Contributors.']
+
+['rust::cargo']
+# No attribution anywhere to be found
+author = 'the Cargo team'
+
+['rust::colorchoice']
+# If not renamed explicitly, gets merged into anstyle
+rename = 'colorchoice'
+
+['rust::env_logger']
+# Deployed package doesn't contain license files
+license_files = [
+'https://github.com/rust-cli/env_logger/blob/main/LICENSE-MIT',
+'https://github.com/rust-cli/env_logger/blob/main/LICENSE-APACHE'
+]
+
+['rust::notify']
+# Deployed package only contains references to other license files
+license_files = [
+'https://github.com/notify-rs/notify/blob/notify-6.0.0/LICENSE',
+'https://github.com/notify-rs/notify/blob/notify-6.0.0/LICENSE.ARTISTIC'
+]
+
+['rust::pin-project']
+# No attribution information anywhere to be found
+# Use author tag to indicate packager to avoid over-asserting copyright
+author = 'Taiki Endo'
+
+['rust::pin-project-lite']
+# No attribution information anywhere to be found
+# Use author tag to indicate packager to avoid over-asserting copyright
+author = 'Taiki Endo'
+
+['rust::ring']
+# unclear parsing in some versions
+license = ['MIT', 'BoringSSL', 'ISC', 'Apache-2.0']
+license_files = [['@', 'LICENSE']]
+
+['rust::typenum']
+# license file is invalid; skip it
+license_files = []
+
+['rust::valuable']
+# Deployed package doesn't contain license files
+license_files = ['https://github.com/tokio-rs/valuable/blob/master/LICENSE']
+
+['rust::wasm-metadata']
+# No explicit attribution
+author = 'Bytecode Alliance'
+
+['rust::winnow']
+# Copyright file isn't easily parsed
+attribution = ['Copyrights in winnow are retained by their contributors.']
+
+['rust::wit-bindgen-rt']
+# No explicit attribution
+author = 'Bytecode Alliance'
+
+['rust::zstd-safe']
+# license file is invalid; skip it
+license_files = []
+
+['rust::zstd-sys']
+# has more license files than it actually uses
+license_files = [['@', 'LICENSE.Mit'], ['@', 'LICENSE.Apache-2.0']]

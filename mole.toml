@@ -45,10 +45,10 @@ shared_license = """
 """
 
 [repos]
-ARK_PATH = "../ark"
-AIR_PATH = "../air"
+ARK_PATH = "../ark-local"
+AIR_PATH = "../air-local"
 CODICONS_PATH = "../positron-codicons"
-KALLICHORE_PATH = "../kallichore"
+KALLICHORE_PATH = "../kallichore-local"
 
 [groups.npm]
 positron = "."
@@ -56,19 +56,16 @@ codicons = ["CODICONS_PATH", ""]
 extensions = "extensions/*/package.json"
 
 [groups.rust]
-ark = ["ARK_PATH", "crates/*/Cargo.toml"]
 air = ["AIR_PATH", "crates/*"]
+ark = ["ARK_PATH", "crates/*/Cargo.toml"]
 kallichore = ["KALLICHORE_PATH", "crates/*"]
 
 [collections]
-positron_collection = ["positron", "extensions", "kallichore", "codicons"]
-air_collection = ["air"]
-ark_collection = ["ark"]
+positron_collection = ["positron", "extensions", "kallichore", "air", "ark", "codicons"]
 
 [spdx-overrides]
 # Contains an SPDX identifier for one of the sub-licenses
 'https://github.com/nodejs/node/raw/main/LICENSE' = ['MIT-with-additional']
-'https://github.com/posit-dev/positron/blob/main/LICENSE.txt' = ['Elastic-2.0']
 
 [relabel]
 'npm::@babel/' = 'Babel.js'
@@ -100,3 +97,16 @@ ark_collection = ["ark"]
 'npm::vue=' = 'Vue.js'
 'npm::@vue/' = 'Vue.js'
 'npm::@yarnpkg/' = 'Yarn'
+
+[rust.group]
+'anstyle-query' = 'anstyle'
+'clap_builder' = 'clap'
+'clap_derive' = 'clap'
+'clap_lex' = 'clap'
+'colorchoice' = 'anstyle'
+'frunk_core' = 'frunk'
+'frunk_derives' = 'frunk'
+'frunk_proc_macro_helpers' = 'frunk'
+'frunk_proc_macros' = 'frunk'
+'tokio-test' = 'tokio'
+'tokio-util' = 'tokio'

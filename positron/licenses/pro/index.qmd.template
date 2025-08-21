@@ -21,14 +21,7 @@ You may also request a copy of the source code for any of these components
 by sending an email to [info@posit.co](mailto:info@posit.co).
 
 ## Components used by Positron Pro
-
 %(positron_collection)s
-
-### Components used by AIR and ARK
-
-%(air_collection)s
-
-%(ark_collection)s
 
 ## Licenses used by multiple components
 %(shared-licenses)s
