@@ -966,7 +966,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "posit-dev/ark@bugfix/open-file-uri"
+      "ark": "posit-dev/ark@task/dap-comm"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
