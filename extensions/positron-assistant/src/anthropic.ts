@@ -263,6 +263,16 @@ function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anth
 			`User message ${userMessageIndex++}` :
 			`Assistant message ${assistantMessageIndex++}`;
 		return toAnthropicMessage(message, source);
+	}).filter(message => {
+		if (!!message.content && message.content.length > 0) {
+			// Message has content
+			return true;
+		} else {
+			// prompt-tsx can create empty chat messages; they are ignorable
+			// (but can be logged at trace level)
+			log.trace(`Skipping message with empty content: ${JSON.stringify(message, null, 2)}`);
+		}
+		return false;
 	});
 	return anthropicMessages;
 }
