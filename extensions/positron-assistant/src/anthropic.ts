@@ -327,7 +327,7 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				// Skip other data parts.
 			}
 		} else {
-			log.warn(`Skipping unsupported part type on user message: ${JSON.stringify(part, null, 2)}`);
+			log.trace(`Skipping part in user message: ${JSON.stringify(part, null, 2)}`);
 		}
 	}
 	return {
@@ -462,7 +462,9 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 
 	// Debug logging to help identify problematic tools
 	if (!input_schema.type) {
-		log.warn('Tool missing type in input_schema:', {
+		// the 'copilot_testFailure' tool contributed by Copilot Chat is missing
+		// its type annotation, which Anthropic can't handle
+		log.trace('Tool missing type in input_schema, guessing object type:', {
 			name: tool.name,
 			description: tool.description,
 			inputSchema: tool.inputSchema,
