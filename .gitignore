@@ -37,6 +37,7 @@ product.overrides.json
 /test-logs/
 .venv
 # Ignore License Mole caches
+.mole.license_cache.json
 .mole.rust_cache/
 .mole.web_cache/
 # --- End Positron ---
