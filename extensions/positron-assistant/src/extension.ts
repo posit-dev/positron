@@ -18,6 +18,7 @@ import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
+import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
@@ -265,6 +266,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register code action provider
 	registerCodeActionProvider(context);
+
+	// Register participant detection provider
+	registerParticipantDetectionProvider();
 
 	// Register chat commands
 	registerAssistantCommands();
