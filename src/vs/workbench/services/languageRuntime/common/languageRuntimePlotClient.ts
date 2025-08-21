@@ -12,6 +12,7 @@ import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { padBase64 } from './utils.js';
 
 export const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
 
@@ -195,7 +196,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			// The policy should normally be defined in a pre-render result but we
 			// check just in case
 			if (preRender.settings) {
-				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+				const uri = `data:${preRender.mime_type};base64,${padBase64(preRender.data)}`;
 				this._lastRender = {
 					uri,
 					size: preRender.settings.size,
