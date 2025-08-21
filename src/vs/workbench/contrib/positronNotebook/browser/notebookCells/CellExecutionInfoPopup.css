@@ -1,0 +1,136 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.cell-execution-info-popup {
+	padding: 12px;
+	background: var(--vscode-editorHoverWidget-background);
+	border-radius: 6px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	font-size: 12px;
+	color: var(--vscode-editorHoverWidget-foreground);
+	min-width: 80px;
+	max-width: 300px;
+}
+
+.popup-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+	line-height: 1.4;
+}
+
+.popup-row:last-child {
+	margin-bottom: 0;
+}
+
+.popup-row-secondary {
+	margin-top: -2px;
+	margin-bottom: 6px;
+}
+
+.popup-icon {
+	font-size: 14px;
+	min-width: 16px;
+	text-align: center;
+	color: var(--vscode-symbolIcon-colorForeground);
+}
+
+.popup-icon.codicon-play {
+	color: var(--vscode-textLink-foreground);
+}
+
+.popup-icon.codicon-clock {
+	color: var(--vscode-descriptionForeground);
+}
+
+.popup-icon.codicon-calendar {
+	color: var(--vscode-descriptionForeground);
+}
+
+.popup-icon.codicon-pass {
+	color: var(--vscode-testing-iconPassed);
+}
+
+.popup-icon.codicon-error {
+	color: var(--vscode-testing-iconFailed);
+}
+
+.popup-icon.codicon-sync {
+	color: var(--vscode-debugIcon-startForeground);
+}
+
+.popup-label {
+	flex: 1;
+	white-space: nowrap;
+	color: var(--vscode-editorHoverWidget-foreground);
+}
+
+.popup-label-text {
+	color: var(--vscode-descriptionForeground);
+	flex: 0 0 auto;
+	margin-right: 3px;
+}
+
+.popup-value-text {
+	color: var(--vscode-foreground);
+	font-weight: 500;
+	flex: 0 0 auto;
+}
+
+.popup-separator {
+	height: 1px;
+	background-color: var(--vscode-descriptionForeground);
+	opacity: 0.2;
+	margin: 8px 0;
+}
+
+.popup-label-secondary {
+	font-style: italic;
+	opacity: 0.8;
+	color: var(--vscode-descriptionForeground);
+}
+
+.popup-label-success {
+	color: var(--vscode-testing-iconPassed);
+	font-weight: 500;
+}
+
+.popup-label-failed {
+	color: var(--vscode-testing-iconFailed);
+	font-weight: 500;
+}
+
+/* Dark theme adjustments */
+.vscode-dark .cell-execution-info-popup {
+	background: var(--vscode-editorHoverWidget-background);
+	border-color: var(--vscode-editorHoverWidget-border);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* High contrast theme adjustments */
+.vscode-high-contrast .cell-execution-info-popup {
+	background: var(--vscode-editorHoverWidget-background);
+	border: 2px solid var(--vscode-editorHoverWidget-border);
+}
+
+/* Ensure proper spacing and alignment */
+.cell-execution-info-popup .popup-row:first-child {
+	margin-top: 0;
+}
+
+/* Animation for spinning icon */
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.codicon-modifier-spin {
+	animation: spin 1s linear infinite;
+}
