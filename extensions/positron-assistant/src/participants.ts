@@ -196,7 +196,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		try {
 			// Get an extended Assistant-specific chat context
-			const assistantContext = await this.getAssistantContext(request, context, response);
+			const assistantContext = await this.getAssistantContext(request, context, response, token);
 
 			// Select request handler based on the command issued by the user for this request
 			if (request.command) {
@@ -235,12 +235,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	private async getAssistantContext(
 		request: vscode.ChatRequest,
-		context: vscode.ChatContext,
+		incomingContext: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	): Promise<PositronAssistantChatContext> {
 		// Render system prompt inline based on participant type
-		const systemMessages = await this.renderSystemPromptForParticipant(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -251,7 +250,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			vscode.lm.tools.map(
 				tool => {
 					const available = (value: boolean) => [tool.name as PositronAssistantToolName, value] as [PositronAssistantToolName, boolean];
-
 					return available(enabledTools.includes(tool.name));
 				}));
 
@@ -260,7 +258,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			...incomingContext,
 			participantId: this.id,
 			positronContext,
-			systemPrompt,
+			systemPrompt: '',
 			toolAvailability,
 			contextInfo: undefined,
 			async attachContextInfo(messages: vscode.LanguageModelChatMessage2[]) {
@@ -285,7 +283,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	) {
-		const { systemPrompt, positronContext, toolAvailability, attachContextInfo } = context;
+		const { positronContext, toolAvailability, attachContextInfo } = context;
+
+		const systemMessages = await this.renderSystemPromptForParticipant(request);
 
 		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
 
