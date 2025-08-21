@@ -271,7 +271,16 @@ export interface RawComm {
 	/** The comm ID. */
 	id: string;
 
-	/** Async-iterable for messages sent from backend. */
+	/**
+	 * Async-iterable for messages sent from backend.
+	 *
+	 * - This receiver channel _must_ be awaited and handled to exhaustion.
+	 * - When exhausted, you _must_ dispose of the comm.
+	 *
+	 * Yields `CommBackendMessage` messages which are a tagged union of
+	 * notifications and requests. If a request, the `handle` method _must_ be
+	 * called (see `CommBackendMessage` documentation).
+	 */
 	receiver: ReceiverChannel<CommBackendMessage>;
 
 	/**
@@ -307,23 +316,23 @@ export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable 
 /**
  * Base class for communication errors.
  */
-export declare class CommError extends Error {
-	name: 'CommError' | 'CommClosedError' | 'CommRpcError';
+export class CommError extends Error {
+	constructor(message: string, method?: string);
 	readonly method?: string;
 }
 
 /**
  * Error thrown when attempting to communicate through a closed channel.
  */
-export declare class CommClosedError extends CommError {
-	name: 'CommClosedError';
+export class CommClosedError extends CommError {
+	constructor(commId: string, method?: string);
 }
 
 /**
  * Error thrown for RPC-specific errors with error codes.
  */
-export declare class CommRpcError extends CommError {
-	name: 'CommRpcError';
+export class CommRpcError extends CommError {
+	constructor(message: string, code?: number, method?: string);
 	readonly code: number;
 }
 

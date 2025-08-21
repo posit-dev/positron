@@ -846,6 +846,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			this._dapComm = new api.DapComm(this._kernel, 'ark_dap', 'ark', 'Ark Positron R');
 			await this._dapComm!.createComm();
 
+			// Not awaited: we're spawning an infinite async loop
 			this.startDapMessageLoop();
 		} catch (err) {
 			LOGGER.error(`Error starting DAP: ${err}`);
@@ -867,7 +868,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Handle DAP messages in an infinite loop
+	 * Handle DAP messages in an infinite loop.
+	 * Should typically not be awaited.
 	 */
 	private async startDapMessageLoop(): Promise<void> {
 		LOGGER.info('Starting DAP loop');

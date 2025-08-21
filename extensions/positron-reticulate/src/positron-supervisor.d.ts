@@ -271,7 +271,16 @@ export interface RawComm {
 	/** The comm ID. */
 	id: string;
 
-	/** Async-iterable for messages sent from backend. */
+	/**
+	 * Async-iterable for messages sent from backend.
+	 *
+	 * - This receiver channel _must_ be awaited and handled to exhaustion.
+	 * - When exhausted, you _must_ dispose of the comm.
+	 *
+	 * Yields `CommBackendMessage` messages which are a tagged union of
+	 * notifications and requests. If a request, the `handle` method _must_ be
+	 * called (see `CommBackendMessage` documentation).
+	 */
 	receiver: ReceiverChannel<CommBackendMessage>;
 
 	/**
