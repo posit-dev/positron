@@ -4,6 +4,7 @@
   "description": "%description%",
   "version": "0.0.1",
   "publisher": "positron",
+  "private": true,
   "engines": {
     "vscode": "^1.65.0"
   },
