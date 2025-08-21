@@ -974,7 +974,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.209"
+      "ark": "posit-dev/ark@task/dap-comm"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
