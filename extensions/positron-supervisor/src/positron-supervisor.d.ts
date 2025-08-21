@@ -322,23 +322,23 @@ export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable 
 /**
  * Base class for communication errors.
  */
-export class CommError extends Error {
-	constructor(message: string, method?: string);
+export interface CommError extends Error {
+	readonly name: 'CommError' | 'CommClosedError' | 'CommRpcError';
 	readonly method?: string;
 }
 
 /**
  * Error thrown when attempting to communicate through a closed channel.
  */
-export class CommClosedError extends CommError {
-	constructor(commId: string, method?: string);
+export interface CommClosedError extends CommError {
+	readonly name: 'CommClosedError';
 }
 
 /**
  * Error thrown for RPC-specific errors with error codes.
  */
-export class CommRpcError extends CommError {
-	constructor(message: string, code?: number, method?: string);
+export interface CommRpcError extends CommError {
+	readonly name: 'CommRpcError';
 	readonly code: number;
 }
 
