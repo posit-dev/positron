@@ -15,6 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -32,6 +33,9 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 
 	// State hooks.
 	const [showTraceback, setShowTraceback] = useState(false);
+
+	// Configuration hooks.
+	const showAssistantActions = usePositronConfiguration<boolean>('positron.assistant.consoleActions.enable');
 
 	// Traceback useEffect.
 	useEffect(() => {
@@ -72,7 +76,9 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 									}
 								</PositronButton>
 							}
-							<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+							{showAssistantActions &&
+								<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+							}
 						</div>
 						{showTraceback &&
 							<div className='traceback-lines'>

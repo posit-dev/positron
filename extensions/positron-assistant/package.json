@@ -244,6 +244,14 @@
             "type": "boolean",
             "default": true,
             "description": "%configuration.followups.enable.description%"
+          },
+          "positron.assistant.consoleActions.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.consoleActions.enable.description%",
+            "tags": [
+              "experimental"
+            ]
           }
         }
       }
