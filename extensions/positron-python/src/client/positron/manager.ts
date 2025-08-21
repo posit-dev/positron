@@ -276,6 +276,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // displayed to fill the webview.
             env.PLOTLY_RENDERER = 'browser';
         }
+        // For debugging notebook cells: https://github.com/microsoft/debugpy/issues/869
+        env.PYDEVD_IPYTHON_COMPATIBLE_DEBUGGING = '1';
         const kernelSpec: JupyterKernelSpec = {
             argv: args,
             display_name: `${runtimeMetadata.runtimeName}`,

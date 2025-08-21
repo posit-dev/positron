@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v3
@@ -63,7 +63,7 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
         env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v6
@@ -135,7 +135,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -181,7 +181,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v6
@@ -213,7 +213,7 @@ jobs:
             python: '3.9'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v6
@@ -244,7 +244,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ['3.x']
         test-suite:
-          [ts-unit, venv, single-workspace, debugger, functional, smoke]
+          [ts-unit, venv, single-workspace, debugger, functional]
         # TODO: Add integration tests on windows and ubuntu. This requires updating
         # src/test/positron/testElectron.ts to support installing Positron on these platforms.
         exclude:
@@ -254,20 +254,16 @@ jobs:
             test-suite: debugger
           - os: windows-latest
             test-suite: single-workspace
-          - os: windows-latest
-            test-suite: smoke
           - os: ubuntu-latest
             test-suite: venv
           - os: ubuntu-latest
             test-suite: debugger
           - os: ubuntu-latest
             test-suite: single-workspace
-          - os: ubuntu-latest
-            test-suite: smoke
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -287,7 +283,7 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
         env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
@@ -376,10 +372,6 @@ jobs:
           & $condaPythonPath ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} condaPath
           & $condaExecPath init --all
 
-      - name: Prepare VSIX for smoke tests
-        run: npm run package --allow-star-activation
-        if: matrix.test-suite == 'smoke'
-
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
           echo "CI_PYTHON_PATH=$(which python)" >> $GITHUB_ENV
@@ -402,7 +394,7 @@ jobs:
         env:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testSingleWorkspace
@@ -412,7 +404,7 @@ jobs:
       - name: Run single-workspace tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testSingleWorkspace
@@ -422,7 +414,7 @@ jobs:
       - name: Run debugger tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testDebugger
@@ -433,9 +425,3 @@ jobs:
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
 
-      - name: Run smoke tests
-        env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          npx tsc && node ./out/test/smokeTest.js
-        if: matrix.test-suite == 'smoke'

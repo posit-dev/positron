@@ -11,7 +11,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
-import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
@@ -21,6 +21,7 @@ import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoo
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -43,6 +44,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * The current column name search filter text.
 	 */
 	private _searchText?: string;
+
+	/**
+	 * The current sort option for the summary rows
+	 *
+	 * If no sort option is set, the summary rows
+	 * are displayed in their original order.
+	 */
+	private _sortOption?: SearchSchemaSortOrder;
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -176,6 +185,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the search text.
+	 */
+	get searchText() {
+		return this._searchText;
+	}
+
+	/**
+	 * Gets the sort option.
+	 */
+	get sortOption() {
+		return this._sortOption;
+	}
+
+	/**
 	 * Gets the scroll width.
 	 */
 	override get scrollWidth() {
@@ -203,13 +226,21 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
+		const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(this._services.configurationService);
 		if (rowDescriptor) {
-			await this._tableSummaryCache.update({
-				invalidateCache: !!invalidateCache,
-				searchText: this._searchText,
-				firstColumnIndex: rowDescriptor.rowIndex,
-				screenColumns: this.screenRows
-			});
+			showSummaryPanelEnhancements
+				? await this._tableSummaryCache.update2({
+					invalidateCache: !!invalidateCache,
+					searchText: this._searchText,
+					sortOption: this._sortOption,
+					firstColumnIndex: rowDescriptor.rowIndex,
+					screenColumns: this.screenRows
+				})
+				: await this._tableSummaryCache.update({
+					invalidateCache: !!invalidateCache,
+					firstColumnIndex: rowDescriptor.rowIndex,
+					screenColumns: this.screenRows
+				});
 		}
 	}
 
@@ -340,7 +371,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 
 		// Calculate and return the column null percent.
-		return Math.floor(nullCount * 100 / rows);
+		return (nullCount * 100) / rows;
 	}
 
 	/**
@@ -396,6 +427,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		this._searchText = searchText || undefined;
 		// Invalidate the cache when the search text is cleared
 		await this.fetchData(!this._searchText);
+	}
+
+	/**
+	 * Sets the sort option for the summary rows.
+	 * @param sortOption The sort option used to order the rows.
+	 */
+	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
+		this._sortOption = sortOption;
+		await this.fetchData();
 	}
 
 	//#endregion Public Methods

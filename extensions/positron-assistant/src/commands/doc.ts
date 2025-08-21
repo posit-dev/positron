@@ -23,7 +23,7 @@ export async function docHandler(
 ) {
 	const { systemPrompt } = context;
 
-	response.progress('Generating documentation...');
+	response.progress(vscode.l10n.t('Generating documentation...'));
 
 	const prompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/doc.md`, 'utf8');
 	context.systemPrompt = `${systemPrompt}\n\n${prompt}`;

@@ -805,15 +805,11 @@
                     "type": "string"
                 },
                 "python.locator": {
-                    "default": "js",
-                    "description": "%python.locator.description%",
+                    "default": "native",
+                    "markdownDescription": "%python.locator.description%",
                     "enum": [
                         "js",
                         "native"
-                    ],
-                    "tags": [
-                        "onExP",
-                        "preview"
                     ],
                     "scope": "machine-overridable",
                     "type": "string"
