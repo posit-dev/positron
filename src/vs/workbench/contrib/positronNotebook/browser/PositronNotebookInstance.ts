@@ -14,7 +14,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
-import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState } from '../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
-import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, SelectionStateMachine, SelectionState } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
@@ -35,6 +35,8 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -199,6 +201,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private readonly _onDidScrollCellsContainer = this._register(new Emitter<void>());
 	readonly onDidScrollCellsContainer = this._onDidScrollCellsContainer.event;
+
+	/**
+	 * Internal clipboard for storing cells with full fidelity
+	 */
+	private _clipboardCells: ICellDto2[] = [];
+
+	/**
+	 * Flag to track if the clipboard contains cut cells (vs copied cells)
+	 */
+	private _isClipboardCut: boolean = false;
 
 	// =============================================================================================
 	// #region Public Properties
@@ -378,6 +390,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		// @INotificationService private readonly _notificationService: INotificationService,
 	) {
 		super();
 
@@ -470,6 +484,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
+	// TODO: Could this be made more generic to support the copy paste workflows as well?
 	addCell(type: CellKind, index: number): void {
 		this._assertTextModel();
 
@@ -522,11 +537,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	deleteCell(cellToDelete?: IPositronNotebookCell): void {
+		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
+		if (!cell) {
+			return;
+		}
+		this.deleteCells([cell]);
+	}
+
+	deleteCells(cellsToDelete: IPositronNotebookCell[]): void {
 		this._assertTextModel();
 
-		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
-
-		if (!cell) {
+		if (cellsToDelete.length === 0) {
 			return;
 		}
 
@@ -534,19 +555,51 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// TODO: Hook up readOnly to the notebook actual value
 		const readOnly = false;
 		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
-		const cellIndex = textModel.cells.indexOf(cell.cellModel as NotebookCellTextModel);
 
-		const edits: ICellReplaceEdit = {
-			editType: CellEditType.Replace, index: cellIndex, count: 1, cells: []
-		};
+		// Get indices and sort in descending order to avoid index shifting
+		const cellIndices = cellsToDelete
+			.map(cell => textModel.cells.indexOf(cell.cellModel as NotebookCellTextModel))
+			.filter(index => index >= 0)
+			.sort((a, b) => b - a);
 
-		const nextCellAfterContainingSelection = textModel.cells[cellIndex + 1] ?? undefined;
+		if (cellIndices.length === 0) {
+			return;
+		}
+
+		// Calculate where focus should go after deletion
+		const lowestDeletedIndex = Math.min(...cellIndices);
+		const totalCellsToDelete = cellIndices.length;
+		const originalCellCount = textModel.cells.length;
+		const newCellCount = originalCellCount - totalCellsToDelete;
+
+		// Determine the index of the cell that should receive focus after deletion
+		let targetFocusIndex: number | null = null;
+		if (newCellCount > 0) {
+			if (lowestDeletedIndex < newCellCount) {
+				// Focus on the cell that takes the place of the first deleted cell
+				targetFocusIndex = lowestDeletedIndex;
+			} else {
+				// We deleted from the end, focus on the last remaining cell
+				targetFocusIndex = newCellCount - 1;
+			}
+		}
+
+		// Create delete edits for each cell
+		const edits: ICellReplaceEdit[] = cellIndices.map(index => ({
+			editType: CellEditType.Replace,
+			index,
+			count: 1,
+			cells: []
+		}));
+
+		// Find the cell that will be at the position of the first (lowest index) deleted cell
+		const nextCellAfterContainingSelection = textModel.cells[lowestDeletedIndex + cellIndices.length] ?? undefined;
 		const focusRange = {
-			start: cellIndex,
-			end: cellIndex + 1
+			start: lowestDeletedIndex,
+			end: lowestDeletedIndex + 1
 		};
 
-		textModel.applyEdits([edits], true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
+		textModel.applyEdits(edits, true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
 			if (nextCellAfterContainingSelection) {
 				const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
 				return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
@@ -554,7 +607,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				if (textModel.length) {
 					const lastCellIndex = textModel.length - 1;
 					return { kind: SelectionStateType.Index, focus: { start: lastCellIndex, end: lastCellIndex + 1 }, selections: [{ start: lastCellIndex, end: lastCellIndex + 1 }] };
-
 				} else {
 					return { kind: SelectionStateType.Index, focus: { start: 0, end: 0 }, selections: [{ start: 0, end: 0 }] };
 				}
@@ -562,6 +614,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}, undefined, computeUndoRedo);
 
 		this._onDidChangeContent.fire();
+
+		// --- Start Positron ---
+		// After the content change fires and cells are synced, explicitly set the selection
+		// to maintain focus on the appropriate cell after deletion
+		if (targetFocusIndex !== null) {
+			this._register(disposableTimeout(() => {
+				if (targetFocusIndex !== null && targetFocusIndex < this._cells.length) {
+					const cellToFocus = this._cells[targetFocusIndex];
+					if (cellToFocus) {
+						this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
+						cellToFocus.focus();
+					}
+				}
+			}, 0));
+		}
+		// --- End Positron ---
 	}
 
 
@@ -638,6 +706,136 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._logService.info(this.id, 'Closing a notebook instance');
 		this.dispose();
 	}
+
+	// #endregion
+
+	// =============================================================================================
+	// #region Clipboard Methods
+
+	copyCells(cells?: IPositronNotebookCell[]): void {
+		const cellsToCopy = cells || this.getSelectedCells();
+
+		if (cellsToCopy.length === 0) {
+			return;
+		}
+
+		// Store internally for full-fidelity paste
+		this._clipboardCells = cellsToCopy.map(cell => cellToCellDto2(cell));
+		this._isClipboardCut = false;
+
+		// Also write to system clipboard as text
+		const clipboardText = serializeCellsToClipboard(cellsToCopy);
+		this._clipboardService.writeText(clipboardText);
+
+		// Log for debugging
+		this._logService.debug(`Copied ${cellsToCopy.length} cells to clipboard`);
+	}
+
+	cutCells(cells?: IPositronNotebookCell[]): void {
+		const cellsToCut = cells || this.getSelectedCells();
+
+		if (cellsToCut.length === 0) {
+			return;
+		}
+
+		// Copy cells first
+		this.copyCells(cellsToCut);
+		this._isClipboardCut = true;
+
+		// Delete the cells (this handles selection and focus automatically)
+		this.deleteCells(cellsToCut);
+	}
+
+	pasteCells(index?: number): void {
+		if (!this.canPaste()) {
+			return;
+		}
+
+		this._assertTextModel();
+
+		const pasteIndex = index ?? this.getInsertionIndex();
+		const cellCount = this._clipboardCells.length;
+
+		// Use textModel.applyEdits to properly create and register cells
+		const synchronous = true;
+		const pushUndoStop = true;
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: pasteIndex, end: pasteIndex + cellCount },
+			selections: [{ start: pasteIndex, end: pasteIndex + cellCount }]
+		};
+		const focusAfterInsertion = {
+			start: pasteIndex,
+			end: pasteIndex + cellCount
+		};
+
+		this.textModel.applyEdits([
+			{
+				editType: CellEditType.Replace,
+				index: pasteIndex,
+				count: 0,
+				cells: this._clipboardCells
+			}
+		],
+			synchronous,
+			{
+				kind: SelectionStateType.Index,
+				focus: focusAfterInsertion,
+				selections: [focusAfterInsertion]
+			},
+			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
+		);
+
+		// If this was a cut operation, clear the clipboard
+		if (this._isClipboardCut) {
+			this._clipboardCells = [];
+			this._isClipboardCut = false;
+		}
+
+		this._onDidChangeContent.fire();
+	}
+
+	pasteCellsAbove(): void {
+		const selection = this.getSelectedCells();
+		if (selection.length > 0) {
+			const firstSelectedIndex = this.cells.get().indexOf(selection[0]);
+			this.pasteCells(firstSelectedIndex);
+		} else {
+			this.pasteCells(0);
+		}
+	}
+
+	canPaste(): boolean {
+		return this._clipboardCells.length > 0;
+	}
+
+	// Helper method to get selected cells
+	private getSelectedCells(): IPositronNotebookCell[] {
+		const state = this.selectionStateMachine.state.get();
+
+		switch (state.type) {
+			case SelectionState.SingleSelection:
+			case SelectionState.MultiSelection:
+				return state.selected;
+			case SelectionState.EditingSelection:
+				return [state.selectedCell];
+			case SelectionState.NoSelection:
+			default:
+				return [];
+		}
+	}
+
+	// Helper method to get insertion index
+	private getInsertionIndex(): number {
+		const selections = this.getSelectedCells();
+		if (selections.length > 0) {
+			const lastSelectedIndex = this.cells.get().indexOf(selections[selections.length - 1]);
+			return lastSelectedIndex + 1;
+		}
+		return this.cells.get().length;
+	}
+
+
 
 	// #endregion
 

@@ -268,6 +268,14 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 
 //#region Keybindings
+
+//#region Clipboard Commands
+const POSITRON_NOTEBOOK_COPY_CELLS = 'positronNotebook.copyCells';
+const POSITRON_NOTEBOOK_CUT_CELLS = 'positronNotebook.cutCells';
+const POSITRON_NOTEBOOK_PASTE_CELLS = 'positronNotebook.pasteCells';
+const POSITRON_NOTEBOOK_PASTE_CELLS_ABOVE = 'positronNotebook.pasteCellsAbove';
+//#endregion Clipboard Commands
+
 registerNotebookKeybinding({
 	id: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
 	primary: KeyCode.KeyA,
@@ -346,6 +354,68 @@ registerNotebookKeybinding({
 		if (selectedCell) {
 			selectedCell.run();
 			activeNotebook.selectionStateMachine.moveDown(false);
+		}
+	}
+});
+
+// Copy cells command
+registerNotebookKeybinding({
+	id: POSITRON_NOTEBOOK_COPY_CELLS,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+	mac: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+	},
+	onRun: ({ activeNotebook }) => {
+		activeNotebook.copyCells();
+	}
+});
+
+// Cut cells command
+registerNotebookKeybinding({
+	id: POSITRON_NOTEBOOK_CUT_CELLS,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyX,
+	mac: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyX,
+	},
+	onRun: ({ activeNotebook }) => {
+		// Only allow cut if notebook is editable
+		if (!activeNotebook.isReadOnly) {
+			activeNotebook.cutCells();
+		}
+	}
+});
+
+// Paste cells command
+registerNotebookKeybinding({
+	id: POSITRON_NOTEBOOK_PASTE_CELLS,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyV,
+	win: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyV,
+		secondary: [KeyMod.Shift | KeyCode.Insert]
+	},
+	linux: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyV,
+		secondary: [KeyMod.Shift | KeyCode.Insert]
+	},
+	mac: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyV,
+	},
+	onRun: ({ activeNotebook }) => {
+		// Only allow paste if notebook is editable and clipboard has content
+		if (!activeNotebook.isReadOnly && activeNotebook.canPaste()) {
+			activeNotebook.pasteCells();
+		}
+	}
+});
+
+// Paste cells above command
+registerNotebookKeybinding({
+	id: POSITRON_NOTEBOOK_PASTE_CELLS_ABOVE,
+	primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV,
+	onRun: ({ activeNotebook }) => {
+		// Only allow paste if notebook is editable and clipboard has content
+		if (!activeNotebook.isReadOnly && activeNotebook.canPaste()) {
+			activeNotebook.pasteCellsAbove();
 		}
 	}
 });

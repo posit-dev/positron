@@ -7,7 +7,7 @@
 import './NotebookCellWrapper.css';
 
 // React.
-import React from 'react';
+import React, { useState } from 'react';
 
 // Other dependencies.
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -22,6 +22,7 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
 	const selectionStatus = useSelectionStatus(cell);
 	const executionStatus = useObservedValue(cell.executionStatus);
+	const [isHovered, setIsHovered] = useState(false);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -29,6 +30,14 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 			cell.attachContainer(cellRef.current);
 		}
 	}, [cell, cellRef]);
+
+	// Clone children and inject isHovered prop into NotebookCellActionBar components
+	const enhancedChildren = React.Children.map(children, (child) => {
+		if (React.isValidElement(child) && (child.type as any)?.name === 'NotebookCellActionBar') {
+			return React.cloneElement(child, { isHovered } as any);
+		}
+		return child;
+	});
 
 	return <div
 		ref={cellRef}
@@ -58,7 +67,9 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
+		onMouseEnter={() => setIsHovered(true)}
+		onMouseLeave={() => setIsHovered(false)}
 	>
-		{children}
+		{enhancedChildren}
 	</div>;
 }
