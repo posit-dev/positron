@@ -347,7 +347,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		//
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
-		const bedrockCacheBreakpoint = this.provider === 'bedrock' &&
+		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
 			!this.model.modelId.startsWith('us.anthropic.claude-3-5');
 
 		const aiMessages: ai.CoreMessage[] = [];
@@ -738,7 +738,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'bedrock',
+			id: 'amazon-bedrock',
 			displayName: 'AWS Bedrock'
 		},
 		supportedOptions: ['toolCalls'],
@@ -876,7 +876,7 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 				maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
 			},
 		]],
-		['bedrock', [
+		['amazon-bedrock', [
 			{
 				name: 'Claude 4 Sonnet Bedrock',
 				identifier: 'us.anthropic.claude-sonnet-4-20250514-v1:0',

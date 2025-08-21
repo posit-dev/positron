@@ -139,7 +139,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
 
 		if (useTestModels) {
-			providers.push('bedrock', 'error', 'echo', 'google');
+			providers.push('amazon-bedrock', 'error', 'echo', 'google');
 		}
 		return providers;
 	}

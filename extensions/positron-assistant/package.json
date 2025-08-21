@@ -254,7 +254,7 @@
         "displayName": "Echo"
       },
       {
-        "vendor": "bedrock",
+        "vendor": "amazon-bedrock",
         "displayName": "Amazon Bedrock"
       },
       {
