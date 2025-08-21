@@ -150,7 +150,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Client> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _rawComms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
+	private readonly _rawComms: Map<string, [RawCommImpl, Sender<CommBackendMessage>]> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -723,7 +723,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async createComm(
 		target_name: string,
 		params: Record<string, unknown> = {},
-	): Promise<RawCommImpl> {
+	): Promise<RawComm> {
 		const id = `extension-comm-${target_name}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
 		const [tx, rx] = channel<CommBackendMessage>();
@@ -749,7 +749,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const commOpen = new CommOpenCommand(msg);
 		await this.sendCommand(commOpen);
 
-		return comm;
+		return comm as RawComm;
 	}
 
 	/**
@@ -1780,7 +1780,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Close all raw comms
 		for (const [comm, tx] of this._rawComms.values()) {
 			// Don't dispose of comm, this resource is owned by caller of `createComm()`.
-			(comm as RawCommImpl).close();
+			comm.close();
 			tx.dispose();
 		}
 		this._rawComms.clear();
