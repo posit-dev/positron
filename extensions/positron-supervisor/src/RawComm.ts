@@ -118,6 +118,8 @@ export class RawCommImpl implements vscode.Disposable {
 		this.session.sendCommand(commClose);
 	}
 
+	// Make sure not to call `dispose()` from Kallichore, only the owner of the
+	// comm should dispose of it. Kallichore calls the `close()` method instead.
 	async dispose(): Promise<void> {
 		this.close();
 		for (const disposable of this.disposables) {
