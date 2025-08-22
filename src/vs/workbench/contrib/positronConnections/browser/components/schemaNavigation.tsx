@@ -198,14 +198,18 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					switch (props.item.dtype?.toLowerCase()) {
 						case 'character':
 						case 'string':
+						case 'varchar':
 							return 'positron-data-type-string';
 						case 'integer':
 						case 'numeric':
 						case 'float':
+						case 'double':
 							return 'positron-data-type-number';
 						case 'boolean':
 						case 'bool':
 							return 'positron-data-type-boolean';
+						case 'timestamp':
+							return 'positron-data-type-date-time';
 						default:
 							return 'positron-data-type-unknown';
 					}

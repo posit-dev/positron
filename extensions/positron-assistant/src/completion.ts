@@ -188,7 +188,7 @@ class OpenAILegacyCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
 			return [];
 		}
 
@@ -384,7 +384,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
 		// Check if the file should be excluded from AI features
-		if (await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
 			return [];
 		}
 
@@ -514,7 +514,7 @@ class AWSCompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'bedrock',
+			id: 'amazon-bedrock',
 			displayName: 'AWS Bedrock'
 		},
 		supportedOptions: [],
@@ -646,7 +646,7 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
 		// Check if the file should be excluded from AI features
-		if (await positron.ai.areCompletionsEnabled(document.uri)) {
+		if (!await positron.ai.areCompletionsEnabled(document.uri)) {
 			return [];
 		}
 		return await this._copilotService.inlineCompletion(document, position, context, token);
@@ -669,7 +669,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 	const providerClasses = {
 		'anthropic': AnthropicCompletion,
 		'azure': AzureCompletion,
-		'bedrock': AWSCompletion,
+		'amazon-bedrock': AWSCompletion,
 		'copilot': CopilotCompletion,
 		'deepseek': DeepSeekCompletion,
 		'google': GoogleCompletion,

@@ -51,7 +51,7 @@ import { ChatViewModel, IChatRequestViewModel, IChatResponseViewModel, isRequest
 import { IChatInputState } from '../common/chatWidgetHistoryService.js';
 import { CodeBlockModelCollection } from '../common/codeBlockModelCollection.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../common/constants.js';
-import { ILanguageModelToolsService, ToolSet } from '../common/languageModelToolsService.js';
+import { ILanguageModelToolsService, IToolData, ToolSet } from '../common/languageModelToolsService.js';
 import { type TPromptMetadata } from '../common/promptSyntax/parsers/promptHeader/promptHeader.js';
 import { IPromptParserResult, IPromptsService } from '../common/promptSyntax/service/promptsService.js';
 import { handleModeSwitch } from './actions/chatActions.js';
@@ -66,12 +66,15 @@ import './media/chatAgentHover.css';
 import './media/chatViewWelcome.css';
 import { ChatViewWelcomePart, IChatSuggestedPrompts, IChatViewWelcomeContent } from './viewsWelcome/chatViewWelcomeController.js';
 import { MicrotaskDelay } from '../../../../base/common/symbols.js';
-import { IChatRequestVariableEntry, ChatRequestVariableSet as ChatRequestVariableSet, isPromptFileVariableEntry, toPromptFileVariableEntry, PromptFileVariableKind } from '../common/chatVariableEntries.js';
+import { IChatRequestVariableEntry, ChatRequestVariableSet as ChatRequestVariableSet, isPromptFileVariableEntry, toPromptFileVariableEntry, PromptFileVariableKind, isPromptTextVariableEntry } from '../common/chatVariableEntries.js';
+import { ChatTodoListWidget } from './chatContentParts/chatTodoListWidget.js';
 import { PromptsConfig } from '../common/promptSyntax/config/config.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { ComputeAutomaticInstructions } from '../common/promptSyntax/computeAutomaticInstructions.js';
 import { startupExpContext, StartupExperimentGroup } from '../../../services/coreExperimentation/common/coreExperimentationService.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+import { IMouseWheelEvent } from '../../../../base/browser/mouseEvent.js';
+import { TodoListToolSettingId as TodoListToolSettingId } from '../common/tools/manageTodoListTool.js';
 
 // --- Start Positron ---
 import './media/positronChat.css';
@@ -150,6 +153,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private _onDidHide = this._register(new Emitter<void>());
 	readonly onDidHide = this._onDidHide.event;
 
+	private _onDidShow = this._register(new Emitter<void>());
+	readonly onDidShow = this._onDidShow.event;
+
 	private _onDidChangeParsedInput = this._register(new Emitter<void>());
 	readonly onDidChangeParsedInput = this._onDidChangeParsedInput.event;
 
@@ -175,6 +181,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private focusedInputDOM!: HTMLElement;
 	private editorOptions!: ChatEditorOptions;
 
+	private recentlyRestoredCheckpoint: boolean = false;
+
 	private settingChangeCounter = 0;
 
 	private listContainer!: HTMLElement;
@@ -185,6 +193,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private welcomeMessageContainer!: HTMLElement;
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
+	private readonly chatTodoListWidget: ChatTodoListWidget;
 
 	// --- Start Positron ---
 	private actionBarContainer?: ChatActionBarControl;
@@ -217,6 +226,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private readonly viewModelDisposables = this._register(new DisposableStore());
 	private _viewModel: ChatViewModel | undefined;
+
+	// Coding agent locking state
+	private _lockedToCodingAgent: string | undefined;
+	private _lockedToCodingAgentContextKey!: IContextKey<boolean>;
+	private _codingAgentPrefix: string | undefined;
+
 	private set viewModel(viewModel: ChatViewModel | undefined) {
 		if (this._viewModel === viewModel) {
 			return;
@@ -306,6 +321,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService
 	) {
 		super();
+		this._lockedToCodingAgentContextKey = ChatContextKeys.lockedToCodingAgent.bindTo(this.contextKeyService);
 
 		this.viewContext = _viewContext ?? {};
 
@@ -368,11 +384,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}));
 
 		this._codeBlockModelCollection = this._register(instantiationService.createInstance(CodeBlockModelCollection, undefined));
+		this.chatTodoListWidget = this._register(this.instantiationService.createInstance(ChatTodoListWidget));
 
 		this._register(this.configurationService.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration('chat.renderRelatedFiles')) {
 				this.renderChatEditingSessionState();
-			} else if (e.affectsConfiguration(ChatConfiguration.EditRequests)) {
+			}
+
+			if (e.affectsConfiguration(ChatConfiguration.EditRequests) || e.affectsConfiguration(ChatConfiguration.CheckpointsEnabled)) {
 				this.settingChangeCounter++;
 				this.onDidChangeItems();
 			} else if (e.affectsConfiguration('positron.assistant.showTokenUsage.enable') || e.affectsConfiguration('positron.assistant.approximateTokenCount')) {
@@ -520,7 +539,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	get contentHeight(): number {
-		return this.input.contentHeight + this.tree.contentHeight;
+		return this.input.contentHeight + this.tree.contentHeight + this.chatTodoListWidget.height;
 	}
 
 	get attachmentModel(): ChatAttachmentModel {
@@ -553,6 +572,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.container = dom.append(parent, $('.interactive-session'));
 		this.welcomeMessageContainer = dom.append(this.container, $('.chat-welcome-view-container', { style: 'display: none' }));
 		this._register(dom.addStandardDisposableListener(this.welcomeMessageContainer, dom.EventType.CLICK, () => this.focusInput()));
+
+		dom.append(this.container, this.chatTodoListWidget.domNode);
+		this._register(this.chatTodoListWidget.onDidChangeHeight(() => {
+			if (this.bodyDimension) {
+				this.layout(this.bodyDimension.height, this.bodyDimension.width);
+			}
+		}));
+
 		if (renderInputOnTop) {
 			this.createInput(this.container, { renderFollowups, renderStyle });
 			this.listContainer = dom.append(this.container, $(`.interactive-list`));
@@ -572,7 +599,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// --- End Positron ---
 
 		this.renderWelcomeViewContentIfNeeded();
-		this.createList(this.listContainer, { ...this.viewOptions.rendererOptions, renderStyle });
+		this.createList(this.listContainer, { editable: !isInlineChat(this) && !isQuickChat(this), ...this.viewOptions.rendererOptions, renderStyle });
 
 		const scrollDownButton = this._register(new Button(this.listContainer, {
 			supportIcons: true,
@@ -706,6 +733,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (this._dynamicMessageLayoutData) {
 			this._dynamicMessageLayoutData.enabled = true;
 		}
+		// Unlock coding agent when clearing
+		this.unlockFromCodingAgent();
 		this._onDidClear.fire();
 	}
 
@@ -730,6 +759,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 
 			this.renderWelcomeViewContentIfNeeded();
+			this.renderChatTodoListWidget();
 
 			this._onWillMaybeChangeHeight.fire();
 
@@ -752,6 +782,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 							`_${element.shouldBeBlocked ? '1' : '0'}` +
 							// Re-render if we have an element currently being edited
 							`_${this.viewModel?.editing ? '1' : '0'}` +
+							// Re-render if we have an element currently being checkpointed
+							`_${this.viewModel?.model.checkpoint ? '1' : '0'}` +
 							// Re-render all if invoked by setting change
 							`_setting${this.settingChangeCounter || '0'}` +
 							// Rerender request if we got new content references in the response
@@ -788,16 +820,20 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			const configuration = this.configurationService.inspect('workbench.secondarySideBar.defaultVisibility');
 			const expIsActive = configuration.defaultValue !== 'hidden';
 
+			const expEmptyState = this.configurationService.getValue<boolean>('chat.emptyChatState.enabled');
+
 			const chatSetupTriggerContext = ContextKeyExpr.or(
 				ChatContextKeys.Setup.installed.negate(),
 				ChatContextKeys.Entitlement.canSignUp
 			);
 
 			let welcomeContent: IChatViewWelcomeContent;
+			const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
+			const additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
 			// --- Start Positron ---
 			/*
 			if ((startupExpValue === StartupExperimentGroup.MaximizedChat
-			*/
+				*/
 			// Don't use the experimental view for Positron Assistant
 			const useExpView = false;
 			if (useExpView && (startupExpValue === StartupExperimentGroup.MaximizedChat
@@ -808,9 +844,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				welcomeContent = this.getExpWelcomeViewContent();
 				this.container.classList.add('experimental-welcome-view');
 			}
+			else if (expEmptyState) {
+				welcomeContent = this.getPositronWelcomeViewContent(additionalMessage);
+			}
 			else {
-				const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
-				const additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
 				// --- Start Positron ---
 				if (numItems) {
 					// Dead code (from upstream) to generate welcome content for
@@ -899,27 +936,53 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 	// --- End Positron ---
 
-	private getWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined): IChatViewWelcomeContent {
-		const baseMessage = localize('chatMessage', "Copilot is powered by AI, so mistakes are possible. Review output carefully before use.");
+	private renderChatTodoListWidget(): void {
+		const isChatTodoListToolEnabled = this.configurationService.getValue<boolean>(TodoListToolSettingId) === true;
+		if (isChatTodoListToolEnabled) {
+			this.chatTodoListWidget.updateSessionId(this.viewModel?.sessionId);
+		}
+	}
+
+	private getWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined, expEmptyState?: boolean): IChatViewWelcomeContent {
+		const disclaimerMessage = expEmptyState
+			? localize('chatDisclaimer', "AI responses may be inaccurate.")
+			: localize('chatMessage', "Copilot is powered by AI, so mistakes are possible. Review output carefully before use.");
+		const icon = expEmptyState ? Codicon.chatSparkle : Codicon.copilotLarge;
+
+		if (this.isLockedToCodingAgent) {
+			return {
+				title: localize('codingAgentTitle', "Chat with {0}", this._codingAgentPrefix),
+				message: new MarkdownString(localize('codingAgentMessage', "This chat session will be forwarded to the {0} coding agent", this._codingAgentPrefix)),
+				icon: Codicon.cloud,
+				additionalMessage,
+			};
+		}
+
 		if (this.input.currentModeKind === ChatModeKind.Ask) {
 			return {
-				title: localize('chatDescription', "Ask Copilot"),
-				message: new MarkdownString(baseMessage),
-				icon: Codicon.copilotLarge,
+				title: localize('chatDescription', "Ask about your code."),
+				message: new MarkdownString(disclaimerMessage),
+				icon,
 				additionalMessage,
 			};
 		} else if (this.input.currentModeKind === ChatModeKind.Edit) {
+			const editsHelpMessage = localize('editsHelp', "Start your editing session by defining a set of files that you want to work with. Then ask Copilot for the changes you want to make.");
+			const message = expEmptyState ? disclaimerMessage : `${editsHelpMessage}\n\n${disclaimerMessage}`;
+
 			return {
-				title: localize('editsTitle', "Edit with Copilot"),
-				message: new MarkdownString(localize('editsMessage', "Start your editing session by defining a set of files that you want to work with. Then ask Copilot for the changes you want to make.") + `\n\n${baseMessage}`),
-				icon: Codicon.copilotLarge,
+				title: localize('editsTitle', "Edit in context."),
+				message: new MarkdownString(message),
+				icon,
 				additionalMessage
 			};
 		} else {
+			const agentHelpMessage = localize('agentMessage', "Ask Copilot to edit your files in [agent mode]({0}). Copilot will automatically use multiple requests to pick files to edit, run terminal commands, and iterate on errors.", 'https://aka.ms/vscode-copilot-agent');
+			const message = expEmptyState ? disclaimerMessage : `${agentHelpMessage}\n\n${disclaimerMessage}`;
+
 			return {
-				title: localize('editsTitle', "Edit with Copilot"),
-				message: new MarkdownString(localize('agentMessage', "Ask Copilot to edit your files in [agent mode]({0}). Copilot will automatically use multiple requests to pick files to edit, run terminal commands, and iterate on errors.", 'https://aka.ms/vscode-copilot-agent') + `\n\n${baseMessage}`),
-				icon: Codicon.copilotLarge,
+				title: localize('agentTitle', "Build with agent mode."),
+				message: new MarkdownString(message),
+				icon,
 				additionalMessage
 			};
 		}
@@ -1012,6 +1075,12 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 					// --- End Positron ---
 				}
 			}, 0));
+
+			if (!wasVisible) {
+				dom.scheduleAtNextAnimationFrame(dom.getWindow(this.listContainer), () => {
+					this._onDidShow.fire();
+				});
+			}
 		} else if (wasVisible) {
 			this._onDidHide.fire();
 		}
@@ -1040,7 +1109,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this._codeBlockModelCollection,
 			overflowWidgetsContainer,
 			this.viewModel,
-			isInlineChat(this) || isQuickChat(this),
 		));
 
 		this._register(this.renderer.onDidClickRequest(async item => {
@@ -1063,7 +1131,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 		this._register(this.renderer.onDidFocusOutside(() => {
 			this.finishedEditing();
-			this.viewModel?.model.setCheckpoint(undefined);
 		}));
 
 		this._register(this.renderer.onDidClickFollowup(item => {
@@ -1156,6 +1223,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				return;
 			}
 
+			// this will only ever be true if we restored a checkpoint
+			if (this.viewModel?.model.checkpoint) {
+				this.recentlyRestoredCheckpoint = true;
+			}
+
 			this.viewModel?.model.setCheckpoint(currentElement.id);
 
 			// set contexts and request to false
@@ -1165,7 +1237,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				if (request.id === currentElement.id) {
 					request.shouldBeBlocked = false; // unblocking just this request.
 					if (request.attachedContext) {
-						currentContext.push(...request.attachedContext);
+						const context = request.attachedContext.filter(entry => !(isPromptFileVariableEntry(entry) || isPromptTextVariableEntry(entry)) || !entry.automaticallyAdded);
+						currentContext.push(...context);
 					}
 				}
 			}
@@ -1237,19 +1310,21 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	finishedEditing(completedEdit?: boolean): void {
 		// reset states
 		const editedRequest = this.renderer.getTemplateDataForRequestId(this.viewModel?.editing?.id);
-		this.viewModel?.model.setCheckpoint(undefined);
+		if (this.recentlyRestoredCheckpoint) {
+			this.recentlyRestoredCheckpoint = false;
+		} else {
+			this.viewModel?.model.setCheckpoint(undefined);
+		}
 		this.inputPart.dnd.setDisabledOverlay(false);
 		if (editedRequest?.contextKeyService) {
 			ChatContextKeys.currentlyEditing.bindTo(editedRequest.contextKeyService).set(false);
 		}
 
-
-
 		const isInput = this.configurationService.getValue<string>('chat.editRequests') === 'input';
 
 		if (!isInput) {
-			this.inputPart.setChatMode(this.inlineInputPart.currentModeKind);
-			const currentModel = this.inlineInputPart.selectedLanguageModel;
+			this.inputPart.setChatMode(this.input.currentModeKind);
+			const currentModel = this.input.selectedLanguageModel;
 			if (currentModel) {
 				this.inputPart.switchModel(currentModel.metadata);
 			}
@@ -1265,7 +1340,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				this.logService.error('Error occurred while finishing editing:', e);
 			}
 			this.inputContainer = dom.$('.empty-chat-state');
+
+			// only dispose if we know the input is not the bottom input object.
+			this.input.dispose();
 		}
+
 		if (isInput) {
 			this.inputPart.element.classList.remove('editing');
 		}
@@ -1487,6 +1566,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.refreshParsedInput();
 			this.renderFollowups();
 		}));
+		// --- Start Positron ---
+		this._register(this.languageModelsService.onDidChangeLanguageModels(() => {
+			this.renderWelcomeViewContentIfNeeded();
+		}));
+		// --- End Positron ---
 
 
 		const enabledToolSetsAndTools = this.input.selectedToolsModel.entries.map(value => {
@@ -1539,6 +1623,15 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 		this.container.setAttribute('data-session-id', model.sessionId);
 		this.viewModel = this.instantiationService.createInstance(ChatViewModel, model, this._codeBlockModelCollection);
+
+		if (this._lockedToCodingAgent) {
+			const placeholder = localize('chat.input.placeholder.lockedToAgent', "Follow up with {0}", this._lockedToCodingAgent);
+			this.viewModel.setInputPlaceholder(placeholder);
+			this.inputEditor.updateOptions({ placeholder });
+		} else if (this.viewModel.inputPlaceholder) {
+			this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
+		}
+
 		const renderImmediately = this.configurationService.getValue<boolean>('chat.experimental.renderMarkdownImmediately') === true;
 		const delay = renderImmediately ? MicrotaskDelay : 0;
 		this.viewModelDisposables.add(Event.runAndSubscribe(Event.accumulate(this.viewModel.onDidChange, delay), (events => {
@@ -1549,6 +1642,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.requestInProgress.set(this.viewModel.requestInProgress);
 			this.isRequestPaused.set(this.viewModel.requestPausibility === ChatPauseState.Paused);
 			this.canRequestBePaused.set(this.viewModel.requestPausibility !== ChatPauseState.NotPausable);
+
+			// Update the editor's placeholder text when it changes in the view model
+			if (events?.some(e => e?.kind === 'changePlaceholder')) {
+				this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
+			}
 
 			this.onDidChangeItems();
 			if (events?.some(e => e?.kind === 'addRequest') && this.visible) {
@@ -1575,6 +1673,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				c.setInputState(viewState.inputState?.[c.id]);
 			}
 		});
+
 		this.refreshParsedInput();
 		this.viewModelDisposables.add(model.onDidChange((e) => {
 			if (e.kind === 'setAgent') {
@@ -1631,6 +1730,39 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		return this.input.inputEditor.getValue();
 	}
 
+	// Coding agent locking methods
+	public lockToCodingAgent(name: string, displayName: string): void {
+		this._lockedToCodingAgent = displayName;
+		this._codingAgentPrefix = `@${name} `;
+		this._lockedToCodingAgentContextKey.set(true);
+		this.renderWelcomeViewContentIfNeeded();
+		this.input.setChatMode(ChatModeKind.Ask);
+		this.renderer.updateOptions({ restorable: false, editable: false, progressMessageAtBottomOfResponse: true });
+		this.tree.rerender();
+	}
+
+	public unlockFromCodingAgent(): void {
+		// Clear all state related to locking
+		this._lockedToCodingAgent = undefined;
+		this._codingAgentPrefix = undefined;
+		this._lockedToCodingAgentContextKey.set(false);
+
+		// Explicitly update the DOM to reflect unlocked state
+		this.renderWelcomeViewContentIfNeeded();
+
+		// Reset to default placeholder
+		if (this.viewModel) {
+			this.viewModel.resetInputPlaceholder();
+		}
+		this.inputEditor.updateOptions({ placeholder: undefined });
+		this.renderer.updateOptions({ restorable: true, editable: true, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
+		this.tree.rerender();
+	}
+
+	public get isLockedToCodingAgent(): boolean {
+		return !!this._lockedToCodingAgent;
+	}
+
 	logInputHistory(): void {
 		this.input.logInputHistory();
 	}
@@ -1665,6 +1797,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				inputState[c.id] = c.getInputState();
 			}
 		});
+
 		return inputState;
 	}
 
@@ -1678,6 +1811,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	private async _applyPromptFileIfSet(requestInput: IChatRequestInputOptions): Promise<IPromptParserResult | undefined> {
+		if (!PromptsConfig.enabled(this.configurationService)) {
+			// if prompts are not enabled, we don't need to do anything
+			return undefined;
+		}
+
 
 		let parseResult: IPromptParserResult | undefined;
 
@@ -1725,6 +1863,26 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return;
 		}
 
+		// Handle coding agent prefix enforcement
+		if (this._lockedToCodingAgent && this._codingAgentPrefix) {
+			if (query) {
+				// For programmatic input, ensure the prefix is added
+				if (!query.query.startsWith(this._codingAgentPrefix)) {
+					query.query = this._codingAgentPrefix + this.removeExistingAgentPrefix(query.query);
+				}
+			} else {
+				// For user input, update the editor value if needed
+				const currentValue = this.getInput();
+				if (!currentValue.length) {
+					return;
+				}
+				if (!currentValue.startsWith(this._codingAgentPrefix)) {
+					const newValue = this._codingAgentPrefix + this.removeExistingAgentPrefix(currentValue);
+					this.input.inputEditor.setValue(newValue);
+				}
+			}
+		}
+
 		if (!query && this.input.generating) {
 			// if the user submits the input and generation finishes quickly, just submit it for them
 			const generatingAutoSubmitWindow = 500;
@@ -1748,8 +1906,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 			const isUserQuery = !query;
 
-			const instructionsEnabled = PromptsConfig.enabled(this.configurationService);
-			if (instructionsEnabled) {
+			if (!this.viewModel.editing) {
 				// process the prompt command
 				await this._applyPromptFileIfSet(requestInputs);
 				await this._autoAttachInstructions(requestInputs);
@@ -1837,6 +1994,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 				if (this.viewModel?.editing) {
 					this.finishedEditing(true);
+					this.viewModel.model?.setCheckpoint(undefined);
 				}
 				return result.responseCreatedPromise;
 			}
@@ -1844,18 +2002,16 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		return undefined;
 	}
 
-	getUserSelectedTools(): Record<string, boolean> | undefined {
-		const userSelectedTools: Record<string, boolean> = {};
-		for (const [tool, enablement] of this.input.selectedToolsModel.asEnablementMap()) {
-			userSelectedTools[tool.id] = enablement;
-		}
-		return userSelectedTools;
-	}
-
 	getModeRequestOptions(): Partial<IChatSendRequestOptions> {
 		return {
 			modeInstructions: this.input.currentModeObs.get().body?.get(),
-			userSelectedTools: this.getUserSelectedTools(),
+			userSelectedTools: this.input.selectedToolsModel.enablementMap.map(map => {
+				const userSelectedTools: Record<string, boolean> = {};
+				for (const [tool, enablement] of map) {
+					userSelectedTools[tool.id] = enablement;
+				}
+				return userSelectedTools;
+			}),
 			mode: this.input.currentModeKind,
 		};
 	}
@@ -1895,7 +2051,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		// --- Start Positron ---
 		const actionBarHeight = this.actionBarContainer?.height ?? 0;
 		// --- End Positron ---
-		width = Math.min(width, 850);
+		width = Math.min(width, 950);
 		this.bodyDimension = new dom.Dimension(width, height);
 
 		const layoutHeight = this._dynamicMessageLayoutData?.enabled ? this._dynamicMessageLayoutData.maxHeight : height;
@@ -1911,10 +2067,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}
 
 		const inputHeight = this.inputPart.inputPartHeight;
+		const chatTodoListWidgetHeight = this.chatTodoListWidget.height;
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
 
 		// --- Start Positron ---
-		const contentHeight = Math.max(0, height - inputHeight - actionBarHeight);
+		const contentHeight = Math.max(0, height - inputHeight - chatTodoListWidgetHeight - actionBarHeight);
 		// --- End Positron ---
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			this.listContainer.style.removeProperty('--chat-current-response-min-height');
@@ -1980,8 +2137,9 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				const width = this.bodyDimension?.width ?? this.container.offsetWidth;
 				this.input.layout(possibleMaxHeight, width);
 				const inputPartHeight = this.input.inputPartHeight;
-				const newHeight = Math.min(renderHeight + diff, possibleMaxHeight - inputPartHeight);
-				this.layout(newHeight + inputPartHeight, width);
+				const chatTodoListWidgetHeight = this.chatTodoListWidget.height;
+				const newHeight = Math.min(renderHeight + diff, possibleMaxHeight - inputPartHeight - chatTodoListWidgetHeight);
+				this.layout(newHeight + inputPartHeight + chatTodoListWidgetHeight, width);
 			});
 		}));
 	}
@@ -2024,6 +2182,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		const width = this.bodyDimension?.width ?? this.container.offsetWidth;
 		this.input.layout(this._dynamicMessageLayoutData.maxHeight, width);
 		const inputHeight = this.input.inputPartHeight;
+		const chatTodoListWidgetHeight = this.chatTodoListWidget.height;
 
 		const totalMessages = this.viewModel.getItems();
 		// grab the last N messages
@@ -2037,7 +2196,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		this.layout(
 			Math.min(
 				// we add an additional 18px in order to show that there is scrollable content
-				inputHeight + listHeight + (totalMessages.length > 2 ? 18 : 0),
+				inputHeight + chatTodoListWidgetHeight + listHeight + (totalMessages.length > 2 ? 18 : 0),
 				this._dynamicMessageLayoutData.maxHeight
 			),
 			width
@@ -2053,9 +2212,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	getViewState(): IChatViewState {
+		// Get the input state which includes our locked agent (if any)
+		const inputState = this.input.getViewState();
 		return {
 			inputValue: this.getInput(),
-			inputState: this.input.getViewState()
+			inputState: inputState
 		};
 	}
 
@@ -2109,16 +2270,36 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	 * - instructions referenced in an already included instruction file
 	 */
 	private async _autoAttachInstructions({ attachedContext }: IChatRequestInputOptions): Promise<void> {
-		let readFileTool = this.toolsService.getToolByName('readFile');
-		if (readFileTool && this.getUserSelectedTools()?.[readFileTool.id] === false) {
-			readFileTool = undefined;
+		const promptsConfigEnabled = PromptsConfig.enabled(this.configurationService);
+		this.logService.debug(`ChatWidget#_autoAttachInstructions: ${PromptsConfig.KEY}: ${promptsConfigEnabled}`);
+
+		if (promptsConfigEnabled) {
+			const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, this._getReadTool());
+			await computer.collect(attachedContext, CancellationToken.None);
+		} else {
+			const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, undefined);
+			await computer.collectCopilotInstructionsOnly(attachedContext, CancellationToken.None);
 		}
+	}
 
-		const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, readFileTool);
-		await computer.collect(attachedContext, CancellationToken.None);
+	private _getReadTool(): IToolData | undefined {
+		if (this.input.currentModeKind !== ChatModeKind.Agent) {
+			return undefined;
+		}
+		const readFileTool = this.toolsService.getToolByName('readFile');
+		if (!readFileTool || !this.input.selectedToolsModel.enablementMap.get().get(readFileTool)) {
+			return undefined;
+		}
+		return readFileTool;
+	}
 
-		// add to attached list to make the instructions sticky
-		//this.inputPart.attachmentModel.addContext(...computer.autoAddedInstructions);
+	private removeExistingAgentPrefix(text: string): string {
+		// Remove any existing agent prefix (e.g., @agent) from the beginning
+		return text.replace(/^@\w+\s*/, '');
+	}
+
+	delegateScrollFromMouseWheelEvent(browserEvent: IMouseWheelEvent): void {
+		this.tree.delegateScrollFromMouseWheelEvent(browserEvent);
 	}
 }
 

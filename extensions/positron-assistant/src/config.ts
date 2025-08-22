@@ -144,6 +144,22 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		.filter((source) => {
 			// If no specific set of providers was specified, include all
 			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
+		})
+		.map((source) => {
+			// Resolve environment variables in apiKeyEnvVar
+			if ('apiKeyEnvVar' in source.defaults && source.defaults.apiKeyEnvVar) {
+				const envVarName = (source.defaults as any).apiKeyEnvVar.key;
+				const envVarValue = process.env[envVarName];
+
+				source = {
+					...source,
+					defaults: {
+						...source.defaults,
+						apiKeyEnvVar: { key: envVarName, signedIn: !!envVarValue }
+					},
+				};
+			}
+			return source;
 		});
 
 	// Show a modal asking user for configuration details
@@ -219,8 +235,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 	// Register the new model
 	try {
-		// Make the model the default if it is the first one registered.
-		await registerModel(newConfig, context, storage, existingConfigs.length === 0);
+		await registerModel(newConfig, context, storage);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 

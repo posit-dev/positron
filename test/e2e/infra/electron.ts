@@ -29,6 +29,7 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 		'--skip-release-notes',
 		'--skip-welcome',
 		'--disable-telemetry',
+		'--disable-experiments',
 		'--no-cached-data',
 		'--disable-updates',
 		'--use-inmemory-secretstorage',

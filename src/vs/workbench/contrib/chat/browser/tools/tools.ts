@@ -17,6 +17,7 @@ import { ILanguageModelToolsService } from '../../common/languageModelToolsServi
 import { TextSearchTool, TextSearchToolData } from './textSearchTool.js';
 import { FileContentsTool, FileContentsToolData } from './fileContentsTool.js';
 import { EditTool, EditToolData } from './editFileTool.js';
+import { ManageTodoListTool, ManageTodoListToolData } from '../../common/tools/manageTodoListTool.js';
 
 export class PositronBuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
@@ -39,5 +40,9 @@ export class PositronBuiltinToolsContribution extends Disposable implements IWor
 			this._register(_toolsService.registerToolData(data));
 			this._register(_toolsService.registerToolImplementation(data.id, tool));
 		}
+
+		const manageTodoListTool = _instantiationService.createInstance(ManageTodoListTool);
+		this._register(_toolsService.registerToolData(ManageTodoListToolData));
+		this._register(_toolsService.registerToolImplementation(ManageTodoListToolData.id, manageTodoListTool));
 	}
 }

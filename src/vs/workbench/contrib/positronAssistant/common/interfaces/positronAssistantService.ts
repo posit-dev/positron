@@ -65,6 +65,7 @@ export interface IPositronLanguageModelConfig {
 	numCtx?: number;
 	maxOutputTokens?: number;
 	completions?: boolean;
+	apiKeyEnvVar?: { key: string; signedIn: boolean };
 }
 
 //#endregion
@@ -124,9 +125,9 @@ export interface IPositronAssistantService {
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 
 	/**
-	 * Check if a file should be excluded from AI completions.
-	 * @param uri The URI of the file to check.
-	 * @returns True if the file should be excluded from the Positron Assistant, false otherwise.
+	 * Checks if completions are enabled for the given file.
+	 * @param uri The file URI to check if completions are enabled.
+	 * @returns true if completions should be enabled for the file, false otherwise.
 	 */
 	areCompletionsEnabled(uri: URI): boolean;
 
