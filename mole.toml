@@ -59,6 +59,9 @@ build = "build/package.json"
 codicons = ["CODICONS_PATH", ""]
 extensions = "extensions/*/package.json"
 
+[groups.python]
+positron_python = "positron/licenses/python"
+
 [groups.rust]
 air = ["AIR_PATH", "crates/*"]
 ark = ["ARK_PATH", "crates/*/Cargo.toml"]
@@ -66,6 +69,7 @@ kallichore = ["KALLICHORE_PATH", "crates/*"]
 
 [collections]
 positron_collection = ["codeoss", "positron", "extensions", "build", "kallichore", "air", "ark", "codicons"]
+positron_python_collection = ["positron_python"]
 
 [spdx-overrides]
 # Contains an SPDX identifier for one of the sub-licenses

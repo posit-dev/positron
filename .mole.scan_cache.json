@@ -17313,6 +17313,115 @@
    ]
   }
  },
+ "Python": {
+  "positron_python": {
+   "!checksums": {
+    "poetry.lock": "27ba8f48545a449f84edf8e68ff351a01c4120e90571770b50beed349f496aef"
+   },
+   "py::attrs==25.3.0": {
+    "name": "attrs",
+    "path": "https://pypi.org/project/attrs/",
+    "version": "25.3.0"
+   },
+   "py::cattrs==24.1.2": {
+    "name": "cattrs",
+    "path": "https://catt.rs",
+    "version": "24.1.2",
+    "licenses": [
+     "MIT"
+    ]
+   },
+   "py::exceptiongroup==1.2.2": {
+    "name": "exceptiongroup",
+    "path": "https://pypi.org/project/exceptiongroup/",
+    "version": "1.2.2"
+   },
+   "py::typing-extensions==4.10.0": {
+    "name": "typing-extensions",
+    "path": "https://pypi.org/project/typing-extensions/",
+    "version": "4.10.0"
+   },
+   "py::docstring-to-markdown==0.13": {
+    "name": "docstring-to-markdown",
+    "path": "https://pypi.org/project/docstring-to-markdown/",
+    "version": "0.13",
+    "author": "Micha\u0142 Krassowski",
+    "licenses": [
+     "LGPL-2.1-or-later"
+    ]
+   },
+   "py::jedi==0.19.2": {
+    "name": "jedi",
+    "path": "https://github.com/davidhalter/jedi",
+    "version": "0.19.2",
+    "author": "David Halter",
+    "licenses": [
+     "MIT"
+    ]
+   },
+   "py::parso==0.8.4": {
+    "name": "parso",
+    "path": "https://github.com/davidhalter/parso",
+    "version": "0.8.4",
+    "author": "David Halter",
+    "licenses": [
+     "MIT"
+    ]
+   },
+   "py::jedi-language-server==0.44.0": {
+    "name": "jedi-language-server",
+    "path": "https://github.com/pappasam/jedi-language-server",
+    "version": "0.44.0",
+    "author": "Sam Roeca",
+    "licenses": [
+     "MIT"
+    ]
+   },
+   "py::pygls==1.3.1": {
+    "name": "pygls",
+    "path": "https://github.com/openlawlibrary/pygls",
+    "version": "1.3.1",
+    "author": "Open Law Library",
+    "licenses": [
+     "Apache-2.0"
+    ]
+   },
+   "py::lsprotocol==2023.0.1": {
+    "name": "lsprotocol",
+    "path": "https://github.com/microsoft/lsprotocol",
+    "version": "2023.0.1"
+   },
+   "py::markdown-it-py==3.0.0": {
+    "name": "markdown-it-py",
+    "path": "https://github.com/executablebooks/markdown-it-py",
+    "version": "3.0.0"
+   },
+   "py::mdurl==0.1.2": {
+    "name": "mdurl",
+    "path": "https://github.com/executablebooks/mdurl",
+    "version": "0.1.2"
+   },
+   "py::pydantic==1.10.21": {
+    "name": "pydantic",
+    "path": "https://github.com/pydantic/pydantic",
+    "version": "1.10.21",
+    "licenses": [
+     "MIT"
+    ]
+   },
+   "py::pygments==2.19.1": {
+    "name": "pygments",
+    "path": "https://github.com/pygments/pygments",
+    "version": "2.19.1",
+    "licenses": [
+     "BSD-2-Clause"
+    ]
+   },
+   "!root": [
+    "positron/licenses/python"
+   ]
+  }
+ },
  "Rust": {
   "ark": {
    "!locks": [

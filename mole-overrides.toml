@@ -3,6 +3,10 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
+# ----------------------------------------------------------------------------
+# npm dependency overrides
+# ----------------------------------------------------------------------------
+
 ['npm::@duckdb/duckdb-wasm=*']
 attribution = ['Copyright 2018-2025 Stichting DuckDB Foundation']
 
@@ -403,6 +407,50 @@ attribution = ['Copyright (c) Microsoft Corporation']
 # Built-in extensions from Code OSS upstream
 attribution = ['Copyright (c) Microsoft Corporation']
 
+# ----------------------------------------------------------------------------
+# Python dependency overrides
+# ----------------------------------------------------------------------------
+
+['py::attrs==25.3.0']
+# Use attribution from attrs git repo
+attribution = ['Copyright (c) 2015 Hynek Schlawack and the attrs contributors']
+license = ['MIT']
+license_files = ['https://github.com/python-attrs/attrs/blob/main/LICENSE']
+
+['py::cattrs==24.1.2']
+# Use attribution from cattrs git repo
+attribution = ['Copyright (c) 2016, Tin Tvrtković']
+license = ['MIT']
+license_files = ['https://github.com/python-attrs/cattrs/blob/main/LICENSE']
+
+['py::exceptiongroup==1.2.2']
+# Use attribution from exceptiongroup git repo
+attribution = ['Copyright (c) 2022 Alex Grönholm']
+license = ['MIT']
+license_files = ['https://github.com/agronholm/exceptiongroup/blob/main/LICENSE']
+
+['py::pydantic==1.10.21']
+# Use attribution from pydantic git repo
+attribution = ['Copyright (c) 2017 to present Pydantic Services Inc. and individual contributors.']
+license = ['MIT']
+license_files = ['https://github.com/pydantic/pydantic/blob/main/LICENSE']
+
+['py::pygments==2.19.1']
+# Use attribution from pygments git repo
+attribution = ['Copyright (c) 2006-2024 by the Pygments team']
+license = ['BSD-2-Clause']
+license_files = ['https://github.com/pygments/pygments/blob/master/LICENSE']
+
+['py::typing-extensions==4.10.0']
+# Use attribution from typing-extensions git repo
+attribution = ['Copyright (c) typing-extensions contributors']
+license = ['PSF-2.0']
+license_files = ['https://github.com/python/typing_extensions/blob/main/LICENSE']
+
+# ----------------------------------------------------------------------------
+# Rust dependency overrides
+# ----------------------------------------------------------------------------
+
 ['rust::anstream']
 # If not renamed explicitly, gets merged into anstyle
 rename = 'anstream'
@@ -479,6 +527,10 @@ license_files = []
 ['rust::zstd-sys']
 # has more license files than it actually uses
 license_files = [['@', 'LICENSE.Mit'], ['@', 'LICENSE.Apache-2.0']]
+
+# ----------------------------------------------------------------------------
+# Manual dependency overrides
+# ----------------------------------------------------------------------------
 
 ['manual::ASPVBNETTMBUNDLE']
 # Shared TextMate bundle license

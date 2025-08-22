@@ -23,6 +23,9 @@ by sending an email to [info@posit.co](mailto:info@posit.co).
 ## Components used by Positron Pro
 %(positron_collection)s
 
+### Components used by Positron Python
+%(positron_python_collection)s
+
 ## Licenses used by multiple components
 %(shared-licenses)s
 
