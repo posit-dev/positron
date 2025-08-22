@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MultiLogger } from '../../infra/logger.js';
-import { BaseMetric, MetricTargetType, MetricStatus, MetricContext } from './metric-base.js';
+import { BaseMetric, MetricTargetType, MetricStatus, MetricContext, MetricResult } from './metric-base.js';
 import { logMetric } from './api.js';
 
 //-----------------------
@@ -51,23 +51,24 @@ export interface DataExplorerRecordParams {
 }
 
 /**
- * Records a Data Explorer Metric
+ * Records a Data Explorer Metric and returns both the operation result and duration
  *
  * @param operation The async operation to measure
  * @param params Metric parameters excluding duration_ms and feature_area
  * @param isElectronApp Whether running in Electron or Chromium
  * @param logger Logger for recording status and debugging information
- * @returns The result of the operation
+ * @returns The result of the operation and the duration in milliseconds
  */
 export async function recordDataExplorerMetric<T>(
 	operation: () => Promise<T>,
 	params: DataExplorerRecordParams,
 	isElectronApp: boolean,
 	logger: MultiLogger
-): Promise<T> {
+): Promise<MetricResult<T>> {
 	const startTime = Date.now();
 	let operationStatus: MetricStatus = 'success';
 	let result: T;
+	let duration: number;
 
 	try {
 		result = await operation();
@@ -75,7 +76,7 @@ export async function recordDataExplorerMetric<T>(
 		operationStatus = 'error';
 		throw error; // Re-throw to maintain original behavior
 	} finally {
-		const duration = Date.now() - startTime;
+		duration = Date.now() - startTime;
 
 		// Resolve context_json if it's a function
 		let resolvedContext: MetricContext = {};
@@ -108,7 +109,7 @@ export async function recordDataExplorerMetric<T>(
 		});
 	}
 
-	return result!;
+	return { result: result!, duration_ms: duration! };
 }
 
 //-----------------------
@@ -179,7 +180,7 @@ export async function recordDataFileLoad<T>(
 	logger: MultiLogger,
 	autoContext?: DataExplorerAutoContext,
 	options: DataExplorerShortcutOptions = {}
-): Promise<T> {
+): Promise<MetricResult<T>> {
 	const { description, additionalContext } = options;
 
 	return recordDataExplorerMetric(operation, {
@@ -200,7 +201,7 @@ export async function recordDataFilter<T>(
 	logger: MultiLogger,
 	autoContext?: DataExplorerAutoContext,
 	options: DataExplorerShortcutOptions = {}
-): Promise<T> {
+): Promise<MetricResult<T>> {
 	const { description, additionalContext } = options;
 
 	return recordDataExplorerMetric(operation, {
@@ -221,7 +222,7 @@ export async function recordDataSort<T>(
 	logger: MultiLogger,
 	autoContext?: DataExplorerAutoContext,
 	options: DataExplorerShortcutOptions = {}
-): Promise<T> {
+): Promise<MetricResult<T>> {
 	const { description, additionalContext } = options;
 
 	return recordDataExplorerMetric(operation, {
@@ -242,7 +243,7 @@ export async function recordToCode<T>(
 	logger: MultiLogger,
 	autoContext?: DataExplorerAutoContext,
 	options: DataExplorerShortcutOptions = {}
-): Promise<T> {
+): Promise<MetricResult<T>> {
 	const { description, additionalContext } = options;
 
 	return recordDataExplorerMetric(operation, {

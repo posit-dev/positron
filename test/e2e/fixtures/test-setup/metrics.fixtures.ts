@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { recordDataFileLoad, recordDataFilter, recordDataSort, type MetricTargetType, type DataExplorerAutoContext, type DataExplorerShortcutOptions, recordToCode, RecordMetric } from '../../utils/metrics/index.js';
+import { recordDataFileLoad, recordDataFilter, recordDataSort, type MetricTargetType, type DataExplorerAutoContext, type DataExplorerShortcutOptions, recordToCode, RecordMetric, MetricResult } from '../../utils/metrics/index.js';
 import { Application, MultiLogger } from '../../infra/index.js';
 
 /**
@@ -25,28 +25,28 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
-			): Promise<T> => {
+			): Promise<MetricResult<T>> => {
 				return recordDataFileLoad(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
 			},
 			filter: async <T>(
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
-			): Promise<T> => {
+			): Promise<MetricResult<T>> => {
 				return recordDataFilter(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
 			},
 			sort: async <T>(
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
-			): Promise<T> => {
+			): Promise<MetricResult<T>> => {
 				return recordDataSort(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
 			},
 			toCode: async <T>(
 				operation: () => Promise<T>,
 				targetType: MetricTargetType,
 				options?: DataExplorerShortcutOptions
-			): Promise<T> => {
+			): Promise<MetricResult<T>> => {
 				return recordToCode(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
 			}
 		},

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MultiLogger } from '../../infra/logger.js';
-import { BaseMetric, MetricTargetType, MetricStatus, MetricContext } from './metric-base.js';
+import { BaseMetric, MetricTargetType, MetricStatus, MetricContext, MetricResult } from './metric-base.js';
 import { logMetric } from './api.js';
 
 //-----------------------
@@ -64,10 +64,11 @@ export async function recordNotebookMetric<T>(
 	params: NotebookRecordParams,
 	isElectronApp: boolean,
 	logger: MultiLogger
-): Promise<T> {
+): Promise<MetricResult<T>> {
 	const startTime = Date.now();
 	let operationStatus: MetricStatus = 'success';
 	let result: T;
+	let duration: number;
 
 	try {
 		result = await operation();
@@ -75,7 +76,7 @@ export async function recordNotebookMetric<T>(
 		operationStatus = 'error';
 		throw error; // Re-throw to maintain original behavior
 	} finally {
-		const duration = Date.now() - startTime;
+		duration = Date.now() - startTime;
 
 		// Resolve context_json if it's a function
 		let resolvedContext: MetricContext = {};
@@ -108,5 +109,5 @@ export async function recordNotebookMetric<T>(
 		});
 	}
 
-	return result!;
+	return { result: result!, duration_ms: duration! };
 }

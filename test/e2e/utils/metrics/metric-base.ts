@@ -38,15 +38,20 @@ export type MetricContext = {
 	preview_enabled?: boolean;
 };
 
+export type MetricResult<T> = {
+	result: T;
+	duration_ms: number;
+};
+
 export type RecordMetric = {
 	dataExplorer: {
-		loadData: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
-		filter: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
-		sort: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
-		toCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		loadData: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
+		filter: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
+		sort: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
+		toCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
 	};
 	// notebooks: {
-	// 	runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<T>;
+	// 	runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
 	// };
 };
 
