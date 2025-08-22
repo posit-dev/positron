@@ -38,8 +38,8 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 
 	// Localized tooltip text.
 	const tooltipText = nls.localize(
-		'positronDataGrid.resetScrollPosition',
-		'Reset scroll position to top-left'
+		'positronDataGrid.scrollToTopLeft',
+		'Scroll to top-left'
 	);
 
 	// Render.
