@@ -6,7 +6,7 @@
   "publisher": "positron",
   "private": true,
   "engines": {
-    "vscode": "^1.65.0"
+    "vscode": "^1.103.0"
   },
   "categories": [
     "Other"
@@ -251,7 +251,16 @@
     ],
     "languageModels": [
       {
-        "vendor": "positron"
+        "vendor": "echo",
+        "displayName": "Echo"
+      },
+      {
+        "vendor": "amazon-bedrock",
+        "displayName": "Amazon Bedrock"
+      },
+      {
+        "vendor": "anthropic",
+        "displayName": "Anthropic"
       }
     ],
     "languageModelTools": [

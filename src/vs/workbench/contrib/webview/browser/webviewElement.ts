@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { isFirefox } from '../../../../base/browser/browser.js';
-import { addDisposableListener, EventType, getWindowById } from '../../../../base/browser/dom.js';
+import { addDisposableListener, EventType, getWindow, getWindowById } from '../../../../base/browser/dom.js';
 import { parentOriginHash } from '../../../../base/browser/iframe.js';
 import { IMouseWheelEvent } from '../../../../base/browser/mouseEvent.js';
 import { CodeWindow } from '../../../../base/browser/window.js';
@@ -14,6 +14,7 @@ import { CancellationTokenSource } from '../../../../base/common/cancellation.js
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { COI } from '../../../../base/common/network.js';
+import { observableValue } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
@@ -155,6 +156,8 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 	protected readonly _webviewFindWidget: WebviewFindWidget | undefined;
 	public readonly checkImeCompletionState = true;
+
+	public readonly intrinsicContentSize = observableValue<{ readonly width: number; readonly height: number } | undefined>('WebviewIntrinsicContentSize', undefined);
 
 	private _disposed = false;
 
@@ -342,6 +345,10 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			this.handleDragEvent('drag', event);
 		}));
 
+		this._register(this.on('updated-intrinsic-content-size', (event) => {
+			this.intrinsicContentSize.set({ width: event.width, height: event.height }, undefined, undefined);
+		}));
+
 		if (initInfo.options.enableFindWidget) {
 			// --- Start Positron ---
 			// Added this._options.webviewFindDelegate || this so that if a WebviewFindDelegate is
@@ -405,9 +412,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 
 	private readonly _onDidClickLink = this._register(new Emitter<string>());
 	public readonly onDidClickLink = this._onDidClickLink.event;
-
-	private readonly _onDidReload = this._register(new Emitter<void>());
-	public readonly onDidReload = this._onDidReload.event;
 
 	private readonly _onMessage = this._register(new Emitter<WebviewMessageReceivedEvent>());
 	public readonly onMessage = this._onMessage.event;
@@ -663,11 +667,14 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			this.doUpdateContent(this._content);
 		}
 		// --- End Positron ---
+	}
 
-		const subscription = this._register(this.on('did-load', () => {
-			this._onDidReload.fire();
-			subscription.dispose();
-		}));
+	public reinitializeAfterDismount(): void {
+		this._state = new WebviewState.Initializing([]);
+		this._messagePort = undefined;
+
+		this.mountTo(this.element!.parentElement!, getWindow(this.element));
+		this.reload();
 	}
 
 	public setHtml(html: string) {

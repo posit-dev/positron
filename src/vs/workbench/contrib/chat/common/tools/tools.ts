@@ -11,6 +11,7 @@ import { ILanguageModelToolsService } from '../../common/languageModelToolsServi
 // Import is not used because the vscode_editFile_internal tool is not used in Positron.
 /*
 import { EditTool, EditToolData } from './editFileTool.js';
+import { ManageTodoListTool, ManageTodoListToolData } from './manageTodoListTool.js';
 */
 // --- End Positron ---
 
@@ -38,6 +39,10 @@ export class BuiltinToolsContribution extends Disposable implements IWorkbenchCo
 		const editTool = instantiationService.createInstance(EditTool);
 		this._register(toolsService.registerToolData(EditToolData));
 		this._register(toolsService.registerToolImplementation(EditToolData.id, editTool));
+
+		const manageTodoListTool = instantiationService.createInstance(ManageTodoListTool);
+		this._register(toolsService.registerToolData(ManageTodoListToolData));
+		this._register(toolsService.registerToolImplementation(ManageTodoListToolData.id, manageTodoListTool));
 		*/
 		// --- End Positron ---
 	}

@@ -182,6 +182,7 @@ export class CodeBlockPart extends Disposable {
 		readonly menuId: MenuId,
 		delegate: IChatRendererDelegate,
 		overflowWidgetsDomNode: HTMLElement | undefined,
+		private readonly isSimpleWidget: boolean = false,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IModelService protected readonly modelService: IModelService,
@@ -324,7 +325,7 @@ export class CodeBlockPart extends Disposable {
 
 	private createEditor(instantiationService: IInstantiationService, parent: HTMLElement, options: Readonly<IEditorConstructionOptions>): CodeEditorWidget {
 		return this._register(instantiationService.createInstance(CodeEditorWidget, parent, options, {
-			isSimpleWidget: false,
+			isSimpleWidget: this.isSimpleWidget,
 			contributions: EditorExtensionsRegistry.getSomeEditorContributions([
 				MenuPreventer.ID,
 				SelectionClipboardContributionID,
@@ -472,6 +473,12 @@ export class CodeBlockPart extends Disposable {
 			this.editor.revealRangeInCenter(data.range, ScrollType.Immediate);
 		}
 
+		// --- Start Positron ---
+		// The context needs to update. Possible bug introducted in 1.103.0.
+		// Sending the code to console sometimes truncated the code block.
+		// This adds an event listener to ensure the code block is up to date with the toolbar context
+		// when the Run in Console action executes.
+		/*
 		this.toolbar.context = {
 			code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
 			codeBlockIndex: data.codeBlockIndex,
@@ -480,6 +487,28 @@ export class CodeBlockPart extends Disposable {
 			codemapperUri: data.codemapperUri,
 			chatSessionId: data.chatSessionId
 		} satisfies ICodeBlockActionContext;
+		 */
+
+		const updateToolbarContext = () => {
+			this.toolbar.context = {
+				code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
+				codeBlockIndex: data.codeBlockIndex,
+				element: data.element,
+				languageId: textModel.getLanguageId(),
+				codemapperUri: data.codemapperUri,
+				chatSessionId: data.chatSessionId
+			} satisfies ICodeBlockActionContext;
+		};
+
+		// Set initial context
+		updateToolbarContext();
+
+		// Update context whenever the model content changes
+		this._register(textModel.onDidChangeContent(() => {
+			updateToolbarContext();
+		}));
+		// --- End Positron ---
+
 		this.resourceContextKey.set(textModel.uri);
 	}
 
@@ -561,6 +590,7 @@ export class CodeCompareBlockPart extends Disposable {
 		readonly menuId: MenuId,
 		delegate: IChatRendererDelegate,
 		overflowWidgetsDomNode: HTMLElement | undefined,
+		private readonly isSimpleWidget: boolean = false,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IModelService protected readonly modelService: IModelService,
@@ -672,7 +702,7 @@ export class CodeCompareBlockPart extends Disposable {
 
 	private createDiffEditor(instantiationService: IInstantiationService, parent: HTMLElement, options: Readonly<IEditorConstructionOptions>): DiffEditorWidget {
 		const widgetOptions: ICodeEditorWidgetOptions = {
-			isSimpleWidget: false,
+			isSimpleWidget: this.isSimpleWidget,
 			contributions: EditorExtensionsRegistry.getSomeEditorContributions([
 				MenuPreventer.ID,
 				SelectionClipboardContributionID,

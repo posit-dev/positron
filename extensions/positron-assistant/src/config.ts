@@ -235,8 +235,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 	// Register the new model
 	try {
-		// Make the model the default if it is the first one registered.
-		await registerModel(newConfig, context, storage, existingConfigs.length === 0);
+		await registerModel(newConfig, context, storage);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
