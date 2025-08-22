@@ -11,9 +11,10 @@ import { MockContextKeyService } from '../../../../../platform/keybinding/test/c
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../common/chatAgents.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 // --- Start Positron ---
-import { ILanguageModelsService } from '../../common/languageModels.js';
+import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../common/languageModels.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
-import { Emitter } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
 // --- End Positron ---
 
 const testAgentId = 'testAgent';
@@ -43,6 +44,12 @@ class TestingContextKeyService extends MockContextKeyService {
 
 // --- Start Positron ---
 class TestLanguageModelsService implements ILanguageModelsService {
+	onDidChangeProviders: Event<ILanguageModelsChangeEvent> = new Emitter<ILanguageModelsChangeEvent>().event;
+	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void { }
+	getVendors(): IUserFriendlyLanguageModel[] { return []; }
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
+		return Disposable.None;
+	}
 	readonly _serviceBrand: undefined;
 
 	onDidChangeLanguageModels = new Emitter<any>().event;

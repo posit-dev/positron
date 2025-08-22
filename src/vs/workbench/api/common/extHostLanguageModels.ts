@@ -178,7 +178,10 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 	registerLanguageModelProvider(extension: IExtensionDescription, vendor: string, provider: vscode.LanguageModelChatProvider2): IDisposable {
 
 		this._languageModelProviders.set(vendor, { extension: extension.identifier, extensionName: extension.displayName || extension.name, provider });
-		this._proxy.$registerLanguageModelProvider(vendor);
+		// --- Start Positron ---
+		// Include extensionId when registering the provider
+		this._proxy.$registerLanguageModelProvider(vendor, extension.identifier);
+		// --- End Positron ---
 
 		let providerChangeEventDisposable: IDisposable | undefined;
 		if (provider.onDidChange) {

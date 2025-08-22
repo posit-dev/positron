@@ -1265,7 +1265,10 @@ export interface ExtHostSpeechShape {
 }
 
 export interface MainThreadLanguageModelsShape extends IDisposable {
-	$registerLanguageModelProvider(vendor: string): void;
+	// --- Start Positron ---
+	// Include extensionId when registering language model providers
+	$registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier): void;
+	// --- End Positron ---
 	$onLMProviderChange(vendor: string): void;
 	$unregisterProvider(vendor: string): void;
 	$tryStartChatRequest(extension: ExtensionIdentifier, modelIdentifier: string, requestId: number, messages: SerializableObjectWithBuffers<IChatMessage[]>, options: {}, token: CancellationToken): Promise<void>;

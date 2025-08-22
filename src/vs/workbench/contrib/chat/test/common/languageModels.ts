@@ -18,9 +18,12 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 
 	_serviceBrand: undefined;
 
-	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
+	// --- Start Positron ---
+	// Add extension identifier to parameters
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
 		return Disposable.None;
 	}
+	// --- End Positron ---
 
 	onDidChangeLanguageModels = Event.None;
 
