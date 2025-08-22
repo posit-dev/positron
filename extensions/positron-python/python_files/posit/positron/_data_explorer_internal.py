@@ -41,9 +41,13 @@ def _calculate_fd_binwidth(data, data_range: float, n: int) -> float:
     """Calculate Freedman-Diaconis bin width with sqrt fallback."""
     q75 = data.quantile(0.75)
     q25 = data.quantile(0.25)
-    iqr = q75 - q25
-    if iqr > 0:
-        return 2.0 * iqr * (n ** (-1.0 / 3.0))
+
+    if q75 is None or q25 is None:
+        return _calculate_sqrt_fallback_binwidth(data_range, n)
+
+    iqr = q75 - q25  # type: ignore[operator]
+    if iqr > 0:  # type: ignore[operator]
+        return 2.0 * iqr * (n ** (-1.0 / 3.0))  # type: ignore[operator]
     else:
         return _calculate_sqrt_fallback_binwidth(data_range, n)
 
@@ -205,6 +209,10 @@ def _get_histogram_polars(
             return _EMPTY_HISTOGRAM
         data = data_converted
 
+    # Only handle numeric types - raise error for non-numeric data
+    if not data.dtype.is_numeric():
+        raise ValueError(f"Histogram computation not supported for data type: {data.dtype}")
+
     # Remove null values
     data = data.drop_nulls()
 
@@ -222,6 +230,10 @@ def _get_histogram_polars(
     min_val = data.min()
     max_val = data.max()
 
+    # Handle None values (empty data after filtering)
+    if min_val is None or max_val is None:
+        return _EMPTY_HISTOGRAM
+
     # Handle single value case
     if min_val == max_val:
         # All values are the same
@@ -229,7 +241,8 @@ def _get_histogram_polars(
 
     # Calculate optimal number of bins based on method
     n = len(data)
-    data_range = max_val - min_val
+    # Cast to float to prevent overflow with large integer ranges
+    data_range = float(max_val) - float(min_val)  # type: ignore[arg-type]
 
     if method == "fixed":
         n_bins = num_bins
@@ -242,8 +255,8 @@ def _get_histogram_polars(
             bin_width = data_range / n_bins_sturges
         elif method == "scott":
             std_dev = data.std()
-            if std_dev > 0:
-                bin_width = 3.5 * std_dev * (n ** (-1.0 / 3.0))
+            if std_dev is not None and std_dev > 0:  # type: ignore[operator]
+                bin_width = 3.5 * std_dev * (n ** (-1.0 / 3.0))  # type: ignore[operator]
             else:
                 bin_width = _calculate_sqrt_fallback_binwidth(data_range, n)
         elif method == "rice":
@@ -257,13 +270,21 @@ def _get_histogram_polars(
             # g1 = skewness
             mean_val = data.mean()
             std_dev = data.std()
-            if std_dev > 0:
+            if mean_val is not None and std_dev is not None and std_dev > 0:  # type: ignore[operator]
                 # Calculate skewness manually
-                centered = (data - mean_val) / std_dev
-                g1 = (centered**3).mean()
-                # Standard error of skewness
-                sg1 = math.sqrt(6.0 * (n - 2) / ((n + 1) * (n + 3)))
-                k = 1 + math.log2(n) + math.log2(1 + abs(g1) / sg1) if sg1 > 0 else 1 + math.log2(n)
+                centered = (data - mean_val) / std_dev  # type: ignore[operator]
+                g1_val = (centered**3).mean()
+                if g1_val is not None:
+                    g1 = g1_val  # type: ignore[assignment]
+                    # Standard error of skewness
+                    sg1 = math.sqrt(6.0 * (n - 2) / ((n + 1) * (n + 3)))
+                    k = (
+                        1 + math.log2(n) + math.log2(1 + abs(g1) / sg1)  # type: ignore[arg-type,operator]
+                        if sg1 > 0
+                        else 1 + math.log2(n)
+                    )
+                else:
+                    k = 1 + math.log2(n)
             else:
                 k = 1 + math.log2(n)
             n_bins_doane = math.ceil(k)
@@ -292,7 +313,8 @@ def _get_histogram_polars(
     # For integer data, ensure bins don't exceed the integer range
     if _is_polars_integer_type(data.dtype):
         # Ensure we don't have more bins than the integer range
-        int_range = int(max_val - min_val)
+        # Keep cast to prevent overflow with large integer values
+        int_range = int(float(max_val) - float(min_val))  # type: ignore[arg-type]
         if int_range > 0 and n_bins > int_range:
             n_bins = min(n_bins, int_range + 1)
 
@@ -304,11 +326,39 @@ def _get_histogram_polars(
         # Single bin case
         bin_edges = [min_val, min_val] if min_val == max_val else [min_val, max_val]
     else:
-        # Create evenly spaced bins
-        bin_width = (max_val - min_val) / n_bins
-        bin_edges = [min_val + i * bin_width for i in range(n_bins + 1)]
-        # Ensure the last edge exactly matches max_val to avoid floating point issues
-        bin_edges[-1] = max_val
+        # Check if we have precision loss risk with float64 (53-bit precision)
+        max_safe_int = 2**53
+        min_abs = abs(float(min_val)) if min_val is not None else 0  # type: ignore[arg-type]
+        max_abs = abs(float(max_val)) if max_val is not None else 0  # type: ignore[arg-type]
+
+        if max(min_abs, max_abs) > max_safe_int:
+            # For very large integers, use integer arithmetic to avoid precision loss
+            # Convert to Python int to avoid Polars type issues
+            min_int = int(min_val) if min_val is not None else 0  # type: ignore[arg-type]
+            max_int = int(max_val) if max_val is not None else 0  # type: ignore[arg-type]
+
+            # Use integer division with careful rounding
+            range_int = max_int - min_int
+            bin_width_exact = range_int / n_bins  # This gives exact division
+
+            # Create bin edges using integer arithmetic where possible
+            bin_edges = []
+            for i in range(n_bins + 1):
+                if i == 0:
+                    bin_edges.append(min_val)
+                elif i == n_bins:
+                    bin_edges.append(max_val)
+                else:
+                    # Use exact arithmetic to avoid precision loss
+                    edge_value = min_int + (range_int * i) // n_bins
+                    bin_edges.append(edge_value)
+        else:
+            # Safe to use float arithmetic
+            # Cast to float to avoid overflow with large integer ranges
+            bin_width = (float(max_val) - float(min_val)) / n_bins  # type: ignore[arg-type]
+            bin_edges = [float(min_val) + i * bin_width for i in range(n_bins + 1)]  # type: ignore[arg-type]
+            # Ensure the last edge exactly matches max_val to avoid floating point issues
+            bin_edges[-1] = max_val  # type: ignore[assignment]
 
     # Compute bin indices for each value using efficient vectorized operations and group_by
 
@@ -320,7 +370,7 @@ def _get_histogram_polars(
         bin_counts = [len(data)]
     else:
         # Compute bin width for uniform bins
-        bin_width = (bin_edges[-1] - bin_edges[0]) / (len(bin_edges) - 1)
+        bin_width = (bin_edges[-1] - bin_edges[0]) / (len(bin_edges) - 1)  # type: ignore[operator]
 
         # Create a DataFrame to work with expressions and compute bin indices in one step
         max_bin_idx = len(bin_edges) - 2  # Last valid bin index
