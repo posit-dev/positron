@@ -1,0 +1,34 @@
+{
+	"tools": [
+		{
+			"name": "core_compilation",
+			"description": "Start the core compilation daemon (watch-clientd) for development",
+			"command": "npm run watch-clientd",
+			"daemon": true
+		},
+		{
+			"name": "extensions_compilation",
+			"description": "Start the extensions compilation daemon (watch-extensionsd) for development",
+			"command": "npm run watch-extensionsd",
+			"daemon": true
+		},
+		{
+			"name": "e2e_compilation",
+			"description": "Start the e2e tests compilation daemon (watch-e2ed) for development",
+			"command": "npm run watch-e2ed",
+			"daemon": true
+		},
+		{
+			"name": "launch_positron",
+			"description": "Launch Positron application for development testing",
+			"command": "./scripts/code.sh",
+			"daemon": true
+		},
+		{
+			"name": "start_e2e_ui_mode",
+			"description": "Start the e2e ui mode",
+			"command": "npm run e2e-ui",
+			"daemon": true
+		}
+	]
+}
