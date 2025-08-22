@@ -233,6 +233,7 @@ const excludeFiles = [
 	'.mole.license_cache.json',
 	'.mole.repo_cache.json',
 	'.mole.scan_cache.json',
+	'positron/licenses/codeoss.txt',
 	'.*/html-manager/dist/embed-amd.js',
 	'src/vs/base/test/common/filters.perf.data.js',
 	'.*/test/browser/recordings/windows11.*',
