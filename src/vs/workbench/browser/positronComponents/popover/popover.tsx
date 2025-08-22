@@ -54,7 +54,7 @@ export function Popover({
 	children
 }: PropsWithChildren<PopoverProps>) {
 	const popoverRef = useRef<HTMLDivElement>(null);
-	const [position, setPosition] = useState({ top: 0, left: 0 });
+	const [position, setPosition] = useState<{ top: number; left: number } | undefined>(undefined);
 	const closeTimeoutRef = useRef<number | null>(null);
 
 	// Calculate position relative to anchor
@@ -175,10 +175,17 @@ export function Popover({
 		<div
 			ref={popoverRef}
 			className={`positron-popover ${className}`}
-			style={{
-				top: `${position.top}px`,
-				left: `${position.left}px`
-			}}
+			style={
+				position ? {
+					top: `${position.top}px`,
+					left: `${position.left}px`,
+					visibility: 'visible'
+				} : {
+					top: 0,
+					left: 0,
+					visibility: 'hidden'
+				}
+			}
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
 		>
