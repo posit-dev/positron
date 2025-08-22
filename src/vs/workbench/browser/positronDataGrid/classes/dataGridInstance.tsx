@@ -13,6 +13,7 @@ import { IDataColumn } from '../interfaces/dataColumn.js';
 import { IColumnSortKey } from '../interfaces/columnSortKey.js';
 import { AnchorPoint } from '../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { ILayoutEntry, LayoutManager } from '../../../services/positronDataExplorer/common/layoutManager.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 /**
  * ColumnHeaderOptions type.
@@ -990,6 +991,14 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get selection() {
 		return this._selection;
+	}
+
+	/**
+	 * Gets the hover manager for displaying tooltips, if available.
+	 * @returns The hover manager, or undefined if not available.
+	 */
+	get hoverManager(): PositronActionBarHoverManager | undefined {
+		return undefined;
 	}
 
 	//#endregion Public Properties - Settings
