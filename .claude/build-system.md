@@ -1,10 +1,35 @@
 # Positron Build System & Development Workflows
 
-## 🚨 CRITICAL: Always Check Build Daemons First!
+## 🚨 CRITICAL: Always Ensure Build Daemons Are Running!
 
 **NEVER launch Positron without ensuring build daemons are running!** 
 
-### Required Startup Sequence Every Time:
+## Preferred Method: Use MCP Server Tools
+
+When managing Positron's build and launch processes, use the MCP server tools instead of manual commands.
+
+### Required Startup Sequence:
+
+1. **Check daemon status** using the appropriate MCP status tools
+2. **Start compilation daemons** (core and extensions) if not already running
+3. **Monitor logs** until seeing "Finished compilation with 0 errors" 
+4. **Launch Positron** only after successful compilation
+5. **Verify launch** by checking Positron's status
+
+The MCP tools provide automatic PID tracking, health monitoring, and structured log output.
+
+### Why MCP is Better:
+- Automatic PID tracking and process management
+- Structured status reporting with uptime and health checks
+- Clean log retrieval without manual grep/tail
+- Graceful daemon lifecycle management
+- No risk of orphaned processes
+
+## Alternative: Manual Method (Fallback)
+
+If MCP tools are unavailable, use the traditional approach:
+
+### Required Startup Sequence (Manual):
 
 1. **Check if daemons are already running:**
 ```bash
@@ -90,7 +115,21 @@ timeout /t 5 /nobreak >nul && tasklist | findstr /i "positron electron" | findst
 
 ## Build Daemon Management
 
-### Start Individual Daemons
+### With MCP Tools (Recommended)
+
+Use the MCP server tools for all daemon management operations:
+
+- **Starting daemons** - Use the appropriate `*_start` tools for core, extensions, and E2E compilation
+- **Checking status** - Use `*_status` tools to view daemon health, uptime, and current state
+- **Viewing logs** - Use `*_logs` tools to retrieve recent output from any daemon
+- **Stopping daemons** - Use `*_stop` tools to gracefully terminate running processes
+- **Launching Positron** - Use the launch tool after compilation completes
+
+The MCP tools are dynamically registered and will be available when the MCP server is configured.
+
+### Manual Method (Fallback)
+
+#### Start Individual Daemons
 ```bash
 # Core compilation (src/)
 npm run watch-clientd
@@ -108,7 +147,7 @@ npm run watch-build-toolsd
 npm run watch-webd
 ```
 
-### Stop Individual Daemons
+#### Stop Individual Daemons
 ```bash
 # Kill core compilation daemon
 npm run kill-watch-clientd
@@ -126,7 +165,7 @@ npm run kill-watch-build-toolsd
 npm run kill-watch-webd
 ```
 
-### Check Daemon Status
+#### Check Daemon Status
 ```bash
 # List running deemon processes
 deemon --list
@@ -135,11 +174,27 @@ deemon --list
 deemon --status npm run watch-client
 ```
 
-## Claude Code Integration Commands
+## Development Setup Instructions
 
-### Quick Development Setup
+### When Using MCP Tools (Preferred)
 
-🚨 **CRITICAL: Wait for compilation to complete before launching Positron**
+🚨 **CRITICAL: Always wait for compilation to complete before launching Positron**
+
+When setting up Positron development:
+
+1. **Check status** - Use MCP status tools to verify if daemons are already running
+2. **Start compilation** - Start core and extensions daemons if not running
+3. **Monitor progress** - Check logs until seeing "Finished compilation with 0 errors"
+4. **Launch Positron** - Use launch tool only after successful compilation
+5. **Verify startup** - Confirm Positron started using status tools
+
+**Why use MCP tools:**
+- Automatic process management with PID tracking
+- Clean status reporting with uptime information
+- Structured log output without manual parsing
+- No orphaned processes or port conflicts
+
+### Quick Development Setup (Manual Fallback)
 
 ```bash
 # 1. Install dependencies (only if needed - see warning above)
@@ -176,6 +231,15 @@ timeout /t 5 /nobreak >nul && tasklist | findstr /i "positron electron"
 - The build process can take 30-60 seconds for a full compilation
 
 ### Restart Development Environment
+
+#### With MCP Tools:
+To restart the development environment:
+1. Stop all running daemons using the appropriate stop tools
+2. Wait for clean shutdown confirmation
+3. Restart the necessary compilation daemons using start tools
+4. Monitor logs for successful compilation before launching Positron
+
+#### Manual Method:
 ```bash
 # Kill all build watchers
 npm run kill-watch-clientd && npm run kill-watch-extensionsd && npm run kill-watch-e2ed
@@ -298,14 +362,22 @@ npm run gulp -- --tasks
 npm run watch-extensions --dry-run
 ```
 
-## Claude Code Workflow Summary
+## Workflow Summary
 
-For Claude Code to manage Positron development:
+When managing Positron development:
 
+### Preferred: MCP Server Tools
+1. **Check Status**: Use status tools to verify daemon state
+2. **Start Daemons**: Use start tools for compilation daemons
+3. **Monitor**: Use logs tools to track compilation progress
+4. **Stop Cleanly**: Use stop tools for graceful shutdown
+5. **Testing**: Use E2E UI mode tool when available
+
+### Fallback: Manual Commands
 1. **Dependencies**: Run `npm install` when needed
 2. **Build Daemons**: Start appropriate daemon combination based on task
 3. **Launch**: Use `./scripts/code.sh` to start Positron
 4. **Monitor**: Parse daemon output for compilation errors
 5. **Testing**: Run E2E tests with direct Playwright commands
 
-This approach provides the same functionality as VSCode tasks but with direct command access and better integration with Claude Code workflows.
+The MCP tools provide superior process management, structured monitoring, and prevent common issues like orphaned processes or port conflicts.
