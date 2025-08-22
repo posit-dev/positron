@@ -32,7 +32,6 @@ const compilations = [
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/positron-assistant/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
-	'extensions/positron-copilot-chat/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
 	'extensions/positron-duckdb/tsconfig.json',
 	'extensions/positron-environment/tsconfig.json',
