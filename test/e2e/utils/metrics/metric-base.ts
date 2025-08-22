@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import os from 'os';
-import { DataExplorerShortcutOptions } from './data-explorer.js';
+import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
 export const PROD_API_URL = 'https://connect.posit.it/e2e-test-insights-api/metrics';

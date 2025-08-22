@@ -5,7 +5,7 @@
 
 import { request } from 'undici';
 import { MultiLogger } from '../../infra/logger.js';
-import { CONNECT_API_KEY, PROD_API_URL, LOCAL_API_URL, platformOs, platformVersion, MetricResponse } from './base.js';
+import { CONNECT_API_KEY, PROD_API_URL, LOCAL_API_URL, platformOs, platformVersion, MetricResponse } from './metric-base.js';
 
 export type PerfMetric = {
 	feature_area: string;

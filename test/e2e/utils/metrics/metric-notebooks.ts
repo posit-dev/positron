@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MultiLogger } from '../../infra/logger.js';
-import { BaseMetric, MetricTargetType, MetricStatus, MetricContext } from './base.js';
+import { BaseMetric, MetricTargetType, MetricStatus, MetricContext } from './metric-base.js';
 import { logMetric } from './api.js';
 
 //-----------------------

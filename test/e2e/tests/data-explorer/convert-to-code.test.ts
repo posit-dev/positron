@@ -19,7 +19,7 @@ Summary:
  * |dplyr             |R        |<dplyr>                                    |dplyr                   |
  */
 
-import { MetricTargetType } from '../../utils/metrics/base.js';
+import { MetricTargetType } from '../../utils/metrics/metric-base.js';
 import { test, tags } from '../_test.setup';
 import { pandasDataFrameScript } from './helpers/convert-to-code-data.js';
 

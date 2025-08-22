@@ -19,7 +19,7 @@ import {
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName
 } from '../fixtures/test-setup';
-import { RecordMetric } from '../utils/metrics/base.js';
+import { RecordMetric } from '../utils/metrics/metric-base.js';
 
 // Currents fixtures
 import {
@@ -292,30 +292,3 @@ interface WorkerFixtures {
 	};
 	vsCodeSettings: VscodeSettings;
 }
-
-interface TestFixtures {
-	restartApp: Application;
-	tracing: any;
-	page: playwright.Page;
-	attachScreenshotsToReport: any;
-	attachLogsToReport: any;
-	sessions: Sessions;
-	r: void;
-	python: void;
-	packages: PackageManager;
-	autoTestFixture: any;
-	devTools: void;
-	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
-	openDataFile: (filePath: string) => Promise<void>;
-	openFolder: (folderPath: string) => Promise<void>;
-	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
-	executeCode: (language: 'Python' | 'R', code: string, options?: {
-		timeout?: number;
-		waitForReady?: boolean;
-		maximizeConsole?: boolean;
-	}) => Promise<void>;
-	hotKeys: HotKeys;
-	cleanup: TestTeardown;
-	metric: RecordMetric;
-}
-
