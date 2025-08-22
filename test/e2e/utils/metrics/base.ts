@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import os from 'os';
+import { DataExplorerShortcutOptions } from './data-explorer.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
 export const PROD_API_URL = 'https://connect.posit.it/e2e-test-insights-api/metrics';
@@ -35,6 +36,18 @@ export type MetricContext = {
 	sort_applied?: boolean;
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
+};
+
+export type RecordMetric = {
+	dataExplorer: {
+		loadData: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		filter: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		sort: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+		toCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<T>;
+	};
+	// notebooks: {
+	// 	runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<T>;
+	// };
 };
 
 export interface MetricResponse {

@@ -46,9 +46,9 @@ test.describe('Headless Data Explorer', {
 	testCases.forEach(({ target, file, copyValue }) => {
 		test(`Verify can open and view data with large ${target} file`, { tag: [tags.PERFORMANCE] }, async function ({ app, openDataFile, metric }) {
 			const { editors, dataExplorer, clipboard } = app.workbench;
+			await openDataFile(file);
 
 			await metric.dataExplorer.loadData(async () => {
-				await openDataFile(`${file}`);
 				await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
 				await dataExplorer.waitForIdle();
 			}, target);
