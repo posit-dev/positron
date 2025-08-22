@@ -49,6 +49,8 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 import { observableValue } from '../../../../base/common/observable.js';
+import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
+import { ICompositeCodeEditor } from '../../../../editor/common/editorCommon.js';
 
 
 /*
@@ -94,6 +96,10 @@ export class PositronNotebookEditor extends EditorPane {
 	 */
 	private readonly _editorMemento: IEditorMemento<INotebookEditorViewState>;
 
+	/**
+	 * The editor control, used by other features to access the code editor widget of the selected cell.
+	 */
+	private _control = new PositronNotebookEditorControl();
 
 	private _scopedContextKeyService?: IContextKeyService;
 	private _scopedInstantiationService?: IInstantiationService;
@@ -271,10 +277,21 @@ export class PositronNotebookEditor extends EditorPane {
 			);
 		}
 
+		if (input.notebookInstance === undefined) {
+			throw new Error(
+				'Notebook instance is undefined. This should have been created in the constructor.'
+			);
+		}
 
 		// We're setting the options on the input here so that the input can resolve the model
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
+
+		// Update the editor control given the notebook instance.
+		// This has to be done before we `await super.setInput` since that fires events
+		// with listeners that call `this.getControl()` expecting an up-to-date control
+		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
+		this._control.setNotebookInstance(input.notebookInstance);
 
 		await super.setInput(input, options, context, token);
 
@@ -298,12 +315,6 @@ export class PositronNotebookEditor extends EditorPane {
 				})
 			)
 		);
-
-		if (input.notebookInstance === undefined) {
-			throw new Error(
-				'Notebook instance is undefined. This should have been created in the constructor.'
-			);
-		}
 
 		this._renderReact();
 
@@ -380,6 +391,10 @@ export class PositronNotebookEditor extends EditorPane {
 
 		return viewModel;
 
+	}
+
+	override getControl(): ICompositeCodeEditor {
+		return this._control;
 	}
 
 	private _fontInfo: FontInfo | undefined;
