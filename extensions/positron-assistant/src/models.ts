@@ -735,39 +735,36 @@ export function getLanguageModels() {
 }
 
 /**
- * Creates a model configuration from environment variables for the specified provider.
+ * Creates model configurations from environment variables.
  * Only compatible with providers that have an API key environment variable.
  *
- * @param providerId The ID of the provider.
- * @returns The model configuration or undefined if the provider is not found.
+ * @returns The model configurations that are configured by the environment.
  */
-export function createModelConfigFromEnv(providerId: string): ModelConfig | undefined {
-	const modelClass = getLanguageModels().find((cls) => cls.source.provider.id === providerId);
-	if (!modelClass) {
-		return undefined;
-	}
+export function createModelConfigsFromEnv(): ModelConfig[] {
+	const models = getLanguageModels();
+	const modelConfigs: ModelConfig[] = [];
 
-	const source = modelClass.source.defaults;
-	let modelConfig: ModelConfig | undefined;
+	models.forEach(model => {
+		if ('apiKeyEnvVar' in model.source.defaults) {
+			const key = model.source.defaults.apiKeyEnvVar?.key;
+			const apiKey = key ? process.env[key] : undefined;
 
-	if ('apiKeyEnvVar' in modelClass.source.defaults) {
-		const key = modelClass.source.defaults.apiKeyEnvVar?.key;
-		const apiKey = key ? process.env[key] : undefined;
-
-		if (key && apiKey) {
-			modelConfig = {
-				id: `${providerId}`,
-				provider: modelClass.source.provider.id,
-				type: positron.PositronLanguageModelType.Chat,
-				name: modelClass.source.provider.displayName,
-				model: modelClass.source.defaults.model,
-				apiKey: apiKey,
-				apiKeyEnvVar: 'apiKeyEnvVar' in modelClass.source.defaults ? modelClass.source.defaults.apiKeyEnvVar : undefined,
-			};
+			if (key && apiKey) {
+				const modelConfig = {
+					id: `${model.source.provider.id}`,
+					provider: model.source.provider.id,
+					type: positron.PositronLanguageModelType.Chat,
+					name: model.source.provider.displayName,
+					model: model.source.defaults.model,
+					apiKey: apiKey,
+					apiKeyEnvVar: 'apiKeyEnvVar' in model.source.defaults ? model.source.defaults.apiKeyEnvVar : undefined,
+				};
+				modelConfigs.push(modelConfig);
+			}
 		}
-	}
+	});
 
-	return modelConfig;
+	return modelConfigs;
 }
 
 export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {

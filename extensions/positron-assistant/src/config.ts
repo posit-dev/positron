@@ -147,7 +147,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		})
 		.map((source) => {
 			// Resolve environment variables in apiKeyEnvVar
-			if ((source.defaults as any).apiKeyEnvVar) {
+			if ('apiKeyEnvVar' in source.defaults && source.defaults.apiKeyEnvVar) {
 				const envVarName = (source.defaults as any).apiKeyEnvVar.key;
 				const envVarValue = process.env[envVarName];
 

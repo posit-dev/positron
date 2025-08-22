@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { availableModels, getLanguageModels, createModelConfigFromEnv, newLanguageModel } from './models';
+import { availableModels, createModelConfigsFromEnv, newLanguageModel } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -110,11 +110,11 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		});
 
 		// Add any configs that should automatically work when the right environment variables are set
-		const anthropicId = 'anthropic';
-		if (!modelConfigs.find(config => config.provider === anthropicId)) {
-			const anthropicConfig = createModelConfigFromEnv(anthropicId);
-			if (anthropicConfig) {
-				modelConfigs.push(anthropicConfig);
+		const modelConfigsFromEnv = createModelConfigsFromEnv();
+		// we add in the config if we don't already have it configured
+		for (const config of modelConfigsFromEnv) {
+			if (!modelConfigs.find(c => c.provider === config.provider)) {
+				modelConfigs.push(config);
 			}
 		}
 
