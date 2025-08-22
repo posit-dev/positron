@@ -15,6 +15,9 @@ import { CellUri } from '../../notebook/common/notebookCommon.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { NotebookTextDiffEditor } from '../../notebook/browser/diff/notebookDiffEditor.js';
 import { NotebookMultiTextDiffEditor } from '../../notebook/browser/diff/notebookMultiDiffEditor.js';
+// --- Start Positron ---
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+// --- End Positron ---
 
 export class InlineChatNotebookContribution {
 
@@ -24,6 +27,9 @@ export class InlineChatNotebookContribution {
 		@IInlineChatSessionService sessionService: IInlineChatSessionService,
 		@IEditorService editorService: IEditorService,
 		@INotebookEditorService notebookEditorService: INotebookEditorService,
+		// --- Start Positron ---
+		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 	) {
 
 		this._store.add(sessionService.registerSessionKeyComputer(Schemas.vscodeNotebookCell, {
@@ -57,6 +63,20 @@ export class InlineChatNotebookContribution {
 						// 	}
 					}
 				}
+				// --- Start Positron ---
+				// Find the Positron notebook instance for the given URI and containing the given editor.
+				for (const notebookInstance of positronNotebookService.getInstances()) {
+					if (isEqual(notebookInstance.uri, data.notebook)) {
+						const candidate = `<positron-notebook>${notebookInstance.id}#${uri}`;
+						if (!fallback) {
+							fallback = candidate;
+						}
+						if (notebookInstance.cells.get().some(cell => cell.editor === editor)) {
+							return candidate;
+						}
+					}
+				}
+				// --- End Positron ---
 
 				if (fallback) {
 					return fallback;
