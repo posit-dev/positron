@@ -19,8 +19,18 @@ Summary:
  * |dplyr             |R        |<dplyr>                                    |dplyr                   |
  */
 
-import { test, tags } from '../_test.setup';
-import { pandasDataFrameScript } from './helpers/convert-to-code-data.js';
+import { test, tags, expect } from '../_test.setup';
+import { pandasDataFrameScript, polarsDataFrameScript } from './helpers/convert-to-code-data.js';
+
+/**
+ * Helper function to normalize code for UI text comparison
+ * @param code The code string to normalize
+ * @returns The normalized code with consistent whitespace
+ */
+const normalizeCodeForDisplay = (code: string): string => {
+	// Replace newlines with spaces for UI component text comparison
+	return code.replace(/\n/g, '');
+};
 
 const testCases: {
 	language: 'Python' | 'R';
@@ -34,15 +44,15 @@ const testCases: {
 			dataScript: pandasDataFrameScript,
 			expectedCodeStyle: 'Pandas',
 			dataFrameType: 'pandas.DataFrame',
-			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
+			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)\ndf[filter_mask]'
 		},
-		// {
-		//   language: 'Python',
-		//   dataScript: polarsDataFrameScript,
-		//   expectedCodeStyle: 'Polars',
-		//   dataFrameType: 'polars.DataFrame',
-		//   expectedGeneratedCode: 'tbd'
-		// },
+		{
+			language: 'Python',
+			dataScript: polarsDataFrameScript,
+			expectedCodeStyle: 'Polars',
+			dataFrameType: 'polars.DataFrame',
+			expectedGeneratedCode: "filter_expr = (pl.col('status') == 'active') & (pl.col('score') >= 85) & (pl.col('is_student') == False)\ndf.filter(filter_expr)"
+		},
 		// {
 		//   language: 'R',
 		//   dataScript: rDataFrameScript,
@@ -112,12 +122,14 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await dataExplorer.convertToCodeModal.expectToBeVisible();
 
 			// verify the generated code is correct and has syntax highlights
-			await modals.expectToContainText(expectedGeneratedCode);
+			// Use normalized code for UI text comparison (spaces instead of newlines)
+			await expect(dataExplorer.convertToCodeModal.codeBox).toContainText(normalizeCodeForDisplay(expectedGeneratedCode));
 			await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
 
 			// verify copy to clipboard behavior
 			await dataExplorer.convertToCodeModal.clickOK();
-			await clipboard.expectClipboardTextToBe(expectedGeneratedCode + '\ndf[filter_mask]');
+			// When checking clipboard text, use the original expected code with newlines
+			await clipboard.expectClipboardTextToBe(expectedGeneratedCode);
 			await toasts.expectToBeVisible('Copied to clipboard');
 		});
 	});
