@@ -339,11 +339,8 @@
       {
         "name": "executeCode",
         "displayName": "Execute Code",
-        "toolReferenceName": "executeCode",
-        "icon": "$(run)",
-        "userDescription": "Execute code in the Console",
-        "modelDescription": "Execute a piece of code in the specified programming language. Prefer this tool to executing code in the Terminal. When you do not need to read the result, reply directly to the user with markdown code snippets.",
-        "canBeReferencedInPrompt": true,
+        "modelDescription": "Execute a piece of code in the specified programming language. Only use this tool if you absolutely need to execute code, otherwise reply directly to the user with markdown code snippets.",
+        "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -370,10 +367,7 @@
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
         "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
-        "canBeReferencedInPrompt": true,
-        "icon": "$(symbol-variable)",
-        "userDescription": "Inspect variables",
-        "toolReferenceName": "inspectVariables",
+        "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -408,10 +402,7 @@
         "name": "getPlot",
         "displayName": "View active plot",
         "modelDescription": "View the current active plot if one exists. Don't invoke this tool if there are no plots in the session.",
-        "icon": "$(graph-line)",
-        "userDescription": "Use the active plot in the Plots pane",
-        "toolReferenceName": "getPlot",
-        "canBeReferencedInPrompt": true,
+        "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant",
           "requires-session"
@@ -580,9 +571,6 @@
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.11.0",
     "zod": "^3.24.1"
-  },
-  "peerDependencies": {
-    "@vscode/prompt-tsx": "^0.4.0-alpha.5"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",

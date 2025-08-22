@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 
+import { MD_DIR } from '../constants';
 import { toLanguageModelChatMessage } from '../utils';
-import { PromptRenderer, QuartoContent } from '../prompts';
 import { PositronAssistantChatParticipant } from '../participants.js';
 
 export const EXPORT_QUARTO_COMMAND = 'exportQuarto';
@@ -20,7 +21,7 @@ export async function quartoHandler(
 	response: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ) {
-	const systemPrompt = await PromptRenderer.renderSystemPrompt(QuartoContent, {}, request.model);
+	const system = await fs.promises.readFile(`${MD_DIR}/prompts/chat/quarto.md`, 'utf8');
 
 	response.markdown(vscode.l10n.t('Okay!'));
 	response.progress(vscode.l10n.t('Creating new Quarto document...'));
@@ -37,7 +38,7 @@ export async function quartoHandler(
 
 	response.progress(vscode.l10n.t('Writing Quarto document...'));
 	const modelResponse = await request.model.sendRequest(messages, {
-		modelOptions: { system: systemPrompt },
+		modelOptions: { system },
 	}, token);
 
 	for await (const chunk of modelResponse.text) {

@@ -263,16 +263,6 @@ function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anth
 			`User message ${userMessageIndex++}` :
 			`Assistant message ${assistantMessageIndex++}`;
 		return toAnthropicMessage(message, source);
-	}).filter(message => {
-		if (!!message.content && message.content.length > 0) {
-			// Message has content
-			return true;
-		} else {
-			// prompt-tsx can create empty chat messages; they are ignorable
-			// (but can be logged at trace level)
-			log.trace(`Skipping message with empty content: ${JSON.stringify(message, null, 2)}`);
-		}
-		return false;
 	});
 	return anthropicMessages;
 }
@@ -327,7 +317,7 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				// Skip other data parts.
 			}
 		} else {
-			log.trace(`Skipping part in user message: ${JSON.stringify(part, null, 2)}`);
+			throw new Error('Unsupported part type on user message');
 		}
 	}
 	return {
@@ -442,11 +432,7 @@ function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.Tool
 	if (tools.length === 0) {
 		return [];
 	}
-	log.trace(`Converting ${tools.length} tools to Anthropic format`);
-	const anthropicTools = tools.map((tool, index) => {
-		log.trace(`Processing tool ${index + 1}/${tools.length}: ${tool.name}`);
-		return toAnthropicTool(tool);
-	});
+	const anthropicTools = tools.map(tool => toAnthropicTool(tool));
 
 	// Ensure a stable sort order for prompt caching.
 	anthropicTools.sort((a, b) => a.name.localeCompare(b.name));
@@ -459,21 +445,6 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		type: 'object',
 		properties: {},
 	};
-
-	// Debug logging to help identify problematic tools
-	if (!input_schema.type) {
-		// the 'copilot_testFailure' tool contributed by Copilot Chat is missing
-		// its type annotation, which Anthropic can't handle
-		log.trace('Tool missing type in input_schema, guessing object type:', {
-			name: tool.name,
-			description: tool.description,
-			inputSchema: tool.inputSchema,
-			computed_input_schema: input_schema
-		});
-		// Ensure type is always present
-		input_schema.type = 'object';
-	}
-
 	return {
 		name: tool.name,
 		description: tool.description,

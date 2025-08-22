@@ -9,10 +9,9 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { PositronAssistantChatParticipant, PositronAssistantEditorParticipant, ParticipantService } from '../participants.js';
 import { mock } from './utils.js';
-import { PromptRenderer, AttachmentsContent } from '../prompts';
+import { readFile } from 'fs/promises';
+import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
-import { BasePromptElementProps, IChatEndpointInfo, PromptElementCtor, renderElementJSON, renderPrompt } from '@vscode/prompt-tsx';
-import { stringifyPromptElementJSON } from '../promptRenderer.js';
 
 /** We expect 2 messages by default: 1 for the user's prompt, and 1 containing at least the default context */
 const DEFAULT_EXPECTED_MESSAGE_COUNT = 2;
@@ -24,31 +23,6 @@ class TestLanguageModelChatResponse implements vscode.LanguageModelChatResponse 
 		}
 	};
 	text: AsyncIterable<string> = this.stream;
-}
-
-/**
- * Render a prompt-tsx component to a string.
- *
- * @param ctor The JSX component constructor to render
- * @param props The props for the component
- * @returns Promise resolving to the rendered string
- */
-async function renderPromptToString<P extends BasePromptElementProps>(
-	ctor: PromptElementCtor<P, any>,
-	props: P,
-	model?: vscode.LanguageModelChat
-): Promise<string> {
-
-	const tokenSource = new vscode.CancellationTokenSource();
-	const result = await renderElementJSON(
-		ctor,
-		props,
-		undefined, // No token budget for tests
-		tokenSource.token
-	);
-
-	// Convert JSON result to string representation
-	return stringifyPromptElementJSON(result);
 }
 
 class TestLanguageModelChat implements vscode.LanguageModelChat {
@@ -120,7 +94,6 @@ suite('PositronAssistantParticipant', () => {
 	let llmsTxtUri: vscode.Uri;
 	let chatParticipant: PositronAssistantChatParticipant;
 	let editorParticipant: PositronAssistantEditorParticipant;
-
 	setup(() => {
 		disposables = [];
 
@@ -140,13 +113,6 @@ suite('PositronAssistantParticipant', () => {
 		disposables.push(participantService);
 		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
 		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
-
-		// FIXED: Mock positron runtime sessions and system prompts to work with new TSX-based prompt system
-		// These mocks bypass the TSX rendering complexities while still testing the core functionality
-		sinon.stub(positron.runtime, 'getActiveSessions').resolves([]);
-		// Return empty array to avoid the character spreading issue - we're testing context, not system prompts
-		sinon.stub(chatParticipant, 'renderSystemPromptForParticipant' as any).resolves([]);
-		sinon.stub(editorParticipant, 'renderSystemPromptForParticipant' as any).resolves([]);
 	});
 
 	teardown(() => {
@@ -219,19 +185,14 @@ Today's date is: Wednesday 11 June 2025 at 13:30:00 BST
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
-		const attachmentsText = await renderPromptToString(AttachmentsContent, {
-			attachments: [{
-				content: document.getText(),
-				filePath,
-				description: "Full contents of the file",
-				language: document.languageId,
-				type: 'file'
-			}]
-		});
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages.at(-1)!,
 			`<attachments>
 ${attachmentsText}
+<attachment filePath="${filePath}" description="Full contents of the file" language="${document.languageId}">
+${document.getText()}
+</attachment>
 </attachments>`);
 	});
 
@@ -255,18 +216,15 @@ ${attachmentsText}
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const filePath = vscode.workspace.asRelativePath(folderReferenceUri);
-		const attachmentsText = await renderPromptToString(AttachmentsContent, {
-			attachments: [{
-				content: "file.txt\nsubfolder/",
-				filePath,
-				description: "Contents of the directory",
-				type: 'directory'
-			}]
-		});
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages.at(-1)!,
 			`<attachments>
 ${attachmentsText}
+<attachment filePath="${filePath}" description="Contents of the directory">
+file.txt
+subfolder/
+</attachment>
 </attachments>`);
 	});
 
@@ -293,30 +251,17 @@ ${attachmentsText}
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
-		const attachmentsText = await renderPromptToString(AttachmentsContent, {
-			attachments: [
-				{
-					content: document.getText(range),
-					filePath,
-					description: "Visible region of the active file",
-					language: document.languageId,
-					startLine: range.start.line + 1,
-					endLine: range.end.line + 1,
-					type: 'range'
-				},
-				{
-					content: document.getText(),
-					filePath,
-					description: "Full contents of the active file",
-					language: document.languageId,
-					type: 'file'
-				}
-			]
-		});
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages.at(-1)!,
 			`<attachments>
 ${attachmentsText}
+<attachment filePath="${filePath}" description="Visible region of the active file" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
+${document.getText(range)}
+</attachment>
+<attachment filePath="${filePath}" description="Full contents of the active file" language="${document.languageId}">
+${document.getText()}
+</attachment>
 </attachments>`);
 	});
 
@@ -342,17 +287,12 @@ ${attachmentsText}
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		const attachmentsText = await renderPromptToString(AttachmentsContent, {
-			attachments: [{
-				content: "",
-				src: reference.name,
-				type: 'image'
-			}]
-		});
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages.at(-1)!,
 			`<attachments>
 ${attachmentsText}
+<img src="${reference.name}" />
 </attachments>`,
 			{
 				mimeType: referenceBinaryData.mimeType,

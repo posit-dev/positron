@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 
+import { MD_DIR } from './constants';
 import { IPositronAssistantParticipant, ParticipantID, ParticipantService } from './participants.js';
-import { PromptRenderer, MapEditContent } from './prompts';
 
 type LMTextEdit = { append: string } | { delete: string; replace: string };
 
@@ -123,12 +124,12 @@ async function mapEdit(
 	block: string,
 	token: vscode.CancellationToken,
 ): Promise<string | null> {
-	const systemPrompt = await PromptRenderer.renderSystemPrompt(MapEditContent, {}, model);
+	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/chat/mapedit.md`, 'utf8');
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })
 		)
-	], { modelOptions: { system: systemPrompt } }, token);
+	], { modelOptions: { system } }, token);
 
 	let replacement = '';
 	for await (const delta of response.text) {

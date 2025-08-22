@@ -5,12 +5,12 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromptElement } from '@vscode/prompt-tsx';
-import { PositronAssistant } from './prompts/components/content/PositronAssistant.js';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
-import { TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants.js';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
+import path = require('path');
+import fs = require('fs');
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -22,13 +22,13 @@ export class PositronAssistantApi {
 	/**
 	 * Generates assistant prompt content.
 	 *
-	 * The returned content should be wrapped in an AssistantMessage.
-	 *
 	 * @param request The chat request to generate content for.
 	 * @returns A PromptElement that renders the assistant content.
 	 */
-	public generateAssistantPrompt(request: any): PromptElement<any, any> {
-		return new PositronAssistant({ request: request.request ? request.request : request });
+	public generateAssistantPrompt(request: any): string {
+		// Start with the system prompt
+		const defaultSystem = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		return defaultSystem;
 	}
 
 	/**
@@ -185,9 +185,8 @@ export function getEnabledTools(
 				break;
 		}
 
-		// Final check: if we're in agent mode, the tool is marked for use with
-		// Assistant, or the ID is undefined (i.e. this is from Copilot),
-		// include the tool.
+		// Final check: if we're in agent mode, or the tool is marked for use with
+		// Assistant, include the tool
 		if (isAgentMode || tool.tags.includes('positron-assistant')) {
 			enabledTools.push(tool.name);
 		}

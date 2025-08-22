@@ -18,9 +18,9 @@ import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
-import { PositronAssistantApi } from './api.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
+import { PositronAssistantApi } from './api.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -182,7 +182,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				name: languageModel.name,
 				family: languageModel.provider,
 				providerName: languageModel.providerName,
-				vendor: languageModel.provider,
+				vendor: context.extension.packageJSON.publisher,
 				version: context.extension.packageJSON.version,
 				capabilities: languageModel.capabilities,
 				maxInputTokens: 0,
@@ -318,7 +318,7 @@ export function getRequestTokenUsage(requestId: string): { inputTokens: number; 
 	return requestTokenUsage.get(requestId);
 }
 
-export function activate(context: vscode.ExtensionContext): PositronAssistantApi {
+export function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
