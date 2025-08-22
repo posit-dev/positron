@@ -207,13 +207,11 @@ def test_histogram_datetime_data():
 
 
 def test_histogram_categorical_error():
-    """Test that categorical data raises appropriate error or is handled."""
+    """Test that categorical data raises appropriate error."""
     data = pl.Series(["A", "B", "C", "A", "B"], dtype=pl.Categorical)
 
     # The histogram should not work with categorical data
-    from polars.exceptions import ComputeError
-
-    with pytest.raises((ValueError, TypeError, ComputeError)):
+    with pytest.raises(ValueError):
         _get_histogram_polars(data, num_bins=5, method="fixed")
 
 
@@ -275,3 +273,116 @@ def test_histogram_sparse_bins():
     # Middle bins should be zero (this tests the zero-filling logic)
     middle_bins_sum = sum(bin_counts[1:-1])
     assert middle_bins_sum == 0, f"Expected middle bins to be zero, got {bin_counts}"
+
+
+def test_histogram_large_integer_overflow():
+    """Test histogram with very large integers that could cause overflow."""
+    import sys
+
+    # Test with large 64-bit integers near the limits
+    max_int64 = 2**63 - 1
+    large_values = [
+        max_int64 - 1000,
+        max_int64 - 500,
+        max_int64 - 100,
+        max_int64 - 10,
+        max_int64 - 1,
+    ]
+
+    data = pl.Series(large_values, dtype=pl.Int64)
+    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=10, method="fixed")
+
+    # Should handle large integers without overflow
+    _assert_histogram_valid(large_values, bin_counts, bin_edges)
+    assert len(bin_counts) == 10
+
+
+def test_histogram_large_integer_range():
+    """Test histogram with a large range between min and max integers."""
+    # Create data with very large range that could cause overflow in subtraction
+    large_range_data = [0, 2**50, 2**60 - 1]  # Very large range
+
+    data = pl.Series(large_range_data, dtype=pl.Int64)
+    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=5, method="fixed")
+
+    # Should handle large ranges without overflow
+    _assert_histogram_valid(large_range_data, bin_counts, bin_edges)
+    assert len(bin_counts) == 5
+
+
+def test_histogram_small_integer_underflow():
+    """Test histogram with very small negative integers."""
+    # Test with large negative 64-bit integers
+    min_int64 = -(2**63)
+    small_values = [min_int64, min_int64 + 1, min_int64 + 10, min_int64 + 100, min_int64 + 1000]
+
+    data = pl.Series(small_values, dtype=pl.Int64)
+    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=8, method="fixed")
+
+    # Should handle very negative integers without underflow
+    _assert_histogram_valid(small_values, bin_counts, bin_edges)
+    assert len(bin_counts) == 8
+
+
+def test_histogram_mixed_extreme_integers():
+    """Test histogram with both very large positive and negative integers."""
+    # Mix of extreme positive and negative values
+    extreme_values = [
+        -(2**63),  # Most negative 64-bit int
+        -(2**50),  # Large negative
+        -1000,  # Small negative
+        0,  # Zero
+        1000,  # Small positive
+        2**50,  # Large positive
+        2**63 - 1,  # Most positive 64-bit int
+    ]
+
+    data = pl.Series(extreme_values, dtype=pl.Int64)
+    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=10, method="fixed")
+
+    # Should handle extreme ranges without overflow
+    _assert_histogram_valid(extreme_values, bin_counts, bin_edges)
+    assert len(bin_counts) == 10
+
+    # Range should be approximately 2^64
+    total_range = bin_edges[-1] - bin_edges[0]
+    assert total_range > 2**60  # Should be a very large range
+
+
+def test_histogram_uint64_large_values():
+    """Test histogram with large unsigned 64-bit integers."""
+    # Test with large uint64 values
+    large_uint_values = [
+        2**63,  # Just above max int64
+        2**63 + 1000,  # Slightly larger
+        2**64 - 1000,  # Near max uint64
+        2**64 - 100,  # Very close to max uint64
+        2**64 - 1,  # Max uint64
+    ]
+
+    data = pl.Series(large_uint_values, dtype=pl.UInt64)
+    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=5, method="fixed")
+
+    # Should handle large unsigned integers
+    _assert_histogram_valid(large_uint_values, bin_counts, bin_edges)
+    assert len(bin_counts) == 5
+
+
+def test_histogram_integer_precision_loss():
+    """Test histogram with integers where float conversion might lose precision."""
+    # Create integers that are close to the float64 precision limit (2^53)
+    precision_limit = 2**53
+    close_values = [
+        precision_limit,
+        precision_limit + 1,
+        precision_limit + 2,
+        precision_limit + 3,
+        precision_limit + 10,
+    ]
+
+    data = pl.Series(close_values, dtype=pl.Int64)
+    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=10, method="fixed")
+
+    # Should handle precision edge cases
+    _assert_histogram_valid(close_values, bin_counts, bin_edges)
+    assert len(bin_counts) == 10
