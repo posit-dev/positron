@@ -53,6 +53,7 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <Gemini className='language-model icon' />;
 			case 'copilot':
 				return <GithubCopilot className='language-model icon' />;
+			case 'amazon-bedrock': // Vercel API uses this as an id
 			case 'bedrock':
 				return <Bedrock className='language-model icon' />;
 			case 'error':

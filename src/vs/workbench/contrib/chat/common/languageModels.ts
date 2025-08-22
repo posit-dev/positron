@@ -10,19 +10,16 @@ import { Iterable } from '../../../../base/common/iterator.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { isFalsyOrWhitespace } from '../../../../base/common/strings.js';
+import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-// import { ChatImagePart } from '../../../api/common/extHostTypes.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IExtensionService, isProposedApiEnabled } from '../../../services/extensions/common/extensions.js';
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
 import { ChatContextKeys } from './chatContextKeys.js';
-// --- Start Positron ---
-// The storage service is needed for Positron AI provider additions.
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-// --- End Positron ---
 
 export const enum ChatMessageRole {
 	System,
@@ -30,9 +27,15 @@ export const enum ChatMessageRole {
 	Assistant,
 }
 
+export enum ToolResultAudience {
+	Assistant = 0,
+	User = 1,
+}
+
 export interface IChatMessageTextPart {
 	type: 'text';
 	value: string;
+	audience?: ToolResultAudience[];
 }
 
 export interface IChatMessageImagePart {
@@ -44,6 +47,7 @@ export interface IChatMessageDataPart {
 	type: 'data';
 	mimeType: string;
 	data: VSBuffer;
+	audience?: ToolResultAudience[];
 }
 
 export interface IChatImageURLPart {
@@ -96,6 +100,7 @@ export interface IChatMessage {
 export interface IChatResponseTextPart {
 	type: 'text';
 	value: string;
+	audience?: ToolResultAudience[];
 }
 
 export interface IChatResponsePromptTsxPart {
@@ -106,6 +111,7 @@ export interface IChatResponsePromptTsxPart {
 export interface IChatResponseDataPart {
 	type: 'data';
 	value: IChatImageURLPart;
+	audience?: ToolResultAudience[];
 }
 
 export interface IChatResponseToolUsePart {
@@ -114,6 +120,17 @@ export interface IChatResponseToolUsePart {
 	toolCallId: string;
 	parameters: any;
 }
+
+export interface IChatResponsePullRequestPart {
+	type: 'pullRequest';
+	uri: URI;
+	title: string;
+	description: string;
+	author: string;
+	linkTag: string;
+}
+
+export type IExtendedChatResponsePart = IChatResponsePullRequestPart;
 
 export type IChatResponsePart = IChatResponseTextPart | IChatResponseToolUsePart | IChatResponseDataPart;
 
@@ -126,6 +143,12 @@ export interface IChatResponseFragment {
 export interface IPositronChatProvider {
 	readonly id: string;
 	readonly displayName: string;
+}
+
+// re-added in 1.103.0 merge and modified for Positron
+export interface ILanguageModelsChangeEvent {
+	added?: string[];
+	removed?: string[];
 }
 // --- End Positron ---
 
@@ -144,7 +167,6 @@ export interface ILanguageModelChatMetadata {
 	// --- End Positron ---
 	readonly maxInputTokens: number;
 	readonly maxOutputTokens: number;
-	readonly targetExtensions?: string[];
 
 	readonly isDefault?: boolean;
 	readonly isUserSelectable?: boolean;
@@ -180,6 +202,15 @@ export interface ILanguageModelChatResponse {
 	result: Promise<any>;
 }
 
+export interface ILanguageModelChatProvider {
+	// --- Start Positron ---
+	// --- End Positron ---
+	onDidChange: Event<void>;
+	prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]>;
+	sendChatRequest(modelId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
+	provideTokenCount(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
+}
+
 export interface ILanguageModelChat {
 	metadata: ILanguageModelChatMetadata;
 	sendChatRequest(messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
@@ -203,16 +234,10 @@ export interface ILanguageModelChatMetadataAndIdentifier {
 	identifier: string;
 }
 
-export interface ILanguageModelsChangeEvent {
-	added?: ILanguageModelChatMetadataAndIdentifier[];
-	removed?: string[];
-}
-
 export interface ILanguageModelsService {
 
 	readonly _serviceBrand: undefined;
 
-	onDidChangeLanguageModels: Event<ILanguageModelsChangeEvent>;
 	// --- Start Positron ---
 	/** The current language model provider. */
 	get currentProvider(): IPositronChatProvider | undefined;
@@ -221,7 +246,10 @@ export interface ILanguageModelsService {
 	set currentProvider(provider: IPositronChatProvider | undefined);
 
 	/** Fires when the current language model provider is changed. */
-	onDidChangeCurrentProvider: Event<IPositronChatProvider | undefined>;
+	onDidChangeCurrentProvider: Event<string | undefined>;
+
+	/** Fires when the registered providers change */
+	onDidChangeProviders: Event<ILanguageModelsChangeEvent>;
 
 	/** Get the language model IDs for the current provider. */
 	getLanguageModelIdsForCurrentProvider(): string[];
@@ -233,17 +261,29 @@ export interface ILanguageModelsService {
 	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined;
 	// --- End Positron ---
 
+	// TODO @lramos15 - Make this a richer event in the future. Right now it just indicates some change happened, but not what
+	onDidChangeLanguageModels: Event<void>;
+
+	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void;
+
 	getLanguageModelIds(): string[];
 
-	lookupLanguageModel(identifier: string): ILanguageModelChatMetadata | undefined;
+	getVendors(): IUserFriendlyLanguageModel[];
 
-	selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]>;
+	lookupLanguageModel(modelId: string): ILanguageModelChatMetadata | undefined;
 
-	registerLanguageModelChat(identifier: string, provider: ILanguageModelChat): IDisposable;
+	/**
+	 * Given a selector, returns a list of model identifiers
+	 * @param selector The selector to lookup for language models. If the selector is empty, all language models are returned.
+	 * @param allowPromptingUser If true the user may be prompted for things like API keys for us to select the model.
+	 */
+	selectLanguageModels(selector: ILanguageModelChatSelector, allowPromptingUser?: boolean): Promise<string[]>;
 
-	sendChatRequest(identifier: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
+	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable;
 
-	computeTokenLength(identifier: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
+	sendChatRequest(modelId: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
+
+	computeTokenLength(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
 }
 
 const languageModelType: IJSONSchema = {
@@ -252,12 +292,22 @@ const languageModelType: IJSONSchema = {
 		vendor: {
 			type: 'string',
 			description: localize('vscode.extension.contributes.languageModels.vendor', "A globally unique vendor of language models.")
+		},
+		displayName: {
+			type: 'string',
+			description: localize('vscode.extension.contributes.languageModels.displayName', "The display name of the language model vendor.")
+		},
+		managementCommand: {
+			type: 'string',
+			description: localize('vscode.extension.contributes.languageModels.managementCommand', "A command to manage the language model vendor, e.g. 'Manage Copilot models'. This is used in the chat model picker. If not provided, a gear icon is not rendered during vendor selection.")
 		}
 	}
 };
 
-interface IUserFriendlyLanguageModel {
+export interface IUserFriendlyLanguageModel {
 	vendor: string;
+	displayName: string;
+	managementCommand?: string;
 }
 
 export const languageModelExtensionPoint = ExtensionsRegistry.registerExtensionPoint<IUserFriendlyLanguageModel | IUserFriendlyLanguageModel[]>({
@@ -285,43 +335,63 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	private readonly _store = new DisposableStore();
 
-	private readonly _providers = new Map<string, ILanguageModelChat>();
-	private readonly _vendors = new Set<string>();
 	// --- Start Positron ---
-	// Track provider vendor to extension mapping for chat agent selection
-	private readonly _providerExtensions = new Map<string, ExtensionIdentifier>();
-	// --- End Positron ---
-
-	private readonly _onDidChangeProviders = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
-	// --- Start Positron ---
-	// readonly onDidChangeLanguageModels: Event<ILanguageModelsChangeEvent> = this._onDidChangeProviders.event;
-
 	// We connect the onDidChangeLanguageModels event to a new _onDidChangeLanguageModels
 	// Emitter that fires _after_ the current language model provider is updated.
 	// The order is important since consumers (e.g. ChatInputPart) may query language
 	// models for the current provider in an onDidChangeLanguageModels event handler.
 
-	private readonly _onDidChangeLanguageModels = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
-	readonly onDidChangeLanguageModels: Event<ILanguageModelsChangeEvent> = this._onDidChangeLanguageModels.event;
-
 	// Add the current provider and corresponding event.
 	private _currentProvider?: IPositronChatProvider;
-	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<IPositronChatProvider | undefined>());
+	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<string | undefined>());
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
+
+	// Track if we're in the initial setup phase to avoid changing provider during chat requests
+	private _isInitialSetup = true;
+
+	// Positron re-added this in the 1.103.0 merge
+	private readonly _onDidChangeProviders = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
+	readonly onDidChangeProviders = this._onDidChangeProviders.event;
+
+	// Track provider vendor to extension mapping for chat agent selection
+	private readonly _providerExtensions = new Map<string, ExtensionIdentifier>();
 	// --- End Positron ---
 
+	private readonly _providers = new Map<string, ILanguageModelChatProvider>();
+	private readonly _modelCache = new Map<string, ILanguageModelChatMetadata>();
+	private readonly _vendors = new Map<string, IUserFriendlyLanguageModel>();
+	private readonly _modelPickerUserPreferences: Record<string, boolean> = {}; // We use a record instead of a map for better serialization when storing
+
 	private readonly _hasUserSelectableModels: IContextKey<boolean>;
+	private readonly _onLanguageModelChange = this._store.add(new Emitter<void>());
+
+	readonly onDidChangeLanguageModels: Event<void> = this._onLanguageModelChange.event;
 
 	constructor(
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		// --- Start Positron ---
-		// The storage service is needed to persist the current provider.
 		@IStorageService private readonly _storageService: IStorageService,
-		// --- End Positron ---
+		@IContextKeyService _contextKeyService: IContextKeyService
 	) {
-		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(this._contextKeyService);
+		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(_contextKeyService);
+		this._modelPickerUserPreferences = this._storageService.getObject<Record<string, boolean>>('chatModelPickerPreferences', StorageScope.PROFILE, this._modelPickerUserPreferences);
+
+		this._store.add(this.onDidChangeLanguageModels(() => {
+			this._hasUserSelectableModels.set(this._modelCache.size > 0 && Array.from(this._modelCache.values()).some(model => model.isUserSelectable));
+
+			// --- Start Positron ---
+			// Only auto-set provider during initial setup or if the current provider becomes unavailable
+			if (!this._currentProvider && this._modelCache.size > 0 && this._isInitialSetup) {
+				const availableProviders = this.getLanguageModelProviders();
+				if (availableProviders.length > 0) {
+					this._currentProvider = availableProviders[0];
+					this._onDidChangeCurrentProvider.fire(availableProviders[0].id);
+					// Mark the end of initial setup after first provider is set
+					this._isInitialSetup = false;
+				}
+			}
+			// --- End Positron ---
+		}));
 
 		this._store.add(languageModelExtensionPoint.setHandler((extensions) => {
 
@@ -347,47 +417,66 @@ export class LanguageModelsService implements ILanguageModelsService {
 						extension.collector.error(localize('vscode.extension.contributes.languageModels.whitespaceVendor', "The vendor field cannot start or end with whitespace."));
 						continue;
 					}
-					this._vendors.add(item.vendor);
+					this._vendors.set(item.vendor, item);
 				}
 			}
-
+			// --- Start Positron ---
+			// Restore provider change events that was removed in 1.103.0
+			/*
+			for (const [vendor, _] of this._providers) {
+				if (!this._vendors.has(vendor)) {
+					this._providers.delete(vendor);
+				}
+			}
+			*/
 			const removed: string[] = [];
-			for (const [identifier, value] of this._providers) {
-				if (!this._vendors.has(value.metadata.vendor)) {
-					this._providers.delete(identifier);
-					removed.push(identifier);
+			for (const [vendor, _] of this._providers) {
+				if (!this._vendors.has(vendor)) {
+					this._providers.delete(vendor);
+					removed.push(vendor);
 				}
 			}
 			if (removed.length > 0) {
 				this._onDidChangeProviders.fire({ removed });
 			}
+			// --- End Positron ---
 		}));
+
 		// --- Start Positron ---
 		this._store.add(this._onDidChangeProviders.event((event) => {
+			this._logService.trace('[LM] onDidChangeProviders fired', event);
 			const currentProvider = this._currentProvider;
-			if (!currentProvider && event.added) {
-				// There is no current provider and models were added, update the current provider
-				// using the first added user-selectable model.
-				const firstSelectableModel = event.added.find(model => model.metadata.isUserSelectable);
-				if (firstSelectableModel) {
-					this.currentProvider = this.getProviderFromLanguageModelMetadata(firstSelectableModel.metadata);
+
+			// Only auto-set provider during initial setup if there's no current provider
+			if (!currentProvider && event.added && event.added.length > 0 && this._isInitialSetup) {
+				// Set the first available provider as current
+				const firstProvider = event.added[0];
+				if (firstProvider) {
+					// Create a proper provider object by looking up the vendor info
+					const vendorInfo = this._vendors.get(firstProvider);
+					if (vendorInfo) {
+						this._logService.trace('[LM] Auto-setting current provider during initial setup', firstProvider);
+						this.currentProvider = {
+							id: firstProvider,
+							displayName: vendorInfo.displayName
+						};
+						// Mark the end of initial setup after first provider is set
+						this._isInitialSetup = false;
+					}
 				}
-			} else if (currentProvider && event.removed) {
-				// There is a current provider and models were removed.
-				// If no user-selectable models are left for the current provider,
-				// switch to the next available provider.
-				const hasCurrentProvider = Array.from(this._providers.values())
-					.some((model) => model.metadata.isUserSelectable &&
-						model.metadata.family === currentProvider.id);
-				if (!hasCurrentProvider) {
-					// No user-selectable models left for the current provider,
-					// switch to the next available provider.
-					this.currentProvider = this.getLanguageModelProviders()[0];
+			} else if (currentProvider && event.removed && event.removed.includes(currentProvider.id)) {
+				// Only change provider if the current one was actually removed/disposed
+				this._logService.trace('[LM] Current provider was removed, switching to next available', currentProvider.id);
+				const availableProviders = this.getLanguageModelProviders();
+				if (availableProviders.length > 0) {
+					this.currentProvider = availableProviders[0];
+				} else {
+					this.currentProvider = undefined;
 				}
 			}
 
-			// Now that the current provider is updated, fire the public language model changed event.
-			this._onDidChangeLanguageModels.fire(event);
+			// Fire the public language model changed event
+			this._onLanguageModelChange.fire();
 		}));
 
 		// Restore the current provider from storage, if it exists.
@@ -395,7 +484,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 		if (storedCurrentProvider) {
 			// Set privately to avoid writing to storage again.
 			this._currentProvider = storedCurrentProvider;
-			this._onDidChangeCurrentProvider.fire(storedCurrentProvider);
+			this._onDidChangeCurrentProvider.fire(storedCurrentProvider.id);
+			// Mark the end of initial setup since we have a stored provider
+			this._isInitialSetup = false;
 		}
 		// --- End Positron ---
 	}
@@ -405,43 +496,69 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._providers.clear();
 	}
 
+	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void {
+		const model = this._modelCache.get(modelIdentifier);
+		if (!model) {
+			this._logService.warn(`[LM] Cannot update model picker preference for unknown model ${modelIdentifier}`);
+			return;
+		}
+
+		this._modelPickerUserPreferences[modelIdentifier] = showInModelPicker;
+		if (showInModelPicker === model.isUserSelectable) {
+			delete this._modelPickerUserPreferences[modelIdentifier];
+			this._storageService.store('chatModelPickerPreferences', this._modelPickerUserPreferences, StorageScope.PROFILE, StorageTarget.USER);
+		} else if (model.isUserSelectable !== showInModelPicker) {
+			this._storageService.store('chatModelPickerPreferences', this._modelPickerUserPreferences, StorageScope.PROFILE, StorageTarget.USER);
+		}
+		this._onLanguageModelChange.fire();
+		this._logService.trace(`[LM] Updated model picker preference for ${modelIdentifier} to ${showInModelPicker}`);
+	}
+
+	getVendors(): IUserFriendlyLanguageModel[] {
+		return Array.from(this._vendors.values());
+	}
+
 	getLanguageModelIds(): string[] {
-		return Array.from(this._providers.keys());
+		return Array.from(this._modelCache.keys());
 	}
 	// --- Start Positron ---
 	private getSelectedProviderStorageKey(): string {
 		return `chat.currentLanguageProvider`;
 	}
 
-	private getProviderFromLanguageModelMetadata(metadata: ILanguageModelChatMetadata): IPositronChatProvider {
-		return {
-			id: metadata.vendor,
-			displayName: metadata.providerName ?? metadata.name,
-		};
-	}
-
+	/**
+	 * Gets the available providers, including their display names. This is done by
+	 * using the current model cache to determine what providers are available.
+	 *
+	 * @returns The available providers with their display names
+	 */
 	getLanguageModelProviders(): IPositronChatProvider[] {
 		const seenProviderIds = new Set<string>();
 		const providers: IPositronChatProvider[] = [];
-		for (const model of this._providers.values()) {
-			if (seenProviderIds.has(model.metadata.vendor) ||
+
+		for (const model of this._modelCache.values()) {
+			if (seenProviderIds.has(model.family) ||
 				// Only consider user-selectable models.
-				!model.metadata.isUserSelectable) {
+				!model.isUserSelectable) {
 				continue;
 			}
-			seenProviderIds.add(model.metadata.vendor);
-			providers.push(this.getProviderFromLanguageModelMetadata(model.metadata));
+			seenProviderIds.add(model.family);
+			providers.push({
+				displayName: model.providerName ?? model.family,
+				id: model.family
+			});
 		}
+
 		return providers;
 	}
 
 	getLanguageModelIdsForCurrentProvider() {
 		const currentProvider = this._currentProvider;
 		if (!currentProvider) {
-			return Array.from(this._providers.keys());
+			return Array.from(this._modelCache.keys());
 		}
-		return Array.from(this._providers.entries())
-			.filter(([, model]) => model.metadata.vendor === currentProvider.id)
+		return Array.from(this._modelCache.entries())
+			.filter(([, model]) => model.family === currentProvider.id)
 			.map(([modelId,]) => modelId);
 	}
 
@@ -452,7 +569,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 	set currentProvider(provider: IPositronChatProvider | undefined) {
 		this._logService.debug(`[LanguageModelsService] Setting current provider to ${provider?.id ?? 'undefined'}`);
 		this._currentProvider = provider;
-		this._onDidChangeCurrentProvider.fire(provider);
+		this._onDidChangeCurrentProvider.fire(provider?.id);
 		this._storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
 	}
 
@@ -464,32 +581,77 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 	// --- End Positron ---
 
-	lookupLanguageModel(identifier: string): ILanguageModelChatMetadata | undefined {
-		return this._providers.get(identifier)?.metadata;
+	lookupLanguageModel(modelIdentifier: string): ILanguageModelChatMetadata | undefined {
+		const model = this._modelCache.get(modelIdentifier);
+		if (model && this._modelPickerUserPreferences[modelIdentifier] !== undefined) {
+			return { ...model, isUserSelectable: this._modelPickerUserPreferences[modelIdentifier] };
+		}
+		return model;
 	}
 
-	async selectLanguageModels(selector: ILanguageModelChatSelector): Promise<string[]> {
+	private _clearModelCache(vendors: string | string[]): void {
+		if (typeof vendors === 'string') {
+			vendors = [vendors];
+		}
+		for (const vendor of vendors) {
+			for (const [id, model] of this._modelCache.entries()) {
+				if (model.vendor === vendor) {
+					this._modelCache.delete(id);
+				}
+			}
+		}
+	}
+
+	async resolveLanguageModels(vendors: string | string[], silent: boolean): Promise<void> {
+		if (typeof vendors === 'string') {
+			vendors = [vendors];
+		}
+		this._clearModelCache(vendors);
+		for (const vendor of vendors) {
+			const provider = this._providers.get(vendor);
+			if (!provider) {
+				this._logService.warn(`[LM] No provider registered for vendor ${vendor}`);
+				continue;
+			}
+			try {
+				const modelsAndIdentifiers = await provider.prepareLanguageModelChat({ silent }, CancellationToken.None);
+				for (const modelAndIdentifier of modelsAndIdentifiers) {
+					if (this._modelCache.has(modelAndIdentifier.identifier)) {
+						this._logService.warn(`[LM] Model ${modelAndIdentifier.identifier} is already registered. Skipping.`);
+						continue;
+					}
+					this._modelCache.set(modelAndIdentifier.identifier, modelAndIdentifier.metadata);
+				}
+				this._logService.trace(`[LM] Resolved language models for vendor ${vendor}`, modelsAndIdentifiers);
+			} catch (error) {
+				this._logService.error(`[LM] Error resolving language models for vendor ${vendor}:`, error);
+			}
+		}
+		this._onLanguageModelChange.fire();
+	}
+
+	async selectLanguageModels(selector: ILanguageModelChatSelector, allowPromptingUser?: boolean): Promise<string[]> {
 
 		if (selector.vendor) {
 			// selective activation
 			await this._extensionService.activateByEvent(`onLanguageModelChat:${selector.vendor}}`);
+			await this.resolveLanguageModels([selector.vendor], !allowPromptingUser);
 		} else {
 			// activate all extensions that do language models
-			const all = Array.from(this._vendors).map(vendor => this._extensionService.activateByEvent(`onLanguageModelChat:${vendor}`));
+			const allVendors = Array.from(this._vendors.keys());
+			const all = allVendors.map(vendor => this._extensionService.activateByEvent(`onLanguageModelChat:${vendor}`));
 			await Promise.all(all);
+			await this.resolveLanguageModels(allVendors, !allowPromptingUser);
 		}
 
 		const result: string[] = [];
 
-		for (const [identifier, model] of this._providers) {
-
-			if ((selector.vendor === undefined || model.metadata.vendor === selector.vendor)
-				&& (selector.family === undefined || model.metadata.family === selector.family)
-				&& (selector.version === undefined || model.metadata.version === selector.version)
-				&& (selector.id === undefined || model.metadata.id === selector.id)
-				&& (!model.metadata.targetExtensions || model.metadata.targetExtensions.some(candidate => ExtensionIdentifier.equals(candidate, selector.extension)))
-			) {
-				result.push(identifier);
+		for (const [internalModelIdentifier, model] of this._modelCache) {
+			if ((selector.vendor === undefined || model.vendor === selector.vendor)
+				&& (selector.family === undefined || model.family === selector.family)
+				&& (selector.version === undefined || model.version === selector.version)
+				&& (selector.id === undefined || model.id === selector.id)) {
+				result.push(internalModelIdentifier);
 			}
 		}
 
@@ -498,68 +660,88 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return result;
 	}
 
-	registerLanguageModelChat(identifier: string, provider: ILanguageModelChat): IDisposable {
+	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
+		this._logService.trace('[LM] registering language model provider', vendor, provider);
 
-		this._logService.trace('[LM] registering language model chat', identifier, provider.metadata);
+		if (!this._vendors.has(vendor)) {
+			throw new Error(`Chat model provider uses UNKNOWN vendor ${vendor}.`);
+		}
+		if (this._providers.has(vendor)) {
+			throw new Error(`Chat model provider for vendor ${vendor} is already registered.`);
+		}
 
-		if (!this._vendors.has(provider.metadata.vendor)) {
-			// --- Start Positron ---
-			// throw new Error(`Chat response provider uses UNKNOWN vendor ${provider.metadata.vendor}.`);
-			this._vendors.add(provider.metadata.vendor);
-			this._logService.debug(`[LanguageModelsService] Registering vendor ${provider.metadata.vendor}`);
-			// --- End Positron ---
-		}
-		if (this._providers.has(identifier)) {
-			throw new Error(`Chat response provider with identifier ${identifier} is already registered.`);
-		}
-		this._providers.set(identifier, provider);
+		this._providers.set(vendor, provider);
+
 		// --- Start Positron ---
 		// Track the extension that registered this provider vendor
 		this._providerExtensions.set(provider.metadata.vendor, provider.metadata.extension);
 		// --- End Positron ---
-		this._onDidChangeProviders.fire({ added: [{ identifier, metadata: provider.metadata }] });
-		this.updateUserSelectableModelsContext();
-		return toDisposable(() => {
+
+		// TODO @lramos15 - Smarter restore logic. Don't activate all providers, but only those which were known to need restoring
+		this.resolveLanguageModels(vendor, true).then(() => {
 			// --- Start Positron ---
+			// Fire the provider change event after models are resolved so UI knows usable providers are available
+			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
+			this._onDidChangeProviders.fire({ added: [vendor] });
+			// --- End Positron ---
+			this._onLanguageModelChange.fire();
+		});
+
+		return toDisposable(() => {
+			this._logService.trace('[LM] UNregistered language model provider', vendor);
+
+			// --- Start Positron ---
+			/* ORIGINAL
+			this._providers.delete(vendor);
+			*/
+
 			// Clean up extension mapping when provider is removed
 			if (this._providers.get(identifier)?.metadata.vendor === provider.metadata.vendor) {
 				// Only remove if this was the provider for this vendor
 				this._providerExtensions.delete(provider.metadata.vendor);
 			}
-			// --- End Positron ---
+
 			// Reverse order so that the context update is performed after changing the state
-			if (this._providers.delete(identifier)) {
-				this._onDidChangeProviders.fire({ removed: [identifier] });
-				this._logService.trace('[LM] UNregistered language model chat', identifier, provider.metadata);
+			const isDeleted = this._providers.delete(vendor);
+			if (isDeleted) {
+				if (this.currentProvider?.id === vendor) {
+					// Current provider was removed, try to set the next available provider
+					// First get available providers before clearing cache
+					const availableProviders = this.getLanguageModelProviders().filter(p => p.id !== vendor);
+					if (availableProviders.length > 0) {
+						this.currentProvider = availableProviders[0];
+						this._logService.trace('[LM] Set next available provider after removal', availableProviders[0].id);
+					} else {
+						this.currentProvider = undefined;
+						this._logService.trace('[LM] No providers available after removal');
+					}
+				}
+				// Clear the model cache for this vendor after handling provider switching
+				this._clearModelCache(vendor);
+				this._onDidChangeProviders.fire({ removed: [vendor] });
+				this._logService.trace('[LM] Unregistered language model chat', vendor);
 			}
-			this.updateUserSelectableModelsContext();
 			// --- End Positron ---
 		});
 	}
 
-	private updateUserSelectableModelsContext() {
-		// This context key to enable the picker is set when there is a default model, and there is at least one other model that is user selectable
-		const hasUserSelectableModels = Array.from(this._providers.values()).some(p => p.metadata.isUserSelectable);
-		// --- Start Positron ---
-		// const hasDefaultModel = Array.from(this._providers.values()).some(p => p.metadata.isDefault);
-		this._hasUserSelectableModels.set(hasUserSelectableModels);
-		// --- End Positron ---
+	async sendChatRequest(modelId: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse> {
+		const provider = this._providers.get(this._modelCache.get(modelId)?.vendor || '');
+		if (!provider) {
+			throw new Error(`Chat provider for model ${modelId} is not registered.`);
+		}
+		return provider.sendChatRequest(modelId, messages, from, options, token);
 	}
 
-	async sendChatRequest(identifier: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse> {
-		const provider = this._providers.get(identifier);
-		this._logService.trace(`[LanguageModelsService] Sending chat request to provider ${identifier} (${messages.length} messages)`);
-		if (!provider) {
-			throw new Error(`Chat response provider with identifier ${identifier} is not registered.`);
+	computeTokenLength(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number> {
+		const model = this._modelCache.get(modelId);
+		if (!model) {
+			throw new Error(`Chat model ${modelId} could not be found.`);
 		}
-		return provider.sendChatRequest(messages, from, options, token);
-	}
-
-	computeTokenLength(identifier: string, message: string | IChatMessage, token: CancellationToken): Promise<number> {
-		const provider = this._providers.get(identifier);
+		const provider = this._providers.get(model.vendor);
 		if (!provider) {
-			throw new Error(`Chat response provider with identifier ${identifier} is not registered.`);
+			throw new Error(`Chat provider for model ${modelId} is not registered.`);
 		}
-		return provider.provideTokenCount(message, token);
+		return provider.provideTokenCount(modelId, message, token);
 	}
 }

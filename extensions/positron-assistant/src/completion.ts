@@ -514,7 +514,7 @@ class AWSCompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'bedrock',
+			id: 'amazon-bedrock',
 			displayName: 'AWS Bedrock'
 		},
 		supportedOptions: [],
@@ -669,7 +669,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 	const providerClasses = {
 		'anthropic': AnthropicCompletion,
 		'azure': AzureCompletion,
-		'bedrock': AWSCompletion,
+		'amazon-bedrock': AWSCompletion,
 		'copilot': CopilotCompletion,
 		'deepseek': DeepSeekCompletion,
 		'google': GoogleCompletion,
