@@ -303,8 +303,7 @@ def _get_histogram_polars(
         # Ensure the last edge exactly matches max_val to avoid floating point issues
         bin_edges[-1] = max_val
 
-    # Compute bin indices for each value using efficient vectorized operations
-    # This is O(N) instead of O(N * K)
+    # Compute bin indices for each value using efficient vectorized operations and group_by
 
     # Handle edge case: if only one bin edge (degenerate case)
     if len(bin_edges) <= 1:
