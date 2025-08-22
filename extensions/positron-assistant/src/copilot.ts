@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
-import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { Command, DidChangeTextDocumentNotification, DidChangeTextDocumentParams, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, Middleware, NotebookDocumentMiddleware, NotificationType, RequestType, ServerOptions, TextDocumentItem, TransportKind } from 'vscode-languageclient/node';
 import { arch, platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 
@@ -98,7 +98,7 @@ export class CopilotService implements vscode.Disposable {
 	/** The CopilotService singleton instance. */
 	private static _instance?: CopilotService;
 
-	private _client?: CopilotLanguageClient;
+	private _clientManager?: CopilotLanguageClientManager;
 
 	/** The cancellation token for the current operation. */
 	private _cancellationToken: vscode.CancellationTokenSource | null = null;
@@ -125,9 +125,9 @@ export class CopilotService implements vscode.Disposable {
 	) { }
 
 	/** Get the Copilot language client. */
-	private client(): CopilotLanguageClient {
-		if (!this._client) {
-			// The client does not exist, create it.
+	private client(): LanguageClient {
+		if (!this._clientManager) {
+			// The client manager does not exist, create it.
 			const serverName = platform() === 'win32' ? 'copilot-language-server.exe' : 'copilot-language-server';
 			let serverPath = path.join(this._context.extensionPath, 'resources', 'copilot');
 
@@ -148,9 +148,9 @@ export class CopilotService implements vscode.Disposable {
 				name: packageJSON.name,
 				version: packageJSON.version,
 			};
-			this._client = new CopilotLanguageClient(executable, editorPluginInfo);
+			this._clientManager = new CopilotLanguageClientManager(executable, editorPluginInfo);
 		}
-		return this._client;
+		return this._clientManager.client;
 	}
 
 	/**
@@ -234,8 +234,14 @@ export class CopilotService implements vscode.Disposable {
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
 		const client = this.client();
 		const params = client.code2ProtocolConverter.asInlineCompletionParams(textDocument, position, context);
-		const result = await client.sendRequest(InlineCompletionRequest.type, params, token);
-		return client.protocol2CodeConverter.asInlineCompletionResult(result);
+		client.debug(`Sending inline completion request: ${JSON.stringify(params)}`);
+		try {
+			const result = await client.sendRequest(InlineCompletionRequest.type, params, token);
+			return client.protocol2CodeConverter.asInlineCompletionResult(result);
+		} catch (error) {
+			client.debug(`Error getting inline completions: ${error}`);
+			throw error;
+		}
 	}
 
 	private asCopilotInlineCompletionItem(completionItem: vscode.InlineCompletionItem, updatedInsertText?: string): InlineCompletionItem {
@@ -277,19 +283,11 @@ export class CopilotService implements vscode.Disposable {
 	}
 }
 
-export class CopilotLanguageClient implements vscode.Disposable {
+export class CopilotLanguageClientManager implements vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
 
 	/** The wrapped language client. */
-	private readonly _client: LanguageClient;
-
-	// Expose wrapped properties from the language client.
-	public code2ProtocolConverter: typeof this._client.code2ProtocolConverter;
-	public onNotification: typeof this._client.onNotification;
-	public protocol2CodeConverter: typeof this._client.protocol2CodeConverter;
-	public sendNotification: typeof this._client.sendNotification;
-	public sendRequest: typeof this._client.sendRequest;
-	public start: typeof this._client.start;
+	public readonly client: LanguageClient;
 
 	/**
 	 * @param executable The language server executable.
@@ -318,31 +316,84 @@ export class CopilotLanguageClient implements vscode.Disposable {
 				},
 				editorPluginInfo,
 			},
+			middleware: {
+				notebooks: this.createNotebookMiddleware(),
+			},
 		};
 
 		// Create the client.
-		this._client = new LanguageClient(
+		this.client = new LanguageClient(
 			'githubCopilotLanguageServer',
 			'GitHub Copilot Language Server',
 			serverOptions,
 			clientOptions,
 		);
-		this._disposables.push(this._client);
+		this._disposables.push(this.client);
 
 		// Log status changes for debugging.
 		this._disposables.push(
-			this._client.onNotification(DidChangeStatusNotification.type, (params: DidChangeStatusParams) => {
-				outputChannel.debug(`DidChangeStatusNotification: ${JSON.stringify(params)}`);
+			this.client.onNotification(DidChangeStatusNotification.type, (params: DidChangeStatusParams) => {
+				this.client.debug(`DidChangeStatusNotification: ${JSON.stringify(params)}`);
 			})
 		);
+	}
 
-		// Expose wrapped properties from the language client.
-		this.code2ProtocolConverter = this._client.code2ProtocolConverter;
-		this.onNotification = this._client.onNotification.bind(this._client);
-		this.protocol2CodeConverter = this._client.protocol2CodeConverter;
-		this.sendNotification = this._client.sendNotification.bind(this._client);
-		this.sendRequest = this._client.sendRequest.bind(this._client);
-		this.start = this._client.start.bind(this._client);
+	private createNotebookMiddleware(): NotebookDocumentMiddleware['notebooks'] {
+		// The Copilot language server advertises that it supports notebooks
+		// (in the initialize result) which causes vscode-languageclient to
+		// send notebookDocument/did* notifications instead of textDocument/did*
+		// notifications. Servers are expected to create the text documents
+		// referenced in the notebook document, however, the Copilot server
+		// doesn't seem to do that, causing "document not found" errors.
+		// See: https://github.com/posit-dev/positron/issues/8061.
+		//
+		// This middleware intercepts notebookDocument/did* notifications and sends
+		// textDocument/did* notifications for each affected cell.
+		//
+		// TODO: The current implementation treats each cell independently,
+		// so the server will be aware of all cells in a notebook, but not
+		// their structure, kind, outputs, etc.
+
+		const manager = this;
+		return {
+			async didOpen(notebookDocument, cells, next) {
+				for (const cell of cells) {
+					const params = manager.client.code2ProtocolConverter.asOpenTextDocumentParams(cell.document);
+					await manager.client.sendNotification(DidOpenTextDocumentNotification.type, params);
+				}
+				return next(notebookDocument, cells);
+			},
+			async didChange(event, next) {
+				for (const cell of event.cells?.structure?.didOpen ?? []) {
+					const params = manager.client.code2ProtocolConverter.asOpenTextDocumentParams(cell.document);
+					await manager.client.sendNotification(DidOpenTextDocumentNotification.type, params);
+				}
+
+				for (const cell of event.cells?.structure?.didClose ?? []) {
+					const params = manager.client.code2ProtocolConverter.asCloseTextDocumentParams(cell.document);
+					await manager.client.sendNotification(DidCloseTextDocumentNotification.type, params);
+				}
+
+				for (const change of event.cells?.textContent ?? []) {
+					const params: DidChangeTextDocumentParams = {
+						textDocument: manager.client.code2ProtocolConverter.asVersionedTextDocumentIdentifier(change.document),
+						contentChanges: change.contentChanges.map(change => ({
+							range: manager.client.code2ProtocolConverter.asRange(change.range),
+							text: change.text,
+						})),
+					};
+					await manager.client.sendNotification(DidChangeTextDocumentNotification.type, params);
+				}
+				return await next(event);
+			},
+			async didClose(notebookDocument, cells, next) {
+				for (const cell of cells) {
+					const params = manager.client.code2ProtocolConverter.asCloseTextDocumentParams(cell.document);
+					await manager.client.sendNotification(DidCloseTextDocumentNotification.type, params);
+				}
+				return await next(notebookDocument, cells);
+			},
+		};
 	}
 
 	dispose(): void {

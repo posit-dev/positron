@@ -16,7 +16,7 @@ import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel
 import { CellEditType, CellKind, ICellEditOperation } from '../../notebook/common/notebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
-import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebookHasRunningRuntime.js';
+import { ActiveRuntimeNotebookContextManager } from '../common/activeRuntimeNotebookContextManager.js';
 import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
 import { IRuntimeNotebookKernelService } from '../common/interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
@@ -66,8 +66,8 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		// Create the notebook execution status bar entry.
 		this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
 
-		// Create the active notebook has running runtime context manager.
-		this._register(this._instantiationService.createInstance(ActiveNotebookHasRunningRuntimeManager));
+		// Create the active runtime notebook context context manager.
+		this._register(this._instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 
 		// Create a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {

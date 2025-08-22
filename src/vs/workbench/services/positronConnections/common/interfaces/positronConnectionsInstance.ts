@@ -11,6 +11,8 @@ export interface IConnectionMetadata {
 	host?: string;
 	type?: string;
 	code?: string;
+	// URI for an icon or a base64 encoded image.
+	// starting with data:image/<mime-type>;base64,
 	icon?: string;
 }
 

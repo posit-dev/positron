@@ -27,6 +27,9 @@ product.overrides.json
 # Ignore Claude local/personal files but keep commands
 .claude/*
 !.claude/commands/
+!.claude/hooks/
+!.claude/settings.json
+
 .Rproj.user
 /playwright-report/
 /blob-report/

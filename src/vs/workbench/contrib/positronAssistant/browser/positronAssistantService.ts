@@ -106,17 +106,17 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
 
 		if (!globPattern || globPattern.length === 0) {
-			return false; // No glob patterns configured, so no files are excluded
+			return true; // No glob patterns configured, so completions are enabled
 		}
 
-		// Check all of the glob patterns and return true if any match
+		// Check all of the glob patterns and return false if any match
 		for (const pattern of globPattern) {
 			if (glob.match(pattern, uri.path)) {
-				return true; // File matches an exclusion pattern
+				return false; // File matches an exclusion pattern, so it is excluded from completions
 			}
 		}
 
-		return false; // No patterns matched, so the file is not excluded
+		return true; // No patterns matched, so completions are enabled
 	}
 
 	//#endregion

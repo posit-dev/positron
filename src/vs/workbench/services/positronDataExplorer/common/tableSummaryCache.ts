@@ -9,7 +9,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { arrayFromIndexRange } from './utils.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { dataExplorerExperimentalFeatureEnabled } from './positronDataExplorerExperimentalConfig.js';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SearchSchemaSortOrder, SearchSchemaResult } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { summaryPanelEnhancementsFeatureEnabled } from './positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -27,6 +28,7 @@ const LARGE_FREQUENCY_TABLE_LIMIT = 16;
 interface UpdateDescriptor {
 	invalidateCache: boolean;
 	searchText?: string;
+	sortOption?: SearchSchemaSortOrder;
 	firstColumnIndex: number;
 	screenColumns: number;
 }
@@ -60,6 +62,11 @@ export class TableSummaryCache extends Disposable {
 	private _searchText?: string;
 
 	/**
+	 * The sort option used to order the summary rows.
+	 */
+	private _sortOption?: SearchSchemaSortOrder;
+
+	/**
 	 * Gets or sets the columns.
 	 */
 	private _columns = 0;
@@ -68,6 +75,19 @@ export class TableSummaryCache extends Disposable {
 	 * Gets or sets the rows.
 	 */
 	private _rows = 0;
+
+	/**
+	 * An array that maps a position index in the data grid to a column index for the original dataset.
+	 * This array is always populated and serves as the single source of truth for determining the
+	 * display position and order of the summary rows.
+	 *
+	 * For un-modified datasets: [0, 1, 2, 3, 4, ...] (position and column index are the same)
+	 * For search or sort results: [0, 5, 12, 25, ...] (position and column index may differ)
+	 *
+	 * _displayPositionOrder[0] = 5 means the first row in the data grid should display data
+	 * for the 6th column (index 5) from the original un-modified dataset.
+	 */
+	private _displayPositionOrder: number[] = [];
 
 	/**
 	 * The expanded columns set is used to track which columns are expanded
@@ -148,6 +168,14 @@ export class TableSummaryCache extends Disposable {
 		return this._rows;
 	}
 
+	/**
+	 * Gets the display position order array.
+	 * This array maps display positions to original column indices.
+	 */
+	get displayPositionOrder() {
+		return this._displayPositionOrder;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Events
@@ -162,34 +190,47 @@ export class TableSummaryCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Returns a value which indicates whether the specified column index is expanded.
-	 * @param columnIndex The columm index.
-	 * @returns A value which indicates whether the specified column index is expanded.
+	 * Returns a value which indicates whether the specified display index is expanded.
+	 * @param displayIndex The display position index for the column.
+	 * @returns A value which indicates whether the specified display index is expanded.
 	 */
-	isColumnExpanded(columnIndex: number) {
-		return this._expandedColumns.has(columnIndex);
+	isColumnExpanded(displayIndex: number) {
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+
+		return originalIndex !== undefined ? this._expandedColumns.has(originalIndex) : false;
 	}
 
 	/**
-	 * Toggles the expanded state of the specified column index.
-	 * @param columnIndex The columm index.
+	 * Toggles the expanded state of the specified display index.
+	 * @param displayIndex The display position index for the column.
 	 */
-	async toggleExpandColumn(columnIndex: number) {
+	async toggleExpandColumn(displayIndex: number) {
+		// Convert display index to original column index.
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+
+		if (originalIndex === undefined) {
+			return;
+		}
+
 		// If the column is expanded, collpase it, fire the onDidUpdate event, and return.
-		if (this._expandedColumns.has(columnIndex)) {
-			this._expandedColumns.delete(columnIndex);
+		if (this._expandedColumns.has(originalIndex)) {
+			this._expandedColumns.delete(originalIndex);
 			this._onDidUpdateEmitter.fire();
 			return;
 		}
 
 		// Expand the column.
-		this._expandedColumns.add(columnIndex);
+		this._expandedColumns.add(originalIndex);
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
 		// Update the column profile cache.
-		await this.updateColumnProfileCache([columnIndex]);
+		await this.updateColumnProfileCache([originalIndex]);
 	}
 
 	/**
@@ -215,40 +256,32 @@ export class TableSummaryCache extends Disposable {
 		// Destructure the update descriptor.
 		const {
 			invalidateCache,
-			searchText,
 			firstColumnIndex,
 			screenColumns
 		} = updateDescriptor;
-
-		const searchTextChanged = searchText !== this._searchText;
-		this._searchText = searchText;
 
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
+		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
-		// Determine the first column index to start caching from.
 		const startColumnIndex = Math.max(
 			0,
 			firstColumnIndex - overscanColumns
 		);
-		// Determines the minimum number of columns we need to cache
-		// to fill the screen (including overscan).
 		const endColumnIndex = Math.min(
-			tableState.table_shape.num_columns - 1,
+			this._columns - 1,
 			firstColumnIndex + screenColumns + overscanColumns
 		);
 
-		let columnIndices: number[] = [];
-		// If the cache is invalidated or the search text has changed,
-		// we will need to load all the columns in view into the cache again
-		if (invalidateCache || searchTextChanged) {
+		// Set the column indices of the column schema we need to load.
+		let columnIndices: number[];
+		if (invalidateCache) {
 			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 		} else {
-			// If the cache is not invalidated and the search text has not changed,
-			// we will only load the columns in view that are not already cached
+			columnIndices = [];
 			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
 				if (!this._columnSchemaCache.has(columnIndex)) {
 					columnIndices.push(columnIndex);
@@ -256,23 +289,16 @@ export class TableSummaryCache extends Disposable {
 			}
 		}
 
-		// When search text is present, use `searchSchema` to get the columns into the schema cache
-		// When there is no search text, use `getSchema` to get the default order of columns into the cache
-		const tableSchema = this._searchText
-			? await this._dataExplorerClientInstance.searchSchema({
-				searchText: this._searchText,
-				startIndex: columnIndices[0],
-				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
-			})
-			: await this._dataExplorerClientInstance.getSchema(columnIndices);
+		// Load the column schema.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-		// Clear caches when search changes to force reloading new search results.
-		if (invalidateCache || searchTextChanged) {
+		// Invalidate the cache, if we're supposed to.
+		if (invalidateCache) {
 			this._columnSchemaCache.clear();
 			this._columnProfileCache.clear();
 		}
 
-		// Cache the column schema that was returned
+		// Cache the column schema that was returned.
 		for (let i = 0; i < tableSchema.columns.length; i++) {
 			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
 		}
@@ -304,7 +330,201 @@ export class TableSummaryCache extends Disposable {
 				this._trimCacheTimeout = undefined;
 
 				// Trim the cache.
-				this.trimCache(startColumnIndex, endColumnIndex);
+				this.trimCache(arrayFromIndexRange(startColumnIndex, endColumnIndex));
+			}, TRIM_CACHE_TIMEOUT);
+		}
+	}
+
+	/**
+	 * New update method that supports search and sort work being done
+	 * behind the USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY setting
+	 * @param updateDescriptor The update descriptor containing the new search and sort parameters
+	 */
+	async update2(updateDescriptor: UpdateDescriptor): Promise<void> {
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
+		// If a cache update is already in progress, set the pending update descriptor and return.
+		// This allows cache updates that are happening in rapid succession to overwrite one another
+		// so that only the last one gets processed. (For example, this happens when a user drags a
+		// scrollbar rapidly.)
+		if (this._updating) {
+			this._pendingUpdateDescriptor = updateDescriptor;
+			return;
+		}
+
+		// Set the updating flag.
+		this._updating = true;
+
+		// Destructure the update descriptor.
+		const {
+			invalidateCache,
+			searchText,
+			sortOption,
+			firstColumnIndex,
+			screenColumns
+		} = updateDescriptor;
+
+		this._searchText = searchText;
+		this._sortOption = sortOption;
+
+		// Get the size of the data.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
+		this._rows = tableState.table_shape.num_rows;
+
+		// The overscan factor determines how many additional columns to cache
+		// to ensure smooth scrolling and rendering. Considered to be part of
+		// the data that is viewable.
+		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
+		// Determine the first column index to start caching from.
+		const startColumnIndex = Math.max(
+			0,
+			firstColumnIndex - overscanColumns
+		);
+		// Determines the minimum number of columns we need to cache
+		// to fill the screen (including overscan).
+		const endColumnIndex = Math.min(
+			tableState.table_shape.num_columns - 1,
+			firstColumnIndex + screenColumns + overscanColumns
+		);
+
+		// the indices of the column that we need to fetch data for and then cache
+		let columnIndices: number[] = [];
+		// the search/sort results from the backend
+		let searchResult: SearchSchemaResult | undefined = undefined;
+		// Variables to track the viewable start and end indices when search/sort is present
+		let viewableStartIndex: number | undefined = undefined;
+		let viewableEndIndex: number | undefined = undefined;
+
+		// When search text or sort options is present, we always need to get the full sorted order first
+		if (this._searchText || this._sortOption) {
+			// Use the new search method that supports backend search and sort
+			searchResult = await this._dataExplorerClientInstance.searchSchema2({
+				searchText: this._searchText,
+				sortOption: this._sortOption,
+			});
+		}
+
+		// Determine what columns we need to fetch data for and then store in cache
+		if (searchResult && searchResult.matches.length > 0) {
+			// For sorted/searched results, calculate viewable columns within the search/sort results
+			viewableStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
+			viewableEndIndex = Math.min(
+				searchResult.matches.length - 1,
+				firstColumnIndex + screenColumns + overscanColumns
+			);
+			const viewableColumns = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
+
+			// If the cache is invalidated we will need to load all the columns in view into
+			// the cache again otherwise, we just need the missing columns should be in view.
+			// The cache will be updated with the data for the columns in `columnIndices`
+			columnIndices = invalidateCache
+				? viewableColumns
+				: viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex));
+		} else if (!searchResult || searchResult.matches.length === 0) {
+			// No search results, which means we have nothing to cache
+			columnIndices = [];
+		} else {
+			const viewableColumns = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+			if (invalidateCache) {
+				// No search/sort, so we need indices of all columns in viewable range
+				// since we're clearing and replacing the caches
+				columnIndices = viewableColumns;
+			} else {
+				// No search/sort, get all column indices in viewable range that aren't already cached
+				columnIndices = viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex));
+			}
+		}
+
+		// Update cache and display order based on the columns we need data for
+		if (searchResult) {
+			if (searchResult.matches.length > 0) {
+				// Calculate viewable columns within within search/sort results
+				const viewportStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
+				const viewportEndIndex = Math.min(
+					searchResult.matches.length - 1,
+					firstColumnIndex + screenColumns + overscanColumns
+				);
+
+				// Get the column indices of the viewable columns
+				const viewableColumns = searchResult.matches.slice(viewportStartIndex, viewportEndIndex + 1);
+
+				// Fetch schema for any columns we need to load
+				if (columnIndices.length > 0) {
+					const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+					// Clear cache if invalidating to avoid stale data
+					if (invalidateCache) {
+						this._columnSchemaCache.clear();
+						this._columnProfileCache.clear();
+					}
+
+					// Cache the column schema
+					for (const columnSchema of tableSchema.columns) {
+						this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+					}
+				}
+
+				// Set display order to the viewable slice of sorted results
+				this._displayPositionOrder = viewableColumns;
+
+				// Update the columns count to the total number of matches (not just searched results in view)
+				this._columns = searchResult.matches.length;
+			} else {
+				// No matches found, clear display
+				this._displayPositionOrder = [];
+				this._columns = 0;
+			}
+		} else {
+			// No search/sort, use getSchema to fetch the viewable data
+			if (columnIndices.length > 0) {
+				const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+				// If we are invalidating the cache, we need to clear it before updating
+				if (invalidateCache) {
+					this._columnSchemaCache.clear();
+					this._columnProfileCache.clear();
+				}
+
+				// Cache the column schema
+				for (const columnSchema of tableSchema.columns) {
+					this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+				}
+			}
+
+			// Update the display position order to include all columns in the view range
+			this._displayPositionOrder = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+
+		// Update the column profile cache for the appropriate column indices
+		await this.updateColumnProfileCache(this._displayPositionOrder);
+
+		// Clear the updating flag.
+		this._updating = false;
+
+		// If there's a pending update descriptor, update the cache again.
+		if (this._pendingUpdateDescriptor) {
+			// Get the pending update descriptor and clear it.
+			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
+			this._pendingUpdateDescriptor = undefined;
+
+			// Update the cache for the pending update descriptor.
+			return this.update2(pendingUpdateDescriptor);
+		}
+
+		// Schedule trimming the cache.
+		if (!invalidateCache) {
+			// Set the trim cache timeout.
+			this._trimCacheTimeout = setTimeout(() => {
+				// Release the trim cache timeout.
+				this._trimCacheTimeout = undefined;
+
+				// Trim the cache.
+				this.trimCache(this._displayPositionOrder);
 			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
@@ -325,21 +545,27 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Gets the column schema for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column schema for the specified column index.
+	 * Gets the column schema for the specified display index.
+	 * @param displayIndex The display position index for the column.
+	 * @returns The column schema for the specified display index.
 	 */
-	getColumnSchema(columnIndex: number) {
-		return this._columnSchemaCache.get(columnIndex);
+	getColumnSchema(displayIndex: number) {
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+		return originalIndex !== undefined ? this._columnSchemaCache.get(originalIndex) : undefined;
 	}
 
 	/**
-	 * Gets the column profile for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column profile for the specified column index.
+	 * Gets the column profile for the specified display index.
+	 * @param displayIndex The display position index for the column.
+	 * @returns The column profile for the specified display index.
 	 */
-	getColumnProfile(columnIndex: number) {
-		return this._columnProfileCache.get(columnIndex);
+	getColumnProfile(displayIndex: number) {
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+		return originalIndex !== undefined ? this._columnProfileCache.get(originalIndex) : undefined;
 	}
 
 	//#endregion Public Methods
@@ -539,21 +765,23 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Trims the data in the cache that is not contained between start and end column index.
-	 * @param startColumnIndex The start column index.
-	 * @param endColumnIndex The end column index.
+	 * Trims the data in the cache if the key is not in the provided list.
+	 * @param columnIndicesToKeep The array of column indices to keep in the cache.
 	 */
-	private trimCache(startColumnIndex: number, endColumnIndex: number) {
+	private trimCache(columnIndicesToKeep: number[]) {
+		// Create a set for faster lookup of indices to keep.
+		const indicesToKeepSet = new Set(columnIndicesToKeep);
+
 		// Trim the column schema cache.
 		for (const columnIndex of this._columnSchemaCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!indicesToKeepSet.has(columnIndex)) {
 				this._columnSchemaCache.delete(columnIndex);
 			}
 		}
 
 		// Trim the column profile cache.
 		for (const columnIndex of this._columnProfileCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!indicesToKeepSet.has(columnIndex)) {
 				this._columnProfileCache.delete(columnIndex);
 			}
 		}
