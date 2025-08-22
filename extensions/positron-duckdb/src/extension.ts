@@ -1652,7 +1652,7 @@ END`;
 
 	async convertToCode(params: ConvertToCodeParams, uri: string): RpcResponse<ConvertedCode> {
 		return {
-			converted_code: ["SELECT * ", `FROM '${uri}'`, this._whereClause, this._sortClause]
+			converted_code: [`FROM '${this.tableName}'`, this._whereClause, this._sortClause]
 		};
 	}
 }
