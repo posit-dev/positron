@@ -1,6 +1,43 @@
 # Positron Build System & Development Workflows
 
-This prompt provides context for running Positron development workflows directly with Claude Code, bypassing the need for VSCode.
+## 🚨 CRITICAL: Always Check Build Daemons First!
+
+**NEVER launch Positron without ensuring build daemons are running!** 
+
+### Required Startup Sequence Every Time:
+
+1. **Check if daemons are already running:**
+```bash
+ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
+```
+
+2. **If NOT running, start them (and wait for compilation):**
+```bash
+# Start required daemons
+npm run watch-clientd &      # Core compilation
+npm run watch-extensionsd &  # Extensions compilation
+
+# Wait for initial compilation (30-60 seconds)
+sleep 30
+
+# Look for "Finished compilation" messages before proceeding
+```
+
+3. **Only after daemons are confirmed running, launch Positron:**
+```bash
+./scripts/code.sh &
+```
+
+4. **Verify Positron launched successfully:**
+```bash
+sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
+```
+
+### Why This Matters:
+- Positron WILL crash if daemons aren't running
+- Extensions won't load without `watch-extensionsd`
+- Changes won't be reflected without active daemons
+- Initial compilation takes 30-60 seconds
 
 ## Core Development Workflows
 

@@ -181,7 +181,7 @@ class TestDuckDBConnectionsService:
     @pytest.mark.parametrize(
         ("path", "expected"),
         [
-            ([], ""),
+            ([], "data:image"),
             ([{"kind": "schema", "name": "main"}], ""),
         ],
     )
@@ -196,7 +196,10 @@ class TestDuckDBConnectionsService:
         msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm_id)
         dummy_comm.handle_msg(msg)
         result = dummy_comm.messages[0]["data"]["result"]
-        assert result == expected
+        if expected == "":
+            assert result == expected
+        else:
+            assert expected in result
 
     @pytest.mark.parametrize(
         ("path", "expected_contains"),
