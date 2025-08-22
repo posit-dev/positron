@@ -235,6 +235,7 @@
  "npm::cjs-module-lexer=1.4.3": "https://github.com/nodejs/cjs-module-lexer",
  "npm::clojure=1.0.0": "https://github.com/microsoft/vscode",
  "npm::cls-hooked=4.2.2": "https://github.com/jeff-lewis/cls-hooked",
+ "npm::code-oss-dev-build=1.0.0": "https://npmjs.com/package/code-oss-dev-build/v/1.0.0",
  "npm::coffeescript=1.0.0": "https://github.com/microsoft/vscode",
  "npm::color-convert=2.0.1": "https://github.com/Qix-/color-convert",
  "npm::color-name=1.1.4": "https://github.com/colorjs/color-name",

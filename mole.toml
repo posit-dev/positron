@@ -50,8 +50,12 @@ AIR_PATH = "../air-local"
 CODICONS_PATH = "../positron-codicons"
 KALLICHORE_PATH = "../kallichore-local"
 
+[groups.manual]
+codeoss = "positron/licenses/codeoss.txt"
+
 [groups.npm]
 positron = "."
+build = "build/package.json"
 codicons = ["CODICONS_PATH", ""]
 extensions = "extensions/*/package.json"
 
@@ -61,7 +65,7 @@ ark = ["ARK_PATH", "crates/*/Cargo.toml"]
 kallichore = ["KALLICHORE_PATH", "crates/*"]
 
 [collections]
-positron_collection = ["positron", "extensions", "kallichore", "air", "ark", "codicons"]
+positron_collection = ["codeoss", "positron", "extensions", "build", "kallichore", "air", "ark", "codicons"]
 
 [spdx-overrides]
 # Contains an SPDX identifier for one of the sub-licenses

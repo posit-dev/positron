@@ -1,0 +1,622 @@
+# These are manually referenced dependencies that were in upstream
+# ThirdPartyNotices.txt but not in npm package.json files.
+
+dependency(CODEOSS
+   DEPNAME      "Code OSS"
+   REPOSITORY   "https://github.com/microsoft/vscode"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation. All rights reserved."
+)
+
+dependency(AMAZONQCLI
+   DEPNAME      "Amazon Q Developer CLI"
+   REPOSITORY   "https://github.com/aws/amazon-q-developer-cli"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2024 Amazon.com, Inc. or its affiliates."
+)
+
+dependency(ATOMLANGUAGECLOJURE
+   DEPNAME      "Atom Language Clojure"
+	VERSION      "0.22.8"
+   REPOSITORY   "https://github.com/atom/language-clojure"
+   LICENSE      "MIT"
+	LICENSE_PATH "LICENSE.md"
+   ATTRIBUTION  "Copyright (c) 2014 GitHub Inc."
+)
+
+dependency(ATOMLANGUAGECOFFEESCRIPT
+   DEPNAME      "Atom Language CoffeeScript"
+	VERSION      "0.49.3"
+   REPOSITORY   "https://github.com/atom/language-coffee-script"
+   LICENSE      "MIT"
+	LICENSE_PATH "LICENSE.md"
+   ATTRIBUTION  "Copyright (c) 2014 GitHub Inc."
+)
+
+dependency(ATOMLANGUAGESAAS
+   DEPNAME      "Atom Language Saas"
+	VERSION      "0.62.1"
+   REPOSITORY   "https://github.com/atom/language-sass"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2014 GitHub Inc."
+)
+
+dependency(ATOMLANGUAGEXML
+   DEPNAME      "Atom Language XML"
+	VERSION      "0.35.2"
+   REPOSITORY   "https://github.com/atom/language-xml"
+   LICENSE      "MIT"
+	LICENSE_PATH "LICENSE.md"
+   ATTRIBUTION  "Copyright (c) 2014 GitHub Inc."
+)
+
+dependency(FIGAUTOCOMPLETE
+   DEPNAME      "Fig Autocomplete"
+	VERSION      "2.684.0"
+   REPOSITORY   "https://github.com/withfig/autocomplete-tools"
+   LICENSE      "MIT"
+	LICENSE_PATH "LICENSE"
+   ATTRIBUTION  "Copyright (c) 2021 Hercules Labs Inc. (Fig)"
+)
+
+dependency(CACHEABLEREQUEST
+   DEPNAME      "Cacheable Request"
+	VERSION      "7.0.4"
+   REPOSITORY   "https://github.com/jaredwray/cacheable/tree/main/packages/cacheable-request"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) cacheable-request authors"
+)
+
+dependency(COLORSUBLIMETHEMES
+   DEPNAME      "Colorsublime Themes"
+	VERSION      "0.1.0"
+   REPOSITORY   "https://github.com/Colorsublime/Colorsublime-Themes"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2015 Colorsublime.com "
+)
+
+dependency(HANDLEBARS
+   DEPNAME      "Handlebars
+	VERSION      "1.8.0"
+   REPOSITORY   "https://github.com/daaain/Handlebars"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Handlebars contributors"
+)
+
+dependency(DARTSYNTAXHIGHLIGHT
+   DEPNAME      "Dart Syntax Highlight"
+   REPOSITORY   "https://github.com/dart-lang/dart-syntax-highlight"
+   LICENSE      "BSD-3-Clause"
+   ATTRIBUTION  "Copyright (c) 2020 the Dart project authors"
+)
+
+dependency(PUGTMBUNDLE
+   DEPNAME      "Pug.tmbundle"
+   REPOSITORY   "https://github.com/davidrios/pug-tmbundle"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2016 David Rios"
+)
+
+dependency(DEFINITELYTYPED
+   DEPNAME      "Definitely Typed"
+   REPOSITORY   "https://github.com/DefinitelyTyped/DefinitelyTyped"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyrights are respective of each contributor listed at the beginning of each definition file."
+)
+
+dependency(DOM400
+   DEPNAME      "Document Object Model"
+	VERSION      "4.0.0"
+   HOMEPAGE     "https://www.w3.org/DOM/"
+   LICENSE      "W3C License"
+	LICENSE_PATH "https://github.com/whatwg/dom/blob/main/LICENSE"
+   ATTRIBUTION  "Copyright (c) WHATWG (Apple, Google, Mozilla, Microsoft)."
+)
+
+dependency(DOTNETCSHARPTMLANGUAGE
+   DEPNAME      ".NET csharp tmLanguage"
+	VERSION      "0.1.0"
+   REPOSITORY   "https://github.com/dotnet/csharp-tmLanguage"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2016 .NET Foundation"
+)
+
+dependency(DOTNETRAZOR
+   DEPNAME      ".NET razor"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/dotnet/razor"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) .NET Foundation and Contributors"
+)
+
+dependency(EXPANDABBREVIATION
+   DEPNAME      "expand-abbreviation"
+	VERSION      "0.5.8"
+   REPOSITORY   "https://github.com/emmetio/expand-abbreviation"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2017 Emmet.io"
+)
+
+dependency(MAKETMBUNDLE
+   DEPNAME      "make tmbundle"
+   REPOSITORY   "https://github.com/fadeevab/make.tmbundle"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft"
+)
+
+dependency(FISHSHELL
+   DEPNAME      "fish shell"
+	VERSION      "3.7.1"
+   REPOSITORY   "https://github.com/fish-shell/fish-shell"
+   LICENSE      "GPL-2.0"
+	LICENSE_PATH "https://github.com/fish-shell/fish-shell/blob/master/COPYING"
+   ATTRIBUTION  "Copyright (C) 2005-2009 Axel Liljencrantz, Copyright (C) 2009- fish-shell contributors"
+)
+
+dependency(GOSYNTAX
+   DEPNAME      "go-syntax"
+	VERSION      "0.8.1"
+   REPOSITORY   "https://github.com/worlpaker/go-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2023 Furkan Ozalp"
+)
+
+dependency(HTML51W3C
+   DEPNAME      "HTML 5.1 W3C Working Draft 08 October 2015"
+   HOMEPAGE     "http://www.w3.org/TR/2015/WD-html51-20151008/"
+   LICENSE      "W3C Document License"
+	LICENSE_PATH "https://www.w3.org/copyright/document-license-2023/"
+   ATTRIBUTION  "Copyright (c) 2015 W3C(r) (MIT, ERCIM, Keio, Beihang)."
+)
+
+dependency(IONICDOCUMENTATION
+   DEPNAME      "Ionic documentation"
+	VERSION      "1.2.4"
+   REPOSITORY   "https://github.com/ionic-team/ionic-site"
+   LICENSE      "Apache-2.0"
+   ATTRIBUTION  "Copyright 2016 Drifty Co."
+)
+
+dependency(IONIDEFSGRAMMAR
+   DEPNAME      "Ionide FsGrammar"
+   REPOSITORY   "https://github.com/ionide/ionide-fsgrammar"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2015 Krzysztof Cieslak"
+)
+
+dependency(LATEXWORKSHOP
+   DEPNAME      "LaTeX Workshop"
+	VERSION      "8.19.1"
+   REPOSITORY   "https://github.com/James-Yu/LaTeX-Workshop"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2016 James Yu"
+)
+
+dependency(BETTERCSYNTAX
+   DEPNAME      "better-c-syntax"
+	VERSION      "1.13.2"
+   REPOSITORY   "https://github.com/jeff-hykin/better-c-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2019 Jeff Hykin"
+)
+
+dependency(BETTERCPPSYNTAX
+   DEPNAME      "better-cpp-syntax"
+	VERSION      "1.17.4"
+   REPOSITORY   "https://github.com/jeff-hykin/better-cpp-syntax"
+   LICENSE      "MIT"
+	LICENSE_PATH "https://github.com/jeff-hykin/better-cpp-syntax/blob/1.17.6/LICENSE"
+   ATTRIBUTION  "Copyright (c) 2019 Jeff Hykin"
+)
+
+dependency(BETTEROBJCSYNTAX
+   DEPNAME      "better-objc-syntax"
+	VERSION      "0.2.0"
+   REPOSITORY   "https://github.com/jeff-hykin/better-objc-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2019 Jeff Hykin"
+)
+
+dependency(BETTEROBJCPPSYNTAX
+   DEPNAME      "better-objcpp-syntax"
+	VERSION      "0.1.0"
+   REPOSITORY   "https://github.com/jeff-hykin/better-objcpp-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2019 Jeff Hykin"
+)
+
+dependency(BETTERSHELLSYNTAX
+   DEPNAME      "better-shell-syntax"
+	VERSION      "1.8.7"
+   REPOSITORY   "https://github.com/jeff-hykin/better-shell-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2019 Jeff Hykin"
+)
+
+dependency(BETTERSNIPPETSYNTAX
+   DEPNAME      "better-snippet-syntax"
+	VERSION      "1.0.2"
+   REPOSITORY   "https://github.com/jeff-hykin/better-snippet-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2019 Jeff Hykin"
+)
+
+dependency(VSCODELATEXBASICS
+   DEPNAME      "vscode-latex-basics"
+	VERSION      "1.13.0"
+   REPOSITORY   "https://github.com/jlelong/vscode-latex-basics"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) vscode-latex-basics authors"
+)
+
+dependency(JS-BEAUTIFY
+   DEPNAME      "js-beautify"
+	VERSION      "1.6.8"
+   REPOSITORY   "https://github.com/beautify-web/js-beautify"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2007-2018 Einar Lielmanis, Liam Newman, and contributors."
+)
+
+dependency(SWIFTTMLANGUAGE
+   DEPNAME      "swift-tmlanguage"
+   REPOSITORY   "https://github.com/jtbandes/swift-tmlanguage"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright 2023 Jacob Bandes-Storch"
+)
+
+dependency(ATOMLANGUAGEJULIA
+   DEPNAME      "atom-language-julia"
+	VERSION      "0.23.0"
+   REPOSITORY   "https://github.com/JuliaEditorSupport/atom-language-julia"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2015 atom-language-julia authors"
+)
+
+dependency(JXCKASSERT
+   DEPNAME      "Jxck/assert"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/Jxck/assert"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2011 Jxck"
+)
+
+dependency(MOBYLANGUAGEDOCKER
+   DEPNAME      "Moby Project Language Docker"
+   REPOSITORY   "https://github.com/moby/moby"
+   LICENSE      "Apache-2.0"
+   ATTRIBUTION  "Copyright 2013-2018 Docker, Inc."
+)
+
+dependency(BETTERLANGUAGELESS
+   DEPNAME      "Better Less"
+	VERSION      "0.6.1"
+   REPOSITORY   "https://github.com/radium-v/Better-Less"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2017 John Kreitlow"
+)
+
+dependency(LANGUAGE-PHP
+   DEPNAME      "language-php"
+	VERSION      "0.49.0"
+   REPOSITORY   "https://github.com/KapitanOczywisty/language-php"
+   LICENSE      "MIT"
+	LICENSE_PATH "https://github.com/KapitanOczywisty/language-php/blob/master/LICENSE.md"
+   ATTRIBUTION  "Copyright (c) 2014 GitHub Inc."
+)
+
+dependency(MAGICSTACKMAGICPYTHON
+   DEPNAME      "Magic Python"
+	VERSION      "1.1.1"
+   REPOSITORY   "https://github.com/MagicStack/MagicPython"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2015-present MagicStack Inc.  http://magic.io"
+)
+
+dependency(MARKEDJS
+   DEPNAME      "Marked JS"
+	VERSION      "14.0.0"
+   REPOSITORY   "https://github.com/markedjs/marked"
+   LICENSE      "MIT"
+	LICENSE_PATH "https://github.com/markedjs/marked/blob/master/LICENSE.md"
+   ATTRIBUTION  "Copyright (c) 2018+, MarkedJS (https://github.com/markedjs/) Copyright (c) 2011-2018, Christopher Jeffrey (https://github.com/chjj/)"
+)
+
+dependency(TYPESCRIPTTMLANGUAGE
+   DEPNAME      "TypeScript tmLanguage"
+	VERSION      "0.0.1"
+   REPOSITORY   "https://github.com/microsoft/TypeScript-TmLanguage"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation All rights reserved."
+)
+
+dependency(VSCODECSS
+   DEPNAME      "VSCode CSS"
+   REPOSITORY   "https://github.com/microsoft/vscode-css"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation."
+)
+
+dependency(VSCODEJSONTMLANGUAGE
+   DEPNAME      "VCSode JSON tmLanguage"
+   REPOSITORY   "https://github.com/microsoft/vscode-css"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation."
+)
+
+dependency(VSCODEMARKDOWNTMGRAMMAR
+   DEPNAME      "VSCode Markdown tm grammar"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/microsoft/vscode-markdown-tm-grammar"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft 2018"
+)
+
+dependency(VSCODEMSSQL
+   DEPNAME      "VSCode MSSQL"
+	VERSION      "1.31.0"
+   REPOSITORY   "https://github.com/microsoft/vscode-mssql"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation All rights reserved."
+)
+
+dependency(LANGUAGEBATCHFILE
+   DEPNAME      "Language Windows batch file"
+	VERSION      "0.7.6"
+   REPOSITORY   "https://github.com/mmims/language-batchfile"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2021 Michael Mims"
+)
+
+dependency(MONACOEDITORCORE
+   DEPNAME      "monaco-editor-core"
+   REPOSITORY   "https://github.com/microsoft/vscode"
+   LICENSE      "MIT"
+	LICENSE_PATH "https://github.com/microsoft/vscode/blob/main/build/monaco/LICENSE"
+   ATTRIBUTION  "Copyright (c) 2016 - present Microsoft Corporation"
+)
+
+dependency(NVIDIACUDACPPGRAMMAR
+   DEPNAME      "NVIDIA cuda-cpp-grammar"
+   REPOSITORY   "https://github.com/NVIDIA/cuda-cpp-grammar"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright 2021 NVIDIA Corporation"
+)
+
+dependency(POWERSHELLEDITORSYNTAX
+   DEPNAME      "PowerShell EditorSyntax"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/PowerShell/EditorSyntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation All rights reserved."
+)
+
+dependency(YAMLSYNTAXHIGHLIGHTER
+   DEPNAME      "YAML Syntax Highlighter"
+	VERSION      "1.3.2"
+   REPOSITORY   "https://github.com/RedCMD/YAML-Syntax-Highlighter"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright 2024 RedCMD"
+)
+
+dependency(REDHATVSCODEJAVATMLANGUAGE
+   DEPNAME      "VSCode Java (tmLanguage)"
+	VERSION      "1.26.0"
+   REPOSITORY   "https://github.com/redhat-developer/vscode-java"
+	REVISION     "f09b712f5d6d6339e765f58c8dfab3f78a378183"
+   LICENSE      "MIT"
+	LICENSE_PATH "https://github.com/atom/language-java/blob/29f977dc42a7e2568b39bb6fb34c4ef108eb59b3/LICENSE.md"
+   ATTRIBUTION  "Copyright (c) 2014 GitHub Inc."
+)
+
+dependency(REDITORSUPPORTVSCODER
+   DEPNAME      "VSCode R Syntax"
+	VERSION      "0.1.0"
+   REPOSITORY   "https://github.com/REditorSupport/vscode-R-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2025 REditorSupport"
+)
+
+dependency(RUSTSYNTAX
+   DEPNAME      "Rust Syntax"
+	VERSION      "0.6.1"
+   REPOSITORY   "https://github.com/dustypomerleau/rust-syntax"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2020 Dustin Pomerleau"
+)
+
+dependency(SETIUI
+   DEPNAME      "Seti UI"
+	VERSION      "0.1.0"
+   REPOSITORY   "https://github.com/jesseweed/seti-ui"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2014 Jesse Weed"
+)
+
+dependency(SHADERSTMLANGUAGE
+   DEPNAME      "Shaders tmLanguage"
+	VERSION      "0.1.0"
+   REPOSITORY   "https://github.com/tgjones/shaders-tmLanguage"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2017 Tim Jones"
+)
+
+dependency(RUBYLSP
+   DEPNAME      "Ruby LSP"
+   REPOSITORY   "https://github.com/Shopify/ruby-lsp"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2022-present, Shopify Inc."
+)
+
+dependency(LUATMBUNDLE
+   DEPNAME      "Lua tmBundle"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/sumneko/lua.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) sumneko-lua.tmbundle project authors"
+)
+
+dependency(ASPVBNETTMBUNDLE
+   DEPNAME      "ASP VB.NET tmBundle"
+   REPOSITORY   "https://github.com/textmate/asp.vb.net.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-asp.vb.net.tmbundle project authors"
+)
+
+dependency(CTMBUNDLE
+   DEPNAME      "C tmBundle"
+   REPOSITORY   "https://github.com/textmate/c.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-c.tmbundle authors"
+)
+
+dependency(DIFFTMBUNDLE
+   DEPNAME      "Diff tmBundle"
+   REPOSITORY   "https://github.com/textmate/diff.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-diff.tmbundle project authors"
+)
+
+dependency(GITTMBUNDLE
+   DEPNAME      "git tmBundle"
+   REPOSITORY   "https://github.com/textmate/git.tmbundle"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2008 Tim Harper"
+)
+
+dependency(GROOVYTMBUNDLE
+   DEPNAME      "Groovy tmBundle
+   REPOSITORY   "https://github.com/textmate/groovy.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-groovy.tmbundle project authors"
+)
+
+dependency(HTMLTMBUNDLE
+   DEPNAME      "HTML tmBundle"
+   REPOSITORY   "https://github.com/textmate/html.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-html.tmbundle project authors"
+)
+
+dependency(INITMBUNDLE
+   DEPNAME      "ini tmBundle"
+   REPOSITORY   "https://github.com/textmate/ini.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-ini.tmbundle project authors"
+)
+
+dependency(JAVASCRIPTTMBUNDLE
+   DEPNAME      "JavaScript tmBundle"
+   REPOSITORY   "https://github.com/textmate/javascript.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-javascript.tmbundle project authors"
+)
+
+dependency(MARKDOWNTMBUNDLE
+   DEPNAME      "Markdown tmBundle"
+   REPOSITORY   "https://github.com/textmate/markdown.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) markdown.tmbundle authors"
+)
+
+dependency(PERLTMBUNDLE
+   DEPNAME      "Perl tmBundle"
+   REPOSITORY   "https://github.com/textmate/perl.tmbundle"
+   LICENSE      "TextMate Bundle License"
+   ATTRIBUTION  "Copyright (c) textmate-perl.tmbundle project authors"
+)
+
+dependency(VSCODERST
+   DEPNAME      "VSCode reStructuredText"
+	VERSION	    "1.5.3"
+   REPOSITORY   "https://github.com/trond-snekvik/vscode-rst"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright 2021 Trond Snekvik"
+)
+
+dependency(TYPESCRIPTTMLANGUAGE
+   DEPNAME      "TypeScript tmLanguage"
+	VERSION		 "0.1.8"
+   REPOSITORY   "https://github.com/microsoft/TypeScript-TmLanguage"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation All rights reserved."
+)
+
+dependency(UNICODE12
+   DEPNAME      "Unicode 12.0.0"
+   HOMEPAGE     "https://home.unicode.org/"
+   LICENSE      "Unicode, Inc. License Agreement"
+   ATTRIBUTION  "Copyright (c) 1991-2017 Unicode, Inc. All rights reserved."
+)
+
+dependency(VSCODELOGFILEHIGHLIGHTER
+   DEPNAME      "VSCode logfile highlighter"
+	VERSION      "3.4.0"
+   REPOSITORY   "https://github.com/emilast/vscode-logfile-highlighter"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2015 emilast"
+)
+
+dependency(VSCODEPYTHON
+   DEPNAME      "VSCode Python"
+   REPOSITORY   "https://github.com/microsoft/vscode-python"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation. All rights reserved."
+)
+
+dependency(VSCODERTESTADAPTER
+   DEPNAME      "VSCode R Test Adapter"
+   REPOSITORY   "https://github.com/meakbiyik/vscode-r-test-adapter"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) vscode-r-test-adapter project authors"
+)
+
+dependency(VSCODERTESTREPORTER
+   DEPNAME      "testthat Test Reporter for R Test Explorer VSCode Extension"
+   HOMEPAGE     "https://github.com/meakbiyik/vscode-r-test-adapter/tree/master/src/testthat/reporter"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2021 vscodereporter authors, Copyright (c) 2013-2019 Hadley Wickham; RStudio"
+)
+
+dependency(VSCODESWIFT
+   DEPNAME      "VSCode Swift"
+   REPOSITORY   "https://github.com/owensd/vscode-swift"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2017 Kiad Studios, LLC."
+)
+
+dependency(VSCODE-WIN32-APP-CONTAINER-TOKENS
+   DEPNAME      "VSCode win32-app-container-tokens"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/microsoft/vscode-win32-app-container-tokens"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) Microsoft Corporation."
+)
+
+dependency(GITCOMMITMESSAGEPLUS
+   DEPNAME      "Git Commit Message Plus"
+	VERSION      "1.0.0"
+   REPOSITORY   "https://github.com/walles/git-commit-message-plus"
+   LICENSE      "MIT"
+   ATTRIBUTION  "Copyright (c) 2023 Johan Walles <johan.walles@gmail.com>"
+)
+
+dependency(WEBBACKGROUNDSYNCHRONIZATION
+   DEPNAME      "Web Background Synchronization"
+   REPOSITORY   "https://github.com/WICG/background-sync"
+   LICENSE      "Apache-2.0"
+   ATTRIBUTION  "Copyright (c) 2021 the Contributors to the Web Background Synchronization Specification, published by the Web Platform Incubator Community Group under the W3C Community Contributor License Agreement (CLA)."
+)
+
+dependency(JUPYTERLOGO
+   DEPNAME      "Jupyter logo from jupyter/notebook"
+   REPOSITORY   "https://github.com/jupyter/notebook"
+   LICENSE      "BSD 3-Clause"
+   ATTRIBUTION  "Copyright (c) 2001-2015, IPython Development Team, Copyright (c) 2015-, Jupyter Development Team"
+)
+
+dependency(RLOGO
+   DEPNAME      "The R logo"
+   LICENSE      "CC-BY-SA 4.0"
+	LICENSE_PATH "https://spdx.org/licenses/CC-BY-SA-4.0.html"
+   ATTRIBUTION  "The R logo is (c) 2016 The R Foundation https://www.r-project.org/logo/"
+)

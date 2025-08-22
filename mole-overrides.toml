@@ -50,6 +50,10 @@ url = 'https://github.com/bitpay/node-buffers/tree/master'
 # Built-in extensions from Code OSS upstream
 attribution = ['Copyright (c) Microsoft Corporation']
 
+['npm::code-oss-dev-build=1.0.0']
+# Build infrastructure from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
 ['npm::clojure=1.0.0']
 # Built-in extensions from Code OSS upstream
 attribution = ['Copyright (c) Microsoft Corporation']
@@ -475,3 +479,51 @@ license_files = []
 ['rust::zstd-sys']
 # has more license files than it actually uses
 license_files = [['@', 'LICENSE.Mit'], ['@', 'LICENSE.Apache-2.0']]
+
+['manual::ASPVBNETTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::CTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::DIFFTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::GROOVYTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::HTMLTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::INITMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::JAVASCRIPTTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::LUATMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::MARKDOWNTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::PERLTMBUNDLE']
+# Shared TextMate bundle license
+license_files = ['positron/licenses/textmate-bundle-license.txt']
+
+['manual::RUBYLSP']
+# A few files mentioned in addition to the MIT license
+license_files = ['positron/licenses/shopifyrubylsp-license.txt']
+
+['manual::UNICODE12']
+# Local copy of Unicode 12 license
+license_files = ['positron/licenses/unicode-12.0.0-license.txt']

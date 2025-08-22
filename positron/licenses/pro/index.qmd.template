@@ -29,3 +29,19 @@ by sending an email to [info@posit.co](mailto:info@posit.co).
 ## Component-specific licenses
 %(component-licenses)s
 
+## Additional Attributions
+
+SQLite is in the Public Domain
+<https://www.sqlite.org/copyright.html>
+
+Postgres, PostgreSQL and the Slonik Logo are trademarks or registered
+trademarks of the PostgreSQL
+<https://www.postgresql.org/about/policies/trademarks/>
+
+Apache Spark and its logo are trademarks of The Apache Software Foundation.
+<https://spark.apache.org/trademarks.html>
+
+The DuckDB trademarks, service marks, and graphics marks are held by the
+Dutch Stichting DuckDB Foundation (“hereinafter: the DuckDB Foundation”).
+<https://duckdb.org/trademark_guidelines.html>
+

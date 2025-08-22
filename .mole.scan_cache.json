@@ -17294,6 +17294,23 @@
     "extensions/search-result/package.json",
     "extensions/sql/package.json"
    ]
+  },
+  "build": {
+   "!locks": [
+    "f9ad11d5d50f78f6e1645d188bcaf630c576b9def4eba1c7b99992c305657554"
+   ],
+   "npm::code-oss-dev-build=1.0.0": {
+    "name": "code-oss-dev-build",
+    "path": "build",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "pkg_name": "code-oss-dev-build"
+   },
+   "!root": [
+    "build/package.json"
+   ]
   }
  },
  "Rust": {
@@ -39024,6 +39041,1263 @@
     "crates/kcserver",
     "crates/kcclient",
     "crates/kallichore_api"
+   ]
+  }
+ },
+ "manual": {
+  "codeoss": {
+   "!checksums": {
+    "positron/licenses/codeoss.txt": "65c76c2d7694abcdb64613a399238b6e1bc68ebaf10b29bcd4c2c10f2fe648c7"
+   },
+   "manual::CODEOSS": {
+    "name": "Code OSS",
+    "path": "https://github.com/microsoft/vscode",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "CODEOSS",
+    "repo": "https://github.com/microsoft/vscode",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation. All rights reserved."
+    ]
+   },
+   "manual::AMAZONQCLI": {
+    "name": "Amazon Q Developer CLI",
+    "path": "https://github.com/aws/amazon-q-developer-cli",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "AMAZONQCLI",
+    "repo": "https://github.com/aws/amazon-q-developer-cli",
+    "attribution": [
+     "Copyright (c) 2024 Amazon.com, Inc. or its affiliates."
+    ]
+   },
+   "manual::ATOMLANGUAGECLOJURE": {
+    "name": "Atom Language Clojure",
+    "path": "https://github.com/atom/language-clojure",
+    "version": "0.22.8",
+    "attribution": [
+     "Copyright (c) 2014 GitHub Inc."
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/atom/language-clojure/raw/master/LICENSE.md": {
+      "checksum": "a2b03ff4fb0888caff2fbaef08c01ca21a6517e275f1ad9748a9f5f1454cee28",
+      "attribution": [
+       "Copyright 2010- Mark McGranaghan",
+       "Copyright 2014 GitHub Inc."
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "ATOMLANGUAGECLOJURE",
+    "repo": "https://github.com/atom/language-clojure"
+   },
+   "manual::ATOMLANGUAGECOFFEESCRIPT": {
+    "name": "Atom Language CoffeeScript",
+    "path": "https://github.com/atom/language-coffee-script",
+    "version": "0.49.3",
+    "attribution": [
+     "Copyright (c) 2014 GitHub Inc."
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/atom/language-coffee-script/raw/master/LICENSE.md": {
+      "checksum": "85d9d317bee9d64fffa7b50ed07b5aba54247b79ad7fc33273660a17f87ef56f",
+      "attribution": [
+       "Copyright 2009-2014 Jeremy Ashkenas",
+       "Copyright 2014 GitHub Inc."
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "ATOMLANGUAGECOFFEESCRIPT",
+    "repo": "https://github.com/atom/language-coffee-script"
+   },
+   "manual::ATOMLANGUAGESAAS": {
+    "name": "Atom Language Saas",
+    "path": "https://github.com/atom/language-sass",
+    "version": "0.62.1",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "ATOMLANGUAGESAAS",
+    "repo": "https://github.com/atom/language-sass",
+    "attribution": [
+     "Copyright (c) 2014 GitHub Inc."
+    ]
+   },
+   "manual::ATOMLANGUAGEXML": {
+    "name": "Atom Language XML",
+    "path": "https://github.com/atom/language-xml",
+    "version": "0.35.2",
+    "attribution": [
+     "Copyright (c) 2014 GitHub Inc."
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/atom/language-xml/raw/master/LICENSE.md": {
+      "checksum": "4f14bfd49377ad8856161f74dbfe2bb9839a28d8aeae7ccae387d27adb85c3bc",
+      "attribution": [
+       "Copyright 2014 GitHub Inc."
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "ATOMLANGUAGEXML",
+    "repo": "https://github.com/atom/language-xml"
+   },
+   "manual::FIGAUTOCOMPLETE": {
+    "name": "Fig Autocomplete",
+    "path": "https://github.com/withfig/autocomplete-tools",
+    "version": "2.684.0",
+    "attribution": [
+     "Copyright (c) 2021 Hercules Labs Inc. (Fig)"
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/withfig/autocomplete-tools/raw/main/LICENSE": {
+      "checksum": "6015fc144718ef9dea4cd0d05629677785992d6812f1e66ce1b7abde07d0f531",
+      "attribution": [
+       "Copyright 2021 Hercules Labs Inc. (Fig)"
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "FIGAUTOCOMPLETE",
+    "repo": "https://github.com/withfig/autocomplete-tools"
+   },
+   "manual::CACHEABLEREQUEST": {
+    "name": "Cacheable Request",
+    "path": "https://github.com/jaredwray/cacheable/tree/main/packages/cacheable-request",
+    "version": "7.0.4",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "CACHEABLEREQUEST",
+    "repo": "https://github.com/jaredwray/cacheable/tree/main/packages/cacheable-request",
+    "attribution": [
+     "Copyright (c) cacheable-request authors"
+    ]
+   },
+   "manual::COLORSUBLIMETHEMES": {
+    "name": "Colorsublime Themes",
+    "path": "https://github.com/Colorsublime/Colorsublime-Themes",
+    "version": "0.1.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "COLORSUBLIMETHEMES",
+    "repo": "https://github.com/Colorsublime/Colorsublime-Themes",
+    "attribution": [
+     "Copyright (c) 2015 Colorsublime.com"
+    ]
+   },
+   "manual::HANDLEBARS": {
+    "name": "Handlebars",
+    "path": "https://github.com/daaain/Handlebars",
+    "version": "1.8.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "HANDLEBARS",
+    "repo": "https://github.com/daaain/Handlebars",
+    "attribution": [
+     "Copyright (c) Handlebars contributors"
+    ]
+   },
+   "manual::DARTSYNTAXHIGHLIGHT": {
+    "name": "Dart Syntax Highlight",
+    "path": "https://github.com/dart-lang/dart-syntax-highlight",
+    "version": "",
+    "licenses": [
+     "BSD-3-Clause"
+    ],
+    "id": "DARTSYNTAXHIGHLIGHT",
+    "repo": "https://github.com/dart-lang/dart-syntax-highlight",
+    "attribution": [
+     "Copyright (c) 2020 the Dart project authors"
+    ]
+   },
+   "manual::PUGTMBUNDLE": {
+    "name": "Pug.tmbundle",
+    "path": "https://github.com/davidrios/pug-tmbundle",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "PUGTMBUNDLE",
+    "repo": "https://github.com/davidrios/pug-tmbundle",
+    "attribution": [
+     "Copyright (c) 2016 David Rios"
+    ]
+   },
+   "manual::DEFINITELYTYPED": {
+    "name": "Definitely Typed",
+    "path": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "DEFINITELYTYPED",
+    "repo": "https://github.com/DefinitelyTyped/DefinitelyTyped",
+    "attribution": [
+     "Copyrights are respective of each contributor listed at the beginning of each definition file."
+    ]
+   },
+   "manual::DOM400": {
+    "name": "Document Object Model",
+    "path": "null://",
+    "version": "4.0.0",
+    "attribution": [
+     "Copyright (c) WHATWG (Apple, Google, Mozilla, Microsoft)."
+    ],
+    "licenses": [
+     "W3C License"
+    ],
+    "license_files": {
+     "https://github.com/whatwg/dom/raw/main/LICENSE": {
+      "checksum": "ba85bc9e809a44fffbd407b844b6ee3e528544267ba63683139941b38e69009b",
+      "attribution": [
+       "Copyright \u00a9 WHATWG (Apple, Google, Mozilla, Microsoft)."
+      ],
+      "multi": true
+     }
+    },
+    "id": "DOM400",
+    "repo": "",
+    "homepage": "https://www.w3.org/DOM/"
+   },
+   "manual::DOTNETCSHARPTMLANGUAGE": {
+    "name": ".NET csharp tmLanguage",
+    "path": "https://github.com/dotnet/csharp-tmLanguage",
+    "version": "0.1.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "DOTNETCSHARPTMLANGUAGE",
+    "repo": "https://github.com/dotnet/csharp-tmLanguage",
+    "attribution": [
+     "Copyright (c) 2016 .NET Foundation"
+    ]
+   },
+   "manual::DOTNETRAZOR": {
+    "name": ".NET razor",
+    "path": "https://github.com/dotnet/razor",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "DOTNETRAZOR",
+    "repo": "https://github.com/dotnet/razor",
+    "attribution": [
+     "Copyright (c) .NET Foundation and Contributors"
+    ]
+   },
+   "manual::EXPANDABBREVIATION": {
+    "name": "expand-abbreviation",
+    "path": "https://github.com/emmetio/expand-abbreviation",
+    "version": "0.5.8",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "EXPANDABBREVIATION",
+    "repo": "https://github.com/emmetio/expand-abbreviation",
+    "attribution": [
+     "Copyright (c) 2017 Emmet.io"
+    ]
+   },
+   "manual::MAKETMBUNDLE": {
+    "name": "make tmbundle",
+    "path": "https://github.com/fadeevab/make.tmbundle",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "MAKETMBUNDLE",
+    "repo": "https://github.com/fadeevab/make.tmbundle",
+    "attribution": [
+     "Copyright (c) Microsoft"
+    ]
+   },
+   "manual::FISHSHELL": {
+    "name": "fish shell",
+    "path": "https://github.com/fish-shell/fish-shell",
+    "version": "3.7.1",
+    "attribution": [
+     "Copyright (C) 2005-2009 Axel Liljencrantz, Copyright (C) 2009- fish-shell contributors"
+    ],
+    "licenses": [
+     "GPL-2.0"
+    ],
+    "license_files": {
+     "https://github.com/fish-shell/fish-shell/raw/master/COPYING": {
+      "checksum": "0fa6896b2105a0bb4711925aedf35f6950de426b32fea76a92cce0a5592333cc",
+      "attribution": [
+       "Copyright (C) 2005-2009 Axel Liljencrantz",
+       "Copyright (C) 2009- fish-shell contributors"
+      ],
+      "multi": true
+     }
+    },
+    "id": "FISHSHELL",
+    "repo": "https://github.com/fish-shell/fish-shell"
+   },
+   "manual::GOSYNTAX": {
+    "name": "go-syntax",
+    "path": "https://github.com/worlpaker/go-syntax",
+    "version": "0.8.1",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "GOSYNTAX",
+    "repo": "https://github.com/worlpaker/go-syntax",
+    "attribution": [
+     "Copyright (c) 2023 Furkan Ozalp"
+    ]
+   },
+   "manual::HTML51W3C": {
+    "name": "HTML 5.1 W3C Working Draft 08 October 2015",
+    "path": "null://",
+    "version": "",
+    "licenses": [
+     "W3C Document License"
+    ],
+    "license_files": {
+     "https://www.w3.org/copyright/document-license-2023/": {
+      "checksum": "575c7c7d9f5c37eef17b2b132fd0f644b5855082646acc9942e24cb5bdb60dc4",
+      "clean": true
+     }
+    },
+    "id": "HTML51W3C",
+    "repo": "",
+    "homepage": "http://www.w3.org/TR/2015/WD-html51-20151008/",
+    "attribution": [
+     "Copyright (c) 2015 W3C(r) (MIT, ERCIM, Keio, Beihang)."
+    ]
+   },
+   "manual::IONICDOCUMENTATION": {
+    "name": "Ionic documentation",
+    "path": "https://github.com/ionic-team/ionic-site",
+    "version": "1.2.4",
+    "licenses": [
+     "Apache-2.0"
+    ],
+    "id": "IONICDOCUMENTATION",
+    "repo": "https://github.com/ionic-team/ionic-site",
+    "attribution": [
+     "Copyright 2016 Drifty Co."
+    ]
+   },
+   "manual::IONIDEFSGRAMMAR": {
+    "name": "Ionide FsGrammar",
+    "path": "https://github.com/ionide/ionide-fsgrammar",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "IONIDEFSGRAMMAR",
+    "repo": "https://github.com/ionide/ionide-fsgrammar",
+    "attribution": [
+     "Copyright (c) 2015 Krzysztof Cieslak"
+    ]
+   },
+   "manual::LATEXWORKSHOP": {
+    "name": "LaTeX Workshop",
+    "path": "https://github.com/James-Yu/LaTeX-Workshop",
+    "version": "8.19.1",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "LATEXWORKSHOP",
+    "repo": "https://github.com/James-Yu/LaTeX-Workshop",
+    "attribution": [
+     "Copyright (c) 2016 James Yu"
+    ]
+   },
+   "manual::BETTERCSYNTAX": {
+    "name": "better-c-syntax",
+    "path": "https://github.com/jeff-hykin/better-c-syntax",
+    "version": "1.13.2",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "BETTERCSYNTAX",
+    "repo": "https://github.com/jeff-hykin/better-c-syntax",
+    "attribution": [
+     "Copyright (c) 2019 Jeff Hykin"
+    ]
+   },
+   "manual::BETTERCPPSYNTAX": {
+    "name": "better-cpp-syntax",
+    "path": "https://github.com/jeff-hykin/better-cpp-syntax",
+    "version": "1.17.4",
+    "attribution": [
+     "Copyright (c) 2019 Jeff Hykin"
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/jeff-hykin/better-cpp-syntax/raw/1.17.6/LICENSE": {
+      "checksum": "6015fc144718ef9dea4cd0d05629677785992d6812f1e66ce1b7abde07d0f531",
+      "attribution": [
+       "Copyright 2019 Jeff Hykin"
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "BETTERCPPSYNTAX",
+    "repo": "https://github.com/jeff-hykin/better-cpp-syntax"
+   },
+   "manual::BETTEROBJCSYNTAX": {
+    "name": "better-objc-syntax",
+    "path": "https://github.com/jeff-hykin/better-objc-syntax",
+    "version": "0.2.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "BETTEROBJCSYNTAX",
+    "repo": "https://github.com/jeff-hykin/better-objc-syntax",
+    "attribution": [
+     "Copyright (c) 2019 Jeff Hykin"
+    ]
+   },
+   "manual::BETTEROBJCPPSYNTAX": {
+    "name": "better-objcpp-syntax",
+    "path": "https://github.com/jeff-hykin/better-objcpp-syntax",
+    "version": "0.1.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "BETTEROBJCPPSYNTAX",
+    "repo": "https://github.com/jeff-hykin/better-objcpp-syntax",
+    "attribution": [
+     "Copyright (c) 2019 Jeff Hykin"
+    ]
+   },
+   "manual::BETTERSHELLSYNTAX": {
+    "name": "better-shell-syntax",
+    "path": "https://github.com/jeff-hykin/better-shell-syntax",
+    "version": "1.8.7",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "BETTERSHELLSYNTAX",
+    "repo": "https://github.com/jeff-hykin/better-shell-syntax",
+    "attribution": [
+     "Copyright (c) 2019 Jeff Hykin"
+    ]
+   },
+   "manual::BETTERSNIPPETSYNTAX": {
+    "name": "better-snippet-syntax",
+    "path": "https://github.com/jeff-hykin/better-snippet-syntax",
+    "version": "1.0.2",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "BETTERSNIPPETSYNTAX",
+    "repo": "https://github.com/jeff-hykin/better-snippet-syntax",
+    "attribution": [
+     "Copyright (c) 2019 Jeff Hykin"
+    ]
+   },
+   "manual::VSCODELATEXBASICS": {
+    "name": "vscode-latex-basics",
+    "path": "https://github.com/jlelong/vscode-latex-basics",
+    "version": "1.13.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODELATEXBASICS",
+    "repo": "https://github.com/jlelong/vscode-latex-basics",
+    "attribution": [
+     "Copyright (c) vscode-latex-basics authors"
+    ]
+   },
+   "manual::JS-BEAUTIFY": {
+    "name": "js-beautify",
+    "path": "https://github.com/beautify-web/js-beautify",
+    "version": "1.6.8",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "JS-BEAUTIFY",
+    "repo": "https://github.com/beautify-web/js-beautify",
+    "attribution": [
+     "Copyright (c) 2007-2018 Einar Lielmanis, Liam Newman, and contributors."
+    ]
+   },
+   "manual::SWIFTTMLANGUAGE": {
+    "name": "swift-tmlanguage",
+    "path": "https://github.com/jtbandes/swift-tmlanguage",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "SWIFTTMLANGUAGE",
+    "repo": "https://github.com/jtbandes/swift-tmlanguage",
+    "attribution": [
+     "Copyright 2023 Jacob Bandes-Storch"
+    ]
+   },
+   "manual::ATOMLANGUAGEJULIA": {
+    "name": "atom-language-julia",
+    "path": "https://github.com/JuliaEditorSupport/atom-language-julia",
+    "version": "0.23.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "ATOMLANGUAGEJULIA",
+    "repo": "https://github.com/JuliaEditorSupport/atom-language-julia",
+    "attribution": [
+     "Copyright (c) 2015 atom-language-julia authors"
+    ]
+   },
+   "manual::JXCKASSERT": {
+    "name": "Jxck/assert",
+    "path": "https://github.com/Jxck/assert",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "JXCKASSERT",
+    "repo": "https://github.com/Jxck/assert",
+    "attribution": [
+     "Copyright (c) 2011 Jxck"
+    ]
+   },
+   "manual::MOBYLANGUAGEDOCKER": {
+    "name": "Moby Project Language Docker",
+    "path": "https://github.com/moby/moby",
+    "version": "",
+    "licenses": [
+     "Apache-2.0"
+    ],
+    "id": "MOBYLANGUAGEDOCKER",
+    "repo": "https://github.com/moby/moby",
+    "attribution": [
+     "Copyright 2013-2018 Docker, Inc."
+    ]
+   },
+   "manual::BETTERLANGUAGELESS": {
+    "name": "Better Less",
+    "path": "https://github.com/radium-v/Better-Less",
+    "version": "0.6.1",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "BETTERLANGUAGELESS",
+    "repo": "https://github.com/radium-v/Better-Less",
+    "attribution": [
+     "Copyright (c) 2017 John Kreitlow"
+    ]
+   },
+   "manual::LANGUAGE-PHP": {
+    "name": "language-php",
+    "path": "https://github.com/KapitanOczywisty/language-php",
+    "version": "0.49.0",
+    "attribution": [
+     "Copyright (c) 2014 GitHub Inc."
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/KapitanOczywisty/language-php/raw/master/LICENSE.md": {
+      "checksum": "3a116e39737498e671982838292fd1a20b9fbfe48b8239dd153162c0c8aad847",
+      "attribution": [
+       "Copyright 2014 GitHub Inc."
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "LANGUAGE-PHP",
+    "repo": "https://github.com/KapitanOczywisty/language-php"
+   },
+   "manual::MAGICSTACKMAGICPYTHON": {
+    "name": "Magic Python",
+    "path": "https://github.com/MagicStack/MagicPython",
+    "version": "1.1.1",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "MAGICSTACKMAGICPYTHON",
+    "repo": "https://github.com/MagicStack/MagicPython",
+    "attribution": [
+     "Copyright (c) 2015-present MagicStack Inc. http://magic.io"
+    ]
+   },
+   "manual::MARKEDJS": {
+    "name": "Marked JS",
+    "path": "https://github.com/markedjs/marked",
+    "version": "14.0.0",
+    "attribution": [
+     "Copyright (c) 2018+, MarkedJS (https://github.com/markedjs/) Copyright (c) 2011-2018, Christopher Jeffrey (https://github.com/chjj/)"
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/markedjs/marked/raw/master/LICENSE.md": {
+      "checksum": "5328fd9de92515e21a9e57f6acccd7dabc99f3ed97d59f72be8425af95ffb1eb",
+      "attribution": [
+       "Copyright 2011-2018, Christopher Jeffrey (https:github.com/chjj/)",
+       "Copyright 2018+, MarkedJS (https:github.com/markedjs/)",
+       "Copyright \u00a9 2004, John Gruber http:daringfireball.net/"
+      ],
+      "multi": true
+     }
+    },
+    "id": "MARKEDJS",
+    "repo": "https://github.com/markedjs/marked"
+   },
+   "manual::TYPESCRIPTTMLANGUAGE": {
+    "name": "TypeScript tmLanguage",
+    "path": "https://github.com/microsoft/TypeScript-TmLanguage",
+    "version": "0.1.8",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "TYPESCRIPTTMLANGUAGE",
+    "repo": "https://github.com/microsoft/TypeScript-TmLanguage",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation All rights reserved."
+    ]
+   },
+   "manual::VSCODECSS": {
+    "name": "VSCode CSS",
+    "path": "https://github.com/microsoft/vscode-css",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODECSS",
+    "repo": "https://github.com/microsoft/vscode-css",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation."
+    ]
+   },
+   "manual::VSCODEJSONTMLANGUAGE": {
+    "name": "VCSode JSON tmLanguage",
+    "path": "https://github.com/microsoft/vscode-css",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODEJSONTMLANGUAGE",
+    "repo": "https://github.com/microsoft/vscode-css",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation."
+    ]
+   },
+   "manual::VSCODEMARKDOWNTMGRAMMAR": {
+    "name": "VSCode Markdown tm grammar",
+    "path": "https://github.com/microsoft/vscode-markdown-tm-grammar",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODEMARKDOWNTMGRAMMAR",
+    "repo": "https://github.com/microsoft/vscode-markdown-tm-grammar",
+    "attribution": [
+     "Copyright (c) Microsoft 2018"
+    ]
+   },
+   "manual::VSCODEMSSQL": {
+    "name": "VSCode MSSQL",
+    "path": "https://github.com/microsoft/vscode-mssql",
+    "version": "1.31.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODEMSSQL",
+    "repo": "https://github.com/microsoft/vscode-mssql",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation All rights reserved."
+    ]
+   },
+   "manual::LANGUAGEBATCHFILE": {
+    "name": "Language Windows batch file",
+    "path": "https://github.com/mmims/language-batchfile",
+    "version": "0.7.6",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "LANGUAGEBATCHFILE",
+    "repo": "https://github.com/mmims/language-batchfile",
+    "attribution": [
+     "Copyright (c) 2021 Michael Mims"
+    ]
+   },
+   "manual::MONACOEDITORCORE": {
+    "name": "monaco-editor-core",
+    "path": "https://github.com/microsoft/vscode",
+    "version": "",
+    "attribution": [
+     "Copyright (c) 2016 - present Microsoft Corporation"
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/microsoft/vscode/raw/main/build/monaco/LICENSE": {
+      "checksum": "6015fc144718ef9dea4cd0d05629677785992d6812f1e66ce1b7abde07d0f531",
+      "attribution": [
+       "Copyright 2016 - present Microsoft Corporation"
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "MONACOEDITORCORE",
+    "repo": "https://github.com/microsoft/vscode"
+   },
+   "manual::NVIDIACUDACPPGRAMMAR": {
+    "name": "NVIDIA cuda-cpp-grammar",
+    "path": "https://github.com/NVIDIA/cuda-cpp-grammar",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "NVIDIACUDACPPGRAMMAR",
+    "repo": "https://github.com/NVIDIA/cuda-cpp-grammar",
+    "attribution": [
+     "Copyright 2021 NVIDIA Corporation"
+    ]
+   },
+   "manual::POWERSHELLEDITORSYNTAX": {
+    "name": "PowerShell EditorSyntax",
+    "path": "https://github.com/PowerShell/EditorSyntax",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "POWERSHELLEDITORSYNTAX",
+    "repo": "https://github.com/PowerShell/EditorSyntax",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation All rights reserved."
+    ]
+   },
+   "manual::YAMLSYNTAXHIGHLIGHTER": {
+    "name": "YAML Syntax Highlighter",
+    "path": "https://github.com/RedCMD/YAML-Syntax-Highlighter",
+    "version": "1.3.2",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "YAMLSYNTAXHIGHLIGHTER",
+    "repo": "https://github.com/RedCMD/YAML-Syntax-Highlighter",
+    "attribution": [
+     "Copyright 2024 RedCMD"
+    ]
+   },
+   "manual::REDHATVSCODEJAVATMLANGUAGE": {
+    "name": "VSCode Java (tmLanguage)",
+    "path": "https://github.com/redhat-developer/vscode-java/tree/f09b712f5d6d6339e765f58c8dfab3f78a378183",
+    "version": "1.26.0",
+    "attribution": [
+     "Copyright (c) 2014 GitHub Inc."
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "https://github.com/atom/language-java/raw/29f977dc42a7e2568b39bb6fb34c4ef108eb59b3/LICENSE.md": {
+      "checksum": "9c98224da7ca33e487debc0d9befd53f79c71d06f6e2322d7c8e1508605fa03a",
+      "attribution": [
+       "Copyright 2014 GitHub Inc."
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "REDHATVSCODEJAVATMLANGUAGE",
+    "repo": "https://github.com/redhat-developer/vscode-java"
+   },
+   "manual::REDITORSUPPORTVSCODER": {
+    "name": "VSCode R Syntax",
+    "path": "https://github.com/REditorSupport/vscode-R-syntax",
+    "version": "0.1.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "REDITORSUPPORTVSCODER",
+    "repo": "https://github.com/REditorSupport/vscode-R-syntax",
+    "attribution": [
+     "Copyright (c) 2025 REditorSupport"
+    ]
+   },
+   "manual::RUSTSYNTAX": {
+    "name": "Rust Syntax",
+    "path": "https://github.com/dustypomerleau/rust-syntax",
+    "version": "0.6.1",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "RUSTSYNTAX",
+    "repo": "https://github.com/dustypomerleau/rust-syntax",
+    "attribution": [
+     "Copyright (c) 2020 Dustin Pomerleau"
+    ]
+   },
+   "manual::SETIUI": {
+    "name": "Seti UI",
+    "path": "https://github.com/jesseweed/seti-ui",
+    "version": "0.1.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "SETIUI",
+    "repo": "https://github.com/jesseweed/seti-ui",
+    "attribution": [
+     "Copyright (c) 2014 Jesse Weed"
+    ]
+   },
+   "manual::SHADERSTMLANGUAGE": {
+    "name": "Shaders tmLanguage",
+    "path": "https://github.com/tgjones/shaders-tmLanguage",
+    "version": "0.1.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "SHADERSTMLANGUAGE",
+    "repo": "https://github.com/tgjones/shaders-tmLanguage",
+    "attribution": [
+     "Copyright (c) 2017 Tim Jones"
+    ]
+   },
+   "manual::RUBYLSP": {
+    "name": "Ruby LSP",
+    "path": "https://github.com/Shopify/ruby-lsp",
+    "version": "",
+    "attribution": [
+     "Copyright (c) 2022-present, Shopify Inc."
+    ],
+    "licenses": [
+     "MIT"
+    ],
+    "license_files": {
+     "positron/licenses/shopifyrubylsp-license.txt": {
+      "checksum": "506dfac8f8a7fb7ca297b503ee235e26c699ba94f443392798d17988ab59110b",
+      "attribution": [
+       "Copyright 2014 GitHub Inc. https:github.com/atom/language-ruby",
+       "Copyright 2016 Peng Lv",
+       "Copyright 2017-2019 Stafford Brunk https:github.com/rubyide/vscode-ruby",
+       "Copyright 2022-present, Shopify Inc."
+      ],
+      "guess": "MIT"
+     }
+    },
+    "id": "RUBYLSP",
+    "repo": "https://github.com/Shopify/ruby-lsp"
+   },
+   "manual::LUATMBUNDLE": {
+    "name": "Lua tmBundle",
+    "path": "https://github.com/sumneko/lua.tmbundle",
+    "version": "1.0.0",
+    "attribution": [
+     "Copyright (c) sumneko-lua.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "LUATMBUNDLE",
+    "repo": "https://github.com/sumneko/lua.tmbundle"
+   },
+   "manual::ASPVBNETTMBUNDLE": {
+    "name": "ASP VB.NET tmBundle",
+    "path": "https://github.com/textmate/asp.vb.net.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-asp.vb.net.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "ASPVBNETTMBUNDLE",
+    "repo": "https://github.com/textmate/asp.vb.net.tmbundle"
+   },
+   "manual::CTMBUNDLE": {
+    "name": "C tmBundle",
+    "path": "https://github.com/textmate/c.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-c.tmbundle authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "CTMBUNDLE",
+    "repo": "https://github.com/textmate/c.tmbundle"
+   },
+   "manual::DIFFTMBUNDLE": {
+    "name": "Diff tmBundle",
+    "path": "https://github.com/textmate/diff.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-diff.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "DIFFTMBUNDLE",
+    "repo": "https://github.com/textmate/diff.tmbundle"
+   },
+   "manual::GITTMBUNDLE": {
+    "name": "git tmBundle",
+    "path": "https://github.com/textmate/git.tmbundle",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "GITTMBUNDLE",
+    "repo": "https://github.com/textmate/git.tmbundle",
+    "attribution": [
+     "Copyright (c) 2008 Tim Harper"
+    ]
+   },
+   "manual::GROOVYTMBUNDLE": {
+    "name": "Groovy tmBundle",
+    "path": "https://github.com/textmate/groovy.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-groovy.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "GROOVYTMBUNDLE",
+    "repo": "https://github.com/textmate/groovy.tmbundle"
+   },
+   "manual::HTMLTMBUNDLE": {
+    "name": "HTML tmBundle",
+    "path": "https://github.com/textmate/html.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-html.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "HTMLTMBUNDLE",
+    "repo": "https://github.com/textmate/html.tmbundle"
+   },
+   "manual::INITMBUNDLE": {
+    "name": "ini tmBundle",
+    "path": "https://github.com/textmate/ini.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-ini.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "INITMBUNDLE",
+    "repo": "https://github.com/textmate/ini.tmbundle"
+   },
+   "manual::JAVASCRIPTTMBUNDLE": {
+    "name": "JavaScript tmBundle",
+    "path": "https://github.com/textmate/javascript.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-javascript.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "JAVASCRIPTTMBUNDLE",
+    "repo": "https://github.com/textmate/javascript.tmbundle"
+   },
+   "manual::MARKDOWNTMBUNDLE": {
+    "name": "Markdown tmBundle",
+    "path": "https://github.com/textmate/markdown.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) markdown.tmbundle authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "MARKDOWNTMBUNDLE",
+    "repo": "https://github.com/textmate/markdown.tmbundle"
+   },
+   "manual::PERLTMBUNDLE": {
+    "name": "Perl tmBundle",
+    "path": "https://github.com/textmate/perl.tmbundle",
+    "version": "",
+    "attribution": [
+     "Copyright (c) textmate-perl.tmbundle project authors"
+    ],
+    "licenses": [
+     "TextMate Bundle License"
+    ],
+    "license_files": {
+     "positron/licenses/textmate-bundle-license.txt": {
+      "checksum": "7669ee884cc06c485c00a4155c0e4873d11a977a2e3071142ce740ba2ae92a20",
+      "attribution": [
+       "Copyright sumneko-lua.tmbundle project authors"
+      ]
+     }
+    },
+    "id": "PERLTMBUNDLE",
+    "repo": "https://github.com/textmate/perl.tmbundle"
+   },
+   "manual::VSCODERST": {
+    "name": "VSCode reStructuredText",
+    "path": "https://github.com/trond-snekvik/vscode-rst",
+    "version": "1.5.3",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODERST",
+    "repo": "https://github.com/trond-snekvik/vscode-rst",
+    "attribution": [
+     "Copyright 2021 Trond Snekvik"
+    ]
+   },
+   "manual::UNICODE12": {
+    "name": "Unicode 12.0.0",
+    "path": "null://",
+    "version": "",
+    "attribution": [
+     "Copyright (c) 1991-2017 Unicode, Inc. All rights reserved."
+    ],
+    "licenses": [
+     "Unicode, Inc. License Agreement"
+    ],
+    "license_files": {
+     "positron/licenses/unicode-12.0.0-license.txt": {
+      "checksum": "00b078ba2834cad8e35a4935f6dbbfd114e97dd2d77dca95f217061cc23835ac",
+      "attribution": [
+       "Copyright 1991-2017 Unicode, Inc."
+      ]
+     }
+    },
+    "id": "UNICODE12",
+    "repo": "",
+    "homepage": "https://home.unicode.org/"
+   },
+   "manual::VSCODELOGFILEHIGHLIGHTER": {
+    "name": "VSCode logfile highlighter",
+    "path": "https://github.com/emilast/vscode-logfile-highlighter",
+    "version": "3.4.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODELOGFILEHIGHLIGHTER",
+    "repo": "https://github.com/emilast/vscode-logfile-highlighter",
+    "attribution": [
+     "Copyright (c) 2015 emilast"
+    ]
+   },
+   "manual::VSCODEPYTHON": {
+    "name": "VSCode Python",
+    "path": "https://github.com/microsoft/vscode-python",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODEPYTHON",
+    "repo": "https://github.com/microsoft/vscode-python",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation. All rights reserved."
+    ]
+   },
+   "manual::VSCODERTESTADAPTER": {
+    "name": "VSCode R Test Adapter",
+    "path": "https://github.com/meakbiyik/vscode-r-test-adapter",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODERTESTADAPTER",
+    "repo": "https://github.com/meakbiyik/vscode-r-test-adapter",
+    "attribution": [
+     "Copyright (c) vscode-r-test-adapter project authors"
+    ]
+   },
+   "manual::VSCODERTESTREPORTER": {
+    "name": "testthat Test Reporter for R Test Explorer VSCode Extension",
+    "path": "null://",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODERTESTREPORTER",
+    "repo": "",
+    "homepage": "https://github.com/meakbiyik/vscode-r-test-adapter/tree/master/src/testthat/reporter",
+    "attribution": [
+     "Copyright (c) 2021 vscodereporter authors, Copyright (c) 2013-2019 Hadley Wickham; RStudio"
+    ]
+   },
+   "manual::VSCODESWIFT": {
+    "name": "VSCode Swift",
+    "path": "https://github.com/owensd/vscode-swift",
+    "version": "",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODESWIFT",
+    "repo": "https://github.com/owensd/vscode-swift",
+    "attribution": [
+     "Copyright (c) 2017 Kiad Studios, LLC."
+    ]
+   },
+   "manual::VSCODE-WIN32-APP-CONTAINER-TOKENS": {
+    "name": "VSCode win32-app-container-tokens",
+    "path": "https://github.com/microsoft/vscode-win32-app-container-tokens",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "VSCODE-WIN32-APP-CONTAINER-TOKENS",
+    "repo": "https://github.com/microsoft/vscode-win32-app-container-tokens",
+    "attribution": [
+     "Copyright (c) Microsoft Corporation."
+    ]
+   },
+   "manual::GITCOMMITMESSAGEPLUS": {
+    "name": "Git Commit Message Plus",
+    "path": "https://github.com/walles/git-commit-message-plus",
+    "version": "1.0.0",
+    "licenses": [
+     "MIT"
+    ],
+    "id": "GITCOMMITMESSAGEPLUS",
+    "repo": "https://github.com/walles/git-commit-message-plus",
+    "attribution": [
+     "Copyright (c) 2023 Johan Walles <johan.walles@gmail.com>"
+    ]
+   },
+   "manual::WEBBACKGROUNDSYNCHRONIZATION": {
+    "name": "Web Background Synchronization",
+    "path": "https://github.com/WICG/background-sync",
+    "version": "",
+    "licenses": [
+     "Apache-2.0"
+    ],
+    "id": "WEBBACKGROUNDSYNCHRONIZATION",
+    "repo": "https://github.com/WICG/background-sync",
+    "attribution": [
+     "Copyright (c) 2021 the Contributors to the Web Background Synchronization Specification, published by the Web Platform Incubator Community Group under the W3C Community Contributor License Agreement (CLA)."
+    ]
+   },
+   "manual::JUPYTERLOGO": {
+    "name": "Jupyter logo from jupyter/notebook",
+    "path": "https://github.com/jupyter/notebook",
+    "version": "",
+    "licenses": [
+     "BSD 3-Clause"
+    ],
+    "id": "JUPYTERLOGO",
+    "repo": "https://github.com/jupyter/notebook",
+    "attribution": [
+     "Copyright (c) 2001-2015, IPython Development Team, Copyright (c) 2015-, Jupyter Development Team"
+    ]
+   },
+   "manual::RLOGO": {
+    "name": "The R logo",
+    "path": "null://",
+    "version": "",
+    "licenses": [
+     "CC-BY-SA 4.0"
+    ],
+    "license_files": {
+     "https://spdx.org/licenses/CC-BY-SA-4.0.html": {
+      "checksum": "effbd897af56cf2d884d0611f2aecdbb176b001a9ea2d7d47f342cc49df88792",
+      "clean": true
+     }
+    },
+    "id": "RLOGO",
+    "repo": "",
+    "attribution": [
+     "The R logo is (c) 2016 The R Foundation https://www.r-project.org/logo/"
+    ]
+   },
+   "!root": [
+    "positron/licenses/codeoss.txt"
    ]
   }
  }
