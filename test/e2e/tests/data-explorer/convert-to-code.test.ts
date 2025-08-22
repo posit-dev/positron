@@ -122,7 +122,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await dataExplorer.convertToCodeModal.expectToBeVisible();
 
 			// verify the generated code is correct and has syntax highlights
-			// Use normalized code for UI text comparison (spaces instead of newlines)
+			// Use normalized code for UI text comparison (no newlines)
 			await expect(dataExplorer.convertToCodeModal.codeBox).toContainText(normalizeCodeForDisplay(expectedGeneratedCode));
 			await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
 
