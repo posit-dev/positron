@@ -6,8 +6,11 @@ NumPy and Polars to handle cases where one or the other may not be available.
 """
 
 import math
-from typing import Tuple, Union, Optional, Any
 import warnings
+from typing import TYPE_CHECKING, Optional, Tuple
+
+if TYPE_CHECKING:
+    import polars as pl
 
 # Constants
 _EMPTY_HISTOGRAM = ([], [0.0, 1.0])
@@ -45,6 +48,25 @@ def _calculate_fd_binwidth(data, data_range: float, n: int) -> float:
         return _calculate_sqrt_fallback_binwidth(data_range, n)
 
 
+def _convert_object_series_to_float(data: "pl.Series") -> "Optional[pl.Series]":
+    """Convert object dtype Series to Float64, returning None if conversion fails."""
+    import polars as pl
+
+    try:
+
+        def safe_float_convert(val):
+            if val is None:
+                return None
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return None
+
+        return data.map_elements(safe_float_convert, return_dtype=pl.Float64)
+    except Exception:
+        return None
+
+
 def _get_histogram_method(method):
     """Convert histogram method enum to string."""
     from .data_explorer_comm import ColumnHistogramParamsMethod
@@ -67,9 +89,12 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         import numpy as np
     except ModuleNotFoundError as e:
         # If NumPy is not installed, we cannot compute histograms
+        from .data_explorer import DataExplorerWarning
+
         warnings.warn(
             "Numpy not installed, histogram computation will not work. "
             "Please install NumPy to enable this feature.",
+            category=DataExplorerWarning,
             stacklevel=1,
         )
         raise e
@@ -174,20 +199,11 @@ def _get_histogram_polars(
     # Handle object dtype (like Decimals) by converting to float
     if data.dtype == pl.Object:
         # For decimals and other objects, convert to float which is lossy but works for now
-        try:
-
-            def safe_float_convert(val):
-                if val is None:
-                    return None
-                try:
-                    return float(val)
-                except (ValueError, TypeError):
-                    return None
-
-            data = data.map_elements(safe_float_convert, return_dtype=pl.Float64)
-        except Exception:
+        data_converted = _convert_object_series_to_float(data)
+        if data_converted is None:
             # If conversion fails, return empty histogram
             return _EMPTY_HISTOGRAM
+        data = data_converted
 
     # Remove null values
     data = data.drop_nulls()
@@ -247,10 +263,7 @@ def _get_histogram_polars(
                 g1 = (centered**3).mean()
                 # Standard error of skewness
                 sg1 = math.sqrt(6.0 * (n - 2) / ((n + 1) * (n + 3)))
-                if sg1 > 0:
-                    k = 1 + math.log2(n) + math.log2(1 + abs(g1) / sg1)
-                else:
-                    k = 1 + math.log2(n)
+                k = 1 + math.log2(n) + math.log2(1 + abs(g1) / sg1) if sg1 > 0 else 1 + math.log2(n)
             else:
                 k = 1 + math.log2(n)
             n_bins_doane = math.ceil(k)
@@ -271,10 +284,7 @@ def _get_histogram_polars(
             raise ValueError(f"Unknown binning method: {method}")
 
         # Calculate number of bins from bin width
-        if bin_width > 0:
-            n_bins = math.ceil(data_range / bin_width)
-        else:
-            n_bins = 1
+        n_bins = math.ceil(data_range / bin_width) if bin_width > 0 else 1
 
     # Limit to maximum number of bins
     n_bins = min(n_bins, num_bins)
@@ -292,10 +302,7 @@ def _get_histogram_polars(
     # Create bin edges
     if n_bins == 1:
         # Single bin case
-        if min_val == max_val:
-            bin_edges = [min_val, min_val]
-        else:
-            bin_edges = [min_val, max_val]
+        bin_edges = [min_val, min_val] if min_val == max_val else [min_val, max_val]
     else:
         # Create evenly spaced bins
         bin_width = (max_val - min_val) / n_bins
