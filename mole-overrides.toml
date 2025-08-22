@@ -419,12 +419,14 @@ license_files = ['https://github.com/python-attrs/attrs/blob/main/LICENSE']
 
 ['py::cattrs==24.1.2']
 # Use attribution from cattrs git repo
+# allow-any-unicode-next-line
 attribution = ['Copyright (c) 2016, Tin Tvrtković']
 license = ['MIT']
 license_files = ['https://github.com/python-attrs/cattrs/blob/main/LICENSE']
 
 ['py::exceptiongroup==1.2.2']
 # Use attribution from exceptiongroup git repo
+# allow-any-unicode-next-line
 attribution = ['Copyright (c) 2022 Alex Grönholm']
 license = ['MIT']
 license_files = ['https://github.com/agronholm/exceptiongroup/blob/main/LICENSE']
