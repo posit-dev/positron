@@ -20,7 +20,7 @@ interface CellExecutionInfoIconProps {
 	cell: PositronNotebookCodeCell;
 }
 
-const POPUP_DELAY = 250;
+const POPUP_DELAY = 100;
 
 export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 	// Reference hooks.

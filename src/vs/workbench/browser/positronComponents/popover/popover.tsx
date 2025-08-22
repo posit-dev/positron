@@ -28,14 +28,14 @@ interface PopoverProps {
  * Fixed-position popover that positions itself relative to an anchor element.
  * Automatically repositions to stay within viewport. Closes on click outside,
  * Escape key, or mouse leave.
- * 
+ *
  * **Note:** This is a pure React component that renders within the React tree,
  * so it's constrained by CSS overflow and z-index of parent containers. For
  * popovers that need to escape container boundaries, use modal dialogs instead.
- * 
+ *
  * @example
  * ```tsx
- * <Popover 
+ * <Popover
  *   anchorElement={buttonRef.current}
  *   onClose={() => setIsOpen(false)}
  * >
@@ -47,7 +47,7 @@ export function Popover({
 	anchorElement,
 	onClose,
 	autoCloseOnMouseLeave = true,
-	autoCloseDelay = 250,
+	autoCloseDelay = 100,
 	className = '',
 	offset = 4,
 	viewportMargin = 8,
