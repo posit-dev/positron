@@ -18,7 +18,7 @@ import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
 import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
-import { getEnabledTools } from './api.js';
+import { getEnabledTools, getPositronContextPrompts } from './api.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -546,34 +546,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 
 		// Add Positron IDE context to the prompt.
-		const positronContextPrompts: string[] = [];
-
-		// Note: Runtime session information (active session, variables, execution history)
-		// is now provided through IChatRequestRuntimeSessionEntry mechanism rather than
-		// being included in the global positronContext. The chat system will automatically
-		// include this information when available.
-		if (positronContext.shell) {
-			const shellNode = xml.node('shell', positronContext.shell, {
-				description: 'Current active shell',
-			});
-			positronContextPrompts.push(shellNode);
-			log.debug(`[context] adding shell context: ${shellNode.length} characters`);
-		}
-		if (positronContext.plots && positronContext.plots.hasPlots) {
-			const plotsNode = xml.node('plots', 'A plot is visible.');
-			positronContextPrompts.push(plotsNode);
-			log.debug(`[context] adding plots context: ${plotsNode.length} characters`);
-		}
-		if (positronContext.positronVersion) {
-			const versionNode = xml.node('version', `Positron version: ${positronContext.positronVersion}`);
-			positronContextPrompts.push(versionNode);
-			log.debug(`[context] adding positron version context: ${versionNode.length} characters`);
-		}
-		if (positronContext.currentDate) {
-			const dateNode = xml.node('date', `Today's date is: ${positronContext.currentDate}`);
-			positronContextPrompts.push(dateNode);
-			log.debug(`[context] adding date context: ${dateNode.length} characters`);
-		}
+		const positronContextPrompts = getPositronContextPrompts(positronContext);
 		if (positronContextPrompts.length > 0) {
 			prompts.push(xml.node('context', positronContextPrompts.join('\n\n')));
 		}

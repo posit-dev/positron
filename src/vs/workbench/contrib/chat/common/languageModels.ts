@@ -538,15 +538,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 		const providers: IPositronChatProvider[] = [];
 
 		for (const model of this._modelCache.values()) {
-			if (seenProviderIds.has(model.family) ||
+			if (seenProviderIds.has(model.vendor) ||
 				// Only consider user-selectable models.
 				!model.isUserSelectable) {
 				continue;
 			}
-			seenProviderIds.add(model.family);
+			seenProviderIds.add(model.vendor);
 			providers.push({
-				displayName: model.providerName ?? model.family,
-				id: model.family
+				displayName: model.providerName ?? model.vendor,
+				id: model.vendor
 			});
 		}
 
@@ -559,7 +559,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			return Array.from(this._modelCache.keys());
 		}
 		return Array.from(this._modelCache.entries())
-			.filter(([, model]) => model.family === currentProvider.id)
+			.filter(([, model]) => model.vendor === currentProvider.id)
 			.map(([modelId,]) => modelId);
 	}
 

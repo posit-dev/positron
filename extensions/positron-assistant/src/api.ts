@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
@@ -11,6 +12,7 @@ import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
 import fs = require('fs');
+import { log } from './extension.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -25,10 +27,45 @@ export class PositronAssistantApi {
 	 * @param request The chat request to generate content for.
 	 * @returns A PromptElement that renders the assistant content.
 	 */
-	public generateAssistantPrompt(request: any): string {
+	public async generateAssistantPrompt(request: any): Promise<string> {
 		// Start with the system prompt
-		const defaultSystem = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		return defaultSystem;
+		let prompt = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+
+		// Get the IDE context for the request.
+		const positronContext = await positron.ai.getPositronChatContext(request);
+		const contextPrompts = getPositronContextPrompts(positronContext);
+		prompt += contextPrompts.join('\n');
+		if (contextPrompts.length > 0) {
+			prompt += xml.node('context', contextPrompts.join('\n\n'));
+		}
+
+		// Add context about the active sessions
+		let sessionCount = 0;
+		let allSessions = '';
+		for (const reference of request.references) {
+			const value = reference.value as any;
+			if (value.activeSession) {
+				const sessionSummary = JSON.stringify(value.activeSession, null, 2);
+				let sessionContent = sessionSummary;
+				if (value.variables) {
+					// Include the session variables in the session content.
+					const variablesSummary = JSON.stringify(value.variables, null, 2);
+					sessionContent += '\n' + xml.node('variables', variablesSummary);
+				}
+				allSessions += xml.node('session', sessionContent);
+				sessionCount++;
+			}
+		}
+
+		if (sessionCount > 0) {
+			const sessionText = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
+			prompt += sessionText + '\n' + xml.node('sessions', allSessions);
+		}
+
+		log.debug(`Generated Positron context for prompt (${sessionCount} sessions, ` +
+			`${prompt.length} characters)`);
+
+		return prompt;
 	}
 
 	/**
@@ -193,4 +230,43 @@ export function getEnabledTools(
 	}
 
 	return enabledTools;
+}
+
+
+/**
+ * Get the context prompts for the Positron Assistant.
+ *
+ * @param positronContext The Positron context to extract prompts from.
+ * @returns An array of context prompts.
+ */
+export function getPositronContextPrompts(positronContext: positron.ai.ChatContext): Array<string> {
+	const result: Array<string> = [];
+
+	// Note: Runtime session information (active session, variables, execution history)
+	// is now provided through IChatRequestRuntimeSessionEntry mechanism rather than
+	// being included in the global positronContext. The chat system will automatically
+	// include this information when available.
+	if (positronContext.shell) {
+		const shellNode = xml.node('shell', positronContext.shell, {
+			description: 'Current active shell',
+		});
+		result.push(shellNode);
+		log.debug(`[context] adding shell context: ${shellNode.length} characters`);
+	}
+	if (positronContext.plots && positronContext.plots.hasPlots) {
+		const plotsNode = xml.node('plots', 'A plot is visible.');
+		result.push(plotsNode);
+		log.debug(`[context] adding plots context: ${plotsNode.length} characters`);
+	}
+	if (positronContext.positronVersion) {
+		const versionNode = xml.node('version', `Positron version: ${positronContext.positronVersion}`);
+		result.push(versionNode);
+		log.debug(`[context] adding positron version context: ${versionNode.length} characters`);
+	}
+	if (positronContext.currentDate) {
+		const dateNode = xml.node('date', `Today's date is: ${positronContext.currentDate}`);
+		result.push(dateNode);
+		log.debug(`[context] adding date context: ${dateNode.length} characters`);
+	}
+	return result;
 }
