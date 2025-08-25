@@ -19,13 +19,14 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	test('Python - Verify halp landing page', { tag: [tags.WIN] }, async function ({ app }) {
 
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.help.openHelpPanel();
 
 		const helpFrame = await app.workbench.help.getHelpWelcomePageFrame();
 		const docLink = helpFrame.getByRole('link', { name: 'Positron Documentation' });
 		await expect(docLink).toBeVisible();
 		await expect(docLink).toHaveAttribute('href', 'https://positron.posit.co/');
-
+		await app.workbench.layouts.enterLayout('stacked');
 	});
 
 	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
