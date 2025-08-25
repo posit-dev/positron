@@ -349,6 +349,11 @@
             ],
             "default": "auto",
             "markdownDescription": "%r.configuration.defaultRepositories.description%"
+          },
+          "positron.r.packageManagerRepository": {
+            "scope": "window",
+            "type": "string",
+            "markdownDescription": "%r.configuration.packageManagerRepository.description%"
           }
         }
       }

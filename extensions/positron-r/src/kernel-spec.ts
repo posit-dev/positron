@@ -84,12 +84,16 @@ export function createJupyterKernelSpec(
 
 	// Set the default repositories
 	const defaultRepos = config.get<string>('defaultRepositories') ?? 'auto';
+	const ppmRepo = config.get<string>('packageManagerRepository');
 	if (defaultRepos === 'auto') {
 		const reposConf = findReposConf();
 		if (reposConf) {
 			// If there's a `repos.conf` file in a well-known directory, use
 			// that.
 			argv.push(...['--repos-conf', reposConf]);
+		} else if (ppmRepo) {
+			// If the user has specified a custom Package Manager URL, use it
+			argv.push(...['--default-ppm-repo', ppmRepo]);
 		} else if (vscode.env.uiKind === vscode.UIKind.Web) {
 			// No repos.conf; if we're web mode use Posit's Public Package
 			// Manager
@@ -98,6 +102,8 @@ export function createJupyterKernelSpec(
 		// In all other cases when `auto` is set, we don't specify
 		// `--default-repos` at all, and let Ark choose an appropriate
 		// repository (usually `cran.rstudio.com)
+	} else if (defaultRepos === 'posit-ppm' && ppmRepo) {
+		argv.push(...['--default-ppm-repo', ppmRepo]);
 	} else {
 		// The remaining options map directly to Ark's `--default-repos`
 		// command line option
