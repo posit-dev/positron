@@ -1,0 +1,22 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.activity-error-message .quick-fix {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+	gap: 8px;
+}
+
+.activity-error-message .quick-fix .assistant-action .link-text {
+	text-decoration: underline;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+
+	.codicon {
+		color: var(--vscode-textLink-foreground);
+		font-size: 12px;
+	}
+}
