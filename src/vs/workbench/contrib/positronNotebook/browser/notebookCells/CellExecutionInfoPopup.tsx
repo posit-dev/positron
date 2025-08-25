@@ -75,13 +75,21 @@ function getRelativeTime(timestamp: number): string {
 	const days = Math.floor(hours / 24);
 
 	if (days > 0) {
-		return localize('cellExecution.daysAgo', '{0} days ago', days);
+		return days === 1
+			? localize('cellExecution.dayAgo', '1 day ago')
+			: localize('cellExecution.daysAgo', '{0} days ago', days);
 	} else if (hours > 0) {
-		return localize('cellExecution.hoursAgo', '{0} hours ago', hours);
+		return hours === 1
+			? localize('cellExecution.hourAgo', '1 hour ago')
+			: localize('cellExecution.hoursAgo', '{0} hours ago', hours);
 	} else if (minutes > 0) {
-		return localize('cellExecution.minutesAgo', '{0} minutes ago', minutes);
+		return minutes === 1
+			? localize('cellExecution.minuteAgo', '1 minute ago')
+			: localize('cellExecution.minutesAgo', '{0} minutes ago', minutes);
 	} else if (seconds > 0) {
-		return localize('cellExecution.secondsAgo', '{0} seconds ago', seconds);
+		return seconds === 1
+			? localize('cellExecution.secondAgo', '1 second ago')
+			: localize('cellExecution.secondsAgo', '{0} seconds ago', seconds);
 	} else {
 		return localize('cellExecution.justNow', 'Just now');
 	}
@@ -94,6 +102,7 @@ export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
 	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
 	const lastRunSuccess = useObservedValue(cell.lastRunSuccess);
 	const executionStatus = useObservedValue(cell.executionStatus);
+
 	// Determine the data availability for various sections
 	const hasExecutionOrder = executionOrder !== undefined;
 	const hasExecutionResult = lastRunSuccess !== undefined;
