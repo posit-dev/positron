@@ -25,10 +25,10 @@ const POPUP_DELAY = 100;
 export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 	// Reference hooks.
 	const containerRef = useRef<HTMLDivElement>(null);
+	const hoverTimeoutIdRef = useRef<number | null>(null);
 
 	// State hooks.
 	const [showPopup, setShowPopup] = useState(false);
-	const [hoverTimeoutId, setHoverTimeoutId] = useState<number | null>(null);
 
 	// Observed values for icon display (popup will observe its own values)
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
@@ -43,19 +43,19 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 				setShowPopup(true);
 			}, POPUP_DELAY);
 
-			setHoverTimeoutId(timeoutId);
+			hoverTimeoutIdRef.current = timeoutId;
 		}
 	}, [showPopup]);
 
 	const handleMouseLeave = useCallback(() => {
 		// Clear the hover timeout if we leave before the popup shows
-		if (hoverTimeoutId !== null && containerRef.current) {
+		if (hoverTimeoutIdRef.current !== null && containerRef.current) {
 			const targetWindow = DOM.getWindow(containerRef.current);
-			targetWindow.clearTimeout(hoverTimeoutId);
-			setHoverTimeoutId(null);
+			targetWindow.clearTimeout(hoverTimeoutIdRef.current);
+			hoverTimeoutIdRef.current = null;
 		}
 		// Note: The popup will handle its own auto-close behavior
-	}, [hoverTimeoutId]);
+	}, []);
 
 	// Show pending state if the cell has never been executed
 	const showPending = executionOrder === undefined;
