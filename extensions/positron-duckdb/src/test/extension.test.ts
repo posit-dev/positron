@@ -260,7 +260,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						ExportFormat.Html
 					]
 				},
-				convert_to_code: { support_status: SupportStatus.Unsupported }
+				convert_to_code: {
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{
+						code_syntax_name: "SQL"
+					}]
+				}
 			}
 		} satisfies BackendState);
 
