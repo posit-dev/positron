@@ -4,9 +4,9 @@ This directory contains a simplified metrics system for tracking performance of 
 
 ## Quick Start: Adding a New Feature Metric
 
-Leveraging `metric-factory.ts` makes adding metrics for a new feature area is simple:
+`metric-factory.ts` simplifies the process of adding metrics for new feature areas.
 
-### 1. Create your feature metric file (e.g., `metric-my-feature.ts`)
+### 1. Create your feature metric file (e.g., `metric-<new-feature>.ts`)
 
 ```typescript
 import { BaseMetric } from "./metric-base.js";
@@ -29,27 +29,94 @@ const { recordMetric: recordMyFeatureMetric } =
 export { recordMyFeatureMetric };
 ```
 
-### 2. Use it in your tests
+### 2. Add your feature to the RecordMetric type in `metric-base.ts`
 
 ```typescript
-import { recordMyFeatureMetric } from "./utils/metrics/metric-my-feature.js";
+export type RecordMetric = {
+	dataExplorer: {
+		/* ... */
+	};
+	notebooks: {
+		/* ... */
+	};
+	myFeature: {
+		action1: <T>(
+			operation: () => Promise<T>,
+			targetType: MetricTargetType,
+			options?: MyFeatureOptions
+		) => Promise<MetricResult<T>>;
+		action2: <T>(
+			operation: () => Promise<T>,
+			targetType: MetricTargetType,
+			options?: MyFeatureOptions
+		) => Promise<MetricResult<T>>;
+	};
+};
+```
 
-// In your test:
-const result = await recordMyFeatureMetric(
-	() => myAsyncOperation(), // The operation to measure
-	{
-		action: "action1",
-		target_type: "file.csv",
-		target_description: "Processing CSV file",
-		context_json: { rows: 1000, columns: 5 },
-	},
-	isElectronApp,
-	logger
-);
+### 3. Update the MetricsFixture in `fixtures/test-setup/metrics.fixtures.ts`
 
-// `result` contains both the operation result and duration_ms
-console.log(`Operation took ${result.duration_ms}ms`);
-console.log("Operation result:", result.result);
+```typescript
+import {
+	recordMyFeatureAction1,
+	recordMyFeatureAction2,
+} from "../../utils/metrics/metric-my-feature.js";
+
+export function MetricsFixture(
+	app: Application,
+	logger: MultiLogger
+): RecordMetric {
+	return {
+		// ... existing features
+		myFeature: {
+			action1: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: MyFeatureOptions
+			) => {
+				return recordMyFeatureAction1(
+					operation,
+					targetType,
+					!!app.code.electronApp,
+					logger,
+					options
+				);
+			},
+			action2: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				options?: MyFeatureOptions
+			) => {
+				return recordMyFeatureAction2(
+					operation,
+					targetType,
+					!!app.code.electronApp,
+					logger,
+					options
+				);
+			},
+		},
+	};
+}
+```
+
+### 4. Use it in your tests (via the fixture)
+
+```typescript
+// In your test function signature:
+test("My feature performance test", async ({ metric }) => {
+	const result = await metric.myFeature.action1(
+		async () => {
+			// Your async operation to measure
+			return await performMyFeatureOperation();
+		},
+		"file.csv",
+		{ description: "Processing CSV file" }
+	);
+
+	// `result` contains both the operation result and duration_ms
+	console.log(`Operation took ${result.duration_ms}ms`);
+});
 ```
 
 ## Advanced Features
@@ -65,29 +132,6 @@ The factory automatically captures success/error status and re-throws errors to 
 ### Background Logging
 
 Metrics are logged in the background without affecting test performance.
-
-## Existing Feature Areas
-
-- **Data Explorer** (`metric-data-explorer.ts`): Metrics for data loading, filtering, sorting, and code generation
-
-  ```typescript
-  await metric.dataExplorer.loadData(async () => {
-  	// Your data loading operation
-  }, "py.pandas.DataFrame");
-  ```
-
-- **Notebooks** (`metric-notebooks.ts`): Metrics for notebook cell execution, opening, and saving
-
-  ```typescript
-  await metric.notebooks.runCell(
-  	async () => {
-  		// Your cell execution operation
-  	},
-  	"cell.python",
-  	"python",
-  	"Running data analysis cell"
-  );
-  ```
 
 ## Files
 
