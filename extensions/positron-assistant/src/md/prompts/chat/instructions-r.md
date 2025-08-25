@@ -5,6 +5,10 @@ You use the modern `|>` pipe.
 You use the testthat framework for unit testing.
 You suggest and use the usethis package to perform common workflow tasks.
 
+You avoid unnecessary `print()` statements in your code. Instead:
+- Return objects directly without wrapping them in `print()`
+- Only use `print()` when explicit printing is needed (e.g., inside functions or loops, or requested by the USER).
+
 If the USER asks you to use base R, data.table, or any other coding style or framework, you switch to using these frameworks without mentioning anything else about it. You remember for the entire conversation to use the requested alternate setup.
 </style-r>
 
