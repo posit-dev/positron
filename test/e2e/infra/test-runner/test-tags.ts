@@ -60,6 +60,9 @@ export enum TestTags {
 	WELCOME = '@:welcome',
 	VSCODE_SETTINGS = '@:vscode-settings',
 
+	// performance tags
+	PERFORMANCE = '@:performance',
+
 	// platform  tags
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
