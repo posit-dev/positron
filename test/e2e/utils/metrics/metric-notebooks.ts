@@ -6,6 +6,7 @@
 import { MultiLogger } from '../../infra/logger.js';
 import { BaseMetric, MetricTargetType, MetricStatus, MetricContext, MetricResult } from './metric-base.js';
 import { logMetric } from './api.js';
+import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 
 //-----------------------
 // Feature-specific Types
@@ -78,18 +79,18 @@ export async function recordNotebookMetric<T>(
 	} finally {
 		duration = Date.now() - startTime;
 
-		// Resolve context_json if it's a function
-		let resolvedContext: MetricContext = {};
+		// Resolve context_json if it's a function, or create one with spec_name if none provided
+		let resolvedContext: MetricContext = { spec_name: SPEC_NAME };
 		if (params.context_json) {
 			if (typeof params.context_json === 'function') {
 				try {
-					resolvedContext = await params.context_json();
+					const contextResult = await params.context_json();
+					resolvedContext = { ...resolvedContext, ...contextResult };
 				} catch (error) {
 					logger.log('Warning: Failed to resolve context_json function:', error);
-					resolvedContext = {};
 				}
 			} else {
-				resolvedContext = params.context_json;
+				resolvedContext = { ...resolvedContext, ...params.context_json };
 			}
 		}
 
