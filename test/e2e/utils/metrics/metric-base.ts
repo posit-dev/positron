@@ -50,9 +50,9 @@ export type RecordMetric = {
 		sort: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
 		toCode: <T>(operation: () => Promise<T>, targetType: MetricTargetType, options?: DataExplorerShortcutOptions) => Promise<MetricResult<T>>;
 	};
-	// notebooks: {
-	// 	runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
-	// };
+	notebooks: {
+		runCell: <T>(operation: () => Promise<T>, targetType: MetricTargetType, language?: string, description?: string, context?: MetricContext | (() => Promise<MetricContext>)) => Promise<MetricResult<T>>;
+	};
 };
 
 export interface MetricResponse {
@@ -97,7 +97,11 @@ export type MetricTargetType =
 	// Remote/cloud sources
 	| 'url.csv'               // Remote CSV URL
 	| 'url.parquet'           // Remote Parquet URL
-	| 's3.parquet';           // S3 object
+	| 's3.parquet'            // S3 object
+
+	// Notebook cells
+	| 'cell.r'                // R notebook cell
+	| 'cell.python'           // Python notebook cell
 
 export interface BaseMetric {
 	branch?: GhBranch;
