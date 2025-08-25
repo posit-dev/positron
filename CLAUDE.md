@@ -6,12 +6,17 @@ This is the main coordination file for Claude Code when working on Positron. Bas
 
 Positron is a next-generation data science IDE built on VS Code, designed for Python and R development with enhanced data science workflows.
 
+## 🚨 CRITICAL: Development Startup
+
+**ALWAYS read `.claude/build-system.md` before launching Positron!**
+This file contains critical instructions for ensuring build daemons are running. Never skip this step.
+
 ## Using Modular Prompts
 
 To work effectively on specific areas of Positron, ask Claude to include relevant context files:
 
 - **E2E Testing**: `Please read .claude/e2e-testing.md` - For working with Playwright end-to-end tests
-- **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development  
+- **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development
 - **Data Explorer**: `Please read .claude/data-explorer.md` - For data viewing and exploration features
 - **DuckDB Extension**: `Please read .claude/positron-duckdb.md` - For positron-duckdb extension development
 - **Console/REPL**: `Please read .claude/console.md` - For console and REPL functionality
@@ -25,61 +30,43 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 
 ### Development
 ```bash
-# Start build daemons for development (CRITICAL: Wait for completion before launching!)
-npm run watch-clientd     # Core compilation daemon
-npm run watch-extensionsd # Extensions compilation daemon
-npm run watch-e2ed        # E2E tests compilation daemon (if doing E2E testing)
+# STEP 1: Check if daemons are already running
+ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
 
-# Launch Positron (only after build daemons complete)
+# STEP 2: If NOT running, start build daemons (CRITICAL: Wait for completion!)
+npm run watch-clientd &     # Core compilation daemon
+npm run watch-extensionsd & # Extensions compilation daemon
+# Optional: npm run watch-e2ed & # E2E tests daemon (only if doing E2E testing)
+
+# STEP 3: Wait for initial compilation (30-60 seconds)
+sleep 30
+
+# STEP 4: Launch Positron (ONLY after daemons are confirmed running)
 # On macOS/Linux:
 ./scripts/code.sh &
 # On Windows:
 start ./scripts/code.bat
 
-# Check after 5-10 seconds that Positron launched successfully
+# STEP 5: Verify Positron launched successfully
 # On macOS/Linux:
 sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
 # On Windows:
 timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
 
-# Run tests
+# Run tests (after Positron is running)
 npm test
 ```
 
-### Code Formatting
+### Code Formatting & Linting
 
-**🚨 CRITICAL: DO NOT USE PRETTIER**
+**AUTOMATIC FORMATTING ENABLED**
 
-Positron uses VSCode's built-in TypeScript formatter, not Prettier. Using Prettier will create formatting conflicts that are very difficult to resolve.
-
-**Correct way to format files:**
-```bash
-# Format specific TypeScript/JavaScript files using the project's formatter script
-node scripts/format.js <file1> [file2] [file3] ...
-
-# Examples:
-node scripts/format.js src/vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorer.tsx
-node scripts/format.js src/vs/workbench/services/positronDataExplorer/common/tableSummaryCache.ts
-
-# Format multiple files at once:
-node scripts/format.js file1.ts file2.tsx file3.js
-```
-
-**This script uses TypeScript's built-in formatter - the exact same formatter used by the pre-commit hook.**
+This project has a Claude Code hook configured that automatically handles most code formatting after every file edit.
 
 **Project formatting rules:**
-- Uses **tabs** (not spaces)  
+- Uses **tabs** (not spaces)
 - Uses **single quotes**
 - Inserts final newlines
-- VSCode's TypeScript formatter handles all formatting
-- ESLint with `@stylistic/eslint-plugin-ts` provides additional style rules
-
-**Never use:**
-- `prettier` or `npx prettier` commands
-- `npm run eslint` (runs on entire codebase, too broad)
-- Any other third-party formatters
-
-When editing files, format them with `node scripts/format.js <file_path>` to match the project's formatting standards exactly.
 
 ### Testing
 ```bash
@@ -137,7 +124,7 @@ When you must modify upstream VSCode files:
 
 #### Extensions
 - **Prefix:** Always start with `positron-`
-- **Style:** kebab-case after prefix  
+- **Style:** kebab-case after prefix
 - **Examples:** `positron-python`, `positron-connections`, `positron-run-app`
 
 #### Files and Components

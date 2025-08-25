@@ -20,8 +20,18 @@ Summary:
  */
 
 import { MetricTargetType } from '../../utils/metrics/metric-base.js';
-import { test, tags } from '../_test.setup';
-import { pandasDataFrameScript } from './helpers/convert-to-code-data.js';
+import { test, tags, expect } from '../_test.setup';
+import { pandasDataFrameScript, polarsDataFrameScript } from './helpers/convert-to-code-data.js';
+
+/**
+ * Helper function to normalize code for UI text comparison
+ * @param code The code string to normalize
+ * @returns The normalized code with consistent whitespace
+ */
+const normalizeCodeForDisplay = (code: string): string => {
+	// Replace newlines with spaces for UI component text comparison
+	return code.replace(/\n/g, '');
+};
 
 const testCases: {
 	language: 'Python' | 'R';
@@ -35,15 +45,15 @@ const testCases: {
 			dataScript: pandasDataFrameScript,
 			expectedCodeStyle: 'Pandas',
 			dataFrameType: 'py.pandas.DataFrame',
-			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
+			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)\ndf[filter_mask]'
 		},
-		// {
-		// 	language: 'Python',
-		// 	dataScript: polarsDataFrameScript,
-		// 	expectedCodeStyle: 'Polars',
-		// 	dataFrameType: 'py.polars.DataFrame'
-		//   expectedGeneratedCode: 'tbd'
-		// },
+		{
+			language: 'Python',
+			dataScript: polarsDataFrameScript,
+			expectedCodeStyle: 'Polars',
+			dataFrameType: 'py.polars.DataFrame',
+			expectedGeneratedCode: "filter_expr = (pl.col('status') == 'active') & (pl.col('score') >= 85) & (pl.col('is_student') == False)\ndf.filter(filter_expr)"
+		},
 		// {
 		// 	language: 'R',
 		// 	dataScript: rDataFrameScript,
@@ -121,16 +131,19 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 				await dataExplorer.convertToCodeModal.expectToBeVisible();
 
 				// verify the generated code is correct and has syntax highlights
-				await modals.expectToContainText(expectedGeneratedCode);
+				// Use normalized code for UI text comparison (no newlines)
+				await expect(dataExplorer.convertToCodeModal.codeBox).toContainText(normalizeCodeForDisplay(expectedGeneratedCode));
 				await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
-			}, dataFrameType);
 
-			// verify copy to clipboard behavior
-			await dataExplorer.convertToCodeModal.clickOK();
-			await clipboard.expectClipboardTextToBe(expectedGeneratedCode + '\ndf[filter_mask]');
-			await toasts.expectToBeVisible('Copied to clipboard');
+				// verify copy to clipboard behavior
+				await dataExplorer.convertToCodeModal.clickOK();
+				// When checking clipboard text, use the original expected code with newlines
+				await clipboard.expectClipboardTextToBe(expectedGeneratedCode);
+				await toasts.expectToBeVisible('Copied to clipboard');
+			}, dataFrameType);
 		});
 	});
+
 
 	// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
 	// });
@@ -140,8 +153,4 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 
 	// test('R - Verify copy code with changed default', async function ({ app, r, openDataFile }) {
 	// });
-
 });
-
-
-

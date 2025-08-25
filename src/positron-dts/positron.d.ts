@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
+
 declare module 'positron' {
 
 	import * as vscode from 'vscode';
@@ -55,6 +58,12 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
+
+		/** A message representing a debug event to the frontend */
+		DebugEvent = 'debug_event',
+
+		/** A message representing a debug reply to the frontend */
+		DebugReply = 'debug_reply',
 
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
@@ -384,6 +393,9 @@ declare module 'positron' {
 		/** The language version number */
 		language_version: string;
 
+		/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+		supported_features?: string[];
+
 		/** Initial prompt string in case user customized it */
 		input_prompt?: string;
 
@@ -456,6 +468,39 @@ declare module 'positron' {
 
 		/** The data from the back-end */
 		data: object;
+	}
+
+	/** A DebugProtocolRequest is an opaque stand-in type for the [Request](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolRequest {
+		// Properties: see [Request details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request).
+	}
+
+	/** A DebugProtocolResponse is an opaque stand-in type for the [Response](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolResponse {
+		// Properties: see [Response details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response).
+	}
+
+	/**
+	 * A DebugProtocolEvent is an opaque stand-in type for the [Event](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolEvent {
+		// Properties: see [Event details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event).
+	}
+
+	/**
+	 * LanguageRuntimeDebugReply is a LanguageRuntimeMessage that represents a reply to a runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugReply extends LanguageRuntimeMessage {
+		/** The debug adapter protocol response.  */
+		content: DebugProtocolResponse;
+	}
+
+	/**
+	 * LanguageRuntimeDebugEvent is a LanguageRuntimeMessage that represents an event from the runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugEvent extends LanguageRuntimeMessage {
+		/** The debug adapter protocol event. */
+		content: DebugProtocolEvent;
 	}
 
 	/**
@@ -836,6 +881,9 @@ declare module 'positron' {
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
+		/** The ID of the code execution. */
+		executionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
@@ -1003,6 +1051,9 @@ declare module 'positron' {
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
 
+		/** Information about the runtime that is only available after starting. */
+		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
+
 		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
 
@@ -1021,6 +1072,14 @@ declare module 'positron' {
 		 * @returns true if the resource was opened; otherwise, false.
 		 */
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
+		/**
+		 * Sends a Debug Adapter Protocol request to the runtime's debugger.
+		 *
+		 * @param request The Debug Adapter Protocol request.
+		 * @returns The Debug Adapter Protocol response.
+		 */
+		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
 
 		/**
 		 * Execute code in the runtime
@@ -1966,6 +2025,35 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
+		 * A language model provider, extends vscode.LanguageModelChatProvider2.
+		 */
+		export interface LanguageModelChatProvider2<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
+			name: string;
+			provider: string;
+			id: string;
+
+			providerName: string;
+			maxOutputTokens: number;
+
+			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
+			onDidChange?: vscode.Event<void>;
+
+			// NOT cacheable (between reloads)
+			prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
+
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2>, options: vscode.LanguageModelChatRequestHandleOptions, progress: vscode.Progress<vscode.ChatResponseFragment2>, token: vscode.CancellationToken): Thenable<any>;
+
+			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
+
+			/**
+			 * Tests the connection to the language model provider.
+			 *
+			 * Returns an error if the connection fails.
+			 */
+			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+		}
+
+		/**
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
 		export interface LanguageModelChatProvider {
@@ -2080,6 +2168,7 @@ declare module 'positron' {
 			numCtx?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
 		}
 
 		/**
@@ -2152,10 +2241,10 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Checks the file for exclusion from AI completion.
-		 * @param file The file to check for exclusion.
-		 * @returns A Thenable that resolves to true if the file should be excluded, false otherwise.
+		 * Checks if completions are enabled for the given file.
+		 * @param uri The file URI to check if completions are enabled.
+		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
 		 */
-		export function areCompletionsEnabled(file: vscode.Uri): Thenable<boolean>;
+		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
 	}
 }

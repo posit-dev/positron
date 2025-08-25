@@ -3251,50 +3251,37 @@ def test_histogram_single_value_special_case():
 
 
 POLARS_TYPE_EXAMPLES = [
-    (pl.Null, [None, None, None, None], "Null", "unknown"),
-    (pl.Boolean, [False, None, True, False], "Boolean", "boolean"),
-    (pl.Int8, [-1, 2, 3, None], "Int8", "number"),
-    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number"),
-    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number"),
-    (
-        pl.Int64,
-        [-10000000000, 20000000000, 30000000000, None],
-        "Int64",
-        "number",
-    ),
-    (pl.UInt8, [0, 2, 3, None], "UInt8", "number"),
-    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number"),
-    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number"),
-    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number"),
-    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number"),
-    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number"),
-    (
-        pl.Binary,
-        [b"testing", b"some", b"strings", None],
-        "Binary",
-        "string",
-    ),
-    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string"),
-    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time"),
+    (pl.Null, [None, None, None, None], "Null", "unknown", None),
+    (pl.Boolean, [False, None, True, False], "Boolean", "boolean", None),
+    (pl.Int8, [-1, 2, 3, None], "Int8", "number", None),
+    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number", None),
+    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number", None),
+    (pl.Int64, [-10000000000, 20000000000, 30000000000, None], "Int64", "number", None),
+    (pl.UInt8, [0, 2, 3, None], "UInt8", "number", None),
+    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number", None),
+    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number", None),
+    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number", None),
+    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number", None),
+    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number", None),
+    (pl.Binary, [b"testing", b"some", b"strings", None], "Binary", "string", None),
+    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string", None),
+    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time", None),
     (
         pl.Datetime("ms"),
         [1704394167126, 946730085000, 0, None],
         "Datetime(time_unit='ms', time_zone=None)",
         "datetime",
+        None,
     ),
     (
         pl.Datetime("us", "America/New_York"),
         [1704394167126123, 946730085000123, 0, None],
         "Datetime(time_unit='us', time_zone='America/New_York')",
         "datetime",
+        "America/New_York",
     ),
-    (pl.Date, [130120, 0, -1, None], "Date", "date"),
-    (
-        pl.Duration("ms"),
-        [0, 1000, 2000, None],
-        "Duration(time_unit='ms')",
-        "interval",
-    ),
+    (pl.Date, [130120, 0, -1, None], "Date", "date", None),
+    (pl.Duration("ms"), [0, 1000, 2000, None], "Duration(time_unit='ms')", "interval", None),
     (
         pl.Decimal(12, 4),
         [
@@ -3305,8 +3292,9 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Decimal(precision=12, scale=4)",
         "number",
+        None,
     ),
-    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array"),
+    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array", None),
     (
         pl.Struct({"a": pl.Int64, "b": pl.List(pl.String)}),
         [
@@ -3317,16 +3305,17 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
+        None,
     ),
-    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
-    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string", None),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object", None),
 ]
 
 
 def example_polars_df():
     full_schema = []
     full_data = []
-    for i, (dtype, data, type_name, type_display) in enumerate(POLARS_TYPE_EXAMPLES):
+    for i, (dtype, data, type_name, type_display, timezone) in enumerate(POLARS_TYPE_EXAMPLES):
         name = f"f{i}"
         s = pl.Series(name=name, values=data, dtype=dtype)
         full_data.append(s)
@@ -3343,6 +3332,7 @@ def example_polars_df():
                 "column_index": i,
                 "type_name": type_name,
                 "type_display": type_display,
+                "timezone": timezone,
             }
         )
 

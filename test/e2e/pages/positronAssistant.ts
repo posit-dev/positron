@@ -162,11 +162,15 @@ export class Assistant {
 		}
 	}
 
-	async enterChatMessage(message: string) {
+	async enterChatMessage(message: string, waitForResponse: boolean = true) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.fill(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// Optionally wait for any loading state on the most recent response to finish
+		if (waitForResponse) {
+			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });
+		}
 	}
 
 	async clickChatCodeRunButton(codeblock: string) {

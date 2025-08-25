@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { availableModels, newLanguageModel } from './models';
+import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -18,6 +18,8 @@ import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
+import { registerParticipantDetectionProvider } from './participantDetection.js';
+import { registerAssistantCommands } from './commands/index.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -61,7 +63,7 @@ export function disposeModels(id?: string) {
 
 export const log = vscode.window.createOutputChannel('Assistant', { log: true });
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, isDefault: boolean) {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
 		const modelConfig = await getModelConfiguration(config.id, context, storage);
 
@@ -81,7 +83,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context, isDefault);
+		await registerModelWithAPI(modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -98,6 +100,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	try {
 		// Refresh the set of enabled providers
 		const enabledProviders = await getEnabledProviders();
+
 		modelConfigs = await getModelConfigurations(context, storage);
 		modelConfigs = modelConfigs.filter(config => {
 			const enabled = enabledProviders.length === 0 ||
@@ -107,23 +110,26 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 			}
 			return enabled;
 		});
+
+		// Add any configs that should automatically work when the right environment variables are set
+		const modelConfigsFromEnv = createModelConfigsFromEnv();
+		// we add in the config if we don't already have it configured
+		for (const config of modelConfigsFromEnv) {
+			if (!modelConfigs.find(c => c.provider === config.provider)) {
+				modelConfigs.push(config);
+			}
+		}
+
 	} catch (e) {
 		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
 		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 		return;
 	}
 
-	let idx = 0;
 	const registeredModels: ModelConfig[] = [];
 	for (const config of modelConfigs) {
 		try {
-			// We need at least one default and one non-default model for the dropdown to appear.
-			// For now, just set the first language model as default.
-			// TODO: Allow for setting a default in the configuration.
-			const isFirst = idx === 0;
-
-			await registerModelWithAPI(config, context, isFirst);
-			idx++;
+			await registerModelWithAPI(config, context);
 			registeredModels.push(config);
 		} catch (e) {
 			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
@@ -139,58 +145,26 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 /**
  * Registers the language model with the language model API.
  *
- * @param languageModel the language model to register
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = false) {
+async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
-		const models = availableModels.get(modelConfig.provider);
-		const modelsCopy = models ? [...models] : [];
+		// const models = availableModels.get(modelConfig.provider);
+		// const modelsCopy = models ? [...models] : [];
 
-		const languageModel = newLanguageModel(modelConfig, context);
+		const languageModel = newLanguageModelChatProvider(modelConfig, context);
 		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
 		if (error) {
 			throw new Error(error.message);
 		}
 
-		if (modelsCopy.length === 0) {
-			// use the default model
-
-			modelsCopy.push({
-				name: modelConfig.name,
-				identifier: modelConfig.model,
-				maxOutputTokens: modelConfig.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-			});
-		}
-
-		for (const model of modelsCopy) {
-			const newConfig = {
-				...modelConfig,
-				model: model.identifier,
-				name: model.name,
-				maxOutputTokens: model.maxOutputTokens,
-			};
-			const languageModel = newLanguageModel(newConfig, context);
-
-			const modelDisp = vscode.lm.registerChatModelProvider(`${languageModel.identifier}-${model.identifier}`, languageModel, {
-				name: languageModel.name,
-				family: languageModel.provider,
-				providerName: languageModel.providerName,
-				vendor: context.extension.packageJSON.publisher,
-				version: context.extension.packageJSON.version,
-				capabilities: languageModel.capabilities,
-				maxInputTokens: 0,
-				maxOutputTokens: languageModel.maxOutputTokens,
-				isUserSelectable: true,
-				isDefault: isDefault,
-			});
-			isDefault = false; // only the first model is default
-			modelDisposables.push(new ModelDisposable(modelDisp, newConfig));
-			vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
-		}
+		const vendor = modelConfig.provider; // as defined in package.json in "languageModels"
+		const modelDisp = vscode.lm.registerChatModelProvider(vendor, languageModel);
+		modelDisposables.push(new ModelDisposable(modelDisp, modelConfig));
+		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
 	}
 	// Register with VS Code completions API
 	else if (modelConfig.type === 'completion') {
@@ -264,6 +238,12 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register code action provider
 	registerCodeActionProvider(context);
+
+	// Register participant detection provider
+	registerParticipantDetectionProvider();
+
+	// Register chat commands
+	registerAssistantCommands();
 
 	// Dispose cleanup
 	context.subscriptions.push({
