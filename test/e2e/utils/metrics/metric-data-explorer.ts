@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MultiLogger } from '../../infra/logger.js';
-import { BaseMetric, MetricTargetType, MetricStatus, MetricContext, MetricResult } from './metric-base.js';
-import { logMetric } from './api.js';
+import { BaseMetric, MetricTargetType, MetricContext, MetricResult } from './metric-base.js';
+import { createFeatureMetricFactory } from './metric-factory.js';
 
 //-----------------------
 // Feature-specific Types
@@ -17,6 +17,12 @@ export type DataExplorerMetric = BaseMetric & {
 	feature_area: 'data_explorer';
 	action: DataExplorerAction;
 };
+
+//-----------------------
+// Create Feature Factory
+//-----------------------
+
+const { recordMetric: recordDataExplorerMetric } = createFeatureMetricFactory<DataExplorerAction>('data_explorer');
 
 //-----------------------
 // Factory Functions
@@ -35,82 +41,8 @@ export function createDataExplorerMetric(params: Omit<DataExplorerMetric, 'featu
 	};
 }
 
-//-----------------------
-// Record Functions
-//-----------------------
-
-/**
- * Parameters for data explorer record function (excluding duration_ms and feature_area)
- */
-export interface DataExplorerRecordParams {
-	action: DataExplorerAction;
-	target_type: MetricTargetType;
-	target_description?: string;
-	context_json?: MetricContext | (() => Promise<MetricContext>);
-	status?: MetricStatus;
-}
-
-/**
- * Records a Data Explorer Metric and returns both the operation result and duration
- *
- * @param operation The async operation to measure
- * @param params Metric parameters excluding duration_ms and feature_area
- * @param isElectronApp Whether running in Electron or Chromium
- * @param logger Logger for recording status and debugging information
- * @returns The result of the operation and the duration in milliseconds
- */
-export async function recordDataExplorerMetric<T>(
-	operation: () => Promise<T>,
-	params: DataExplorerRecordParams,
-	isElectronApp: boolean,
-	logger: MultiLogger
-): Promise<MetricResult<T>> {
-	const startTime = Date.now();
-	let operationStatus: MetricStatus = 'success';
-	let result: T;
-	let duration: number;
-
-	try {
-		result = await operation();
-	} catch (error) {
-		operationStatus = 'error';
-		throw error; // Re-throw to maintain original behavior
-	} finally {
-		duration = Date.now() - startTime;
-
-		// Resolve context_json if it's a function
-		let resolvedContext: MetricContext = {};
-		if (params.context_json) {
-			if (typeof params.context_json === 'function') {
-				try {
-					resolvedContext = await params.context_json();
-				} catch (error) {
-					logger.log('Warning: Failed to resolve context_json function:', error);
-					resolvedContext = {};
-				}
-			} else {
-				resolvedContext = params.context_json;
-			}
-		}
-
-		const metric: DataExplorerMetric = {
-			feature_area: 'data_explorer',
-			action: params.action,
-			target_type: params.target_type,
-			target_description: params.target_description,
-			duration_ms: duration,
-			status: params.status || operationStatus,
-			context_json: resolvedContext
-		};
-
-		// Fire and forget - don't await to avoid affecting the operation result
-		logMetric(metric, isElectronApp, logger).catch(error => {
-			logger.log('Warning: Failed to log metric:', error);
-		});
-	}
-
-	return { result: result!, duration_ms: duration! };
-}
+// Export the main record function
+export { recordDataExplorerMetric };
 
 //-----------------------
 // Convenience Shortcuts
@@ -142,7 +74,7 @@ function buildDataExplorerContext(
 	additionalContext?: MetricContext | (() => Promise<MetricContext>),
 	extraBaseContext: MetricContext = {}
 ): (() => Promise<MetricContext>) | undefined {
-	if (!autoContext && !additionalContext) {
+	if (!autoContext && !additionalContext && Object.keys(extraBaseContext).length === 0) {
 		return undefined;
 	}
 

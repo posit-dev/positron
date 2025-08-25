@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { recordDataFileLoad, recordDataFilter, recordDataSort, type MetricTargetType, type DataExplorerAutoContext, type DataExplorerShortcutOptions, recordToCode, RecordMetric, MetricResult } from '../../utils/metrics/index.js';
+import { recordDataFileLoad, recordDataFilter, recordDataSort, recordToCode, type DataExplorerAutoContext, type DataExplorerShortcutOptions } from '../../utils/metrics/metric-data-explorer.js';
+import { recordRunCell, type NotebookShortcutOptions } from '../../utils/metrics/metric-notebooks.js';
+import { type RecordMetric, type MetricResult, type MetricContext, type MetricTargetType } from '../../utils/metrics/metric-base.js';
 import { Application, MultiLogger } from '../../infra/index.js';
 
 /**
@@ -50,5 +52,20 @@ export function MetricsFixture(app: Application, logger: MultiLogger): RecordMet
 				return recordToCode(operation, targetType, !!app.code.electronApp, logger, dataExplorerAutoContext, options);
 			}
 		},
+		notebooks: {
+			runCell: async <T>(
+				operation: () => Promise<T>,
+				targetType: MetricTargetType,
+				language?: string,
+				description?: string,
+				context?: MetricContext | (() => Promise<MetricContext>)
+			): Promise<MetricResult<T>> => {
+				const options: NotebookShortcutOptions = {
+					description,
+					additionalContext: context
+				};
+				return recordRunCell(operation, targetType, !!app.code.electronApp, logger, language, options);
+			}
+		}
 	};
 }

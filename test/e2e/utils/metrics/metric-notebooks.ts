@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MultiLogger } from '../../infra/logger.js';
-import { BaseMetric, MetricTargetType, MetricStatus, MetricContext, MetricResult } from './metric-base.js';
-import { logMetric } from './api.js';
+import { BaseMetric, MetricTargetType, MetricContext, MetricResult } from './metric-base.js';
+import { createFeatureMetricFactory } from './metric-factory.js';
 
 //-----------------------
 // Feature-specific Types
@@ -17,6 +17,12 @@ export type NotebookMetric = BaseMetric & {
 	feature_area: 'notebooks';
 	action: NotebooksAction;
 };
+
+//-----------------------
+// Create Feature Factory
+//-----------------------
+
+const { recordMetric: recordNotebookMetric } = createFeatureMetricFactory<NotebooksAction>('notebooks');
 
 //-----------------------
 // Factory Functions
@@ -35,79 +41,62 @@ export function createNotebookMetric(params: Omit<NotebookMetric, 'feature_area'
 	};
 }
 
+// Export the main record function
+export { recordNotebookMetric };
+
 //-----------------------
-// Record Functions
+// Convenience Shortcuts
 //-----------------------
 
 /**
- * Parameters for notebook record function (excluding duration_ms and feature_area)
+ * Options for notebook shortcut metric functions
  */
-export interface NotebookRecordParams {
-	action: NotebooksAction;
-	target_type: MetricTargetType;
-	target_description?: string;
-	context_json?: MetricContext | (() => Promise<MetricContext>);
-	status?: MetricStatus;
+export interface NotebookShortcutOptions {
+	description?: string;
+	additionalContext?: MetricContext | (() => Promise<MetricContext>);
 }
 
 /**
- * Records a Notebook Metric
- *
- * @param operation The async operation to measure
- * @param params Metric parameters excluding duration_ms and feature_area
- * @param isElectronApp Whether running in Electron or Chromium
- * @param logger Logger for recording status and debugging information
- * @returns The result of the operation
+ * Shortcut for recording notebook cell execution with language context
  */
-export async function recordNotebookMetric<T>(
+export async function recordRunCell<T>(
 	operation: () => Promise<T>,
-	params: NotebookRecordParams,
+	targetType: MetricTargetType,
 	isElectronApp: boolean,
-	logger: MultiLogger
+	logger: MultiLogger,
+	language?: string,
+	options: NotebookShortcutOptions = {}
 ): Promise<MetricResult<T>> {
-	const startTime = Date.now();
-	let operationStatus: MetricStatus = 'success';
-	let result: T;
-	let duration: number;
+	const { description, additionalContext } = options;
 
-	try {
-		result = await operation();
-	} catch (error) {
-		operationStatus = 'error';
-		throw error; // Re-throw to maintain original behavior
-	} finally {
-		duration = Date.now() - startTime;
+	// Build context with language if provided
+	let context_json: MetricContext | (() => Promise<MetricContext>) | undefined;
 
-		// Resolve context_json if it's a function
-		let resolvedContext: MetricContext = {};
-		if (params.context_json) {
-			if (typeof params.context_json === 'function') {
-				try {
-					resolvedContext = await params.context_json();
-				} catch (error) {
-					logger.log('Warning: Failed to resolve context_json function:', error);
-					resolvedContext = {};
-				}
-			} else {
-				resolvedContext = params.context_json;
+	if (language || additionalContext) {
+		context_json = async () => {
+			let baseContext: MetricContext = {};
+
+			if (language) {
+				baseContext.language = language;
 			}
-		}
 
-		const metric: NotebookMetric = {
-			feature_area: 'notebooks',
-			action: params.action,
-			target_type: params.target_type,
-			target_description: params.target_description,
-			duration_ms: duration,
-			status: params.status || operationStatus,
-			context_json: resolvedContext
+			if (additionalContext) {
+				if (typeof additionalContext === 'function') {
+					const additional = await additionalContext();
+					return { ...baseContext, ...additional };
+				} else {
+					return { ...baseContext, ...additionalContext };
+				}
+			}
+
+			return baseContext;
 		};
-
-		// Fire and forget - don't await to avoid affecting the operation result
-		logMetric(metric, isElectronApp, logger).catch(error => {
-			logger.log('Warning: Failed to log metric:', error);
-		});
 	}
 
-	return { result: result!, duration_ms: duration! };
+	return recordNotebookMetric(operation, {
+		action: 'run_cell',
+		target_type: targetType,
+		target_description: description || `Running ${language || targetType} cell`,
+		context_json
+	}, isElectronApp, logger);
 }
