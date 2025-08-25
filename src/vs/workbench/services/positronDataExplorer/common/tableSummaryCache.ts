@@ -21,6 +21,7 @@ const SMALL_HISTOGRAM_NUM_BINS = 80;
 const LARGE_HISTOGRAM_NUM_BINS = 200;
 const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
+const LARGE_DATASET_THRESHOLD = 10_000_000;
 
 /**
  * UpdateDescriptor interface.
@@ -118,6 +119,17 @@ export class TableSummaryCache extends Disposable {
 	private readonly _columnProfileCache = new Map<number, ColumnProfileResult>();
 
 	/**
+	 * Set of column indices for which sparklines have been explicitly requested
+	 * when the dataset is large (> 10M rows).
+	 */
+	private readonly _requestedSparklines = new Set<number>();
+
+	/**
+	 * Whether the current dataset is large (cached value).
+	 */
+	private _isLargeDataset = false;
+
+	/**
 	 * The onDidUpdate event emitter.
 	 */
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
@@ -137,6 +149,7 @@ export class TableSummaryCache extends Disposable {
 	) {
 		// Call the base class's constructor.
 		super();
+		console.log('[Cache] Constructor called - new TableSummaryCache instance created');
 	}
 
 	/**
@@ -264,6 +277,7 @@ export class TableSummaryCache extends Disposable {
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
+		this._isLargeDataset = this._rows > LARGE_DATASET_THRESHOLD;
 
 		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
@@ -296,6 +310,9 @@ export class TableSummaryCache extends Disposable {
 		if (invalidateCache) {
 			this._columnSchemaCache.clear();
 			this._columnProfileCache.clear();
+			// IMPORTANT: We intentionally do NOT clear _requestedSparklines here 
+			// to preserve user's explicit sparkline requests across cache invalidations
+			console.log(`[Cache] Cache invalidated but preserving sparklines. Requested sparklines:`, Array.from(this._requestedSparklines));
 		}
 
 		// Cache the column schema that was returned.
@@ -537,6 +554,7 @@ export class TableSummaryCache extends Disposable {
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
+		this._isLargeDataset = this._rows > LARGE_DATASET_THRESHOLD;
 
 		// Update the column profile cache.
 		await this.updateColumnProfileCache(
@@ -566,6 +584,47 @@ export class TableSummaryCache extends Disposable {
 			? this._displayPositionOrder[displayIndex]
 			: displayIndex;
 		return originalIndex !== undefined ? this._columnProfileCache.get(originalIndex) : undefined;
+	}
+
+	/**
+	 * Checks if the current dataset is large.
+	 * @returns True if the dataset has more than 10 million rows.
+	 */
+	isLargeDataset(): boolean {
+		return this._isLargeDataset;
+	}
+
+	/**
+	 * Checks if a sparkline has been requested for the given column.
+	 * @param columnIndex The column index.
+	 * @returns True if the sparkline has been requested.
+	 */
+	isSparklineRequested(columnIndex: number): boolean {
+		const result = this._requestedSparklines.has(columnIndex);
+		console.log(`[Cache] isSparklineRequested(${columnIndex}) = ${result}, set size: ${this._requestedSparklines.size}, set contents:`, Array.from(this._requestedSparklines));
+		return result;
+	}
+
+	/**
+	 * Requests a sparkline for the given column.
+	 * @param columnIndex The column index.
+	 */
+	async requestSparkline(columnIndex: number): Promise<void> {
+		console.log(`[Cache] requestSparkline(${columnIndex}) - BEFORE: set contents:`, Array.from(this._requestedSparklines));
+
+		// Add to the requested set
+		this._requestedSparklines.add(columnIndex);
+		console.log(`[Cache] requestSparkline(${columnIndex}) - AFTER ADD: set contents:`, Array.from(this._requestedSparklines));
+
+		// Fire onDidUpdate immediately so UI can react to the state change
+		this._onDidUpdateEmitter.fire();
+
+		// Clear the existing cache entry to force a refresh
+		this._columnProfileCache.delete(columnIndex);
+
+		// Re-fetch the profile for this specific column with sparkline included
+		await this.updateColumnProfileCache([columnIndex]);
+		console.log(`[Cache] requestSparkline(${columnIndex}) - AFTER UPDATE: set contents:`, Array.from(this._requestedSparklines));
 	}
 
 	//#endregion Public Methods
@@ -598,12 +657,15 @@ export class TableSummaryCache extends Disposable {
 				profiles.push({ profile_type: ColumnProfileType.SummaryStats });
 			}
 
+			// Check if we should skip sparklines for large datasets
+			const shouldSkipSparkline = this._isLargeDataset && !this._requestedSparklines.has(column_index);
+
 			// Determine whether to load the histogram or the frequency table for the column.
 			switch (columnSchema?.type_display) {
 				// Number.
 				case ColumnDisplayType.Number: {
-					// If histograms are supported, load them.
-					if (histogramSupported) {
+					// If histograms are supported and not skipping for large dataset, load them.
+					if (histogramSupported && !shouldSkipSparkline) {
 						// Load the small histogram.
 						profiles.push({
 							profile_type: ColumnProfileType.SmallHistogram,
@@ -629,8 +691,8 @@ export class TableSummaryCache extends Disposable {
 
 				// Boolean.
 				case ColumnDisplayType.Boolean: {
-					// If frequency tables are supported, load them.
-					if (frequencyTableSupported) {
+					// If frequency tables are supported and not skipping for large dataset, load them.
+					if (frequencyTableSupported && !shouldSkipSparkline) {
 						// Load the small frequency table. Note that we do not load the large
 						// frequency table because there are only two possible values.
 						profiles.push({
@@ -646,8 +708,8 @@ export class TableSummaryCache extends Disposable {
 
 				// String.
 				case ColumnDisplayType.String: {
-					// If frequency tables are supported, load them.
-					if (frequencyTableSupported) {
+					// If frequency tables are supported and not skipping for large dataset, load them.
+					if (frequencyTableSupported && !shouldSkipSparkline) {
 						// Load the small frequency table.
 						profiles.push({
 							profile_type: ColumnProfileType.SmallFrequencyTable,
