@@ -44,10 +44,12 @@ type VerticalSplitterCollapseProps = | {
 	readonly collapsible?: false;
 	readonly isCollapsed?: never;
 	readonly onCollapsedChanged?: never;
+	readonly alwaysShowExpandCollapseButton?: never;
 } | {
 	readonly collapsible: true;
 	readonly isCollapsed: boolean;
 	readonly onCollapsedChanged: (collapsed: boolean) => void;
+	readonly alwaysShowExpandCollapseButton?: boolean;
 };
 
 /**
@@ -79,6 +81,7 @@ const getSashSize = (configurationService: IConfigurationService) =>
  */
 const getHoverDelay = (configurationService: IConfigurationService) =>
 	configurationService.getValue<number>('workbench.sash.hoverDelay');
+
 
 /**
  * Determines whether a point is inside an element.
@@ -136,6 +139,7 @@ export const VerticalSplitter = ({
 	showSash,
 	collapsible,
 	isCollapsed,
+	alwaysShowExpandCollapseButton,
 	onCollapsedChanged,
 	onBeginResize,
 	onResize,
@@ -412,7 +416,7 @@ export const VerticalSplitter = ({
 					/>
 				}
 			</div>
-			{collapsible && (hovering || resizing || collapsed) &&
+			{collapsible && (alwaysShowExpandCollapseButton || hovering || resizing || collapsed) &&
 				<Button
 					ref={expandCollapseButtonRef}
 					className='expand-collapse-button'
