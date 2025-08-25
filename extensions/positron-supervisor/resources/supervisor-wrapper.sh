@@ -54,8 +54,18 @@ if [ -z "$DEFAULT_SHELL" ] || [ ! -x "$DEFAULT_SHELL" ]; then
     exit 1
 fi
 
+# Determine shell flags based on shell type
+# csh and tcsh don't support -l and -c together; use -d instead of -l
+# (in csh, -d loads the directory stack even in non-login shells)
+SHELL_NAME=$(basename "$DEFAULT_SHELL")
+if [ "$SHELL_NAME" = "csh" ] || [ "$SHELL_NAME" = "tcsh" ]; then
+    SHELL_FLAGS="-d -c"
+else
+    SHELL_FLAGS="-l -c"
+fi
+
 # Print the command line to the log file
-echo "$DEFAULT_SHELL" -l -c "$@" >> "$output_file"
+echo "$DEFAULT_SHELL" $SHELL_FLAGS "$@" >> "$output_file"
 
 # Quote the arguments to handle single quotes and spaces correctly
 QUOTED_ARGS=""
@@ -69,11 +79,11 @@ done
 # Run the program with its arguments, redirecting stdout and stderr to the output file
 if [ "$use_nohup" = true ]; then
 	# Use nohup and explicitly redirect its output to prevent nohup.out from being created
-	nohup $DEFAULT_SHELL -l -c "${QUOTED_ARGS}" >> "$output_file" 2>&1 &
+	nohup $DEFAULT_SHELL $SHELL_FLAGS "${QUOTED_ARGS}" >> "$output_file" 2>&1 &
 	# Wait for the background process to complete
 	wait $!
 else
-	$DEFAULT_SHELL -l -c "${QUOTED_ARGS}" >> "$output_file" 2>&1
+	$DEFAULT_SHELL $SHELL_FLAGS "${QUOTED_ARGS}" >> "$output_file" 2>&1
 fi
 
 # Save the exit code of the program
