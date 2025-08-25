@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { NotebookPreloadOutputResults } from '../../positronWebviewPreloads/browser/positronWebviewPreloadService.js';
@@ -129,6 +129,26 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Current cell outputs as an observable
 	 */
 	outputs: ISettableObservable<NotebookCellOutputs[], void>;
+
+	/**
+	 * Duration of the last execution in milliseconds
+	 */
+	lastExecutionDuration: ISettableObservable<number | undefined>;
+
+	/**
+	 * Execution order number for the last execution
+	 */
+	lastExecutionOrder: ISettableObservable<number | undefined>;
+
+	/**
+	 * Whether the last execution was successful
+	 */
+	lastRunSuccess: ISettableObservable<boolean | undefined>;
+
+	/**
+	 * Timestamp when the last execution ended
+	 */
+	lastRunEndTime: ISettableObservable<number | undefined>;
 }
 
 
@@ -205,7 +225,7 @@ export interface NotebookCellOutputs {
 /**
  * Lightweight copy of the vscode `NotebookCellTextModel` interface.
  */
-interface PositronNotebookCellTextModel {
+export interface PositronNotebookCellTextModel {
 	readonly uri: URI;
 	handle: number;
 	language: string;

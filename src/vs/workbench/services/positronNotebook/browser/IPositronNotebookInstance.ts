@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
