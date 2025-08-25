@@ -36,7 +36,6 @@ export type MetricContext = {
 	sort_applied?: boolean;
 	filter_applied?: boolean;
 	preview_enabled?: boolean;
-	spec_name?: string;
 };
 
 export type MetricResult<T> = {

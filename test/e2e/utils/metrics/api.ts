@@ -6,6 +6,7 @@
 import { request } from 'undici';
 import { MultiLogger } from '../../infra/logger.js';
 import { CONNECT_API_KEY, PROD_API_URL, LOCAL_API_URL, platformOs, platformVersion, MetricResponse } from './metric-base.js';
+import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 
 export type PerfMetric = {
 	feature_area: string;
@@ -15,6 +16,7 @@ export type PerfMetric = {
 	duration_ms: number;
 	status?: 'success' | 'error';
 	context_json?: any;
+	spec_name?: string;
 };
 
 /**
@@ -31,7 +33,8 @@ export async function logMetric({
 	target_description,
 	duration_ms,
 	status = 'success',
-	context_json = {}
+	context_json = {},
+	spec_name
 }: PerfMetric, isElectronApp: boolean, logger: MultiLogger): Promise<MetricResponse> {
 	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
 
@@ -47,6 +50,7 @@ export async function logMetric({
 		duration_ms,
 		status,
 		target_description,
+		spec_name: spec_name || SPEC_NAME,  // Use provided spec_name or fall back to global SPEC_NAME
 		context: JSON.stringify(context_json)
 	};
 
