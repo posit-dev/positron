@@ -150,6 +150,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B C', 'Close primary sidebar');
 	}
 
+	public async minimizeBottomPanel() {
+		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
+	}
+
 	// ----------------------
 	// --- Workspace Actions ---
 	// ----------------------
