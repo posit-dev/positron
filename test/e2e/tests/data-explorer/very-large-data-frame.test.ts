@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { fail } from 'assert';
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
 import { downloadFileFromS3, S3FileDownloadOptions } from '../../infra';
+import { fail } from 'assert';
 
 test.use({
 	suiteId: __filename
@@ -19,7 +19,7 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] }, () => {
 	test.beforeAll(async function ({ app }) {
 		if (githubActions && process.platform !== 'win32') {
 			const localFilePath = join(app.workspacePathOrFolder, "data-files", objectKey);
@@ -40,97 +40,73 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	if (githubActions && process.platform !== 'win32') {
 
-		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python }) {
+		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, openFile, runCommand, python, metric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.py'));
 			await runCommand('python.execInConsole');
-			const startTime = performance.now();
 
-			await variables.doubleClickVariableRow('df');
-			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
-			await hotKeys.closeSecondarySidebar();
+			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
+				await variables.doubleClickVariableRow('df');
+				await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+				await dataExplorer.waitForIdle();
+			}, 'py.pandas.DataFrame');
 
-			// awaits table load completion
-			await dataExplorer.grid.getData();
-			const endTime = performance.now();
-			const timeTaken = endTime - startTime;
-
-			if (timeTaken > 40000) {
-				fail(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
-			} else {
-				logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
+			if (duration_ms > 40000) {
+				fail(`Opening large unique parquet took ${duration_ms} milliseconds (pandas)`);
 			}
 		});
 
-		test('R - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r }) {
+		test('R - Verify data loads with very large unique data dataframe', async function ({ app, openFile, runCommand, r, metric }) {
 			const { variables, editors, dataExplorer } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.r'));
 			await runCommand('r.sourceCurrentFile');
-			const startTime = performance.now();
 
-			await variables.doubleClickVariableRow('df2');
-			await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
-			await hotKeys.closeSecondarySidebar();
+			// Record how long it takes to load the data
+			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
+				await variables.doubleClickVariableRow('df2');
+				await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+				await dataExplorer.waitForIdle();
+			}, 'r.tibble');
 
-			// awaits table load completion
-			await dataExplorer.grid.getData();
-			const endTime = performance.now();
-			const timeTaken = endTime - startTime;
-
-			if (timeTaken > 75000) {
-				fail(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
-			} else {
-				logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
+			if (duration_ms > 75000) {
+				fail(`Opening large unique parquet took ${duration_ms} milliseconds (tibble)`);
 			}
 		});
-
 	} else {
 
-		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python }) {
+		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, python, metric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.py'));
 			await runCommand('python.execInConsole');
-			const startTime = performance.now();
 
-			await variables.doubleClickVariableRow('df_large');
-			await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
-			await hotKeys.closeSecondarySidebar();
+			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
+				await variables.doubleClickVariableRow('df_large');
+				await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
+				await dataExplorer.waitForIdle();
+			}, 'py.pandas.DataFrame');
 
-			// awaits table load completion
-			await dataExplorer.grid.getData();
-			const endTime = performance.now();
-			const timeTaken = endTime - startTime;
-
-			if (timeTaken > 27000) {
-				fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
-			} else {
-				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
+			if (duration_ms > 27000) {
+				fail(`Opening large unique parquet took ${duration_ms} milliseconds (pandas)`);
 			}
 		});
 
-		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r }) {
+		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, r, metric }) {
 			const { variables, editors, dataExplorer } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.r'));
 			await runCommand('r.sourceCurrentFile');
-			const startTime = performance.now();
 
-			await variables.doubleClickVariableRow('df3_large');
-			await editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
-			await hotKeys.closeSecondarySidebar();
+			const { duration_ms } = await metric.dataExplorer.loadData(async () => {
+				await variables.doubleClickVariableRow('df3_large');
+				await editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
+				await dataExplorer.waitForIdle();
+			}, 'r.tibble');
 
-			// awaits table load completion
-			await dataExplorer.grid.getData();
-			const endTime = performance.now();
-			const timeTaken = endTime - startTime;
-
-			if (timeTaken > 60000) {
-				fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
-			} else {
-				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
+			if (duration_ms > 60000) {
+				fail(`Opening large unique parquet took ${duration_ms} milliseconds (tibble)`);
 			}
 		});
 	}
