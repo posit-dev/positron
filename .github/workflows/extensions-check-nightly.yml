@@ -68,3 +68,16 @@ jobs:
         run: |
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
+  slack-notify:
+    if: failure()
+    needs: [extensions-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: "failure"
