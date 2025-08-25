@@ -97,31 +97,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Set the column layout entries. There is always one column.
 		this._columnLayoutManager.setEntries(1);
 
-		/**
-		 * Updates the layout entries.
-		 * @param state The backend state, if known; otherwise, undefined.
-		 */
-		const updateLayoutEntries = async (state?: BackendState) => {
-			// Get the backend state, if was not provided.
-			if (!state) {
-				state = await this._dataExplorerClientInstance.getBackendState();
-			}
-
-			// Set the layout entries.
-			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
-
-			// Adjust the vertical scroll offset, if needed.
-			if (!this.firstRow) {
-				this._verticalScrollOffset = 0;
-			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
-				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
-			}
-		};
-
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Update the layout entries.
-			await updateLayoutEntries();
+			await this.updateLayoutEntries();
 
 			// Perform a soft reset.
 			this.softReset();
@@ -133,7 +112,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			// Update the layout entries.
-			await updateLayoutEntries();
+			await this.updateLayoutEntries();
 
 			// Refresh the column profiles because they rely on the data.
 			await this._tableSummaryCache.refreshColumnProfiles();
@@ -145,10 +124,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
 			// Update the layout entries.
-			await updateLayoutEntries(state);
+			await this.updateLayoutEntries(state);
 
 			// Invalidate cache and fetch data, profiles
-			await this.fetchData(/* invalidateCache=*/true);
+			await this.fetchData(true);
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
@@ -232,17 +211,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(this._services.configurationService);
 		if (rowDescriptor) {
 			showSummaryPanelEnhancements
-				? await this._tableSummaryCache.update2({
+				? await this._tableSummaryCache.update({
 					invalidateCache: !!invalidateCache,
-					searchText: this._searchText,
-					sortOption: this._sortOption,
-					firstColumnIndex: rowDescriptor.rowIndex,
-					screenColumns: this.screenRows
+					columnIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3),
 				})
 				: await this._tableSummaryCache.update({
 					invalidateCache: !!invalidateCache,
-					firstColumnIndex: rowDescriptor.rowIndex,
-					screenColumns: this.screenRows
+					columnIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3),
 				});
 		}
 	}
@@ -429,8 +404,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	async setSearchText(searchText: string): Promise<void> {
 		this._searchText = searchText || undefined;
-		// Invalidate the cache when the search text is cleared
-		await this.fetchData(!this._searchText);
+		await this.updateLayoutEntries();
+		await this.fetchData(false);
 	}
 
 	/**
@@ -439,12 +414,46 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
 		this._sortOption = sortOption;
-		await this.fetchData();
+		await this.updateLayoutEntries();
+		await this.fetchData(false);
 	}
 
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Updates the layout entries to render.
+	 * @param state The backend state, if known; otherwise, undefined.
+	 */
+	private async updateLayoutEntries(state?: BackendState) {
+		// When there is no search or sort option, we need to tell the layout manager
+		// to use the original table shape and render all the data
+		if (this._sortOption === SearchSchemaSortOrder.Original && !this._searchText) {
+			if (!state) {
+				state = await this._dataExplorerClientInstance.getBackendState();
+			}
+			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
+		} else {
+			// When there is a search or sort option, we need to tell the layout manager
+			// to use the filtered table shape and render only the matching data.
+			const searchResults = await this._dataExplorerClientInstance.searchSchema2({
+				searchText: this._searchText,
+				sortOption: this._sortOption,
+			});
+			this._rowLayoutManager.setEntries(searchResults.matches.length, undefined, searchResults.matches)
+		}
+
+		// Ensures the user is not scrolled off the screen
+		// For example: this can happen if the user is scrolled to the end of the table,
+		// adds a search filter, which results in a single entry. We need to reset the
+		// scroll position back to the top so the user can see the data.
+		if (!this.firstRow) {
+			this._verticalScrollOffset = 0;
+		} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+		}
+	}
 
 	/**
 	 * Gets an expanded row height.
