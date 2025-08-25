@@ -4,22 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import { Disposable } from 'vscode';
 import { MainThreadConsoleServiceShape } from './extHost.positron.protocol.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * The extension host's view of a console instance
  *
- * Cousin to `MainThreadConsole`
- *
  * Do not add more methods to this class directly. Instead, add them to the
  * `positron.Console` API and implement them in `Object.freeze()` below by
  * calling out to the main thread.
  *
- * `positron.Console` is modeled after the design of `vscode.TextEditor`, which
- * similarly has both `ExtHostTextEditor` and `MainThreadTextEditor`.
+ * `positron.Console` is roughly modeled after the design of
+ * `vscode.TextEditor`, which has both `ExtHostTextEditor` and
+ * `MainThreadTextEditor`. We currently only have `ExtHostConsole`.
  */
-export class ExtHostConsole {
+export class ExtHostConsole implements Disposable {
 
 	private _disposed: boolean = false;
 
@@ -41,7 +41,7 @@ export class ExtHostConsole {
 					logService.warn('Console is closed/disposed.');
 					return;
 				}
-				proxy.$tryPasteText(sessionId, text);
+				proxy.$pasteText(sessionId, text);
 			}
 		});
 	}
