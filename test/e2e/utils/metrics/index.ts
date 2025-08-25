@@ -9,9 +9,3 @@ export * from './api.js';
 // Recordable features
 export * from './metric-data-explorer.js';
 export * from './metric-notebooks.js';
-
-// Combined types for backward compatibility
-import type { DataExplorerMetric } from './metric-data-explorer.js';
-import type { NotebookMetric } from './metric-notebooks.js';
-
-export type PerfMetric = DataExplorerMetric | NotebookMetric;

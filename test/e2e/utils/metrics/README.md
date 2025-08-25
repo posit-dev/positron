@@ -29,7 +29,16 @@ const { recordMetric: recordMyFeatureMetric } =
 export { recordMyFeatureMetric };
 ```
 
-### 2. Add your feature to the RecordMetric type in `metric-base.ts`
+### 2. Export your feature from `index.ts`
+
+```typescript
+// Recordable features
+export * from "./metric-data-explorer.js";
+export * from "./metric-notebooks.js";
+export * from "./metric-my-feature.js"; // Add this line
+```
+
+### 3. Add your feature to the RecordMetric type in `metric-base.ts`
 
 ```typescript
 export type RecordMetric = {
@@ -54,7 +63,7 @@ export type RecordMetric = {
 };
 ```
 
-### 3. Update the MetricsFixture in `fixtures/test-setup/metrics.fixtures.ts`
+### 4. Update the MetricsFixture in `fixtures/test-setup/metrics.fixtures.ts`
 
 ```typescript
 import {
@@ -100,7 +109,7 @@ export function MetricsFixture(
 }
 ```
 
-### 4. Use it in your tests (via the fixture)
+### 5. Use it in your tests (via the fixture)
 
 ```typescript
 // In your test function signature:
