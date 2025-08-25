@@ -242,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.123.0",
-			"sha256sum": "e1ec25968a956c9bc7cf3de590df8f65b4dcce2695bea484edd99d6fcd0c8c8c",
+			"version": "1.124.0",
+			"sha256sum": "f6ae217213fef18d59483cf7ae53765afe3e3d1cf06701d7378dc94bbd747259",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
@@ -269,8 +269,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.114.3",
-			"sha256": "344b9dde5a0fcf83c42ee58c75cd8ddb33201412295d92f142ba351c0bc665bc",
+			"version": "0.116.1",
+			"sha256": "004f371e8b58581b7ce8daf229bc34465c4c6451350106489463a3fd7df5a299",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {

@@ -525,11 +525,12 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 			id: 'anthropic',
 			displayName: 'Anthropic'
 		},
-		supportedOptions: ['apiKey'],
+		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
 		defaults: {
 			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
+			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
 
@@ -792,6 +793,40 @@ export function getLanguageModels() {
 	return languageModels;
 }
 
+/**
+ * Creates model configurations from environment variables.
+ * Only compatible with providers that have an API key environment variable.
+ *
+ * @returns The model configurations that are configured by the environment.
+ */
+export function createModelConfigsFromEnv(): ModelConfig[] {
+	const models = getLanguageModels();
+	const modelConfigs: ModelConfig[] = [];
+
+	models.forEach(model => {
+		if ('apiKeyEnvVar' in model.source.defaults) {
+			const key = model.source.defaults.apiKeyEnvVar?.key;
+			const apiKey = key ? process.env[key] : undefined;
+
+			if (key && apiKey) {
+				const modelConfig = {
+					id: `${model.source.provider.id}`,
+					provider: model.source.provider.id,
+					type: positron.PositronLanguageModelType.Chat,
+					name: model.source.provider.displayName,
+					model: model.source.defaults.model,
+					apiKey: apiKey,
+					apiKeyEnvVar: 'apiKeyEnvVar' in model.source.defaults ? model.source.defaults.apiKeyEnvVar : undefined,
+				};
+				modelConfigs.push(modelConfig);
+			}
+		}
+	});
+
+	return modelConfigs;
+}
+
+// export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
 export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider2 {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {

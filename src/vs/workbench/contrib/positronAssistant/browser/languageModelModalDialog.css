@@ -120,8 +120,12 @@
 	color: var(--vscode-disabledForeground);
 }
 
-#model-tos {
+#model-tos, .language-model-external-api-key {
 	font-size: 0.7rem;
+}
+
+.language-model-external-api-key > p {
+	margin-bottom: 0;
 }
 
 #model-tos a {

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { availableModels, newLanguageModelChatProvider } from './models';
+import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -101,6 +101,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	try {
 		// Refresh the set of enabled providers
 		const enabledProviders = await getEnabledProviders();
+
 		modelConfigs = await getModelConfigurations(context, storage);
 		modelConfigs = modelConfigs.filter(config => {
 			const enabled = enabledProviders.length === 0 ||
@@ -110,6 +111,16 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 			}
 			return enabled;
 		});
+
+		// Add any configs that should automatically work when the right environment variables are set
+		const modelConfigsFromEnv = createModelConfigsFromEnv();
+		// we add in the config if we don't already have it configured
+		for (const config of modelConfigsFromEnv) {
+			if (!modelConfigs.find(c => c.provider === config.provider)) {
+				modelConfigs.push(config);
+			}
+		}
+
 	} catch (e) {
 		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
 		vscode.window.showErrorMessage(`${failedMessage} ${e}`);

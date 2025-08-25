@@ -46,8 +46,8 @@ df = pl.DataFrame({
 "state": ["Texas", "Texas", "Texas", "Texas"],
 "is_student": [True, False, False, True],
 "enrollment_date": pl.date_range(
-low="2021-07-15",
-high="2023-01-01",
+start=pl.date(2021, 7, 15),
+end=pl.date(2023, 7, 15),
 interval="1y",
 eager=True
 ).to_list() + [None],  # Add NA manually to match Bob
