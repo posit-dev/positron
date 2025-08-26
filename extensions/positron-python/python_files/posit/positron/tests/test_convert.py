@@ -11,8 +11,8 @@ import polars as pl
 import pytest
 import pytz
 
-from posit.positron.connections_comm import ObjectSchema
 from positron.connections import DuckDBConnection, SQLAlchemyConnection, SQLite3Connection
+from positron.connections_comm import ObjectSchema
 from positron.data_explorer import DataExplorerService
 from positron.data_explorer_comm import CodeSyntaxName, FilterComparisonOp
 from positron.utils import var_guid
@@ -31,12 +31,16 @@ from .test_data_explorer import (
 
 try:
     import duckdb
+
+    has_duckdb = True
 except ImportError:
-    duckdb = False
+    has_duckdb = False
 try:
     import sqlalchemy
+
+    has_sqlalchemy = True
 except ImportError:
-    sqlalchemy = False
+    has_sqlalchemy = False
 
 
 SIMPLE_POLARS_DF = pl.DataFrame(SIMPLE_PANDAS_DF.drop(columns=["f"]))
@@ -735,7 +739,7 @@ def test_sqlite_connection_code():
 def test_sqlalchemy_connection_code():
     """Test that SQLAlchemyConnection returns the correct SQL code in preview_object."""
     # Type checking needs to know sqlalchemy is a module here, not False
-    if not sqlalchemy:
+    if not has_sqlalchemy:
         pytest.skip("SQLAlchemy is not installed")
 
     # Create an in-memory SQLite database using SQLAlchemy
@@ -775,7 +779,7 @@ def test_sqlalchemy_connection_code():
 def test_duckdb_connection_code():
     """Test that DuckDBConnection returns the correct SQL code in preview_object."""
     # Type checking needs to know duckdb is a module here, not False
-    if not duckdb:
+    if not has_duckdb:
         pytest.skip("DuckDB is not installed")
 
     # Create an in-memory DuckDB database
