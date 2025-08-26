@@ -43,9 +43,8 @@ export interface ArkLspStateChangeEvent {
  * Wraps an instance of the client side of the ARK LSP.
  */
 export class ArkLsp implements vscode.Disposable {
-
 	/** The language client instance, if it has been created */
-	client?: LanguageClient;
+	private client?: LanguageClient;
 
 	private _state: ArkLspState = ArkLspState.Uninitialized;
 	private _stateEmitter = new vscode.EventEmitter<ArkLspStateChangeEvent>();
