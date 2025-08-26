@@ -2115,7 +2115,7 @@ declare module 'positron' {
 			modes: PositronChatMode[];
 			locations: PositronChatAgentLocation[];
 			disambiguation: { category: string; description: string; examples: string[] }[];
-	}
+		}
 
 		/**
 		 * A chat participant, extends vscode.ChatParticipant with additional dynamic metadata.

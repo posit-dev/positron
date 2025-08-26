@@ -17,15 +17,15 @@ import { log } from './extension.js';
 /**
  * This is the API exposed by Positron Assistant to other extensions.
  *
- * It's used by the Copilot Chat extension to get a Positron Assistant prompt
- * element for embedding in Copilot prompts.
+ * It's used by the Copilot Chat extension to get Positron Assistant specific
+ * instructions and context for embedding in Copilot prompts.
  */
 export class PositronAssistantApi {
 	/**
 	 * Generates assistant prompt content.
 	 *
 	 * @param request The chat request to generate content for.
-	 * @returns A PromptElement that renders the assistant content.
+	 * @returns A string containing the assistant prompt content.
 	 */
 	public async generateAssistantPrompt(request: any): Promise<string> {
 		// Start with the system prompt
@@ -72,6 +72,9 @@ export class PositronAssistantApi {
 	/**
 	 * Gets the set of enabled tools for a chat request.
 	 *
+	 * This is called by Copilot Chat to give Positron an opportunity to filter
+	 * the set of tools that will be available to the model.
+	 *
 	 * @param request The chat request to get enabled tools for.
 	 * @param tools The list of tools to filter.
 	 *
@@ -84,6 +87,14 @@ export class PositronAssistantApi {
 
 /**
  * Gets the set of enabled tools for a chat request.
+ *
+ * @param request The chat request to get enabled tools for.
+ * @param tools The list of tools to filter.
+ * @param positronParticipantId The participant ID of the Positron participant,
+ * if any. Undefined if being called with a non-Positron participant, such as
+ * Copilot Chat.
+ *
+ * @returns The list of enabled tool names.
  */
 export function getEnabledTools(
 	request: vscode.ChatRequest,

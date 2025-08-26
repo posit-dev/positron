@@ -442,7 +442,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 				// Find an agent from the same extension as the current provider
 				const providerMatchedAgent = candidateAgents.find(agent => {
 					if (agent.extensionId.value === extensionId.value) {
-						this.logService.debug(`ChatService#getDefaultAgent: Found provider-matched agent ${agent.id} for provider ${currentProvider.id} via extension tracking`);
+						this.logService.trace(`ChatService#getDefaultAgent: Found provider-matched agent ${agent.id} for provider ${currentProvider.id} via extension tracking`);
 						return true;
 					}
 					return false;
@@ -457,7 +457,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// Fallback to the original behavior: prefer extension agents
 		const selectedAgent = this._preferExtensionAgent(candidateAgents);
 		if (selectedAgent) {
-			this.logService.debug(`ChatService#getDefaultAgent: Found default agent ${selectedAgent.id} for location ${location} (fallback)`);
+			this.logService.trace(`ChatService#getDefaultAgent: Found default agent ${selectedAgent.id} for location ${location} (fallback)`);
 		}
 		return selectedAgent;
 		// --- End Positron ---
@@ -542,7 +542,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	async invokeAgent(id: string, request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult> {
-		this.logService.debug(`[ChatAgentService] Invoking agent ${id} with request ${request.requestId} (${request.agentId})`);
 		const data = this._agents.get(id);
 		if (!data?.impl) {
 			throw new Error(`No activated agent with id "${id}"`);
@@ -596,25 +595,23 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		return data.impl.provideChatSummary(history, token);
 	}
 
+	// --- Start Positron ---
+	// Remember which extension the detection provider belongs to
 	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider, extensionId?: ExtensionIdentifier) {
 		this._chatParticipantDetectionProviders.set(handle, provider);
 
-		// --- Start Positron ---
-		// Remember which extension the detection provider belongs to
 		if (extensionId) {
 			this._chatParticipantDetectionProviderExtensions.set(handle, extensionId);
 		}
-		// --- End Positron ---
 
 		return toDisposable(() => {
 			this._chatParticipantDetectionProviders.delete(handle);
 
-			// --- Start Positron ---
 			// Clean up the extension ID tracking as well
 			this._chatParticipantDetectionProviderExtensions.delete(handle);
-			// --- End Positron ---
 		});
 	}
+	// --- End Positron ---
 
 	hasChatParticipantDetectionProviders() {
 		return this._chatParticipantDetectionProviders.size > 0;
