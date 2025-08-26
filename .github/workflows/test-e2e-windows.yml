@@ -202,6 +202,15 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
+      - name: Run Extensions Test
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test-extension -- -l positron-r
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
       - name: Run Bootstrap Extensions Test
         id: bootstrap
         shell: bash
@@ -290,3 +299,9 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
+      - name: Fail workflow if extension tests failed
+        if: |
+          steps.extensions.outputs.exit_code != '0'
+        run: |
+          echo "Extension tests failed."
+          exit 1

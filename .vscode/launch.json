@@ -185,6 +185,26 @@
 			}
 		},
 		{
+			// Note this uses the version of Code/Positron you launch it from.
+			// i.e., launch from dev Positron if your tests need dev Positron.
+			"name": "positron-r extension tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/extensions/positron-r",
+				"--extensionTestsPath=${workspaceFolder}/extensions/positron-r/out/test"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js",
+				"${workspaceFolder}/extensions/positron-r/out/**/*.js"
+			],
+			"presentation": {
+				"group": "5_tests",
+				"order": 5
+			}
+		},
+		{
 			"type": "extensionHost",
 			"request": "launch",
 			"name": "Positron Tokenizer Tests",
