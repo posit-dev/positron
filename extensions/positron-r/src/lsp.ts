@@ -27,11 +27,16 @@ import { VirtualDocumentProvider } from './virtual-documents';
 /**
  * The state of the language server.
  */
-export enum LspState {
-	uninitialized = 'uninitialized',
-	starting = 'starting',
-	stopped = 'stopped',
-	running = 'running',
+export enum ArkLspState {
+	Uninitialized = 'uninitialized',
+	Starting = 'starting',
+	Stopped = 'stopped',
+	Running = 'running',
+}
+
+export interface ArkLspStateChangeEvent {
+	oldState: ArkLspState;
+	newState: ArkLspState;
 }
 
 /**
@@ -39,11 +44,11 @@ export enum LspState {
  */
 export class ArkLsp implements vscode.Disposable {
 
-	/** The languge client instance, if it has been created */
+	/** The language client instance, if it has been created */
 	client?: LanguageClient;
 
-	private _state: LspState = LspState.uninitialized;
-	private _stateEmitter = new vscode.EventEmitter<LspState>();
+	private _state: ArkLspState = ArkLspState.Uninitialized;
+	private _stateEmitter = new vscode.EventEmitter<ArkLspStateChangeEvent>();
 	onDidChangeState = this._stateEmitter.event;
 
 	/** Promise that resolves after initialization is complete */
@@ -62,9 +67,10 @@ export class ArkLsp implements vscode.Disposable {
 		this.languageClientName = `Ark (R ${this._version} language client) for session '${this._metadata.sessionId}'`;
 	}
 
-	private setState(state: LspState) {
+	private setState(state: ArkLspState) {
+		const old = this._state;
 		this._state = state;
-		this._stateEmitter.fire(state);
+		this._stateEmitter.fire({ oldState: old, newState: state });
 	}
 
 	/**
@@ -152,7 +158,7 @@ export class ArkLsp implements vscode.Disposable {
 			// Convert the state to our own enum
 			switch (event.newState) {
 				case State.Starting:
-					this.setState(LspState.starting);
+					this.setState(ArkLspState.Starting);
 					break;
 				case State.Running:
 					if (this._initializing) {
@@ -164,14 +170,14 @@ export class ArkLsp implements vscode.Disposable {
 						}
 						out.resolve();
 					}
-					this.setState(LspState.running);
+					this.setState(ArkLspState.Running);
 					break;
 				case State.Stopped:
 					if (this._initializing) {
 						LOGGER.info(`${this.languageClientName} init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
-					this.setState(LspState.stopped);
+					this.setState(ArkLspState.Stopped);
 					break;
 			}
 			LOGGER.info(`${this.languageClientName} state changed ${oldState} => ${this._state}`);
@@ -228,7 +234,7 @@ export class ArkLsp implements vscode.Disposable {
 	/**
 	 * Gets the current state of the client.
 	 */
-	get state(): LspState {
+	get state(): ArkLspState {
 		return this._state;
 	}
 
@@ -240,25 +246,25 @@ export class ArkLsp implements vscode.Disposable {
 	 */
 	async wait(): Promise<boolean> {
 		switch (this.state) {
-			case LspState.running: return true;
-			case LspState.stopped: return false;
+			case ArkLspState.Running: return true;
+			case ArkLspState.Stopped: return false;
 
-			case LspState.starting: {
+			case ArkLspState.Starting: {
 				// Inherit init promise. This can reject if init fails.
 				await this._initializing;
 				return true;
 			}
 
-			case LspState.uninitialized: {
+			case ArkLspState.Uninitialized: {
 				const handles = new PromiseHandles<boolean>();
 
 				const cleanup = this.onDidChangeState(state => {
 					let out: boolean;
 					switch (this.state) {
-						case LspState.running: out = true; break;
-						case LspState.stopped: out = false; break;
-						case LspState.uninitialized: return;
-						case LspState.starting: {
+						case ArkLspState.Running: out = true; break;
+						case ArkLspState.Stopped: out = false; break;
+						case ArkLspState.Uninitialized: return;
+						case ArkLspState.Starting: {
 							// Inherit init promise
 							if (this._initializing) {
 								cleanup.dispose();

@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 
 import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './positron-supervisor';
-import { ArkLsp, LspState } from './lsp';
+import { ArkLsp, ArkLspState } from './lsp';
 import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
@@ -730,7 +730,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				vscode.LogLevel.Debug,
 			);
 
-			if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+			if (this._lsp.state !== ArkLspState.Stopped && this._lsp.state !== ArkLspState.Uninitialized) {
 				this._kernel.emitJupyterLog('LSP already active', vscode.LogLevel.Debug);
 				return;
 			}
@@ -786,7 +786,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				`pending: ${this._lspQueue.pending}`,
 				vscode.LogLevel.Debug,
 			);
-			if (this._lsp.state !== LspState.running) {
+			if (this._lsp.state !== ArkLspState.Running) {
 				this._kernel?.emitJupyterLog('LSP already deactivated', vscode.LogLevel.Debug);
 				return;
 			}
