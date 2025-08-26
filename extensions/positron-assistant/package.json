@@ -420,7 +420,7 @@
         "icon": "$(graph)",
         "toolReferenceName": "getPlot",
         "userDescription": "View the current active plot.",
-        "canBeReferencedInPrompt": true,
+        "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant",
           "requires-session"
