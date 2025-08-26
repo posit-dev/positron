@@ -118,6 +118,13 @@ export class LayoutManager {
 	//#region Public Properties
 
 	/**
+	 * Gets the entry count.
+	 */
+	get entryCount() {
+		return this._entryCount;
+	}
+
+	/**
 	 * Gets the first index, if any; otherwise, -1.
 	 */
 	get firstIndex() {
@@ -304,6 +311,79 @@ export class LayoutManager {
 				this._pinnedIndexes.delete(pinnedIndex);
 			}
 		}
+	}
+
+	/**
+	 * Gets the layout indexes.
+	 * @param layoutOffset The layout offset.
+	 * @param layoutSize The layout size.
+	 * @param overscanFactor The overscan factor (e.g. 2 or 3)
+	 * @returns The layout indexes.
+	 */
+	getLayoutIndexes(layoutOffset: number, layoutSize: number, overscanFactor: number) {
+		// Validate the layout offset and layout size.
+		if (layoutOffset < 0 || layoutSize < 0) {
+			return [];
+		}
+
+		// Create the layout indexes from the pinned indexes. These are always returned.
+		const layoutIndexes = this.pinnedIndexes;
+
+		// Find the first unpinned layout entry that overlaps with the specified offset.
+		const firstUnpinnedLayoutEntry = this.findFirstUnpinnedLayoutEntry(layoutOffset);
+		if (firstUnpinnedLayoutEntry === undefined) {
+			return layoutIndexes;
+		}
+
+		// Push the first unpinned layout entry.
+		layoutIndexes.push(firstUnpinnedLayoutEntry.index);
+
+		// Get the first layout entry position.
+		const firstLayoutEntryPosition = this.mapIndexToPosition(firstUnpinnedLayoutEntry.index);
+		if (firstLayoutEntryPosition === undefined) {
+			return layoutIndexes;
+		}
+
+		// Enumerate entries before the first layout entry.
+		const startOffset = layoutOffset - (layoutSize * overscanFactor);
+		let end = firstUnpinnedLayoutEntry.start;
+		for (let position = firstLayoutEntryPosition - 1; position >= 0 && end > startOffset; position--) {
+			// Get the index of the positon.
+			const index = this.mapPositionToIndex(position);
+
+			// Skipped pinned indexes.
+			if (this.isPinnedIndex(index)) {
+				continue;
+			}
+
+			// Push the layout index.
+			layoutIndexes.push(index);
+
+			// Adjust the end.
+			end -= this.entrySize(index);
+		}
+
+		// Enumerate entries after the first layout entry.
+		const endOffset = layoutOffset + layoutSize + (layoutSize * overscanFactor);
+		let start = firstUnpinnedLayoutEntry.end;
+		for (let position = firstLayoutEntryPosition + 1; position < this._entryCount && start < endOffset; position++) {
+			// Get the index of the positon.
+			const index = this.mapPositionToIndex(position);
+
+			// Skipped pinned indexes.
+			if (this.isPinnedIndex(index)) {
+				continue;
+			}
+
+			// Push the layout index.
+			layoutIndexes.push(index);
+
+			// Adjust the end.
+			start += this.entrySize(index);
+		}
+
+		// Return the sorted layout indexes.
+		return layoutIndexes;
 	}
 
 	/**
@@ -497,8 +577,8 @@ export class LayoutManager {
 		const layoutEntries: ILayoutEntry[] = [firstLayoutEntry];
 		const layoutEnd = layoutOffset + layoutSize;
 
-		let start = firstLayoutEntry.end;
-		for (let index = this.nextIndex(firstLayoutEntry.index); index !== undefined && start < layoutEnd; index = this.nextIndex(index)) {
+		// Enumerate indexes and build the layout entries until we exceed the layout size.
+		for (let index = this.nextIndex(firstLayoutEntry.index), start = firstLayoutEntry.end; index !== undefined && start < layoutEnd; index = this.nextIndex(index)) {
 			// Skip pinned indexes.
 			if (this.isPinnedIndex(index)) {
 				continue;
