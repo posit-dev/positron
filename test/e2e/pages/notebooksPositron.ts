@@ -344,4 +344,35 @@ export class PositronNotebooks extends Notebooks {
 			'positron.notebook.enabled': true,
 		}, { reload: true });
 	}
+
+	/**
+	 * Helper function to delete cell using action bar delete button
+	 */
+	async deleteCellWithActionBar(cellIndex = 0): Promise<void> {
+		await test.step(`Delete cell ${cellIndex} using action bar`, async () => {
+			// Get the current cell count before deletion
+			const initialCount = await this.code.driver.page.locator('[data-testid="notebook-cell"]').count();
+
+			// Get the specific cell
+			const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
+
+			// Hover over the cell to make the action bar visible
+			await cell.hover();
+
+			// Find and click the delete button in the action bar
+			const deleteButton = cell.getByLabel('positronNotebook.cell.delete');
+
+			// Wait for the delete button to be visible
+			await expect(deleteButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+
+			// Click the delete button
+			await deleteButton.click();
+
+			// Wait for the deletion to complete by checking cell count decreased
+			await expect(this.code.driver.page.locator('[data-testid="notebook-cell"]')).toHaveCount(initialCount - 1, { timeout: DEFAULT_TIMEOUT });
+
+			// Give a small delay for focus to settle
+			await this.code.driver.page.waitForTimeout(100);
+		});
+	}
 }
