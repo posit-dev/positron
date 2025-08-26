@@ -498,9 +498,6 @@ class ConnectionsService:
         self, conn: Connection, request: PreviewObjectRequest
     ) -> None:
         res, sql_string = conn.preview_object(request.params.path)
-        if sql_string:
-            sql_string = [sql_string]
-            sql_string.insert(0, "# Load table into pandas dataframe, eg:")
         title = request.params.path[-1].name
         self._kernel.data_explorer_service.register_table(res, title, sql_string=sql_string)
 

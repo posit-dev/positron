@@ -11,6 +11,7 @@ import polars as pl
 import pytest
 import pytz
 
+from posit.positron.connections_comm import ObjectSchema
 from positron.connections import DuckDBConnection, SQLAlchemyConnection, SQLite3Connection
 from positron.data_explorer import DataExplorerService
 from positron.data_explorer_comm import CodeSyntaxName, FilterComparisonOp
@@ -714,9 +715,9 @@ def test_sqlite_connection_code():
     # Create a SQLite3Connection and test the preview_object method
     connection = SQLite3Connection(conn)
 
-    # Create the schema and table objects
-    schema = type("ObjectSchema", (), {"kind": "schema", "name": "main"})
-    table = type("ObjectSchema", (), {"kind": "table", "name": "test"})
+    # Create proper ObjectSchema instances
+    schema = ObjectSchema(kind="schema", name="main")
+    table = ObjectSchema(kind="table", name="test")
 
     # Call the preview_object method
     df, code = connection.preview_object([schema, table])
@@ -731,9 +732,12 @@ def test_sqlite_connection_code():
     assert code == expected_code
 
 
-@pytest.mark.skipif(not sqlalchemy, reason="SQLAlchemy is not installed")
 def test_sqlalchemy_connection_code():
     """Test that SQLAlchemyConnection returns the correct SQL code in preview_object."""
+    # Type checking needs to know sqlalchemy is a module here, not False
+    if not sqlalchemy:
+        pytest.skip("SQLAlchemy is not installed")
+
     # Create an in-memory SQLite database using SQLAlchemy
     engine = sqlalchemy.create_engine("sqlite:///:memory:")
 
@@ -747,9 +751,9 @@ def test_sqlalchemy_connection_code():
     # Create a SQLAlchemyConnection and test the preview_object method
     connection = SQLAlchemyConnection(engine)
 
-    # Create the schema and table objects
-    schema = type("ObjectSchema", (), {"kind": "schema", "name": "main"})
-    table = type("ObjectSchema", (), {"kind": "table", "name": "test"})
+    # Create proper ObjectSchema instances
+    schema = ObjectSchema(kind="schema", name="main")
+    table = ObjectSchema(kind="table", name="test")
 
     # Call the preview_object method
     df, code = connection.preview_object([schema, table])
@@ -768,9 +772,12 @@ def test_sqlalchemy_connection_code():
     assert code == expected_code
 
 
-@pytest.mark.skipif(not duckdb, reason="DuckDB is not installed")
 def test_duckdb_connection_code():
     """Test that DuckDBConnection returns the correct SQL code in preview_object."""
+    # Type checking needs to know duckdb is a module here, not False
+    if not duckdb:
+        pytest.skip("DuckDB is not installed")
+
     # Create an in-memory DuckDB database
     conn = duckdb.connect(":memory:")
 
@@ -782,10 +789,10 @@ def test_duckdb_connection_code():
     # Create a DuckDBConnection and test the preview_object method
     connection = DuckDBConnection(conn)
 
-    # Create the schema and catalog and table objects
-    catalog = type("ObjectSchema", (), {"kind": "catalog", "name": "memory"})
-    schema = type("ObjectSchema", (), {"kind": "schema", "name": "main"})
-    table = type("ObjectSchema", (), {"kind": "table", "name": "test"})
+    # Create proper ObjectSchema instances
+    catalog = ObjectSchema(kind="catalog", name="memory")
+    schema = ObjectSchema(kind="schema", name="main")
+    table = ObjectSchema(kind="table", name="test")
 
     # Call the preview_object method
     df, code = connection.preview_object([catalog, schema, table])

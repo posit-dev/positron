@@ -473,7 +473,8 @@ class CodeConverter:
         filter_setup, filter_chain = self._convert_row_filters()
         sort_setup, sort_chain = self._convert_sort_keys()
         if self.sql_string:
-            builder.add_operation(self.sql_string, [])
+            sql = ["# Load table into pandas dataframe, eg:", self.sql_string]
+            builder.add_operation(sql, [])
         builder.add_operation(filter_setup, filter_chain)
         builder.add_operation(sort_setup, sort_chain)
 

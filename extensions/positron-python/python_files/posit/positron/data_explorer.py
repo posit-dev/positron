@@ -18,7 +18,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Optional,
     Tuple,
 )
 
@@ -959,8 +958,8 @@ def _box_datetime_stats(
 
 
 class UnsupportedView(DataExplorerTableView):
-    def __init__(self, table, comm, state, job_queue):
-        super().__init__(table, comm, state, job_queue)
+    def __init__(self, table, comm, state, job_queue, sql_string: str | None = None):
+        super().__init__(table, comm, state, job_queue, sql_string)
 
 
 # Special value codes for the protocol
