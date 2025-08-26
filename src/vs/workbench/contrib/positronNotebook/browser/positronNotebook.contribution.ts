@@ -327,7 +327,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-arrow-up',
 		position: 'menu',
-		order: 100
+		order: 100,
+		category: 'Cell'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
@@ -343,7 +344,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-arrow-down',
 		position: 'menu',
-		order: 100
+		order: 100,
+		category: 'Cell'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
@@ -358,7 +360,8 @@ registerCellCommand(
 		actionBar: {
 			icon: 'codicon-trash',
 			position: 'main',
-			order: 100
+			order: 100,
+			category: 'Cell'
 		},
 		keybinding: {
 			primary: KeyCode.Backspace,
@@ -385,7 +388,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-play',
 		position: 'main',
-		order: CELL_EXECUTION_POSITION
+		order: CELL_EXECUTION_POSITION,
+		category: 'Execution'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.execute', "Execute cell")
@@ -405,7 +409,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-stop',
 		position: 'main',
-		order: CELL_EXECUTION_POSITION
+		order: CELL_EXECUTION_POSITION,
+		category: 'Execution'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.stopExecution', "Stop cell execution")
@@ -457,7 +462,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-run-above',
 		position: 'menu',
-		order: 20
+		order: 20,
+		category: 'Execution'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllAbove', "Run all code cells above this cell")
@@ -489,7 +495,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-run-below',
 		position: 'menu',
-		order: 21
+		order: 21,
+		category: 'Execution'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllBelow', "Run all code cells below this cell")
@@ -508,7 +515,8 @@ registerCellCommand({
 	actionBar: {
 		icon: 'codicon-primitive-square',  // Will need to be dynamic based on editor state
 		position: 'main',
-		order: 10
+		order: 10,
+		category: 'Markdown'
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor visibility")

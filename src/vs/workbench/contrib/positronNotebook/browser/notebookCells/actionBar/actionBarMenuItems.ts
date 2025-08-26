@@ -10,6 +10,7 @@ import { IPositronNotebookInstance } from '../../../../../services/positronNoteb
 import { IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
+import { CustomContextMenuSeparator } from '../../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 
 /**
  * Build the menu entries for the "more actions" dropdown menu.
@@ -24,29 +25,50 @@ export function buildMoreActionsMenuItems(
 	// Use provided menuActions or fallback to getting all from registry
 	const actions = menuActions ?? NotebookCellActionBarRegistry.getInstance().menuActions.get();
 
-	// Convert registry items to menu entries
-	// For PR1, this will return empty as no menu actions are registered yet
-	// PR2 will add copy/paste actions here
-	return actions.map(action => new CustomContextMenuItem({
-		commandId: action.commandId,
-		label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
-		icon: action.icon?.startsWith('codicon-') ? action.icon.slice(8) : action.icon,
-		onSelected: () => {
-			// IMPORTANT: Ensure the cell from this menu is selected before executing
-			// Otherwise the command would operate on whatever cell is currently selected
-			if (action.needsCellContext) {
-				const currentState = instance.selectionStateMachine.state.get();
-				const isSelected = (currentState.type !== 'NoSelection' &&
-					currentState.type !== 'EditingSelection' &&
-					currentState.selected.includes(cell));
-
-				if (!isSelected) {
-					instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-				}
+	// Get the categories
+	const entriesByCategory = new Map<string, CustomContextMenuEntry[]>();
+	actions.forEach(action => {
+		if (action.category) {
+			if (!entriesByCategory.has(action.category)) {
+				entriesByCategory.set(action.category, []);
 			}
+			entriesByCategory.get(action.category)?.push(new CustomContextMenuItem({
+				commandId: action.commandId,
+				label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
+				icon: action.icon?.startsWith('codicon-') ? action.icon.slice(8) : action.icon,
+				onSelected: () => {
+					// IMPORTANT: Ensure the cell from this menu is selected before executing
+					// Otherwise the command would operate on whatever cell is currently selected
+					if (action.needsCellContext) {
+						const currentState = instance.selectionStateMachine.state.get();
+						const isSelected = (currentState.type !== 'NoSelection' &&
+							currentState.type !== 'EditingSelection' &&
+							currentState.selected.includes(cell));
 
-			// Execute command - it will now operate on the correct cell
-			commandService.executeCommand(action.commandId);
+						if (!isSelected) {
+							instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+						}
+					}
+
+					// Execute command - it will now operate on the correct cell
+					commandService.executeCommand(action.commandId);
+				}
+			}));
 		}
-	}));
+	});
+
+	// Convert the entries by category to a flat array with separators between categories
+	const contextMenuEntries: CustomContextMenuEntry[] = [];
+	const categories = Array.from(entriesByCategory.keys());
+	categories.forEach((category, index) => {
+		const entries = entriesByCategory.get(category)!;
+		contextMenuEntries.push(...entries);
+
+		// Add separator after each category except the last
+		if (index < categories.length - 1) {
+			contextMenuEntries.push(new CustomContextMenuSeparator());
+		}
+	});
+
+	return contextMenuEntries;
 }

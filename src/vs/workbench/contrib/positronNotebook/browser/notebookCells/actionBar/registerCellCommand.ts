@@ -40,6 +40,9 @@ export interface IRegisterCellCommandOptions {
 		// transitions etc..
 		/** Location in UI - either main action bar or dropdown menu */
 		position: 'main' | 'menu';
+		/** Category of the action bar item. Items that share the same category
+		 * will be grouped together. Ignored for "main" position actions. */
+		category?: string;
 		/** Sort order within position (lower numbers appear first) */
 		order?: number;
 		/** Visibility condition using VS Code context keys */
@@ -138,6 +141,7 @@ export function registerCellCommand({
 			label: humanReadableLabel,
 			icon: actionBar.icon,
 			position: actionBar.position,
+			category: actionBar.category,
 			order: actionBar.order,
 			when: actionBar.when,
 			needsCellContext: true,  // Always true for cell commands
