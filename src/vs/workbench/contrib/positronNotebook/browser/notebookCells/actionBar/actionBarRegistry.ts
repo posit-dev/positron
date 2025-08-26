@@ -26,6 +26,10 @@ export interface INotebookCellActionBarItem {
 	needsCellContext?: boolean;
 }
 
+
+// Default order for actions that don't specify an order.
+const DEFAULT_ORDER = 50;
+
 /**
  * Registry for notebook cell action bar items. Uses singleton pattern and provides
  * observable arrays for reactive UI updates.
@@ -78,13 +82,13 @@ export class NotebookCellActionBarRegistry {
 		// Update main actions
 		const mainActions = Array.from(this.items.values())
 			.filter(item => item.position === 'main')
-			.sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
 		this._mainActions.set(mainActions, undefined);
 
 		// Update menu actions
 		const menuActions = Array.from(this.items.values())
 			.filter(item => item.position === 'menu')
-			.sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
 		this._menuActions.set(menuActions, undefined);
 	}
 
