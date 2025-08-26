@@ -27,8 +27,10 @@ export function createUniqueId(): string {
 export function normalizePath(p: string): string {
 	const normalized = path.normalize(p);
 
-	// `realPathSync` takes care of expanding e.g. `runner~1` to `runneradmin`.
-	// Can only use it if the path actually exists.
+	// `realPathSync` takes care of expanding e.g. `runner~1` to `runneradmin`. It
+	// also matches `normalizePath()` treatment on the R side. Otherwise our
+	// `/vars/...` tempfile becomes `/private/vars/...` and it might not look like
+	// the same file is being opened. Can only use it if the path actually exists.
 	const real = fs.existsSync(normalized) ? fs.realpathSync.native(normalized) : normalized;
 
 	// On Windows, paths are not case sensitive and we might get mixups. On mac it

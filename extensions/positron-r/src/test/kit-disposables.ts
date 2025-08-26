@@ -58,12 +58,8 @@ export function makeTempDir(component: string): [string, vscode.Disposable] {
 	const uniqueId = createUniqueId();
 	const dir = path.join(os.tmpdir(), `${component}-${uniqueId}`);
 
-	fs.mkdirSync(dir, { recursive: true });
-
-	// Use `realpathSync()` to match `normalizePath()` treatment on the R side.
-	// Otherwise our `/vars/...` tempfile becomes `/private/vars/...` and it
-	// might not look like the same file is being opened.
 	const normalizedDir = normalizePath(dir);
+	fs.mkdirSync(normalizedDir, { recursive: true });
 
 	const disposable = toDisposable(async () => await retryRm(normalizedDir));
 
