@@ -18,6 +18,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Optional,
     Tuple,
 )
 
@@ -185,12 +186,14 @@ class DataExplorerTableView:
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None,
     ):
         # Note: we must not ever modify the user's data
         self.table = table
         self.comm = comm
         self.state = state
         self.job_queue = job_queue
+        self.sql_string = sql_string
 
         self.schema_memo = {}
 
@@ -1215,14 +1218,14 @@ class PandasView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
         self.was_series = False
         table = self._maybe_wrap(table)
-
         # For lazy importing NumPy
         self.math_helper = NumPyMathHelper()
 
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @property
     def _has_row_labels(self):
@@ -1399,7 +1402,11 @@ class PandasView(DataExplorerTableView):
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
         converter = PandasConverter(
-            self.table, self.state.name, request, was_series=self.was_series
+            self.table,
+            self.state.name,
+            request,
+            was_series=self.was_series,
+            sql_string=self.sql_string,
         )
         converted_code = converter.build_code()
         return ConvertedCode(converted_code=converted_code).dict()
@@ -2267,8 +2274,9 @@ class PolarsView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -2888,11 +2896,13 @@ def _get_table_view(
     comm: PositronComm,
     state: DataExplorerState,
     job_queue: BackgroundJobQueue,
+    *,
+    sql_string: str | None = None,
 ):
     state.name = state.name or guid()
 
     if is_pandas(table):
-        return PandasView(table, comm, state, job_queue)
+        return PandasView(table, comm, state, job_queue, sql_string)
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
     else:
@@ -2940,6 +2950,8 @@ class DataExplorerService:
         title,
         variable_path: list[str] | None = None,
         comm_id=None,
+        *,
+        sql_string: str | None = None,
     ):
         """
         Set up a new comm and data explorer table query wrapper to handle requests and manage state.
@@ -2958,6 +2970,10 @@ class DataExplorerService:
         comm_id : str, default None
             A specific comm identifier to use, otherwise generate a
             random uuid.
+        sql_string : str, default None
+            If the data explorer was opened from a SQL query result,
+            this is the SQL string that was executed to produce the
+            result. This is used for code generation.
 
         Returns
         -------
@@ -2988,7 +3004,7 @@ class DataExplorerService:
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
 
         self.table_views[comm_id] = _get_table_view(
-            table, wrapped_comm, DataExplorerState(title), self.job_queue
+            table, wrapped_comm, DataExplorerState(title), self.job_queue, sql_string=sql_string
         )
 
         if variable_path is not None:
@@ -3122,7 +3138,7 @@ class DataExplorerService:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 
         self.table_views[comm_id] = _get_table_view(
-            new_table, table_view.comm, new_state, self.job_queue
+            new_table, table_view.comm, new_state, self.job_queue, sql_string=table_view.sql_string
         )
 
         if schema_updated:

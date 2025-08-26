@@ -127,7 +127,7 @@ class Connection:
         """
         raise NotImplementedError
 
-    def preview_object(self, path: list[ObjectSchema]) -> Any:
+    def preview_object(self, path: list[ObjectSchema]) -> tuple[Any, str | None]:
         """
         Returns a small sample of the object's data for previewing.
 
@@ -136,6 +136,11 @@ class Connection:
 
         Args:
             path: The path to the object.
+
+        Returns:
+            A tuple containing:
+            - The preview data (pandas dataframe or similar)
+            - A strings representing the code to recreate the data
         """
         raise NotImplementedError
 
@@ -492,9 +497,12 @@ class ConnectionsService:
     def handle_preview_object_request(
         self, conn: Connection, request: PreviewObjectRequest
     ) -> None:
-        res = conn.preview_object(request.params.path)
+        res, sql_string = conn.preview_object(request.params.path)
+        if sql_string:
+            sql_string = [sql_string]
+            sql_string.insert(0, "# Load table into pandas dataframe, eg:")
         title = request.params.path[-1].name
-        self._kernel.data_explorer_service.register_table(res, title)
+        self._kernel.data_explorer_service.register_table(res, title, sql_string=sql_string)
 
     def handle_get_metadata_request(
         self, conn: Connection, _request: GetMetadataRequest
@@ -606,9 +614,13 @@ class SQLite3Connection(Connection):
                 "Path must include a schema and a table/view in this order.", f"Path: {path}"
             )
 
-        return pd.read_sql(
-            f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;",
-            self.conn,
+        sql_string = f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;"
+        return (
+            pd.read_sql(
+                sql_string,
+                self.conn,
+            ),
+            f'# {table.name} = pd.read_sql("""{sql_string}""", conn) # where conn is your connection variable',
         )
 
     def list_object_types(self):
@@ -712,9 +724,14 @@ class SQLAlchemyConnection(Connection):
             table.name, sqlalchemy.MetaData(), autoload_with=self.conn, schema=schema.name
         )
         stmt = sqlalchemy.sql.select(table).limit(1000)
+        sql_string = f"""# table = sqlalchemy.Table(
+        #    {table.name}, sqlalchemy.MetaData(), autoload_with=conn, schema={schema.name}
+        # ) # where conn is your connection variable
+        # {table.name} = pd.read_sql(sqlalchemy.sql.select(table, conn.connect()))
+        """
         # using conn.connect() is safer then using the conn directly and is also supported
         # with older pandas versions such as 1.5
-        return pd.read_sql(stmt, self.conn.connect())
+        return pd.read_sql(stmt, self.conn.connect()), sql_string
 
     def disconnect(self):
         self.conn.dispose()
@@ -865,7 +882,10 @@ class DuckDBConnection(Connection):
 
         # Use DuckDB's native pandas integration via .df() method
         query = f'SELECT * FROM "{catalog.name}"."{schema.name}"."{table.name}" LIMIT 1000'
-        return self.conn.execute(query).df()
+        return (
+            self.conn.execute(query).df(),
+            f"# {table.name} = conn.execute({query!r}).df() # where conn is your connection variable",
+        )
 
     def list_object_types(self):
         return {
