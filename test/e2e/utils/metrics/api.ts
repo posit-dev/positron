@@ -65,20 +65,9 @@ export async function logMetric(
 	}
 
 	// Determine the API URL based on the branch
-	// In GitHub Actions, GITHUB_HEAD_REF contains the branch name for PRs
-	// and GITHUB_REF contains ref path (refs/heads/branch) for push events
-	let branch: string | undefined;
-
-	if (process.env.GITHUB_HEAD_REF) {
-		// This is a pull request event
-		branch = process.env.GITHUB_HEAD_REF;
-	} else if (process.env.GITHUB_REF) {
-		// This is a push event - extract branch name from refs/heads/branch
-		const match = process.env.GITHUB_REF.match(/^refs\/heads\/(.+)$/);
-		if (match) {
-			branch = match[1];
-		}
-	}
+	const branch =
+		process.env.GITHUB_HEAD_REF || // PRs
+		process.env.GITHUB_REF_NAME;   // Push, dispatch, etc.
 
 	const apiUrl = branch === 'main' ? PROD_API_URL : LOCAL_API_URL;
 	const payload = createMetricPayload(metric, isElectronApp);
