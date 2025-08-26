@@ -59,7 +59,7 @@ export class ArkLsp implements vscode.Disposable {
 		private readonly _metadata: positron.RuntimeSessionMetadata,
 		private readonly _dynState: positron.LanguageRuntimeDynState,
 	) {
-		this.languageClientName = `Positron R Language Client (${this._version}) for session '${this._metadata.sessionId}'`;
+		this.languageClientName = `Ark (R ${this._version} language client) for session '${this._metadata.sessionId}'`;
 	}
 
 	private setState(state: LspState) {
