@@ -23,20 +23,21 @@ suite('Debugger', () => {
 
 	test('Can debug in virtual namespace', async () => {
 		await testKit.withDisposables(async (disposables) => {
-			// Generate virtual namespace synchronously via `View()`
+			// Force virtual namespace generation via `View()`
+			// This happens synchronously
 			await testKit.execute('View(points)');
 			await testKit.closeAllEditors();
 
 			await testKit.execute('debugonce(points)');
 			await testKit.execute('points()');
 
-			// Clean up editor opened by the debugger
+			// Clean up editor opened by the debugger on exit
 			disposables.push(testKit.toDisposable(testKit.closeAllEditors));
 
 			// Quit debugger on exit
 			disposables.push(testKit.toDisposable(async () => await testKit.execute('Q')));
 
-			// Should show vritual namespace in editor. We poll for success to give Ark
+			// Should show virtual namespace in editor. We poll for success to give Ark
 			// a bit of time to generate the virtual namespace.
 			await testKit.pollForSuccess(async () => {
 				const ed = vscode.window.activeTextEditor;
@@ -68,7 +69,7 @@ suite('Debugger', () => {
 			// Quit debugger on exit
 			disposables.push(testKit.toDisposable(async () => await testKit.execute('Q')));
 
-			// Should show vritual fallback document in editor
+			// Should show virtual fallback document in editor
 			await testKit.pollForSuccess(async () => {
 				const ed = vscode.window.activeTextEditor;
 

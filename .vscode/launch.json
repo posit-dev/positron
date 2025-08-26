@@ -185,8 +185,8 @@
 			}
 		},
 		{
-			// Note this uses the current Code/Positron executable.
-			// Launch from a dev version if you need dev Positron.
+			// Note this uses the version of Code/Positron you launch it from.
+			// i.e., launch from dev Positron if your tests need dev Positron.
 			"name": "positron-r extension tests",
 			"type": "extensionHost",
 			"request": "launch",
