@@ -40,10 +40,13 @@ export async function startR(): Promise<[RSession, vscode.Disposable, ArkLsp]> {
 	const lspReady = session.waitLsp();
 	const lspTimeout = (async () => {
 		await delay(2000);
-		throw new Error('Timeout while waiting for LSP to be ready');
+		undefined
 	})();
 
 	const lsp = await Promise.race([lspReady, lspTimeout]);
+	if (!lsp) {
+		throw new Error('Timeout while waiting for LSP to be ready');
+	}
 
 	const disposable = toDisposable(async () => {
 		// This avoids RPC errors in Positron clients when session is disposed too soon:

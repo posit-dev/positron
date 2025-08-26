@@ -803,12 +803,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/**
 	 * Wait for the LSP to be connected.
 	 *
-	 * Resolves to `true` once the LSP is connected. Resolves to `false` if the
-	 * LSP has been stopped. Rejects if the LSP fails to start.
+	 * Resolves to `ArkLsp` if the LSP is connected, or once the LSP is connected
+	 * if it's starting up. Resolves to `undefined` if the LSP has been stopped. Rejects
+	 * if the LSP fails to start.
 	 */
-	async waitLsp(): Promise<ArkLsp> {
-		await this._lsp.wait();
-		return this._lsp;
+	async waitLsp(): Promise<ArkLsp | undefined> {
+		if (await this._lsp.wait()) {
+			return this._lsp;
+		} else {
+			return undefined;
+		}
 	}
 
 	/**
