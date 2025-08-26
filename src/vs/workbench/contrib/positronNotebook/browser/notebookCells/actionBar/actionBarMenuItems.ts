@@ -29,7 +29,7 @@ export function buildMoreActionsMenuItems(
 	// PR2 will add copy/paste actions here
 	return menuActions.map(action => new CustomContextMenuItem({
 		commandId: action.commandId,
-		label: action.commandId, // TODO: Use CommandCenter.title when available
+		label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
 		icon: action.icon,
 		onSelected: () => {
 			// IMPORTANT: Ensure the cell from this menu is selected before executing

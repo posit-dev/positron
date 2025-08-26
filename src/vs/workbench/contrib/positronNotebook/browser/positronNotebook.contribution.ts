@@ -384,14 +384,20 @@ function registerNotebookKeybinding({ id, onRun, ...opts }: {
 // Register delete command with UI in one call
 // For built-in commands, we don't need to manage the disposable since they live
 // for the lifetime of the application
-registerCellCommand('positronNotebook.cell.delete',
-	(cell) => cell.delete(),
+registerCellCommand(
 	{
-		multiSelect: true,  // Delete all selected cells
-		actionBar: {
-			icon: 'codicon-trash',
-			position: 'main',
-			order: 100
+		commandId: 'positronNotebook.cell.delete',
+		handler: (cell) => cell.delete(),
+		options: {
+			multiSelect: true,  // Delete all selected cells
+			actionBar: {
+				icon: 'codicon-trash',
+				position: 'main',
+				order: 100
+			}
+		},
+		metadata: {
+			description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
 		}
 	}
 );

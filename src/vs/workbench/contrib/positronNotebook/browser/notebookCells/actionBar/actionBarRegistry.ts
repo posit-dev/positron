@@ -7,6 +7,7 @@ import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
+import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 
 /**
  * Interface for notebook cell action bar items that define how commands appear in the UI.
@@ -14,6 +15,8 @@ import { ISettableObservable, observableValue } from '../../../../../../base/com
 export interface INotebookCellActionBarItem {
 	/** VS Code command ID to execute */
 	commandId: string;
+	/** Command label, for display purposes, if not defined, use the commandId */
+	label?: ILocalizedString | string;
 	/** Codicon class for the button icon (optional) */
 	icon?: string;
 	/** Location in UI - either main action bar or dropdown menu */

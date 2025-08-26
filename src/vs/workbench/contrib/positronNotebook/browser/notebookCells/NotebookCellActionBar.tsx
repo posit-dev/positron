@@ -76,7 +76,7 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 		{mainActions.map(action => (
 			<ActionButton
 				key={action.commandId}
-				ariaLabel={action.commandId} // TODO: Use CommandCenter.title when available
+				ariaLabel={String(action.label ?? action.commandId)}
 				onPressed={() => handleActionClick(action)}
 			>
 				<div className={`button-icon codicon ${action.icon}`} />

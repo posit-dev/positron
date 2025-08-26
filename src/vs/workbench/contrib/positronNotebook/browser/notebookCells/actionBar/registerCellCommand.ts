@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandMetadata } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
@@ -39,51 +39,64 @@ export interface IRegisterCellCommandOptions {
  * @param commandId The command ID to register
  * @param handler The function to execute with the selected cell(s)
  * @param options Optional configuration for the command and UI
+ * @param metadata Optional command metadata including description, args, and return type. As passed to CommandsRegistry.registerCommand.
  * @returns Disposable to unregister both command and UI
  */
-export function registerCellCommand(
-	commandId: string,
-	handler: (cell: IPositronNotebookCell, accessor: ServicesAccessor) => void,
-	options?: IRegisterCellCommandOptions
-): IDisposable {
+export function registerCellCommand({
+	commandId,
+	handler,
+	options,
+	metadata
+}: {
+	commandId: string;
+	handler: (cell: IPositronNotebookCell, accessor: ServicesAccessor) => void;
+	options?: IRegisterCellCommandOptions;
+	metadata?: ICommandMetadata;
+}): IDisposable {
 	const disposables = new DisposableStore();
 
 	// Register the command
-	const commandDisposable = CommandsRegistry.registerCommand(commandId, (accessor: ServicesAccessor) => {
-		const notebookService = accessor.get(IPositronNotebookService);
-		const activeNotebook = notebookService.getActiveInstance();
-		if (!activeNotebook) {
-			return;
-		}
-
-		if (options?.multiSelect) {
-			// Handle multiple selected cells
-			const currentState = activeNotebook.selectionStateMachine.state.get();
-			let selectedCells: IPositronNotebookCell[] = [];
-
-			if (currentState.type === 'SingleSelection' || currentState.type === 'MultiSelection') {
-				selectedCells = currentState.selected;
-			} else if (currentState.type === 'EditingSelection') {
-				selectedCells = [currentState.selectedCell];
+	const commandDisposable = CommandsRegistry.registerCommand({
+		id: commandId,
+		handler: (accessor: ServicesAccessor) => {
+			const notebookService = accessor.get(IPositronNotebookService);
+			const activeNotebook = notebookService.getActiveInstance();
+			if (!activeNotebook) {
+				return;
 			}
 
-			for (const cell of selectedCells) {
-				handler(cell, accessor);
+			if (options?.multiSelect) {
+				// Handle multiple selected cells
+				const currentState = activeNotebook.selectionStateMachine.state.get();
+				let selectedCells: IPositronNotebookCell[] = [];
+
+				if (currentState.type === 'SingleSelection' || currentState.type === 'MultiSelection') {
+					selectedCells = currentState.selected;
+				} else if (currentState.type === 'EditingSelection') {
+					selectedCells = [currentState.selectedCell];
+				}
+
+				for (const cell of selectedCells) {
+					handler(cell, accessor);
+				}
+			} else {
+				// Handle single cell
+				const cell = activeNotebook.selectionStateMachine.getSelectedCell();
+				if (cell) {
+					handler(cell, accessor);
+				}
 			}
-		} else {
-			// Handle single cell
-			const cell = activeNotebook.selectionStateMachine.getSelectedCell();
-			if (cell) {
-				handler(cell, accessor);
-			}
-		}
+		},
+		metadata: metadata
 	});
 	disposables.add(commandDisposable);
 
 	// Optionally register UI metadata
 	if (options?.actionBar) {
+		const humanReadableLabel = String(metadata?.description ?? commandId);
 		const uiItem: INotebookCellActionBarItem = {
 			commandId,
+			label: humanReadableLabel,
 			icon: options.actionBar.icon,
 			position: options.actionBar.position,
 			order: options.actionBar.order,
