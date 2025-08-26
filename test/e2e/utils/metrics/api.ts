@@ -67,8 +67,9 @@ export async function logMetric(
 	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
 	const payload = createMetricPayload(metric, isElectronApp);
 
-	logger.log(`--- Log Metric: ${payload.feature_area} - ${payload.action} (${payload.target_type}) ---`);
-	logger.log(`Payload: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
+	logger.log(`--- Log Metric ---`);
+	logger.log(`${payload.feature_area} > ${payload.action} > ${payload.target_type}`);
+	logger.log(`Request: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
 
 	return sendMetricRequest(apiUrl, payload, logger);
 }
