@@ -325,7 +325,7 @@ registerCellCommand({
 		primary: KeyCode.KeyA
 	},
 	actionBar: {
-		icon: 'codicon-add',
+		icon: 'codicon-arrow-up',
 		position: 'menu',
 		order: 100
 	},
@@ -341,7 +341,7 @@ registerCellCommand({
 		primary: KeyCode.KeyB
 	},
 	actionBar: {
-		icon: 'codicon-add',
+		icon: 'codicon-arrow-down',
 		position: 'menu',
 		order: 100
 	},

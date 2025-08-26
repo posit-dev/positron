@@ -30,7 +30,7 @@ export function buildMoreActionsMenuItems(
 	return actions.map(action => new CustomContextMenuItem({
 		commandId: action.commandId,
 		label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
-		icon: action.icon,
+		icon: action.icon?.startsWith('codicon-') ? action.icon.slice(8) : action.icon,
 		onSelected: () => {
 			// IMPORTANT: Ensure the cell from this menu is selected before executing
 			// Otherwise the command would operate on whatever cell is currently selected
