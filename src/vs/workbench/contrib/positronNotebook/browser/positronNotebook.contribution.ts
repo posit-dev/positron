@@ -354,7 +354,6 @@ registerNotebookKeybinding({
 });
 
 
-
 /**
  * Register a keybinding for the Positron Notebook editor. These are typically used to intercept
  * existing notebook keybindings/commands and run them on positron notebooks instead.
