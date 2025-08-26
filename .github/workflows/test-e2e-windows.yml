@@ -236,6 +236,7 @@ jobs:
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 

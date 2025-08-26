@@ -86,7 +86,6 @@ permissions:
   packages: read
 
 jobs:
-
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
     timeout-minutes: 120
@@ -201,6 +200,7 @@ jobs:
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
