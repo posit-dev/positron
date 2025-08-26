@@ -28,6 +28,10 @@ import { ScmHistoryItemResolver } from '../../multiDiffEditor/browser/scmMultiDi
 import { ISCMHistoryItem } from '../common/history.js';
 import { ISCMProvider, ISCMService, ISCMViewService } from '../common/scm.js';
 
+// --- Start Positron ---
+import { isWeb } from '../../../../base/common/platform.js';
+// --- End Positron ---
+
 export interface SCMHistoryItemTransferData {
 	readonly name: string;
 	readonly resource: UriComponents;
@@ -95,7 +99,14 @@ class SCMHistoryItemContext implements IChatContextPickerItem {
 
 	isEnabled(_widget: IChatWidget): Promise<boolean> | boolean {
 		const activeRepository = this._scmViewService.activeRepository.get();
+		// --- Start Positron ---
+		// Disable SCM History Chat Context in Positron Web due to path error
+		// See https://github.com/posit-dev/positron/issues/9181
+		return activeRepository?.provider.historyProvider.get() !== undefined && !isWeb;
+		/*
 		return activeRepository?.provider.historyProvider.get() !== undefined;
+		*/
+		// --- End Positron ---
 	}
 
 	asPicker(_widget: IChatWidget) {
