@@ -370,20 +370,45 @@ registerCellCommand(
 	}
 );
 
+// Make sure the run and stop commands are in the same place so they replace one another.
+const CELL_EXECUTION_POSITION = 10;
 registerCellCommand({
 	commandId: 'positronNotebook.cell.executeAndFocusContainer',
 	handler: (cell) => cell.run(),
-	cellCondition: CellConditions.isCode,  // Only show on code cells
+	cellCondition: CellConditions.and(
+		CellConditions.isCode,
+		CellConditions.not(CellConditions.isRunning)
+	),  // Only show on code cells that are not running
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	actionBar: {
 		icon: 'codicon-play',
 		position: 'main',
-		order: 10
+		order: CELL_EXECUTION_POSITION
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.execute', "Execute cell")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.stopExecution',
+	handler: (cell) => cell.run(), // Run called when cell is executing is stop
+	cellCondition: CellConditions.and(
+		CellConditions.isCode,
+		CellConditions.isRunning
+	),  // Only show on code cells that are running
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	},
+	actionBar: {
+		icon: 'codicon-stop',
+		position: 'main',
+		order: CELL_EXECUTION_POSITION
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.stopExecution', "Stop cell execution")
 	}
 });
 

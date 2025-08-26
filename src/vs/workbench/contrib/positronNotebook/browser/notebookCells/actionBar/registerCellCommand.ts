@@ -35,6 +35,9 @@ export interface IRegisterCellCommandOptions {
 	actionBar?: {
 		/** Codicon class for the button icon */
 		icon: string;
+		// TODO: Add ability for custom jsx to be used here that takes the cell
+		// as a prop. Would allow for dynamic icons and more polished
+		// transitions etc..
 		/** Location in UI - either main action bar or dropdown menu */
 		position: 'main' | 'menu';
 		/** Sort order within position (lower numbers appear first) */

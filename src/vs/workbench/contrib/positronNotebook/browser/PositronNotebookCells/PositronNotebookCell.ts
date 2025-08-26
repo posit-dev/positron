@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../../base/common/observableInternal/base.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
@@ -14,7 +13,7 @@ import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPos
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { observableValue } from '../../../../../base/common/observable.js';
+import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
@@ -114,6 +113,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	insertCodeCellBelow(): void {
 		this._instance.insertCodeCellAndFocusContainer('below', this);
 	}
+
 }
 
 
