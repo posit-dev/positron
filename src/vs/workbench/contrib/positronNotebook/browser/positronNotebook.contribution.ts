@@ -323,6 +323,11 @@ registerCellCommand({
 	keybinding: {
 		primary: KeyCode.KeyA
 	},
+	actionBar: {
+		icon: 'codicon-add',
+		position: 'menu',
+		order: 100
+	},
 	metadata: {
 		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
 	}
@@ -333,6 +338,11 @@ registerCellCommand({
 	handler: (cell) => cell.insertCodeCellBelow(),
 	keybinding: {
 		primary: KeyCode.KeyB
+	},
+	actionBar: {
+		icon: 'codicon-add',
+		position: 'menu',
+		order: 100
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
