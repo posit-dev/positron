@@ -1238,6 +1238,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// The session was not interrupted, so we can't delete it.
 				if (!interrupted) {
+					this._logService.debug(`Attempt to delete session ${sessionId} was cancelled by user`);
 					return false;
 				}
 			}
