@@ -39,6 +39,8 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 
 	// Use observable values for reactive updates
 	const mainActions = useObservedValue(registry.mainActions) ?? [];
+	const menuActions = useObservedValue(registry.menuActions) ?? [];
+	const hasMenuActions = menuActions.length > 0;
 
 	// Determine visibility using the extracted hook
 	const shouldShowActionBar = useActionBarVisibility(isHovered, isMenuOpen, selectionStatus);
@@ -81,13 +83,15 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 			</ActionButton>
 		))}
 
-		{/* Dropdown menu for additional actions */}
-		<NotebookCellMoreActionsMenu
-			cell={cell}
-			commandService={commandService}
-			instance={instance}
-			onMenuStateChange={setIsMenuOpen}
-		/>
+		{/* Dropdown menu for additional actions - only render if there are menu actions */}
+		{hasMenuActions ? (
+			<NotebookCellMoreActionsMenu
+				cell={cell}
+				commandService={commandService}
+				instance={instance}
+				onMenuStateChange={setIsMenuOpen}
+			/>
+		) : null}
 	</div>;
 }
 
