@@ -102,7 +102,7 @@ test.describe('Positron notebook opening and saving', {
 		await notebooksPositron.expectToBeVisible();
 
 		// Verify only the expected tab is open (new notebooks are named Untitled-N.ipynb)
-		await editors.waitForTab('Untitled-1.ipynb', true); // true = isDirty
+		await editors.waitForTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty
 
 		// Count tabs before reload (checking for multiple tabs with same file is the ghost editor symptom)
 		const tabsBefore = await app.code.driver.page.locator('.tabs-container div.tab').count();
@@ -133,6 +133,6 @@ test.describe('Positron notebook opening and saving', {
 		test.expect(vscodeNotebookElements).toBe(0);
 
 		// Additional verification: ensure the active tab is still the restored untitled notebook
-		await editors.waitForActiveTab('Untitled-1.ipynb', true); // true = isDirty
+		await editors.waitForActiveTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty
 	});
 });
