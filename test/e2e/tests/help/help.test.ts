@@ -17,7 +17,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await settings.set({ 'workbench.reduceMotion': 'on' }, { reload: 'web' });
 	});
 
-	test('Python - Verify halp landing page', { tag: [tags.WIN] }, async function ({ app }) {
+	test('Python - Verify Help landing page', { tag: [tags.WIN] }, async function ({ app }) {
 
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.help.openHelpPanel();
