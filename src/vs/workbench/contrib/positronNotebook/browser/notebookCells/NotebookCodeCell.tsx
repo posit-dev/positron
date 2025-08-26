@@ -15,7 +15,6 @@ import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
-import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { CellTextOutput } from './CellTextOutput.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
@@ -59,10 +58,10 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const isRunning = executionStatus === 'running';
 
 	return (
-		<NotebookCellWrapper cell={cell}>
-			<NotebookCellActionBar cell={cell}>
-				<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />
-			</NotebookCellActionBar>
+		<NotebookCellWrapper
+			actionBarChildren={<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />}
+			cell={cell}
+		>
 			<div className='positron-notebook-code-cell-contents'>
 				<CellEditorMonacoWidget cell={cell} />
 				<CellOutputsSection outputs={outputContents} />
