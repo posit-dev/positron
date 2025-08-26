@@ -42,7 +42,8 @@ export class PositronAssistantApi {
 		// Add context about the active sessions
 		let sessionCount = 0;
 		let allSessions = '';
-		for (const reference of request.references) {
+		const allReferences = request?.references || [];
+		for (const reference of allReferences) {
 			const value = reference.value as any;
 			if (value.activeSession) {
 				const sessionSummary = JSON.stringify(value.activeSession, null, 2);
@@ -96,7 +97,8 @@ export function getEnabledTools(
 	const activeSessions: Set<string> = new Set();
 	let hasVariables = false;
 	let hasConsoleSessions = false;
-	for (const reference of request.references) {
+	const allReferences = request?.references || [];
+	for (const reference of allReferences) {
 		const value = reference.value as any;
 
 		// Build a list of languages for which we have active sessions.
