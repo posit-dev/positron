@@ -13,6 +13,7 @@ import { ContextKeyExpression } from '../../../../../../platform/contextkey/comm
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
+import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
 
 
 /**
@@ -23,8 +24,12 @@ export interface IRegisterCellCommandOptions {
 	commandId: string;
 	/** The function to execute when the command is invoked, receives the active notebook instance and services accessor */
 	handler: (cell: IPositronNotebookCell, accessor: ServicesAccessor) => void;
+
 	/** If true, handler is called for each selected cell */
 	multiSelect?: boolean;
+
+	/** Cell-specific condition that determines if this command applies to a given cell */
+	cellCondition?: CellConditionPredicate;
 
 	/** Optional UI registration for the action bar */
 	actionBar?: {
@@ -60,11 +65,28 @@ export function registerCellCommand({
 	commandId,
 	handler,
 	multiSelect,
+	cellCondition,
 	actionBar,
 	keybinding,
 	metadata
 }: IRegisterCellCommandOptions): IDisposable {
 	const disposables = new DisposableStore();
+
+	// Helper to check if a cell passes the cell condition
+	const cellPassesCondition = (cell: IPositronNotebookCell, activeNotebook: any) => {
+		if (!cellCondition) {
+			return true;
+		}
+
+		const cells = activeNotebook.cells.get();
+		const cellIndex = cells.indexOf(cell);
+		if (cellIndex === -1) {
+			return false;
+		}
+
+		const cellInfo = createCellInfo(cell, cellIndex, cells.length);
+		return cellCondition(cellInfo);
+	};
 
 	// Register the command
 	const commandDisposable = CommandsRegistry.registerCommand({
@@ -87,13 +109,16 @@ export function registerCellCommand({
 					selectedCells = [currentState.selectedCell];
 				}
 
+				// Filter cells based on cell condition and execute handler
 				for (const cell of selectedCells) {
-					handler(cell, accessor);
+					if (cellPassesCondition(cell, activeNotebook)) {
+						handler(cell, accessor);
+					}
 				}
 			} else {
 				// Handle single cell
 				const cell = activeNotebook.selectionStateMachine.getSelectedCell();
-				if (cell) {
+				if (cell && cellPassesCondition(cell, activeNotebook)) {
 					handler(cell, accessor);
 				}
 			}
@@ -112,7 +137,8 @@ export function registerCellCommand({
 			position: actionBar.position,
 			order: actionBar.order,
 			when: actionBar.when,
-			needsCellContext: true  // Always true for cell commands
+			needsCellContext: true,  // Always true for cell commands
+			cellCondition  // Pass cell condition to action bar registry
 		};
 
 		const uiDisposable = NotebookCellActionBarRegistry.getInstance().register(uiItem);

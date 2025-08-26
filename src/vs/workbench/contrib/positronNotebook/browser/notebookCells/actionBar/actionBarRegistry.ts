@@ -8,6 +8,7 @@ import { ContextKeyExpression } from '../../../../../../platform/contextkey/comm
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
+import { CellConditionPredicate } from './cellConditions.js';
 
 /**
  * Interface for notebook cell action bar items that define how commands appear in the UI.
@@ -27,6 +28,8 @@ export interface INotebookCellActionBarItem {
 	when?: ContextKeyExpression;
 	/** If true, the cell will be selected before executing the command */
 	needsCellContext?: boolean;
+	/** Cell-specific condition that determines if this command applies to a given cell */
+	cellCondition?: CellConditionPredicate;
 }
 
 

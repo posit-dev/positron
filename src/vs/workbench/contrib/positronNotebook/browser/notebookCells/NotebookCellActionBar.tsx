@@ -21,6 +21,7 @@ import { useActionBarVisibility } from './actionBar/useActionBarVisibility.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBar/actionBarRegistry.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { createCellInfo } from './actionBar/cellConditions.js';
 
 
 interface NotebookCellActionBarProps {
@@ -38,8 +39,22 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 	const selectionStatus = useSelectionStatus(cell);
 
 	// Use observable values for reactive updates
-	const mainActions = useObservedValue(registry.mainActions) ?? [];
-	const menuActions = useObservedValue(registry.menuActions) ?? [];
+	const allMainActions = useObservedValue(registry.mainActions) ?? [];
+	const allMenuActions = useObservedValue(registry.menuActions) ?? [];
+
+	// Filter actions based on cell conditions
+	const cells = instance.cells.get();
+	const cellIndex = cells.indexOf(cell);
+	const cellInfo = createCellInfo(cell, cellIndex, cells.length);
+
+	const mainActions = allMainActions.filter(action => {
+		return !action.cellCondition || action.cellCondition(cellInfo);
+	});
+
+	const menuActions = allMenuActions.filter(action => {
+		return !action.cellCondition || action.cellCondition(cellInfo);
+	});
+
 	const hasMenuActions = menuActions.length > 0;
 
 	// Determine visibility using the extracted hook
@@ -89,6 +104,7 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 				cell={cell}
 				commandService={commandService}
 				instance={instance}
+				menuActions={menuActions}
 				onMenuStateChange={setIsMenuOpen}
 			/>
 		) : null}

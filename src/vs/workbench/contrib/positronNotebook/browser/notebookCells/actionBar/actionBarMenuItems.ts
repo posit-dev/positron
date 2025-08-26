@@ -9,7 +9,7 @@ import { CustomContextMenuEntry } from '../../../../../../workbench/browser/posi
 import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
-import { NotebookCellActionBarRegistry } from './actionBarRegistry.js';
+import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 
 /**
  * Build the menu entries for the "more actions" dropdown menu.
@@ -18,16 +18,16 @@ import { NotebookCellActionBarRegistry } from './actionBarRegistry.js';
 export function buildMoreActionsMenuItems(
 	instance: IPositronNotebookInstance,
 	commandService: ICommandService,
-	cell: IPositronNotebookCell
+	cell: IPositronNotebookCell,
+	menuActions?: INotebookCellActionBarItem[]
 ): CustomContextMenuEntry[] {
-	const registry = NotebookCellActionBarRegistry.getInstance();
-	// Get current value from observable
-	const menuActions = registry.menuActions.get();
+	// Use provided menuActions or fallback to getting all from registry
+	const actions = menuActions ?? NotebookCellActionBarRegistry.getInstance().menuActions.get();
 
 	// Convert registry items to menu entries
 	// For PR1, this will return empty as no menu actions are registered yet
 	// PR2 will add copy/paste actions here
-	return menuActions.map(action => new CustomContextMenuItem({
+	return actions.map(action => new CustomContextMenuItem({
 		commandId: action.commandId,
 		label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
 		icon: action.icon,

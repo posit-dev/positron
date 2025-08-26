@@ -1,0 +1,108 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { CellKind, IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+
+/**
+ * Information about a cell's type and position within a notebook.
+ * This is passed to cell condition predicates to determine if a command should be available.
+ */
+export interface ICellInfo {
+	/** The type of cell: code, markdown, or raw */
+	cellType: 'code' | 'markdown' | 'raw';
+	/** Zero-based index of the cell within the notebook */
+	cellIndex: number;
+	/** Total number of cells in the notebook */
+	totalCells: number;
+	/** True if this is the first cell in the notebook */
+	isFirstCell: boolean;
+	/** True if this is the last cell in the notebook */
+	isLastCell: boolean;
+	/** True if this is the only cell in the notebook */
+	isOnlyCell: boolean;
+}
+
+/**
+ * A predicate function that determines if a command should be available for a specific cell.
+ * @param cellInfo Information about the cell's type and position
+ * @returns True if the command should be available for this cell
+ */
+export type CellConditionPredicate = (cellInfo: ICellInfo) => boolean;
+
+/**
+ * Creates ICellInfo from a cell and its position in the notebook.
+ * @param cell The notebook cell
+ * @param cellIndex The cell's index in the notebook
+ * @param totalCells Total number of cells in the notebook
+ * @returns Cell information object
+ */
+export function createCellInfo(
+	cell: IPositronNotebookCell,
+	cellIndex: number,
+	totalCells: number
+): ICellInfo {
+	return {
+		cellType: cell.kind === CellKind.Code ? 'code' :
+			cell.kind === CellKind.Markup ? 'markdown' : 'raw',
+		cellIndex,
+		totalCells,
+		isFirstCell: cellIndex === 0,
+		isLastCell: cellIndex === totalCells - 1,
+		isOnlyCell: totalCells === 1
+	};
+}
+
+/**
+ * Convenience condition builders for common cell filtering scenarios.
+ */
+export const CellConditions = {
+	/** Only code cells */
+	isCode: (info: ICellInfo) => info.cellType === 'code',
+
+	/** Only markdown cells */
+	isMarkdown: (info: ICellInfo) => info.cellType === 'markdown',
+
+	/** Only raw cells */
+	isRaw: (info: ICellInfo) => info.cellType === 'raw',
+
+	/** Not the first cell (has cells above) */
+	notFirst: (info: ICellInfo) => !info.isFirstCell,
+
+	/** Not the last cell (has cells below) */
+	notLast: (info: ICellInfo) => !info.isLastCell,
+
+	/** Not the only cell (has other cells) */
+	notOnly: (info: ICellInfo) => !info.isOnlyCell,
+
+	/** Is the first cell */
+	isFirst: (info: ICellInfo) => info.isFirstCell,
+
+	/** Is the last cell */
+	isLast: (info: ICellInfo) => info.isLastCell,
+
+	/** Is the only cell */
+	isOnly: (info: ICellInfo) => info.isOnlyCell,
+
+	/**
+	 * Combines multiple predicates with AND logic.
+	 * All predicates must return true for the condition to pass.
+	 */
+	and: (...predicates: CellConditionPredicate[]): CellConditionPredicate =>
+		(info: ICellInfo) => predicates.every(p => p(info)),
+
+	/**
+	 * Combines multiple predicates with OR logic.
+	 * At least one predicate must return true for the condition to pass.
+	 */
+	or: (...predicates: CellConditionPredicate[]): CellConditionPredicate =>
+		(info: ICellInfo) => predicates.some(p => p(info)),
+
+	/**
+	 * Negates a predicate.
+	 * Returns true when the predicate returns false.
+	 */
+	not: (predicate: CellConditionPredicate): CellConditionPredicate =>
+		(info: ICellInfo) => !predicate(info)
+};

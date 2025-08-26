@@ -14,11 +14,13 @@ import { IPositronNotebookInstance } from '../../../../../services/positronNoteb
 import { IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { CellActionButton } from './CellActionButton.js';
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
+import { INotebookCellActionBarItem } from './actionBarRegistry.js';
 
 interface NotebookCellMoreActionsMenuProps {
 	instance: IPositronNotebookInstance;
 	commandService: ICommandService;
 	cell: IPositronNotebookCell;
+	menuActions: INotebookCellActionBarItem[];
 	onMenuStateChange: (isOpen: boolean) => void;
 }
 
@@ -30,6 +32,7 @@ export function NotebookCellMoreActionsMenu({
 	instance,
 	commandService,
 	cell,
+	menuActions,
 	onMenuStateChange
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
@@ -40,7 +43,7 @@ export function NotebookCellMoreActionsMenu({
 			return;
 		}
 
-		const entries = buildMoreActionsMenuItems(instance, commandService, cell);
+		const entries = buildMoreActionsMenuItems(instance, commandService, cell, menuActions);
 
 		onMenuStateChange(true);
 		setIsMenuOpen(true);

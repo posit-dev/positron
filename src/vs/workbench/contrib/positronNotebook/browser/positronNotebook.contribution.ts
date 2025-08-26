@@ -35,6 +35,7 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
+import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
 
 
 /**
@@ -356,8 +357,8 @@ registerCellCommand(
 		multiSelect: true,  // Delete all selected cells
 		actionBar: {
 			icon: 'codicon-trash',
-				position: 'main',
-				order: 100
+			position: 'main',
+			order: 100
 		},
 		keybinding: {
 			primary: KeyCode.Backspace,
@@ -390,6 +391,7 @@ registerCellCommand({
 			notebook.selectionStateMachine.moveDown(false);
 		}
 	},
+	cellCondition: CellConditions.isCode,  // Only show on code cells
 	keybinding: {
 		primary: KeyMod.Shift | KeyCode.Enter
 	},
@@ -397,6 +399,91 @@ registerCellCommand({
 		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
 	}
 });
+
+// Example of position-based conditions
+registerCellCommand({
+	commandId: 'positronNotebook.cell.runAllAbove',
+	handler: (cell, accessor) => {
+		const notebookService = accessor.get(IPositronNotebookService);
+		const notebook = notebookService.getActiveInstance();
+		if (!notebook) { return; }
+
+		const cells = notebook.cells.get();
+		const cellIndex = cells.indexOf(cell);
+
+		// Run all code cells above the current cell
+		for (let i = 0; i < cellIndex; i++) {
+			const targetCell = cells[i];
+			if (targetCell.isCodeCell()) {
+				targetCell.run();
+			}
+		}
+	},
+	cellCondition: CellConditions.and(
+		CellConditions.isCode,     // Only on code cells
+		CellConditions.notFirst    // Not on the first cell
+	),
+	actionBar: {
+		icon: 'codicon-run-above',
+		position: 'menu',
+		order: 20
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.runAllAbove', "Run all code cells above this cell")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.runAllBelow',
+	handler: (cell, accessor) => {
+		const notebookService = accessor.get(IPositronNotebookService);
+		const notebook = notebookService.getActiveInstance();
+		if (!notebook) { return; }
+
+		const cells = notebook.cells.get();
+		const cellIndex = cells.indexOf(cell);
+
+		// Run all code cells below the current cell
+		for (let i = cellIndex + 1; i < cells.length; i++) {
+			const targetCell = cells[i];
+			if (targetCell.isCodeCell()) {
+				targetCell.run();
+			}
+		}
+	},
+	cellCondition: CellConditions.and(
+		CellConditions.isCode,     // Only on code cells
+		CellConditions.notLast     // Not on the last cell
+	),
+	actionBar: {
+		icon: 'codicon-run-below',
+		position: 'menu',
+		order: 21
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.runAllBelow', "Run all code cells below this cell")
+	}
+});
+
+// Markdown cell toggle editor command
+registerCellCommand({
+	commandId: 'positronNotebook.cell.toggleMarkdownEditor',
+	handler: (cell) => {
+		if (cell.isMarkdownCell()) {
+			cell.toggleEditor();
+		}
+	},
+	cellCondition: CellConditions.isMarkdown,  // Only on markdown cells
+	actionBar: {
+		icon: 'codicon-primitive-square',  // Will need to be dynamic based on editor state
+		position: 'main',
+		order: 10
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor visibility")
+	}
+});
+
 //#endregion Cell Commands
 
 
