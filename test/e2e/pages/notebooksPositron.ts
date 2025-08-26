@@ -360,7 +360,7 @@ export class PositronNotebooks extends Notebooks {
 			await cell.hover();
 
 			// Find and click the delete button in the action bar
-			const deleteButton = cell.getByLabel('positronNotebook.cell.delete');
+			const deleteButton = cell.getByLabel(/delete the selected cell/i);
 
 			// Wait for the delete button to be visible
 			await expect(deleteButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
