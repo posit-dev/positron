@@ -38,27 +38,33 @@ export function NotebookCellMoreActionsMenu({
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
-	const showMoreActionsMenu = async () => {
+	const showMoreActionsMenu = () => {
 		if (!buttonRef.current) {
 			return;
 		}
 
-		const entries = buildMoreActionsMenuItems(instance, commandService, cell, menuActions);
-
-		onMenuStateChange(true);
-		setIsMenuOpen(true);
-
 		try {
-			await showCustomContextMenu({
+			const entries = buildMoreActionsMenuItems(instance, commandService, cell, menuActions);
+
+			setIsMenuOpen(true);
+			onMenuStateChange(true);
+
+			showCustomContextMenu({
 				anchorElement: buttonRef.current,
 				popupPosition: 'auto',
 				popupAlignment: 'auto',
 				width: 'auto',
-				entries
+				entries,
+				onClose: () => {
+					setIsMenuOpen(false);
+					onMenuStateChange(false);
+				}
 			});
-		} finally {
-			onMenuStateChange(false);
+		} catch (error) {
+			// If the menu fails to show for whatever reason, make sure we don't
+			// get stuck in a bad state.
 			setIsMenuOpen(false);
+			onMenuStateChange(false);
 		}
 	};
 
