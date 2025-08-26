@@ -64,11 +64,28 @@ export async function logMetric(
 		};
 	}
 
-	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
+	// Determine the API URL based on the branch
+	// In GitHub Actions, GITHUB_HEAD_REF contains the branch name for PRs
+	// and GITHUB_REF contains ref path (refs/heads/branch) for push events
+	let branch: string | undefined;
+
+	if (process.env.GITHUB_HEAD_REF) {
+		// This is a pull request event
+		branch = process.env.GITHUB_HEAD_REF;
+	} else if (process.env.GITHUB_REF) {
+		// This is a push event - extract branch name from refs/heads/branch
+		const match = process.env.GITHUB_REF.match(/^refs\/heads\/(.+)$/);
+		if (match) {
+			branch = match[1];
+		}
+	}
+
+	const apiUrl = branch === 'main' ? PROD_API_URL : LOCAL_API_URL;
 	const payload = createMetricPayload(metric, isElectronApp);
 
 	logger.log(`--- Log Metric ---`);
-	logger.log(`${payload.feature_area} > ${payload.action} > ${payload.target_type}`);
+	logger.log(`Current branch: ${branch || 'unknown'}`);
+	logger.log(`Metric: ${payload.feature_area} > ${payload.action} > ${payload.target_type}`);
 	logger.log(`Request: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
 
 	return sendMetricRequest(apiUrl, payload, logger);
