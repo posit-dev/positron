@@ -5,12 +5,12 @@
 
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { ICommandMetadata, CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
-import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 
 /**
  * Helper function to register a command that operates on the notebook instance.
@@ -29,22 +29,7 @@ export function registerNotebookCommand({
 }: {
 	commandId: string;
 	handler: (notebook: IPositronNotebookInstance, accessor: ServicesAccessor) => void;
-	keybinding?: {
-		/** Primary keybinding */
-		primary?: number;
-		/** Secondary keybindings */
-		secondary?: number[];
-		/** Platform-specific keybindings for macOS */
-		mac?: { primary: number; secondary?: number[]; };
-		/** Platform-specific keybindings for Windows */
-		win?: { primary: number; secondary?: number[]; };
-		/** Platform-specific keybindings for Linux */
-		linux?: { primary: number; secondary?: number[]; };
-		/** Keybinding weight (defaults to KeybindingWeight.EditorContrib) */
-		weight?: number;
-		/** Context condition (defaults to POSITRON_NOTEBOOK_EDITOR_FOCUSED) */
-		when?: ContextKeyExpression;
-	};
+		keybinding?: IPositronNotebookCommandKeybinding;
 	metadata?: ICommandMetadata;
 }): IDisposable {
 	const disposables = new DisposableStore();

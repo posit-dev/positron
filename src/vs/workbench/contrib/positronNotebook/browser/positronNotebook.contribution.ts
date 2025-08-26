@@ -267,10 +267,8 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 registerCellCommand({
 	commandId: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
 	handler: (cell) => cell.insertCodeCellAbove(),
-	options: {
-		keybinding: {
-			primary: KeyCode.KeyA
-		}
+	keybinding: {
+		primary: KeyCode.KeyA
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
@@ -280,10 +278,8 @@ registerCellCommand({
 registerCellCommand({
 	commandId: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
 	handler: (cell) => cell.insertCodeCellBelow(),
-	options: {
-		keybinding: {
-			primary: KeyCode.KeyB
-		}
+	keybinding: {
+		primary: KeyCode.KeyB
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
@@ -341,10 +337,8 @@ registerNotebookCommand({
 registerCellCommand({
 	commandId: 'positronNotebook.cell.executeAndFocusContainer',
 	handler: (cell) => cell.run(),
-	options: {
-		keybinding: {
-			primary: KeyMod.CtrlCmd | KeyCode.Enter
-		}
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.execute', "Execute cell")
@@ -361,10 +355,8 @@ registerCellCommand({
 			notebook.selectionStateMachine.moveDown(false);
 		}
 	},
-	options: {
-		keybinding: {
-			primary: KeyMod.Shift | KeyCode.Enter
-		}
+	keybinding: {
+		primary: KeyMod.Shift | KeyCode.Enter
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
@@ -382,17 +374,15 @@ registerCellCommand(
 	{
 		commandId: 'positronNotebook.cell.delete',
 		handler: (cell) => cell.delete(),
-		options: {
-			multiSelect: true,  // Delete all selected cells
-			actionBar: {
-				icon: 'codicon-trash',
+		multiSelect: true,  // Delete all selected cells
+		actionBar: {
+			icon: 'codicon-trash',
 				position: 'main',
 				order: 100
-			},
-			keybinding: {
-				primary: KeyCode.Backspace,
-				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
-			}
+		},
+		keybinding: {
+			primary: KeyCode.Backspace,
+			secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
 		},
 		metadata: {
 			description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
