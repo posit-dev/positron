@@ -261,31 +261,7 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 );
 
 
-//#region Keybindings
-
-
-registerCellCommand({
-	commandId: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
-	handler: (cell) => cell.insertCodeCellAbove(),
-	keybinding: {
-		primary: KeyCode.KeyA
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
-	}
-});
-
-registerCellCommand({
-	commandId: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
-	handler: (cell) => cell.insertCodeCellBelow(),
-	keybinding: {
-		primary: KeyCode.KeyB
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
-	}
-});
-
+//#region Notebook Commands
 registerNotebookCommand({
 	commandId: 'positronNotebook.focusUp',
 	handler: (notebook) => notebook.selectionStateMachine.moveUp(false),
@@ -334,6 +310,55 @@ registerNotebookCommand({
 	}
 });
 
+//#endregion Notebook Commands
+
+//#region Cell Commands
+// Register delete command with UI in one call
+// For built-in commands, we don't need to manage the disposable since they live
+// for the lifetime of the application
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
+	handler: (cell) => cell.insertCodeCellAbove(),
+	keybinding: {
+		primary: KeyCode.KeyA
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
+	handler: (cell) => cell.insertCodeCellBelow(),
+	keybinding: {
+		primary: KeyCode.KeyB
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
+	}
+});
+
+registerCellCommand(
+	{
+		commandId: 'positronNotebook.cell.delete',
+		handler: (cell) => cell.delete(),
+		multiSelect: true,  // Delete all selected cells
+		actionBar: {
+			icon: 'codicon-trash',
+				position: 'main',
+				order: 100
+		},
+		keybinding: {
+			primary: KeyCode.Backspace,
+			secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
+		},
+		metadata: {
+			description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
+		}
+	}
+);
+
 registerCellCommand({
 	commandId: 'positronNotebook.cell.executeAndFocusContainer',
 	handler: (cell) => cell.run(),
@@ -362,33 +387,6 @@ registerCellCommand({
 		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
 	}
 });
-
-
-//#endregion Keybindings
-
-//#region Cell Commands
-// Register delete command with UI in one call
-// For built-in commands, we don't need to manage the disposable since they live
-// for the lifetime of the application
-registerCellCommand(
-	{
-		commandId: 'positronNotebook.cell.delete',
-		handler: (cell) => cell.delete(),
-		multiSelect: true,  // Delete all selected cells
-		actionBar: {
-			icon: 'codicon-trash',
-				position: 'main',
-				order: 100
-		},
-		keybinding: {
-			primary: KeyCode.Backspace,
-			secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
-		},
-		metadata: {
-			description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
-		}
-	}
-);
 //#endregion Cell Commands
 
 
