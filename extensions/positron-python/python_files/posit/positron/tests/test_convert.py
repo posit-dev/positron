@@ -769,7 +769,7 @@ def test_sqlalchemy_connection_code():
 
     # Check the returned SQL code
     expected_code = """# table = sqlalchemy.Table(
-        #    test, sqlalchemy.MetaData(), autoload_with=conn, schema=main
+        #    test, sqlalchemy.MetaData(), autoload_with=conn, schema='main'
         # ) # where conn is your connection variable
         # test = pd.read_sql(sqlalchemy.sql.select(table, conn.connect()))
         """

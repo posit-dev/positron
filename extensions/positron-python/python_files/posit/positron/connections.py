@@ -722,9 +722,9 @@ class SQLAlchemyConnection(Connection):
         )
         stmt = sqlalchemy.sql.select(table).limit(1000)
         sql_string = f"""# table = sqlalchemy.Table(
-        #    {table.name}, sqlalchemy.MetaData(), autoload_with=conn, schema={schema.name}
+        #    {table.name!r}, sqlalchemy.MetaData(), autoload_with=conn, schema={schema.name!r}
         # ) # where conn is your connection variable
-        # {table.name} = pd.read_sql(sqlalchemy.sql.select(table, conn.connect()))
+        # {table.name} = pd.read_sql(sqlalchemy.sql.select(table), conn.connect())
         """
         # using conn.connect() is safer then using the conn directly and is also supported
         # with older pandas versions such as 1.5
