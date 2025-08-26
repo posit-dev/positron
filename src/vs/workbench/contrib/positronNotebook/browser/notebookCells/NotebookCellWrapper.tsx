@@ -21,7 +21,7 @@ import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 
 export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	cell: IPositronNotebookCell;
-	actionBarChildren: React.ReactNode;
+	actionBarChildren?: React.ReactNode;
 	children: React.ReactNode;
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);

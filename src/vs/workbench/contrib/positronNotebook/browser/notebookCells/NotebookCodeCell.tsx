@@ -16,27 +16,11 @@ import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { CellTextOutput } from './CellTextOutput.js';
-import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellExecutionInfoIcon } from './CellExecutionInfoIcon.js';
 
-interface CellExecutionControlsProps {
-	isRunning: boolean;
-	onRun: () => void;
-}
-
-function CellExecutionControls({ isRunning, onRun }: CellExecutionControlsProps) {
-	return (
-		<ActionButton
-			ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
-			onPressed={onRun}
-		>
-			<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-		</ActionButton>
-	);
-}
 
 interface CellOutputsSectionProps {
 	outputs: NotebookCellOutputs[] | undefined;
@@ -54,12 +38,9 @@ function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
-	const executionStatus = useObservedValue(cell.executionStatus);
-	const isRunning = executionStatus === 'running';
 
 	return (
 		<NotebookCellWrapper
-			actionBarChildren={<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />}
 			cell={cell}
 		>
 			<div className='positron-notebook-code-cell-contents'>

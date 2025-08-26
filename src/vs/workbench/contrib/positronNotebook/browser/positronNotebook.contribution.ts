@@ -373,8 +373,14 @@ registerCellCommand(
 registerCellCommand({
 	commandId: 'positronNotebook.cell.executeAndFocusContainer',
 	handler: (cell) => cell.run(),
+	cellCondition: CellConditions.isCode,  // Only show on code cells
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	},
+	actionBar: {
+		icon: 'codicon-play',
+		position: 'main',
+		order: 10
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.execute', "Execute cell")
