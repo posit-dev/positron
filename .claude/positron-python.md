@@ -20,17 +20,7 @@ extensions/positron-python/
 
 ## Development Environment Setup
 
-### Prerequisites
-- Node.js 20.12.1+
-- Python 3.9+ (supports 3.9-3.13)
-- uv (for Python dependency management)
-
-### Initial Setup
-```bash
-# From extensions/positron-python/
-npm ci --fetch-timeout 120000
-npm run prePublish
-```
+We assume for now that the user is responsible for setting up their development environment.
 
 ## Testing Framework
 
@@ -55,7 +45,6 @@ python -m pytest positron/tests/test_data_explorer.py::test_specific_function -v
 ```
 
 ### Test Requirements
-- **Test Environment**: Use pinned-test-requirements.txt for consistent CI behavior
 - **Module Resolution**: Always run pytest from `python_files/posit` directory
 - **No Main Blocks**: Never use `if __name__ == "__main__"` in test files
 
@@ -65,11 +54,8 @@ python -m pytest positron/tests/test_data_explorer.py::test_specific_function -v
 Code formatting is handled automatically via Claude Code hooks using ruff format.
 
 ### Manual Quality Checks
-```bash
-# TypeScript linting and formatting
-npm run lint
-npm run format-check
 
+```bash
 # Python linting (from python_files/)
 ruff check .
 ruff format --check
@@ -156,11 +142,6 @@ def test_function_with_various_inputs():
         assert result == expected
 ```
 
-### Performance Considerations
-- **Efficient algorithms**: Choose optimal time complexity for large datasets
-- **Memory usage**: Stream data when possible, avoid unnecessary copies
-- **Lazy evaluation**: Use generators and lazy operations where appropriate
-
 ## Troubleshooting
 
 ### Common Issues
@@ -168,11 +149,3 @@ def test_function_with_various_inputs():
 2. **Module not found**: Check that your Python environment has required packages
 3. **Test failures**: Ensure test requirements are installed
 4. **Type errors**: Run pyright to catch type issues early
-
-### Debugging Tips
-- **Python Console**: Use Positron's Python console for interactive debugging
-- **Logging**: Add logging statements to trace execution flow
-- **Step-through debugging**: Use Positron's debugger for complex issues
-- **Performance profiling**: Time critical sections when optimizing
-
-This development guide ensures consistent, high-quality development practices for the Positron Python extension while maintaining compatibility with the broader data science ecosystem.
