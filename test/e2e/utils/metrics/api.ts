@@ -5,7 +5,14 @@
 
 import { request } from 'undici';
 import { MultiLogger } from '../../infra/logger.js';
-import { CONNECT_API_KEY, PROD_API_URL, LOCAL_API_URL, platformOs, platformVersion, MetricResponse } from './metric-base.js';
+import {
+	CONNECT_API_KEY,
+	PROD_API_URL,
+	LOCAL_API_URL,
+	platformOs,
+	platformVersion,
+	MetricResponse
+} from './metric-base.js';
 import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 
 export type PerfMetric = {
@@ -19,26 +26,69 @@ export type PerfMetric = {
 	spec_name?: string;
 };
 
+export type MetricPayload = {
+	timestamp: string;
+	platform_os: string;
+	platform_version: string;
+	runtime_env: string;
+	run_id: string;
+	feature_area: string;
+	action: string;
+	target_type: string;
+	duration_ms: number;
+	status: string;
+	target_description?: string;
+	spec_name: string;
+	context: string;
+};
+
 /**
  * Logs a performance metric to the configured endpoint
  *
  * @param metric The performance metric to log
+ * @param isElectronApp Whether the metric is from an Electron app
  * @param logger Logger for recording status and debugging information
  * @returns Response with status code and message
  */
-export async function logMetric({
-	feature_area,
-	action,
-	target_type,
-	target_description,
-	duration_ms,
-	status = 'success',
-	context_json = {},
-	spec_name
-}: PerfMetric, isElectronApp: boolean, logger: MultiLogger): Promise<MetricResponse> {
-	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
+export async function logMetric(
+	metric: PerfMetric,
+	isElectronApp: boolean,
+	logger: MultiLogger
+): Promise<MetricResponse> {
+	if (process.env.CI && !CONNECT_API_KEY) {
+		logger.log('Missing CONNECT_API_KEY. Skipping metric logging.');
+		return {
+			statusCode: 0,
+			ok: false,
+			body: 'No API key configured'
+		};
+	}
 
-	const payload = {
+	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
+	const payload = createMetricPayload(metric, isElectronApp);
+
+	logger.log(`--- Log Metric: ${payload.feature_area} - ${payload.action} (${payload.target_type}) ---`);
+	logger.log(`Payload: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
+
+	return sendMetricRequest(apiUrl, payload, logger);
+}
+
+/**
+ * Creates a metric payload from the provided metric data
+ */
+function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): MetricPayload {
+	const {
+		feature_area,
+		action,
+		target_type,
+		target_description,
+		duration_ms,
+		status = 'success',
+		context_json = {},
+		spec_name
+	} = metric;
+
+	return {
 		timestamp: new Date().toISOString(),
 		platform_os: platformOs,
 		platform_version: platformVersion,
@@ -50,13 +100,19 @@ export async function logMetric({
 		duration_ms,
 		status,
 		target_description,
-		spec_name: spec_name || SPEC_NAME,  // Use provided spec_name or fall back to global SPEC_NAME
+		spec_name: spec_name || SPEC_NAME,
 		context: JSON.stringify(context_json)
 	};
+}
 
-	logger.log(`--- Log Metric: ${payload.feature_area} - ${payload.action} - ${payload.target_type} ---`);
-	logger.log(`Payload: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
-
+/**
+ * Sends the metric request to the API endpoint
+ */
+async function sendMetricRequest(
+	apiUrl: string,
+	payload: MetricPayload,
+	logger: MultiLogger
+): Promise<MetricResponse> {
 	try {
 		const response = await request(apiUrl, {
 			method: 'POST',
@@ -68,7 +124,7 @@ export async function logMetric({
 		});
 
 		const responseBody = await response.body.text();
-		logger.log(`Response body: ${responseBody}`);
+		logger.log(`Response: ${responseBody}`);
 
 		return {
 			statusCode: response.statusCode,
@@ -76,20 +132,27 @@ export async function logMetric({
 			body: responseBody
 		};
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		const errorCode = error instanceof Error && 'code' in error ?
-			(error as Error & { code: string | number }).code : 'No code';
-
-		logger.log('Error details:', {
-			message: errorMessage,
-			code: errorCode,
-			url: apiUrl
-		});
-
-		return {
-			statusCode: 0,
-			ok: false,
-			body: `Error: ${errorMessage}`
-		};
+		return handleRequestError(error, apiUrl, logger);
 	}
+}
+
+/**
+ * Handles errors from the API request
+ */
+function handleRequestError(error: unknown, apiUrl: string, logger: MultiLogger): MetricResponse {
+	const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+	const errorCode = error instanceof Error && 'code' in error ?
+		(error as Error & { code: string | number }).code : 'No code';
+
+	logger.log('Error details:', {
+		message: errorMessage,
+		code: errorCode,
+		url: apiUrl
+	});
+
+	return {
+		statusCode: 0,
+		ok: false,
+		body: `Error: ${errorMessage}`
+	};
 }
