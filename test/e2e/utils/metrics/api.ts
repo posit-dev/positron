@@ -64,11 +64,17 @@ export async function logMetric(
 		};
 	}
 
-	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
+	// Determine the API URL based on the branch
+	const branch =
+		process.env.GITHUB_HEAD_REF || // PRs
+		process.env.GITHUB_REF_NAME;   // Push, dispatch, etc.
+
+	const apiUrl = branch === 'main' ? PROD_API_URL : LOCAL_API_URL;
 	const payload = createMetricPayload(metric, isElectronApp);
 
 	logger.log(`--- Log Metric ---`);
-	logger.log(`${payload.feature_area} > ${payload.action} > ${payload.target_type}`);
+	logger.log(`Current branch: ${branch || 'unknown'}`);
+	logger.log(`Metric: ${payload.feature_area} > ${payload.action} > ${payload.target_type}`);
 	logger.log(`Request: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
 
 	return sendMetricRequest(apiUrl, payload, logger);
