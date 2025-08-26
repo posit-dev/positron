@@ -27,6 +27,11 @@ import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardCol
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 
 /**
+ * Constants.
+ */
+const OVERSCAN_FACTOR = 3;
+
+/**
  * Localized strings.
  */
 const addFilterTitle = localize('positron.addFilter', "Add Filter");
@@ -240,13 +245,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				pinnedColumnIndexes: this._columnLayoutManager.pinnedIndexes,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				pinnedRowIndexes: this._rowLayoutManager.pinnedIndexes,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
+
+			// // Update the cache.
+			// await this._tableDataCache.update({
+			// 	invalidateCache: InvalidateCacheFlags.Data,
+			// 	firstColumnIndex: columnDescriptor.columnIndex,
+			// 	screenColumns: this.screenColumns,
+			// 	firstRowIndex: rowDescriptor.rowIndex,
+			// 	screenRows: this.screenRows
+			// });
 		}
 	}
 
@@ -259,15 +269,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
 		if (columnDescriptor && rowDescriptor) {
+			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
-				pinnedColumnIndexes: this._columnLayoutManager.pinnedIndexes,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				pinnedRowIndexes: this._rowLayoutManager.pinnedIndexes,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, 3),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3)
 			});
+
+			// await this._tableDataCache.update({
+			// 	invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
+			// 	firstColumnIndex: columnDescriptor.columnIndex,
+			// 	screenColumns: this.screenColumns,
+			// 	firstRowIndex: rowDescriptor.rowIndex,
+			// 	screenRows: this.screenRows
+			// });
 		}
 	}
 
@@ -774,13 +789,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				pinnedColumnIndexes: this._columnLayoutManager.pinnedIndexes,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				pinnedRowIndexes: this._rowLayoutManager.pinnedIndexes,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, 3),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3)
 			});
+
+			// // Update the cache.
+			// await this._tableDataCache.update({
+			// 	invalidateCache: InvalidateCacheFlags.Data,
+			// 	firstColumnIndex: columnDescriptor.columnIndex,
+			// 	screenColumns: this.screenColumns,
+			// 	firstRowIndex: rowDescriptor.rowIndex,
+			// 	screenRows: this.screenRows
+			// });
 		}
 	}
 

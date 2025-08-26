@@ -1647,7 +1647,7 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Scroll down to the next unpinned layout entry.
-		for (let position = firstUnpinnedLayoutEntryPosition + 1; position < this.rows; position++) {
+		for (let position = firstUnpinnedLayoutEntryPosition + 1; position < this._rowLayoutManager.entryCount; position++) {
 			// Get the layout entry.
 			const layoutEntry = this._rowLayoutManager.getLayoutEntry(this._rowLayoutManager.mapPositionToIndex(position));
 			if (layoutEntry === undefined) {
@@ -2146,7 +2146,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._verticalScrollOffset = rowLayoutEntry.start;
 			scrollOffsetUpdated = true;
 		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
-			this._verticalScrollOffset = rowIndex === this.rows - 1 ?
+			this._verticalScrollOffset = rowIndex === this._rowLayoutManager.lastIndex ?
 				this._verticalScrollOffset = this.maximumVerticalScrollOffset :
 				this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
 			scrollOffsetUpdated = true;
@@ -2258,9 +2258,10 @@ export abstract class DataGridInstance extends Disposable {
 				// Clear cell selection.
 				this._cellSelectionRange = undefined;
 
-				// Adjust the cursor and scroll to it.
+				// Adjust the cursor position.
 				this.setCursorPosition(columnIndex, rowIndex);
 
+				// If the cursor position isn't pinned, scroll to it.
 				if (!pinned) {
 					await this.scrollToCursor();
 				}
