@@ -36,6 +36,7 @@ import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/wor
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
+import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
 
 
 
@@ -268,6 +269,8 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 
 //#region Keybindings
+
+
 registerNotebookKeybinding({
 	id: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
 	primary: KeyCode.KeyA,
@@ -351,6 +354,7 @@ registerNotebookKeybinding({
 });
 
 
+
 /**
  * Register a keybinding for the Positron Notebook editor. These are typically used to intercept
  * existing notebook keybindings/commands and run them on positron notebooks instead.
@@ -378,5 +382,22 @@ function registerNotebookKeybinding({ id, onRun, ...opts }: {
 	});
 }
 //#endregion Keybindings
+
+//#region Cell Commands
+// Register delete command with UI in one call
+// For built-in commands, we don't need to manage the disposable since they live
+// for the lifetime of the application
+registerCellCommand('positronNotebook.cell.delete',
+	(cell) => cell.delete(),
+	{
+		multiSelect: true,  // Delete all selected cells
+		actionBar: {
+			icon: 'codicon-trash',
+			position: 'main',
+			order: 100
+		}
+	}
+);
+//#endregion Cell Commands
 
 
