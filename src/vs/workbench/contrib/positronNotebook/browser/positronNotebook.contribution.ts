@@ -269,8 +269,6 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 
 //#region Keybindings
-
-
 registerNotebookKeybinding({
 	id: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
 	primary: KeyCode.KeyA,
