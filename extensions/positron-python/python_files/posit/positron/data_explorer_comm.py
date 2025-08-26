@@ -357,6 +357,11 @@ class ColumnSchema(BaseModel):
         description="Name of column as UTF-8 string",
     )
 
+    column_label: Optional[StrictStr] = Field(
+        default=None,
+        description="Display label for column (e.g., from R's label attribute)",
+    )
+
     column_index: StrictInt = Field(
         description="The position of the column within the table without any column filters",
     )
