@@ -8,7 +8,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
-import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { Extensions as WorkbenchExtensions, IWorkbenchContributionsRegistry, WorkbenchPhase, IWorkbenchContribution, registerWorkbenchContribution2 } from '../../../common/contributions.js';
@@ -25,10 +25,7 @@ import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { checkPositronNotebookEnabled } from './positronNotebookExperimentalConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
@@ -37,11 +34,7 @@ import { IExtensionService } from '../../../services/extensions/common/extension
 import { isEqual } from '../../../../base/common/resources.js';
 import { NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
-
-
-
-
-
+import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
 
 
 /**
@@ -269,115 +262,116 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 
 //#region Keybindings
-registerNotebookKeybinding({
-	id: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
-	primary: KeyCode.KeyA,
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.insertCodeCellAndFocusContainer('above');
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
-	primary: KeyCode.KeyB,
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.insertCodeCellAndFocusContainer('below');
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.focusUp',
-	primary: KeyCode.UpArrow,
-	secondary: [KeyCode.KeyK],
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.selectionStateMachine.moveUp(false);
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.focusDown',
-	primary: KeyCode.DownArrow,
-	secondary: [KeyCode.KeyJ],
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.selectionStateMachine.moveDown(false);
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.addSelectionDown',
-	primary: KeyMod.Shift | KeyCode.DownArrow,
-	secondary: [KeyMod.Shift | KeyCode.KeyJ],
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.selectionStateMachine.moveDown(true);
-	}
-});
 
 
-registerNotebookKeybinding({
-	id: 'positronNotebook.addSelectionUp',
-	primary: KeyMod.Shift | KeyCode.UpArrow,
-	secondary: [KeyMod.Shift | KeyCode.KeyK],
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.selectionStateMachine.moveUp(true);
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.cell.delete',
-	primary: KeyCode.Backspace,
-	secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)],
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.deleteCell();
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.cell.executeAndFocusContainer',
-	primary: KeyMod.CtrlCmd | KeyCode.Enter,
-	onRun: ({ activeNotebook }) => {
-		activeNotebook.selectionStateMachine.getSelectedCell()?.run();
-	}
-});
-
-registerNotebookKeybinding({
-	id: 'positronNotebook.cell.executeAndSelectBelow',
-	primary: KeyMod.Shift | KeyCode.Enter,
-	onRun: ({ activeNotebook }) => {
-		const selectedCell = activeNotebook.selectionStateMachine.getSelectedCell();
-		if (selectedCell) {
-			selectedCell.run();
-			activeNotebook.selectionStateMachine.moveDown(false);
+registerCellCommand({
+	commandId: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
+	handler: (cell) => cell.insertCodeCellAbove(),
+	options: {
+		keybinding: {
+			primary: KeyCode.KeyA
 		}
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
+	handler: (cell) => cell.insertCodeCellBelow(),
+	options: {
+		keybinding: {
+			primary: KeyCode.KeyB
+		}
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
+	}
+});
+
+registerNotebookCommand({
+	commandId: 'positronNotebook.focusUp',
+	handler: (notebook) => notebook.selectionStateMachine.moveUp(false),
+	keybinding: {
+		primary: KeyCode.UpArrow,
+		secondary: [KeyCode.KeyK]
+	},
+	metadata: {
+		description: localize('positronNotebook.focusUp', "Move focus up")
+	}
+});
+
+registerNotebookCommand({
+	commandId: 'positronNotebook.focusDown',
+	handler: (notebook) => notebook.selectionStateMachine.moveDown(false),
+	keybinding: {
+		primary: KeyCode.DownArrow,
+		secondary: [KeyCode.KeyJ]
+	},
+	metadata: {
+		description: localize('positronNotebook.focusDown', "Move focus down")
+	}
+});
+
+registerNotebookCommand({
+	commandId: 'positronNotebook.addSelectionDown',
+	handler: (notebook) => notebook.selectionStateMachine.moveDown(true),
+	keybinding: {
+		primary: KeyMod.Shift | KeyCode.DownArrow,
+		secondary: [KeyMod.Shift | KeyCode.KeyJ]
+	},
+	metadata: {
+		description: localize('positronNotebook.addSelectionDown', "Extend selection down")
+	}
+});
+
+registerNotebookCommand({
+	commandId: 'positronNotebook.addSelectionUp',
+	handler: (notebook) => notebook.selectionStateMachine.moveUp(true),
+	keybinding: {
+		primary: KeyMod.Shift | KeyCode.UpArrow,
+		secondary: [KeyMod.Shift | KeyCode.KeyK]
+	},
+	metadata: {
+		description: localize('positronNotebook.addSelectionUp', "Extend selection up")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.executeAndFocusContainer',
+	handler: (cell) => cell.run(),
+	options: {
+		keybinding: {
+			primary: KeyMod.CtrlCmd | KeyCode.Enter
+		}
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.execute', "Execute cell")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.executeAndSelectBelow',
+	handler: (cell, accessor) => {
+		cell.run();
+		const notebookService = accessor.get(IPositronNotebookService);
+		const notebook = notebookService.getActiveInstance();
+		if (notebook) {
+			notebook.selectionStateMachine.moveDown(false);
+		}
+	},
+	options: {
+		keybinding: {
+			primary: KeyMod.Shift | KeyCode.Enter
+		}
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
 	}
 });
 
 
-/**
- * Register a keybinding for the Positron Notebook editor. These are typically used to intercept
- * existing notebook keybindings/commands and run them on positron notebooks instead.
- * @param id The id of the command to run. E.g. 'positronNotebook.focusDown'
- * @param keys The primary keybinding to use.
- * @param macKeys The primary and secondary keybindings to use on macOS.
- * @param onRun A function to run when the keybinding is triggered. Will be called if there is an
- * active notebook instance.
- */
-function registerNotebookKeybinding({ id, onRun, ...opts }: {
-	id: string;
-	onRun: (args: { activeNotebook: IPositronNotebookInstance; accessor: ServicesAccessor }) => void;
-} & Pick<ICommandAndKeybindingRule, 'primary' | 'secondary' | 'mac' | 'linux' | 'win'>) {
-	KeybindingsRegistry.registerCommandAndKeybindingRule({
-		id: id,
-		weight: KeybindingWeight.EditorContrib,
-		when: POSITRON_NOTEBOOK_EDITOR_FOCUSED,
-		handler: (accessor) => {
-			const notebookService = accessor.get(IPositronNotebookService);
-			const activeNotebook = notebookService.getActiveInstance();
-			if (!activeNotebook) { return; }
-			onRun({ activeNotebook, accessor });
-		},
-		...opts
-	});
-}
 //#endregion Keybindings
 
 //#region Cell Commands
@@ -394,6 +388,10 @@ registerCellCommand(
 				icon: 'codicon-trash',
 				position: 'main',
 				order: 100
+			},
+			keybinding: {
+				primary: KeyCode.Backspace,
+				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
 			}
 		},
 		metadata: {

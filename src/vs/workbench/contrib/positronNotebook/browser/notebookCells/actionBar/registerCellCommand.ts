@@ -10,6 +10,8 @@ import { IPositronNotebookCell } from '../../../../../services/positronNotebook/
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 
 /**
  * Options for registering a cell command.
@@ -27,6 +29,24 @@ export interface IRegisterCellCommandOptions {
 		/** Sort order within position (lower numbers appear first) */
 		order?: number;
 		/** Visibility condition using VS Code context keys */
+		when?: ContextKeyExpression;
+	};
+
+	/** Optional keybinding configuration */
+	keybinding?: {
+		/** Primary keybinding */
+		primary?: number;
+		/** Secondary keybindings */
+		secondary?: number[];
+		/** Platform-specific keybindings for macOS */
+		mac?: { primary: number; secondary?: number[] };
+		/** Platform-specific keybindings for Windows */
+		win?: { primary: number; secondary?: number[] };
+		/** Platform-specific keybindings for Linux */
+		linux?: { primary: number; secondary?: number[] };
+		/** Keybinding weight (defaults to KeybindingWeight.EditorContrib) */
+		weight?: number;
+		/** Context condition (defaults to POSITRON_NOTEBOOK_EDITOR_FOCUSED) */
 		when?: ContextKeyExpression;
 	};
 }
@@ -106,6 +126,21 @@ export function registerCellCommand({
 
 		const uiDisposable = NotebookCellActionBarRegistry.getInstance().register(uiItem);
 		disposables.add(uiDisposable);
+	}
+
+	// Optionally register keybinding
+	if (options?.keybinding) {
+		const keybindingDisposable = KeybindingsRegistry.registerKeybindingRule({
+			id: commandId,
+			weight: options.keybinding.weight ?? KeybindingWeight.EditorContrib,
+			when: options.keybinding.when ?? POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			primary: options.keybinding.primary,
+			secondary: options.keybinding.secondary,
+			mac: options.keybinding.mac,
+			win: options.keybinding.win,
+			linux: options.keybinding.linux
+		});
+		disposables.add(keybindingDisposable);
 	}
 
 	return disposables;

@@ -106,6 +106,14 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	deselect(): void {
 		this._instance.selectionStateMachine.deselectCell(this);
 	}
+
+	insertCodeCellAbove(): void {
+		this._instance.insertCodeCellAndFocusContainer('above', this);
+	}
+
+	insertCodeCellBelow(): void {
+		this._instance.insertCodeCellAndFocusContainer('below', this);
+	}
 }
 
 
