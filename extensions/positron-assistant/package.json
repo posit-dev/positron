@@ -430,6 +430,10 @@
         "name": "getTableSummary",
         "displayName": "Get Table Summary",
         "modelDescription": "Get structured information about table variables in the current session.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getTableSummary",
+        "userDescription": "Get a summary of a table's data and structure.",
+        "icon": "$(table)",
         "inputSchema": {
           "type": "object",
           "properties": {
