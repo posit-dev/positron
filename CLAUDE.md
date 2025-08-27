@@ -55,6 +55,12 @@ timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
 
 # Run tests (after Positron is running)
 npm test
+
+# Shutdown build daemons
+# On macOS/Linux:
+pkill -f "gulp watch-client" && pkill -f "gulp watch-extensions" && pkill -f "deemon" && pkill -f "npm run watch"
+# On Windows:
+taskkill /F /IM node.exe /FI "WINDOWTITLE eq *watch*"
 ```
 
 ### Code Formatting & Linting
