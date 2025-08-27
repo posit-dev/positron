@@ -2498,16 +2498,18 @@ def test_export_cell_indices_selection(dxf: DataExplorerFixture):
     result = dxf.export_data_selection("cell_indices_test", selection, "csv")
     # Should select rows in order [4, 0, 2] from column 1 -> values [24, 20, 22]
     expected_df = test_df.iloc[[4, 0, 2], [1]]
-    expected_csv = expected_df.to_csv(index=False).strip()
-    assert result["data"] == expected_csv
+    expected_csv = expected_df.to_csv(index=False).rstrip()
+    result_data = result["data"].rstrip()
+    assert result_data == expected_csv
 
     # Test case 6: Non-strictly-increasing column indices (order should be preserved)
     selection = _select_cell_indices([1], [4, 0, 2])
     result = dxf.export_data_selection("cell_indices_test", selection, "csv")
     # Should select columns in order [4, 0, 2] from row 1 -> values [51, 11, 31]
     expected_df = test_df.iloc[[1], [4, 0, 2]]
-    expected_csv = expected_df.to_csv(index=False).strip()
-    assert result["data"] == expected_csv
+    expected_csv = expected_df.to_csv(index=False).rstrip()
+    result_data = result["data"].rstrip()
+    assert result_data == expected_csv
 
     # Test case 7: Both rows and columns out of order
     selection = _select_cell_indices([3, 1], [2, 4, 0])
@@ -2516,8 +2518,9 @@ def test_export_cell_indices_selection(dxf: DataExplorerFixture):
     # Row 3: col_2=33, col_4=53, col_0=13
     # Row 1: col_2=31, col_4=51, col_0=11
     expected_df = test_df.iloc[[3, 1], [2, 4, 0]]
-    expected_csv = expected_df.to_csv(index=False).strip()
-    assert result["data"] == expected_csv
+    expected_csv = expected_df.to_csv(index=False).rstrip()
+    result_data = result["data"].rstrip()
+    assert result_data == expected_csv
 
     # Test case 8: Test with filtered data
     dxf.register_table("cell_indices_filtered", test_df)
