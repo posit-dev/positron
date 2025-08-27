@@ -360,6 +360,7 @@ export const DataExplorer = () => {
 			}
 			<div ref={splitterRef} className='splitter'>
 				<VerticalSplitter
+					alwaysShowExpandCollapseButton={true}
 					collapsible={true}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
 					isCollapsed={columnsCollapsed}
