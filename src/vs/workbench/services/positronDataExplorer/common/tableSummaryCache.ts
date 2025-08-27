@@ -275,15 +275,6 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * New update method that supports search and sort work being done
-	 * behind the USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY setting
-	 * @param updateDescriptor The update descriptor containing the new search and sort parameters
-	 */
-	async update2(updateDescriptor: UpdateDescriptor): Promise<void> {
-		// TODO
-	}
-
-	/**
 	 * Refreshes the column profile cache.
 	 */
 	async refreshColumnProfiles(): Promise<void> {
