@@ -30,6 +30,7 @@ import { ISCMProvider, ISCMService, ISCMViewService } from '../common/scm.js';
 
 // --- Start Positron ---
 import { isWeb } from '../../../../base/common/platform.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 // --- End Positron ---
 
 export interface SCMHistoryItemTransferData {
@@ -94,6 +95,9 @@ class SCMHistoryItemContext implements IChatContextPickerItem {
 	}
 
 	constructor(
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 		@ISCMViewService private readonly _scmViewService: ISCMViewService
 	) { }
 
@@ -102,7 +106,10 @@ class SCMHistoryItemContext implements IChatContextPickerItem {
 		// --- Start Positron ---
 		// Disable SCM History Chat Context in Positron Web due to path error
 		// See https://github.com/posit-dev/positron/issues/9181
-		return activeRepository?.provider.historyProvider.get() !== undefined && !isWeb;
+		const schContextEnabled = this._configurationService.getValue<boolean>('positron.assistant.sourceControlHistoryContext.enable');
+		// if schContextEnabled is configured, follow the config to enable/disable scm history context
+		// if schContextEnabled is undefined, enable scm history context on desktop, but disable on web
+		return activeRepository?.provider.historyProvider.get() !== undefined && (schContextEnabled ?? !isWeb);
 		/*
 		return activeRepository?.provider.historyProvider.get() !== undefined;
 		*/
