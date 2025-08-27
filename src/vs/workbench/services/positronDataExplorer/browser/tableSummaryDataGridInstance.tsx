@@ -19,9 +19,9 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -400,7 +400,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	async setSearchText(searchText: string): Promise<void> {
 		this._searchText = searchText || undefined;
 		await this.updateLayoutEntries();
-		await this.fetchData(false);
+		// invalidate the cache when the search and sort is removed
+		await this.fetchData(this.hasNoSearchOrSort());
 	}
 
 	/**
@@ -410,12 +411,22 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
 		this._sortOption = sortOption;
 		await this.updateLayoutEntries();
-		await this.fetchData(false);
+		// invalidate the cache when the search and sort is removed
+		await this.fetchData(this.hasNoSearchOrSort());
 	}
 
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Helper function to determine if there is a search or sort option applied.
+	 * Used to determine when the cache should be invalidated.
+	 * @returns A value which indicates whether there is a search or sort option applied.
+	 */
+	private hasNoSearchOrSort(): boolean {
+		return this._searchText === undefined && this._sortOption === SearchSchemaSortOrder.Original;
+	}
 
 	/**
 	 * Updates the layout entries to render.
@@ -424,9 +435,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private async updateLayoutEntries(state?: BackendState) {
 		const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(this._services.configurationService);
 
-		// When there is no search or sort option, we need to tell the layout manager
-		// to use the original table shape and render all the data
-		if (!showSummaryPanelEnhancements || (this._sortOption === SearchSchemaSortOrder.Original && !this._searchText)) {
+		if (!showSummaryPanelEnhancements || this.hasNoSearchOrSort()) {
+			// When there is no search or sort option, we need to tell the layout manager
+			// to use the original table shape and render all the data
 			if (!state) {
 				state = await this._dataExplorerClientInstance.getBackendState();
 			}
