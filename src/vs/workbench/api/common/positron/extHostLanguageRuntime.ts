@@ -476,10 +476,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @returns The handle to the session
 	 */
 	private attachToSession(session: positron.LanguageRuntimeSession): number {
+		const sessionId = session.metadata.sessionId;
+
 		// Wire event handlers for state changes and messages
 		session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
-			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
+			this._proxy.$emitLanguageRuntimeState(sessionId, tick, state);
 
 			// When the session exits, make sure to shut down any of its
 			// remaining execution observers cleanly so they aren't left
@@ -541,7 +543,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 				// Pass everything else to the main thread
 				default:
-					this._proxy.$emitLanguageRuntimeMessage(handle, false, new SerializableObjectWithBuffers(runtimeMessage));
+					this._proxy.$emitLanguageRuntimeMessage(sessionId, false, new SerializableObjectWithBuffers(runtimeMessage));
 					break;
 			}
 		});
@@ -549,7 +551,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Hook up the session end (exit) handler
 		session.onDidEndSession(exit => {
 			// Notify the main thread that the session has ended
-			this._proxy.$emitLanguageRuntimeExit(handle, exit);
+			this._proxy.$emitLanguageRuntimeExit(session.metadata.sessionId, exit);
 
 			// The main thread will handle the session cleanup
 			// by calling the `$disposeLanguageRuntime` method.
@@ -817,10 +819,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	@debounce(1000)
 	public async $notifyForegroundSessionChanged(sessionId: string | undefined): Promise<void> {
-		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
-		if (!session && sessionId) {
-			throw new Error(`Session ID '${sessionId}' was marked as the foreground session, but is not known to the extension host.`);
-		}
 		this._onDidChangeForegroundSessionEmitter.fire(sessionId);
 	}
 
@@ -1212,54 +1210,43 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionId The session ID to restart.
 	 */
 	public restartSession(sessionId: string): Promise<void> {
-		// Look for the runtime with the given ID
-		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
-				return this._proxy.$restartSession(i);
-			}
-		}
-		return Promise.reject(
-			new Error(`Session with ID '${sessionId}' must be started before ` +
-				`it can be restarted.`));
+		return this._proxy.$restartSession(sessionId);
 	}
 
+	/**
+	 * Focuses an active session.
+	 *
+	 * @param sessionId The session ID to focus.
+	 */
 	public focusSession(sessionId: string): void {
-		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
-				return this._proxy.$focusSession(i);
-			}
-		}
-		throw new Error(`Session with ID '${sessionId}' must be started before ` +
-			`it can be focused.`);
+		return this._proxy.$focusSession(sessionId);
 	}
 
+	/**
+	 * Deletes a session.
+	 *
+	 * @param sessionId The session ID to delete.
+	 */
 	public deleteSession(sessionId: string): Promise<boolean> {
-		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
-				return this._proxy.$deleteSession(i);
-			}
-		}
-		throw new Error(`Can't delete session with ID '${sessionId}': not found`);
+		return this._proxy.$deleteSession(sessionId);
 	}
 
+	/**
+	 * Gets the variables for a session.
+	 *
+	 * @param sessionId The session ID to get variables for.
+	 * @param accessKeys The access keys to filter variables by.
+	 *
+	 * @returns A promise that resolves with the session variables.
+	 */
 	public getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>):
 		Promise<Array<Array<Variable>>> {
-		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
-				return this._proxy.$getSessionVariables(i, accessKeys);
-			}
-		}
-		throw new Error(`Session with ID '${sessionId}' not found`);
+		return this._proxy.$getSessionVariables(sessionId, accessKeys);
 	}
 
 	public querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
 		Promise<Array<QueryTableSummaryResult>> {
-		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
-				return this._proxy.$querySessionTables(i, accessKeys, queryTypes);
-			}
-		}
-		throw new Error(`Session with ID '${sessionId}' not found`);
+		return this._proxy.$querySessionTables(sessionId, accessKeys, queryTypes);
 	}
 
 	/**
@@ -1268,15 +1255,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionId The session ID to restart.
 	 */
 	interruptSession(sessionId: string): Promise<void> {
-		// Look for the runtime with the given ID
-		for (let i = 0; i < this._runtimeSessions.length; i++) {
-			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
-				return this._proxy.$interruptSession(i);
-			}
-		}
-		return Promise.reject(
-			new Error(`Session with ID '${sessionId}' must be started before ` +
-				`it can be interrupted.`));
+		return this._proxy.$interruptSession(sessionId);
 	}
 
 	/**
@@ -1323,7 +1302,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Notify the main thread that a client has been opened.
-		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
+		const sessionId = this._runtimeSessions[handle].metadata.sessionId;
+		this._proxy.$emitLanguageRuntimeMessage(sessionId, handled, new SerializableObjectWithBuffers(message));
 	}
 
 	/**
@@ -1350,7 +1330,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Notify the main thread that a comm data message has been received,
 		// and whether it was handled in the extension host
-		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
+		const sessionId = this._runtimeSessions[handle].metadata.sessionId;
+		this._proxy.$emitLanguageRuntimeMessage(sessionId, handled, new SerializableObjectWithBuffers(message));
 	}
 
 	/**
@@ -1372,7 +1353,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			handled = true;
 		}
 
-		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
+		const sessionId = this._runtimeSessions[handle].metadata.sessionId;
+		this._proxy.$emitLanguageRuntimeMessage(sessionId, handled, new SerializableObjectWithBuffers(message));
 	}
 
 	/**

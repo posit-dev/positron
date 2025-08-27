@@ -49,15 +49,15 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
 	$getForegroundSession(): Promise<string | undefined>;
 	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
-	$restartSession(handle: number): Promise<void>;
-	$interruptSession(handle: number): Promise<void>;
-	$focusSession(handle: number): void;
-	$deleteSession(handle: number): Promise<boolean>;
-	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
-	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
-	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
-	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
+	$restartSession(sessionId: string): Promise<void>;
+	$interruptSession(sessionId: string): Promise<void>;
+	$focusSession(sessionId: string): void;
+	$deleteSession(sessionId: string): Promise<boolean>;
+	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
+	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
+	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
+	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
 }
 
 // The interface to the main thread exposed by the extension host

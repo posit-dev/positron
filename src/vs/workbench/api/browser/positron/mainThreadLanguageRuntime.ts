@@ -1489,16 +1489,16 @@ export class MainThreadLanguageRuntime
 		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
 	}
 
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
-		this.findSession(handle).handleRuntimeMessage(message.value, handled);
+	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
+		this.findSession(sessionId).handleRuntimeMessage(message.value, handled);
 	}
 
-	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
-		this.findSession(handle).emitState(clock, state);
+	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void {
+		this.findSession(sessionId).emitState(clock, state);
 	}
 
-	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void {
-		this.findSession(handle).emitExit(exit);
+	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void {
+		this.findSession(sessionId).emitExit(exit);
 	}
 
 	// Called by the extension host to register a language runtime
@@ -1566,32 +1566,26 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to restart a running language runtime
-	$restartSession(handle: number): Promise<void> {
+	$restartSession(sessionId: string): Promise<void> {
 		return this._runtimeSessionService.restartSession(
-			this.findSession(handle).sessionId,
+			sessionId,
 			'Extension-requested runtime restart via Positron API');
 	}
 
 	// Called by the extension host to interrupt a running session
-	$interruptSession(handle: number): Promise<void> {
-		return this._runtimeSessionService.interruptSession(
-			this.findSession(handle).sessionId);
+	$interruptSession(sessionId: string): Promise<void> {
+		return this._runtimeSessionService.interruptSession(sessionId);
 	}
 
-	$focusSession(handle: number): void {
-		return this._runtimeSessionService.focusSession(
-			this.findSession(handle).sessionId
-		);
+	$focusSession(sessionId: string): void {
+		return this._runtimeSessionService.focusSession(sessionId);
 	}
 
-	$deleteSession(handle: number): Promise<boolean> {
-		return this._runtimeSessionService.deleteSession(
-			this.findSession(handle).sessionId
-		);
+	$deleteSession(sessionId: string): Promise<boolean> {
+		return this._runtimeSessionService.deleteSession(sessionId);
 	}
 
-	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
-		const sessionId = this.findSession(handle).sessionId;
+	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
@@ -1620,8 +1614,7 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
-		const sessionId = this.findSession(handle).sessionId;
+	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
@@ -1806,12 +1799,19 @@ export class MainThreadLanguageRuntime
 			this._openerService);
 	}
 
-	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
-		const session = this._sessions.get(handle);
-		if (!session) {
-			throw new Error(`Unknown language runtime session handle: ${handle}`);
+	/**
+	 * Finds a language runtime session by its ID.
+	 *
+	 * @param sessionId The ID of the session to find.
+	 * @returns The found language runtime session.
+	 * @throws An error if the session ID is not known.
+	 */
+	private findSession(sessionId: string): ExtHostLanguageRuntimeSessionAdapter {
+		for (const session of this._sessions.values()) {
+			if (session.sessionId === sessionId) {
+				return session;
+			}
 		}
-
-		return session;
+		throw new Error(`Unknown language runtime session ID: ${sessionId}`);
 	}
 }
