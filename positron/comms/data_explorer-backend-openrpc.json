@@ -521,6 +521,10 @@
 						"type": "string",
 						"description": "Name of column as UTF-8 string"
 					},
+					"column_label": {
+						"type": "string",
+						"description": "Display label for column (e.g., from R's label attribute)"
+					},
 					"column_index": {
 						"type": "integer",
 						"description": "The position of the column within the table without any column filters"

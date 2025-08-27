@@ -157,6 +157,11 @@ export interface ColumnSchema {
 	column_name: string;
 
 	/**
+	 * Display label for column (e.g., from R's label attribute)
+	 */
+	column_label?: string;
+
+	/**
 	 * The position of the column within the table without any column filters
 	 */
 	column_index: number;
