@@ -87,7 +87,7 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 	// --- Start Positron ---
 	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async (languageId?: string) => {
 		// Try to use Positron's foreground session's language, fall back to 'plaintext'.
-		const language = languageId ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'plaintext';
+		const language = languageId ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata.languageId ?? 'plaintext';
 		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
 		const data = new vscode.NotebookData([cell]);
 		data.metadata = {

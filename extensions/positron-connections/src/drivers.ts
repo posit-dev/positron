@@ -60,7 +60,7 @@ class RDriver implements positron.ConnectionsDriver {
 			return true;
 		}
 
-		const session = await positron.runtime.getForegroundSession();
+		const session = await positron.runtime.getForegroundSession() as positron.LanguageRuntimeSession;
 		if (session) {
 
 			if (session.runtimeMetadata.languageId !== 'r') {

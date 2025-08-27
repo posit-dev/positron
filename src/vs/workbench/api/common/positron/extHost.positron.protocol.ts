@@ -47,14 +47,15 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
 	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
-	$getForegroundSession(): Promise<string | undefined>;
-	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
+	$getForegroundSession(): Promise<RuntimeSessionMetadata | undefined>;
+	$getNotebookSession(notebookUri: URI): Promise<RuntimeSessionMetadata | undefined>;
 	$restartSession(sessionId: string): Promise<void>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any>;
 	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
@@ -80,6 +81,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$setWorkingDirectory(handle: number, directory: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartSession(handle: number, workingDirectory?: string): Promise<void>;
+	$callMethod(handle: number, method: string, args: any[]): Thenable<any>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;

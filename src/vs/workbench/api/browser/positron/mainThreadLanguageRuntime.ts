@@ -50,6 +50,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { LanguageRuntimeMetadata, RuntimeSessionMetadata } from 'positron';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -462,6 +463,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
 		return this._proxy.$isCodeFragmentComplete(this.handle, code);
+	}
+
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		return this._proxy.$callMethod(this.handle, method, args);
 	}
 
 	/** Create a new client inside the runtime */
@@ -1517,18 +1522,27 @@ export class MainThreadLanguageRuntime
 				activeSession => activeSession.session.metadata));
 	}
 
-	$getForegroundSession(): Promise<string | undefined> {
-		return Promise.resolve(this._runtimeSessionService.foregroundSession?.sessionId);
+	$getForegroundSession(): Promise<RuntimeSessionMetadata | undefined> {
+		return Promise.resolve(this._runtimeSessionService.foregroundSession?.metadata);
 	}
 
-	$getNotebookSession(notebookUri: URI): Promise<string | undefined> {
+	$getForegroundRuntime(): Promise<LanguageRuntimeMetadata | undefined> {
+		return Promise.resolve(this._runtimeSessionService.foregroundSession?.runtimeMetadata);
+	}
+
+	$getNotebookSession(notebookUri: URI): Promise<RuntimeSessionMetadata | undefined> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
 		// Get the session for the notebook URI
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
 
-		return Promise.resolve(session?.sessionId);
+		return Promise.resolve(session?.metadata);
+	}
+
+	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any> {
+		const session = this.findSession(sessionId);
+		return session.callMethod(method, args);
 	}
 
 	// Called by the extension host to select a previously registered language runtime

@@ -184,6 +184,21 @@ interface LanguageRuntimeManager {
 	extension: IExtensionDescription;
 }
 
+export class ExtHostRuntimeSessionProxy extends Disposable implements positron.BaseLanguageRuntimeSession {
+	constructor(
+		readonly metadata: positron.RuntimeSessionMetadata,
+		private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape,
+	) {
+		super(() => {
+
+		});
+	}
+
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		return this._proxy.$callMethod(this.metadata.sessionId, method, args);
+	}
+}
+
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
@@ -194,8 +209,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	private readonly _pendingRuntimeManagers = new Map<string, DeferredPromise<LanguageRuntimeManager>>();
 
-	// A list of active sessions.
+	// A list of active sessions owned by this extension host
 	private readonly _runtimeSessions = new Array<positron.LanguageRuntimeSession>();
+
+	// A list of runtime proxies to sessions owned by other extension hosts; map of
+	// session ID to proxy
+	private readonly _runtimeProxies = new Map<string, ExtHostRuntimeSessionProxy>();
 
 	private readonly _clientInstances = new Array<ExtHostRuntimeClientInstance>();
 
@@ -602,6 +621,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
+	async $callMethod(handle: number, method: string, args: any[]): Promise<any> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot call method ${method}: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		if (!session.callMethod) {
+			throw new Error(`Cannot call method ${method}: session handle '${handle}' does not implement method calls.`);
+		}
+		return session.callMethod(method, ...args);
+	}
+
 	async $shutdownLanguageRuntime(handle: number, exitReason: positron.RuntimeExitReason): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot shut down runtime: session handle '${handle}' not found or no longer valid.`);
@@ -979,41 +1009,39 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getPreferredRuntime(languageId);
 	}
 
-	public async getActiveSessions(): Promise<positron.LanguageRuntimeSession[]> {
-		const sessionMetadatas = await this._proxy.$getActiveSessions();
-		const sessions: positron.LanguageRuntimeSession[] = [];
-		for (const sessionMetadata of sessionMetadatas) {
-			const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionMetadata.sessionId);
-			if (!session) {
-				throw new Error(`Session ID '${sessionMetadata.sessionId}' was returned as an active session, but is not known to the extension host.`);
-			}
-			sessions.push(session);
-		}
-		return sessions;
+	public async getActiveSessions(): Promise<positron.RuntimeSessionMetadata[]> {
+		return this._proxy.$getActiveSessions();
 	}
 
-	public async getForegroundSession(): Promise<positron.LanguageRuntimeSession | undefined> {
-		const sessionId = await this._proxy.$getForegroundSession();
-		if (!sessionId) {
-			return;
-		}
-		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
+	public async getForegroundSession(): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+		const session = await this._proxy.$getForegroundSession();
+
+		// No foreground session
 		if (!session) {
-			throw new Error(`Session ID '${sessionId}' was marked as the foreground session, but is not known to the extension host.`);
+			return undefined;
 		}
-		return session;
+
+		// Check to see if we already have this session
+		const existing = this._runtimeSessions.find(s => s.metadata.sessionId === session.sessionId);
+		if (existing) {
+			return existing;
+		}
+
+		// Check to see if we have a proxy for this session
+		const proxy = this._runtimeProxies.get(session.sessionId);
+		if (proxy) {
+			return proxy;
+		}
+
+		// Create a proxy for this session
+		const proxySession = new ExtHostRuntimeSessionProxy(session, this._proxy);
+		this._runtimeProxies.set(session.sessionId, proxySession);
+
+		return undefined;
 	}
 
-	public async getNotebookSession(notebookUri: URI): Promise<positron.LanguageRuntimeSession | undefined> {
-		const sessionId = await this._proxy.$getNotebookSession(notebookUri);
-		if (!sessionId) {
-			return;
-		}
-		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
-		if (!session) {
-			throw new Error(`Session ID '${sessionId}' exists for notebook '${notebookUri.toString()}', but is not known to the extension host.`);
-		}
-		return session;
+	public async getNotebookSession(notebookUri: URI): Promise<positron.RuntimeSessionMetadata | undefined> {
+		return this._proxy.$getNotebookSession(notebookUri);
 	}
 
 	/**

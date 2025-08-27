@@ -1036,12 +1036,9 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	 * The base interface for a language runtime session.
 	 */
-	export interface LanguageRuntimeSession extends vscode.Disposable {
-
+	export interface BaseLanguageRuntimeSession {
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
 
@@ -1050,6 +1047,25 @@ declare module 'positron' {
 		 * session is associated.
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
+
+	}
+
+	/**
+	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
+	 * set of common tools for interacting with a language runtime, such as code
+	 * execution, LSP implementation, and plotting.
+	 */
+	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
 
 		/** Information about the runtime that is only available after starting. */
 		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
@@ -1094,16 +1110,6 @@ declare module 'positron' {
 			id: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
-
-		/**
-		 * Calls a method in the runtime and returns the result.
-		 *
-		 * Throws a RuntimeMethodError if the method call fails.
-		 *
-		 * @param method The name of the method to call
-		 * @param args Arguments to pass to the method
-		 */
-		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -1812,19 +1818,19 @@ declare module 'positron' {
 		/**
 		 * List all active sessions.
 		 */
-		export function getActiveSessions(): Thenable<LanguageRuntimeSession[]>;
+		export function getActiveSessions(): Thenable<RuntimeSessionMetadata[]>;
 
 		/**
-		 * Get the active foreground session, if any.
+		 * Get the active foreground session's metadata, if any.
 		 */
-		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+		export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the session corresponding to a notebook, if any.
 		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
-		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<LanguageRuntimeSession | undefined>;
+		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<RuntimeSessionMetadata | undefined>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
