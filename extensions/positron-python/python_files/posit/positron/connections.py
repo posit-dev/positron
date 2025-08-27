@@ -127,7 +127,9 @@ class Connection:
         """
         raise NotImplementedError
 
-    def preview_object(self, path: list[ObjectSchema]) -> Any:
+    def preview_object(
+        self, path: list[ObjectSchema], var_name: str | None = None
+    ) -> tuple[Any, str | None]:
         """
         Returns a small sample of the object's data for previewing.
 
@@ -136,6 +138,11 @@ class Connection:
 
         Args:
             path: The path to the object.
+
+        Returns:
+            A tuple containing:
+            - The preview data (pandas dataframe or similar)
+            - A strings representing the code to recreate the data
         """
         raise NotImplementedError
 
@@ -443,7 +450,7 @@ class ConnectionsService:
         elif isinstance(request, GetIconRequest):
             result = self.handle_get_icon_request(connection, request)
         elif isinstance(request, PreviewObjectRequest):
-            self.handle_preview_object_request(connection, request)
+            self.handle_preview_object_request(connection, request, comm_id)
             result = None
         elif isinstance(request, GetMetadataRequest):
             result = self.handle_get_metadata_request(connection, request)  # type: ignore
@@ -490,11 +497,21 @@ class ConnectionsService:
         return conn.list_fields(request.params.path)
 
     def handle_preview_object_request(
-        self, conn: Connection, request: PreviewObjectRequest
+        self, conn: Connection, request: PreviewObjectRequest, comm_id: str
     ) -> None:
-        res = conn.preview_object(request.params.path)
+        # Get variable name if available
+        var_name = None
+        if comm_id in self.comm_id_to_path:
+            # Get the first path (variable name)
+            path_key = next(iter(self.comm_id_to_path[comm_id]))
+            if path_key and len(path_key) > 0:
+                # Decode the variable name from the path
+                var_name = decode_access_key(path_key[0])
+
+        res, sql_string = conn.preview_object(request.params.path, var_name)
         title = request.params.path[-1].name
-        self._kernel.data_explorer_service.register_table(res, title)
+
+        self._kernel.data_explorer_service.register_table(res, title, sql_string=sql_string)
 
     def handle_get_metadata_request(
         self, conn: Connection, _request: GetMetadataRequest
@@ -591,7 +608,7 @@ class SQLite3Connection(Connection):
     def disconnect(self):
         self.conn.close()
 
-    def preview_object(self, path: list[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
         try:
             import pandas as pd
         except ImportError as e:
@@ -606,9 +623,14 @@ class SQLite3Connection(Connection):
                 "Path must include a schema and a table/view in this order.", f"Path: {path}"
             )
 
-        return pd.read_sql(
-            f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;",
-            self.conn,
+        sql_string = f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;"
+        var_name = var_name or "conn"
+        return (
+            pd.read_sql(
+                sql_string,
+                self.conn,
+            ),
+            f'# {table.name} = pd.read_sql("""{sql_string}""", {var_name}) # where {var_name} is your connection variable',
         )
 
     def list_object_types(self):
@@ -692,7 +714,7 @@ class SQLAlchemyConnection(Connection):
             "database": ConnectionObjectInfo({"contains": None, "icon": None}),
         }
 
-    def preview_object(self, path: list[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
         try:
             import sqlalchemy
         except ImportError as e:
@@ -712,9 +734,15 @@ class SQLAlchemyConnection(Connection):
             table.name, sqlalchemy.MetaData(), autoload_with=self.conn, schema=schema.name
         )
         stmt = sqlalchemy.sql.select(table).limit(1000)
+        var_name = var_name or "conn"
+        sql_string = f"""# table = sqlalchemy.Table(
+        #    {table.name!r}, sqlalchemy.MetaData(), autoload_with={var_name}, schema={schema.name!r}
+        # ) # where {var_name} is your connection variable
+        # {table.name} = pd.read_sql(sqlalchemy.sql.select(table), {var_name}.connect())
+        """
         # using conn.connect() is safer then using the conn directly and is also supported
         # with older pandas versions such as 1.5
-        return pd.read_sql(stmt, self.conn.connect())
+        return pd.read_sql(stmt, self.conn.connect()), sql_string
 
     def disconnect(self):
         self.conn.dispose()
@@ -848,7 +876,7 @@ class DuckDBConnection(Connection):
             ConnectionObjectFields({"name": name, "dtype": dtype}) for name, dtype in res.fetchall()
         ]
 
-    def preview_object(self, path: list[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
         if len(path) != 3:
             raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
 
@@ -865,7 +893,11 @@ class DuckDBConnection(Connection):
 
         # Use DuckDB's native pandas integration via .df() method
         query = f'SELECT * FROM "{catalog.name}"."{schema.name}"."{table.name}" LIMIT 1000'
-        return self.conn.execute(query).df()
+        var_name = var_name or "conn"
+        return (
+            self.conn.execute(query).df(),
+            f"# {table.name} = {var_name}.execute({query!r}).df() # where {var_name} is your connection variable",
+        )
 
     def list_object_types(self):
         return {
