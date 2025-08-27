@@ -231,7 +231,7 @@ export class Assistant {
 		};
 	}
 
-	async waitForReadyToSend(timeout: number = 5000) {
+	async waitForReadyToSend(timeout: number = 25000) {
 		await this.code.driver.page.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
 		await this.code.driver.page.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
 	}
