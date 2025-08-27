@@ -1670,7 +1670,7 @@
 			},
 			"data_selection_cell_indices": {
 				"type": "object",
-				"description": "A selection that for a rectangle of data cells defined by arrays of row and column indices",
+				"description": "A rectangular cell selection defined by arrays of row and column indices",
 				"required": [
 					"row_indices",
 					"column_indices"

@@ -1169,8 +1169,8 @@ class DataSelectionCellRange(BaseModel):
 
 class DataSelectionCellIndices(BaseModel):
     """
-    A selection that for a rectangle of data cells defined by arrays of
-    row and column indices
+    A rectangular cell selection defined by arrays of row and column
+    indices
     """
 
     row_indices: List[StrictInt] = Field(
