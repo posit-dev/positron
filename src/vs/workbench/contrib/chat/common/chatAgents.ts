@@ -624,7 +624,8 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// const provider = Iterable.first(this._chatParticipantDetectionProviders.values());
 
 		// Instead of taking the first provider, match the provider with the
-		// current extension provider.
+		// current extension provider. This effectively implements the TODO
+		// above using Positron's provider selector.
 		let provider: IChatParticipantDetectionProvider | undefined;
 
 		// Get the current language model provider to help select the best detection provider
@@ -645,7 +646,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 				}
 			}
 		}
-
 		// --- End Positron ---
 
 		if (!provider) {
