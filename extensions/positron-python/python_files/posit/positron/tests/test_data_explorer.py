@@ -2443,7 +2443,7 @@ def test_export_data_selection(dxf: DataExplorerFixture):
 
 
 def test_export_cell_indices_selection(dxf: DataExplorerFixture):
-    """Test cell_indices selection type specifically"""
+    """Test cell_indices selection type specifically."""
     # Create a simple 5x5 DataFrame for easy verification
     test_df = pd.DataFrame(
         {
