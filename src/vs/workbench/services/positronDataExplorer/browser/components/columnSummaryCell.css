@@ -115,6 +115,54 @@
 	100% { opacity: 0.2; }
 }
 
+/* Click-to-compute sparkline styles */
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline.click-to-compute {
+	pointer-events: auto;
+	cursor: pointer;
+	transition: opacity 0.15s ease;
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline.click-to-compute:hover {
+	opacity: 1;
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline .click-to-compute-sparkline .placeholder-bg {
+	fill: var(--vscode-input-background);
+	stroke: var(--vscode-input-border);
+	stroke-width: 1.5;
+	stroke-dasharray: none;
+	opacity: 0.8;
+	transition: all 0.15s ease;
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline .click-to-compute-sparkline .click-to-compute-text {
+	fill: var(--vscode-input-foreground);
+	opacity: 1;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	transition: opacity 0.15s ease;
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline.click-to-compute:hover .click-to-compute-sparkline .placeholder-bg {
+	fill: var(--vscode-editor-selectionBackground);
+	stroke: var(--vscode-focusBorder);
+	stroke-dasharray: none;
+	opacity: 0.3;
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline.click-to-compute:hover .click-to-compute-sparkline .click-to-compute-text {
+	fill: var(--vscode-foreground);
+	opacity: 0.9;
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline.click-to-compute:active .click-to-compute-sparkline .placeholder-bg {
+	fill: var(--vscode-editor-selectionBackground);
+	opacity: 0.5;
+}
+
 /* column-null-percent */
 
 .data-grid-row-cell .content .column-summary .basic-info .column-null-percent {
