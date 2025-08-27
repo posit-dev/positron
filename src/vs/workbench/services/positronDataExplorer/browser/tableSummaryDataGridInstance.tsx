@@ -402,6 +402,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		await this.updateLayoutEntries();
 		// invalidate the cache when the search and sort is removed
 		await this.fetchData(this.hasNoSearchOrSort());
+		// Force a re-render when the search or sort options change
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -413,6 +415,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		await this.updateLayoutEntries();
 		// invalidate the cache when the search and sort is removed
 		await this.fetchData(this.hasNoSearchOrSort());
+		// Force a re-render when the search or sort options change
+		this.fireOnDidUpdateEvent();
 	}
 
 	//#endregion Public Methods
