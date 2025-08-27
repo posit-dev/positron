@@ -2493,7 +2493,30 @@ def test_export_cell_indices_selection(dxf: DataExplorerFixture):
     assert result["data"] == expected_html
     assert result["format"] == "html"
 
-    # Test case 5: Test with filtered data
+    # Test case 5: Non-strictly-increasing row indices (order should be preserved)
+    selection = _select_cell_indices([4, 0, 2], [1])
+    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
+    # Should select rows in order [4, 0, 2] from column 1 -> values [24, 20, 22]
+    expected_data = "col_1\n24\n20\n22"
+    assert result["data"] == expected_data
+
+    # Test case 6: Non-strictly-increasing column indices (order should be preserved)
+    selection = _select_cell_indices([1], [4, 0, 2])
+    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
+    # Should select columns in order [4, 0, 2] from row 1 -> values [51, 11, 31]
+    expected_data = "col_4,col_0,col_2\n51,11,31"
+    assert result["data"] == expected_data
+
+    # Test case 7: Both rows and columns out of order
+    selection = _select_cell_indices([3, 1], [2, 4, 0])
+    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
+    # Should maintain order: rows [3,1] x columns [2,4,0]
+    # Row 3: col_2=33, col_4=53, col_0=13
+    # Row 1: col_2=31, col_4=51, col_0=11
+    expected_data = "col_2,col_4,col_0\n33,53,13\n31,51,11"
+    assert result["data"] == expected_data
+
+    # Test case 8: Test with filtered data
     dxf.register_table("cell_indices_filtered", test_df)
     schema = dxf.get_schema("cell_indices_filtered")
     # Filter to keep rows where col_0 > 11 (this should keep rows 2, 3, 4)
