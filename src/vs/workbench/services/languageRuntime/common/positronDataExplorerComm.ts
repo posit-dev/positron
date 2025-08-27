@@ -1058,6 +1058,23 @@ export interface DataSelectionCellRange {
 }
 
 /**
+ * A selection that for a rectangle of data cells defined by arrays of
+ * row and column indices
+ */
+export interface DataSelectionCellIndices {
+	/**
+	 * The selected row indices
+	 */
+	row_indices: Array<number>;
+
+	/**
+	 * The selected column indices
+	 */
+	column_indices: Array<number>;
+
+}
+
+/**
  * A contiguous selection bounded by inclusive start and end indices
  */
 export interface DataSelectionRange {
@@ -1113,7 +1130,7 @@ export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
 export type ColumnProfileParams = ColumnHistogramParams | ColumnHistogramParams | ColumnFrequencyTableParams | ColumnFrequencyTableParams;
 
 /// A union of selection types
-export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
+export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionCellIndices | DataSelectionRange | DataSelectionIndices;
 
 /// Union of selection specifications for array_selection
 export type ArraySelection = DataSelectionRange | DataSelectionIndices;
@@ -1233,7 +1250,8 @@ export enum TableSelectionKind {
 	ColumnRange = 'column_range',
 	RowRange = 'row_range',
 	ColumnIndices = 'column_indices',
-	RowIndices = 'row_indices'
+	RowIndices = 'row_indices',
+	CellIndices = 'cell_indices'
 }
 
 /**
