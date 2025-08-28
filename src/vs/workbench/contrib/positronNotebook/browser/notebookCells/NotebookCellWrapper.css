@@ -1,16 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-cell {
 	position: relative;
+	margin-left: 12px;
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
-
-	.positron-notebooks-cell-action-bar {
-		visibility: hidden;
-	}
 
 	&[data-is-running='true'] {
 		outline: 1px solid var(--vscode-focusBorder);
@@ -20,41 +17,18 @@
 	&.selected {
 		outline: 1px solid var(--vscode-focusBorder);
 	}
-
-	&.editing,
-	&.selected,
-	&:hover {
-		.positron-notebooks-cell-action-bar {
-			visibility: visible;
-		}
-	}
-
-	.positron-notebooks-cell-action-bar {
-		visibility: hidden;
-	}
-
-	&.editing,
-	&.selected,
-	&:hover {
-		.positron-notebooks-cell-action-bar {
-			visibility: visible;
-		}
-	}
 }
 
 @keyframes running-cell-pulse {
 	0% {
-		outline-width: 1px;
-		outline-offset: 0px;
+		outline-color: var(--vscode-focusBorder);
 	}
 
 	50% {
-		outline-width: 3px;
-		outline-offset: 1.5px;
+		outline-color: color-mix(in srgb, var(--vscode-focusBorder) 70%, white 30%);
 	}
 
 	100% {
-		outline-width: 1px;
-		outline-offset: 0px;
+		outline-color: var(--vscode-focusBorder);
 	}
 }

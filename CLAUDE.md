@@ -6,6 +6,11 @@ This is the main coordination file for Claude Code when working on Positron. Bas
 
 Positron is a next-generation data science IDE built on VS Code, designed for Python and R development with enhanced data science workflows.
 
+## 🚨 CRITICAL: Development Startup
+
+**ALWAYS read `.claude/build-system.md` before launching Positron!**
+This file contains critical instructions for ensuring build daemons are running. Never skip this step.
+
 ## Using Modular Prompts
 
 To work effectively on specific areas of Positron, ask Claude to include relevant context files:
@@ -25,25 +30,37 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 
 ### Development
 ```bash
-# Start build daemons for development (CRITICAL: Wait for completion before launching!)
-npm run watch-clientd     # Core compilation daemon
-npm run watch-extensionsd # Extensions compilation daemon
-npm run watch-e2ed        # E2E tests compilation daemon (if doing E2E testing)
+# STEP 1: Check if daemons are already running
+ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
 
-# Launch Positron (only after build daemons complete)
+# STEP 2: If NOT running, start build daemons (CRITICAL: Wait for completion!)
+npm run watch-clientd &     # Core compilation daemon
+npm run watch-extensionsd & # Extensions compilation daemon
+# Optional: npm run watch-e2ed & # E2E tests daemon (only if doing E2E testing)
+
+# STEP 3: Wait for initial compilation (30-60 seconds)
+sleep 30
+
+# STEP 4: Launch Positron (ONLY after daemons are confirmed running)
 # On macOS/Linux:
 ./scripts/code.sh &
 # On Windows:
 start ./scripts/code.bat
 
-# Check after 5-10 seconds that Positron launched successfully
+# STEP 5: Verify Positron launched successfully
 # On macOS/Linux:
 sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
 # On Windows:
 timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
 
-# Run tests
+# Run tests (after Positron is running)
 npm test
+
+# Shutdown build daemons
+# On macOS/Linux:
+pkill -f "gulp watch-client" && pkill -f "gulp watch-extensions" && pkill -f "deemon" && pkill -f "npm run watch"
+# On Windows:
+taskkill /F /IM node.exe /FI "WINDOWTITLE eq *watch*"
 ```
 
 ### Code Formatting & Linting

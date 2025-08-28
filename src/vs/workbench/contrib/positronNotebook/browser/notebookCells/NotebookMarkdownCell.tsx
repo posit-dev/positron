@@ -11,11 +11,8 @@ import React from 'react';
 
 // Other dependencies.
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
-import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { Markdown } from './Markdown.js';
-import { localize } from '../../../../../nls.js';
-import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
 
@@ -25,15 +22,9 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 	const editorShown = useObservedValue(cell.editorShown);
 
 	return (
-		<NotebookCellWrapper cell={cell}>
-
-			<NotebookCellActionBar cell={cell}>
-				<ActionButton
-					ariaLabel={editorShown ? localize('hideEditor', 'Hide editor') : localize('showEditor', 'Show editor')}
-					onPressed={() => cell.run()} >
-					<div className={`button-icon codicon ${editorShown ? 'codicon-run' : 'codicon-primitive-square'}`} />
-				</ActionButton>
-			</NotebookCellActionBar>
+		<NotebookCellWrapper
+			cell={cell}
+		>
 			<div className='cell-contents'>
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
 				<div className='positron-notebook-markup-rendered' onDoubleClick={() => {

@@ -48,9 +48,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
 
 	/**
-	 * The cell hover manager with longer delay for data cell tooltips.
+	 * The hover manager for data cell tooltips and corner reset button.
 	 */
-	private readonly _cellHoverManager: PositronActionBarHoverManager;
+	private readonly _hoverManager: PositronActionBarHoverManager;
 
 	//#endregion Private Properties
 
@@ -90,8 +90,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
-		this._cellHoverManager.setCustomHoverDelay(500);
+		this._hoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
+		this._hoverManager.setCustomHoverDelay(500);
 
 		/**
 		 * Updates the layout entries.
@@ -301,11 +301,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	/**
-	 * Gets the cell hover manager.
-	 * @returns The cell hover manager.
+	 * Override base class to provide hover manager.
 	 */
-	get cellHoverManager(): PositronActionBarHoverManager {
-		return this._cellHoverManager;
+	override get hoverManager(): PositronActionBarHoverManager {
+		return this._hoverManager;
 	}
 
 	/**
@@ -332,7 +331,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			<TableDataCell
 				column={column}
 				dataCell={dataCell}
-				hoverManager={this._cellHoverManager}
+				hoverManager={this._hoverManager}
 			/>
 		);
 	}

@@ -10,12 +10,13 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { fromNow } from '../../../../base/common/date.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { URI } from '../../../../base/common/uri.js';
+import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { localize } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { CodeDataTransfers } from '../../../../platform/dnd/browser/dnd.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -26,6 +27,30 @@ import { ISCMHistoryItemVariableEntry } from '../../chat/common/chatVariableEntr
 import { ScmHistoryItemResolver } from '../../multiDiffEditor/browser/scmMultiDiffSourceResolver.js';
 import { ISCMHistoryItem } from '../common/history.js';
 import { ISCMProvider, ISCMService, ISCMViewService } from '../common/scm.js';
+
+// --- Start Positron ---
+import { isWeb } from '../../../../base/common/platform.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
+
+export interface SCMHistoryItemTransferData {
+	readonly name: string;
+	readonly resource: UriComponents;
+	readonly historyItem: ISCMHistoryItem;
+}
+
+export function extractSCMHistoryItemDropData(e: DragEvent): SCMHistoryItemTransferData[] | undefined {
+	if (!e.dataTransfer?.types.includes(CodeDataTransfers.SCM_HISTORY_ITEM)) {
+		return undefined;
+	}
+
+	const data = e.dataTransfer?.getData(CodeDataTransfers.SCM_HISTORY_ITEM);
+	if (!data) {
+		return undefined;
+	}
+
+	return JSON.parse(data) as SCMHistoryItemTransferData[];
+}
 
 export class SCMHistoryItemContextContribution extends Disposable implements IWorkbenchContribution {
 
@@ -70,12 +95,25 @@ class SCMHistoryItemContext implements IChatContextPickerItem {
 	}
 
 	constructor(
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 		@ISCMViewService private readonly _scmViewService: ISCMViewService
 	) { }
 
 	isEnabled(_widget: IChatWidget): Promise<boolean> | boolean {
 		const activeRepository = this._scmViewService.activeRepository.get();
+		// --- Start Positron ---
+		// Disable SCM History Chat Context in Positron Web due to path error
+		// See https://github.com/posit-dev/positron/issues/9181
+		const schContextEnabled = this._configurationService.getValue<boolean>('positron.assistant.sourceControlHistoryContext.enable');
+		// if schContextEnabled is configured, follow the config to enable/disable scm history context
+		// if schContextEnabled is undefined, enable scm history context on desktop, but disable on web
+		return activeRepository?.provider.historyProvider.get() !== undefined && (schContextEnabled ?? !isWeb);
+		/*
 		return activeRepository?.provider.historyProvider.get() !== undefined;
+		*/
+		// --- End Positron ---
 	}
 
 	asPicker(_widget: IChatWidget) {
@@ -165,11 +203,13 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.scm.action.graph.addHistoryItemToChat',
-			title: localize('chat.action.scmHistoryItemContext', 'Add History Item to Chat'),
+			title: localize('chat.action.scmHistoryItemContext', 'Add to Chat'),
 			f1: false,
 			menu: {
-				id: MenuId.SCMHistoryItemChatContext,
-				when: ChatContextKeys.Setup.installed
+				id: MenuId.SCMHistoryItemContext,
+				group: 'z_chat',
+				order: 1,
+				when: ChatContextKeys.enabled
 			}
 		});
 	}
@@ -189,11 +229,13 @@ registerAction2(class extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.scm.action.graph.summarizeHistoryItem',
-			title: localize('chat.action.scmHistoryItemSummarize', 'Summarize History Item'),
+			title: localize('chat.action.scmHistoryItemSummarize', 'Explain Changes'),
 			f1: false,
 			menu: {
-				id: MenuId.SCMHistoryItemChatContext,
-				when: ChatContextKeys.Setup.installed
+				id: MenuId.SCMHistoryItemContext,
+				group: 'z_chat',
+				order: 2,
+				when: ChatContextKeys.enabled
 			}
 		});
 	}

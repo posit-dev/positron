@@ -133,20 +133,20 @@ export function registerAssistantTools(
 		 *
 		 * @returns A vscode.PreparedToolInvocation object
 		 */
-		prepareInvocation2: async (options, token) => {
+		prepareInvocation: async (options, token) => {
 
 			// Ask user for confirmation before proceeding
-			const result: vscode.PreparedTerminalToolInvocation = {
+			const result: vscode.PreparedToolInvocation = {
 				// The command (code to run)
-				command: options.input.code,
+				invocationMessage: options.input.code,
 
 				// The language (used for syntax highlighting)
-				language: options.input.language,
+				// language: options.input.language,
 
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
-					title: options.input.summary ?? vscode.l10n.t('Run in Console'),
-					message: ''
+					title: options.input.summary ?? vscode.l10n.t('Run Code'),
+					message: `\`\`\`${options.input.language}\n${options.input.code}\n\`\`\``
 				},
 			};
 			return result;
@@ -315,7 +315,6 @@ export function registerAssistantTools(
 				]);
 			}
 
-			// temporarily only enable for Python sessions
 			let session: positron.LanguageRuntimeSession | undefined;
 			const sessions = await positron.runtime.getActiveSessions();
 			if (sessions && sessions.length > 0) {
@@ -329,7 +328,8 @@ export function registerAssistantTools(
 				]);
 			}
 
-			if (session.runtimeMetadata.languageId !== 'python') {
+			// Enable only for R and Python sessions
+			if (session.runtimeMetadata.languageId !== 'python' && session.runtimeMetadata.languageId !== 'r') {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
@@ -352,14 +352,13 @@ export function registerAssistantTools(
 	const installPythonPackageTool = vscode.lm.registerTool<{
 		packages: string[];
 	}>(PositronAssistantToolName.InstallPythonPackage, {
-		prepareInvocation2: async (options, _token) => {
+		prepareInvocation: async (options, _token) => {
 			const packageNames = options.input.packages.join(', ');
-			const result: vscode.PreparedTerminalToolInvocation = {
+			const result: vscode.PreparedToolInvocation = {
 				// Display a generic command description rather than a specific pip command
 				// The actual implementation uses environment-aware package management (pip, conda, poetry, etc.)
 				// via the Python extension's installPackages command, not direct pip execution
-				command: `Install Python packages: ${packageNames}`,
-				language: 'text', // Not actually a bash command
+				invocationMessage: `Install Python packages: ${packageNames}`,
 				confirmationMessages: {
 					title: vscode.l10n.t('Install Python Packages'),
 					message: options.input.packages.length === 1

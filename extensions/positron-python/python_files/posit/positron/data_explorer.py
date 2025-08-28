@@ -24,7 +24,7 @@ from typing import (
 import comm
 
 from .access_keys import decode_access_key
-from .convert import PandasConverter
+from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -52,6 +52,7 @@ from .data_explorer_comm import (
     ConvertToCodeParams,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
+    DataSelectionCellIndices,
     DataSelectionCellRange,
     DataSelectionIndices,
     DataSelectionRange,
@@ -185,12 +186,14 @@ class DataExplorerTableView:
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None,
     ):
         # Note: we must not ever modify the user's data
         self.table = table
         self.comm = comm
         self.state = state
         self.job_queue = job_queue
+        self.sql_string = sql_string
 
         self.schema_memo = {}
 
@@ -423,6 +426,9 @@ class DataExplorerTableView:
                 slice(sel.first_column_index, sel.last_column_index + 1),
                 fmt,
             )
+        elif kind == TableSelectionKind.CellIndices:
+            assert isinstance(sel, DataSelectionCellIndices)
+            return self._export_tabular(sel.row_indices, sel.column_indices, fmt)
         elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
@@ -956,8 +962,8 @@ def _box_datetime_stats(
 
 
 class UnsupportedView(DataExplorerTableView):
-    def __init__(self, table, comm, state, job_queue):
-        super().__init__(table, comm, state, job_queue)
+    def __init__(self, table, comm, state, job_queue, sql_string: str | None = None):
+        super().__init__(table, comm, state, job_queue, sql_string)
 
 
 # Special value codes for the protocol
@@ -1215,14 +1221,14 @@ class PandasView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
         self.was_series = False
         table = self._maybe_wrap(table)
-
         # For lazy importing NumPy
         self.math_helper = NumPyMathHelper()
 
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @property
     def _has_row_labels(self):
@@ -1399,9 +1405,13 @@ class PandasView(DataExplorerTableView):
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
         converter = PandasConverter(
-            self.table, self.state.name, request, was_series=self.was_series
+            self.table,
+            self.state.name,
+            request,
+            was_series=self.was_series,
+            sql_string=self.sql_string,
         )
-        converted_code = converter.convert()
+        converted_code = converter.build_code()
         return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
@@ -2267,8 +2277,9 @@ class PolarsView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -2371,7 +2382,9 @@ class PolarsView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        raise NotImplementedError("Convert to code is not implemented for Polars DataFrames.")
+        converter = PolarsConverter(self.table, self.state.name, request)
+        converted_code = converter.build_code()
+        return ConvertedCode(converted_code=converted_code).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2415,6 +2428,7 @@ class PolarsView(DataExplorerTableView):
             column_index=column_index,
             type_name=type_name,
             type_display=ColumnDisplayType(type_display),
+            timezone=getattr(column.dtype, "time_zone", None),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -2861,8 +2875,11 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Unsupported,
-            code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[
+                CodeSyntaxName(code_syntax_name="polars"),
+                CodeSyntaxName(code_syntax_name="pandas"),
+            ],
         ),
     )
 
@@ -2882,11 +2899,13 @@ def _get_table_view(
     comm: PositronComm,
     state: DataExplorerState,
     job_queue: BackgroundJobQueue,
+    *,
+    sql_string: str | None = None,
 ):
     state.name = state.name or guid()
 
     if is_pandas(table):
-        return PandasView(table, comm, state, job_queue)
+        return PandasView(table, comm, state, job_queue, sql_string)
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
     else:
@@ -2934,6 +2953,8 @@ class DataExplorerService:
         title,
         variable_path: list[str] | None = None,
         comm_id=None,
+        *,
+        sql_string: str | None = None,
     ):
         """
         Set up a new comm and data explorer table query wrapper to handle requests and manage state.
@@ -2952,6 +2973,10 @@ class DataExplorerService:
         comm_id : str, default None
             A specific comm identifier to use, otherwise generate a
             random uuid.
+        sql_string : str, default None
+            If the data explorer was opened from a SQL query result,
+            this is the SQL string that was executed to produce the
+            result. This is used for code generation.
 
         Returns
         -------
@@ -2982,7 +3007,7 @@ class DataExplorerService:
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
 
         self.table_views[comm_id] = _get_table_view(
-            table, wrapped_comm, DataExplorerState(title), self.job_queue
+            table, wrapped_comm, DataExplorerState(title), self.job_queue, sql_string=sql_string
         )
 
         if variable_path is not None:
@@ -3116,7 +3141,7 @@ class DataExplorerService:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 
         self.table_views[comm_id] = _get_table_view(
-            new_table, table_view.comm, new_state, self.job_queue
+            new_table, table_view.comm, new_state, self.job_queue, sql_string=table_view.sql_string
         )
 
         if schema_updated:

@@ -2283,6 +2283,16 @@ def _select_cell_range(
     }
 
 
+def _select_cell_indices(row_indices: List[int], column_indices: List[int]):
+    return {
+        "kind": "cell_indices",
+        "selection": {
+            "row_indices": row_indices,
+            "column_indices": column_indices,
+        },
+    }
+
+
 def _select_range(first_index: int, last_index: int, kind: str):
     return {
         "kind": kind,
@@ -2311,6 +2321,25 @@ def _select_column_indices(indices: List[int]):
 
 def _select_row_indices(indices: List[int]):
     return _select_indices(indices, "row_indices")
+
+
+def _strip_newline(x):
+    """Helper to strip only the final newline character for cross-platform compatibility."""
+    if x[-1] == "\n":
+        x = x[:-1]
+    return x
+
+
+def _pandas_export_table(x, fmt):
+    """Helper to export pandas DataFrame to various formats with proper line ending handling."""
+    buf = StringIO()
+    if fmt == "csv":
+        x.to_csv(buf, index=False)
+    elif fmt == "tsv":
+        x.to_csv(buf, sep="\t", index=False)
+    elif fmt == "html":
+        x.to_html(buf, index=False)
+    return _strip_newline(buf.getvalue())
 
 
 def test_export_data_selection(dxf: DataExplorerFixture):
@@ -2345,22 +2374,15 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         (_select_row_range(1, 5), (slice(1, 6), slice(None))),
         (_select_row_indices([0, 3, 5, 7]), ([0, 3, 5, 7], slice(None))),
         (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
+        # Test cell_indices selections - Cartesian product of specified rows/columns
+        (_select_cell_indices([1, 3, 5], [10, 15, 19]), ([1, 3, 5], [10, 15, 19])),
+        (_select_cell_indices([0, 2, 4], [0, 1, 2]), ([0, 2, 4], [0, 1, 2])),
+        (_select_cell_indices([10], [5, 10, 15]), ([10], [5, 10, 15])),
+        (_select_cell_indices([1, 3], [7]), ([1, 3], [7])),
+        # Test cell_indices with non-strictly-increasing indices (order preservation)
+        (_select_cell_indices([5, 1, 3], [15, 10, 19]), ([5, 1, 3], [15, 10, 19])),
+        (_select_cell_indices([4, 0, 2], [2, 0, 1]), ([4, 0, 2], [2, 0, 1])),
     ]
-
-    def strip_newline(x):
-        if x[-1] == "\n":
-            x = x[:-1]
-        return x
-
-    def pandas_export_table(x, fmt):
-        buf = StringIO()
-        if fmt == "csv":
-            x.to_csv(buf, index=False)
-        elif fmt == "tsv":
-            x.to_csv(buf, sep="\t", index=False)
-        elif fmt == "html":
-            x.to_html(buf, index=False)
-        return strip_newline(buf.getvalue())
 
     def pandas_export_cell(x, i, j):
         return str(x.iloc[i, j])
@@ -2383,7 +2405,7 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         return str(x[i, j])
 
     data_cases = {
-        ("test_df", pandas_export_cell, pandas_export_table, pandas_iloc),
+        ("test_df", pandas_export_cell, _pandas_export_table, pandas_iloc),
         ("dfp", polars_export_cell, polars_export_table, polars_iloc),
     }
 
@@ -3251,50 +3273,37 @@ def test_histogram_single_value_special_case():
 
 
 POLARS_TYPE_EXAMPLES = [
-    (pl.Null, [None, None, None, None], "Null", "unknown"),
-    (pl.Boolean, [False, None, True, False], "Boolean", "boolean"),
-    (pl.Int8, [-1, 2, 3, None], "Int8", "number"),
-    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number"),
-    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number"),
-    (
-        pl.Int64,
-        [-10000000000, 20000000000, 30000000000, None],
-        "Int64",
-        "number",
-    ),
-    (pl.UInt8, [0, 2, 3, None], "UInt8", "number"),
-    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number"),
-    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number"),
-    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number"),
-    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number"),
-    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number"),
-    (
-        pl.Binary,
-        [b"testing", b"some", b"strings", None],
-        "Binary",
-        "string",
-    ),
-    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string"),
-    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time"),
+    (pl.Null, [None, None, None, None], "Null", "unknown", None),
+    (pl.Boolean, [False, None, True, False], "Boolean", "boolean", None),
+    (pl.Int8, [-1, 2, 3, None], "Int8", "number", None),
+    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number", None),
+    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number", None),
+    (pl.Int64, [-10000000000, 20000000000, 30000000000, None], "Int64", "number", None),
+    (pl.UInt8, [0, 2, 3, None], "UInt8", "number", None),
+    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number", None),
+    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number", None),
+    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number", None),
+    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number", None),
+    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number", None),
+    (pl.Binary, [b"testing", b"some", b"strings", None], "Binary", "string", None),
+    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string", None),
+    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time", None),
     (
         pl.Datetime("ms"),
         [1704394167126, 946730085000, 0, None],
         "Datetime(time_unit='ms', time_zone=None)",
         "datetime",
+        None,
     ),
     (
         pl.Datetime("us", "America/New_York"),
         [1704394167126123, 946730085000123, 0, None],
         "Datetime(time_unit='us', time_zone='America/New_York')",
         "datetime",
+        "America/New_York",
     ),
-    (pl.Date, [130120, 0, -1, None], "Date", "date"),
-    (
-        pl.Duration("ms"),
-        [0, 1000, 2000, None],
-        "Duration(time_unit='ms')",
-        "interval",
-    ),
+    (pl.Date, [130120, 0, -1, None], "Date", "date", None),
+    (pl.Duration("ms"), [0, 1000, 2000, None], "Duration(time_unit='ms')", "interval", None),
     (
         pl.Decimal(12, 4),
         [
@@ -3305,8 +3314,9 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Decimal(precision=12, scale=4)",
         "number",
+        None,
     ),
-    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array"),
+    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array", None),
     (
         pl.Struct({"a": pl.Int64, "b": pl.List(pl.String)}),
         [
@@ -3317,16 +3327,17 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
+        None,
     ),
-    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
-    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string", None),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object", None),
 ]
 
 
 def example_polars_df():
     full_schema = []
     full_data = []
-    for i, (dtype, data, type_name, type_display) in enumerate(POLARS_TYPE_EXAMPLES):
+    for i, (dtype, data, type_name, type_display, timezone) in enumerate(POLARS_TYPE_EXAMPLES):
         name = f"f{i}"
         s = pl.Series(name=name, values=data, dtype=dtype)
         full_data.append(s)
@@ -3343,6 +3354,7 @@ def example_polars_df():
                 "column_index": i,
                 "type_name": type_name,
                 "type_display": type_display,
+                "timezone": timezone,
             }
         )
 

@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
+
 declare module 'positron' {
 
 	import * as vscode from 'vscode';
@@ -1853,9 +1856,17 @@ declare module 'positron' {
 		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
-		 * Focus a running session
+		 * Focus a running session.
 		 */
 		export function focusSession(sessionId: string): void;
+
+		/**
+		 * Delete a running session.
+		 * If the session is busy, the user is asked whether it should be interrupted.
+		 * The promise resolves with `false` if the user declines to interrupt, or `true`
+		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 */
+		export function deleteSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Get the runtime variables for a session.
@@ -2022,6 +2033,35 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
+		 * A language model provider, extends vscode.LanguageModelChatProvider2.
+		 */
+		export interface LanguageModelChatProvider2<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
+			name: string;
+			provider: string;
+			id: string;
+
+			providerName: string;
+			maxOutputTokens: number;
+
+			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
+			onDidChange?: vscode.Event<void>;
+
+			// NOT cacheable (between reloads)
+			prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
+
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2>, options: vscode.LanguageModelChatRequestHandleOptions, progress: vscode.Progress<vscode.ChatResponseFragment2>, token: vscode.CancellationToken): Thenable<any>;
+
+			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
+
+			/**
+			 * Tests the connection to the language model provider.
+			 *
+			 * Returns an error if the connection fails.
+			 */
+			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+		}
+
+		/**
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
 		export interface LanguageModelChatProvider {
@@ -2136,6 +2176,7 @@ declare module 'positron' {
 			numCtx?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
 		}
 
 		/**

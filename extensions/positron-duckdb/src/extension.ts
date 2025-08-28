@@ -30,6 +30,7 @@ import {
 	DataExplorerRpc,
 	DataExplorerUiEvent,
 	DataSelectionCellRange,
+	DataSelectionCellIndices,
 	DataSelectionIndices,
 	DataSelectionRange,
 	DataSelectionSingleCell,
@@ -1628,6 +1629,20 @@ END`;
 				const columns = indices.map(i => this.fullSchema[i]);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
 				FROM ${this.tableName}`;
+				return await exportQueryOutput(query, columns);
+			}
+			case TableSelectionKind.CellIndices: {
+				const selection = params.selection.selection as DataSelectionCellIndices;
+				const rowIndices = selection.row_indices;
+				const columnIndices = selection.column_indices;
+				const columns = columnIndices.map(i => this.fullSchema[i]);
+
+				// Create a VALUES clause to preserve the order of row indices
+				const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
+				FROM ${this.tableName}
+				JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
+				ORDER BY row_order.sort_order`;
 				return await exportQueryOutput(query, columns);
 			}
 		}

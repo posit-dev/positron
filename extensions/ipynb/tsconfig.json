@@ -8,6 +8,7 @@
 		"src/**/*",
 		// --- Start Positron ---
 		"../../src/positron-dts/positron.d.ts",
+		"../../src/vscode-dts/vscode.proposed.*.d.ts",
 		// --- End Positron ---
 		"../../src/vscode-dts/vscode.d.ts"
 	]

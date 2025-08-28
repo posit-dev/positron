@@ -27,8 +27,7 @@ results, generate the code and return it directly without trying to execute it.
 When the user asks questions that require detailed information about tabular
 data objects (DataFrames, arrays, matrices, etc.), use the `getTableSummary`
 tool to retrieve structured information such as data summaries and statistics.
-Currently, this tool is only available for Python so in R sessions you will need
-to execute code to query in-memory data.
+This tool is available in Python and R sessions.
 
 To use the tool effectively:
 
