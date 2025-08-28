@@ -1077,6 +1077,13 @@ declare module 'positron' {
 			id: string,
 			mode: RuntimeCodeExecutionMode,
 			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
+		 */
+		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 	}
 
 	/**
@@ -1180,13 +1187,6 @@ declare module 'positron' {
 		 * working directory.
 		 */
 		restart(workingDirectory?: string): Thenable<void>;
-
-		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the
-		 * runtime shutdown sequence has been successfully started (not
-		 * necessarily when it has completed).
-		 */
-		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
 		/**
 		 * Forcibly quits the runtime; returns a Thenable that resolves when the

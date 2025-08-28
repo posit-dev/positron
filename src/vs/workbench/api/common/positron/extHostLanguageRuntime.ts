@@ -217,7 +217,16 @@ export class ExtHostRuntimeSessionProxy extends Disposable implements positron.B
 		id: string,
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior) {
+		return this._proxy.$executeCode(this.sessionId, code, id, mode, errorBehavior);
+	}
 
+	/**
+	 * Shut down the runtime; returns a Thenable that resolves when the
+	 * runtime shutdown sequence has been successfully started (not
+	 * necessarily when it has completed).
+	 */
+	shutdown(exitReason: positron.RuntimeExitReason) {
+		return this._proxy.$shutdownSession(this.sessionId, exitReason);
 	}
 }
 
@@ -1031,7 +1040,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getPreferredRuntime(languageId);
 	}
 
-	public async getActiveSessions(): Promise<positron.RuntimeSessionMetadata[]> {
+	public async getActiveSessions(): Promise<positron.ActiveRuntimeSessionMetadata[]> {
 		return this._proxy.$getActiveSessions();
 	}
 

@@ -315,13 +315,7 @@ export function registerAssistantTools(
 				]);
 			}
 
-			let session: positron.LanguageRuntimeSession | undefined;
-			const sessions = await positron.runtime.getActiveSessions();
-			if (sessions && sessions.length > 0) {
-				session = sessions.find(
-					(session) => session.metadata.sessionId === options.input.sessionIdentifier,
-				);
-			}
+			let session = await positron.runtime.getSession(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
