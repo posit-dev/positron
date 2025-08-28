@@ -808,10 +808,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 				// --- Start Positron ---
 				// Make sure that we dont try and open the same editor twice if we're using positron
 				// notebooks.
-				for (const positronInstance of this._positronNotebookService.listInstances(model.resource)) {
-					if (positronInstance.connectedToEditor) {
-						continue;
-					}
+				const positronInstances = this._positronNotebookService.listInstances(model.resource);
+				if (positronInstances.some(instance => instance.connectedToEditor)) {
+					continue;
 				}
 				// --- End Positron ---
 				result.push({
