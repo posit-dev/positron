@@ -215,15 +215,9 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
-			// Only include the getTableSummary tool for Python sessions until supported in R
+			// Only include the getTableSummary tool when there are variables available
 			case PositronAssistantToolName.GetTableSummary:
-				// TODO: Remove the python-specific restriction when the tool is
-				// supported in R
-				// https://github.com/posit-dev/positron/issues/8343 The logic
-				// above with TOOL_TAG_REQUIRES_ACTIVE_SESSION will handle
-				// checking for active sessions once this is removed.  We'll
-				// still want to check that variables are defined.
-				if (!(activeSessions.has('python') && hasVariables)) {
+				if (!hasVariables) {
 					continue
 				}
 				break;

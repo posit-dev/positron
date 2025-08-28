@@ -27,7 +27,7 @@ export function KernelStatusBadge() {
 		className='positron-notebook-kernel-status-badge'
 		onPressed={() => services.commandService.executeCommand(SELECT_KERNEL_ID_POSITRON, { forceDropdown: true })}
 	>
-		<div>
+		<div aria-label='Notebook kernel status'>
 			Kernel
 			<span className={`kernel-status ${kernelStatus}`}>{' ' + kernelStatus}</span>
 		</div>

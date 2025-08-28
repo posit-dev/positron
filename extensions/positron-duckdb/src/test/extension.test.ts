@@ -737,6 +737,23 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		};
 		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
 
+		// Test CellIndices selection
+		const testCellIndices = async (rowIndices: number[], columnIndices: number[], expected: string) => {
+			await testSelection(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected);
+		};
+		await testCellIndices([0, 2], [0, 2], 'int_col,float_col\n1,1.1\n3,3.3');
+		await testCellIndices([1, 3], [1, 2], 'str_col,float_col\nb,2.2\nNULL,NULL');
+		await testCellIndices([0, 1, 4], [0], 'int_col\n1\n2\nNULL');
+		// Test non-strictly-increasing row indices (order should be preserved)
+		await testCellIndices([4, 0, 2], [0], 'int_col\nNULL\n1\n3');
+		await testCellIndices([3, 1, 0], [1, 2], 'str_col,float_col\nNULL,NULL\nb,2.2\na,1.1');
+		await testCellIndices([2, 4, 1], [0, 1], `int_col,str_col\n3,c\nNULL,${longString}\n2,b`);
+		// Test non-strictly-increasing column indices (order should be preserved)
+		await testCellIndices([0, 1], [2, 0, 1], 'float_col,int_col,str_col\n1.1,1,a\n2.2,2,b');
+		await testCellIndices([1, 2], [1, 2, 0], 'str_col,float_col,int_col\nb,2.2,2\nc,3.3,3');
+		// Test both row and column indices out of order
+		await testCellIndices([2, 0], [2, 0], 'float_col,int_col\n3.3,3\n1.1,1');
+
 		// Test TSV format
 		await testSelection(TableSelectionKind.CellRange,
 			{

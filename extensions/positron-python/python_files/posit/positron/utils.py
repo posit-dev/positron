@@ -9,6 +9,7 @@ import functools
 import inspect
 import json
 import logging
+import os
 import re
 import sys
 import threading
@@ -149,7 +150,9 @@ class BackgroundJobQueue:
 
     def __init__(self, max_workers=None):
         # Initialize the ThreadPoolExecutor with the specified number
-        # of workers
+        # of workers. Default to the number of CPU cores for optimal performance.
+        if max_workers is None:
+            max_workers = os.cpu_count() or 4
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
         self.pending_futures = set()
         self.lock = threading.Lock()
