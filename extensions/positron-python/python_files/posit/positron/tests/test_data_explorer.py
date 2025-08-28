@@ -2323,6 +2323,25 @@ def _select_row_indices(indices: List[int]):
     return _select_indices(indices, "row_indices")
 
 
+def _strip_newline(x):
+    """Helper to strip only the final newline character for cross-platform compatibility."""
+    if x[-1] == "\n":
+        x = x[:-1]
+    return x
+
+
+def _pandas_export_table(x, fmt):
+    """Helper to export pandas DataFrame to various formats with proper line ending handling."""
+    buf = StringIO()
+    if fmt == "csv":
+        x.to_csv(buf, index=False)
+    elif fmt == "tsv":
+        x.to_csv(buf, sep="\t", index=False)
+    elif fmt == "html":
+        x.to_html(buf, index=False)
+    return _strip_newline(buf.getvalue())
+
+
 def test_export_data_selection(dxf: DataExplorerFixture):
     length = 100
     ncols = 20
@@ -2360,22 +2379,10 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         (_select_cell_indices([0, 2, 4], [0, 1, 2]), ([0, 2, 4], [0, 1, 2])),
         (_select_cell_indices([10], [5, 10, 15]), ([10], [5, 10, 15])),
         (_select_cell_indices([1, 3], [7]), ([1, 3], [7])),
+        # Test cell_indices with non-strictly-increasing indices (order preservation)
+        (_select_cell_indices([5, 1, 3], [15, 10, 19]), ([5, 1, 3], [15, 10, 19])),
+        (_select_cell_indices([4, 0, 2], [2, 0, 1]), ([4, 0, 2], [2, 0, 1])),
     ]
-
-    def strip_newline(x):
-        if x[-1] == "\n":
-            x = x[:-1]
-        return x
-
-    def pandas_export_table(x, fmt):
-        buf = StringIO()
-        if fmt == "csv":
-            x.to_csv(buf, index=False)
-        elif fmt == "tsv":
-            x.to_csv(buf, sep="\t", index=False)
-        elif fmt == "html":
-            x.to_html(buf, index=False)
-        return strip_newline(buf.getvalue())
 
     def pandas_export_cell(x, i, j):
         return str(x.iloc[i, j])
@@ -2398,7 +2405,7 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         return str(x[i, j])
 
     data_cases = {
-        ("test_df", pandas_export_cell, pandas_export_table, pandas_iloc),
+        ("test_df", pandas_export_cell, _pandas_export_table, pandas_iloc),
         ("dfp", polars_export_cell, polars_export_table, polars_iloc),
     }
 
@@ -2440,104 +2447,6 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 filt_result = dxf.export_data_selection(f"{name}_filtered", rpc_selection, fmt)
                 filt_expected = export_table(filtered_selected, fmt)
                 assert filt_result["data"] == filt_expected
-
-
-def test_export_cell_indices_selection(dxf: DataExplorerFixture):
-    """Test cell_indices selection type specifically."""
-    # Create a simple 5x5 DataFrame for easy verification
-    test_df = pd.DataFrame(
-        {
-            "col_0": [10, 11, 12, 13, 14],
-            "col_1": [20, 21, 22, 23, 24],
-            "col_2": [30, 31, 32, 33, 34],
-            "col_3": [40, 41, 42, 43, 44],
-            "col_4": [50, 51, 52, 53, 54],
-        }
-    )
-
-    dxf.register_table("cell_indices_test", test_df)
-
-    # Test case 1: Single row, multiple columns
-    selection = _select_cell_indices([1], [0, 2, 4])
-    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
-    # Should select row 1 (values 11, 31, 51) from columns 0, 2, 4
-    expected_df = test_df.iloc[[1], [0, 2, 4]]
-    expected_csv = expected_df.to_csv(index=False).strip()
-    assert result["data"] == expected_csv
-    assert result["format"] == "csv"
-
-    # Test case 2: Multiple rows, single column
-    selection = _select_cell_indices([0, 2, 4], [1])
-    result = dxf.export_data_selection("cell_indices_test", selection, "tsv")
-    # Should select rows 0, 2, 4 (values 20, 22, 24) from column 1
-    expected_df = test_df.iloc[[0, 2, 4], [1]]
-    expected_tsv = expected_df.to_csv(sep="\t", index=False).strip()
-    assert result["data"] == expected_tsv
-    assert result["format"] == "tsv"
-
-    # Test case 3: Multiple rows and columns (Cartesian product)
-    selection = _select_cell_indices([1, 3], [2, 4])
-    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
-    # Should select intersection of rows [1,3] and columns [2,4]
-    # This creates a 2x2 grid: (1,2)=32, (1,4)=52, (3,2)=42, (3,4)=54
-    expected_df = test_df.iloc[[1, 3], [2, 4]]
-    expected_csv = expected_df.to_csv(index=False).strip()
-    assert result["data"] == expected_csv
-
-    # Test case 4: Non-contiguous selection
-    selection = _select_cell_indices([0, 4], [0, 4])
-    result = dxf.export_data_selection("cell_indices_test", selection, "html")
-    # Should select corners: (0,0)=10, (0,4)=50, (4,0)=14, (4,4)=54
-    expected_df = test_df.iloc[[0, 4], [0, 4]]
-    expected_html = expected_df.to_html(index=False).strip()
-    assert result["data"] == expected_html
-    assert result["format"] == "html"
-
-    # Test case 5: Non-strictly-increasing row indices (order should be preserved)
-    selection = _select_cell_indices([4, 0, 2], [1])
-    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
-    # Should select rows in order [4, 0, 2] from column 1 -> values [24, 20, 22]
-    expected_df = test_df.iloc[[4, 0, 2], [1]]
-    expected_csv = expected_df.to_csv(index=False).rstrip()
-    result_data = result["data"].rstrip()
-    assert result_data == expected_csv
-
-    # Test case 6: Non-strictly-increasing column indices (order should be preserved)
-    selection = _select_cell_indices([1], [4, 0, 2])
-    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
-    # Should select columns in order [4, 0, 2] from row 1 -> values [51, 11, 31]
-    expected_df = test_df.iloc[[1], [4, 0, 2]]
-    expected_csv = expected_df.to_csv(index=False).rstrip()
-    result_data = result["data"].rstrip()
-    assert result_data == expected_csv
-
-    # Test case 7: Both rows and columns out of order
-    selection = _select_cell_indices([3, 1], [2, 4, 0])
-    result = dxf.export_data_selection("cell_indices_test", selection, "csv")
-    # Should maintain order: rows [3,1] x columns [2,4,0]
-    # Row 3: col_2=33, col_4=53, col_0=13
-    # Row 1: col_2=31, col_4=51, col_0=11
-    expected_df = test_df.iloc[[3, 1], [2, 4, 0]]
-    expected_csv = expected_df.to_csv(index=False).rstrip()
-    result_data = result["data"].rstrip()
-    assert result_data == expected_csv
-
-    # Test case 8: Test with filtered data
-    dxf.register_table("cell_indices_filtered", test_df)
-    schema = dxf.get_schema("cell_indices_filtered")
-    # Filter to keep rows where col_0 > 11 (this should keep rows 2, 3, 4)
-    dxf.set_row_filters("cell_indices_filtered", filters=[_compare_filter(schema[0], ">", "11")])
-
-    # After filtering, the view indices are [2, 3, 4], so requesting rows [0, 1]
-    # should correspond to the original rows [2, 3]
-    selection = _select_cell_indices([0, 1], [1, 3])
-    result = dxf.export_data_selection("cell_indices_filtered", selection, "csv")
-    # Should select the filtered rows 0,1 (original 2,3) and columns 1,3
-    # This gives us (2,1)=22, (2,3)=42, (3,1)=23, (3,3)=43
-    filtered_df = test_df[test_df["col_0"] > 11]
-    expected_df = filtered_df.iloc[[0, 1], [1, 3]]
-    expected_csv = expected_df.to_csv(index=False).strip()
-    assert result["data"] == expected_csv
 
 
 def _profile_request(column_index, profiles):
