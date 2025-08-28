@@ -483,6 +483,15 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const outputCount = usage.completionTokens;
 		const inputCount = usage.promptTokens;
 
+		// Report token usage information as part of the output stream.
+		const part: any = vscode.LanguageModelDataPart.json({
+			type: 'usage', data: {
+				input_tokens: inputCount,
+				output_tokens: outputCount,
+			}
+		});
+		progress.report({ index: 0, part: part });
+
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
 		}
