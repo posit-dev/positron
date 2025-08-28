@@ -52,6 +52,7 @@ from .data_explorer_comm import (
     ConvertToCodeParams,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
+    DataSelectionCellIndices,
     DataSelectionCellRange,
     DataSelectionIndices,
     DataSelectionRange,
@@ -425,6 +426,9 @@ class DataExplorerTableView:
                 slice(sel.first_column_index, sel.last_column_index + 1),
                 fmt,
             )
+        elif kind == TableSelectionKind.CellIndices:
+            assert isinstance(sel, DataSelectionCellIndices)
+            return self._export_tabular(sel.row_indices, sel.column_indices, fmt)
         elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
