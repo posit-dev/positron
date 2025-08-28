@@ -118,7 +118,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** Information about the runtime that is only available after starting */
     private _runtimeInfo?: positron.LanguageRuntimeInfo;
 
-    private _dynState: positron.LanguageRuntimeDynState;
+    private dynState: positron.LanguageRuntimeDynState;
 
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
 
@@ -169,7 +169,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     getDynState(): Thenable<positron.LanguageRuntimeDynState> {
-        return Promise.resolve(this._dynState);
+        return Promise.resolve(this.dynState);
     }
 
     async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {

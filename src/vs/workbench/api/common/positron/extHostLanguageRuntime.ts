@@ -217,7 +217,7 @@ export class ExtHostRuntimeSessionProxy extends Disposable implements positron.B
 		id: string,
 		mode: RuntimeCodeExecutionMode,
 		errorBehavior: RuntimeErrorBehavior) {
-		return this._proxy.$executeCode(this.sessionId, code, id, mode, errorBehavior);
+		return this._proxy.$executeInSession(this.sessionId, code, id, mode, errorBehavior);
 	}
 
 	/**
@@ -322,7 +322,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			const handle = this.attachToSession(session);
 			const initalState = {
 				handle,
-				dynState: session.dynState
+				dynState: await session.getDynState()
 			};
 			return initalState;
 		} else {
@@ -436,7 +436,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				const handle = this.attachToSession(session);
 				const initalState = {
 					handle,
-					dynState: session.dynState
+					dynState: await session.getDynState()
 				};
 				return initalState;
 			} else {
@@ -1075,6 +1075,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Create a proxy for this session
 		const proxySession = new ExtHostRuntimeSessionProxy(session.metadata, session.runtimeMetadata, this._proxy);
 		this._runtimeProxies.set(sessionId, proxySession);
+		return proxySession;
 	}
 
 	public async getForegroundSession(): Promise<positron.BaseLanguageRuntimeSession | undefined> {

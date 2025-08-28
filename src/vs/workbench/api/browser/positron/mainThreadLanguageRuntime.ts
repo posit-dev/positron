@@ -1705,6 +1705,22 @@ export class MainThreadLanguageRuntime
 			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${id}`));
+		}
+		return Promise.resolve(session.execute(code, id, mode, errorBehavior));
+	}
+
+	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${sessionId}`));
+		}
+		return Promise.resolve(session.shutdown(exitReason));
+	}
+
 	public dispose(): void {
 		// Check each session that is still running and emit an exit event for it
 		// so we can clean it up properly on the front end.

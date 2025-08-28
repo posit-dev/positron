@@ -1475,6 +1475,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	/**
 	 * Performs a restart of the kernel. Kallichore handles the mechanics of
 	 * stopping the process and starting a new one; we just need to listen for
