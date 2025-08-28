@@ -50,7 +50,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { LanguageRuntimeMetadata, RuntimeSessionMetadata } from 'positron';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -1516,28 +1516,44 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
-	$getActiveSessions(): Promise<IRuntimeSessionMetadata[]> {
+	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]> {
 		return Promise.resolve(
 			this._runtimeSessionService.getActiveSessions().map(
-				activeSession => activeSession.session.metadata));
+				activeSession => this.toActiveSessionMetadata(activeSession.session)!));
 	}
 
-	$getForegroundSession(): Promise<RuntimeSessionMetadata | undefined> {
-		return Promise.resolve(this._runtimeSessionService.foregroundSession?.metadata);
+	toActiveSessionMetadata(session?: ILanguageRuntimeSession): ActiveRuntimeSessionMetadata | undefined {
+		if (!session) {
+			return undefined;
+		}
+		return {
+			metadata: session.metadata,
+			runtimeMetadata: session.runtimeMetadata,
+		};
 	}
 
-	$getForegroundRuntime(): Promise<LanguageRuntimeMetadata | undefined> {
-		return Promise.resolve(this._runtimeSessionService.foregroundSession?.runtimeMetadata);
+	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined> {
+		const session = this._runtimeSessionService.foregroundSession;
+		return Promise.resolve(this.toActiveSessionMetadata(session));
 	}
 
-	$getNotebookSession(notebookUri: URI): Promise<RuntimeSessionMetadata | undefined> {
+	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
+
+	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
 		// Get the session for the notebook URI
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
 
-		return Promise.resolve(session?.metadata);
+	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState> {
+		const session = this.findSession(sessionId);
+		return Promise.resolve(session.dynState);
 	}
 
 	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any> {

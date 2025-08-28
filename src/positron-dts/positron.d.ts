@@ -1035,10 +1035,7 @@ declare module 'positron' {
 		LSP = 'lsp',
 	}
 
-	/**
-	 * The base interface for a language runtime session.
-	 */
-	export interface BaseLanguageRuntimeSession {
+	export interface ActiveRuntimeSessionMetadata {
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
 
@@ -1047,6 +1044,15 @@ declare module 'positron' {
 		 * session is associated.
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
+	}
+
+	/**
+	 * The base interface for a language runtime session.
+	 */
+	export interface BaseLanguageRuntimeSession extends ActiveRuntimeSessionMetadata {
+
+		/** The state of the runtime that changes during a user session */
+		dynState: LanguageRuntimeDynState;
 
 		/**
 		 * Calls a method in the runtime and returns the result.
@@ -1058,6 +1064,19 @@ declare module 'positron' {
 		 */
 		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
+		/**
+		 * Execute code in the runtime
+		 *
+		 * @param code The code to execute
+		 * @param id The ID of the code
+		 * @param mode The code execution mode
+		 * @param errorBehavior The code execution error behavior
+		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 */
+		execute(code: string,
+			id: string,
+			mode: RuntimeCodeExecutionMode,
+			errorBehavior: RuntimeErrorBehavior): void;
 	}
 
 	/**
@@ -1069,9 +1088,6 @@ declare module 'positron' {
 
 		/** Information about the runtime that is only available after starting. */
 		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
-
-		/** The state of the runtime that changes during a user session */
-		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
@@ -1096,20 +1112,6 @@ declare module 'positron' {
 		 * @returns The Debug Adapter Protocol response.
 		 */
 		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
-
-		/**
-		 * Execute code in the runtime
-		 *
-		 * @param code The code to execute
-		 * @param id The ID of the code
-		 * @param mode The code execution mode
-		 * @param errorBehavior The code execution error behavior
-		 * Note: The errorBehavior parameter is currently ignored by kernels
-		 */
-		execute(code: string,
-			id: string,
-			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -1818,10 +1820,15 @@ declare module 'positron' {
 		/**
 		 * List all active sessions.
 		 */
-		export function getActiveSessions(): Thenable<RuntimeSessionMetadata[]>;
+		export function getActiveSessions(): Thenable<ActiveRuntimeSessionMetadata[]>;
 
 		/**
-		 * Get the active foreground session's metadata, if any.
+		 * Get a specific session by its ID.
+		 */
+		export function getSession(sessionId: string): Thenable<BaseLanguageRuntimeSession | undefined>;
+
+		/**
+		 * Get the active foreground session, if any.
 		 */
 		export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
@@ -1830,7 +1837,7 @@ declare module 'positron' {
 		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
-		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<RuntimeSessionMetadata | undefined>;
+		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any

@@ -185,8 +185,10 @@ interface LanguageRuntimeManager {
 }
 
 export class ExtHostRuntimeSessionProxy extends Disposable implements positron.BaseLanguageRuntimeSession {
+	readonly sessionId: string = this.metadata.sessionId;
 	constructor(
 		readonly metadata: positron.RuntimeSessionMetadata,
+		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape,
 	) {
 		super(() => {
@@ -194,8 +196,28 @@ export class ExtHostRuntimeSessionProxy extends Disposable implements positron.B
 		});
 	}
 
+	get dynState(): positron.LanguageRuntimeDynState {
+		return this._proxy.$getSessionDynState(this.sessionId);
+	}
+
 	callMethod(method: string, ...args: any[]): Thenable<any> {
 		return this._proxy.$callMethod(this.metadata.sessionId, method, args);
+	}
+
+	/**
+	 * Execute code in the runtime
+	 *
+	 * @param code The code to execute
+	 * @param id The ID of the code
+	 * @param mode The code execution mode
+	 * @param errorBehavior The code execution error behavior
+	 * Note: The errorBehavior parameter is currently ignored by kernels
+	 */
+	execute(code: string,
+		id: string,
+		mode: RuntimeCodeExecutionMode,
+		errorBehavior: RuntimeErrorBehavior) {
+
 	}
 }
 
@@ -1013,35 +1035,47 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getActiveSessions();
 	}
 
-	public async getForegroundSession(): Promise<positron.BaseLanguageRuntimeSession | undefined> {
-		const session = await this._proxy.$getForegroundSession();
+	public async getSession(sessionId: string): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+		const session = await this._proxy.$getSession(sessionId);
+		if (!session) {
+			return undefined;
+		}
+		return this.getRuntimeSessionInterface(session);
+	}
 
-		// No foreground session
+	private getRuntimeSessionInterface(session?: positron.ActiveRuntimeSessionMetadata): positron.BaseLanguageRuntimeSession | undefined {
+		// If there's no session, return undefined
 		if (!session) {
 			return undefined;
 		}
 
+		const sessionId = session.metadata.sessionId;
+
 		// Check to see if we already have this session
-		const existing = this._runtimeSessions.find(s => s.metadata.sessionId === session.sessionId);
+		const existing = this._runtimeSessions.find(s => s.metadata.sessionId === sessionId);
 		if (existing) {
 			return existing;
 		}
 
 		// Check to see if we have a proxy for this session
-		const proxy = this._runtimeProxies.get(session.sessionId);
+		const proxy = this._runtimeProxies.get(sessionId);
 		if (proxy) {
 			return proxy;
 		}
 
 		// Create a proxy for this session
-		const proxySession = new ExtHostRuntimeSessionProxy(session, this._proxy);
-		this._runtimeProxies.set(session.sessionId, proxySession);
-
-		return undefined;
+		const proxySession = new ExtHostRuntimeSessionProxy(session.metadata, session.runtimeMetadata, this._proxy);
+		this._runtimeProxies.set(sessionId, proxySession);
 	}
 
-	public async getNotebookSession(notebookUri: URI): Promise<positron.RuntimeSessionMetadata | undefined> {
-		return this._proxy.$getNotebookSession(notebookUri);
+	public async getForegroundSession(): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+		const session = await this._proxy.$getForegroundSession();
+		return this.getRuntimeSessionInterface(session);
+	}
+
+	public async getNotebookSession(notebookUri: URI): Promise<positron.BaseLanguageRuntimeSession | undefined> {
+		const session = await this._proxy.$getNotebookSession(notebookUri);
+		return this.getRuntimeSessionInterface(session);
 	}
 
 	/**

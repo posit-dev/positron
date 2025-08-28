@@ -10,7 +10,7 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
-import { EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -46,13 +46,15 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$executeCode(languageId: string, extensionId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
-	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
-	$getForegroundSession(): Promise<RuntimeSessionMetadata | undefined>;
-	$getNotebookSession(notebookUri: URI): Promise<RuntimeSessionMetadata | undefined>;
+	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
+	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined>;
 	$restartSession(sessionId: string): Promise<void>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
+	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
 	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
 	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any>;

@@ -103,16 +103,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata | undefined> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);
 			},
-			getActiveSessions(): Thenable<positron.RuntimeSessionMetadata[]> {
+			getActiveSessions(): Thenable<positron.ActiveRuntimeSessionMetadata[]> {
 				return extHostLanguageRuntime.getActiveSessions();
 			},
-			getForegroundSession(): Thenable<positron.RuntimeSessionMetadata | undefined> {
+			getSession(sessionId: string): Thenable<positron.BaseLanguageRuntimeSession | undefined> {
+				return extHostLanguageRuntime.getSession(sessionId);
+			},
+			getForegroundSession(): Thenable<positron.BaseLanguageRuntimeSession | undefined> {
 				return extHostLanguageRuntime.getForegroundSession();
 			},
-			getForegroundRuntime(): Thenable<positron.LanguageRuntimeMetadata | undefined> {
-				return extHostLanguageRuntime.getForegroundRuntime();
-			},
-			getNotebookSession(notebookUri: vscode.Uri): Thenable<positron.RuntimeSessionMetadata | undefined> {
+			getNotebookSession(notebookUri: vscode.Uri): Thenable<positron.BaseLanguageRuntimeSession | undefined> {
 				return extHostLanguageRuntime.getNotebookSession(notebookUri);
 			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
