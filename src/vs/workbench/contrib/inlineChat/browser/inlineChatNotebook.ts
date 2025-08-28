@@ -16,6 +16,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { NotebookTextDiffEditor } from '../../notebook/browser/diff/notebookDiffEditor.js';
 import { NotebookMultiTextDiffEditor } from '../../notebook/browser/diff/notebookMultiDiffEditor.js';
 // --- Start Positron ---
+// Imports to support inline chat in Positron notebooks.
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 // --- End Positron ---
 
@@ -28,6 +29,7 @@ export class InlineChatNotebookContribution {
 		@IEditorService editorService: IEditorService,
 		@INotebookEditorService notebookEditorService: INotebookEditorService,
 		// --- Start Positron ---
+		// Imports to support inline chat in Positron notebooks.
 		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
 		// --- End Positron ---
 	) {
@@ -64,16 +66,15 @@ export class InlineChatNotebookContribution {
 					}
 				}
 				// --- Start Positron ---
-				// Find the Positron notebook instance for the given URI and containing the given editor.
-				for (const notebookInstance of positronNotebookService.getInstances()) {
-					if (isEqual(notebookInstance.uri, data.notebook)) {
-						const candidate = `<positron-notebook>${notebookInstance.id}#${uri}`;
-						if (!fallback) {
-							fallback = candidate;
-						}
-						if (notebookInstance.cells.get().some(cell => cell.editor === editor)) {
-							return candidate;
-						}
+				// To support inline chat in Positron notebooks:
+				// find the Positron notebook for the URI and containing the editor.
+				for (const notebookInstance of positronNotebookService.listInstances(data.notebook)) {
+					const candidate = `<positron-notebook>${notebookInstance.id}#${uri}`;
+					if (!fallback) {
+						fallback = candidate;
+					}
+					if (notebookInstance.hasCodeEditor(editor)) {
+						return candidate;
 					}
 				}
 				// --- End Positron ---
@@ -116,6 +117,20 @@ export class InlineChatNotebookContribution {
 					}
 				}
 			}
+			// --- Start Positron ---
+			// To support inline chat in Positron notebooks:
+			// cancel existing chat sessions in Positron notebooks.
+			for (const notebookInstance of positronNotebookService.listInstances(candidate.notebook)) {
+				if (notebookInstance.hasCodeEditor(newSessionEditor)) {
+					for (const cell of notebookInstance.cells.get()) {
+						if (cell.editor && cell.editor !== newSessionEditor) {
+							InlineChatController.get(newSessionEditor)?.acceptSession();
+						}
+					}
+					break;
+				}
+			}
+			// --- End Positron ---
 		}));
 	}
 

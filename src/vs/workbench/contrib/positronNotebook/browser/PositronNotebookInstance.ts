@@ -36,6 +36,7 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -630,6 +631,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
+	}
+
+	hasCodeEditor(editor: ICodeEditor): boolean {
+		for (const cell of this._cells) {
+			if (cell.editor && cell.editor === editor) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	async attachView(container: HTMLElement) {
