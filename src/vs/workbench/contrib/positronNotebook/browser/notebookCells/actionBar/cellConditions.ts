@@ -24,12 +24,13 @@ export interface ICellInfo {
 	cellIndex: number;
 	/** Total number of cells in the notebook */
 	totalCells: number;
-	/** True if this is the first cell in the notebook */
+	/** Cell is first in the notebook */
 	isFirstCell: boolean;
-	/** True if this is the last cell in the notebook */
+	/** Cell is last in the notebook */
 	isLastCell: boolean;
-	/** True if this is the only cell in the notebook */
+	/** Cell is the only cell in the notebook */
 	isOnlyCell: boolean;
+	/** Cell is actively executing/running */
 	isRunning: boolean;
 }
 
