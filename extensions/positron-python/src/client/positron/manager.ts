@@ -438,7 +438,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                     sessionsToShutdown.map(async (session) => {
                         const targetSession = await positron.runtime.getSession(session.metadata.sessionId);
                         if (targetSession) {
-                            targetSession.shutdown(positron.RuntimeExitReason.Shutdown)
+                            targetSession.shutdown(positron.RuntimeExitReason.Shutdown);
                         }
                     }),
                 );
