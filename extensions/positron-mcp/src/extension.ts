@@ -18,10 +18,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const enabled = config.get<boolean>('enable', false);
 
 	const logger = getLogger();
-	
+
 	// Always create the API wrapper so commands can use it
 	apiWrapper = new PositronApiWrapper(context);
-	
+
 	if (!enabled) {
 		logger.info('Extension', 'Positron MCP server is disabled in configuration');
 		// Still register commands even if server is disabled
@@ -102,7 +102,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 					vscode.ViewColumn.One,
 					{ enableScripts: true }
 				);
-				
+
 				const htmlContent = generateAuditLogHtml(auditLog);
 				panel.webview.html = htmlContent;
 			}
@@ -164,7 +164,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 export function deactivate(): void {
 	const logger = getLogger();
 	logger.info('Extension', 'Deactivating Positron MCP extension');
-	
+
 	if (mcpServer) {
 		mcpServer.dispose();
 		mcpServer = undefined;
@@ -174,22 +174,71 @@ export function deactivate(): void {
 async function enableMcpServer(): Promise<void> {
 	const logger = getLogger();
 	logger.info('Command', 'Enabling MCP server via command');
-	
+
+	// Check if server is already running
+	if (mcpServer) {
+		await positron.window.showSimpleModalDialogMessage(
+			'MCP Server Already Running',
+			'The Positron MCP server is already running on http://localhost:43123',
+			'OK'
+		);
+		return;
+	}
+
+	// Ask for confirmation to enable server
+	const enableOptions = [
+		{ label: '$(check) Yes, enable MCP server', value: true },
+		{ label: '$(x) No, cancel', value: false }
+	];
+
+	const enableChoice = await vscode.window.showQuickPick(enableOptions, {
+		placeHolder: 'Enable Positron MCP server?',
+		title: 'MCP Server Configuration',
+		ignoreFocusOut: true
+	});
+
+	if (!enableChoice || !enableChoice.value) {
+		logger.info('Command', 'User cancelled MCP server enable');
+		return;
+	}
+
+	// Enable the server in configuration
 	const config = vscode.workspace.getConfiguration();
 	await config.update('positron.mcp.enable', true, vscode.ConfigurationTarget.Global);
 
-	// Try to create/update .mcp.json
-	const mcpConfigPath = await createOrUpdateMcpConfig();
+	// Ask about .mcp.json file configuration
+	let mcpConfigPath: string | undefined;
+	if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+		const configOptions = [
+			{ label: '$(file-add) Create/update .mcp.json file', value: true },
+			{ label: '$(dash) Skip configuration file', value: false }
+		];
 
-	let message = `Positron MCP server is **enabled**. Please **restart Positron**, then configure your AI tool to connect to:\n\n\`http://localhost:43123\``;
+		const configChoice = await vscode.window.showQuickPick(configOptions, {
+			placeHolder: 'Would you like to create or update the .mcp.json configuration file?',
+			title: 'MCP Configuration File',
+			ignoreFocusOut: true
+		});
 
-	if (mcpConfigPath) {
-		message += `\n\nA \`.mcp.json\` configuration file has been created/updated in your workspace root.`;
+		if (configChoice && configChoice.value) {
+			mcpConfigPath = await createOrUpdateMcpConfig();
+		}
 	}
 
-	message += `\n\n**Claude:**\n\n\`claude mcp add --transport http positron http://localhost:43123\``;
+	// Build the final message based on choices
+	let message = `Positron MCP server is enabled. Please restart Positron to start the server`;
 
-	await vscode.window.showInformationMessage(message, { modal: true }, 'OK');
+	if (mcpConfigPath) {
+		message += `<br><br>An <code>.mcp.json</code> configuration file has been created/updated in your workspace root.`;
+	} else {
+		message += `<br><br><strong>Claude:</strong><br><br><code>claude mcp add --transport http positron http://localhost:43123</code>`;
+	}
+
+	await positron.window.showSimpleModalDialogMessage(
+		'MCP Server Enabled',
+		message,
+		'OK'
+	);
 }
 
 async function createOrUpdateMcpConfig(): Promise<string | undefined> {
@@ -295,6 +344,7 @@ function generateAuditLogHtml(auditLog: any[]): string {
 						<span class="method">${entry.eventType.toUpperCase()}</span>
 						${entry.method ? ` - ${entry.method}` : ''}
 						${entry.tool ? ` - Tool: ${entry.tool}` : ''}
+						// allow-any-unicode-next-line
 						${entry.success ? ' ✓' : ' ✗'}
 					</div>
 					${entry.origin ? `<div>Origin: ${entry.origin}</div>` : ''}
