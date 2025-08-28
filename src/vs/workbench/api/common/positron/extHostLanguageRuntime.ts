@@ -184,22 +184,44 @@ interface LanguageRuntimeManager {
 	extension: IExtensionDescription;
 }
 
-export class ExtHostRuntimeSessionProxy extends Disposable implements positron.BaseLanguageRuntimeSession {
+/**
+ * A proxy to a language runtime session that is owned by another extension
+ * host.
+ *
+ * This proxy is used to fulfill the basic language runtime session interface by
+ * routing calls to the main thread, where they are dispatched to the extension
+ * that owns the actual session.
+ */
+export class ExtHostRuntimeSessionProxy
+	extends Disposable
+	implements positron.BaseLanguageRuntimeSession {
 	readonly sessionId: string = this.metadata.sessionId;
+
+	/**
+	 * Constructor
+	 *
+	 * @param metadata The metadata about the session
+	 * @param runtimeMetadata The metadata about the runtime
+	 * @param _proxy A proxy to the main thread language runtime API
+	 */
 	constructor(
 		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape,
 	) {
-		super(() => {
-
-		});
+		super(() => { });
 	}
 
+	/**
+	 * Get the current dynamic state of the runtime
+	 */
 	async getDynState(): Promise<positron.LanguageRuntimeDynState> {
 		return this._proxy.$getSessionDynState(this.sessionId);
 	}
 
+	/**
+	 * Call a method in the runtime
+	 */
 	callMethod(method: string, ...args: any[]): Thenable<any> {
 		return this._proxy.$callMethod(this.metadata.sessionId, method, args);
 	}
@@ -1066,23 +1088,37 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			return existing;
 		}
 
-		// Check to see if we have a proxy for this session
+		// The session doesn't exist on this host. Check to see if we have a
+		// proxy for this session already.
 		const proxy = this._runtimeProxies.get(sessionId);
 		if (proxy) {
 			return proxy;
 		}
 
 		// Create a proxy for this session
-		const proxySession = new ExtHostRuntimeSessionProxy(session.metadata, session.runtimeMetadata, this._proxy);
+		const proxySession = new ExtHostRuntimeSessionProxy(
+			session.metadata,
+			session.runtimeMetadata,
+			this._proxy);
 		this._runtimeProxies.set(sessionId, proxySession);
 		return proxySession;
 	}
 
+	/**
+	 * Gets the current foreground language runtime session, if any.
+	 *
+	 * @returns The current foreground session, if any
+	 */
 	public async getForegroundSession(): Promise<positron.BaseLanguageRuntimeSession | undefined> {
 		const session = await this._proxy.$getForegroundSession();
 		return this.getRuntimeSessionInterface(session);
 	}
 
+	/**
+	 * Get the language runtime session associated with a notebook, if any.
+	 * @param notebookUri the URI of the notebook
+	 * @returns The session associated with the notebook, if any
+	 */
 	public async getNotebookSession(notebookUri: URI): Promise<positron.BaseLanguageRuntimeSession | undefined> {
 		const session = await this._proxy.$getNotebookSession(notebookUri);
 		return this.getRuntimeSessionInterface(session);

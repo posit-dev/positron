@@ -1035,6 +1035,11 @@ declare module 'positron' {
 		LSP = 'lsp',
 	}
 
+	/**
+	 * Basic metadata about an active language runtime session, including
+	 * immutable metadata about the session itself and metadata about the
+	 * runtime with which it is associated.
+	 */
 	export interface ActiveRuntimeSessionMetadata {
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
@@ -1047,7 +1052,11 @@ declare module 'positron' {
 	}
 
 	/**
-	 * The base interface for a language runtime session.
+	 * Base interface for a language runtime session.
+	 *
+	 * This is the version of a language runtime session that is returned by
+	 * Positron's API methods; it provides basic access to the session for use
+	 * by extensions other that the one that created the session.
 	 */
 	export interface BaseLanguageRuntimeSession extends ActiveRuntimeSessionMetadata {
 
@@ -1087,9 +1096,9 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	 * LanguageRuntimeSession is the full interface implemented by extensions
+	 * that provide a set of common tools for interacting with a language
+	 * runtime, such as code execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
 
