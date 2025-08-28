@@ -61,7 +61,7 @@ jobs:
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one integration test needs this: Connections pane works for R

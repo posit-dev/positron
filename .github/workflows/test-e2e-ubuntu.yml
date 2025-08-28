@@ -172,7 +172,7 @@ jobs:
         uses: ./.github/actions/install-license
         if: ${{ inputs.install_license }}
         with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       - name: Setup E2E Test Environment

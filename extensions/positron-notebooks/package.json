@@ -4,6 +4,7 @@
   "description": "Positron Notebook Helpers",
   "version": "1.0.0",
   "publisher": "positron",
+  "private": true,
   "engines": {
     "vscode": "^1.65.0"
   },
