@@ -2,8 +2,8 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Emitter } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Event } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ICompositeCodeEditor, IEditor } from '../../../../editor/common/editorCommon.js';
 import { SelectionState } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
@@ -17,49 +17,37 @@ import { PositronNotebookInstance } from './PositronNotebookInstance.js';
  * whether to implement INotebookEditor, or find a different solution.
  */
 export class PositronNotebookEditorControl extends Disposable implements ICompositeCodeEditor {
-	private readonly _onDidChangeActiveEditor = this._register(new Emitter<this>());
-
 	/**
 	 * Event that fires when the active cell, and therefore the active code editor, changes.
 	 */
-	public readonly onDidChangeActiveEditor = this._onDidChangeActiveEditor.event;
+	public readonly onDidChangeActiveEditor = Event.None;
 
 	/**
 	 * The active cell's code editor.
 	 */
 	private _activeCodeEditor: IEditor | undefined;
 
-	/**
-	 * Disposables for the current notebook instance.
-	 */
-	private readonly _instanceDisposables = this._register(new DisposableStore());
+	constructor(
+		private readonly _notebookInstance: PositronNotebookInstance,
+	) {
+		super();
+
+		// Update the active code editor when the notebook selection state changes.
+		this._register(this._notebookInstance.selectionStateMachine.onNewState((state) => {
+			if (state.type === SelectionState.EditingSelection) {
+				this._activeCodeEditor = state.selectedCell.editor;
+			} else if (state.type === SelectionState.NoSelection) {
+				this._activeCodeEditor = undefined;
+			} else {
+				this._activeCodeEditor = state.selected[0]?.editor;
+			}
+		}));
+	}
 
 	/**
 	 * Gets the active cell's code editor.
 	 */
 	public get activeCodeEditor(): IEditor | undefined {
 		return this._activeCodeEditor;
-	}
-
-	/**
-	 * Sets the notebook instance for the editor control.
-	 * @param notebookInstance The notebook instance to set.
-	 */
-	public setNotebookInstance(notebookInstance: PositronNotebookInstance): void {
-		// Stop listening to events from a previous notebook instance.
-		this._instanceDisposables.clear();
-
-		// Update the active code editor when the notebook selection state changes.
-		this._instanceDisposables.add(
-			notebookInstance.selectionStateMachine.onNewState((state) => {
-				if (state.type === SelectionState.EditingSelection) {
-					this._activeCodeEditor = state.selectedCell.editor;
-				} else if (state.type === SelectionState.NoSelection) {
-					this._activeCodeEditor = undefined;
-				} else {
-					this._activeCodeEditor = state.selected[0]?.editor;
-				}
-			})
-		);
 	}
 }

@@ -67,13 +67,13 @@ export class InlineChatNotebookContribution {
 				}
 				// --- Start Positron ---
 				// To support inline chat in Positron notebooks:
-				// find the Positron notebook for the URI and containing the editor.
-				for (const notebookInstance of positronNotebookService.listInstances(data.notebook)) {
-					const candidate = `<positron-notebook>${notebookInstance.id}#${uri}`;
+				// construct a session comparison key from the corresponding notebook
+				for (const positronInstance of positronNotebookService.listInstances(data.notebook)) {
+					const candidate = `<positron-notebook>${positronInstance.id}#${uri}`;
 					if (!fallback) {
 						fallback = candidate;
 					}
-					if (notebookInstance.hasCodeEditor(editor)) {
+					if (positronInstance.hasCodeEditor(editor)) {
 						return candidate;
 					}
 				}
@@ -119,12 +119,12 @@ export class InlineChatNotebookContribution {
 			}
 			// --- Start Positron ---
 			// To support inline chat in Positron notebooks:
-			// cancel existing chat sessions in Positron notebooks.
-			for (const notebookInstance of positronNotebookService.listInstances(candidate.notebook)) {
-				if (notebookInstance.hasCodeEditor(newSessionEditor)) {
-					for (const cell of notebookInstance.cells.get()) {
-						if (cell.editor && cell.editor !== newSessionEditor) {
-							InlineChatController.get(newSessionEditor)?.acceptSession();
+			// cancel existing chat sessions when a new one is started.
+			for (const positronInstance of positronNotebookService.listInstances(candidate.notebook)) {
+				if (positronInstance.hasCodeEditor(newSessionEditor)) {
+					for (const { editor } of positronInstance.cells.get()) {
+						if (editor && editor !== newSessionEditor) {
+							InlineChatController.get(editor)?.acceptSession();
 						}
 					}
 					break;
