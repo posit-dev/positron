@@ -660,6 +660,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		);
 	}
 
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return this.pythonSession.getDynState();
+	}
+
 	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
@@ -752,10 +756,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	public get runtimeMetadata() {
 		return this.pythonSession.runtimeMetadata;
-	}
-
-	public get dynState() {
-		return this.pythonSession.dynState;
 	}
 
 	public get runtimeInfo() {

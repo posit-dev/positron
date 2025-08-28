@@ -1192,6 +1192,10 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		}
 	}
 
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	/**
 	 * Restarts the runtime.
 	 */

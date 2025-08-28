@@ -315,7 +315,7 @@ export function registerAssistantTools(
 				]);
 			}
 
-			let session = await positron.runtime.getSession(options.input.sessionIdentifier);
+			const session = await positron.runtime.getSession(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')

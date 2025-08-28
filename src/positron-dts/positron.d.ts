@@ -1052,7 +1052,7 @@ declare module 'positron' {
 	export interface BaseLanguageRuntimeSession extends ActiveRuntimeSessionMetadata {
 
 		/** The state of the runtime that changes during a user session */
-		dynState: LanguageRuntimeDynState;
+		getDynState(): Thenable<LanguageRuntimeDynState>;
 
 		/**
 		 * Calls a method in the runtime and returns the result.

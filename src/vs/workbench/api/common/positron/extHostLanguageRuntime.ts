@@ -196,7 +196,7 @@ export class ExtHostRuntimeSessionProxy extends Disposable implements positron.B
 		});
 	}
 
-	get dynState(): positron.LanguageRuntimeDynState {
+	async getDynState(): Promise<positron.LanguageRuntimeDynState> {
 		return this._proxy.$getSessionDynState(this.sessionId);
 	}
 
