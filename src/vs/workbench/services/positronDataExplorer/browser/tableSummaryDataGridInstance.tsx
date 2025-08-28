@@ -403,6 +403,22 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Updates the pinned rows in the summary panel.
+	 *
+	 * Note: The summary panel pins column indices as rows.
+	 * This is because the summary panel is a single column data grid
+	 * where each row represents a column from the main data grid.
+	 *
+	 * @param pinnedColumnIndices An array of column indices to pin as rows in the summary panel.
+	 */
+	updatePinnedRows(pinnedColumnIndices: number[]): void {
+		// Update the pinned indexes in the row layout manager.
+		this._rowLayoutManager.setPinnedIndexes(pinnedColumnIndices);
+		// Force a re-render when the pinned columns change
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
 	 * Sets the column name search filter.
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
