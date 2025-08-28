@@ -9,6 +9,7 @@ import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -154,6 +155,13 @@ export interface IPositronNotebookInstance {
 	 * @param cell The cell to set as editing, or undefined to clear editing state
 	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
+
+	/**
+	 * Checks if the notebook instance contains a code editor.
+	 *
+	 * @param editor The code editor to check for.
+	 */
+	hasCodeEditor(editor: ICodeEditor): boolean;
 
 	/**
 	 * Closes the notebook instance.

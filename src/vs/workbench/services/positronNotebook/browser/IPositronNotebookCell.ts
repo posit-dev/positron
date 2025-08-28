@@ -7,6 +7,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { NotebookPreloadOutputResults } from '../../positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
@@ -53,6 +54,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 * The notebook text model for the cell.
 	 */
 	cellModel: PositronNotebookCellTextModel;
+
+	/**
+	 * The cell's code editor widget.
+	 */
+	editor: ICodeEditor | undefined;
 
 	/**
 	 * Get the handle number for cell from cell model
