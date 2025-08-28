@@ -314,6 +314,24 @@ export class LayoutManager {
 	}
 
 	/**
+	 * Sets the pinned indices to the specified indices.
+	 * Clears any previously pinned indices before pinning the new indices.
+	 *
+	 * @param pinnedIndexes The indices that should be pinned.
+	 * The array is keyed by position and maps the position
+	 * to index of data entry from the origina dataset
+	 */
+	setPinnedIndexes(pinnedIndexes: number[]) {
+		// unpin all the current indices
+		this._pinnedIndexes.clear();
+
+		// pin the new indicies
+		for (const index of pinnedIndexes) {
+			this.pinIndex(index);
+		}
+	}
+
+	/**
 	 * Gets the layout indexes.
 	 * @param layoutOffset The layout offset.
 	 * @param layoutSize The layout size.
