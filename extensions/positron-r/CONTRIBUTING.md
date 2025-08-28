@@ -9,6 +9,43 @@ npm run test-extension -- -l positron-r
 ```
 
 
+## API
+
+Besides Mocha (see below), we provide a "Test Kit" with:
+
+- Helpers to manage synchronisation of effects.
+
+  - It's not always possible to deterministically wait for an effect. For instance, the timing of testing the effect of a notification to open an editor via RStudio API can be tricky. The RStudio API call is like a fire-and-forget event and you're only testing that an editor will _eventually_ be opened on the frontend side. For these cases you can use `pollForSuccess()`, which will retry an assertion until it passes (stops throwing assertion errors).
+
+  - `assertSelectedEditor()` is a wrapper around `pollForSuccess()` that checks an editor is getting selected.
+
+  - `retryRm()` to try deleting a file or folder until success. Useful on Windows as you might have to wait until the file is effectively released by some component (e.g. a text document you just closed).
+
+- Helpers to deal with temporary resources like R sessions and temporary files, and cleaning up once a test has run.
+
+  - `startR()` creates and returns an `RSession`, along with a disposable to delete it at the end of a test or suite. Since there is an overhead to starting and cleaning a session, we recommend having one session per file, started in `suiteSetup()` and cleaned up in `suiteTeardown()`.
+
+  - `openTextDocument()` that returns a document and a disposable to close it. See also `closeAllEditors()` to ensure all editors you might have opened are closed at the end of a test.
+
+  - `makeTempDir()` returns a temporary directory path and a disposable to clean it up.
+
+- The lifecycle of temporary resources is managed with the disposable pattern and we provide tools to help deal with disposables:
+
+  - `toDisposable()` to create a disposable from a closure.
+
+  - `disposeAll()` to dispose of an array of disposables.
+
+  - `withDisposables()` calls a closure with an array of disposables that are automatically disposed on exit, even in case of error.
+
+- Helpers to manage the VS Code UI.
+
+The test kit can be imported in your test files with:
+
+```ts
+import * as testKit from './kit';
+```
+
+
 ## Infrastructure
 
 The extension tests are located in `src/test/`. They are executed via:
