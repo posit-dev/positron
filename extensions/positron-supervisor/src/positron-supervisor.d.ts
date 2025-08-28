@@ -401,19 +401,6 @@ export interface DapComm {
 	readonly serverPort?: number;
 
 	/**
-	 * Create the server comm.
-	 *
-	 * Calls `JupyterLanguageRuntimeSession::createServerComm()`. The backend
-	 * comm handling for `targetName` is expected to start a DAP server and
-	 * communicate the port as part of the handshake.
-	 *
-	 * Once resolved:
-	 * - The DAP is ready to accept connections on the backend side.
-	 * - `comm` and `serverPort` are defined.
-	 */
-	createComm(): Promise<void>;
-
-	/**
 	 * Handle a message received via `this.comm.receiver`.
 	 *
 	 * This is optional. If called, these message types are handled:
