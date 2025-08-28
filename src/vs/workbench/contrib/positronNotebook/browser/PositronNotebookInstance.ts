@@ -35,6 +35,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { ResourceMap } from '../../../../base/common/map.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -56,7 +57,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// ===== Statics =====
 	// #region Statics
 	/** Map of all active notebook instances, keyed by notebook URI */
-	static _instanceMap: Map<string, PositronNotebookInstance> = new Map();
+	static _instanceMap = new ResourceMap<PositronNotebookInstance>();
 
 	/**
 	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
@@ -72,8 +73,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		instantiationService: IInstantiationService,
 	): PositronNotebookInstance {
 
-		const pathOfNotebook = input.resource.toString();
-		const existingInstance = PositronNotebookInstance._instanceMap.get(pathOfNotebook);
+		const existingInstance = PositronNotebookInstance._instanceMap.get(input.resource);
 		if (existingInstance) {
 			// Update input
 			existingInstance._input = input;
@@ -84,7 +84,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const instance = instantiationService.createInstance(PositronNotebookInstance, input, creationOptions);
-		PositronNotebookInstance._instanceMap.set(pathOfNotebook, instance);
+		PositronNotebookInstance._instanceMap.set(input.resource, instance);
 		return instance;
 	}
 
@@ -95,20 +95,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param newUri The new URI of the notebook
 	 */
 	static updateInstanceUri(oldUri: URI, newUri: URI): void {
-		const oldKey = oldUri.toString();
-		const newKey = newUri.toString();
-
-		if (oldKey === newKey) {
+		if (isEqual(oldUri, newUri)) {
 			return; // No change needed
 		}
 
-		const instance = PositronNotebookInstance._instanceMap.get(oldKey);
+		const instance = PositronNotebookInstance._instanceMap.get(oldUri);
 		if (instance) {
 			// Remove from old key
-			PositronNotebookInstance._instanceMap.delete(oldKey);
+			PositronNotebookInstance._instanceMap.delete(oldUri);
 
 			// Add to new key - the instance will be updated when getOrCreate is called with the new URI
-			PositronNotebookInstance._instanceMap.set(newKey, instance);
+			PositronNotebookInstance._instanceMap.set(newUri, instance);
 		}
 	}
 
@@ -447,7 +444,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._logService.info(this.id, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
-		PositronNotebookInstance._instanceMap.delete(this.uri.toString());
+		PositronNotebookInstance._instanceMap.delete(this.uri);
 
 		super.dispose();
 		this.detachView();
