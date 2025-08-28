@@ -70,6 +70,16 @@ export interface IPositronNotebookCell extends Disposable {
 	run(): void;
 
 	/**
+	 * Insert a new code cell above this cell
+	 */
+	insertCodeCellAbove(): void;
+
+	/**
+	 * Insert a new code cell below this cell
+	 */
+	insertCodeCellBelow(): void;
+
+	/**
 	 * Type guard for checking if cell is a markdown cell
 	 */
 	isMarkdownCell(): this is IPositronNotebookMarkdownCell;

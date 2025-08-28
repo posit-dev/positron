@@ -512,21 +512,38 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
-	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void {
-		const indexOfSelectedCell = this.selectionStateMachine.getIndexOfSelectedCell();
-		if (indexOfSelectedCell === null) {
+	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		let index: number | null;
+
+		this._assertTextModel();
+
+		if (referenceCell) {
+			const cellIndex = this.textModel.cells.indexOf(referenceCell.cellModel as NotebookCellTextModel);
+			index = cellIndex >= 0 ? cellIndex : null;
+		} else {
+			index = this.selectionStateMachine.getIndexOfSelectedCell();
+		}
+
+		if (index === null) {
 			return;
 		}
 
-		this.addCell(CellKind.Code, indexOfSelectedCell + (aboveOrBelow === 'above' ? 0 : 1));
+		this.addCell(CellKind.Code, index + (aboveOrBelow === 'above' ? 0 : 1));
 	}
 
 	deleteCell(cellToDelete?: IPositronNotebookCell): void {
-		this._assertTextModel();
-
 		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
 
 		if (!cell) {
+			return;
+		}
+		this.deleteCells([cell]);
+	}
+
+	deleteCells(cellsToDelete: IPositronNotebookCell[]): void {
+		this._assertTextModel();
+
+		if (cellsToDelete.length === 0) {
 			return;
 		}
 
@@ -534,19 +551,51 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// TODO: Hook up readOnly to the notebook actual value
 		const readOnly = false;
 		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
-		const cellIndex = textModel.cells.indexOf(cell.cellModel as NotebookCellTextModel);
 
-		const edits: ICellReplaceEdit = {
-			editType: CellEditType.Replace, index: cellIndex, count: 1, cells: []
-		};
+		// Get indices and sort in descending order to avoid index shifting
+		const cellIndices = cellsToDelete
+			.map(cell => textModel.cells.indexOf(cell.cellModel as NotebookCellTextModel))
+			.filter(index => index >= 0)
+			.sort((a, b) => b - a);
 
-		const nextCellAfterContainingSelection = textModel.cells[cellIndex + 1] ?? undefined;
+		if (cellIndices.length === 0) {
+			return;
+		}
+
+		// Calculate where focus should go after deletion
+		const lowestDeletedIndex = Math.min(...cellIndices);
+		const totalCellsToDelete = cellIndices.length;
+		const originalCellCount = textModel.cells.length;
+		const newCellCount = originalCellCount - totalCellsToDelete;
+
+		// Determine the index of the cell that should receive focus after deletion
+		let targetFocusIndex: number | null = null;
+		if (newCellCount > 0) {
+			if (lowestDeletedIndex < newCellCount) {
+				// Focus on the cell that takes the place of the first deleted cell
+				targetFocusIndex = lowestDeletedIndex;
+			} else {
+				// We deleted from the end, focus on the last remaining cell
+				targetFocusIndex = newCellCount - 1;
+			}
+		}
+
+		// Create delete edits for each cell
+		const edits: ICellReplaceEdit[] = cellIndices.map(index => ({
+			editType: CellEditType.Replace,
+			index,
+			count: 1,
+			cells: []
+		}));
+
+		// Find the cell that will be at the position of the first (lowest index) deleted cell
+		const nextCellAfterContainingSelection = textModel.cells[lowestDeletedIndex + cellIndices.length] ?? undefined;
 		const focusRange = {
-			start: cellIndex,
-			end: cellIndex + 1
+			start: lowestDeletedIndex,
+			end: lowestDeletedIndex + 1
 		};
 
-		textModel.applyEdits([edits], true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
+		textModel.applyEdits(edits, true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
 			if (nextCellAfterContainingSelection) {
 				const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
 				return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
@@ -562,6 +611,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}, undefined, computeUndoRedo);
 
 		this._onDidChangeContent.fire();
+
+		// After the content change fires and cells are synced, explicitly set the selection
+		// to maintain focus on the appropriate cell after deletion
+		if (targetFocusIndex !== null) {
+			this._register(disposableTimeout(() => {
+				if (targetFocusIndex !== null && targetFocusIndex < this._cells.length) {
+					const cellToFocus = this._cells[targetFocusIndex];
+					if (cellToFocus) {
+						this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
+						cellToFocus.focus();
+					}
+				}
+			}, 0));
+		}
 	}
 
 

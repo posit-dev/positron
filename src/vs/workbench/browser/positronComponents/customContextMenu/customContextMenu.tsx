@@ -37,6 +37,7 @@ export interface CustomContextMenuProps {
 	readonly width?: number | 'auto';
 	readonly minWidth?: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
+	readonly onClose?: () => void;
 }
 
 /**
@@ -48,20 +49,23 @@ export interface CustomContextMenuProps {
  * @param width The width.
  * @param minWidth The minimum width.
  * @param entries The context menu entries.
+ * @param onClose The callback to call when the context menu is closed/disposed.
  */
-export const showCustomContextMenu = async ({
+export const showCustomContextMenu = ({
 	anchorElement,
 	anchorPoint,
 	popupPosition,
 	popupAlignment,
 	width,
 	minWidth,
-	entries
+	entries,
+	onClose,
 }: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
 		container: PositronReactServices.services.workbenchLayoutService.getContainer(DOM.getWindow(anchorElement)),
-		parent: anchorElement
+		parent: anchorElement,
+		onDisposed: onClose
 	});
 
 	// Supply the default width.
