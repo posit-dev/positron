@@ -5,13 +5,21 @@
 
 import { CellKind, IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 
+/** The type of notebook cell */
+/** The type of notebook cell */
+export enum NotebookCellType {
+	Code = 'code',
+	Markdown = 'markdown',
+	Raw = 'raw'
+}
+
 /**
  * Information about a cell's type and position within a notebook.
  * This is passed to cell condition predicates to determine if a command should be available.
  */
 export interface ICellInfo {
 	/** The type of cell: code, markdown, or raw */
-	cellType: 'code' | 'markdown' | 'raw';
+	cellType: NotebookCellType;
 	/** Zero-based index of the cell within the notebook */
 	cellIndex: number;
 	/** Total number of cells in the notebook */
@@ -45,8 +53,8 @@ export function createCellInfo(
 	totalCells: number
 ): ICellInfo {
 	return {
-		cellType: cell.kind === CellKind.Code ? 'code' :
-			cell.kind === CellKind.Markup ? 'markdown' : 'raw',
+		cellType: cell.kind === CellKind.Code ? NotebookCellType.Code :
+			cell.kind === CellKind.Markup ? NotebookCellType.Markdown : NotebookCellType.Raw,
 		cellIndex,
 		totalCells,
 		isFirstCell: cellIndex === 0,
