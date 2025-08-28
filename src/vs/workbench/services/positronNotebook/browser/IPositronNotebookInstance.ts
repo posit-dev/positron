@@ -9,6 +9,7 @@ import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -137,8 +138,9 @@ export interface IPositronNotebookInstance {
 	 * and focuses the container.
 	 *
 	 * @param aboveOrBelow Whether to insert the cell above or below the current selection
+	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
 	 */
-	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void;
+	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
 
 	/**
 	 * Removes a cell from the notebook.
@@ -153,6 +155,13 @@ export interface IPositronNotebookInstance {
 	 * @param cell The cell to set as editing, or undefined to clear editing state
 	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
+
+	/**
+	 * Checks if the notebook instance contains a code editor.
+	 *
+	 * @param editor The code editor to check for.
+	 */
+	hasCodeEditor(editor: ICodeEditor): boolean;
 
 	/**
 	 * Closes the notebook instance.

@@ -16,7 +16,7 @@ import { ILanguageSelection, ILanguageService } from '../../../../editor/common/
 import { ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import * as nls from '../../../../nls.js';
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
+/* eslint-disable no-duplicate-imports */
 import { ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
 // --- End Positron ---
 import { Extensions, IConfigurationPropertySchema, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -807,11 +807,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 			if (model.isDirty() && !this._editorService.isOpened({ resource: model.resource, typeId: NotebookEditorInput.ID, editorId: model.viewType }) && extname(model.resource) !== '.interactive') {
 				// --- Start Positron ---
 				// Make sure that we dont try and open the same editor twice if we're using positron
-				// notebooks. This is a separate if-statement so we don't have to put the diff
-				// inside the inline conditional.
-				const positronNotebookInstance = this._positronNotebookService.getInstance(model.resource);
-				// Check to see if the instance is connected to the view.
-				if (positronNotebookInstance && positronNotebookInstance.connectedToEditor) {
+				// notebooks.
+				const positronInstances = this._positronNotebookService.listInstances(model.resource);
+				if (positronInstances.some(instance => instance.connectedToEditor)) {
 					continue;
 				}
 				// --- End Positron ---

@@ -44,7 +44,7 @@ test.describe('Data Explorer - XLSX', {
 		await openFile(join('workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
 		await runCommand('r.sourceCurrentFile');
 
-		metric.dataExplorer.loadData(async () => {
+		await metric.dataExplorer.loadData(async () => {
 			await variables.doubleClickVariableRow('df2');
 			await editors.verifyTab('Data: df2', { isVisible: true });
 			await dataExplorer.waitForIdle();

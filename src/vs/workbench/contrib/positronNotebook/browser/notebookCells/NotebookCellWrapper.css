@@ -9,10 +9,6 @@
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 
-	.positron-notebooks-cell-action-bar {
-		visibility: hidden;
-	}
-
 	&[data-is-running='true'] {
 		outline: 1px solid var(--vscode-focusBorder);
 		animation: running-cell-pulse 2s ease-in-out infinite;
@@ -20,26 +16,6 @@
 
 	&.selected {
 		outline: 1px solid var(--vscode-focusBorder);
-	}
-
-	&.editing,
-	&.selected,
-	&:hover {
-		.positron-notebooks-cell-action-bar {
-			visibility: visible;
-		}
-	}
-
-	.positron-notebooks-cell-action-bar {
-		visibility: hidden;
-	}
-
-	&.editing,
-	&.selected,
-	&:hover {
-		.positron-notebooks-cell-action-bar {
-			visibility: visible;
-		}
 	}
 }
 

@@ -450,12 +450,14 @@ class CodeConverter:
         params: ConvertToCodeParams,
         *,
         was_series: bool = False,
+        sql_string: Optional[str] = None,
     ):
         self.table = table
         self.table_name: str = table_name
         self.params: ConvertToCodeParams = params
         self.was_series = was_series
         self.syntax_name = params.code_syntax_name.code_syntax_name
+        self.sql_string = sql_string
 
     def build_code(self) -> List[StrictStr]:
         """Convert operations to code strings.
@@ -470,7 +472,9 @@ class CodeConverter:
         # Add operations to the builder
         filter_setup, filter_chain = self._convert_row_filters()
         sort_setup, sort_chain = self._convert_sort_keys()
-
+        if self.sql_string:
+            sql = ["# Load table into pandas dataframe, eg:", self.sql_string]
+            builder.add_operation(sql, [])
         builder.add_operation(filter_setup, filter_chain)
         builder.add_operation(sort_setup, sort_chain)
 

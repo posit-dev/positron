@@ -4,15 +4,19 @@
 #
 
 import datetime
+import sqlite3
 
 import pandas as pd
 import polars as pl
 import pytest
 import pytz
 
-from ..data_explorer import DataExplorerService
-from ..data_explorer_comm import CodeSyntaxName, FilterComparisonOp
-from ..utils import var_guid
+from positron.connections import DuckDBConnection, SQLAlchemyConnection, SQLite3Connection
+from positron.connections_comm import ObjectSchema
+from positron.data_explorer import DataExplorerService
+from positron.data_explorer_comm import CodeSyntaxName, FilterComparisonOp
+from positron.utils import var_guid
+
 from .conftest import DummyComm, PositronShell
 from .test_data_explorer import (
     COMPARE_OPS,
@@ -24,6 +28,20 @@ from .test_data_explorer import (
     _not_between_filter,
     _search_filter,
 )
+
+try:
+    import duckdb
+
+    has_duckdb = True
+except ImportError:
+    has_duckdb = False
+try:
+    import sqlalchemy
+
+    has_sqlalchemy = True
+except ImportError:
+    has_sqlalchemy = False
+
 
 SIMPLE_POLARS_DF = pl.DataFrame(SIMPLE_PANDAS_DF.drop(columns=["f"]))
 
@@ -687,3 +705,109 @@ def test_convert_polars_sort_to_pandas(dxf: DataExplorerConvertFixture):
         sort_keys=sort_keys,
         code_syntax_name="pandas",
     )
+
+
+# --- Connections tests ---
+def test_sqlite_connection_code():
+    """Test that SQLite3Connection returns the correct SQL code in preview_object."""
+    # Create an in-memory SQLite database with a test table
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+    conn.execute("INSERT INTO test VALUES (1, 'test1')")
+    conn.execute("INSERT INTO test VALUES (2, 'test2')")
+
+    # Create a SQLite3Connection and test the preview_object method
+    connection = SQLite3Connection(conn)
+
+    # Create proper ObjectSchema instances
+    schema = ObjectSchema(kind="schema", name="main")
+    table = ObjectSchema(kind="table", name="test")
+
+    # Call the preview_object method
+    df, code = connection.preview_object([schema, table])
+
+    # Check the returned dataframe
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    assert list(df.columns) == ["id", "name"]
+
+    # Check the returned SQL code
+    expected_code = '# test = pd.read_sql("""SELECT * FROM main.test LIMIT 1000;""", conn) # where conn is your connection variable'
+    assert code == expected_code
+
+
+def test_sqlalchemy_connection_code():
+    """Test that SQLAlchemyConnection returns the correct SQL code in preview_object."""
+    # Type checking needs to know sqlalchemy is a module here, not False
+    if not has_sqlalchemy:
+        pytest.skip("SQLAlchemy is not installed")
+
+    # Create an in-memory SQLite database using SQLAlchemy
+    engine = sqlalchemy.create_engine("sqlite:///:memory:")
+
+    # Create a test table
+    with engine.connect() as connection:
+        connection.execute(sqlalchemy.text("CREATE TABLE test (id INTEGER, name TEXT)"))
+        connection.execute(sqlalchemy.text("INSERT INTO test VALUES (1, 'test1')"))
+        connection.execute(sqlalchemy.text("INSERT INTO test VALUES (2, 'test2')"))
+        connection.commit()
+
+    # Create a SQLAlchemyConnection and test the preview_object method
+    connection = SQLAlchemyConnection(engine)
+
+    # Create proper ObjectSchema instances
+    schema = ObjectSchema(kind="schema", name="main")
+    table = ObjectSchema(kind="table", name="test")
+
+    # Call the preview_object method
+    df, code = connection.preview_object([schema, table])
+
+    # Check the returned dataframe
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    assert list(df.columns) == ["id", "name"]
+
+    # Check the returned SQL code
+    expected_code = """# table = sqlalchemy.Table(
+        #    'test', sqlalchemy.MetaData(), autoload_with=conn, schema='main'
+        # ) # where conn is your connection variable
+        # test = pd.read_sql(sqlalchemy.sql.select(table), conn.connect())
+        """
+    assert code == expected_code
+
+
+def test_duckdb_connection_code():
+    """Test that DuckDBConnection returns the correct SQL code in preview_object."""
+    # Type checking needs to know duckdb is a module here, not False
+    if not has_duckdb:
+        pytest.skip("DuckDB is not installed")
+
+    # Create an in-memory DuckDB database
+    conn = duckdb.connect(":memory:")
+
+    # Create a test table
+    conn.execute("CREATE TABLE test (id INTEGER, name VARCHAR)")
+    conn.execute("INSERT INTO test VALUES (1, 'test1')")
+    conn.execute("INSERT INTO test VALUES (2, 'test2')")
+
+    # Create a DuckDBConnection and test the preview_object method
+    connection = DuckDBConnection(conn)
+
+    # Create proper ObjectSchema instances
+    catalog = ObjectSchema(kind="catalog", name="memory")
+    schema = ObjectSchema(kind="schema", name="main")
+    table = ObjectSchema(kind="table", name="test")
+
+    # Call the preview_object method
+    df, code = connection.preview_object([catalog, schema, table])
+
+    # Check the returned dataframe
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    assert list(df.columns) == ["id", "name"]
+
+    # Check the returned SQL code - using string match since the query might have quotes
+    expected_text = "# test = conn.execute("
+    assert expected_text in code
+    assert 'SELECT * FROM "memory"."main"."test" LIMIT 1000' in code
+    assert "where conn is your connection variable" in code
