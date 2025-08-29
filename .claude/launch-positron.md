@@ -25,6 +25,7 @@ npm run watch-extensionsd &
 # - "Watching for file changes"
 # - "Found 0 errors"
 # This typically takes 30-60 seconds from daemon start
+# Note: May take longer (2-3 minutes) on slower machines or during initial builds
 ```
 
 ### Step 4: Launch Positron in background
