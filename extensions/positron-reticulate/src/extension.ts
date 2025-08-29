@@ -185,7 +185,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 				// typecast is only safe because we ensure that this extension
 				// runs on the same extension host as the Python and R
 				// extensions, via declared dependencies in package.json.
-				return await positron.runtime.getSession(session.metadata.sessionId) as positron.LanguageRuntimeSession;
+				return session as positron.LanguageRuntimeSession;
 			} else {
 				progress.report({ increment: 2, message: vscode.l10n.t('Starting a new R session') });
 				// We need to create a new R session.
