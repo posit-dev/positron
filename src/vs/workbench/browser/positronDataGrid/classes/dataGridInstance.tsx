@@ -1681,8 +1681,14 @@ export abstract class DataGridInstance extends Disposable {
 		// Find the layout entry that will be the first layout entry for the previous page.
 		let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
 		for (let position = firstUnpinnedLayoutEntryPosition - 1; position >= 0; position--) {
+			// Get the index of the position.
+			const index = this._rowLayoutManager.mapPositionToIndex(position);
+			if (index === undefined) {
+				return;
+			}
+
 			// Get the layout entry.
-			const layoutEntry = this._rowLayoutManager.getLayoutEntry(this._rowLayoutManager.mapPositionToIndex(position));
+			const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
 			if (layoutEntry === undefined) {
 				return;
 			}
@@ -1734,8 +1740,14 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Scroll down to the next unpinned layout entry.
 		for (let position = firstUnpinnedLayoutEntryPosition + 1; position < this._rowLayoutManager.entryCount; position++) {
+			// Get the index of the position.
+			const index = this._rowLayoutManager.mapPositionToIndex(position);
+			if (index === undefined) {
+				return;
+			}
+
 			// Get the layout entry.
-			const layoutEntry = this._rowLayoutManager.getLayoutEntry(this._rowLayoutManager.mapPositionToIndex(position));
+			const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
 			if (layoutEntry === undefined) {
 				return;
 			}
@@ -2394,13 +2406,21 @@ export abstract class DataGridInstance extends Disposable {
 				// Build the column indexes array.
 				const columnIndexes: number[] = [];
 				for (let columnPosition = firstColumnIndexPosition; columnPosition <= lastColumnIndexPosition; columnPosition++) {
-					columnIndexes.push(this._columnLayoutManager.mapPositionToIndex(columnPosition));
+					const index = this._columnLayoutManager.mapPositionToIndex(columnPosition);
+					if (index === undefined) {
+						return;
+					}
+					columnIndexes.push(index);
 				}
 
 				// Build the row indexes array.
 				const rowIndexes: number[] = [];
 				for (let rowPosition = firstRowIndexPosition; rowPosition <= lastRowIndexPosition; rowPosition++) {
-					rowIndexes.push(this._rowLayoutManager.mapPositionToIndex(rowPosition));
+					const index = this._rowLayoutManager.mapPositionToIndex(rowPosition);
+					if (index === undefined) {
+						return;
+					}
+					rowIndexes.push(index);
 				}
 
 				// Set the cell selection.

@@ -135,7 +135,7 @@ export class LayoutManager {
 
 		// If there are no pinned indexes, return the index at position 0.
 		if (!this._pinnedIndexes.size) {
-			return this.mapPositionToIndex(0);
+			return this.mapPositionToIndex(0) ?? -1;
 		}
 
 		// Return the first pinned index, or -1 if for some reason none exists.
@@ -156,6 +156,9 @@ export class LayoutManager {
 		for (let position = this._entryCount - 1; position >= 0; position--) {
 			// Map the position to an index.
 			const index = this.mapPositionToIndex(position);
+			if (index === undefined) {
+				return -1;;
+			}
 
 			// If the index is not pinned, return it.
 			if (!this.isPinnedIndex(index)) {
@@ -206,7 +209,6 @@ export class LayoutManager {
 		this._pinnedLayoutEntriesSize = size;
 
 		// Return the pinned layout entries size.
-		console.log(`pinnedLayoutEntriesSize is ${size}`);
 		return size;
 	}
 
@@ -249,7 +251,6 @@ export class LayoutManager {
 		this._unpinnedLayoutEntriesSize = size;
 
 		// Return the calculated unpinned layout entries size.
-		console.log(`unpinnedLayoutEntriesSize is ${size}`);
 		return size;
 	}
 
@@ -287,12 +288,12 @@ export class LayoutManager {
 
 			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
 			// If an entry map wasn't provided, create a reverse entry map so we're always stressing the layout manager.
-			if (entryMap === undefined) {
-				entryMap = [];
-				for (let i = this._entryCount - 1; i >= 0; i--) {
-					entryMap.push(i);
-				}
-			}
+			// if (entryMap === undefined) {
+			// 	entryMap = [];
+			// 	for (let i = this._entryCount - 1; i >= 0; i--) {
+			// 		entryMap.push(i);
+			// 	}
+			// }
 			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
 
 			// Set the entry map and reverse entry map, if an entry map was provided and is valid (i.e., it has the correct length).
@@ -310,6 +311,24 @@ export class LayoutManager {
 			if (pinnedIndexPosition && (pinnedIndexPosition < 0 || pinnedIndexPosition >= this._entryCount)) {
 				this._pinnedIndexes.delete(pinnedIndex);
 			}
+		}
+	}
+
+	/**
+	 * Sets the pinned indices to the specified indices.
+	 * Clears any previously pinned indices before pinning the new indices.
+	 *
+	 * @param pinnedIndexes The indices that should be pinned.
+	 * The array is keyed by position and maps the position
+	 * to index of data entry from the origina dataset
+	 */
+	setPinnedIndexes(pinnedIndexes: number[]) {
+		// Unpin all the current indexes.
+		this._pinnedIndexes.clear();
+
+		// Pin the new indexes.
+		for (const index of pinnedIndexes) {
+			this.pinIndex(index);
 		}
 	}
 
@@ -350,6 +369,9 @@ export class LayoutManager {
 		for (let position = firstLayoutEntryPosition - 1; position >= 0 && end > startOffset; position--) {
 			// Get the index of the positon.
 			const index = this.mapPositionToIndex(position);
+			if (index === undefined) {
+				return [];
+			}
 
 			// Skipped pinned indexes.
 			if (this.isPinnedIndex(index)) {
@@ -369,6 +391,9 @@ export class LayoutManager {
 		for (let position = firstLayoutEntryPosition + 1; position < this._entryCount && start < endOffset; position++) {
 			// Get the index of the positon.
 			const index = this.mapPositionToIndex(position);
+			if (index === undefined) {
+				return [];
+			}
 
 			// Skipped pinned indexes.
 			if (this.isPinnedIndex(index)) {
@@ -389,29 +414,114 @@ export class LayoutManager {
 	/**
 	 * Maps a position to an index.
 	 * @param position The position.
-	 * @returns The index.
+	 * @returns The index, or undefined if the position is invalid.
 	 */
-	mapPositionToIndex(position: number) {
-		// What about pinned, idiot??
-		if (this._entryMap.length === 0) {
-			return position;
-		} else {
+	mapPositionToIndex(position: number): number | undefined {
+		// If the position is invalid, return undefined.
+		if (position < 0 || position >= this._entryCount) {
+			return undefined;
+		}
+
+		// If there are no pinned indexes, the position is the index.
+		if (this._pinnedIndexes.size === 0) {
+			// Return the index.
+			if (this._entryMap.length === 0) {
+				return position;
+			}
+
+			// Return the entry-mapped index.
 			return this._entryMap[position];
 		}
+
+		// If the position is pinned, return its index.
+		if (position < this._pinnedIndexes.size) {
+			return Array.from(this._pinnedIndexes)[position];
+		}
+
+		// Compute the rank of the unpinned position within the unpinned indexes.
+		const rank = position - this._pinnedIndexes.size;
+
+		// Compute the number of unpinned positions and validate the rank.
+		const unpinnedPositions = this._entryCount - this._pinnedIndexes.size;
+		if (rank >= unpinnedPositions) {
+			return undefined;
+		}
+
+		// Binary search the index.
+		let leftPosition = 0;
+		let rightPosition = this._entryCount - 1;
+		let index = -1;
+		const target = rank + 1;
+		while (leftPosition <= rightPosition) {
+			// Calculate the middle position.
+			const middlePosition = (leftPosition + rightPosition) >>> 1;
+
+			// Calculate the number of pinned positions at or before middle position.
+			const pinnedPositionsAtOrBeforeMiddlePosition = this.pinnedPositionsAtOrBefore(middlePosition);
+			if (pinnedPositionsAtOrBeforeMiddlePosition === undefined) {
+				return undefined;
+			}
+
+			// Determine whether to search left or right.
+			if ((middlePosition + 1) - pinnedPositionsAtOrBeforeMiddlePosition >= target) {
+				index = middlePosition;              // This is a candidate entry-map position.
+				rightPosition = middlePosition - 1;  // Keep searching left for the smallest position.
+			} else {
+				leftPosition = middlePosition + 1;   // Search right.
+			}
+		}
+
+		// Return the index.
+		return index === -1 ? undefined : this._entryMap.length !== 0 ? this._entryMap[index] : index;
 	}
 
 	/**
 	 * Maps an index to a position.
-	 * @param index The index.
-	 * @returns The position.
+	 * @param index The index to map.
+	 * @returns The position, or undefined if the index is invalid.
 	 */
-	mapIndexToPosition(index: number) {
-		// What about pinned, idiot??
-		if (this._entryMap.length === 0) {
-			return index;
-		} else {
-			return this._inverseEntryMap.get(index);
+	mapIndexToPosition(index: number): number | undefined {
+		// If the index is invalid, return undefined.
+		if (index < 0) {
+			return undefined;
 		}
+
+		// If there are no pinned indexes, the index is the position.
+		if (this._pinnedIndexes.size === 0) {
+			// If there is no entry map, the index is the position, so return it.
+			if (this._entryMap.length === 0) {
+				// If the index is invalid, return undefined.
+				if (index >= this._entryCount) {
+					return undefined;
+				}
+
+				// Return the index.
+				return index;
+			}
+
+			// Return the entry-mapped index. This will naturally return undefined, if the index is invalid.
+			return this._entryMap[index];
+		}
+
+		// If the index is pinned, return its position.
+		if (this._pinnedIndexes.has(index)) {
+			return Array.from(this._pinnedIndexes).indexOf(index);
+		}
+
+		// Get the position of the index.
+		const position = this.positionOfIndex(index);
+		if (position === undefined) {
+			return undefined;
+		}
+
+		// Calculate the number of pinned positions that occur before this position.
+		const pinnedPositionsBefore = position > 0 ? this.pinnedPositionsAtOrBefore(position - 1) : 0;
+		if (pinnedPositionsBefore === undefined) {
+			return undefined;
+		}
+
+		// Return the adjusted position.
+		return this._pinnedIndexes.size + (position - pinnedPositionsBefore);
 	}
 
 	/**
@@ -697,6 +807,9 @@ export class LayoutManager {
 			for (let position = 0; position < this._entryCount; position++) {
 				// Map the position to an index.
 				const index = this.mapPositionToIndex(position);
+				if (index === undefined) {
+					return undefined;
+				}
 
 				// If the index is not pinned, return it.
 				if (!this.isPinnedIndex(index)) {
@@ -821,8 +934,8 @@ export class LayoutManager {
 
 		// Adjust the start to account for entry sizes. This is unavoidably O(n) over entry sizes.
 		for (const [entrySizeIndex, entrySize] of this._entrySizes) {
-			// If the entry size index is pinned, skip it.
-			if (this.isPinnedIndex(entrySizeIndex)) {
+			// If the entry size index is pinned, or there's a custom entry size, skip it.
+			if (this.isPinnedIndex(entrySizeIndex) || this._customEntrySizes.has(entrySizeIndex)) {
 				continue;
 			}
 
@@ -886,6 +999,9 @@ export class LayoutManager {
 
 			// Get the middle position.
 			const middleIndex = this.mapPositionToIndex(middlePosition);
+			if (middleIndex === undefined) {
+				return undefined;
+			}
 
 			// Compute the start of the middle position as if there were no pinned indexes, no custom entry sizes, and no entry sizes.
 			let start = middlePosition * this._defaultSize;
@@ -945,6 +1061,10 @@ export class LayoutManager {
 					let backwardScanPosition = middlePosition;
 					while (--backwardScanPosition >= 0) {
 						const index = this.mapPositionToIndex(backwardScanPosition);
+						if (index === undefined) {
+							return undefined;
+						}
+
 						if (!this.isPinnedIndex(index)) {
 							firstUnpinnedIndex = index;
 							break;
@@ -956,6 +1076,10 @@ export class LayoutManager {
 						let forwardScanPosition = middlePosition;
 						while (++forwardScanPosition < this._entryCount) {
 							const index = this.mapPositionToIndex(forwardScanPosition);
+							if (index === undefined) {
+								return undefined;
+							}
+
 							if (!this.isPinnedIndex(index)) {
 								firstUnpinnedIndex = index;
 								break;
@@ -1034,6 +1158,46 @@ export class LayoutManager {
 
 		// Return the default size.
 		return this._defaultSize;
+	}
+
+	/**
+	 * Returns the position of an index.
+	 * @param index The index.
+	 * @returns The index of the position.
+	 */
+	private positionOfIndex(index: number): number | undefined {
+		// If there is no entry map, the index is the position, so return it.
+		if (this._entryMap.length === 0) {
+			return index;
+		}
+
+		// Return the inverse entry-mapped index. This will naturally return undefined, if the index is invalid.
+		return this._inverseEntryMap.get(index);
+	}
+
+	/**
+	 * Returns a count of the pinned positions at or before the given position.
+	 * @param position The position.
+	 * @returns The count of the pinned positions at or before the given position.
+	 */
+	private pinnedPositionsAtOrBefore(position: number): number | undefined {
+		// Count how many pinned positions are less than or equal to position.
+		let count = 0;
+		for (const pinnedIndex of this._pinnedIndexes) {
+			// Get the position of the pinned index.
+			const positionOfIndex = this.positionOfIndex(pinnedIndex);
+			if (positionOfIndex === undefined) {
+				return undefined;
+			}
+
+			// If the position of the pinned index is less than or equal to the given position, increment the count.
+			if (positionOfIndex <= position) {
+				count++;
+			}
+		}
+
+		// Return the count.
+		return count;
 	}
 
 	//#endregion Private Methods
