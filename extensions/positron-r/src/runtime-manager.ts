@@ -10,7 +10,7 @@ import { currentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
 import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
-import { LOGGER } from './extension';
+import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { dirname } from 'path';
@@ -160,14 +160,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * @returns True if the session is valid, false otherwise
 	 */
 	async validateSession(sessionId: string): Promise<boolean> {
-		const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-		if (!ext) {
-			throw new Error('Positron Supervisor extension not found');
-		}
-		if (!ext.isActive) {
-			await ext.activate();
-		}
-		return ext.exports.validateSession(sessionId);
+		const api = await supervisorApi();
+		return await api.validateSession(sessionId);
 	}
 
 	restoreSession(
