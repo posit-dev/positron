@@ -84,12 +84,18 @@ export function createJupyterKernelSpec(
 
 	// Set the default repositories
 	const defaultRepos = config.get<string>('defaultRepositories') ?? 'auto';
+	const ppmRepo = config.get<string>('packageManagerRepository');
 	if (defaultRepos === 'auto') {
 		const reposConf = findReposConf();
 		if (reposConf) {
 			// If there's a `repos.conf` file in a well-known directory, use
 			// that.
 			argv.push(...['--repos-conf', reposConf]);
+		} else if (ppmRepo) {
+			// If the user has specified a custom Package Manager URL, use it
+			//
+			// Note: Ark can't handle trailing slashes, so strip them here
+			argv.push(...['--default-ppm-repo', ppmRepo.endsWith('/') ? ppmRepo.slice(0, -1) : ppmRepo]);
 		} else if (vscode.env.uiKind === vscode.UIKind.Web) {
 			// No repos.conf; if we're web mode use Posit's Public Package
 			// Manager
@@ -99,6 +105,23 @@ export function createJupyterKernelSpec(
 		// `--default-repos` at all, and let Ark choose an appropriate
 		// repository (usually `cran.rstudio.com)
 	} else {
+		// Warn the user about inconsistent PPM settings.
+		if (ppmRepo) {
+			const openSettings = vscode.l10n.t('Open Settings');
+			// Note: we don't `await` here to avoid stalling the kernel startup.
+			vscode.window.showWarningMessage(
+				vscode.l10n.t('The "Package Manager Repository" setting is ignored unless "Default Repositories" is set to "auto".'),
+				{ title: openSettings },
+				{ title: vscode.l10n.t('Dismiss'), isCloseAffordance: true },
+			).then((action) => {
+				if (action?.title === openSettings) {
+					vscode.commands.executeCommand(
+						'workbench.action.openSettings',
+						'positron.r.defaultRepositories'
+					);
+				}
+			});
+		}
 		// The remaining options map directly to Ark's `--default-repos`
 		// command line option
 		argv.push(...['--default-repos', defaultRepos]);

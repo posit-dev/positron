@@ -70,6 +70,7 @@
 	"r.configuration.defaultRepositories.rstudio.description": "Use the RStudio CRAN mirror (cran.rstudio.com)",
 	"r.configuration.defaultRepositories.posit-ppm.description": "Use the Posit public package manager (packagemanager.posit.co)",
 	"r.configuration.defaultRepositories.none.description": "Do not set a default repository or change the value of the 'repos' option",
+	"r.configuration.packageManagerRepository.description": "The Posit Package Manager repository URL to use for R package installation, rather than the default https://packagemanager.posit.co/cran/latest.\n\nOnly takes effect when `#positron.r.defaultRepositories#` is `auto` (restart Positron to apply).",
 	"r.walkthrough.migrateFromRStudio.title": "Migrating from RStudio to Positron",
 	"r.walkthrough.migrateFromRStudio.description": "Learn how to get started with R in Positron as an RStudio user!",
 	"r.walkthrough.migrateFromRStudio.panesAndUI.title": "Get to know the Positron UI",
