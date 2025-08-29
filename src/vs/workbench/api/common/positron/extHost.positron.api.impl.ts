@@ -103,7 +103,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata | undefined> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);
 			},
-			getActiveSessions(): Thenable<positron.ActiveRuntimeSessionMetadata[]> {
+			getActiveSessions(): Thenable<positron.BaseLanguageRuntimeSession[]> {
 				return extHostLanguageRuntime.getActiveSessions();
 			},
 			getSession(sessionId: string): Thenable<positron.BaseLanguageRuntimeSession | undefined> {

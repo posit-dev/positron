@@ -1829,7 +1829,7 @@ declare module 'positron' {
 		/**
 		 * List all active sessions.
 		 */
-		export function getActiveSessions(): Thenable<ActiveRuntimeSessionMetadata[]>;
+		export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
 
 		/**
 		 * Get a specific session by its ID.

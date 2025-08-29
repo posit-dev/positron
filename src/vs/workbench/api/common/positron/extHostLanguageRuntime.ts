@@ -1062,8 +1062,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._proxy.$getPreferredRuntime(languageId);
 	}
 
-	public async getActiveSessions(): Promise<positron.ActiveRuntimeSessionMetadata[]> {
-		return this._proxy.$getActiveSessions();
+	public async getActiveSessions(): Promise<positron.BaseLanguageRuntimeSession[]> {
+		return (await this._proxy.$getActiveSessions())
+			.map(session => this.getRuntimeSessionInterface(session)!);
 	}
 
 	public async getSession(sessionId: string): Promise<positron.BaseLanguageRuntimeSession | undefined> {
