@@ -28,17 +28,27 @@ This extension exposes Positron's runtime sessions and variable data through a s
 
 ### 1. Enable the Extension
 
-**Via Command Palette:**
+**Via Command Palette (Recommended):**
 1. Open Command Palette (`Cmd/Ctrl+Shift+P`)
 2. Run: `Positron MCP: Enable Server`
-3. Restart Positron when prompted
+3. Choose whether to enable the server via interactive prompts
+4. Optionally create/update `.mcp.json` configuration file
+5. Restart Positron when prompted
 
 **Via Settings:**
 1. Open Settings (`Cmd/Ctrl+,`)
 2. Set `positron.mcp.enable: true`
 3. Restart Positron
 
-### 2. Configure AI Tools
+### 2. Disable the Extension
+
+**Via Command Palette:**
+1. Open Command Palette (`Cmd/Ctrl+Shift+P`)
+2. Run: `Positron MCP: Disable Server`
+3. Confirm via interactive prompt
+4. Server stops immediately (no restart required)
+
+### 3. Configure AI Tools
 
 **Claude Desktop:**
 ```bash
@@ -47,21 +57,64 @@ claude mcp add --transport http positron http://localhost:43123
 
 **Other MCP clients:**
 - Add HTTP transport pointing to `http://localhost:43123`
-- Server auto-starts when Positron launches
+- Server auto-starts when Positron launches (if enabled)
 
 ## Configuration
 
-### Settings
+### Core Settings
 
 - **`positron.mcp.enable`** (default: `false`) - Enable/disable the MCP server
-  - Requires restart when changed
-  - Extension only activates when enabled
+  - Requires restart when enabling
+  - Can be disabled without restart via command
+- **`positron.mcp.logLevel`** (default: `info`) - Set logging verbosity
+  - Options: `off`, `error`, `warning`, `info`, `debug`, `trace`
+
+### Security Settings
+
+- **`positron.mcp.security.enableCors`** (default: `true`) - Enable CORS headers
+- **`positron.mcp.security.allowedOrigins`** (default: `["http://localhost:*", "http://127.0.0.1:*"]`) - Allowed CORS origins
+- **`positron.mcp.security.requireUserConsent`** (default: `true`) - Require user consent for code execution
+- **`positron.mcp.security.enableAuditLogging`** (default: `true`) - Enable security audit logging
+- **`positron.mcp.security.enableRateLimiting`** (default: `true`) - Enable rate limiting
+- **`positron.mcp.security.maxRequestsPerWindow`** (default: `100`) - Max requests per rate limit window
+- **`positron.mcp.security.rateLimitWindow`** (default: `60000`) - Rate limit window in milliseconds
 
 ### Environment Variables
 
 - **`POSITRON_MCP_PORT`** (default: `43123`) - Override server port
   - Must be integer in range [1024, 65535]
   - Example: `export POSITRON_MCP_PORT=45001`
+
+## Available Commands
+
+The extension provides the following commands via the Command Palette:
+
+- **`Positron MCP: Enable Server`** - Enable the MCP server with interactive setup
+  - Asks for confirmation before enabling
+  - Optionally creates/updates `.mcp.json` configuration
+  - Requires restart to take effect
+
+- **`Positron MCP: Disable Server`** - Disable the MCP server immediately
+  - Asks for confirmation before disabling
+  - Stops server without requiring restart
+  - Updates configuration to persist disabled state
+
+- **`Positron MCP: Show Logs`** - Display MCP server logs in output panel
+  - Useful for debugging connection issues
+  - Shows detailed request/response data based on log level
+
+- **`Positron MCP: Reset Code Execution Consent`** - Clear stored consent decisions
+  - Resets all remembered consent choices
+  - You'll be prompted again for future code execution requests
+
+- **`Positron MCP: Show Security Audit Log`** - View security audit trail
+  - Opens webview with formatted audit log
+  - Shows all MCP requests and security events
+  - Includes timestamps, methods, and results
+
+- **`Positron MCP: Clear Security Audit Log`** - Clear the audit log
+  - Asks for confirmation before clearing
+  - Cannot be undone
 
 ## Usage Examples
 
@@ -120,7 +173,9 @@ extensions/positron-mcp/
 │   ├── extension.ts           # Extension activation & commands
 │   ├── mcpServer.ts          # HTTP server implementation
 │   ├── positronApi.ts        # API interface definitions
-│   └── positronApiWrapper.ts # API implementation wrapper
+│   ├── positronApiWrapper.ts # API implementation wrapper
+│   ├── security.positron.ts  # Security middleware and configuration
+│   └── logger.ts             # Logging utility with configurable levels
 ├── package.json              # Extension manifest
 ├── tsconfig.json             # TypeScript configuration
 └── README.md                 # This file
@@ -140,7 +195,7 @@ Returns server capabilities and version info:
 }
 ```
 
-#### `tools/list` 
+#### `tools/list`
 Returns available tools with schemas:
 ```json
 {
@@ -216,31 +271,54 @@ npm run watch
 The extension follows standard VS Code extension patterns:
 
 1. **Activation** - Triggered when `positron.mcp.enable` is true
-2. **Server Setup** - Creates Express server with MCP endpoints  
+2. **Server Setup** - Creates Express server with MCP endpoints
 3. **API Integration** - Uses `positron.runtime` for data access
 4. **Lifecycle** - Manages server start/stop with extension
 
 ## Security
 
-- **Localhost only** - Server binds to `127.0.0.1`
-- **No arbitrary execution** - Only predefined MCP tools
-- **JSON-RPC validation** - All requests validated
-- **Development focus** - CORS permissive for local development
+### Built-in Security Features
+
+- **Localhost only** - Server binds to `127.0.0.1` for local access only
+- **User consent** - Requires explicit approval for code execution (configurable)
+- **Rate limiting** - Prevents abuse with configurable request limits
+- **Audit logging** - Tracks all operations with detailed security events
+- **CORS protection** - Restricts origins to localhost by default
+- **Request validation** - Validates JSON-RPC format and size limits
+- **Session control** - Code execution limited to active runtime sessions
+
+### Security Commands
+
+- View audit log: `Positron MCP: Show Security Audit Log`
+- Clear audit log: `Positron MCP: Clear Security Audit Log`
+- Reset consent: `Positron MCP: Reset Code Execution Consent`
+
+### Security Configuration
+
+All security features can be configured in settings:
+- Enable/disable CORS, rate limiting, audit logging
+- Configure allowed origins and request limits
+- Toggle user consent requirements
 
 ## Roadmap
 
-### Phase 1 (Complete ✅)
+### Phase 0 (Security - Complete ✅)
+- [x] Implement permission system with user consent
+- [x] Configure CORS policy with localhost restrictions
+- [x] Add audit logging for all operations
+- [x] Security middleware for dangerous operations
+- [x] Rate limiting to prevent abuse
+- [x] Request validation and size limits
+- [x] Security configuration options
+
+### Phase 1 (Core Features - Complete ✅)
 - [x] Interface-first API design (positronApi.ts)
 - [x] Core Runtime APIs implementation
 - [x] Code execution tool for running code in active session
 - [x] Active document and workspace info tools
 - [x] API wrapper for controlled access to Positron features
-
-### Phase 0 (Security - High Priority)
-- [ ] Implement permission system with user consent
-- [ ] Remove wildcard CORS policy
-- [ ] Add audit logging for all operations
-- [ ] Security middleware for dangerous operations
+- [x] Interactive enable/disable commands with quickPick dialogs
+- [x] Automatic `.mcp.json` configuration file management
 
 ### Phase 2 (Extended APIs)
 - [ ] Complete window APIs (console, plots, dialogs)
@@ -250,7 +328,6 @@ The extension follows standard VS Code extension patterns:
 
 ### Phase 3 (Advanced Features)
 - [ ] Language services integration
-- [ ] AI and chat APIs
 - [ ] Connection management
 - [ ] Environment APIs
 - [ ] Data export tools (variables, plots to various formats)
