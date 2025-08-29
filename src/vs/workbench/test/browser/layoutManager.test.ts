@@ -94,6 +94,172 @@ suite('LayoutManager', () => {
 	});
 
 	/**
+	 * Tests mapping positions to indexes and indexes to positions with no entry map and no pinned indexes.
+	 */
+	test('Map Position To Index - Map Index To Position - No Entry Map - No Pinned Indexes', () => {
+		// Create and initialize the layout manager.
+		const layoutManager = new LayoutManager(100);
+		layoutManager.setEntries(10);
+
+		// Test mapping positions to indexes.
+		assert(layoutManager.mapPositionToIndex(-1) === undefined);
+		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		testMapPositionToIndex(layoutManager, 0, 0);
+		testMapPositionToIndex(layoutManager, 1, 1);
+		testMapPositionToIndex(layoutManager, 2, 2);
+		testMapPositionToIndex(layoutManager, 3, 3);
+		testMapPositionToIndex(layoutManager, 4, 4);
+		testMapPositionToIndex(layoutManager, 5, 5);
+		testMapPositionToIndex(layoutManager, 6, 6);
+		testMapPositionToIndex(layoutManager, 7, 7);
+		testMapPositionToIndex(layoutManager, 8, 8);
+		testMapPositionToIndex(layoutManager, 9, 9);
+		assert(layoutManager.mapPositionToIndex(10) === undefined);
+		assert(layoutManager.mapPositionToIndex(100) === undefined);
+
+		// Test mapping indexes to positions.
+		assert(layoutManager.mapIndexToPosition(-1) === undefined);
+		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		testMapIndexToPosition(layoutManager, 0, 0);
+		testMapIndexToPosition(layoutManager, 1, 1);
+		testMapIndexToPosition(layoutManager, 2, 2);
+		testMapIndexToPosition(layoutManager, 3, 3);
+		testMapIndexToPosition(layoutManager, 4, 4);
+		testMapIndexToPosition(layoutManager, 5, 5);
+		testMapIndexToPosition(layoutManager, 6, 6);
+		testMapIndexToPosition(layoutManager, 7, 7);
+		testMapIndexToPosition(layoutManager, 8, 8);
+		testMapIndexToPosition(layoutManager, 9, 9);
+		assert(layoutManager.mapIndexToPosition(10) === undefined);
+		assert(layoutManager.mapIndexToPosition(100) === undefined);
+	});
+
+	/**
+	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
+	 */
+	test('Map Position To Index - Map Index To Position - With Entry Map - No Pinned Indexes', () => {
+		// Create and initialize the layout manager.
+		const layoutManager = new LayoutManager(100);
+		layoutManager.setEntries(10, undefined, [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
+
+		// Test mapping positions to indexes.
+		assert(layoutManager.mapPositionToIndex(-1) === undefined);
+		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		testMapPositionToIndex(layoutManager, 0, 9);
+		testMapPositionToIndex(layoutManager, 1, 8);
+		testMapPositionToIndex(layoutManager, 2, 7);
+		testMapPositionToIndex(layoutManager, 3, 6);
+		testMapPositionToIndex(layoutManager, 4, 5);
+		testMapPositionToIndex(layoutManager, 5, 4);
+		testMapPositionToIndex(layoutManager, 6, 3);
+		testMapPositionToIndex(layoutManager, 7, 2);
+		testMapPositionToIndex(layoutManager, 8, 1);
+		testMapPositionToIndex(layoutManager, 9, 0);
+		assert(layoutManager.mapPositionToIndex(10) === undefined);
+		assert(layoutManager.mapPositionToIndex(100) === undefined);
+
+		// Test mapping indexes to positions.
+		assert(layoutManager.mapIndexToPosition(-1) === undefined);
+		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		testMapIndexToPosition(layoutManager, 9, 0);
+		testMapIndexToPosition(layoutManager, 8, 1);
+		testMapIndexToPosition(layoutManager, 7, 2);
+		testMapIndexToPosition(layoutManager, 6, 3);
+		testMapIndexToPosition(layoutManager, 5, 4);
+		testMapIndexToPosition(layoutManager, 4, 5);
+		testMapIndexToPosition(layoutManager, 3, 6);
+		testMapIndexToPosition(layoutManager, 2, 7);
+		testMapIndexToPosition(layoutManager, 1, 8);
+		testMapIndexToPosition(layoutManager, 0, 9);
+		assert(layoutManager.mapIndexToPosition(10) === undefined);
+		assert(layoutManager.mapIndexToPosition(100) === undefined);
+	});
+
+	/**
+	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
+	 */
+	test('Map Position To Index - Map Index To Position - With No Entry Map - With Pinned Indexes', () => {
+		// Create and initialize the layout manager.
+		const layoutManager = new LayoutManager(100);
+		layoutManager.setEntries(10);
+		layoutManager.setPinnedIndexes([3, 2, 0]);
+
+		// Test mapping positions to indexes.
+		assert(layoutManager.mapPositionToIndex(-1) === undefined);
+		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		testMapPositionToIndex(layoutManager, 0, 3);
+		testMapPositionToIndex(layoutManager, 1, 2);
+		testMapPositionToIndex(layoutManager, 2, 0);
+		testMapPositionToIndex(layoutManager, 3, 1);
+		testMapPositionToIndex(layoutManager, 4, 4);
+		testMapPositionToIndex(layoutManager, 5, 5);
+		testMapPositionToIndex(layoutManager, 6, 6);
+		testMapPositionToIndex(layoutManager, 7, 7);
+		testMapPositionToIndex(layoutManager, 8, 8);
+		testMapPositionToIndex(layoutManager, 9, 9);
+		assert(layoutManager.mapPositionToIndex(10) === undefined);
+		assert(layoutManager.mapPositionToIndex(100) === undefined);
+
+		// Test mapping indexes to positions.
+		assert(layoutManager.mapIndexToPosition(-1) === undefined);
+		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		testMapIndexToPosition(layoutManager, 0, 2);
+		testMapIndexToPosition(layoutManager, 1, 3);
+		testMapIndexToPosition(layoutManager, 2, 1);
+		testMapIndexToPosition(layoutManager, 3, 0);
+		testMapIndexToPosition(layoutManager, 4, 4);
+		testMapIndexToPosition(layoutManager, 5, 5);
+		testMapIndexToPosition(layoutManager, 6, 6);
+		testMapIndexToPosition(layoutManager, 7, 7);
+		testMapIndexToPosition(layoutManager, 8, 8);
+		testMapIndexToPosition(layoutManager, 9, 9);
+		assert(layoutManager.mapIndexToPosition(10) === undefined);
+		assert(layoutManager.mapIndexToPosition(100) === undefined);
+	});
+
+	/**
+	 * Tests mapping positions to indexes and indexes to positions with an entry map and no pinned indexes.
+	 */
+	test('Map Position To Index - Map Index To Position - With Entry Map - With Pinned Indexes', () => {
+		// Create and initialize the layout manager.
+		const layoutManager = new LayoutManager(100);
+		layoutManager.setEntries(10, undefined, [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
+		layoutManager.setPinnedIndexes([3, 2, 0]);
+
+		// Test mapping positions to indexes.
+		assert(layoutManager.mapPositionToIndex(-1) === undefined);
+		assert(layoutManager.mapPositionToIndex(-10) === undefined);
+		testMapPositionToIndex(layoutManager, 0, 3);
+		testMapPositionToIndex(layoutManager, 1, 2);
+		testMapPositionToIndex(layoutManager, 2, 0);
+		testMapPositionToIndex(layoutManager, 3, 9);
+		testMapPositionToIndex(layoutManager, 4, 8);
+		testMapPositionToIndex(layoutManager, 5, 7);
+		testMapPositionToIndex(layoutManager, 6, 6);
+		testMapPositionToIndex(layoutManager, 7, 5);
+		testMapPositionToIndex(layoutManager, 8, 4);
+		testMapPositionToIndex(layoutManager, 9, 1);
+		assert(layoutManager.mapPositionToIndex(10) === undefined);
+		assert(layoutManager.mapPositionToIndex(100) === undefined);
+
+		// Test mapping indexes to positions.
+		assert(layoutManager.mapIndexToPosition(-1) === undefined);
+		assert(layoutManager.mapIndexToPosition(-10) === undefined);
+		testMapIndexToPosition(layoutManager, 3, 0);
+		testMapIndexToPosition(layoutManager, 2, 1);
+		testMapIndexToPosition(layoutManager, 0, 2);
+		testMapIndexToPosition(layoutManager, 9, 3);
+		testMapIndexToPosition(layoutManager, 8, 4);
+		testMapIndexToPosition(layoutManager, 7, 5);
+		testMapIndexToPosition(layoutManager, 6, 6);
+		testMapIndexToPosition(layoutManager, 5, 7);
+		testMapIndexToPosition(layoutManager, 4, 8);
+		testMapIndexToPosition(layoutManager, 1, 9);
+		assert(layoutManager.mapIndexToPosition(10) === undefined);
+		assert(layoutManager.mapIndexToPosition(100) === undefined);
+	});
+
+	/**
 	 * Verify size for default-sized entries.
 	 */
 	const verifySizeOfDefaultSizedEntries = (defaultSize: number, entries: number) => {
@@ -679,6 +845,30 @@ suite('LayoutManager', () => {
 		min = Math.ceil(min);
 		max = Math.floor(max);
 		return Math.floor(Math.random() * (max - min + 1)) + min;
+	};
+
+	/**
+	 * Tests mapping a position to an index.
+	 * @param layoutManager The layout manager.
+	 * @param position The position to test.
+	 * @param expectedIndex The expected index.
+	 */
+	const testMapPositionToIndex = (layoutManager: LayoutManager, position: number, expectedIndex: number) => {
+		const index = layoutManager.mapPositionToIndex(position);
+		assert(index !== undefined);
+		assert.strictEqual(index, expectedIndex);
+	};
+
+	/**
+	 * Tests mapping an index to a position.
+	 * @param layoutManager The layout manager.
+	 * @param index The index to test.
+	 * @param expectedPosition The expected position.
+	 */
+	const testMapIndexToPosition = (layoutManager: LayoutManager, index: number, expectedPosition: number) => {
+		const position = layoutManager.mapIndexToPosition(index);
+		assert(position !== undefined);
+		assert.strictEqual(position, expectedPosition);
 	};
 
 	// Ensure that all disposables are cleaned up.
