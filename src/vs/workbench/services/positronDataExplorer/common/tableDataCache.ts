@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isContiguous } from './utils.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
@@ -86,29 +87,6 @@ const SpecialValues: Record<number, [DataCellKind, string]> = {
 	4: [DataCellKind.None, 'None'],
 	10: [DataCellKind.INFINITY, 'INF'],
 	11: [DataCellKind.NEG_INFINITY, '-INF'],
-};
-
-/**
- * Determines whether an array of numbers is contiguous.
- * @param array The array of numbers.
- * @returns true if the array is contiguous; otherwise, false.
- */
-const isContiguous = (array: number[]) => {
-	if (array.length === 0) {
-		return false;
-	}
-
-	if (array.length === 1) {
-		return true;
-	}
-
-	for (let i = 1; i < array.length; i++) {
-		if (array[i - 1] + 1 !== array[i]) {
-			return false;
-		}
-	}
-
-	return true;
 };
 
 function decodeSpecialValue(value: number) {
