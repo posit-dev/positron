@@ -62,18 +62,3 @@ Assistant: [runs background launch command]
 Assistant: "Positron launched in background"
 [Session continues without pause]
 
-## Testing Extensions
-
-When asked to test extensions, use:
-```bash
-npm run test-extension -- -l <extension-name>
-```
-
-NOT:
-```bash
-npm test  # Wrong - this doesn't work for extensions
-```
-
-Examples:
-- `npm run test-extension -- -l positron-duckdb`
-- `npm run test-extension -- -l positron-python`
