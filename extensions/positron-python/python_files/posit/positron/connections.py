@@ -925,7 +925,7 @@ class SnowflakeConnection(Connection):
             cursor = conn.cursor()
             cursor.execute("SELECT CURRENT_ACCOUNT()")
             self.host = cursor.fetchone()[0]
-        except Exception as e:
+        except Exception:
             self.host = "<unknown>"
 
         self.display_name = f"Snowflake ({self.host})"
