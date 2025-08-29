@@ -1168,6 +1168,12 @@ export class LayoutManager {
 	private positionOfIndex(index: number): number | undefined {
 		// If there is no entry map, the index is the position, so return it.
 		if (this._entryMap.length === 0) {
+			// Validate the index.
+			if (index >= this._entryCount) {
+				return undefined;
+			}
+
+			// Return the index.
 			return index;
 		}
 
