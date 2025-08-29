@@ -61,6 +61,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	});
 
+	// Register command to disable MCP server
+	const disableCommand = vscode.commands.registerCommand('positron.mcp.disableServer', async () => {
+		try {
+			await disableMcpServer();
+		} catch (error) {
+			const logger = getLogger();
+			logger.error('Command', 'Failed to disable MCP server', error);
+			await positron.window.showSimpleModalDialogMessage(
+				'Failed to Disable MCP Server',
+				`Failed to disable Positron MCP server: ${error}`,
+				'OK'
+			);
+		}
+	});
+
 	// Register command to show logs
 	const showLogsCommand = vscode.commands.registerCommand('positron.mcp.showLogs', () => {
 		const logger = getLogger();
@@ -142,6 +157,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	context.subscriptions.push(
 		enableCommand,
+		disableCommand,
 		showLogsCommand,
 		resetConsentCommand,
 		showAuditLogCommand,
@@ -239,6 +255,54 @@ async function enableMcpServer(): Promise<void> {
 		message,
 		'OK'
 	);
+}
+
+async function disableMcpServer(): Promise<void> {
+	const logger = getLogger();
+	logger.info('Command', 'Disabling MCP server via command');
+
+	// Check if server is not running
+	if (!mcpServer) {
+		await positron.window.showSimpleModalDialogMessage(
+			'MCP Server Not Running',
+			'The Positron MCP server is already disabled.',
+			'OK'
+		);
+		return;
+	}
+
+	// Ask for confirmation to disable server
+	const disableOptions = [
+		{ label: '$(check) Yes, disable MCP server', value: true },
+		{ label: '$(x) No, cancel', value: false }
+	];
+
+	const disableChoice = await vscode.window.showQuickPick(disableOptions, {
+		placeHolder: 'Disable Positron MCP server?',
+		title: 'MCP Server Configuration',
+		ignoreFocusOut: true
+	});
+
+	if (!disableChoice || !disableChoice.value) {
+		logger.info('Command', 'User cancelled MCP server disable');
+		return;
+	}
+
+	// Dispose of the running server
+	mcpServer.dispose();
+	mcpServer = undefined;
+
+	// Disable the server in configuration
+	const config = vscode.workspace.getConfiguration();
+	await config.update('positron.mcp.enable', false, vscode.ConfigurationTarget.Global);
+
+	await positron.window.showSimpleModalDialogMessage(
+		'MCP Server Disabled',
+		'The Positron MCP server has been disabled. The server is no longer running.',
+		'OK'
+	);
+
+	logger.info('Command', 'MCP server disabled successfully');
 }
 
 async function createOrUpdateMcpConfig(): Promise<string | undefined> {

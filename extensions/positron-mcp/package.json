@@ -97,6 +97,11 @@
         "category": "Positron"
       },
       {
+        "command": "positron.mcp.disableServer",
+        "title": "Positron MCP: Disable Server",
+        "category": "Positron"
+      },
+      {
         "command": "positron.mcp.showLogs",
         "title": "Positron MCP: Show Logs",
         "category": "Positron"
@@ -121,6 +126,9 @@
       "commandPalette": [
         {
           "command": "positron.mcp.enableServer"
+        },
+        {
+          "command": "positron.mcp.disableServer"
         },
         {
           "command": "positron.mcp.showLogs"
