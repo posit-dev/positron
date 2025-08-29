@@ -339,7 +339,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic' ||
+		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
 			this.model.modelId.startsWith('us.anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
@@ -522,7 +522,10 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'anthropic',
+			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
+			// use 'anthropic-api' instead to make it possible to differentiate
+			// the two.
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
@@ -872,7 +875,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 // suitable for chat and we don't want the selection to be too large
 export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
 	[
-		['anthropic', [
+		['anthropic-api', [
 			{
 				name: 'Claude 4 Sonnet',
 				identifier: 'claude-sonnet-4-20250514',

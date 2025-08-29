@@ -17,7 +17,7 @@ suite('TokenTracker', () => {
 	let getConfigurationStub: sinon.SinonStub;
 	let onDidChangeConfigurationStub: sinon.SinonStub;
 
-	const ANTHROPIC_PROVIDER_ID = 'anthropic';
+	const ANTHROPIC_PROVIDER_ID = 'anthropic-api';
 	const TEST_PROVIDER_ID = 'test-provider';
 	const TOKEN_COUNT_KEY = 'positron.assistant.tokenCounts';
 

@@ -94,7 +94,7 @@ export class Assistant {
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
-			case 'anthropic':
+			case 'anthropic-api':
 				await this.code.driver.page.locator(ANTHROPIC_BUTTON).click();
 				break;
 			case 'aws':
