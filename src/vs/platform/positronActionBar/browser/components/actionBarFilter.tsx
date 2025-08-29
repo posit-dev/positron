@@ -52,6 +52,14 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		props.onFilterTextChanged('');
 	};
 
+	// Button clear key down handler.
+	const buttonClearKeyDownHandler = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+		if (e.code === 'Enter' || e.code === 'Space') {
+			e.preventDefault();
+			buttonClearClickHandler();
+		}
+	};
+
 	useImperativeHandle(ref, () => ({
 		setFilterText: (text: string) => {
 			setFilterText(text);
@@ -67,7 +75,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 				<input
 					ref={inputRef}
 					className='text-input'
-					placeholder={(() => localize('positronFilterPlaceholder', "filter"))()}
+					placeholder={(() => localize('positronFilterPlaceholder', "Filter"))()}
 					type='text'
 					value={filterText}
 					onBlur={() => setFocused(false)}
@@ -75,8 +83,13 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					onFocus={() => setFocused(true)}
 				/>
 				{filterText !== '' && (
-					<button className='clear-button'>
-						<div className={'codicon codicon-positron-search-cancel'} onClick={buttonClearClickHandler} />
+					<button
+						aria-label={(() => localize('positronClearFilter', "Clear filter"))()}
+						className='clear-button'
+						onClick={buttonClearClickHandler}
+						onKeyDown={buttonClearKeyDownHandler}
+					>
+						<div className={'codicon codicon-positron-search-cancel'} />
 					</button>
 				)}
 			</div>
