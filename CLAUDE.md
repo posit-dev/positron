@@ -2,19 +2,33 @@
 
 This is the main coordination file for Claude Code when working on Positron. Based on your specific task, include the appropriate modular context file(s) from `dev_prompts/`.
 
+## Communication Guidelines
+
+When working on this project, maintain clear and neutral communication:
+- Use professional, direct language as you would with a mid-level colleague
+- Carefully evaluate assertions and suggestions before accepting them
+- Respectfully push back when something seems incorrect or unclear
+- Avoid overly agreeable or sycophantic responses (e.g., "You're absolutely right")
+- Focus on technical accuracy and practical solutions
+- Ask clarifying questions when requirements are ambiguous
+
 ## Project Overview
 
 Positron is a next-generation data science IDE built on VS Code, designed for Python and R development with enhanced data science workflows.
 
 ## 🚨 CRITICAL: Development Startup
 
-**ALWAYS read `.claude/build-system.md` before launching Positron!**
-This file contains critical instructions for ensuring build daemons are running. Never skip this step.
+**For launching Positron: ALWAYS read `.claude/launch-positron.md` first!**
+This file contains the exact non-blocking launch protocol to avoid session blocking.
+
+**For build details: See `.claude/build-system.md`**
+This file contains detailed build daemon and compilation instructions.
 
 ## Using Modular Prompts
 
 To work effectively on specific areas of Positron, ask Claude to include relevant context files:
 
+- **Launching Positron**: `Please read .claude/launch-positron.md` - **CRITICAL: Non-blocking launch protocol**
 - **E2E Testing**: `Please read .claude/e2e-testing.md` - For working with Playwright end-to-end tests
 - **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development
 - **Data Explorer**: `Please read .claude/data-explorer.md` - For data viewing and exploration features
@@ -42,16 +56,19 @@ npm run watch-extensionsd & # Extensions compilation daemon
 sleep 30
 
 # STEP 4: Launch Positron (ONLY after daemons are confirmed running)
+# IMPORTANT: Always run in background to avoid blocking Claude Code session
 # On macOS/Linux:
 ./scripts/code.sh &
 # On Windows:
 start ./scripts/code.bat
 
-# STEP 5: Verify Positron launched successfully
+# STEP 5: Verify Positron launched successfully (optional - don't block session)
 # On macOS/Linux:
 sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
 # On Windows:
 timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
+
+# NOTE: Once launched in background, Claude Code session remains available for other tasks
 
 # Run tests (after Positron is running)
 npm test
@@ -76,7 +93,16 @@ This project has a Claude Code hook configured that automatically handles most c
 
 ### Testing
 ```bash
-# Run specific e2e test
+# Extension tests (preferred for extension development)
+npm run test-extension -- -l <extension-name>
+# Examples:
+npm run test-extension -- -l positron-duckdb
+npm run test-extension -- -l positron-python
+
+# Extension tests with pattern matching
+npm run test-extension -- -l positron-duckdb --grep "histogram"
+
+# E2E tests (for UI integration testing)
 npx playwright test <test-name>.test.ts --project e2e-electron --reporter list
 
 # Run all tests in a category

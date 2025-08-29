@@ -1,39 +1,19 @@
 # Positron Build System & Development Workflows
 
-## 🚨 CRITICAL: Always Check Build Daemons First!
+## Overview
 
-**NEVER launch Positron without ensuring build daemons are running!** 
+This document covers the Positron build system, compilation daemons, and development workflows.
 
-### Required Startup Sequence Every Time:
+**For launching Positron:** See `.claude/launch-positron.md` for the non-blocking launch protocol.
 
-1. **Check if daemons are already running:**
-```bash
-ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
-```
+## Build Daemons
 
-2. **If NOT running, start them (and wait for compilation):**
-```bash
-# Start required daemons
-npm run watch-clientd &      # Core compilation
-npm run watch-extensionsd &  # Extensions compilation
+Positron requires compilation daemons to be running before launch:
+- **watch-clientd**: Compiles core TypeScript code in `src/`
+- **watch-extensionsd**: Compiles extensions in `extensions/`
+- **watch-e2ed**: (Optional) Compiles E2E tests in `test/e2e/`
 
-# Wait for initial compilation (30-60 seconds)
-sleep 30
-
-# Look for "Finished compilation" messages before proceeding
-```
-
-3. **Only after daemons are confirmed running, launch Positron:**
-```bash
-./scripts/code.sh &
-```
-
-4. **Verify Positron launched successfully:**
-```bash
-sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
-```
-
-### Why This Matters:
+### Why Daemons Matter:
 - Positron WILL crash if daemons aren't running
 - Extensions won't load without `watch-extensionsd`
 - Changes won't be reflected without active daemons
@@ -77,16 +57,8 @@ npm run watch-e2ed
 ```
 
 ### 3. Launch Positron Application
-```bash
-# Launch Positron in background (macOS/Linux)
-./scripts/code.sh &
 
-# Launch Positron in background (Windows)  
-start ./scripts/code.bat
-
-# Check if launch was successful after 5-10 seconds (Windows)
-timeout /t 5 /nobreak >nul && tasklist | findstr /i "positron electron" | findstr /v "grep"
-```
+**See `.claude/launch-positron.md` for launch instructions.**
 
 ## Build Daemon Management
 
@@ -135,45 +107,28 @@ deemon --list
 deemon --status npm run watch-client
 ```
 
-## Claude Code Integration Commands
+## Quick Reference
 
-### Quick Development Setup
-
-🚨 **CRITICAL: Wait for compilation to complete before launching Positron**
+### Starting Build Daemons
 
 ```bash
-# 1. Install dependencies (only if needed - see warning above)
-npm install
+# Check if daemons are already running
+ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
 
-# 2. Start core daemons (in parallel, but DO NOT launch Positron yet!)
-# For regular development:
-npm run watch-clientd
-npm run watch-extensionsd
+# Start core daemons for regular development
+npm run watch-clientd &      # Core compilation
+npm run watch-extensionsd &  # Extensions compilation
 
-# For E2E testing:
-npm run watch-clientd
-npm run watch-extensionsd
-npm run watch-e2ed
-
-# 3. WAIT for all build daemons to show "Finished compilation with 0 errors"
-# Core client: Look for "Finished compilation[api-proposal-names] with 0 errors"
-# Extensions: Look for "Finished compilation[extensions] with 0 errors" 
-# E2E: Look for "Found 0 errors. Watching for file changes."
-
-# 4. ONLY THEN launch Positron in background
-./scripts/code.sh &
-
-# 5. Check after 5-10 seconds that Positron launched successfully
-# On macOS/Linux:
-sleep 5 && ps aux | grep -E "Positron|Electron.*positron" | grep -v grep | head -5
-# On Windows:
-timeout /t 5 /nobreak >nul && tasklist | findstr /i "positron electron"
+# Add E2E daemon if testing
+npm run watch-e2ed &         # E2E test compilation
 ```
 
-**Why this matters:**
-- Launching Positron before compilation finishes will cause startup failures
-- Extensions must be fully compiled before the application can load them
-- The build process can take 30-60 seconds for a full compilation
+### Compilation Status
+
+Look for these messages to confirm compilation is ready:
+- Core client: "Finished compilation[api-proposal-names] with 0 errors"
+- Extensions: "Finished compilation[extensions] with 0 errors" 
+- E2E: "Found 0 errors. Watching for file changes."
 
 ### Restart Development Environment
 ```bash
@@ -298,14 +253,10 @@ npm run gulp -- --tasks
 npm run watch-extensions --dry-run
 ```
 
-## Claude Code Workflow Summary
+## Build System Summary
 
-For Claude Code to manage Positron development:
-
-1. **Dependencies**: Run `npm install` when needed
+1. **Dependencies**: Run `npm install` only when needed (dependency errors)
 2. **Build Daemons**: Start appropriate daemon combination based on task
-3. **Launch**: Use `./scripts/code.sh` to start Positron
-4. **Monitor**: Parse daemon output for compilation errors
-5. **Testing**: Run E2E tests with direct Playwright commands
-
-This approach provides the same functionality as VSCode tasks but with direct command access and better integration with Claude Code workflows.
+3. **Compilation**: Wait for "Finished compilation" messages
+4. **Launch**: Follow `.claude/launch-positron.md` for non-blocking launch
+5. **Testing**: Use `npm run test-extension` for extensions, Playwright for E2E
