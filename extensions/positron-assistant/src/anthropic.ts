@@ -128,7 +128,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		const anthropicMessages = toAnthropicMessages(messages);
 
 		const body: Anthropic.MessageStreamParams = {
-			model: this._config.model,
+			model: model.id,
 			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
 			tools,
 			tool_choice,
@@ -140,7 +140,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
-			log.info(`[anthropic] Start request ${stream.request_id} to ${this._config.model}: ${anthropicMessages.length} messages`);
+			log.info(`[anthropic] Start request ${stream.request_id} to ${model.id}: ${anthropicMessages.length} messages`);
 			if (log.logLevel <= vscode.LogLevel.Trace) {
 				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
 			} else {
@@ -280,7 +280,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 		}
 		const result = await this._client.messages.countTokens({
-			model: this._config.model,
+			model: model.id,
 			messages,
 		});
 		return result.input_tokens;

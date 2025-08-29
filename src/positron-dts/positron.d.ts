@@ -2041,7 +2041,6 @@ declare module 'positron' {
 			id: string;
 
 			providerName: string;
-			maxOutputTokens: number;
 
 			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
 			onDidChange?: vscode.Event<void>;
