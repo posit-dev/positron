@@ -18,13 +18,17 @@ Positron is a next-generation data science IDE built on VS Code, designed for Py
 
 ## 🚨 CRITICAL: Development Startup
 
-**ALWAYS read `.claude/build-system.md` before launching Positron!**
-This file contains critical instructions for ensuring build daemons are running. Never skip this step.
+**For launching Positron: ALWAYS read `.claude/launch-positron.md` first!**
+This file contains the exact non-blocking launch protocol to avoid session blocking.
+
+**For build details: See `.claude/build-system.md`**
+This file contains detailed build daemon and compilation instructions.
 
 ## Using Modular Prompts
 
 To work effectively on specific areas of Positron, ask Claude to include relevant context files:
 
+- **Launching Positron**: `Please read .claude/launch-positron.md` - **CRITICAL: Non-blocking launch protocol**
 - **E2E Testing**: `Please read .claude/e2e-testing.md` - For working with Playwright end-to-end tests
 - **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development
 - **Data Explorer**: `Please read .claude/data-explorer.md` - For data viewing and exploration features
