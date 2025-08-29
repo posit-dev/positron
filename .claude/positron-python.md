@@ -11,7 +11,8 @@ extensions/positron-python/
 │   ├── posit/                    # Positron-specific Python modules
 │   │   ├── positron/             # Core Positron Python functionality
 │   │   │   └── tests/            # Python unit tests for Positron modules
-│   │   └── pyproject.toml        # Python project configuration
+│   │   ├── pyproject.toml        # Python project configuration
+│   │   └── test-requirements.txt # Python test dependencies
 │   └── lib/                      # Vendored Python dependencies
 ├── build/                        # Build configurations and CI helpers
 ├── package.json                  # Node.js extension manifest
@@ -22,13 +23,38 @@ extensions/positron-python/
 
 We assume for now that the user is responsible for setting up their development environment.
 
+## Claude Code Configuration
+
+### Recommended Bash Command Permissions
+
+When working with Claude Code on the Python extension, consider allowing these commands for efficient development:
+
+```bash
+# Python testing (from extensions/positron-python/python_files/posit)
+cd extensions/positron-python/python_files/posit && python -m pytest*
+
+# TypeScript extension testing (from root directory)
+npm run test-extension -- -l positron-python*
+
+# Code quality commands (only for posit directory)
+cd extensions/positron-python/python_files/posit && ruff check*
+cd extensions/positron-python/python_files/posit && ruff format*
+cd extensions/positron-python/python_files/posit && pyright positron/*
+
+# Helper scripts (from extensions/positron-python)
+cd extensions/positron-python && ./scripts/check-python-quality.sh
+cd extensions/positron-python && ./scripts/fix-python-format.sh
+```
+
+These permissions enable Claude to run tests, check code quality, and apply formatting fixes without requiring manual approval for each command.
+
 ## Testing Framework
 
 ### Python Testing
-All Python tests must be run from the correct directory with proper module resolution:
+**CRITICAL**: All Python tests MUST be run from `extensions/positron-python/python_files/posit` directory:
 
 ```bash
-# Navigate to the Python module root (CRITICAL)
+# ALWAYS start from project root, then navigate to the correct directory
 cd extensions/positron-python/python_files/posit
 
 # Run all Positron Python tests
@@ -44,6 +70,17 @@ python -m pytest --cov=positron --cov-report=term-missing
 python -m pytest positron/tests/test_data_explorer.py::test_specific_function -v
 ```
 
+### TypeScript Extension Testing
+**Run from project root directory**:
+
+```bash
+# Test the positron-python extension TypeScript code
+npm run test-extension -- -l positron-python
+
+# With grep pattern for specific tests
+npm run test-extension -- -l positron-python --grep "test pattern"
+```
+
 ### Test Requirements
 - **Module Resolution**: Always run pytest from `python_files/posit` directory
 - **No Main Blocks**: Never use `if __name__ == "__main__"` in test files
@@ -53,31 +90,33 @@ python -m pytest positron/tests/test_data_explorer.py::test_specific_function -v
 ### Automatic Formatting
 Code formatting is handled automatically via Claude Code hooks using ruff format.
 
+### Helper Scripts
+
+```bash
+# Run all Python quality checks (linting + type checking)
+cd extensions/positron-python
+./scripts/check-python-quality.sh
+
+# Fix formatting and safe linting issues
+./scripts/fix-python-format.sh
+```
+
 ### Manual Quality Checks
 
 ```bash
-# Python linting (from python_files/)
+# Python linting (from python_files/posit/)
+cd extensions/positron-python/python_files/posit
 ruff check .
 ruff format --check
 
-# Type checking with Pyright (from python_files/)
-pyright
+# Type checking with Pyright (from python_files/posit/)
+pyright positron/
 ```
 
-### Tool Versions & Configuration
+### Tool Versions
+
 - **Pyright**: Version 1.1.308 (matches CI)
-- **Ruff**: Line length 100 characters, target Python 3.8+
-- **Enabled rules**: Comprehensive set including flake8-bugbear, pycodestyle, isort, etc.
-- **Excludes**: Vendored dependencies (`lib/`, `posit/positron/_vendor/`)
-
-## Architecture & Key Components
-
-### Python Runtime Integration
-- **Kernel Management**: IPython kernel lifecycle and communication
-- **Environment Detection**: Virtual environments, conda, pyenv, pipenv, poetry
-- **Data Science Features**: Interactive data exploration and visualization
-- **Language Server**: Pylsp/Jedi integration for IntelliSense
-- **Debugging**: Integration with debugpy for Python debugging
+- **Ruff**: Latest version
 
 ## Development Workflows
 
@@ -86,13 +125,6 @@ pyright
 2. **Develop**: Follow existing code patterns and conventions
 3. **Test**: Write comprehensive tests covering edge cases
 4. **Lint**: Code passes ruff and pyright checks
-5. **Integration**: Test with Positron IDE end-to-end
-
-### Development Testing
-1. **Launch Positron**: Ensure build daemons are running, launch via `./scripts/code.sh`
-2. **Open Python File**: Create test files or notebooks
-3. **Test Features**: Interactive features, debugging, environment detection
-4. **Check Console**: Monitor for errors in Positron Developer Console
 
 ## Dependencies & Compatibility
 
@@ -126,20 +158,20 @@ def enhanced_function(data):
 
 ### Testing Best Practices
 ```python
-def test_function_with_various_inputs():
+import pytest
+
+@pytest.mark.parametrize("input_data,expected", [
+    # Regular cases
+    ([1, 2, 3, 4, 5], "expected_result_1"),
+    ([1.1, 2.2, 3.3], "expected_result_2"),
+    # Edge cases
+    ([], "empty_result"),
+    ([1], "single_item_result"),
+])
+def test_function_with_various_inputs(input_data, expected):
     """Test function with different input types and edge cases."""
-    test_cases = [
-        # Regular cases
-        ([1, 2, 3, 4, 5], "expected_result_1"),
-        ([1.1, 2.2, 3.3], "expected_result_2"),
-        # Edge cases
-        ([], "empty_result"),
-        ([1], "single_item_result"),
-    ]
-    
-    for input_data, expected in test_cases:
-        result = function_under_test(input_data)
-        assert result == expected
+    result = function_under_test(input_data)
+    assert result == expected
 ```
 
 ## Troubleshooting
