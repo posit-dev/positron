@@ -930,6 +930,7 @@ class SnowflakeConnection(Connection):
 
         self.display_name = f"Snowflake ({self.host})"
         self.type = "Snowflake"
+        self.code = self._make_code()
 
     def list_objects(self, path: list[ObjectSchema]):
         if len(path) == 0:
@@ -996,3 +997,14 @@ class SnowflakeConnection(Connection):
 
     def disconnect(self):
         self.conn.close()  # type: ignore
+
+    def _make_code(self):
+        args = ["account", "authenticator", "host", "user", "password", "port"]
+        code = "import snowflake.connector\ncon = snowflake.connector.connect(\n"
+        for arg in args:
+            val = getattr(self.conn, f"_{arg}")
+            if val is not None:
+                val = repr(val)
+                code += f"    {arg}={val},\n"
+        code += ")\n"
+        return code
