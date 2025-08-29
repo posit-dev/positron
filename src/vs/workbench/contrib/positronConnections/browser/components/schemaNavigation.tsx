@@ -199,17 +199,25 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 						case 'character':
 						case 'string':
 						case 'varchar':
+						case 'text':
 							return 'positron-data-type-string';
 						case 'integer':
 						case 'numeric':
 						case 'float':
 						case 'double':
+						case 'fixed':
+						case 'real':
 							return 'positron-data-type-number';
 						case 'boolean':
 						case 'bool':
 							return 'positron-data-type-boolean';
+						case 'date':
+							return 'positron-data-type-date';
 						case 'timestamp':
+						case 'timestamp_ltz':
 							return 'positron-data-type-date-time';
+						case 'array':
+							return 'positron-data-type-array';
 						default:
 							return 'positron-data-type-unknown';
 					}
