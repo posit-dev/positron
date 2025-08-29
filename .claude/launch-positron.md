@@ -11,20 +11,29 @@ ps aux | grep -E "npm.*watch-(client|extensions)d" | grep -v grep
 
 ### Step 2: Start missing daemons (if needed)
 ```bash
-# Run these in background, don't wait for output
+# Run these in background
 npm run watch-clientd &
 npm run watch-extensionsd &
-# Wait briefly for initial startup
-sleep 10
 ```
 
-### Step 3: Launch Positron in background
+### Step 3: Wait for compilation to complete
+**CRITICAL**: You MUST verify that both daemons have finished their initial compilation before launching Positron.
+```bash
+# Check daemon output using BashOutput tool to verify compilation is complete
+# Look for messages like:
+# - "Finished compilation" 
+# - "Watching for file changes"
+# - "Found 0 errors"
+# This typically takes 30-60 seconds from daemon start
+```
+
+### Step 4: Launch Positron in background
 ```bash
 # ALWAYS use run_in_background=true for this command
 ./scripts/code.sh &
 ```
 
-### Step 4: IMMEDIATELY respond to user
+### Step 5: IMMEDIATELY respond to user
 After launching, immediately confirm with a brief message like:
 - "Positron launched in background"
 - "Positron is starting"
