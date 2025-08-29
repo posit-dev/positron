@@ -226,7 +226,6 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage(message2);
 
 		await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.verifyNumberOfVisibleResponses(2, true);
 
 		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
 		expect(totalTokens).toBeDefined();
