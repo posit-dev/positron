@@ -176,6 +176,28 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			this.onText(textDelta, progress);
 		});
 
+		// Report token usage information as part of the output stream.
+		stream.on('streamEvent', (event) => {
+			if (event.type === 'message_start' || event.type === 'message_delta') {
+				const usage = event.type === 'message_start' ? event.message.usage : event.usage;
+				const input = usage.input_tokens || 0;
+				const output = usage.output_tokens || 0;
+				const cache_creation = usage.cache_creation_input_tokens || 0;
+				const cache_read = usage.cache_read_input_tokens || 0;
+				const part: any = vscode.LanguageModelDataPart.json({
+					type: 'usage', data: {
+						prompt_tokens: input + cache_creation + cache_read,
+						output_tokens: output,
+						cached_tokens: cache_read,
+						provider_metadata: {
+							anthropic: usage,
+						}
+					}
+				});
+				progress.report({ index: 0, part: part });
+			}
+		});
+
 		try {
 			await stream.done();
 		} catch (error) {

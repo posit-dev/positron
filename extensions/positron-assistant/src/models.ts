@@ -514,6 +514,23 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			// `cacheReadInputTokens` and `cacheWriteInputTokens`
 			const usage = other.bedrock.usage as Record<string, any>;
 
+			// Report token usage information as part of the output stream.
+			const meta_input = usage.input_tokens || 0;
+			const meta_output = usage.output_tokens || 0;
+			const meta_cache_write = usage.cacheWriteInputTokens || 0;
+			const meta_cache_read = usage.cacheReadInputTokens || 0;
+			const part: any = vscode.LanguageModelDataPart.json({
+				type: 'usage', data: {
+					prompt_tokens: meta_input + meta_cache_read + meta_cache_write,
+					output_tokens: meta_output,
+					cached_tokens: meta_cache_read,
+					provider_metadata: {
+						bedrock: usage,
+					},
+				}
+			});
+			progress.report({ index: 0, part: part });
+
 			// Add the input and output tokens to the usage object
 			usage.inputTokens = inputCount;
 			usage.outputTokens = outputCount;
