@@ -227,6 +227,14 @@ export function getEnabledTools(
 					continue;
 				}
 				break;
+			// This tool is used by Copilot to edit files; Positron Assistant
+			// has its own file editing tool. Don't include this tool for
+			// Positron participants.
+			case 'vscode_editFile_internal':
+				if (positronParticipantId) {
+					continue;
+				}
+				break;
 		}
 
 		// Final check: if we're in agent mode, or the tool is marked for use with
