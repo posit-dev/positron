@@ -151,6 +151,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
+	getDynState(): Promise<ILanguageRuntimeSessionState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	async createClient(
 		type: RuntimeClientType, params: any, metadata?: any, id?: string, buffers?: VSBuffer[]
 	): Promise<TestRuntimeClientInstance> {

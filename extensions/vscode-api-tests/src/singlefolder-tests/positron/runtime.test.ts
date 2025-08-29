@@ -40,6 +40,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		return this._runtimeInfo;
 	}
 
+	getDynState(): Promise<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	generateMessageId(): string {
 		return `msg-${TestLanguageRuntimeSession.messageId++}`;
 	}

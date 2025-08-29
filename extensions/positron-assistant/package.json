@@ -590,5 +590,8 @@
     "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.335.0",
     "vscode-languageclient": "^9.0.1"
-  }
+  },
+  "extensionDependencies": [
+    "positron.positron-supervisor"
+  ]
 }

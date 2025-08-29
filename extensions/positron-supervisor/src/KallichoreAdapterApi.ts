@@ -1319,14 +1319,15 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Find the session in our list
 		const kallichoreSession = this._sessions.find(s => s.metadata.sessionId === session.metadata.sessionId);
+		const sessionName = (await session.getDynState()).sessionName;
 		if (!kallichoreSession) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', session.dynState.sessionName));
+			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', sessionName));
 			return;
 		}
 
 		// Ensure the session is still active
 		if (kallichoreSession.runtimeState === positron.RuntimeState.Exited) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', session.dynState.sessionName));
+			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', sessionName));
 			return;
 		}
 

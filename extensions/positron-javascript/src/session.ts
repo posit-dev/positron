@@ -111,6 +111,10 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
 		if (type === positron.RuntimeClientType.Variables) {
 			// The only client type we support right now is an environment.

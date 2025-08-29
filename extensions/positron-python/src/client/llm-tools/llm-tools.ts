@@ -18,15 +18,9 @@ export function registerPythonLanguageModelTools(
         'getAttachedPythonPackages',
         {
             invoke: async (options, _token) => {
-                let session: positron.LanguageRuntimeSession | undefined;
+                let session: positron.BaseLanguageRuntimeSession | undefined;
                 if (options.input.sessionIdentifier) {
-                    const sessions = await positron.runtime.getActiveSessions();
-                    if (sessions && sessions.length > 0) {
-                        session = sessions.find(
-                            (session) => session.metadata.sessionId === options.input.sessionIdentifier,
-                        );
-                    }
-
+                    session = await positron.runtime.getSession(options.input.sessionIdentifier);
                     if (!session) {
                         session = await positron.runtime.getForegroundSession();
                     }
