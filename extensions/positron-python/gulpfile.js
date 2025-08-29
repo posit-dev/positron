@@ -110,11 +110,13 @@ async function addExtensionPackDependencies() {
     // extension dependencies need not be installed during development
     const packageJsonContents = await fsExtra.readFile('package.json', 'utf-8');
     const packageJson = JSON.parse(packageJsonContents);
-    // --- Start Positron ---
-    packageJson.extensionPack = ['ms-python.debugpy'].concat(
+    packageJson.extensionPack = [
+        // --- Start Positron ---
+        //'ms-python.vscode-pylance',
+        'ms-python.debugpy',
+        // 'ms-python.vscode-python-envs',
         // --- End Positron ---
-        packageJson.extensionPack ? packageJson.extensionPack : [],
-    );
+    ].concat(packageJson.extensionPack ? packageJson.extensionPack : []);
     // Remove potential duplicates.
     packageJson.extensionPack = packageJson.extensionPack.filter(
         (item, index) => packageJson.extensionPack.indexOf(item) === index,

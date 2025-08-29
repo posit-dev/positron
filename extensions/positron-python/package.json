@@ -332,6 +332,11 @@
                 "command": "python.createNewFile"
             },
             {
+                "category": "Python",
+                "command": "python.copyTestId",
+                "title": "%python.command.python.testing.copyTestId.title%"
+            },
+            {
                 "title": "%python.command.python.createPyprojectToml.title%",
                 "category": "Python",
                 "command": "python.createPyprojectToml"
@@ -680,6 +685,16 @@
                     "description": "%python.envFile.description%",
                     "scope": "resource",
                     "type": "string"
+                },
+                "python.useEnvironmentsExtension": {
+                    "default": false,
+                    "description": "%python.useEnvironmentsExtension.description%",
+                    "scope": "machine-overridable",
+                    "type": "boolean",
+                    "tags": [
+                        "onExP",
+                        "preview"
+                    ]
                 },
                 "python.experiments.enabled": {
                     "default": true,
@@ -1491,6 +1506,13 @@
                     "command": "python.reportIssue"
                 }
             ],
+            "testing/item/context": [
+                {
+                    "command": "python.copyTestId",
+                    "group": "navigation",
+                    "when": "controllerId == 'python-tests'"
+                }
+            ],
             "commandPalette": [
                 {
                     "category": "Python",
@@ -1576,6 +1598,18 @@
                     "category": "Python",
                     "command": "python.execSelectionInTerminal",
                     "title": "%python.command.python.execSelectionInTerminal.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.copyTestId",
+                    "title": "%python.command.python.testing.copyTestId.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.copyTestId",
+                    "title": "%python.command.python.testing.copyTestId.title%",
                     "when": "false"
                 },
                 {
@@ -2017,7 +2051,7 @@
             {
                 "name": "configure_python_environment",
                 "displayName": "Configure Python Environment",
-                "modelDescription": "This tool configures a Python environment in the given workspace. ALWAYS Use this tool to set up the user's chosen environment and ALWAYS call this tool before using any other Python related tools.",
+                "modelDescription": "This tool configures a Python environment in the given workspace. ALWAYS Use this tool to set up the user's chosen environment and ALWAYS call this tool before using any other Python related tools or running any Python command in the terminal.",
                 "userDescription": "%python.languageModelTools.configure_python_environment.userDescription%",
                 "toolReferenceName": "configurePythonEnvironment",
                 "tags": [
