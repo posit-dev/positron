@@ -73,17 +73,17 @@ export class LayoutManager {
 	private readonly _customEntrySizes = new Map<number, number>();
 
 	/**
-	 * The entry map. This is keyed by position and maps position to index.
+	 * The entry map.
 	 */
-	private _entryMap: number[] | undefined;
+	private _entryMap: number[] = [];
 
 	/**
-	 * The reverse entry map. This is keyed by index and maps index to position.
+	 * The inverse entry map.
 	 */
-	private readonly _reverseEntryMap = new Map<number, number>();
+	private readonly _inverseEntryMap = new Map<number, number>();
 
 	/**
-	 * Gets the pinned indexes.
+	 * Gets the pinned indexes. This is keyed by index.
 	 */
 	private readonly _pinnedIndexes = new Set<number>();
 
@@ -272,8 +272,8 @@ export class LayoutManager {
 
 		// Reset advanced layout capabilities.
 		this._entrySizes.clear();
-		this._entryMap = undefined;
-		this._reverseEntryMap.clear();
+		this._entryMap = [];
+		this._inverseEntryMap.clear();
 
 		// Enable advanced layout capabilities, if we don't have too many entries.
 		if (this._entryCount <= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
@@ -296,10 +296,10 @@ export class LayoutManager {
 			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
 
 			// Set the entry map and reverse entry map, if an entry map was provided and is valid (i.e., it has the correct length).
-			this._entryMap = entryMap?.length === this._entryCount ? entryMap : undefined;
-			if (this._entryMap) {
+			this._entryMap = entryMap?.length === this._entryCount ? entryMap : [];
+			if (this._entryMap.length !== 0) {
 				for (let position = 0; position < this._entryMap.length; position++) {
-					this._reverseEntryMap.set(this._entryMap[position], position);
+					this._inverseEntryMap.set(this._entryMap[position], position);
 				}
 			}
 		}
@@ -387,28 +387,30 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Maps an index to a position.
-	 * @param index The index.
-	 * @returns The position.
-	 */
-	mapIndexToPosition(index: number) {
-		if (!this._entryMap) {
-			return index;
-		} else {
-			return this._reverseEntryMap.get(index);
-		}
-	}
-
-	/**
 	 * Maps a position to an index.
 	 * @param position The position.
 	 * @returns The index.
 	 */
 	mapPositionToIndex(position: number) {
-		if (!this._entryMap) {
+		// What about pinned, idiot??
+		if (this._entryMap.length === 0) {
 			return position;
 		} else {
 			return this._entryMap[position];
+		}
+	}
+
+	/**
+	 * Maps an index to a position.
+	 * @param index The index.
+	 * @returns The position.
+	 */
+	mapIndexToPosition(index: number) {
+		// What about pinned, idiot??
+		if (this._entryMap.length === 0) {
+			return index;
+		} else {
+			return this._inverseEntryMap.get(index);
 		}
 	}
 
@@ -602,18 +604,18 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Returns the previous index of the specified index.
-	 * @param index The index to get the previous index for.
+	 * Returns the previous index of the starting index.
+	 * @param startingIndex The starting index to get the previous index for.
 	 * @returns The previous index, if found; otherwise, undefined.
 	 */
-	previousIndex(index: number): number | undefined {
+	previousIndex(startingIndex: number): number | undefined {
 		// If the index is pinned, return the previous pinned index, if there is one.
-		if (this.isPinnedIndex(index)) {
+		if (this.isPinnedIndex(startingIndex)) {
 			// Get the pinned indexes as an array.
 			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
 
 			// Get the pinned index position.
-			const pinnedIndexPosition = pinnedIndexesArray.indexOf(index);
+			const pinnedIndexPosition = pinnedIndexesArray.indexOf(startingIndex);
 
 			// If the pinned index position greater than zero, return the previous pinned index.
 			if (pinnedIndexPosition > 0) {
@@ -626,16 +628,16 @@ export class LayoutManager {
 
 		// When there isn't an entry map, return the previous unpinned index, if there is one; otherwise,
 		// return the previous unpinned entry map index, if there is one.
-		if (!this._entryMap) {
+		if (this._entryMap.length === 0) {
 			// Return the previous unpinned index.
-			for (let i = index - 1; i >= 0; i--) {
+			for (let i = startingIndex - 1; i >= 0; i--) {
 				if (!this.isPinnedIndex(i)) {
 					return i;
 				}
 			}
 		} else {
 			// Get the position of the index in the entry map.
-			let position = this._reverseEntryMap.get(index);
+			let position = this._inverseEntryMap.get(startingIndex);
 			if (position === undefined) {
 				return undefined;
 			}
@@ -664,7 +666,7 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Returns the next index after the specified index.
+	 * Returns the next index after the starting index.
 	 * @param startingIndex The starting index to get the next index for.
 	 * @returns The next index, if found; otherwise, undefined.
 	 */
@@ -707,7 +709,7 @@ export class LayoutManager {
 		}
 
 		// Return the next unpinned index.
-		if (!this._entryMap) {
+		if (this._entryMap.length === 0) {
 			for (let i = startingIndex + 1; i < this._entryCount; i++) {
 				if (!this.isPinnedIndex(i)) {
 					return i;
@@ -715,7 +717,7 @@ export class LayoutManager {
 			}
 		} else {
 			// Get the entry map position of the index.
-			let entryMapPosition = this._reverseEntryMap.get(startingIndex);
+			let entryMapPosition = this._inverseEntryMap.get(startingIndex);
 			if (entryMapPosition === undefined) {
 				return undefined;
 			}
@@ -880,7 +882,7 @@ export class LayoutManager {
 		let rightPosition = this._entryCount - 1;
 		while (leftPosition <= rightPosition) {
 			// Calculate the middle position.
-			const middlePosition = Math.floor((leftPosition + rightPosition) / 2);
+			const middlePosition = (leftPosition + rightPosition) >> 1;
 
 			// Get the middle position.
 			const middleIndex = this.mapPositionToIndex(middlePosition);
@@ -1001,7 +1003,7 @@ export class LayoutManager {
 		}
 
 		// Validate the index.
-		return this._entryMap ? this._reverseEntryMap.has(index) : index < this._entryCount;
+		return this._entryMap.length !== 0 ? this._inverseEntryMap.has(index) : index < this._entryCount;
 	}
 
 	/**
