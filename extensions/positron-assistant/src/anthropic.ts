@@ -488,6 +488,11 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		type: 'object',
 		properties: {},
 	};
+	// Anthropic requires a type for all tools; default to 'object' if not provided.
+	if (!input_schema.type) {
+		log.warn(`[anthropic] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+		input_schema.type = 'object';
+	}
 	return {
 		name: tool.name,
 		description: tool.description,

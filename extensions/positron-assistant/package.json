@@ -264,7 +264,7 @@
         "displayName": "Amazon Bedrock"
       },
       {
-        "vendor": "anthropic",
+        "vendor": "anthropic-api",
         "displayName": "Anthropic"
       }
     ],
