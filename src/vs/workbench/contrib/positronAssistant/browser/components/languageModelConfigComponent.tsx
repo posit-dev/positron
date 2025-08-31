@@ -156,9 +156,9 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	};
 
 	return <>
+		{needBaseUrl && <BaseUrl baseUrl={baseUrl} onChange={onBaseUrlChange} />}
 		{!hasEnvApiKey && <div className='language-model-container input'>
-			{needBaseUrl && <BaseUrl baseUrl={baseUrl} onChange={onApiKeyChange} />}
-			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onBaseUrlChange} />}
+			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onApiKeyChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
 			{showCancelButton &&
 				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
