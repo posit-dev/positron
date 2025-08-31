@@ -306,7 +306,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 			// but the messages endpoint could still work
 			if (error.status === 404) {
 				// Return a more specific error indicating the endpoint might not be supported
-				return new Error(`API endpoint returned 404. This might indicate that DeepSeek's Anthropic compatibility doesn't support this endpoint. Please check the DeepSeek documentation for supported endpoints.`);
+				return new Error(`API endpoint returned 404. This might indicate that this endpoint does not support the Anthropic API. Please check the API documentation for supported endpoints.`);
 			}
 			return error as Error;
 		}
