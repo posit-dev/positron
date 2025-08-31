@@ -59,6 +59,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 			model: 'deepseek-chat',
 			toolCalls: true,
 			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
+			baseUrl: 'https://api.deepseek.com/anthropic'
 		},
 	};
 
@@ -72,7 +73,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		this.id = _config.id;
 		this._client = client ?? new Anthropic({
 			apiKey: _config.apiKey,
-			baseURL: 'https://api.deepseek.com/anthropic'
+			baseURL: _config.baseUrl,
 		});
 		this.version = '';
 		this.maxInputTokens = 0;
