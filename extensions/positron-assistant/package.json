@@ -266,6 +266,10 @@
       {
         "vendor": "anthropic",
         "displayName": "Anthropic"
+      },
+      {
+        "vendor": "anthropic-compatible",
+        "displayName": "Anthropic Compatible"
       }
     ],
     "languageModelTools": [

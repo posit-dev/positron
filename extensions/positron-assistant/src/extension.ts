@@ -18,6 +18,7 @@ import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
+import { AnthropicCompatibleLanguageModel } from './anthropic-compatible.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 
@@ -273,6 +274,7 @@ export function recordRequestTokenUsage(requestId: string, provider: string, inp
 	const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
 
 	enabledProviders.push(AnthropicLanguageModel.source.provider.id); // ensure anthropicId is always included
+	enabledProviders.push(AnthropicCompatibleLanguageModel.source.provider.id);
 
 	if (!enabledProviders.includes(provider)) {
 		return; // Skip if token counting is disabled for this provider
