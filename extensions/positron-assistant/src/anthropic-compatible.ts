@@ -109,6 +109,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 			isUserSelectable: true,
 		}));
 
+		log.info(`[Anthropic-Compatible]: return models: ${JSON.stringify(languageModels, null, 2)}`);
 		return languageModels;
 	}
 
@@ -143,12 +144,12 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		stream.on('connect', () => {
 			log.info(`[anthropic] Start request ${stream.request_id} to ${model.id}: ${anthropicMessages.length} messages`);
 			if (log.logLevel <= vscode.LogLevel.Trace) {
-				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
+				log.trace(`[anthropic-compatible] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
 			} else {
 				const userMessages = body.messages.filter(m => m.role === 'user');
 				const assistantMessages = body.messages.filter(m => m.role === 'assistant');
 				log.debug(
-					`[anthropic] SEND messages.stream [${stream.request_id}]: ` +
+					`[anthropic-compatible] SEND messages.stream [${stream.request_id}]: ` +
 					`model: ${body.model}; ` +
 					`cache options: ${cacheControlOptions ? JSON.stringify(cacheControlOptions) : 'default'}; ` +
 					`tools: ${body.tools?.map(t => t.name).sort().join(', ') ?? 'none'}; ` +
@@ -178,7 +179,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 			await stream.done();
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
-				log.warn(`[anthropic] Error in messages.stream [${stream.request_id}]: ${error.message}`);
+				log.warn(`[anthropic-compatible] Error in messages.stream [${stream.request_id}]: ${error.message}`);
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
@@ -189,7 +190,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 					throw new Error(`Anthropic's API is temporarily overloaded.`);
 				}
 			} else if (error instanceof Anthropic.AnthropicError) {
-				log.warn(`[anthropic] Error in messages.stream [${stream.request_id}]: ${error.message}`);
+				log.warn(`[anthropic-compatible] Error in messages.stream [${stream.request_id}]: ${error.message}`);
 				// This can happen if the API key was not persisted correctly.
 				if (error.message.startsWith('Could not resolve authentication method')) {
 					throw new Error('Something went wrong when storing the Anthropic API key. ' +
@@ -202,11 +203,11 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		// Log usage information.
 		const message = await stream.finalMessage();
 		if (log.logLevel <= vscode.LogLevel.Trace) {
-			log.trace(`[anthropic] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message, null, 2)}`);
+			log.trace(`[anthropic-compatible] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message, null, 2)}`);
 		} else {
 			log.debug(
-				`[anthropic] RECV messages.stream [${stream.request_id}]`);
-			log.info(`[anthropic] Finished request ${stream.request_id}; usage: ${JSON.stringify(message.usage)}`);
+				`[anthropic-compatible] RECV messages.stream [${stream.request_id}]`);
+			log.info(`[anthropic-compatible] Finished request ${stream.request_id}; usage: ${JSON.stringify(message.usage)}`);
 		}
 
 		// Record token usage
@@ -537,7 +538,7 @@ function toAnthropicSystem(system: unknown, cacheSystem = true): Anthropic.Messa
 			// Add a cache breakpoint to the last system prompt block.
 			const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
 			lastSystemBlock.cache_control = { type: 'ephemeral' };
-			log.debug(`[anthropic] Adding cache breakpoint to system prompt`);
+			log.debug(`[anthropic-compatible] Adding cache breakpoint to system prompt`);
 		}
 
 		return anthropicSystem;
@@ -579,13 +580,13 @@ function withCacheControl<T extends CacheControllableBlockParam>(
 
 	try {
 		const cachBreakpoint = parseCacheBreakpoint(dataPart);
-		log.debug(`[anthropic] Adding cache breakpoint to ${part.type} part. Source: ${source}`);
+		log.debug(`[anthropic-compatible] Adding cache breakpoint to ${part.type} part. Source: ${source}`);
 		return {
 			...part,
 			cache_control: cachBreakpoint,
 		};
 	} catch (error) {
-		log.error(`[anthropic] Failed to parse cache breakpoint: ${error}`);
+		log.error(`[anthropic-compatible] Failed to parse cache breakpoint: ${error}`);
 		return part;
 	}
 }
