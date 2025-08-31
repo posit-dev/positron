@@ -3200,7 +3200,7 @@ export abstract class DataGridInstance extends Disposable {
 				}
 
 				// Build the row indexes.
-				const rowIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition + 1);
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition + 1);
 				if (rowIndexes === undefined) {
 					return;
 				}
