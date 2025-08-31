@@ -73,12 +73,12 @@ export class LayoutManager {
 	private readonly _customEntrySizes = new Map<number, number>();
 
 	/**
-	 * The entry map.
+	 * The entry map. Maps position to index.
 	 */
 	private _entryMap: number[] = [];
 
 	/**
-	 * The inverse entry map.
+	 * The inverse entry map. Maps index to position.
 	 */
 	private readonly _inverseEntryMap = new Map<number, number>();
 
@@ -157,7 +157,7 @@ export class LayoutManager {
 			// Map the position to an index.
 			const index = this.mapPositionToIndex(position);
 			if (index === undefined) {
-				return -1;;
+				return -1;
 			}
 
 			// If the index is not pinned, return it.
@@ -288,12 +288,12 @@ export class LayoutManager {
 
 			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
 			// If an entry map wasn't provided, create a reverse entry map so we're always stressing the layout manager.
-			// if (entryMap === undefined) {
-			// 	entryMap = [];
-			// 	for (let i = this._entryCount - 1; i >= 0; i--) {
-			// 		entryMap.push(i);
-			// 	}
-			// }
+			if (entryMap === undefined) {
+				entryMap = [];
+				for (let i = this._entryCount - 1; i >= 0; i--) {
+					entryMap.push(i);
+				}
+			}
 			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
 
 			// Set the entry map and reverse entry map, if an entry map was provided and is valid (i.e., it has the correct length).
@@ -412,6 +412,135 @@ export class LayoutManager {
 	}
 
 	/**
+	 * Maps a range of positions to their corresponding indexes.
+	 * @param startingPosition The starting position, inclusive.
+	 * @param endingPosition The ending position, inclusive.
+	 * @returns An array of indexes corresponding to the specified positions, or undefined if the positions are invalid.
+	 */
+	mapPositionsToIndexes(startingPosition: number, endingPosition: number): number[] | undefined {
+		// Validate the starting position and ending position.
+		if (startingPosition < 0 || endingPosition < startingPosition || endingPosition >= this._entryCount) {
+			return undefined;
+		}
+
+		// If there are no pinned indexes, positions map directly to indexes. This means we can simply
+		// enumerate the positions and return the indexes or the entry-mapped indexes.
+		if (this._pinnedIndexes.size === 0) {
+			// Build the indexes or the entry-mapped indexes.
+			const indexes: number[] = [];
+			if (this._entryMap.length === 0) {
+				// Build the indexes.
+				for (let index = startingPosition; index <= endingPosition; index++) {
+					indexes.push(index);
+				}
+			} else {
+				// Build the entry-mapped indexes.
+				for (let position = startingPosition; position <= endingPosition; position++) {
+					const entryMappedIndex = this._entryMap[position];
+					if (entryMappedIndex === undefined) {
+						return undefined;
+					} else {
+						indexes.push(entryMappedIndex);
+					}
+				}
+
+				// Return the indexes.
+				return indexes;
+			}
+		}
+
+		// Add pinned indexes.
+		const indexes: number[] = [];
+		const pinnedIndexesArray = Array.from(this._pinnedIndexes);
+		while (startingPosition < pinnedIndexesArray.length && startingPosition <= endingPosition) {
+			indexes.push(pinnedIndexesArray[startingPosition++]);
+		}
+
+		// Add unpinned indexes.
+		if (startingPosition <= endingPosition) {
+			/**
+			 * Checks if a position is pinned.
+			 * @param position The position to check.
+			 * @returns true if the position is pinned; otherwise, false.
+			 */
+			const isPinnedPosition = (position: number) => {
+				if (this._entryMap.length === 0) {
+					return this.isPinnedIndex(position);
+				} else {
+					const entryMappedIndex = this._entryMap[position];
+					return entryMappedIndex !== undefined && this.isPinnedIndex(entryMappedIndex);
+				}
+			};
+
+			// Compute the rank of the unpinned position within the unpinned indexes.
+			const rank = startingPosition - this._pinnedIndexes.size;
+			if (rank >= this._entryCount - this._pinnedIndexes.size) {
+				return undefined;
+			}
+
+			// Binary search to the first candidate position.
+			const target = rank + 1;
+			let leftPosition = 0;
+			let rightPosition = this._entryCount - 1;
+			let candidatePosition = -1;
+			while (leftPosition <= rightPosition) {
+				// Calculate the middle position.
+				const middlePosition = (leftPosition + rightPosition) >>> 1;
+
+				// Calculate the number of pinned positions at or before middle position.
+				const pinnedPositionsAtOrBeforeMiddlePosition = this.pinnedPositionsAtOrBefore(middlePosition);
+				if (pinnedPositionsAtOrBeforeMiddlePosition === undefined) {
+					return undefined;
+				}
+
+				// Determine whether to search left or right.
+				if ((middlePosition + 1) - pinnedPositionsAtOrBeforeMiddlePosition >= target) {
+					candidatePosition = middlePosition;
+					rightPosition = middlePosition - 1;
+				} else {
+					leftPosition = middlePosition + 1;
+				}
+			}
+
+			// Ensure that a candidate position was found.
+			if (candidatePosition === -1) {
+				return undefined;
+			}
+
+			// The candidate position should be an unpinned position. If not, advance to the next unpinned position.
+			while (candidatePosition < this._entryCount && isPinnedPosition(candidatePosition)) {
+				candidatePosition++;
+			}
+
+			// Add unpinned indexes.
+			while (startingPosition <= endingPosition) {
+				// If the candidate position is invalid, return undefined.
+				if (candidatePosition >= this._entryCount) {
+					return undefined;
+				}
+
+				// Get the index of the candidate position.
+				const index = this._entryMap.length === 0 ? candidatePosition : this._entryMap[candidatePosition];
+				if (index === undefined) {
+					return undefined;
+				}
+
+				// Push the index.
+				indexes.push(index);
+
+				// Advance to the next starting position and the next candidate position.
+				startingPosition++;
+				do {
+					candidatePosition++;
+				} while (candidatePosition < this._entryCount && isPinnedPosition(candidatePosition));
+			}
+		}
+
+		// Return the indexes.
+		return indexes;
+	}
+
+	/**
 	 * Maps a position to an index.
 	 * @param position The position.
 	 * @returns The index, or undefined if the position is invalid.
@@ -441,17 +570,16 @@ export class LayoutManager {
 		// Compute the rank of the unpinned position within the unpinned indexes.
 		const rank = position - this._pinnedIndexes.size;
 
-		// Compute the number of unpinned positions and validate the rank.
-		const unpinnedPositions = this._entryCount - this._pinnedIndexes.size;
-		if (rank >= unpinnedPositions) {
+		// Compute the rank of the unpinned position within the unpinned indexes.
+		if (rank >= this._entryCount - this._pinnedIndexes.size) {
 			return undefined;
 		}
 
-		// Binary search the index.
+		// Binary search for the candidate position.
+		const target = rank + 1;
 		let leftPosition = 0;
 		let rightPosition = this._entryCount - 1;
-		let index = -1;
-		const target = rank + 1;
+		let candidatePosition = -1;
 		while (leftPosition <= rightPosition) {
 			// Calculate the middle position.
 			const middlePosition = (leftPosition + rightPosition) >>> 1;
@@ -464,15 +592,15 @@ export class LayoutManager {
 
 			// Determine whether to search left or right.
 			if ((middlePosition + 1) - pinnedPositionsAtOrBeforeMiddlePosition >= target) {
-				index = middlePosition;              // This is a candidate entry-map position.
-				rightPosition = middlePosition - 1;  // Keep searching left for the smallest position.
+				candidatePosition = middlePosition;
+				rightPosition = middlePosition - 1;
 			} else {
-				leftPosition = middlePosition + 1;   // Search right.
+				leftPosition = middlePosition + 1;
 			}
 		}
 
 		// Return the index.
-		return index === -1 ? undefined : this._entryMap.length !== 0 ? this._entryMap[index] : index;
+		return candidatePosition === -1 ? undefined : this._entryMap.length !== 0 ? this._entryMap[candidatePosition] : candidatePosition;
 	}
 
 	/**
