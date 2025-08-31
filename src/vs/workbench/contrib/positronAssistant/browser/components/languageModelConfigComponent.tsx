@@ -28,6 +28,7 @@ const providerTermsOfServiceLabel = localize('positron.languageModelConfig.terms
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
 const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
+const baseUrLInputLabel = localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
 
@@ -139,20 +140,25 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
  */
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
-	const { apiKey } = config;
+	const { apiKey, baseUrl } = config;
 	const hasEnvApiKey = !!source.defaults.apiKeyEnvVar && source.defaults.apiKeyEnvVar.signedIn;
 	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasEnvApiKey;
 	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasEnvApiKey;
+	const needBaseUrl = source.supportedOptions.includes('baseUrl') && authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN;
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
-	const onChange = (newApiKey: string) => {
+	const onApiKeyChange = (newApiKey: string) => {
 		props.onChange({ ...props.config, apiKey: newApiKey });
+	};
+	const onBaseUrlChange = (newBaseUrl: string) => {
+		props.onChange({ ...props.config, baseUrl: newBaseUrl });
 	};
 
 	return <>
 		{!hasEnvApiKey && <div className='language-model-container input'>
-			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
+			{needBaseUrl && <BaseUrl baseUrl={baseUrl} onChange={onApiKeyChange} />}
+			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onBaseUrlChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
 			{showCancelButton &&
 				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
@@ -173,6 +179,18 @@ const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void 
 				label={apiKeyInputLabel}
 				type='password'
 				value={props.apiKey ?? ''}
+				onChange={e => { props.onChange(e.currentTarget.value) }} />
+		</div>
+	</>)
+}
+
+const BaseUrl = (props: { baseUrl?: string, onChange: (newBaseUrl: string) => void }) => {
+	return (<>
+		<div className='language-model-authentication-container' id='api-key-input'>
+			<LabeledTextInput
+				label={baseUrLInputLabel}
+				type='text'
+				value={props.baseUrl ?? ''}
 				onChange={e => { props.onChange(e.currentTarget.value) }} />
 		</div>
 	</>)
