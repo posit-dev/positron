@@ -303,27 +303,37 @@ class CellSelectionRange {
  */
 class CellSelectionIndexes {
 	/**
-	 * Gets or sets the column indexes.
+	 * Gets the column indexes.
 	 */
-	private readonly _columnIndexes: number[];
+	private readonly _columnIndexesArray: number[];
 
 	/**
-	 * Gets or sets the row indexes.
+	 * Gets the column indexes set.
+	 */
+	private readonly _columnIndexesSet: Set<number>;
+
+	/**
+	 * Gets the row indexes array.
 	 */
 	private readonly _rowIndexes: number[];
+
+	/**
+	 * Gets the row indexes set.
+	 */
+	private readonly _rowIndexesSet: Set<number>;
 
 	/**
 	 * Gets the first column index.
 	 */
 	get firstColumnIndex() {
-		return this._columnIndexes[0];
+		return this._columnIndexesArray[0];
 	}
 
 	/**
 	 * Gets the last column index.
 	 */
 	get lastColumnIndex() {
-		return this._columnIndexes[this._columnIndexes.length - 1];
+		return this._columnIndexesArray[this._columnIndexesArray.length - 1];
 	}
 
 	/**
@@ -346,8 +356,10 @@ class CellSelectionIndexes {
 	 * @param rowIndexes The row indices.
 	 */
 	constructor(public readonly columnIndexes: number[], public readonly rowIndexes: number[]) {
-		this._columnIndexes = columnIndexes;
+		this._columnIndexesArray = columnIndexes;
+		this._columnIndexesSet = new Set(columnIndexes);
 		this._rowIndexes = rowIndexes;
+		this._rowIndexesSet = new Set(rowIndexes);
 	}
 
 	/**
@@ -355,11 +367,10 @@ class CellSelectionIndexes {
 	 * in the cell selection.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns true if the column index and row index is contained in the cell selection range;
-	 * otherwise, false.
+	 * @returns true if the column index and row index is contained in the cell selection range; otherwise, false.
 	 */
 	contains(columnIndex: number, rowIndex: number) {
-		return this._columnIndexes.indexOf(columnIndex) !== -1 && this._rowIndexes.indexOf(rowIndex) !== -1;
+		return this._columnIndexesSet.has(columnIndex) && this._rowIndexesSet.has(rowIndex);
 	}
 }
 
