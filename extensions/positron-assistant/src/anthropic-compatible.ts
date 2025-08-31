@@ -91,7 +91,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 					maxInputTokens: 0,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
-					isUserSelectable: true,
+					isUserSelectable: false,
 					isDefault: true,
 
 				},
