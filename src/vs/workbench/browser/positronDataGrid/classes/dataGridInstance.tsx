@@ -2333,14 +2333,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
 	 * @param selectionType The mouse selection type.
-	 * @returns A Promise<void> that resolves when the operation is complete.
+	 * @returns A Promise<boolean> that resolves when the operation is complete.
 	 */
 	async mouseSelectCell(
 		columnIndex: number,
 		rowIndex: number,
 		pinned: boolean,
 		selectionType: MouseSelectionType
-	) {
+	): Promise<boolean> {
 		// Clear column selection.
 		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes = undefined;
@@ -2374,25 +2374,25 @@ export abstract class DataGridInstance extends Disposable {
 				// Get the cursor column index position.
 				const cursorColumnIndexPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
 				if (cursorColumnIndexPosition === undefined) {
-					return;
+					return false;
 				}
 
 				// Get the column index position.
 				const columnIndexPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
 				if (columnIndexPosition === undefined) {
-					return;
+					return false;
 				}
 
 				// Get the cursor row index position.
 				const cursorRowIndexPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
 				if (cursorRowIndexPosition === undefined) {
-					return;
+					return false;
 				}
 
 				// Get the row index position.
 				const rowIndexPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
 				if (rowIndexPosition === undefined) {
-					return;
+					return false;
 				}
 
 				// Determine the first column index position and the last column index position.
@@ -2403,25 +2403,19 @@ export abstract class DataGridInstance extends Disposable {
 				const firstRowIndexPosition = Math.min(cursorRowIndexPosition, rowIndexPosition);
 				const lastRowIndexPosition = Math.max(cursorRowIndexPosition, rowIndexPosition);
 
-				// Build the column indexes array.
-				const columnIndexes: number[] = [];
-				for (let columnPosition = firstColumnIndexPosition; columnPosition <= lastColumnIndexPosition; columnPosition++) {
-					const index = this._columnLayoutManager.mapPositionToIndex(columnPosition);
-					if (index === undefined) {
-						return;
-					}
-					columnIndexes.push(index);
+				// Calculate the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnIndexPosition, lastColumnIndexPosition);
+				if (columnIndexes === undefined) {
+					return false;
 				}
 
-				// Build the row indexes array.
-				const rowIndexes: number[] = [];
-				for (let rowPosition = firstRowIndexPosition; rowPosition <= lastRowIndexPosition; rowPosition++) {
-					const index = this._rowLayoutManager.mapPositionToIndex(rowPosition);
-					if (index === undefined) {
-						return;
-					}
-					rowIndexes.push(index);
+				// Calculate the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowIndexPosition, lastRowIndexPosition);
+				if (rowIndexes === undefined) {
+					return false;
 				}
+
+				console.log(`!!!!!!!!!!!! Selecting ${columnIndexes.length * rowIndexes.length} cells`);
 
 				// Set the cell selection.
 				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
@@ -2436,10 +2430,13 @@ export abstract class DataGridInstance extends Disposable {
 
 			// Multi selection.
 			case MouseSelectionType.Multi: {
-				// Not supported at this time. Do nothing.
-				return;
+				// Not supported at this time. Silently succeed.
+				return true;
 			}
 		}
+
+		// The selection was successful.
+		return true;
 	}
 
 	/**
