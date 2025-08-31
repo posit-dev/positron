@@ -55,8 +55,8 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
-			name: 'DeepSeek',
-			model: 'deepseek-chat',
+			name: 'Default',
+			model: 'default',
 			toolCalls: true,
 		},
 	};
@@ -82,18 +82,20 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		const models = availableModels.get(this.provider);
 
 		if (!models || models.length === 0) {
-			return [
+			const returnVal = [
 				{
-					id: this.id,
-					name: this.name,
+					id: 'default',
+					name: 'Default',
 					family: this.provider,
-					version: this._context?.extension.packageJSON.version ?? '',
+					version: 'default',
 					maxInputTokens: 0,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
+					isUserSelectable: true,
 
-				}
+				},
 			];
+			return returnVal;
 		}
 
 		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
