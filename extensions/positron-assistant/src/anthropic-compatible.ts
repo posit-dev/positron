@@ -58,7 +58,6 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 			name: 'DeepSeek',
 			model: 'deepseek-chat',
 			toolCalls: true,
-			baseUrl: 'https://api.deepseek.com/anthropic'
 		},
 	};
 
@@ -290,9 +289,9 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		try {
-			// DeepSeek might not support the models endpoint, so we test with a simple message
+			// Custom API might not support the models endpoint, so we test with a simple message
 			await this._client.messages.create({
-				model: this._config.model || 'deepseek-chat',
+				model: this._config.model,
 				max_tokens: 1,
 				messages: [
 					{
