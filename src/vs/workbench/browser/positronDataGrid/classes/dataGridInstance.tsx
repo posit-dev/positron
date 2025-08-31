@@ -266,37 +266,37 @@ export enum MouseSelectionType {
 	Multi = 'multi'
 }
 
-/**
- * CellSelectionRange class.
- */
-class CellSelectionRange {
-	/**
-	 * Constructor.
-	 * @param firstColumnIndex The first column index.
-	 * @param firstRowIndex The first row index.
-	 * @param lastColumnIndex The last column index.
-	 * @param lastRowIndex The last row index.
-	 */
-	constructor(
-		public firstColumnIndex: number,
-		public firstRowIndex: number,
-		public lastColumnIndex: number,
-		public lastRowIndex: number
-	) { }
+// /**
+//  * CellSelectionRange class.
+//  */
+// class CellSelectionRange {
+// 	/**
+// 	 * Constructor.
+// 	 * @param firstColumnIndex The first column index.
+// 	 * @param firstRowIndex The first row index.
+// 	 * @param lastColumnIndex The last column index.
+// 	 * @param lastRowIndex The last row index.
+// 	 */
+// 	constructor(
+// 		public firstColumnIndex: number,
+// 		public firstRowIndex: number,
+// 		public lastColumnIndex: number,
+// 		public lastRowIndex: number
+// 	) { }
 
-	/**
-	 * Returns a value which indicates whether the specified column index and row index is contained
-	 * in the cell selection range
-	 * @param columnIndex The column index.
-	 * @param rowIndex The row index.
-	 * @returns true if the column index and row index is contained in the cell selection range;
-	 * otherwise, false.
-	 */
-	contains(columnIndex: number, rowIndex: number) {
-		return columnIndex >= this.firstColumnIndex && columnIndex <= this.lastColumnIndex &&
-			rowIndex >= this.firstRowIndex && rowIndex <= this.lastRowIndex;
-	}
-}
+// 	/**
+// 	 * Returns a value which indicates whether the specified column index and row index is contained
+// 	 * in the cell selection range
+// 	 * @param columnIndex The column index.
+// 	 * @param rowIndex The row index.
+// 	 * @returns true if the column index and row index is contained in the cell selection range;
+// 	 * otherwise, false.
+// 	 */
+// 	contains(columnIndex: number, rowIndex: number) {
+// 		return columnIndex >= this.firstColumnIndex && columnIndex <= this.lastColumnIndex &&
+// 			rowIndex >= this.firstRowIndex && rowIndex <= this.lastRowIndex;
+// 	}
+// }
 
 /**
  * CellSelectionIndexes class.
@@ -842,7 +842,7 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets or sets the cell selection range.
 	 */
-	private _cellSelectionRange?: CellSelectionRange;
+	//private _cellSelectionRange?: CellSelectionRange;
 
 	/**
 	 * Gets or sets the cell selection indexes.
@@ -2382,51 +2382,49 @@ export abstract class DataGridInstance extends Disposable {
 
 			// Range selection.
 			case MouseSelectionType.Range: {
-				// Get the cursor column index position.
-				const cursorColumnIndexPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
-				if (cursorColumnIndexPosition === undefined) {
+				// Get the cursor column position.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined) {
 					return false;
 				}
 
-				// Get the column index position.
-				const columnIndexPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
-				if (columnIndexPosition === undefined) {
+				// Get the column position.
+				const columnPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
+				if (columnPosition === undefined) {
 					return false;
 				}
 
-				// Get the cursor row index position.
-				const cursorRowIndexPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
-				if (cursorRowIndexPosition === undefined) {
+				// Get the cursor row position.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined) {
 					return false;
 				}
 
-				// Get the row index position.
-				const rowIndexPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
-				if (rowIndexPosition === undefined) {
+				// Get the row position.
+				const rowPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
+				if (rowPosition === undefined) {
 					return false;
 				}
 
-				// Determine the first column index position and the last column index position.
-				const firstColumnIndexPosition = Math.min(cursorColumnIndexPosition, columnIndexPosition);
-				const lastColumnIndexPosition = Math.max(cursorColumnIndexPosition, columnIndexPosition);
+				// Determine the first column position and the last column position.
+				const firstColumnPosition = Math.min(cursorColumnPosition, columnPosition);
+				const lastColumnPosition = Math.max(cursorColumnPosition, columnPosition);
 
-				// Determine the first row index position and the last row index position.
-				const firstRowIndexPosition = Math.min(cursorRowIndexPosition, rowIndexPosition);
-				const lastRowIndexPosition = Math.max(cursorRowIndexPosition, rowIndexPosition);
+				// Determine the first row position and the last row position.
+				const firstRowPosition = Math.min(cursorRowPosition, rowPosition);
+				const lastRowPosition = Math.max(cursorRowPosition, rowPosition);
 
 				// Calculate the column indexes.
-				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnIndexPosition, lastColumnIndexPosition);
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition);
 				if (columnIndexes === undefined) {
 					return false;
 				}
 
 				// Calculate the row indexes.
-				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowIndexPosition, lastRowIndexPosition);
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition);
 				if (rowIndexes === undefined) {
 					return false;
 				}
-
-				console.log(`!!!!!!!!!!!! Selecting ${columnIndexes.length * rowIndexes.length} cells`);
 
 				// Set the cell selection.
 				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
@@ -2743,61 +2741,101 @@ export abstract class DataGridInstance extends Disposable {
 				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cellSelectionIndexes) {
-			// If the cursor column index is the last selected column index, extend the cell selection left by one column.
-			// Otherwise, if the cursor column index is the first selected column index, shrink the cell selection right
-			// by one column.
 			if (this._cursorColumnIndex === this._cellSelectionIndexes.lastColumnIndex) {
-				// Get the first column index position.
-				const firstColumnIndexPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
-				if (firstColumnIndexPosition === undefined) {
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (!firstColumnPosition) {
 					return;
 				}
 
-				// If the first column index positon is greater than zero, extend the cell selection left by one column.
-				if (firstColumnIndexPosition > 0) {
-					// Get the column index of the previous column.
-					const columnIndex = this._columnLayoutManager.mapIndexToPosition(firstColumnIndexPosition - 1);
-					if (columnIndex === undefined) {
-						return;
-					}
-
-					// Extend the cell selection indexes left one column.
-					this._cellSelectionIndexes = new CellSelectionIndexes(
-						[columnIndex, ...this._cellSelectionIndexes.columnIndexes],
-						this._cellSelectionIndexes.rowIndexes
-					);
-
-					// Scroll to the column.
-					this.scrollToColumn(this._cellSelectionIndexes.firstColumnIndex);
-
-					// Fire the onDidUpdate event.
-					this.fireOnDidUpdateEvent();
+				// If the first column cannot be moved left, return.
+				if (!(firstColumnPosition > 0)) {
+					return;
 				}
+
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (lastColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition - 1, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[0]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			} else if (this._cursorColumnIndex === this._cellSelectionIndexes.firstColumnIndex) {
-				// Get the last column index position.
-				const lastColumnIndexPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
-				if (lastColumnIndexPosition === undefined) {
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (firstColumnPosition === undefined) {
 					return;
 				}
 
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (lastColumnPosition === undefined) {
+					return;
+				}
 
-				// Extend the cell selection indexes left one column.
-				this._cellSelectionIndexes = new CellSelectionIndexes(
-					this._cellSelectionIndexes.columnIndexes,
-					this._cellSelectionIndexes.rowIndexes
-				);
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition - 1);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[columnIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorColumnIndex > 0) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex - 1,
-				this._cursorRowIndex,
-				this._cursorColumnIndex,
-				this._cursorRowIndex
-			);
+		} else {
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// If the cursor column position cannot be moved left, return.
+			if (!(cursorColumnPosition > 0)) {
+				return;
+			}
+
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (cursorRowPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition - 1, cursorColumnPosition)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
 
 			// Scroll to the cell.
-			this.scrollToCell(this._cellSelectionRange.firstColumnIndex, this._cursorRowIndex);
+			this.scrollToCell(columnIndexes[columnIndexes.length - 1], this._cursorRowIndex);
 
 			// Fire the onDidUpdate event.
 			this.fireOnDidUpdateEvent();
@@ -2848,28 +2886,105 @@ export abstract class DataGridInstance extends Disposable {
 				this.scrollToColumn(this._columnSelectionRange.firstIndex);
 				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cellSelectionRange) {
+		} else if (this._cellSelectionIndexes) {
 			// Expand or contract the cell selection range along the column axis, if possible.
-			if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
-				if (this._cellSelectionRange.lastColumnIndex < this.columns - 1) {
-					this._cellSelectionRange.lastColumnIndex++;
-					this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
-					this.fireOnDidUpdateEvent();
+			if (this._cursorColumnIndex === this._cellSelectionIndexes.firstColumnIndex) {
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (!lastColumnPosition) {
+					return;
 				}
-			} else if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
-				this._cellSelectionRange.firstColumnIndex++;
-				this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
+
+				// If the last column cannot be moved right, return.
+				if (!(lastColumnPosition < this._columnLayoutManager.entryCount - 1)) {
+					return;
+				}
+
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (firstColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition + 1);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[columnIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorColumnIndex === this._cellSelectionIndexes.lastColumnIndex) {
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (firstColumnPosition === undefined) {
+					return;
+				}
+
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (lastColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition + 1, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[columnIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorColumnIndex < this.columns - 1) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex,
-				this._cursorRowIndex,
-				this._cursorColumnIndex + 1,
-				this._cursorRowIndex
-			);
-			this.scrollToCell(this._cellSelectionRange.lastColumnIndex, this._cursorRowIndex);
+		} else {
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// If the cursor column position cannot be moved right, return.
+			if (!(cursorColumnPosition < this._columnLayoutManager.entryCount - 1)) {
+				return;
+			}
+
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (cursorRowPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition + 1)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(columnIndexes[columnIndexes.length - 1], this._cursorRowIndex);
+
+			// Fire the onDidUpdate event.
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -2918,28 +3033,104 @@ export abstract class DataGridInstance extends Disposable {
 				this.scrollToRow(this._rowSelectionRange.lastIndex);
 				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cellSelectionRange) {
-			// Expand or contract the cell selection range along the row axis, if possible.
-			if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
-				if (this._cellSelectionRange.firstRowIndex > 0) {
-					this._cellSelectionRange.firstRowIndex--;
-					this.scrollToRow(this._cellSelectionRange.firstRowIndex);
-					this.fireOnDidUpdateEvent();
+		} else if (this._cellSelectionIndexes) {
+			if (this._cursorRowIndex === this._cellSelectionIndexes.lastRowIndex) {
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (!firstRowPosition) {
+					return;
 				}
-			} else if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
-				this._cellSelectionRange.lastRowIndex--;
-				this.scrollToRow(this._cellSelectionRange.lastRowIndex);
+
+				// If the first row cannot be moved up, return.
+				if (!(firstRowPosition > 0)) {
+					return;
+				}
+
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (lastRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition - 1, lastRowPosition);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToRow(rowIndexes[0]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorRowIndex === this._cellSelectionIndexes.firstRowIndex) {
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (firstRowPosition === undefined) {
+					return;
+				}
+
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (lastRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition - 1);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToColumn(rowIndexes[rowIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorRowIndex > 0) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex,
-				this._cursorRowIndex - 1,
-				this._cursorColumnIndex,
-				this._cursorRowIndex
-			);
-			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.firstRowIndex);
+		} else {
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (!cursorRowPosition) {
+				return;
+			}
+
+			// If the cursor row position cannot be moved up, return.
+			if (!(cursorRowPosition > 0)) {
+				return;
+			}
+
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition - 1, cursorRowPosition)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionIndexes.firstRowIndex);
+
+			// Fire the onDidUpdate event.
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -2988,28 +3179,105 @@ export abstract class DataGridInstance extends Disposable {
 				this.scrollToRow(this._rowSelectionRange.firstIndex);
 				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cellSelectionRange) {
-			// Expand or contract the cell selection range along the row axis, if possible.
-			if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
-				if (this._cellSelectionRange.lastRowIndex < this.rows - 1) {
-					this._cellSelectionRange.lastRowIndex++;
-					this.scrollToRow(this._cellSelectionRange.lastRowIndex);
-					this.fireOnDidUpdateEvent();
+		} else if (this._cellSelectionIndexes) {
+			// Expand or contract the row selection range along the row axis, if possible.
+			if (this._cursorRowIndex === this._cellSelectionIndexes.firstRowIndex) {
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (!lastRowPosition) {
+					return;
 				}
-			} else if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
-				this._cellSelectionRange.firstRowIndex++;
-				this.scrollToRow(this._cellSelectionRange.firstRowIndex);
+
+				// If the last row cannot be moved down, return.
+				if (!(lastRowPosition < this._rowLayoutManager.entryCount - 1)) {
+					return;
+				}
+
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (firstRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition + 1);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToColumn(rowIndexes[rowIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorRowIndex === this._cellSelectionIndexes.lastRowIndex) {
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (firstRowPosition === undefined) {
+					return;
+				}
+
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (lastRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition + 1, lastRowPosition);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToRow(rowIndexes[0]);
+
+				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorRowIndex < this.rows - 1) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex,
-				this._cursorRowIndex,
-				this._cursorColumnIndex,
-				this._cursorRowIndex + 1
-			);
-			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.lastRowIndex);
+		} else {
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (cursorRowPosition === undefined) {
+				return;
+			}
+
+			// If the cursor column position cannot be moved down, return.
+			if (!(cursorRowPosition < this._rowLayoutManager.entryCount - 1)) {
+				return;
+			}
+
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition + 1)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(this._cursorColumnIndex, rowIndexes[rowIndexes.length - 1]);
+
+			// Fire the onDidUpdate event.
 			this.fireOnDidUpdateEvent();
 		}
 	}
