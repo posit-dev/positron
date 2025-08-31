@@ -87,11 +87,12 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 					id: 'default',
 					name: 'Default',
 					family: this.provider,
-					version: 'default',
+					version: this._config.model,
 					maxInputTokens: 0,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
 					isUserSelectable: true,
+					isDefault: true,
 
 				},
 			];
@@ -110,7 +111,6 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 			isUserSelectable: true,
 		}));
 
-		log.info(`[Anthropic-Compatible]: return models: ${JSON.stringify(languageModels, null, 2)}`);
 		return languageModels;
 	}
 
@@ -131,7 +131,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		const anthropicMessages = toAnthropicMessages(messages);
 
 		const body: Anthropic.MessageStreamParams = {
-			model: model.id,
+			model: model.version, // CRUCIAL: use version here as id and name are pre-defined values
 			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
 			tools,
 			tool_choice,
