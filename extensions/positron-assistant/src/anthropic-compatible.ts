@@ -84,8 +84,8 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		if (!models || models.length === 0) {
 			const returnVal = [
 				{
-					id: 'default',
-					name: 'Default',
+					id: this._config.model,
+					name: 'Anthropic-compatible',
 					family: this.provider,
 					version: this._config.model,
 					maxInputTokens: 0,
@@ -131,7 +131,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 		const anthropicMessages = toAnthropicMessages(messages);
 
 		const body: Anthropic.MessageStreamParams = {
-			model: model.version, // CRUCIAL: use version here as id and name are pre-defined values
+			model: model.id,
 			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
 			tools,
 			tool_choice,
