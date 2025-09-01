@@ -682,7 +682,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			// Wait for discovery to complete
 			await new Promise<void>((resolve) => {
-				this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
+				const disposable = this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
 						const newRuntimes = this._languageRuntimeService.registeredRuntimes;
 						const addedRuntimes = newRuntimes.filter(newRuntime => {
@@ -702,6 +702,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 								"No new interpreters found."));
 						}
 						resolve();
+						disposable.dispose();
 					}
 				});
 			});
