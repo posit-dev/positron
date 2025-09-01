@@ -9,7 +9,6 @@ import './CellEditorMonacoWidget.css';
 // React.
 import React from 'react';
 
-import * as DOM from '../../../../../base/browser/dom.js';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -37,10 +36,6 @@ export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGen
 	/>;
 }
 
-// Padding for the editor widget. The sizing is not perfect but this helps the editor not overflow
-// its container. In the future we should figure out how to make sure this is sized correctly.
-const EDITOR_INSET_PADDING_PX = 1;
-
 /**
  * Create a cell editor widget for a cell.
  * @param cell Cell whose editor is to be created
@@ -51,62 +46,42 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const environment = useEnvironment();
 	const instance = useNotebookInstance();
 
-	const sizeObservable = environment.sizeObservable;
-
-	// Grab the wrapping div for the editor. This is used for passing context key service
+	// Create an element ref to contain the editor
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
-	// Grab a ref to the div that will hold the editor. This is needed to pass an element to the
-	// editor creation function.
-
 
 	// Create the editor
 	React.useEffect(() => {
 		if (!editorPartRef.current) { return; }
 
-		const disposableStore = new DisposableStore();
-
-		// We need to use a native dom element here instead of a react ref one because the elements
-		// created by react's refs are not _true_ dom elements and thus calls like `refEl instanceof
-		// HTMLElement` will return false. This is a problem when we hand the elements into the
-		// editor widget as it expects a true dom element.
-		const nativeContainer = DOM.$('.positron-monaco-editor-container');
-		editorPartRef.current.appendChild(nativeContainer);
+		const disposables = new DisposableStore();
 
 		const language = cell.cellModel.language;
-		const editorContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
-		disposableStore.add(editorContextKeyService);
+		const editorContextKeyService = disposables.add(environment.scopedContextKeyProviderCallback(editorPartRef.current));
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
-
-		const editor = editorInstaService.createInstance(CodeEditorWidget, nativeContainer, {
+		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
 			...editorOptions.getDefaultValue(),
-			// Turns off the margin of the editor. This should probably be placed in a settable
-			// option somewhere eventually.
-			glyphMargin: false,
 			dimension: {
-				width: 500,
-				height: 200
+				width: 0,
+				height: 0,
 			},
 		}, {
 			contributions: getNotebookEditorContributions()
-		});
-		disposableStore.add(editor);
+		}));
 		cell.attachEditor(editor);
 
-		editor.setValue(cell.getContent());
+		// Request model for cell and pass to editor.
+		cell.getTextEditorModel().then(model => {
+			editor.setModel(model);
+		});
 
-		disposableStore.add(
-			editor.onDidFocusEditorWidget(() => {
-				instance.setEditingCell(cell);
-			})
-		);
+		disposables.add(editor.onDidFocusEditorWidget(() => {
+			instance.setEditingCell(cell);
+		}));
 
-		disposableStore.add(
-			editor.onDidBlurEditorWidget(() => {
-			})
-		);
-
+		// disposables.add(editor.onDidBlurEditorWidget(() => {
+		// }));
 
 		/**
 		 * Resize the editor widget to fill the width of its container and the height of its
@@ -114,44 +89,34 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		 * @param height Height to set. Defaults to checking content height.
 		 */
 		function resizeEditor(height: number = editor.getContentHeight()) {
+			if (!editorPartRef.current) { return; }
 			editor.layout({
 				height,
-				width: (editorPartRef.current?.offsetWidth ?? 500) - EDITOR_INSET_PADDING_PX * 2
+				width: editorPartRef.current.offsetWidth,
 			});
 		}
 
-		// Request model for cell and pass to editor.
-		cell.getTextEditorModel().then(model => {
-			editor.setModel(model);
-			resizeEditor();
+		// Resize the editor when its content size changes
+		disposables.add(editor.onDidContentSizeChange(e => {
+			if (!(e.contentHeightChanged || e.contentWidthChanged)) { return; }
+			resizeEditor(e.contentHeight);
+		}));
 
-			editor.onDidContentSizeChange(e => {
-				if (!(e.contentHeightChanged || e.contentWidthChanged)) { return; }
-				resizeEditor(e.contentHeight);
-			});
-		});
-
-		// Keep the width up-to-date as the window resizes.
-
-		disposableStore.add(Event.fromObservable(sizeObservable)(() => {
+		// Resize the editor as the window resizes.
+		disposables.add(Event.fromObservable(environment.size)(() => {
 			resizeEditor();
 		}));
 
 		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
-
 		return () => {
 			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
-			disposableStore.dispose();
-			nativeContainer.remove();
+			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService, sizeObservable]);
-
-
+	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
 
 	return { editorPartRef };
-
 }
 
 
