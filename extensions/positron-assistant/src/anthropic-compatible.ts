@@ -143,7 +143,7 @@ export class AnthropicCompatibleLanguageModel implements positron.ai.LanguageMod
 
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
-			log.info(`[anthropic] Start request ${stream.request_id} to ${model.id}: ${anthropicMessages.length} messages`);
+			log.info(`[anthropic-compatible] Start request ${stream.request_id} to ${model.id}: ${anthropicMessages.length} messages`);
 			if (log.logLevel <= vscode.LogLevel.Trace) {
 				log.trace(`[anthropic-compatible] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
 			} else {
