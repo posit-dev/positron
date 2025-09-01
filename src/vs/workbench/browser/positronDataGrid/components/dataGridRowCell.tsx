@@ -14,7 +14,6 @@ import { selectionType } from '../utilities/mouseUtilities.js';
 import { CellSelectionState } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { HorizontalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
 
@@ -37,7 +36,6 @@ interface DataGridRowCellProps {
  */
 export const DataGridRowCell = (props: DataGridRowCellProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.
@@ -67,16 +65,12 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			// the cell. Otherwise, scroll to the cell.
 			if (cellSelectionState === CellSelectionState.None || e.button === 0) {
 				// Mouse-select the cell.
-				const result = await context.instance.mouseSelectCell(
+				await context.instance.mouseSelectCell(
 					props.columnIndex,
 					props.rowIndex,
 					props.pinned,
 					selectionType(e)
 				);
-
-				if (!result) {
-					services.notificationService.error('An error occurred while selecting the cell.');
-				}
 			} else {
 				// Scroll to the cell.
 				if (!props.pinned) {

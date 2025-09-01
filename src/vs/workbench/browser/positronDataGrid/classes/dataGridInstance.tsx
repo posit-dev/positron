@@ -244,7 +244,7 @@ export enum ColumnSelectionState {
 	None = 0,
 	Selected = 1,
 	SelectedLeft = 2,
-	SelectedRight = 4
+	SelectedRight = 4,
 }
 
 /**
@@ -254,7 +254,7 @@ export enum RowSelectionState {
 	None = 0,
 	Selected = 1,
 	SelectedTop = 8,
-	SelectedBottom = 16
+	SelectedBottom = 16,
 }
 
 /**
@@ -1440,47 +1440,6 @@ export abstract class DataGridInstance extends Disposable {
 		};
 	}
 
-	// TODO
-	// /**
-	//  * Gets a column descriptor.
-	//  * @param columnIndex The column index.
-	//  * @returns The column descriptor, if found; otherwise, undefined.
-	//  */
-	// getColumn(columnIndex: number): ColumnDescriptor | undefined {
-	// 	// Get the column layout entry. If it wasn't found, return undefined.
-	// 	const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
-	// 	if (!layoutEntry) {
-	// 		return undefined;
-	// 	}
-
-	// 	// Return the column descriptor for the column.
-	// 	return {
-	// 		columnIndex: layoutEntry.index,
-	// 		left: layoutEntry.start,
-	// 		width: layoutEntry.size,
-	// 	};
-	// }
-
-	// /**
-	//  * Gets a row descriptor.
-	//  * @param columnIndex The row index.
-	//  * @returns The row descriptor, if found; otherwise, undefined.
-	//  */
-	// getRow(rowIndex: number): RowDescriptor | undefined {
-	// 	// Get the row layout entry. If it wasn't found, return undefined.
-	// 	const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
-	// 	if (!layoutEntry) {
-	// 		return undefined;
-	// 	}
-
-	// 	// Return the row descriptor for the row.
-	// 	return {
-	// 		rowIndex: layoutEntry.index,
-	// 		top: layoutEntry.start,
-	// 		height: layoutEntry.size,
-	// 	};
-	// }
-
 	/**
 	 * Gets the custom width of a column. This can be overridden by subclasses to provide
 	 * custom column widths (e.g., for fixed-width columns).
@@ -2190,13 +2149,24 @@ export abstract class DataGridInstance extends Disposable {
 		// Clear cell selection.
 		this._cellSelectionIndexes = undefined;
 
-		// Clear column selection.
+		// Select all.
 		this._columnSelectionIndexes = undefined;
-
-		// Select all by selecting all rows. (We could have done this with selecting all columns.)
 		this._rowSelectionIndexes = undefined;
-		// TODO
-		//this._rowSelectionRange = new SelectionRange(0, this.rows - 1);
+
+		// Get the column indexes for all columns.
+		const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(0, this._columnLayoutManager.entryCount - 1);
+		if (columnIndexes === undefined) {
+			return;
+		}
+
+		// Get the row indexes for all rows.
+		const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(0, this._rowLayoutManager.entryCount - 1);
+		if (rowIndexes === undefined) {
+			return;
+		}
+
+		// Set the cell selection indexes.
+		this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
 
 		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
@@ -2214,7 +2184,7 @@ export abstract class DataGridInstance extends Disposable {
 		rowIndex: number,
 		pinned: boolean,
 		selectionType: MouseSelectionType
-	): Promise<boolean> {
+	): Promise<void> {
 		// Clear column selection.
 		this._columnSelectionIndexes = undefined;
 
@@ -2246,25 +2216,25 @@ export abstract class DataGridInstance extends Disposable {
 				// Get the cursor column position.
 				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
 				if (cursorColumnPosition === undefined) {
-					return false;
+					return;
 				}
 
 				// Get the column position.
 				const columnPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
 				if (columnPosition === undefined) {
-					return false;
+					return;
 				}
 
 				// Get the cursor row position.
 				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
 				if (cursorRowPosition === undefined) {
-					return false;
+					return;
 				}
 
 				// Get the row position.
 				const rowPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
 				if (rowPosition === undefined) {
-					return false;
+					return;
 				}
 
 				// Determine the first column position and the last column position.
@@ -2278,13 +2248,13 @@ export abstract class DataGridInstance extends Disposable {
 				// Calculate the column indexes.
 				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition);
 				if (columnIndexes === undefined) {
-					return false;
+					return;
 				}
 
 				// Calculate the row indexes.
 				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition);
 				if (rowIndexes === undefined) {
-					return false;
+					return;
 				}
 
 				// Set the cell selection.
@@ -2301,12 +2271,9 @@ export abstract class DataGridInstance extends Disposable {
 			// Multi selection.
 			case MouseSelectionType.Multi: {
 				// Not supported at this time. Silently succeed.
-				return true;
+				return;
 			}
 		}
-
-		// The selection was successful.
-		return true;
 	}
 
 	/**
@@ -2357,9 +2324,11 @@ export abstract class DataGridInstance extends Disposable {
 				// Single select the column.
 				this._columnSelectionIndexes = new SelectionIndexes([columnIndex]);
 
-				// Adjust the cursor and update the waffle.
+				// Adjust the cursor and scroll to the column.
 				await adjustCursor(columnIndex);
 				await this.scrollToColumn(columnIndex);
+
+				// Fetch data.
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
@@ -2369,17 +2338,35 @@ export abstract class DataGridInstance extends Disposable {
 
 			// Range selection.
 			case MouseSelectionType.Range: {
-				// Clear individually-selected columns.
-				this._columnSelectionIndexes = undefined;
+				// Get the cursor column position.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined) {
+					return;
+				}
 
-				// // Set the column selection range.
-				// this._columnSelectionRange = new SelectionRange(
-				// 	Math.min(this._cursorColumnIndex, columnIndex),
-				// 	Math.max(this._cursorColumnIndex, columnIndex)
-				// );
+				// Get the column position.
+				const columnPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
+				if (columnPosition === undefined) {
+					return;
+				}
+
+				// Determine the first column position and the last column position.
+				const firstColumnPosition = Math.min(cursorColumnPosition, columnPosition);
+				const lastColumnPosition = Math.max(cursorColumnPosition, columnPosition);
+
+				// Calculate the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the column selection indexes.
+				this._columnSelectionIndexes = new SelectionIndexes(columnIndexes);
 
 				// Update the waffle.
 				await this.scrollToColumn(columnIndex);
+
+				// Fetch data.
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
@@ -2389,39 +2376,33 @@ export abstract class DataGridInstance extends Disposable {
 
 			// Multi selection.
 			case MouseSelectionType.Multi: {
-				// If the column index is part of the column selection range, ignore the event to
-				// preserve the user's selection.
-				if (this._columnSelectionIndexes?.contains(columnIndex)) {
-					return;
-				}
-
-				// TODO
-				// Multi select the column.
-				if (this._columnSelectionIndexes?.contains(columnIndex)) {
-					// // Unselect the column.
-					// this._columnSelectionIndexes.delete(columnIndex);
-					// if (this._columnSelectionIndexes.isEmpty()) {
-					// 	this._columnSelectionIndexes = undefined;
-					// }
+				// Build the column selection indexes.
+				let indexes: number[] = [];
+				if (this._columnSelectionIndexes === undefined) {
+					indexes.push(columnIndex);
 				} else {
-					// // Select the column.
-					// if (this._columnSelectionIndexes) {
-					// 	this._columnSelectionIndexes.add(columnIndex);
-					// } else {
-					// 	if (!this._columnSelectionRange) {
-					// 		this._columnSelectionIndexes = new SelectionIndexes([columnIndex]);
-					// 	} else {
-					// 		this._columnSelectionIndexes = this._columnSelectionRange.indexes();
-					// 		this._columnSelectionIndexes.add(columnIndex);
-					// 		this._columnSelectionRange = undefined;
-					// 	}
-					// }
-
-					// // Adjust the cursor and update the waffle.
-					// await adjustCursor(columnIndex);
-					// await this.scrollToColumn(columnIndex);
-					// await this.fetchData();
+					if (this._columnSelectionIndexes.contains(columnIndex)) {
+						indexes = this._columnSelectionIndexes.indexes.filter(index => index !== columnIndex);
+					} else {
+						indexes = [...this._columnSelectionIndexes.indexes, columnIndex];
+					}
 				}
+
+				// Set the column selection indexes.
+				if (indexes.length === 0) {
+					this._columnSelectionIndexes = undefined;
+				} else {
+					this._columnSelectionIndexes = new SelectionIndexes(indexes);
+				}
+
+				// Adjust the cursor.
+				await adjustCursor(columnIndex);
+
+				// Scroll to the column.
+				await this.scrollToColumn(columnIndex);
+
+				// Fetch data.
+				await this.fetchData();
 
 				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
@@ -2508,7 +2489,7 @@ export abstract class DataGridInstance extends Disposable {
 				const firstRowPosition = Math.min(cursorRowPosition, rowPosition);
 				const lastRowPosition = Math.max(cursorRowPosition, rowPosition);
 
-				// Map the row positions to row indexes.
+				// Calculate the row indexes.
 				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition);
 				if (rowIndexes === undefined) {
 					return;
@@ -2530,39 +2511,33 @@ export abstract class DataGridInstance extends Disposable {
 
 			// Multi selection.
 			case MouseSelectionType.Multi: {
-				// If the row index is part of the row selection range, ignore the event to preserve
-				// the user's selection.
-				if (this._rowSelectionIndexes?.contains(rowIndex)) {
-					return;
-				}
-
-				// TODO
-				// Multi select the row.
-				if (this._rowSelectionIndexes?.contains(rowIndex)) {
-					// // Unselect the row.
-					// this._rowSelectionIndexes.delete(rowIndex);
-					// if (this._rowSelectionIndexes.isEmpty()) {
-					// 	this._rowSelectionIndexes = undefined;
-					// }
+				// Build the row selection indexes.
+				let indexes: number[] = [];
+				if (this._rowSelectionIndexes === undefined) {
+					indexes.push(rowIndex);
 				} else {
-					// // Select the row.
-					// if (this._rowSelectionIndexes) {
-					// 	this._rowSelectionIndexes.add(rowIndex);
-					// } else {
-					// 	if (!this._rowSelectionRange) {
-					// 		this._rowSelectionIndexes = new SelectionIndexes(rowIndex);
-					// 	} else {
-					// 		this._rowSelectionIndexes = this._rowSelectionRange.indexes();
-					// 		this._rowSelectionIndexes.add(rowIndex);
-					// 		this._rowSelectionRange = undefined;
-					// 	}
-					// }
-
-					// // Adjust the cursor and update the waffle.
-					// await adjustCursor(rowIndex);
-					// await this.scrollToRow(rowIndex);
-					// await this.fetchData();
+					if (this._rowSelectionIndexes.contains(rowIndex)) {
+						indexes = this._rowSelectionIndexes.indexes.filter(index => index !== rowIndex);
+					} else {
+						indexes = [...this._rowSelectionIndexes.indexes, rowIndex];
+					}
 				}
+
+				// Set the row selection indexes.
+				if (indexes.length === 0) {
+					this._rowSelectionIndexes = undefined;
+				} else {
+					this._rowSelectionIndexes = new SelectionIndexes(indexes);
+				}
+
+				// Adjust the cursor.
+				await adjustCursor(rowIndex);
+
+				// Scroll to the row.
+				await this.scrollToRow(rowIndex);
+
+				// Fetch data.
+				await this.fetchData();
 
 				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
@@ -2583,40 +2558,32 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Process extend selection left based on what is currently selected.
 		if (this._columnSelectionIndexes) {
-			// Convert an individually selected column into a column selection range, if possible.
+			// Extend column selection left.
 			if (this._columnSelectionIndexes.contains(this._cursorColumnIndex)) {
-				if (this._cursorColumnIndex > 0) {
-					// TODO
-					// Clear the individually-selected columns.
-					//this._columnSelectionIndexes = undefined;
-
-					// // Set the column selection range.
-					// this._columnSelectionRange = new SelectionRange(
-					// 	this._cursorColumnIndex - 1,
-					// 	this._cursorColumnIndex
-					// );
-
-					// Sroll to the column.
-					this.scrollToColumn(this._columnSelectionIndexes.firstIndex);
-
-					// Fire the onDidUpdate event.
-					this.fireOnDidUpdateEvent();
+				// Get the cursor column position. If it's undefined, or the first column position, return.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined || cursorColumnPosition === 0) {
+					return;
 				}
+
+				// Get the previous column index.
+				const previousColumnIndex = this._columnLayoutManager.mapPositionToIndex(cursorColumnPosition - 1);
+				if (previousColumnIndex === undefined) {
+					return;
+				}
+
+				// Move the cursor to the previous column index.
+				this.setCursorColumn(previousColumnIndex);
+
+				// Update the column selection indexes.
+				this._columnSelectionIndexes = new SelectionIndexes([previousColumnIndex, ...this._columnSelectionIndexes.indexes]);
+
+				// Sroll to the column.
+				this.scrollToColumn(previousColumnIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-			// TODO
-			// } else if (this._columnSelectionRange) {
-			// 	// Expand or contract the column selection range, if possible.
-			// 	if (this._cursorColumnIndex === this._columnSelectionRange.lastIndex) {
-			// 		if (this._columnSelectionRange.firstIndex > 0) {
-			// 			this._columnSelectionRange.firstIndex--;
-			// 			this.scrollToColumn(this._columnSelectionRange.firstIndex);
-			// 			this.fireOnDidUpdateEvent();
-			// 		}
-			// 	} else if (this._cursorColumnIndex === this._columnSelectionRange.firstIndex) {
-			// 		this._columnSelectionRange.lastIndex--;
-			// 		this.scrollToColumn(this._columnSelectionRange.lastIndex);
-			// 		this.fireOnDidUpdateEvent();
-			// 	}
 		} else if (this._cellSelectionIndexes) {
 			if (this._cursorColumnIndex === this._cellSelectionIndexes.lastColumnIndex) {
 				// Get the first column position.
@@ -2731,40 +2698,32 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Process extend selection right based on what is currently selected.
 		if (this._columnSelectionIndexes) {
-			// Convert an individually selected column into a column selection range, if possible.
+			// Extend column selection right.
 			if (this._columnSelectionIndexes.contains(this._cursorColumnIndex)) {
-				if (this._cursorColumnIndex < this.columns - 1) {
-					// TODO
-					// Clear the individually-selected columns.
-					// this._columnSelectionIndexes = undefined;
-
-					// // Set the column selection range.
-					// this._columnSelectionRange = new SelectionRange(
-					// 	this._cursorColumnIndex,
-					// 	this._cursorColumnIndex + 1
-					// );
-
-					// Sroll to the column.
-					this.scrollToColumn(this._columnSelectionIndexes.lastIndex);
-
-					// Fire the onDidUpdate event.
-					this.fireOnDidUpdateEvent();
+				// Get the cursor column position. If it's undefined, or the last column position, return.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined || cursorColumnPosition === this._columnLayoutManager.entryCount - 1) {
+					return;
 				}
+
+				// Get the next column index.
+				const nextColumnIndex = this._columnLayoutManager.mapPositionToIndex(cursorColumnPosition + 1);
+				if (nextColumnIndex === undefined) {
+					return;
+				}
+
+				// Move the cursor to the next column index.
+				this.setCursorColumn(nextColumnIndex);
+
+				// Update the column selection indexes.
+				this._columnSelectionIndexes = new SelectionIndexes([...this._columnSelectionIndexes.indexes, nextColumnIndex]);
+
+				// Sroll to the column.
+				this.scrollToColumn(nextColumnIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-			// TODO
-			// } else if (this._columnSelectionRange) {
-			// 	// Expand or contract the column selection range, if possible.
-			// 	if (this._cursorColumnIndex === this._columnSelectionRange.firstIndex) {
-			// 		if (this._columnSelectionRange.lastIndex < this.columns - 1) {
-			// 			this._columnSelectionRange.lastIndex++;
-			// 			this.scrollToColumn(this._columnSelectionRange.lastIndex);
-			// 			this.fireOnDidUpdateEvent();
-			// 		}
-			// 	} else if (this._cursorColumnIndex === this._columnSelectionRange.lastIndex) {
-			// 		this._columnSelectionRange.firstIndex++;
-			// 		this.scrollToColumn(this._columnSelectionRange.firstIndex);
-			// 		this.fireOnDidUpdateEvent();
-			// 	}
 		} else if (this._cellSelectionIndexes) {
 			// Expand or contract the cell selection range along the column axis, if possible.
 			if (this._cursorColumnIndex === this._cellSelectionIndexes.firstColumnIndex) {
@@ -2880,40 +2839,32 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Process extend selection up based on what is currently selected.
 		if (this._rowSelectionIndexes) {
-			// Convert an individually selected row into a row selection range, if possible.
+			// Extend row selection up.
 			if (this._rowSelectionIndexes.contains(this._cursorRowIndex)) {
-				if (this._cursorRowIndex > 0) {
-					// TODO
-					// // Clear the individually-selected rows.
-					// this._rowSelectionIndexes = undefined;
-
-					// // Set the row selection range.
-					// this._rowSelectionRange = new SelectionRange(
-					// 	this._cursorRowIndex - 1,
-					// 	this._cursorRowIndex
-					// );
-
-					// // Scroll the row into view.
-					// this.scrollToRow(this._rowSelectionRange.firstIndex);
-
-					// // Fire the onDidUpdate event.
-					// this.fireOnDidUpdateEvent();
+				// Get the cursor row position. If it's undefined, or the first row position, return.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined || cursorRowPosition === 0) {
+					return;
 				}
+
+				// Get the previous row index.
+				const previousRowIndex = this._rowLayoutManager.mapPositionToIndex(cursorRowPosition - 1);
+				if (previousRowIndex === undefined) {
+					return;
+				}
+
+				// Move the cursor to the previous row index.
+				this.setCursorRow(previousRowIndex);
+
+				// Update the row selection indexes.
+				this._rowSelectionIndexes = new SelectionIndexes([previousRowIndex, ...this._rowSelectionIndexes.indexes]);
+
+				// Sroll to the row.
+				this.scrollToRow(previousRowIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-			// TODO
-			// } else if (this._rowSelectionRange) {
-			// 	// Expand or contract the row selection range, if possible.
-			// 	if (this._cursorRowIndex === this._rowSelectionRange.lastIndex) {
-			// 		if (this._rowSelectionRange.firstIndex > 0) {
-			// 			this._rowSelectionRange.firstIndex--;
-			// 			this.scrollToRow(this._rowSelectionRange.firstIndex);
-			// 			this.fireOnDidUpdateEvent();
-			// 		}
-			// 	} else if (this._cursorRowIndex === this._rowSelectionRange.firstIndex) {
-			// 		this._rowSelectionRange.lastIndex--;
-			// 		this.scrollToRow(this._rowSelectionRange.lastIndex);
-			// 		this.fireOnDidUpdateEvent();
-			// 	}
 		} else if (this._cellSelectionIndexes) {
 			if (this._cursorRowIndex === this._cellSelectionIndexes.lastRowIndex) {
 				// Get the first row position.
@@ -3028,40 +2979,32 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Process extend selection down based on what is currently selected.
 		if (this._rowSelectionIndexes) {
-			// Convert an individually selected row into a row selection range, if possible.
+			// Extend row selection down.
 			if (this._rowSelectionIndexes.contains(this._cursorRowIndex)) {
-				if (this._cursorRowIndex < this.rows - 1) {
-					// TODO
-					// // Clear the individually-selected rows.
-					// this._rowSelectionIndexes = undefined;
-
-					// // Set the row selection range.
-					// this._rowSelectionRange = new SelectionRange(
-					// 	this._cursorRowIndex,
-					// 	this._cursorRowIndex + 1
-					// );
-
-					// // Scroll to the row.
-					// this.scrollToRow(this._rowSelectionRange.lastIndex);
-
-					// // Fire the onDidUpdate event.
-					// this.fireOnDidUpdateEvent();
+				// Get the cursor row position. If it's undefined, or the last row position, return.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined || cursorRowPosition === this._rowLayoutManager.entryCount - 1) {
+					return;
 				}
+
+				// Get the next row index.
+				const nextRowIndex = this._rowLayoutManager.mapPositionToIndex(cursorRowPosition + 1);
+				if (nextRowIndex === undefined) {
+					return;
+				}
+
+				// Move the cursor to the next row index.
+				this.setCursorRow(nextRowIndex);
+
+				// Update the row selection indexes.
+				this._rowSelectionIndexes = new SelectionIndexes([...this._rowSelectionIndexes.indexes, nextRowIndex]);
+
+				// Sroll to the row.
+				this.scrollToRow(nextRowIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-			// TODO
-			// } else if (this._rowSelectionRange) {
-			// 	// Expand or contract the row selection range, if possible.
-			// 	if (this._cursorRowIndex === this._rowSelectionRange.firstIndex) {
-			// 		if (this._rowSelectionRange.lastIndex < this.rows - 1) {
-			// 			this._rowSelectionRange.lastIndex++;
-			// 			this.scrollToRow(this._rowSelectionRange.lastIndex);
-			// 			this.fireOnDidUpdateEvent();
-			// 		}
-			// 	} else if (this._cursorRowIndex === this._rowSelectionRange.lastIndex) {
-			// 		this._rowSelectionRange.firstIndex++;
-			// 		this.scrollToRow(this._rowSelectionRange.firstIndex);
-			// 		this.fireOnDidUpdateEvent();
-			// 	}
 		} else if (this._cellSelectionIndexes) {
 			// Expand or contract the row selection range along the row axis, if possible.
 			if (this._cursorRowIndex === this._cellSelectionIndexes.firstRowIndex) {
@@ -3172,9 +3115,27 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A CellSelectionState that represents the cell selection state.
 	 */
 	cellSelectionState(columnIndex: number, rowIndex: number) {
-		// If there isn't a cell selection, return the column selection state and the row selection state.
+		// If there isn't a cell selection, return the column selection state or the row selection state.
 		if (!this._cellSelectionIndexes) {
-			return this.columnSelectionState(columnIndex) | this.rowSelectionState(rowIndex);
+			// Get the column selection state. If it's selected
+			let columnSelectionState = this.columnSelectionState(columnIndex);
+			if (columnSelectionState !== ColumnSelectionState.None) {
+				// If the row index is the last index, set the selected bottom bit.
+				if (rowIndex === this._rowLayoutManager.lastIndex) {
+					columnSelectionState |= RowSelectionState.SelectedBottom;
+				}
+
+				// Return the column selection state.
+				return columnSelectionState;
+			}
+
+			const rowSelectionState = this.rowSelectionState(rowIndex);
+			if (rowSelectionState !== RowSelectionState.None) {
+
+				return rowSelectionState;
+			}
+
+			return CellSelectionState.None;
 		}
 
 		// If the cell is selected, return the cell selection state.
@@ -3213,59 +3174,29 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Returns the column selection state.
 	 * @param columnIndex The column index.
-	 * @returns A SelectionState that represents the column selection state.
+	 * @returns A ColumnSelectionState that represents the column selection state.
 	 */
 	columnSelectionState(columnIndex: number) {
-		// If the column index is individually selected, return the appropriate selection state.
-		if (this._columnSelectionIndexes?.contains(columnIndex)) {
-			// The column index is selected.
-			let selectionState = ColumnSelectionState.Selected;
-
-			// See if the column index is the left selected column index in a range.
-			if (this._columnSelectionIndexes.firstIndex === columnIndex) {
-				selectionState |= ColumnSelectionState.SelectedLeft;
-			}
-
-			// See if the column index is the right selected column index in a range.
-			if (this._columnSelectionIndexes.lastIndex === columnIndex) {
-				selectionState |= ColumnSelectionState.SelectedRight;
-			}
-
-			// Return the selection state.
-			return selectionState;
+		// If the column isn't selected, return none.
+		if (this._columnSelectionIndexes === undefined || !this._columnSelectionIndexes.contains(columnIndex)) {
+			return ColumnSelectionState.None;
+		} else {
+			return ColumnSelectionState.Selected | ColumnSelectionState.SelectedLeft | ColumnSelectionState.SelectedRight;
 		}
-
-		// The column is not selected.
-		return ColumnSelectionState.None;
 	}
 
 	/**
 	 * Returns the row selection state.
 	 * @param rowIndex The row index.
-	 * @returns A SelectionState that represents the row selection state.
+	 * @returns A RowSelectionState that represents the row selection state.
 	 */
 	rowSelectionState(rowIndex: number) {
-		// If the row index is individually selected, return the appropriate selection state.
-		if (this._rowSelectionIndexes?.contains(rowIndex)) {
-			// The row index is selected.
-			let selectionState = RowSelectionState.Selected;
-
-			// See if the row index is the first row index in a range.
-			if (this._rowSelectionIndexes.firstIndex === rowIndex) {
-				selectionState |= RowSelectionState.SelectedTop;
-			}
-
-			// See if the row index is the last row index in a range.
-			if (this._rowSelectionIndexes.lastIndex === rowIndex) {
-				selectionState |= RowSelectionState.SelectedBottom;
-			}
-
-			// Return the selection state.
-			return selectionState;
+		// If the row isn't selected, return none.
+		if (this._rowSelectionIndexes === undefined || !this._rowSelectionIndexes.contains(rowIndex)) {
+			return RowSelectionState.None;
+		} else {
+			return RowSelectionState.Selected | RowSelectionState.SelectedTop | RowSelectionState.SelectedBottom;
 		}
-
-		// The row is not selected.
-		return RowSelectionState.None;
 	}
 
 	/**
