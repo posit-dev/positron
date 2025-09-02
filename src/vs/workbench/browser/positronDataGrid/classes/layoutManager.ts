@@ -286,16 +286,6 @@ export class LayoutManager {
 				}
 			}
 
-			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
-			// If an entry map wasn't provided, create a reverse entry map so we're always stressing the layout manager.
-			// if (entryMap === undefined) {
-			// 	entryMap = [];
-			// 	for (let i = this._entryCount - 1; i >= 0; i--) {
-			// 		entryMap.push(i);
-			// 	}
-			// }
-			// TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
-
 			// Set the entry map and reverse entry map, if an entry map was provided and is valid (i.e., it has the correct length).
 			this._entryMap = entryMap?.length === this._entryCount ? entryMap : [];
 			if (this._entryMap.length !== 0) {
