@@ -29,7 +29,7 @@ test.describe('New UV Environment', {
 			console.warn(`Failed to delete ${projPath}:`, err);
 		}
 	});
-
+	// This is skipped for windows because we can't get the text from the Terminal
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
 
 		await app.workbench.terminal.clickTerminalTab();

@@ -23,7 +23,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 
 	// Removing WIN tag until we get uv into windows CI as this expects uv to be the interpreter
 	test('Jupyter Folder Defaults', {
-		tag: [tags.CRITICAL, tags.INTERPRETER]
+		tag: [tags.CRITICAL, tags.INTERPRETER, tags.WIN]
 	}, async function ({ app, settings }) {
 		const folderName = addRandomNumSuffix('python-notebook-runtime');
 
