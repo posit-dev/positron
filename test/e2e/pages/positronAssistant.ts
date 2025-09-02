@@ -16,7 +16,7 @@ const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
-const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-provider-button)';
+const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-api-provider-button)';
 const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
