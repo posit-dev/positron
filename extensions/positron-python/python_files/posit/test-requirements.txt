@@ -22,6 +22,7 @@ pytest-mock
 syrupy
 torch
 scipy
+snowflake-connector-python
 sqlalchemy
 
 # putting this last because holoviews is picky about dependency versions (including bokeh),
