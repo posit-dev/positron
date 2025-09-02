@@ -43,6 +43,7 @@ syrupy==4.9.1
 torch==2.7.1
 scipy==1.13.1; python_version == '3.9'
 scipy==1.15.3; python_version >= '3.10'
+snowflake-connector-python==3.17.2
 SQLAlchemy==2.0.41
 
 # putting this last like test-requirements.txt
