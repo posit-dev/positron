@@ -94,8 +94,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// ResizeObserver does not work well on elements inside secondary Electron windows. This causes issues
 		// with the data grid's automatic layout feature, which relies on knowing when the size of the data grid
-		// waffle changes. See https://github.com/posit-dev/positron/issues/8695. This workaround ensures that the
-		// initial data grid waffle's size is updated when the component is mounted.
+		// waffle changes. See https://github.com/posit-dev/positron/issues/8695. Using `requestAnimationFrame`
+		// ensures that the initial size of the data grid waffle is set when the component is mounted.
 		DOM.getWindow(dataGridWaffleRef.current).requestAnimationFrame(async () =>
 			await setSize(dataGridWaffleRef.current.offsetWidth, dataGridWaffleRef.current.offsetHeight)
 		);
