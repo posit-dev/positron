@@ -1674,7 +1674,7 @@ END`;
 		const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
 
 		return {
-			converted_code: ["SELECT * ", `FROM '${filename}'`, whereClause, sortClause]
+			converted_code: ["SELECT * ", `FROM "${filename}"`, whereClause, sortClause]
 		};
 	}
 }
