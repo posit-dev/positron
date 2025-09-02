@@ -3125,7 +3125,7 @@ export abstract class DataGridInstance extends Disposable {
 	cellSelectionState(columnIndex: number, rowIndex: number) {
 		// If there isn't a cell selection, return the column selection state or the row selection state.
 		if (!this._cellSelectionIndexes) {
-			// Get the column selection state. If it's selected
+			// Return the column selection state.
 			let columnSelectionState = this.columnSelectionState(columnIndex);
 			if (columnSelectionState !== ColumnSelectionState.None) {
 				// If the row index is the last index, set the selected bottom bit.
@@ -3137,12 +3137,19 @@ export abstract class DataGridInstance extends Disposable {
 				return columnSelectionState;
 			}
 
+			// Return the row selection state.
 			const rowSelectionState = this.rowSelectionState(rowIndex);
 			if (rowSelectionState !== RowSelectionState.None) {
+				// If the column index is the last index, set the selected right bit.
+				if (columnIndex === this._columnLayoutManager.lastIndex) {
+					columnSelectionState |= ColumnSelectionState.SelectedRight;
+				}
 
+				// Return the row selection state.
 				return rowSelectionState;
 			}
 
+			// The cell is not selected.
 			return CellSelectionState.None;
 		}
 
