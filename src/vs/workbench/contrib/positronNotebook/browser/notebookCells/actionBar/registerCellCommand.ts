@@ -14,7 +14,31 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platfor
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
+import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 
+
+/**
+ * Configuration for action bar UI registration.
+ */
+export type ICellActionBarOptions = {
+	/** Category of the action bar item. Items that share the same category
+	 * will be grouped together. Ignored for "main" position actions. */
+	category?: string;
+	/** Sort order within position (lower numbers appear first) */
+	order?: number;
+	/** Visibility condition using VS Code context keys */
+	when?: ContextKeyExpression;
+} & ({
+	/** Location in UI - main action bar */
+	position: 'main';
+	/** Codicon class for the button icon - required for main position */
+	icon: string;
+} | {
+	/** Location in UI - dropdown menu */
+	position: 'menu';
+	/** Codicon class for the button icon - optional for menu position */
+	icon?: string;
+});
 
 /**
  * Options for registering a cell command.
@@ -23,7 +47,7 @@ export interface IRegisterCellCommandOptions {
 	/** The unique command identifier */
 	commandId: string;
 	/** The function to execute when the command is invoked, receives the active notebook instance and services accessor */
-	handler: (cell: IPositronNotebookCell, accessor: ServicesAccessor) => void;
+	handler: (cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor) => void;
 
 	/** If true, handler is called for each selected cell */
 	multiSelect?: boolean;
@@ -32,22 +56,7 @@ export interface IRegisterCellCommandOptions {
 	cellCondition?: CellConditionPredicate;
 
 	/** Optional UI registration for the action bar */
-	actionBar?: {
-		/** Codicon class for the button icon */
-		icon: string;
-		// TODO: Add ability for custom jsx to be used here that takes the cell
-		// as a prop. Would allow for dynamic icons and more polished
-		// transitions etc..
-		/** Location in UI - either main action bar or dropdown menu */
-		position: 'main' | 'menu';
-		/** Category of the action bar item. Items that share the same category
-		 * will be grouped together. Ignored for "main" position actions. */
-		category?: string;
-		/** Sort order within position (lower numbers appear first) */
-		order?: number;
-		/** Visibility condition using VS Code context keys */
-		when?: ContextKeyExpression;
-	};
+	actionBar?: ICellActionBarOptions;
 
 	/** Optional keybinding configuration */
 	keybinding?: IPositronNotebookCommandKeybinding;
@@ -118,14 +127,14 @@ export function registerCellCommand({
 				// Filter cells based on cell condition and execute handler
 				for (const cell of selectedCells) {
 					if (cellPassesCondition(cell, activeNotebook)) {
-						handler(cell, accessor);
+						handler(cell, activeNotebook, accessor);
 					}
 				}
 			} else {
 				// Handle single cell
 				const cell = activeNotebook.selectionStateMachine.getSelectedCell();
 				if (cell && cellPassesCondition(cell, activeNotebook)) {
-					handler(cell, accessor);
+					handler(cell, activeNotebook, accessor);
 				}
 			}
 		},
