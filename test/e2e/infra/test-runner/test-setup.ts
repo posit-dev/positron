@@ -47,8 +47,8 @@ export function prepareTestEnv(rootPath: string, logsRootPath: string) {
 /**
  * Sets up the test environment for Electron or Web e2e tests.
  */
-function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set initTestEnv', logger: Logger): string | null {
-	let version: string | null = null;
+function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set initTestEnv', logger: Logger): PositronVersion | null {
+	let version: PositronVersion | null = null;
 
 	//
 	// #### E2E: Electron Tests ####
@@ -61,7 +61,9 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 		if (testCodePath) {
 			electronPath = getBuildElectronPath(testCodePath);
 			version = getPositronVersion(testCodePath);
-			console.log('POSITRON VERSION:', version);
+			if (version) {
+				console.log(`POSITRON VERSION: ${version.positronVersion}-${version.buildNumber}`);
+			}
 		} else {
 			testCodePath = getDevElectronPath();
 			electronPath = testCodePath;
@@ -117,7 +119,11 @@ function prepareTestDataDirectory() {
 	mkdirp.sync(TEST_DATA_PATH);
 }
 
-function getPositronVersion(testCodePath: string): string | null {
+export function getPositronVersion(testCodePath = process.env.BUILD || ''): PositronVersion | null {
+	if (!testCodePath) {
+		return null;
+	}
+
 	let productJsonPath;
 	switch (process.platform) {
 		case 'darwin':
@@ -133,14 +139,27 @@ function getPositronVersion(testCodePath: string): string | null {
 			return null;
 	}
 
-	// Read and parse the JSON file
-	const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
+	try {
+		// Read and parse the JSON file
+		const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
 
-	// Return the `positronVersion` property if it exists, otherwise log an error
-	if (productJson.positronVersion) {
-		return productJson.positronVersion;
-	} else {
-		console.error('positronVersion not found in product.json.');
+		// Return both version and build number properties
+		const positronVersion = productJson.positronVersion || null;
+		const buildNumber = productJson.positronBuildNumber || null;
+
+		if (!positronVersion) {
+			throw new Error('positronVersion not found in product.json.');
+		}
+
+		if (!buildNumber) {
+			console.error('positronBuildNumber not found in product.json.');
+		}
+
+		return { positronVersion, buildNumber };
+	} catch (error) {
+		console.error('Error reading product.json:', error);
 		return null;
 	}
 }
+
+type PositronVersion = { positronVersion: string | null, buildNumber: string | null };
