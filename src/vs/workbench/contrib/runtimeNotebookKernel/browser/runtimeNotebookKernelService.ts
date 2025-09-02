@@ -16,7 +16,7 @@ import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel
 import { CellEditType, CellKind, ICellEditOperation } from '../../notebook/common/notebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
-import { ActiveRuntimeNotebookContextManager } from '../common/activeRuntimeNotebookContextManager.js';
+import { ActiveRuntimeNotebookContextManager } from './activeRuntimeNotebookContextManager.js';
 import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
 import { IRuntimeNotebookKernelService } from '../common/interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';

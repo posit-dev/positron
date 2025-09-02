@@ -12,6 +12,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { ILanguageRuntimeInfo, LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
+import { isPositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 
 /** Whether the active notebook has a running runtime. */
 export const ActiveNotebookHasRunningRuntime = new RawContextKey<boolean>(
@@ -132,7 +133,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 
 	private handleActiveEditorChange(): void {
 		const activeEditor = this._editorService.activeEditor;
-		if (!isNotebookEditorInput(activeEditor)) {
+		if (!(isNotebookEditorInput(activeEditor) || isPositronNotebookEditorInput(activeEditor))) {
 			// Changed to a non-notebook editor.
 			this.disableContexts();
 			return;
@@ -152,7 +153,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 
 	private isActiveNotebook(notebookUri: URI): boolean {
 		const activeEditor = this._editorService.activeEditor;
-		return isNotebookEditorInput(activeEditor) &&
+		return (isNotebookEditorInput(activeEditor) || isPositronNotebookEditorInput(activeEditor)) &&
 			isEqual(activeEditor.resource, notebookUri);
 	}
 

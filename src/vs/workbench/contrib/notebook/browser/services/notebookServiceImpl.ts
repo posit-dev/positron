@@ -349,7 +349,8 @@ export class NotebookProviderInfoStore extends Disposable {
 			// Then register the schema handler as exclusive for that notebook
 			disposables.add(this._editorResolverService.registerEditor(
 				`${Schemas.vscodeNotebookCell}:/**/${globPattern}`,
-				{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+				// { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+				notebookEditorInfo,
 				notebookEditorOptions,
 				notebookCellFactoryObject
 			));

@@ -40,6 +40,11 @@ interface DebugRequestTypeMap {
 	// Add request types as needed...
 }
 
+interface DebugResponseTypeMap {
+	'configurationDone': DebugProtocol.ConfigurationDoneResponse;
+	// Add response types as needed...
+}
+
 /**
  * Assertion function that validates a Debug Adapter Protocol message matches the expected type.
  * Throws an error if validation fails, otherwise narrows the type.
@@ -51,9 +56,9 @@ interface DebugRequestTypeMap {
  */
 export function assertDebugMessage<T extends keyof DebugMessageTypeMap>(
 	obj: unknown,
-	expectedType: T,
 	log: LogOutputChannel,
 	context?: string,
+	expectedType?: T,
 ): asserts obj is DebugMessageTypeMap[T] {
 	const prefix = context ? `${context}: ` : '';
 
@@ -65,7 +70,12 @@ export function assertDebugMessage<T extends keyof DebugMessageTypeMap>(
 	const msg = obj as Record<string, any>;
 
 	// All messages must have type
-	if (msg.type !== expectedType) {
+	if (typeof msg.type !== 'string') {
+		throw new Error(`${prefix}Invalid debug ${expectedType} - no type: ${JSON.stringify(obj)}`);
+	}
+
+	// If a specific type is expected, check for it
+	if (expectedType && msg.type !== expectedType) {
 		throw new Error(`${prefix}Invalid debug ${expectedType} - wrong type: ${JSON.stringify(obj)}`);
 	}
 
@@ -90,8 +100,15 @@ export function assertDebugMessage<T extends keyof DebugMessageTypeMap>(
 }
 
 export function isDebugRequest<T extends keyof DebugRequestTypeMap>(
-	request: DebugProtocol.Request,
+	request: DebugProtocol.ProtocolMessage,
 	expectedCommand: T,
 ): request is DebugRequestTypeMap[T] {
-	return request.command === expectedCommand;
+	return request.type === 'request' && (request as DebugProtocol.Request).command === expectedCommand;
+}
+
+export function isDebugResponse<T extends keyof DebugResponseTypeMap>(
+	request: DebugProtocol.ProtocolMessage,
+	expectedCommand: T,
+): request is DebugResponseTypeMap[T] {
+	return request.type === 'response' && (request as DebugProtocol.Response).command === expectedCommand;
 }

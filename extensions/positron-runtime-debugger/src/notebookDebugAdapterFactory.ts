@@ -46,6 +46,8 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 			throw new Error(vscode.l10n.t('Unexpected error: No active runtime session found for notebook {0}', notebook.uri.toString()));
 		}
 
+		const isPositronNotebook = Boolean(debugSession.configuration.__isPositron);
+
 		// Create the debug adapter and its components.
 		const disposables = this._register(new DisposableStore());
 		const outputChannel = this.createOutputChannel(runtimeSession);
@@ -53,7 +55,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 		const locationMapper = disposables.add(new NotebookLocationMapper(pathEncoder, notebook));
 		const adapter = disposables.add(new RuntimeDebugAdapter({ locationMapper, outputChannel, pathEncoder, debugSession, runtimeSession }));
 
-		disposables.add(new DebugCellController(adapter, debugSession, runtimeSession, cell));
+		disposables.add(new DebugCellController(adapter, debugSession, runtimeSession, cell, outputChannel, isPositronNotebook));
 
 		// Track that the notebook is being debugged.
 		await this._debuggedNotebookUris.add(notebookUri);

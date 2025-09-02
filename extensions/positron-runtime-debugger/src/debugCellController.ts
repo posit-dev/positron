@@ -2,10 +2,10 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { DebugProtocol } from '@vscode/debugprotocol';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { Disposable, isUriEqual } from './util.js';
+import { assertDebugMessage, isDebugResponse } from './debugProtocol.js';
 
 /**
  * Controls the execution and lifecycle of a notebook cell during debugging.
@@ -19,18 +19,27 @@ export class DebugCellController extends Disposable {
 		private readonly _debugSession: vscode.DebugSession,
 		private readonly _runtimeSession: positron.LanguageRuntimeSession,
 		private readonly _cell: vscode.NotebookCell,
+		private readonly _log: vscode.LogOutputChannel,
+		private readonly _isPositronNotebook: boolean,
 	) {
 		super();
 
 		// Execute the cell when the debug session has completed configuration.
 		const configurationDone = this._register(this._adapter.onDidSendMessage(async (message) => {
-			if ((message as DebugProtocol.ProtocolMessage).type === 'response' &&
-				(message as DebugProtocol.Response).command === 'configurationDone') {
+			assertDebugMessage(message, this._log, '[debugCellController]');
+			if (isDebugResponse(message, 'configurationDone')) {
 				configurationDone.dispose();
-				await vscode.commands.executeCommand('notebook.cell.execute', {
-					ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
-					document: this._cell.notebook.uri,
-				});
+				if (this._isPositronNotebook) {
+					await vscode.commands.executeCommand('positronNotebook.cell.executeAndFocusContainer', {
+						ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
+						document: this._cell.notebook.uri,
+					});
+				} else {
+					await vscode.commands.executeCommand('notebook.cell.execute', {
+						ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
+						document: this._cell.notebook.uri,
+					});
+				}
 			}
 		}));
 

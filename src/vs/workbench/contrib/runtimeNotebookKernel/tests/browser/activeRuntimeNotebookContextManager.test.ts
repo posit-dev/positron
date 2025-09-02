@@ -19,7 +19,7 @@ import { ILanguageRuntimeExit, ILanguageRuntimeInfo, LanguageRuntimeSessionMode,
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestEditorInput, TestEditorService } from '../../../../test/browser/workbenchTestServices.js';
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
-import { ActiveRuntimeNotebookContextManager, DebuggerRuntimeSupportedFeature } from '../../common/activeRuntimeNotebookContextManager.js';
+import { ActiveRuntimeNotebookContextManager, DebuggerRuntimeSupportedFeature } from '../../browser/activeRuntimeNotebookContextManager.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 
 /** A TestEditorService that fires the onDidActiveEditorChange event when changing the activeEditor. */

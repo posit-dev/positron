@@ -15,8 +15,9 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { NotebookEditorWidget } from '../../notebook/browser/notebookEditorWidget.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
-import { ActiveNotebookHasRunningRuntime } from '../common/activeRuntimeNotebookContextManager.js';
+import { ActiveNotebookHasRunningRuntime } from './activeRuntimeNotebookContextManager.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
+import { isPositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 
 const category = localize2('positron.runtimeNotebookKernel.category', "Notebook");
 
@@ -66,7 +67,7 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 		// If no context was provided, try to get the active notebook URI.
 		if (!notebookUri) {
 			const activeEditor = editorService.activeEditor;
-			if (!isNotebookEditorInput(activeEditor)) {
+			if (!(isNotebookEditorInput(activeEditor) || isPositronNotebookEditorInput(activeEditor))) {
 				throw new Error('No active notebook. This command should only be available when a notebook is active.');
 			}
 			notebookUri = activeEditor.resource;

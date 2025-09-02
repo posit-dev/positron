@@ -28,6 +28,18 @@ export class NotebookDebugService extends Disposable {
 	}
 }
 
+const PositronNotebookEditorInputId = 'workbench.input.positronNotebook';
+
+interface PositronNotebookCell extends vscode.NotebookCell {
+	// Add any additional properties or methods specific to Positron notebook cells here.
+	editorInputId: typeof PositronNotebookEditorInputId;
+}
+
+function isPositronNotebookCell(cell: vscode.NotebookCell): cell is PositronNotebookCell {
+	const obj = cell as PositronNotebookCell;
+	return obj.editorInputId === PositronNotebookEditorInputId;
+}
+
 /**
  * Debug a notebook cell.
  *
@@ -59,6 +71,7 @@ async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
 		justMyCode: true,
 		__notebookUri: cell.notebook.uri.toString(),
 		__cellUri: cell.document.uri.toString(),
+		__isPositron: isPositronNotebookCell(cell),
 	});
 }
 
