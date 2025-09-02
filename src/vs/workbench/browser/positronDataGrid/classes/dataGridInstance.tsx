@@ -2576,7 +2576,9 @@ export abstract class DataGridInstance extends Disposable {
 				this.setCursorColumn(previousColumnIndex);
 
 				// Update the column selection indexes.
-				this._columnSelectionIndexes = new SelectionIndexes([previousColumnIndex, ...this._columnSelectionIndexes.indexes]);
+				if (!this._columnSelectionIndexes.contains(previousColumnIndex)) {
+					this._columnSelectionIndexes = new SelectionIndexes([previousColumnIndex, ...this._columnSelectionIndexes.indexes]);
+				}
 
 				// Sroll to the column.
 				this.scrollToColumn(previousColumnIndex);
@@ -2716,7 +2718,9 @@ export abstract class DataGridInstance extends Disposable {
 				this.setCursorColumn(nextColumnIndex);
 
 				// Update the column selection indexes.
-				this._columnSelectionIndexes = new SelectionIndexes([...this._columnSelectionIndexes.indexes, nextColumnIndex]);
+				if (!this._columnSelectionIndexes.contains(nextColumnIndex)) {
+					this._columnSelectionIndexes = new SelectionIndexes([...this._columnSelectionIndexes.indexes, nextColumnIndex]);
+				}
 
 				// Sroll to the column.
 				this.scrollToColumn(nextColumnIndex);
@@ -2857,7 +2861,9 @@ export abstract class DataGridInstance extends Disposable {
 				this.setCursorRow(previousRowIndex);
 
 				// Update the row selection indexes.
-				this._rowSelectionIndexes = new SelectionIndexes([previousRowIndex, ...this._rowSelectionIndexes.indexes]);
+				if (!this._rowSelectionIndexes.contains(previousRowIndex)) {
+					this._rowSelectionIndexes = new SelectionIndexes([previousRowIndex, ...this._rowSelectionIndexes.indexes]);
+				}
 
 				// Sroll to the row.
 				this.scrollToRow(previousRowIndex);
@@ -2997,7 +3003,9 @@ export abstract class DataGridInstance extends Disposable {
 				this.setCursorRow(nextRowIndex);
 
 				// Update the row selection indexes.
-				this._rowSelectionIndexes = new SelectionIndexes([...this._rowSelectionIndexes.indexes, nextRowIndex]);
+				if (!this._rowSelectionIndexes.contains(nextRowIndex)) {
+					this._rowSelectionIndexes = new SelectionIndexes([...this._rowSelectionIndexes.indexes, nextRowIndex]);
+				}
 
 				// Sroll to the row.
 				this.scrollToRow(nextRowIndex);
