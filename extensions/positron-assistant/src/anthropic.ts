@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
+import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { availableModels } from './models.js';
@@ -416,8 +416,10 @@ function toAnthropicToolResultBlock(
 			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
 			// Skip data parts.
+		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
+			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
 		} else {
-			throw new Error('Unsupported part type on tool result part content');
+			throw new Error(`Unsupported part type on tool result part content: ${JSON.stringify(resultPart)}`);
 		}
 	}
 	return withCacheControl(
@@ -465,6 +467,24 @@ function languageModelImagePartToAnthropicImageBlock(
 				media_type: part.value.mimeType as Anthropic.Base64ImageSource['media_type'],
 				data: part.value.base64,
 			},
+		},
+		source,
+		dataPart,
+	);
+}
+
+function languageModelPromptTsxPartToAnthropicBlock(
+	part: vscode.LanguageModelPromptTsxPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.TextBlockParam {
+	// Convert the prompt TSX part to a string representation using the shared utility
+	const text = promptTsxPartToString(part);
+
+	return withCacheControl(
+		{
+			type: 'text',
+			text,
 		},
 		source,
 		dataPart,
