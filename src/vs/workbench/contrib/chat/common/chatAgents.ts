@@ -433,7 +433,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		}
 
 		// Get the current language model provider to help select the best agent
-		const currentProvider = this.languageModelsService.currentProvider;
+		const currentProvider = this.languageModelsService?.currentProvider;
 		if (currentProvider) {
 			// Get the extension identifier for the current provider
 			const extensionId = this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id);
