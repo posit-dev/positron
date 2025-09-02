@@ -5,10 +5,15 @@
 
 import os from 'os';
 import { DataExplorerShortcutOptions } from './metric-data-explorer.js';
+import { getPositronVersion } from '../../infra/test-runner/test-setup.js';
 
 export const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
 export const PROD_API_URL = 'https://connect.posit.it/e2e-test-insights-api/metrics';
 export const LOCAL_API_URL = 'http://127.0.0.1:8000/metrics';
+
+//-----------------------
+// Platform Information
+//-----------------------
 
 export const platformOs = (() => {
 	const osMap = {
@@ -21,6 +26,8 @@ export const platformOs = (() => {
 })();
 
 export const platformVersion = os.release();
+
+export const positronVersion = getPositronVersion();
 
 //-----------------------
 // Base Metric Types
