@@ -50,6 +50,8 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 		inputRef.current.value = '';
 		setFilterText('');
 		props.onFilterTextChanged('');
+		// Move focus back to the input after clearing the text.
+		inputRef.current.focus();
 	};
 
 	// Button clear key down handler.
