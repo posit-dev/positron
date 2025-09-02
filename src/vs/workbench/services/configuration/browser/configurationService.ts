@@ -1398,6 +1398,12 @@ class ConfigurationDefaultOverridesContribution extends Disposable implements IW
 		const allProperties = this.configurationRegistry.getConfigurationProperties();
 		for (const property of properties) {
 			const schema = allProperties[property];
+			// --- Start Positron ---
+			// Some experimental settings don't have a schema at all.
+			if (!schema) {
+				continue;
+			}
+			// --- End Positron ---
 			if (!schema.experiment) {
 				continue;
 			}
