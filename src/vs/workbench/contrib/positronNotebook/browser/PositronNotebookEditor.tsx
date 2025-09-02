@@ -468,7 +468,7 @@ export class PositronNotebookEditor extends EditorPane {
 			<NotebookVisibilityProvider isVisible={this._isVisible}>
 				<NotebookInstanceProvider instance={notebookInstance}>
 					<EnvironentProvider environmentBundle={{
-						sizeObservable: this._size,
+						size: this._size,
 						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
 					}}>
 						<PositronNotebookComponent />
