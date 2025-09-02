@@ -1666,8 +1666,15 @@ END`;
 	}
 
 	async convertToCode(params: ConvertToCodeParams, uri: string): RpcResponse<ConvertedCode> {
+		const parsedUri = vscode.Uri.parse(uri);
+		const filename = path.basename(parsedUri.path, path.extname(parsedUri.path));
+
+		// Clean up newlines and trim whitespace from where/sort clauses
+		const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
+		const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
+
 		return {
-			converted_code: [`FROM '${this.tableName}'`, this._whereClause, this._sortClause]
+			converted_code: ["SELECT * ", `FROM '${filename}'`, whereClause, sortClause]
 		};
 	}
 }
