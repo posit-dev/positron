@@ -49,5 +49,9 @@
   },
   "devDependencies": {
     "@types/node": "^24.1.0"
-  }
+  },
+  "extensionDependencies": [
+    "ms-python.python",
+    "positron.positron-r"
+  ]
 }

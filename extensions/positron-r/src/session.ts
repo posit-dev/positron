@@ -148,6 +148,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		return this._kernel?.runtimeInfo;
 	}
 
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	/**
 	 * Opens a resource in the runtime.
 	 * @param resource The resource to open.
