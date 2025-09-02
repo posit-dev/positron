@@ -1669,12 +1669,22 @@ END`;
 		const parsedUri = vscode.Uri.parse(uri);
 		const filename = path.basename(parsedUri.path, path.extname(parsedUri.path));
 
-		// Clean up newlines and trim whitespace from where/sort clauses
-		const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
-		const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
+		// Escape any quotes in the filename to prevent SQL injection
+		const escapedFilename = filename.replace(/"/g, '""');
+		const result = ["SELECT * ", `FROM "${escapedFilename}"`];
+
+		if (this._whereClause) {
+			const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
+			result.push(whereClause);
+		}
+
+		if (this._sortClause) {
+			const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
+			result.push(sortClause);
+		}
 
 		return {
-			converted_code: ["SELECT * ", `FROM "${filename}"`, whereClause, sortClause]
+			converted_code: result
 		};
 	}
 }
