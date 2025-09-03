@@ -657,20 +657,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				}
 			}, 0));
 		}
-
-		// After the content change fires and cells are synced, explicitly set the selection
-		// to maintain focus on the appropriate cell after deletion
-		if (targetFocusIndex !== null) {
-			this._register(disposableTimeout(() => {
-				if (targetFocusIndex !== null && targetFocusIndex < this._cells.length) {
-					const cellToFocus = this._cells[targetFocusIndex];
-					if (cellToFocus) {
-						this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
-						cellToFocus.focus();
-					}
-				}
-			}, 0));
-		}
 	}
 
 
