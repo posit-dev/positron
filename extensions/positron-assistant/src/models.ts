@@ -478,8 +478,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				if (ai.APICallError.isInstance(part.error)) {
 					const responseBody = part.error.responseBody;
 					if (responseBody) {
-						const json = JSON.parse(responseBody);
-						throw new Error(`${json.message ?? json}`);
+						try {
+							const json = JSON.parse(responseBody);
+							throw new Error(`${json.message ?? json}`);
+						} catch (_error) {
+							throw new Error(responseBody);
+						}
 					}
 				}
 
@@ -812,7 +816,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	override parseProviderError(error: any): string | undefined {
 		if ((error as any).name) {
 			const name = (error as any).name;
-			const message = (error as any).message ?? 'Please check your configuration as the the credentials may have expired.';
+			const message = (error as any).message ?? 'Please check your configuration as the credentials may have expired.';
 			if (name === 'CredentialsProviderError') {
 				return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
 			}
