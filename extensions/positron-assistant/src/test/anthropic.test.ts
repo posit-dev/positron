@@ -35,9 +35,9 @@ class MockAnthropicClient {
 							content: [],
 							usage: {
 								server_tool_use: null,
-								cache_creation_input_tokens: 7000,
-								cache_read_input_tokens: 0,
-								input_tokens: 200,
+								cache_creation_input_tokens: 20,
+								cache_read_input_tokens: 20,
+								input_tokens: 80,
 								output_tokens: 0,
 								service_tier: "standard"
 							},
@@ -50,10 +50,10 @@ class MockAnthropicClient {
 						},
 						usage: {
 							server_tool_use: null,
-							cache_creation_input_tokens: 7000,
-							cache_read_input_tokens: 0,
-							input_tokens: 200,
-							output_tokens: 2000,
+							cache_creation_input_tokens: 20,
+							cache_read_input_tokens: 20,
+							input_tokens: 80,
+							output_tokens: 50,
 						},
 					}];
 					events.forEach(event => _listener(event));
@@ -200,23 +200,23 @@ suite('AnthropicLanguageModel', () => {
 			await provideLanguageModelResponse(messages);
 
 			const initialData = progress.report.getCall(0).args[0].part;
-			const initialExpected = { type: 'usage', data: { prompt_tokens: 7200, output_tokens: 0, cached_tokens: 0 } };
+			const initialExpected = { type: 'usage', data: { inputTokens: 100, outputTokens: 0, cachedTokens: 20 } };
 			assert.ok(initialData instanceof vscode.LanguageModelDataPart, 'Initial response should be a LanguageModelDataPart');
 			assert.strictEqual(initialData.mimeType, 'text/x-json', 'Initial response should have `application/json` mimeType');
 
 			const initialObject = JSON.parse(decoder.decode(initialData.data));
-			assert.ok("provider_metadata" in initialObject.data, 'Initial response contains additional provider specific metadata.');
-			delete initialObject.data["provider_metadata"];
+			assert.ok("providerMetadata" in initialObject.data, 'Initial response contains additional provider specific metadata.');
+			delete initialObject.data["providerMetadata"];
 			assert.deepStrictEqual(initialObject, initialExpected, 'Remaining initial usage data should decode as expected');
 
 			const finalData = progress.report.getCall(1).args[0].part;
-			const finalExpected = { type: 'usage', data: { prompt_tokens: 7200, output_tokens: 2000, cached_tokens: 0 } };
+			const finalExpected = { type: 'usage', data: { inputTokens: 100, outputTokens: 50, cachedTokens: 20 } };
 			assert.ok(finalData instanceof vscode.LanguageModelDataPart, 'Final response should be a LanguageModelDataPart');
 			assert.strictEqual(finalData.mimeType, 'text/x-json', 'Final response should have `application/json` mimeType');
 
 			const finalObject = JSON.parse(decoder.decode(finalData.data));
-			assert.ok("provider_metadata" in finalObject.data, 'Final response contains additional provider specific metadata.');
-			delete finalObject.data["provider_metadata"];
+			assert.ok("providerMetadata" in finalObject.data, 'Final response contains additional provider specific metadata.');
+			delete finalObject.data["providerMetadata"];
 			assert.deepStrictEqual(finalObject, finalExpected, 'Remaining final usage data should decode as expected');
 		});
 	});
