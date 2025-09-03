@@ -394,7 +394,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					context.instance.clearSelection();
 				}
 
-				// Move the cursor up.
+				// Move the cursor down.
 				context.instance.moveCursorDown();
 				break;
 			}
