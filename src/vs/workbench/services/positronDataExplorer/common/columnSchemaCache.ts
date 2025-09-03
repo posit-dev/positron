@@ -168,17 +168,18 @@ export class ColumnSchemaCache extends Disposable {
 		this._searchText = searchText;
 
 		// // Get the size of the data.
-		// const tableState = await this._dataExplorerClientInstance.getBackendState();
-		// this._columns = tableState.table_shape.num_columns;
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
 
 		// Set the start column index and the end column index of the columns to cache.
 		const startColumnIndex = Math.max(
 			firstColumnIndex - (visibleColumns * OVERSCAN_FACTOR),
 			0
 		);
-		const endColumnIndex = startColumnIndex +
-			visibleColumns +
-			(visibleColumns * OVERSCAN_FACTOR * 2);
+		const endColumnIndex = Math.min(
+			startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2),
+			this._columns - 1
+		);
 
 		// Build an array of the column indices to cache.
 		const columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
