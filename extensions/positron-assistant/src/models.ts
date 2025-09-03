@@ -480,7 +480,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 					if (responseBody) {
 						try {
 							const json = JSON.parse(responseBody);
-							throw new Error(`${json.message ?? json}`);
+							throw new Error(`${json.message ?? JSON.stringify(json)}`);
 						} catch (_error) {
 							throw new Error(responseBody);
 						}
@@ -555,7 +555,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		return Math.ceil(len / 4);
 	}
 
-	parseProviderError(error: any): string | undefined {
+	/**
+	 * Parses the error returned by the provider.
+	 * @param error The error object returned by the provider.
+	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 */
+	parseProviderError(_error: any): string | undefined {
 		return undefined;
 	}
 }
@@ -813,13 +818,25 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return AWSLanguageModel.source.provider.displayName;
 	}
 
+	/**
+	 * Parses the error returned by Bedrock.
+	 * @param error The error object
+	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 */
 	override parseProviderError(error: any): string | undefined {
 		if ((error as any).name) {
 			const name = (error as any).name;
-			const message = (error as any).message ?? 'Please check your configuration as the credentials may have expired.';
+			const message = (error as any).message;
+
+			if (!message) {
+				return super.parseProviderError(error);
+			}
+
 			if (name === 'CredentialsProviderError') {
 				return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
 			}
+
+			return vscode.l10n.t(`AWS Bedrock error: ${message}`);
 		}
 		return super.parseProviderError(error);
 	}
