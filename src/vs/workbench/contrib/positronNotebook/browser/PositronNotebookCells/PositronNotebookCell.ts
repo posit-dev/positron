@@ -129,7 +129,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	async setEditorOptions(options: ITextEditorOptions | undefined): Promise<void> {
 		if (options) {
-			const editor = await this.showEditor(!options.preserveFocus);
+			const editor = await this.showEditor(!(options.preserveFocus ?? true));
 			if (editor) {
 				applyTextEditorOptions(options, editor, ScrollType.Immediate);
 			}

@@ -104,7 +104,9 @@ export interface IPositronNotebookCell extends Disposable {
 	focus(): void;
 
 	/**
-	 * Set focus on the editor within the cell
+	 * Show the cell's editor.
+	 * @param focus Whether to focus the editor after showing it. Default: false.
+	 * @returns Promise that resolves to the editor when it is available, or undefined if the editor could not be shown.
 	 */
 	showEditor(focus?: boolean): Promise<ICodeEditor | undefined>;
 
