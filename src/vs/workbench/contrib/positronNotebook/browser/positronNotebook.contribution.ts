@@ -36,6 +36,8 @@ import { registerNotebookCommand } from './notebookCells/actionBar/registerNoteb
 import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { INotebookEditorModelResolverService } from '../../notebook/common/notebookEditorModelResolverService.js';
+import { Event } from '../../../../base/common/event.js';
 
 
 /**
@@ -47,7 +49,8 @@ class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@INotebookEditorModelResolverService private readonly _notebookEditorModelResolverService: INotebookEditorModelResolverService,
 	) {
 		super();
 
@@ -77,6 +80,24 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
+				createUntitledEditorInput: async ({ resource, options }) => {
+					const ref = await this._notebookEditorModelResolverService.resolve({ untitledResource: resource }, 'jupyter-notebook', { viewType: POSITRON_NOTEBOOK_EDITOR_ID });
+
+					// TODO: Shouldn't the ref handle this itself...?
+					// untitled notebooks are disposed when they get saved. we should not hold a reference
+					// to such a disposed notebook and therefore dispose the reference as well
+					Event.once(ref.object.notebook.onWillDispose)(() => {
+						ref.dispose();
+					});
+
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						ref.object.resource,
+						undefined,
+					);
+
+					return { editor: notebookEditorInput, options };
+				},
 				createEditorInput: async ({ resource, options }) => {
 					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,

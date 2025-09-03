@@ -186,6 +186,7 @@ export class NotebookProviderInfoStore extends Disposable {
 			const notebookEditorOptions = {
 				canHandleDiff: () => !!this._configurationService.getValue(NotebookSetting.textDiffEditorPreview) && !this._accessibilityService.isScreenReaderOptimized(),
 				canSupportResource: (resource: URI) => {
+					// TODO: Only if this is the associated editor for the resource?
 					if (resource.scheme === Schemas.vscodeNotebookCellOutput) {
 						const params = new URLSearchParams(resource.query);
 						return params.get('openIn') === 'notebook';
