@@ -276,6 +276,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			// if the model responds, the config works
 			return undefined;
 		} catch (error) {
+			const providerErrorMessage = this.parseProviderError(error);
+			if (providerErrorMessage) {
+				return new Error(providerErrorMessage);
+			}
 			if (ai.AISDKError.isInstance(error)) {
 				return new Error(error.message);
 			}
@@ -463,7 +467,22 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
 				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
-				// TODO: Deal with various LLM providers' different error response formats
+
+				const providerErrorMessage = this.parseProviderError(part.error);
+				const errorType = (part.error as any)?.name;
+				if (providerErrorMessage) {
+					throw new Error(providerErrorMessage);
+				}
+
+				// Try to extract an API error message with ai-sdk
+				if (ai.APICallError.isInstance(part.error)) {
+					const responseBody = part.error.responseBody;
+					if (responseBody) {
+						const json = JSON.parse(responseBody);
+						throw new Error(`${json.message ?? json}`);
+					}
+				}
+
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
 				}
@@ -530,6 +549,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		// TODO: This is a naive approximation, a model specific tokenizer should be used.
 		const len = typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
 		return Math.ceil(len / 4);
+	}
+
+	parseProviderError(error: any): string | undefined {
+		return undefined;
 	}
 }
 
@@ -784,6 +807,17 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 	get providerName(): string {
 		return AWSLanguageModel.source.provider.displayName;
+	}
+
+	override parseProviderError(error: any): string | undefined {
+		if ((error as any).name) {
+			const name = (error as any).name;
+			const message = (error as any).message ?? 'Please check your configuration as the the credentials may have expired.';
+			if (name === 'CredentialsProviderError') {
+				return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
+			}
+		}
+		return super.parseProviderError(error);
 	}
 }
 
