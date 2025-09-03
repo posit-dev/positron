@@ -146,7 +146,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return editor;
 	}
 
-
 	defocusEditor(): void {
 		// Send focus to the enclosing cell itself to blur the editor
 		this.focus();

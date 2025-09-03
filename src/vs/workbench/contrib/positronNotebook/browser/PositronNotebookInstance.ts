@@ -463,8 +463,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Public Methods
 
-	async setOptions(options: INotebookEditorOptions): Promise<void> {
-		if (options.cellOptions) {
+	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		if (options?.cellOptions) {
 			for (const cell of this._cells) {
 				if (isEqual(cell.uri, options.cellOptions.resource)) {
 					await cell.setOptions(options);

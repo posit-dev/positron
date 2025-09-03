@@ -141,14 +141,11 @@ export class PositronNotebookEditor extends EditorPane {
 
 	private _saveEditorViewState(input?: PositronNotebookEditorInput) {
 		// Save view state into momento
-		if (
-			this.group &&
-			input instanceof PositronNotebookEditorInput
-		) {
-			const state = this.getInput().notebookInstance?.getEditorViewState();
-			if (!state) {
+		if (input) {
+			if (!this.notebookInstance) {
 				throw new Error('Cant save state. Notebook instance is not set.');
 			}
+			const state = this.notebookInstance.getEditorViewState();
 			this._editorMemento.saveEditorState(this.group, input.resource, state);
 		}
 	}
@@ -221,7 +218,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 	// Getter for notebook instance to avoid having to cast the input every time.
 	get notebookInstance() {
-		return this.input && (this.input as PositronNotebookEditorInput)?.notebookInstance;
+		return this.input instanceof PositronNotebookEditorInput ? this.input.notebookInstance : undefined;
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -351,8 +348,9 @@ export class PositronNotebookEditor extends EditorPane {
 	//       Should then focus/reveal the cell
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
 		super.setOptions(options);
-		if (options) {
-			this.notebookInstance?.setOptions(options);
+
+		if (this.notebookInstance) {
+			this.notebookInstance.setOptions(options);
 		}
 	}
 
@@ -367,7 +365,7 @@ export class PositronNotebookEditor extends EditorPane {
 	getViewModel(textModel: NotebookTextModel) {
 		this._logService.info(this._identifier, 'getViewModel');
 
-		const notebookInstance = this.getInput().notebookInstance;
+		const { notebookInstance } = this;
 		if (!notebookInstance) {
 			throw new Error('Notebook instance is not set.');
 		}
@@ -459,9 +457,7 @@ export class PositronNotebookEditor extends EditorPane {
 	private _renderReact() {
 		this._logService.info(this._identifier, 'renderReact');
 
-		const notebookInstance = (this.input as PositronNotebookEditorInput)?.notebookInstance;
-
-		if (!notebookInstance) {
+		if (!this.notebookInstance) {
 			throw new Error('Notebook instance is not set.');
 		}
 
@@ -476,7 +472,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 		reactRenderer.render(
 			<NotebookVisibilityProvider isVisible={this._isVisible}>
-				<NotebookInstanceProvider instance={notebookInstance}>
+				<NotebookInstanceProvider instance={this.notebookInstance}>
 					<EnvironentProvider environmentBundle={{
 						size: this._size,
 						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
