@@ -217,6 +217,26 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 			// Enter key.
 			case 'Enter': {
+				// Check if this is a summary panel instance
+				const isSummaryPanel = context.instance instanceof TableSummaryDataGridInstance;
+
+				if (isSummaryPanel) {
+					// Consume the event.
+					consumeEvent();
+
+					// Make sure the cursor is showing.
+					if (context.instance.showCursor()) {
+						return;
+					}
+
+					// Expand or collapse the row in the summary panel.
+					const summaryInstance = context.instance as TableSummaryDataGridInstance;
+
+					// Only allow toggle if summary stats are supported for this column
+					if (summaryInstance.canToggleColumnExpansion(summaryInstance.cursorRowIndex)) {
+						await summaryInstance.toggleExpandColumn(summaryInstance.cursorRowIndex);
+					}
+				}
 				break;
 			}
 
