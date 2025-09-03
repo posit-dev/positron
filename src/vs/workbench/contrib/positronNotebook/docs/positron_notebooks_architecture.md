@@ -106,7 +106,7 @@ The system uses VS Code's `IEditorResolverService` to register the Positron note
 editorResolverService.registerEditor(
     '*.ipynb',
     {
-        id: PositronNotebookEditorInput.EditorID,
+        id: PositronNotebookEditor.ID,
         label: localize('positronNotebook', "Positron Notebook"),
         priority: RegisteredEditorPriority.option // Always available in "Open With..." menu
     },

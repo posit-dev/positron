@@ -205,7 +205,7 @@ export class SelectionStateMachine extends Disposable {
 		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
 		// Timeout here avoids the problem of enter applying to the editor widget itself.
 		this._register(
-			disposableTimeout(() => cellToEdit.focusEditor(), 0)
+			disposableTimeout(async () => await cellToEdit.showEditor(true), 0)
 		);
 	}
 

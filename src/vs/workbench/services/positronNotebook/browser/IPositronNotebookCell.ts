@@ -9,7 +9,9 @@ import { ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { CellRevealType, INotebookEditorOptions } from '../../../contrib/notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { CellSelectionType } from './selectionMachine.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -104,12 +106,22 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * Set focus on the editor within the cell
 	 */
-	focusEditor(): void;
+	showEditor(focus?: boolean): Promise<ICodeEditor | undefined>;
 
 	/**
 	 * Remove focus from within monaco editor and out to the cell itself
 	 */
 	defocusEditor(): void;
+
+	/**
+	 * Select this cell
+	 * @param type Selection type.
+	 */
+	select(type: CellSelectionType): void;
+
+	reveal(type?: CellRevealType): void;
+
+	setOptions(options: INotebookEditorOptions): Promise<void>;
 
 	/**
 	 * Deselect this cell

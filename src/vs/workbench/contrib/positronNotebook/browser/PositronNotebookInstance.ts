@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
@@ -463,6 +463,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Public Methods
 
+	async setOptions(options: INotebookEditorOptions): Promise<void> {
+		if (options.cellOptions) {
+			for (const cell of this._cells) {
+				if (isEqual(cell.uri, options.cellOptions.resource)) {
+					await cell.setOptions(options);
+					return;
+				}
+			}
+		}
+	}
+
 	/**
 	 * Runs the specified cells in the notebook.
 	 * @param cells The cells to run
@@ -856,9 +867,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		if (newlyAddedCells.length === 1) {
 			// If we've only added one cell, we can set it as the selected cell.
-			this._register(disposableTimeout(() => {
+			this._register(disposableTimeout(async () => {
 				this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-				newlyAddedCells[0].focusEditor();
+				await newlyAddedCells[0].showEditor(true);
 			}, 0));
 		}
 

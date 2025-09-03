@@ -71,6 +71,8 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 
 
 export class PositronNotebookEditor extends EditorPane {
+	static readonly ID = 'workbench.editor.positronNotebook';
+
 	/**
 	 * Value to keep track of what instance of the editor this is.
 	 * Used for keeping track of the editor in the logs.
@@ -119,7 +121,7 @@ export class PositronNotebookEditor extends EditorPane {
 	) {
 		// Call the base class's constructor.
 		super(
-			PositronNotebookEditorInput.EditorID,
+			PositronNotebookEditor.ID,
 			_group,
 			telemetryService,
 			themeService,
@@ -219,7 +221,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 	// Getter for notebook instance to avoid having to cast the input every time.
 	get notebookInstance() {
-		return (this.input as PositronNotebookEditorInput)?.notebookInstance;
+		return this.input && (this.input as PositronNotebookEditorInput)?.notebookInstance;
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -345,6 +347,14 @@ export class PositronNotebookEditor extends EditorPane {
 		super.clearInput();
 	}
 
+	// TODO: Called when a cell URI is opened but its notebook editor pane is already open i.e. the cell editorinput matches the existing notebook one
+	//       Should then focus/reveal the cell
+	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		super.setOptions(options);
+		if (options) {
+			this.notebookInstance?.setOptions(options);
+		}
+	}
 
 	getInput(): PositronNotebookEditorInput {
 		if (!this._input) {

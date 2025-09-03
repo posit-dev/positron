@@ -349,7 +349,13 @@ export class NotebookProviderInfoStore extends Disposable {
 			// Then register the schema handler as exclusive for that notebook
 			disposables.add(this._editorResolverService.registerEditor(
 				`${Schemas.vscodeNotebookCell}:/**/${globPattern}`,
-				{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+// --- Start Positron ---
+				// Use the original contributed priority instead of 'exclusive' to allow
+				// the Positron notebook editor to be configured as the default by users.
+				// See: https://github.com/posit-dev/positron/issues/9253.
+				// { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+notebookEditorInfo,
+				// --- End Positron ---
 				notebookEditorOptions,
 				notebookCellFactoryObject
 			));

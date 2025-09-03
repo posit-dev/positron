@@ -41,6 +41,8 @@ import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
  * PositronNotebookContribution class.
  */
 class PositronNotebookContribution extends Disposable {
+	static readonly ID = 'workbench.contrib.positronNotebookContribution';
+
 	constructor(
 		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -56,70 +58,74 @@ class PositronNotebookContribution extends Disposable {
 	}
 
 	private registerEditor(): void {
+		const notebookEditorInfo: RegisteredEditorInfo = {
+			id: PositronNotebookEditor.ID,
+			label: localize('positronNotebook', "Positron Notebook"),
+			detail: localize('positronNotebook.detail', "Provided by Positron"),
+			priority: RegisteredEditorPriority.option
+		};
+
 		// Register for .ipynb files
 		this._register(this.editorResolverService.registerEditor(
 			'*.ipynb',
-			{
-				id: PositronNotebookEditorInput.EditorID,
-				label: localize('positronNotebook', "Positron Notebook"),
-				detail: localize('positronNotebook.detail', "Provided by Positron"),
-				priority: RegisteredEditorPriority.option
-			},
+			notebookEditorInfo,
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Support both file:// and untitled:// schemes
+					// file:// and untitled:// are used when opening a notebook file.
 					return resource.scheme === Schemas.file || resource.scheme === Schemas.untitled;
 				}
 			},
 			{
 				createEditorInput: async ({ resource, options }) => {
-					// Determine notebook type from file content or metadata
-					const viewType = await this.detectNotebookViewType(resource);
-
-					// Type guard for backup working copy options
-					interface BackupWorkingCopyOptions {
-						_backupId?: string;
-						_workingCopy?: IWorkingCopyIdentifier;
-					}
-					function hasBackupWorkingCopyOptions(obj: unknown): obj is BackupWorkingCopyOptions {
-						return typeof obj === 'object' && obj !== null &&
-							('_backupId' in obj || '_workingCopy' in obj);
-					}
-
-					// Preserve backup options if they exist
-					const positronOptions: PositronNotebookEditorInputOptions = {
-						startDirty: false,
-						_backupId: hasBackupWorkingCopyOptions(options) ? options._backupId : undefined,
-						_workingCopy: hasBackupWorkingCopyOptions(options) ? options._workingCopy : undefined
-					};
-
-					const editorInput = PositronNotebookEditorInput.getOrCreate(
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
 						resource,
 						undefined,
-						viewType,
-						positronOptions
 					);
-
-					return { editor: editorInput, options };
+					return { editor: notebookEditorInput, options };
 				}
-			}
+			},
 		));
-	}
 
-	private async detectNotebookViewType(resource: URI): Promise<string> {
-		// Check if there's already an open notebook model for this URI
-		const existingModel = this.notebookService.getNotebookTextModel(resource);
-		if (existingModel) {
-			return existingModel.viewType;
+		// Register for cells in .ipynb files
+		this._register(this.editorResolverService.registerEditor(
+			`${Schemas.vscodeNotebookCell}:/**/*.ipynb`,
+			notebookEditorInfo,
+			{
+				singlePerResource: true,
+				canSupportResource: (resource: URI) => {
+					// vscode-notebook-cell:// is used when opening a notebook cell directly e.g. via go to definition.
+					return resource.scheme === Schemas.vscodeNotebookCell;
+				}
+			},
+			{
+				createEditorInput: async (editorInput) => {
+					// If the URI refers to a notebook cell, pass the base text editor
+					// input through to the cell. This is used to reveal a cell and
+					// update its editor selection.
+					const parsed = CellUri.parse(editorInput.resource);
+					if (!parsed) {
+						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
 		}
 
-		// Use NotebookService to detect the correct viewType
-		const notebookProviders = this.notebookService.getContributedNotebookTypes(resource);
-
-		// Default to jupyter-notebook if detection fails
-		return notebookProviders[0]?.id || 'jupyter-notebook';
+					// Determine notebook type from file content or metadata
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						parsed.notebook,
+						undefined,
+					);
+					// Create notebook editor options from base text editor options
+					const notebookEditorOptions: INotebookEditorOptions = {
+						...editorInput.options,
+						cellOptions: editorInput,
+						// Override text editor view state - it's not valid for notebook editors
+						viewState: undefined,
+					};
+					return { editor: notebookEditorInput, options: notebookEditorOptions };
+				}
+			},
+		));
 	}
 }
 
@@ -182,12 +188,10 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
-		const viewType = this.getViewType(workingCopy)!;
 		return PositronNotebookEditorInput.getOrCreate(
 			this.instantiationService,
 			workingCopy.resource,
 			undefined,
-			viewType,
 			{
 				// Mark as dirty since we're restoring from a backup
 				startDirty: true,
@@ -209,7 +213,7 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(
 		PositronNotebookEditor,
-		PositronNotebookEditorInput.EditorID,
+		PositronNotebookEditor.ID,
 		localize('positronNotebookEditor', "Positron Notebook Editor")
 	),
 	[
@@ -218,15 +222,14 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 );
 
 // Register workbench contributions.
-const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
-workbenchContributionsRegistry.registerWorkbenchContribution(PositronNotebookContribution, LifecyclePhase.Restored);
+registerWorkbenchContribution2(PositronNotebookContribution.ID, PositronNotebookContribution, WorkbenchPhase.AfterRestored);
 
 // Register the working copy handler for backup restoration
 registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 
 
 
-type SerializedPositronNotebookEditorData = { resource: URI; viewType: string; options?: PositronNotebookEditorInputOptions };
+type SerializedPositronNotebookEditorData = { resource: URI; options?: PositronNotebookEditorInputOptions };
 class PositronNotebookEditorSerializer implements IEditorSerializer {
 	canSerialize(): boolean {
 		return true;
@@ -235,7 +238,6 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 		assertType(input instanceof PositronNotebookEditorInput);
 		const data: SerializedPositronNotebookEditorData = {
 			resource: input.resource,
-			viewType: input.viewType,
 			options: input.options
 		};
 		return JSON.stringify(data);
@@ -245,12 +247,12 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 		if (!data) {
 			return undefined;
 		}
-		const { resource, viewType, options } = data;
-		if (!data || !URI.isUri(resource) || typeof viewType !== 'string') {
+		const { resource, options } = data;
+		if (!data || !URI.isUri(resource)) {
 			return undefined;
 		}
 
-		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, viewType, options);
+		const input = PositronNotebookEditorInput.getOrCreate(instantiationService, resource, undefined, options);
 		return input;
 	}
 }
