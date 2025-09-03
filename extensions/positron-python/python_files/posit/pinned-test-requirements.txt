@@ -1,12 +1,12 @@
 # Pinned versions of packages from test-requirements.txt for testing PRs (note we use unpinned during nightly testing).
 # During monthly maintenance, this command may be helpful to audit the pinned versions:
 #
-cd extensions/positron-python/python_files/posit
-PYTHON_VERSION=3.9
-uv venv -p $PYTHON_VERSION --seed \
-    && source .venv/bin/activate \
-    && uv pip install -r test-requirements.txt \
-    && pip freeze -r test-requirements.txt | sed '/## The following requirements/,$ d'
+# cd extensions/positron-python/python_files/posit
+# PYTHON_VERSION=3.9
+# uv venv -p $PYTHON_VERSION --seed \
+#     && source .venv/bin/activate \
+#     && uv pip install -r test-requirements.txt \
+#     && pip freeze -r test-requirements.txt | sed '/## The following requirements/,$ d'
 
 # Then iterate through supported PYTHON_VERSIONS to make sure we covered the latest versions.
 
