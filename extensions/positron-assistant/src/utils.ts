@@ -488,6 +488,12 @@ function stringifyPromptNodeJSON(node: JSONTree.PromptNodeJSON, strs: string[]):
 		} else if (opaqueNode.value) {
 			strs.push(JSON.stringify(opaqueNode.value));
 		}
+	} else {
+		// Should not happen since all node types are handled, but as a fallback
+		// just stringify the whole node and shove it in the array
+		const content = JSON.stringify(node);
+		log.warn(`Unexpected node in Prompt TSX; using raw content: ${content}`);
+		strs.push(content);
 	}
 }
 
