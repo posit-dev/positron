@@ -5,7 +5,7 @@
 
 import { ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
-import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
+import { CellKind, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';

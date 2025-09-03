@@ -6,7 +6,7 @@
 import { CommandsRegistry, ICommandMetadata } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';

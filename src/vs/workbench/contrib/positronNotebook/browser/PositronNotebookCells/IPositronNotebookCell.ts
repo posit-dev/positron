@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer } from '../../../../base/common/buffer.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../base/common/observable.js';
-import { URI } from '../../../../base/common/uri.js';
-import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { CellRevealType, INotebookEditorOptions } from '../../../contrib/notebook/browser/notebookBrowser.js';
-import { NotebookPreloadOutputResults } from '../../positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { CellSelectionType } from './selectionMachine.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { ISettableObservable } from '../../../../../base/common/observable.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -121,7 +121,7 @@ export interface IPositronNotebookCell extends Disposable {
 
 	reveal(type?: CellRevealType): void;
 
-	setOptions(options: INotebookEditorOptions): Promise<void>;
+	setOptions(options: INotebookEditorOptions | undefined): Promise<void>;
 
 	/**
 	 * Deselect this cell

@@ -116,7 +116,6 @@ editorResolverService.registerEditor(
     },
     {
         createEditorInput: async ({ resource, options }) => {
-            const viewType = await this.detectNotebookViewType(resource);
             const editorInput = PositronNotebookEditorInput.getOrCreate(...);
             return { editor: editorInput, options };
         }
@@ -203,7 +202,6 @@ static getOrCreate(
     instantiationService: IInstantiationService,
     resource: URI,
     preferredResource: URI | undefined,
-    viewType: string,
     options: PositronNotebookEditorInputOptions = {}
 )
 ```

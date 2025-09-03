@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CellSelectionStatus } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellSelectionStatus } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
  * Hook to determine if the action bar should be visible based on cell state.

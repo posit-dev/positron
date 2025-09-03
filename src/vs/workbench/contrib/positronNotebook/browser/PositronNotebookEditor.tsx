@@ -344,11 +344,14 @@ export class PositronNotebookEditor extends EditorPane {
 		super.clearInput();
 	}
 
-	// TODO: Called when a cell URI is opened but its notebook editor pane is already open i.e. the cell editorinput matches the existing notebook one
-	//       Should then focus/reveal the cell
 	override async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		// Called when the editor is already open and receives new options.
+		// Should update the editor to reflect the given options,
+		// such as selecting or revealing a cell or range in a cell editor.
+
 		super.setOptions(options);
 
+		// Pass the options to the notebook instance
 		if (this.notebookInstance) {
 			this.notebookInstance.setOptions(options);
 		}

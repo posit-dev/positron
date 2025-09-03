@@ -10,7 +10,7 @@ import './NotebookCodeCell.css';
 import React from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';

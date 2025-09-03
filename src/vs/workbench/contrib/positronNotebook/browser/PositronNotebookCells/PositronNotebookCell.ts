@@ -9,7 +9,7 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
@@ -97,9 +97,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	reveal(type?: CellRevealType): void {
-		// TODO: Support type?
+		// TODO: We may want to support type, but couldn't find any issues without it
 		if (this._container && this._instance.cellsContainer) {
-			// TODO: Extract helper. is there one already?
+			// If the cell is less than 50% visible, scroll it to center
 			const rect = this._container.getBoundingClientRect();
 			const parentRect = this._instance.cellsContainer.getBoundingClientRect();
 			const visibleTop = Math.max(parentRect.top, rect.top);
@@ -112,23 +112,27 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 	}
 
-	async setOptions(options: INotebookEditorOptions): Promise<void> {
-		// Scroll the cell into view.
+	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		if (!options) {
+			return;
+		}
+
+		// Scroll the cell into view
 		this.reveal(options.cellRevealType);
 
-		// Select the cell in edit mode.
+		// Select the cell in edit mode
 		this.select(CellSelectionType.Edit);
 
-		const editorOptions = options.cellOptions?.options;
-		if (editorOptions) {
-			this.setEditorOptions(editorOptions);
-		}
+		// Apply any editor options
+		await this.setEditorOptions(options.cellOptions?.options);
 	}
 
-	async setEditorOptions(options: ITextEditorOptions): Promise<void> {
-		const editor = await this.showEditor(!options.preserveFocus);
-		if (editor) {
-			applyTextEditorOptions(options, editor, ScrollType.Immediate);
+	async setEditorOptions(options: ITextEditorOptions | undefined): Promise<void> {
+		if (options) {
+			const editor = await this.showEditor(!options.preserveFocus);
+			if (editor) {
+				applyTextEditorOptions(options, editor, ScrollType.Immediate);
+			}
 		}
 	}
 

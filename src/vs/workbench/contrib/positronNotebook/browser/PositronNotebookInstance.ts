@@ -21,7 +21,7 @@ import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.j
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
-import { IPositronNotebookCell } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
@@ -464,13 +464,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Public Methods
 
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
-		if (options?.cellOptions) {
-			for (const cell of this._cells) {
-				if (isEqual(cell.uri, options.cellOptions.resource)) {
-					await cell.setOptions(options);
-					return;
-				}
-			}
+		const cellUri = options?.cellOptions?.resource;
+		const cell = cellUri && this._cells.find(cell => isEqual(cell.uri, cellUri));
+		if (cell) {
+			await cell.setOptions(options);
 		}
 	}
 

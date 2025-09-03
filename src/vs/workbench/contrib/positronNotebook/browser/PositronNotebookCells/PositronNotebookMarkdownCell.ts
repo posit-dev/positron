@@ -9,7 +9,7 @@ import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCe
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { IPositronNotebookMarkdownCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
