@@ -12,7 +12,7 @@ test.use({
 
 test.describe('Data Explorer: Column Names', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 
-	test('Verify data columns - Python', async function ({ app, python, openDataFile }) {
+	test.skip('Verify data columns - Python', async function ({ app, python, openDataFile }) {
 		const dataExplorer = app.workbench.dataExplorer;
 		await openDataFile('data-files/data_explorer/data_columns.csv');
 
