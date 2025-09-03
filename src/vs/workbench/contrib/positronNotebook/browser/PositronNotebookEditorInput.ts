@@ -360,7 +360,8 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// If we dont already have a model hooked up. We need to do that.
 		if (!this._editorModelReference) {
 			// Look for the model reference using the resolver service.
-			const ref = await this._notebookModelResolverService.resolve(this.resource, this.viewType);
+			// TODO: Pass scratchpad capabilities
+			const ref = await this._notebookModelResolverService.resolve(this.resource, this.viewType, { viewType: this.editorId });
 
 			if (this._editorModelReference) {
 				// According to the existing notebook code it's possibel that the

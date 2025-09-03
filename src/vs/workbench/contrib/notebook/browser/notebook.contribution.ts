@@ -62,9 +62,6 @@ import { IEditorGroupsService } from '../../../services/editor/common/editorGrou
 import { NotebookRendererMessagingService } from './services/notebookRendererMessagingServiceImpl.js';
 import { INotebookRendererMessagingService } from '../common/notebookRendererMessagingService.js';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from './viewModel/notebookOutlineDataSourceFactory.js';
-// --- Start Positron ---
-import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
-// --- End Positron ---
 
 // Editor Controller
 import './controller/coreActions.js';
@@ -142,7 +139,8 @@ import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetada
 import { NotebookOutputEditor } from './outputEditor/notebookOutputEditor.js';
 import { NotebookOutputEditorInput } from './outputEditor/notebookOutputEditorInput.js';
 // --- Start Positron ---
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
 // --- End Positron ---
 
 /*--------------------------------------------------------------------------------------------- */
@@ -774,9 +772,6 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
-		// --- Start Positron ---
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -808,8 +803,8 @@ class NotebookEditorManager implements IWorkbenchContribution {
 				// --- Start Positron ---
 				// Make sure that we dont try and open the same editor twice if we're using positron
 				// notebooks.
-				const positronInstances = this._positronNotebookService.listInstances(model.resource);
-				if (positronInstances.some(instance => instance.connectedToEditor)) {
+				// TODO: Do we need to actually open the positron one but just with the right override?
+				if (this._editorService.isOpened({ resource: model.resource, typeId: PositronNotebookEditorInput.ID, editorId: POSITRON_NOTEBOOK_EDITOR_ID })) {
 					continue;
 				}
 				// --- End Positron ---
@@ -834,9 +829,6 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		// --- Start Positron ---
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		// --- End Positron ---
 	) {
 		super();
 
@@ -844,14 +836,6 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
-		// --- Start Positron ---
-		// If this is a .ipynb file and Positron notebooks are enabled,
-		// let the Positron handler take care of it
-		if (workingCopy.resource.path.endsWith('.ipynb') &&
-			checkPositronNotebookEnabled(this._configurationService)) {
-			return false;
-		}
-		// --- End Positron ---
 		const viewType = this.handlesSync(workingCopy);
 		if (!viewType) {
 			return false;
