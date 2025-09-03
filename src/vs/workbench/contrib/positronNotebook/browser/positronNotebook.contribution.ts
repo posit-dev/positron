@@ -11,7 +11,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
-import { Extensions as WorkbenchExtensions, IWorkbenchContributionsRegistry, WorkbenchPhase, IWorkbenchContribution, registerWorkbenchContribution2 } from '../../../common/contributions.js';
+import { WorkbenchPhase, IWorkbenchContribution, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 
 import { parse } from '../../../../base/common/marshalling.js';
@@ -19,8 +19,7 @@ import { assertType } from '../../../../base/common/types.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
-import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
+import { IEditorResolverService, RegisteredEditorInfo, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
 
@@ -31,10 +30,11 @@ import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../s
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { isEqual } from '../../../../base/common/resources.js';
-import { NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
+import { CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
 import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
+import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 
 
 /**
@@ -46,7 +46,6 @@ class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@INotebookService private readonly notebookService: INotebookService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		super();
@@ -72,7 +71,7 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// file:// and untitled:// are used when opening a notebook file.
+					// Support both file:// and untitled:// schemes
 					return resource.scheme === Schemas.file || resource.scheme === Schemas.untitled;
 				}
 			},
@@ -95,21 +94,15 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// vscode-notebook-cell:// is used when opening a notebook cell directly e.g. via go to definition.
 					return resource.scheme === Schemas.vscodeNotebookCell;
 				}
 			},
 			{
 				createEditorInput: async (editorInput) => {
-					// If the URI refers to a notebook cell, pass the base text editor
-					// input through to the cell. This is used to reveal a cell and
-					// update its editor selection.
 					const parsed = CellUri.parse(editorInput.resource);
 					if (!parsed) {
 						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
-		}
-
-					// Determine notebook type from file content or metadata
+					}
 					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
 						parsed.notebook,
