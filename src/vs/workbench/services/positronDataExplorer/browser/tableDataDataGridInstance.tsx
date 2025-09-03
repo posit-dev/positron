@@ -248,15 +248,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
 				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
-
-			// // Update the cache.
-			// await this._tableDataCache.update({
-			// 	invalidateCache: InvalidateCacheFlags.Data,
-			// 	firstColumnIndex: columnDescriptor.columnIndex,
-			// 	screenColumns: this.screenColumns,
-			// 	firstRowIndex: rowDescriptor.rowIndex,
-			// 	screenRows: this.screenRows
-			// });
 		}
 	}
 
@@ -275,14 +266,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, 3),
 				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3)
 			});
-
-			// await this._tableDataCache.update({
-			// 	invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
-			// 	firstColumnIndex: columnDescriptor.columnIndex,
-			// 	screenColumns: this.screenColumns,
-			// 	firstRowIndex: rowDescriptor.rowIndex,
-			// 	screenRows: this.screenRows
-			// });
 		}
 	}
 
@@ -792,15 +775,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, 3),
 				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3)
 			});
-
-			// // Update the cache.
-			// await this._tableDataCache.update({
-			// 	invalidateCache: InvalidateCacheFlags.Data,
-			// 	firstColumnIndex: columnDescriptor.columnIndex,
-			// 	screenColumns: this.screenColumns,
-			// 	firstRowIndex: rowDescriptor.rowIndex,
-			// 	screenRows: this.screenRows
-			// });
 		}
 	}
 
