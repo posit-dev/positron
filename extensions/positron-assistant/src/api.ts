@@ -218,7 +218,7 @@ export function getEnabledTools(
 			// Only include the getTableSummary tool when there are variables available
 			case PositronAssistantToolName.GetTableSummary:
 				if (!hasVariables) {
-					continue
+					continue;
 				}
 				break;
 			// Only include the inspectVariables tool if there are variables defined.
