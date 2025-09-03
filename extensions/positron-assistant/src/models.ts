@@ -7,16 +7,16 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig } from './config';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createAzure } from '@ai-sdk/azure';
-import { createVertex } from '@ai-sdk/google-vertex';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createMistral } from '@ai-sdk/mistral';
-import { createOllama } from 'ollama-ai-provider';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
+import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
+import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
+import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
+import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
+import { createMistral, MistralProvider } from '@ai-sdk/mistral';
+import { createOllama, OllamaProvider } from 'ollama-ai-provider';
+import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
 import { markBedrockCacheBreakpoint, processMessages, toAIMessage } from './utils';
-import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
@@ -215,8 +215,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	public readonly name;
 	public readonly provider;
 	public readonly id;
-	public readonly maxOutputTokens: number;
-	protected abstract model: ai.LanguageModelV1;
+	protected abstract aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
+	protected aiOptions: Record<string, any> = {};
 
 	capabilities = {
 		vision: true,
@@ -231,30 +231,38 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		this.id = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
-		const maxOutputTokens = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {} as Record<string, number>);
-		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
-
-		// Override maxOutputTokens if specified in the configuration
-		for (const [key, value] of Object.entries(maxOutputTokens)) {
-			if (_config.model.indexOf(key) !== -1 && value) {
-				let maxOutputTokens = value;
-				if (typeof maxOutputTokens !== 'number') {
-					log.warn(`Invalid maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}); ignoring`);
-					continue;
-				}
-				if (maxOutputTokens < 512) {
-					log.warn(`Specified maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}) is too low; using 512 instead`);
-					maxOutputTokens = 512;
-				}
-				log.debug(`Setting maxOutputTokens for ${key} (${_config.model}) to ${maxOutputTokens}`);
-				this.maxOutputTokens = maxOutputTokens;
-				break;
-			}
-		}
 	}
 
 	get providerName(): string {
 		return this.providerName;
+	}
+
+	getMaxOutputTokens(id: string): number {
+		let maxOutputTokens = this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+
+		// Override using fixed model list if available
+		const fixedModels = availableModels.get(this._config.provider);
+		maxOutputTokens = fixedModels?.find(m => m.identifier === id)?.maxOutputTokens ?? maxOutputTokens;
+
+		// Override maxOutputTokens if specified in the configuration
+		const maxOutputTokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
+		for (const [key, value] of Object.entries(maxOutputTokensConfig)) {
+			if (id.indexOf(key) !== -1 && value) {
+				if (typeof value !== 'number') {
+					log.warn(`Invalid maxOutputTokens '${value}' for ${key} (${id}); ignoring`);
+					continue;
+				}
+				if (value < 512) {
+					log.warn(`Specified maxOutputTokens '${value}' for ${key} (${id}) is too low; using 512 instead`);
+					maxOutputTokens = 512;
+				}
+				maxOutputTokens = value;
+				break;
+			}
+		}
+
+		log.debug(`Setting maxOutputTokens for (${id}) to ${maxOutputTokens}`);
+		return maxOutputTokens;
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
@@ -265,7 +273,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		try {
 			// send a test message to the model
 			const result = await ai.generateText({
-				model: this.model,
+				model: this.aiProvider(this._config.model, this.aiOptions),
 				prompt: 'I\'m checking to see if you\'re there. Response only with the word "hello".',
 			});
 
@@ -287,14 +295,15 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const models = availableModels.get(providerId);
 
 		if (!models || models.length === 0) {
+			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
 			return [
 				{
-					id: this.model.modelId,
+					id: aiModel.modelId,
 					name: this.name,
-					family: this.model.provider,
-					version: this.model.specificationVersion,
+					family: aiModel.provider,
+					version: aiModel.specificationVersion,
 					maxInputTokens: 0,
-					maxOutputTokens: this.maxOutputTokens,
+					maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
 					capabilities: this.capabilities,
 					isDefault: true,
 					isUserSelectable: true,
@@ -304,18 +313,21 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 		// Return the available models for this provider
 		// The first model is the default model
-		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
-			id: model.identifier,
-			name: model.name,
-			family: this.model.provider,
-			version: this.model.specificationVersion,
-			maxInputTokens: 0,
-			maxOutputTokens: model.maxOutputTokens ?? this.maxOutputTokens,
-			capabilities: this.capabilities,
-			// is default if it's the first model out of models
-			isDefault: model === models[0],
-			isUserSelectable: true,
-		}));
+		const languageModels: vscode.LanguageModelChatInformation[] = models.map(m => {
+			const aiModel = this.aiProvider(m.identifier);
+			return {
+				id: m.identifier,
+				name: m.name,
+				family: aiModel.provider,
+				version: aiModel.specificationVersion,
+				maxInputTokens: 0,
+				maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
+				capabilities: this.capabilities,
+				// is default if it's the first model out of models
+				isDefault: m === models[0],
+				isUserSelectable: true,
+			};
+		});
 
 		return languageModels;
 	}
@@ -327,6 +339,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
+		const aiModel = this.aiProvider(model.id);
 		const modelOptions = options.modelOptions ?? {};
 
 		const controller = new AbortController();
@@ -340,7 +353,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
 		const toolResultExperimentalContent = this.provider === 'anthropic' ||
-			this.model.modelId.startsWith('us.anthropic');
+			aiModel.modelId.startsWith('us.anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
@@ -348,7 +361,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
 		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
-			!this.model.modelId.startsWith('us.anthropic.claude-3-5');
+			!aiModel.modelId.startsWith('us.anthropic.claude-3-5');
 
 		const aiMessages: ai.CoreMessage[] = [];
 
@@ -391,7 +404,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = (options.modelOptions as any)?.requestId;
 
-		log.info(`[vercel] Start request ${requestId} to ${this._config.name}: ${aiMessages.length} messages`);
+		log.info(`[vercel] Start request ${requestId} to ${this._config.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
 		log.debug(`[${this._config.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
 			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
@@ -401,13 +414,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		}
 		log.trace(`messages: ${JSON.stringify(aiMessages, null, 2)}`);
 		const result = ai.streamText({
-			model: this.model,
+			model: aiModel,
 			system: systemMessage,
 			messages: aiMessages,
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: modelOptions.maxTokens ?? this.maxOutputTokens,
+			maxTokens: this.getMaxOutputTokens(aiModel.modelId),
 		});
 
 		let accumulatedTextDeltas: string[] = [];
@@ -473,7 +486,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		result.warnings.then((warnings) => {
 			if (warnings) {
 				for (const warning of warnings) {
-					log.warn(`[${this.model}] (${this.id}) warn: ${warning}`);
+					log.warn(`[${aiModel.modelId}] (${this.id}) warn: ${warning}`);
 				}
 			}
 		});
@@ -517,7 +530,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 }
 
 class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: AnthropicProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -536,7 +549,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
+		this.aiProvider = createAnthropic({ apiKey: this._config.apiKey });
 	}
 
 	get providerName(): string {
@@ -545,7 +558,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 }
 
 class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: OpenAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -565,10 +578,10 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createOpenAI({
+		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -577,7 +590,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: MistralProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -597,10 +610,10 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createMistral({
+		this.aiProvider = createMistral({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -609,7 +622,7 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 }
 
 class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: OpenRouterProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -628,10 +641,10 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createOpenRouter({
+		this.aiProvider = createOpenRouter({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -640,7 +653,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 }
 
 class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model;
+	protected aiProvider: OllamaProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -660,9 +673,10 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model, {
+		this.aiOptions = {
 			numCtx: this._config.numCtx,
-		});
+		};
+		this.aiProvider = createOllama({ baseURL: this._config.baseUrl });
 	}
 
 	get providerName(): string {
@@ -671,7 +685,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: AzureOpenAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -690,10 +704,10 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createAzure({
+		this.aiProvider = createAzure({
 			apiKey: this._config.apiKey,
 			resourceName: this._config.resourceName
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -702,7 +716,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 }
 
 class VertexLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: GoogleVertexProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -722,10 +736,10 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createVertex({
+		this.aiProvider = createVertex({
 			project: this._config.project,
 			location: this._config.location,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {
@@ -734,7 +748,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: AmazonBedrockProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -753,12 +767,12 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
 
-		this.model = createAmazonBedrock({
+		this.aiProvider = createAmazonBedrock({
 			// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
 			// sets the AWS region where the models are available
 			region: process.env.AWS_REGION ?? 'us-east-1',
 			credentialProvider: fromNodeProviderChain(),
-		})(this._config.model) as ai.LanguageModelV1;
+		});
 	}
 
 	get providerName(): string {
@@ -836,7 +850,7 @@ export function newLanguageModelChatProvider(config: ModelConfig, context: vscod
 }
 
 class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
-	protected model: ai.LanguageModelV1;
+	protected aiProvider: GoogleGenerativeAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -857,10 +871,10 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		super(_config, _context);
-		this.model = createGoogleGenerativeAI({
+		this.aiProvider = createGoogleGenerativeAI({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
-		})(this._config.model);
+		});
 	}
 
 	get providerName(): string {

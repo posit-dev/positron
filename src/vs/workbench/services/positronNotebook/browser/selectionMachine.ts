@@ -105,19 +105,42 @@ export class SelectionStateMachine extends Disposable {
 	 * @param editMode If true, the cell will be selected in edit mode.
 	 */
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
-		if (selectType === CellSelectionType.Normal || this._state.type === SelectionState.NoSelection && selectType === CellSelectionType.Add) {
+		// For Normal selection, check if cell is already the only selected cell
+		if (selectType === CellSelectionType.Normal) {
+			if (this._state.type === SelectionState.SingleSelection && this._state.selected[0] === cell) {
+				// Cell is already selected in single selection mode, nothing to do
+				return;
+			}
 			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
 			return;
 		}
 
+		// For Edit selection, check if cell is already being edited
 		if (selectType === CellSelectionType.Edit) {
+			if (this._state.type === SelectionState.EditingSelection && this._state.selectedCell === cell) {
+				// Cell is already being edited, nothing to do
+				return;
+			}
 			this._setState({ type: SelectionState.EditingSelection, selectedCell: cell });
 			return;
 		}
 
-		if (this._state.type === SelectionState.SingleSelection || this._state.type === SelectionState.MultiSelection) {
-			this._setState({ type: SelectionState.MultiSelection, selected: [...this._state.selected, cell] });
-			return;
+		// For Add selection
+		if (selectType === CellSelectionType.Add) {
+			if (this._state.type === SelectionState.NoSelection) {
+				this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
+				return;
+			}
+
+			if (this._state.type === SelectionState.SingleSelection || this._state.type === SelectionState.MultiSelection) {
+				// Check if cell is already in the selection
+				if (this._state.selected.includes(cell)) {
+					// Cell is already selected, nothing to do
+					return;
+				}
+				this._setState({ type: SelectionState.MultiSelection, selected: [...this._state.selected, cell] });
+				return;
+			}
 		}
 
 		// Shouldn't get here.
@@ -228,6 +251,41 @@ export class SelectionStateMachine extends Disposable {
 			return null;
 		}
 		return this._state.selectedCell;
+	}
+
+	/**
+	 * Get all selected cells based on the current selection state.
+	 * @returns An array of selected cells, empty if no selection.
+	 */
+	getSelectedCells(): IPositronNotebookCell[] {
+		switch (this._state.type) {
+			case SelectionState.SingleSelection:
+			case SelectionState.MultiSelection:
+				return this._state.selected;
+			case SelectionState.EditingSelection:
+				return [this._state.selectedCell];
+			case SelectionState.NoSelection:
+			default:
+				return [];
+		}
+	}
+
+	/**
+	 * Check if a specific cell is currently selected.
+	 * @param cell The cell to check
+	 * @returns True if the cell is selected, false otherwise
+	 */
+	isCellSelected(cell: IPositronNotebookCell): boolean {
+		switch (this._state.type) {
+			case SelectionState.SingleSelection:
+			case SelectionState.MultiSelection:
+				return this._state.selected.includes(cell);
+			case SelectionState.EditingSelection:
+				return this._state.selectedCell === cell;
+			case SelectionState.NoSelection:
+			default:
+				return false;
+		}
 	}
 
 	//#endregion Public Methods

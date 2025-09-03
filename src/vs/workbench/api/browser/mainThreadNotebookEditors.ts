@@ -19,6 +19,7 @@ import { ExtHostContext, ExtHostNotebookEditorsShape, INotebookDocumentShowOptio
 // --- Start Positron ---
 import { IPositronNotebookService } from '../../services/positronNotebook/browser/positronNotebookService.js';
 import { PositronNotebookEditorInput } from '../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
+import { isEqual } from '../../../base/common/resources.js';
 // --- End Positron ---
 
 class MainThreadNotebook {
@@ -107,16 +108,17 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 		// --- Start Positron ---
 		// Check if a Positron notebook is already open for this resource
 		const uri = URI.revive(resource);
-		const positronInstance = this._positronNotebookService.getInstance(uri);
-		if (positronInstance && positronInstance.connectedToEditor) {
-			// Find the editor pane containing this Positron notebook
-			for (const editorPane of this._editorService.visibleEditorPanes) {
-				const input = editorPane.input;
-				if (input instanceof PositronNotebookEditorInput && input.resource.toString() === uri.toString()) {
-					// Positron notebook is already open, just return a synthetic ID
-					// We can't return the actual notebook editor ID because Positron notebooks
-					// don't implement INotebookEditor interface
-					return `positron-notebook-${uri.toString()}`;
+		for (const positronInstance of this._positronNotebookService.listInstances(uri)) {
+			if (positronInstance.connectedToEditor) {
+				// Find the editor pane containing this Positron notebook
+				for (const editorPane of this._editorService.visibleEditorPanes) {
+					const input = editorPane.input;
+					if (input instanceof PositronNotebookEditorInput && isEqual(input.resource, uri)) {
+						// Positron notebook is already open, just return a synthetic ID
+						// We can't return the actual notebook editor ID because Positron notebooks
+						// don't implement INotebookEditor interface
+						return `positron-notebook-${uri.toString()}`;
+					}
 				}
 			}
 		}

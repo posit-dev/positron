@@ -203,6 +203,8 @@ class TableSelectionKind(str, enum.Enum):
 
     RowIndices = "row_indices"
 
+    CellIndices = "cell_indices"
+
 
 @enum.unique
 class ExportFormat(str, enum.Enum):
@@ -355,6 +357,11 @@ class ColumnSchema(BaseModel):
 
     column_name: StrictStr = Field(
         description="Name of column as UTF-8 string",
+    )
+
+    column_label: Optional[StrictStr] = Field(
+        default=None,
+        description="Display label for column (e.g., from R's label attribute)",
     )
 
     column_index: StrictInt = Field(
@@ -1160,6 +1167,21 @@ class DataSelectionCellRange(BaseModel):
     )
 
 
+class DataSelectionCellIndices(BaseModel):
+    """
+    A rectangular cell selection defined by arrays of row and column
+    indices
+    """
+
+    row_indices: List[StrictInt] = Field(
+        description="The selected row indices",
+    )
+
+    column_indices: List[StrictInt] = Field(
+        description="The selected column indices",
+    )
+
+
 class DataSelectionRange(BaseModel):
     """
     A contiguous selection bounded by inclusive start and end indices
@@ -1226,6 +1248,7 @@ ColumnProfileParams = Union[
 Selection = Union[
     DataSelectionSingleCell,
     DataSelectionCellRange,
+    DataSelectionCellIndices,
     DataSelectionRange,
     DataSelectionIndices,
 ]
@@ -1829,6 +1852,8 @@ TableSelection.update_forward_refs()
 DataSelectionSingleCell.update_forward_refs()
 
 DataSelectionCellRange.update_forward_refs()
+
+DataSelectionCellIndices.update_forward_refs()
 
 DataSelectionRange.update_forward_refs()
 

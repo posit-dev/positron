@@ -19,6 +19,7 @@ import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.j
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
@@ -128,6 +129,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronNewFolderService private readonly _newFolderService: IPositronNewFolderService,
+		@IProgressService private readonly _progressService: IProgressService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
@@ -662,11 +664,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Set up event to notify when runtimes are added.
+		// Remember the old set of runtimes so we can report any new ones
 		const oldRuntimes = this._languageRuntimeService.registeredRuntimes;
-		this._register(
-			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
-				(phase) => {
+		this._logService.debug('[Runtime startup] Refreshing runtime discovery.');
+		this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
+			m.set(extHostId, false);
+		});
+
+		// Start progress for the discovery process
+		await this._progressService.withProgress({
+			location: ProgressLocation.Notification,
+			title: nls.localize('positron.runtimeStartupService.discoveringRuntimes', 'Discovering interpreters...'),
+			cancellable: false
+		}, async (progress) => {
+			// Start the discovery process
+			this.discoverAllRuntimes();
+
+			// Wait for discovery to complete
+			await new Promise<void>((resolve) => {
+				const disposable = this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 					if (phase === RuntimeStartupPhase.Complete) {
 						const newRuntimes = this._languageRuntimeService.registeredRuntimes;
 						const addedRuntimes = newRuntimes.filter(newRuntime => {
@@ -674,27 +690,23 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 								return oldRuntime.runtimeId === newRuntime.runtimeId;
 							});
 						});
-
-						// If any runtimes were added, show a notification.
+						// Use addedRuntimes here and resolve the promise
 						if (addedRuntimes.length > 0) {
 							this._notificationService.info(nls.localize('positron.runtimeStartupService.runtimesAddedMessage',
 								"Found {0} new interpreter{1}: {2}.",
 								addedRuntimes.length,
 								addedRuntimes.length > 1 ? 's' : '',
 								addedRuntimes.map(runtime => { return runtime.runtimeName; }).join(', ')));
+						} else {
+							this._notificationService.info(nls.localize('positron.runtimeStartupService.noNewRuntimesMessage',
+								"No new interpreters found."));
 						}
+						resolve();
+						disposable.dispose();
 					}
-				}
-			)
-		);
-
-		this._logService.debug('[Runtime startup] Refreshing runtime discovery.');
-		this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
-			m.set(extHostId, false);
+				});
+			});
 		});
-
-		this.discoverAllRuntimes();
-
 	}
 
 	/**

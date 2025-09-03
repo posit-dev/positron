@@ -1036,12 +1036,11 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	 * Basic metadata about an active language runtime session, including
+	 * immutable metadata about the session itself and metadata about the
+	 * runtime with which it is associated.
 	 */
-	export interface LanguageRuntimeSession extends vscode.Disposable {
-
+	export interface ActiveRuntimeSessionMetadata {
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
 
@@ -1050,12 +1049,61 @@ declare module 'positron' {
 		 * session is associated.
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
+	}
+
+	/**
+	 * Base interface for a language runtime session.
+	 *
+	 * This is the version of a language runtime session that is returned by
+	 * Positron's API methods; it provides basic access to the session for use
+	 * by extensions other that the one that created the session.
+	 */
+	export interface BaseLanguageRuntimeSession extends ActiveRuntimeSessionMetadata {
+
+		/** The state of the runtime that changes during a user session */
+		getDynState(): Thenable<LanguageRuntimeDynState>;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
+
+		/**
+		 * Execute code in the runtime
+		 *
+		 * @param code The code to execute
+		 * @param id The ID of the code
+		 * @param mode The code execution mode
+		 * @param errorBehavior The code execution error behavior
+		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 */
+		execute(code: string,
+			id: string,
+			mode: RuntimeCodeExecutionMode,
+			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
+		 */
+		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
+	}
+
+	/**
+	 * LanguageRuntimeSession is the full interface implemented by extensions
+	 * that provide a set of common tools for interacting with a language
+	 * runtime, such as code execution, LSP implementation, and plotting.
+	 */
+	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
 
 		/** Information about the runtime that is only available after starting. */
 		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
-
-		/** The state of the runtime that changes during a user session */
-		dynState: LanguageRuntimeDynState;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
@@ -1080,30 +1128,6 @@ declare module 'positron' {
 		 * @returns The Debug Adapter Protocol response.
 		 */
 		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
-
-		/**
-		 * Execute code in the runtime
-		 *
-		 * @param code The code to execute
-		 * @param id The ID of the code
-		 * @param mode The code execution mode
-		 * @param errorBehavior The code execution error behavior
-		 * Note: The errorBehavior parameter is currently ignored by kernels
-		 */
-		execute(code: string,
-			id: string,
-			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
-
-		/**
-		 * Calls a method in the runtime and returns the result.
-		 *
-		 * Throws a RuntimeMethodError if the method call fails.
-		 *
-		 * @param method The name of the method to call
-		 * @param args Arguments to pass to the method
-		 */
-		callMethod?(method: string, ...args: any[]): Thenable<any>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -1172,13 +1196,6 @@ declare module 'positron' {
 		 * working directory.
 		 */
 		restart(workingDirectory?: string): Thenable<void>;
-
-		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the
-		 * runtime shutdown sequence has been successfully started (not
-		 * necessarily when it has completed).
-		 */
-		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
 		/**
 		 * Forcibly quits the runtime; returns a Thenable that resolves when the
@@ -1812,19 +1829,24 @@ declare module 'positron' {
 		/**
 		 * List all active sessions.
 		 */
-		export function getActiveSessions(): Thenable<LanguageRuntimeSession[]>;
+		export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
+
+		/**
+		 * Get a specific session by its ID.
+		 */
+		export function getSession(sessionId: string): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the active foreground session, if any.
 		 */
-		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+		export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the session corresponding to a notebook, if any.
 		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
-		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<LanguageRuntimeSession | undefined>;
+		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
@@ -1856,9 +1878,17 @@ declare module 'positron' {
 		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
-		 * Focus a running session
+		 * Focus a running session.
 		 */
 		export function focusSession(sessionId: string): void;
+
+		/**
+		 * Delete a running session.
+		 * If the session is busy, the user is asked whether it should be interrupted.
+		 * The promise resolves with `false` if the user declines to interrupt, or `true`
+		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 */
+		export function deleteSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Get the runtime variables for a session.
@@ -2033,7 +2063,6 @@ declare module 'positron' {
 			id: string;
 
 			providerName: string;
-			maxOutputTokens: number;
 
 			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
 			onDidChange?: vscode.Event<void>;

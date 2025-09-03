@@ -1,0 +1,109 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.cell-execution-info-icon {
+	position: absolute;
+	top: 6px;
+	left: -20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 10px;
+	height: 12px;
+	font-size: 7px;
+	border-inline: 1px solid color-mix(in srgb, var(--vscode-widget-border) 60%, transparent);
+	background-color: transparent;
+	padding: 1px 2px;
+	user-select: none;
+	transition: border-color 0.15s ease;
+	z-index: 10;
+	pointer-events: auto;
+}
+
+.cell-execution-info-icon span.execution-order-badge {
+	cursor: default;
+}
+.cell-execution-info-icon:hover {
+	border-color: color-mix(in srgb, var(--vscode-widget-border) 80%, transparent);
+}
+
+/* Status-specific styling */
+.cell-execution-info-icon-running {
+	color: var(--vscode-debugIcon-startForeground);
+	border: none;
+	background: transparent;
+	animation: none;
+}
+
+.cell-execution-info-icon-success {
+	border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 70%, transparent);
+}
+
+.cell-execution-info-icon-failed {
+	border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 70%, transparent);
+}
+
+.cell-execution-info-icon-failed .execution-order-badge {
+	color: var(--vscode-testing-iconFailed);
+}
+
+.cell-execution-info-icon-neutral {
+	border-color: var(--vscode-textLink-foreground);
+}
+
+.cell-execution-info-icon-pending {
+	color: color-mix(in srgb, var(--vscode-widget-border) 70%, transparent);
+	border: 1px dashed color-mix(in srgb, var(--vscode-widget-border) 50%, transparent);
+}
+
+.cell-execution-info-icon-queued {
+	border-color: color-mix(in srgb, var(--vscode-widget-border) 60%, transparent);
+}
+
+/* Execution order badge styling */
+.execution-order-badge {
+	font-weight: 500;
+	font-size: 10px;
+	line-height: 1;
+	color: inherit;
+	font-family: var(--monaco-monospace-font);
+}
+
+/* Icon styling */
+.execution-icon {
+	font-size: 9px;
+	line-height: 1;
+}
+
+/* Animation for running state */
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.codicon-modifier-spin {
+	animation: spin 1s linear infinite;
+}
+
+/* Dark theme adjustments */
+.vscode-dark .cell-execution-info-icon,
+.vscode-high-contrast .cell-execution-info-icon {
+	background-color: transparent;
+}
+
+.vscode-dark .cell-execution-info-icon:hover,
+.vscode-high-contrast .cell-execution-info-icon:hover {
+	border-color: color-mix(in srgb, var(--vscode-widget-border) 80%, transparent);
+}
+
+
+/* Ensure the icon doesn't interfere with cell selection */
+.cell-execution-info-icon {
+	pointer-events: auto;
+}

@@ -50,6 +50,7 @@ import { QueryTableSummaryResult, Variable } from '../../../services/languageRun
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { ActiveRuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -235,9 +236,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
 
-				let file = URI.parse(ed.file);
-				if (!file.scheme) {
-					// If the URI doesn't have a scheme, assume it's a file URI
+				let file;
+				if (ed.kind === 'uri') {
+					file = URI.parse(ed.file);
+				} else {
 					file = URI.file(ed.file);
 				}
 
@@ -461,6 +463,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus> {
 		return this._proxy.$isCodeFragmentComplete(this.handle, code);
+	}
+
+	callMethod(method: string, ...args: any[]): Thenable<any> {
+		return this._proxy.$callMethod(this.handle, method, args);
 	}
 
 	/** Create a new client inside the runtime */
@@ -1350,7 +1356,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	public override dispose(): void {
 		// Cancel any pending RPCs
 		for (const [id, pending] of this._pendingRpcs) {
-			pending.error(new Error('The language runtime exited before the RPC completed.'));
+			pending.error(new Error(`The language runtime exited before RPC completed for client '${this.getClientId()}'.`));
 			this.deletePendingRpc(id);
 		}
 
@@ -1488,16 +1494,16 @@ export class MainThreadLanguageRuntime
 		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
 	}
 
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
-		this.findSession(handle).handleRuntimeMessage(message.value, handled);
+	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
+		this.findSession(sessionId).handleRuntimeMessage(message.value, handled);
 	}
 
-	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
-		this.findSession(handle).emitState(clock, state);
+	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void {
+		this.findSession(sessionId).emitState(clock, state);
 	}
 
-	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void {
-		this.findSession(handle).emitExit(exit);
+	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void {
+		this.findSession(sessionId).emitExit(exit);
 	}
 
 	// Called by the extension host to register a language runtime
@@ -1510,24 +1516,49 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
-	$getActiveSessions(): Promise<IRuntimeSessionMetadata[]> {
+	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]> {
 		return Promise.resolve(
 			this._runtimeSessionService.getActiveSessions().map(
-				activeSession => activeSession.session.metadata));
+				activeSession => this.toActiveSessionMetadata(activeSession.session)!));
 	}
 
-	$getForegroundSession(): Promise<string | undefined> {
-		return Promise.resolve(this._runtimeSessionService.foregroundSession?.sessionId);
+	toActiveSessionMetadata(session?: ILanguageRuntimeSession): ActiveRuntimeSessionMetadata | undefined {
+		if (!session) {
+			return undefined;
+		}
+		return {
+			metadata: session.metadata,
+			runtimeMetadata: session.runtimeMetadata,
+		};
 	}
 
-	$getNotebookSession(notebookUri: URI): Promise<string | undefined> {
+	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined> {
+		const session = this._runtimeSessionService.foregroundSession;
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
+
+	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
+
+	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
 		// Get the session for the notebook URI
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		return Promise.resolve(this.toActiveSessionMetadata(session));
+	}
 
-		return Promise.resolve(session?.sessionId);
+	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState> {
+		const session = this.findSession(sessionId);
+		return Promise.resolve(session.dynState);
+	}
+
+	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any> {
+		const session = this.findSession(sessionId);
+		return session.callMethod(method, args);
 	}
 
 	// Called by the extension host to select a previously registered language runtime
@@ -1565,26 +1596,26 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to restart a running language runtime
-	$restartSession(handle: number): Promise<void> {
+	$restartSession(sessionId: string): Promise<void> {
 		return this._runtimeSessionService.restartSession(
-			this.findSession(handle).sessionId,
+			sessionId,
 			'Extension-requested runtime restart via Positron API');
 	}
 
 	// Called by the extension host to interrupt a running session
-	$interruptSession(handle: number): Promise<void> {
-		return this._runtimeSessionService.interruptSession(
-			this.findSession(handle).sessionId);
+	$interruptSession(sessionId: string): Promise<void> {
+		return this._runtimeSessionService.interruptSession(sessionId);
 	}
 
-	$focusSession(handle: number): void {
-		return this._runtimeSessionService.focusSession(
-			this.findSession(handle).sessionId
-		);
+	$focusSession(sessionId: string): void {
+		return this._runtimeSessionService.focusSession(sessionId);
 	}
 
-	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
-		const sessionId = this.findSession(handle).sessionId;
+	$deleteSession(sessionId: string): Promise<boolean> {
+		return this._runtimeSessionService.deleteSession(sessionId);
+	}
+
+	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
@@ -1613,8 +1644,7 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
-		const sessionId = this.findSession(handle).sessionId;
+	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
@@ -1673,6 +1703,22 @@ export class MainThreadLanguageRuntime
 
 		return this._positronConsoleService.executeCode(
 			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+	}
+
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${id}`));
+		}
+		return Promise.resolve(session.execute(code, id, mode, errorBehavior));
+	}
+
+	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void> {
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			return Promise.reject(new Error(`No such session: ${sessionId}`));
+		}
+		return Promise.resolve(session.shutdown(exitReason));
 	}
 
 	public dispose(): void {
@@ -1799,12 +1845,19 @@ export class MainThreadLanguageRuntime
 			this._openerService);
 	}
 
-	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {
-		const session = this._sessions.get(handle);
-		if (!session) {
-			throw new Error(`Unknown language runtime session handle: ${handle}`);
+	/**
+	 * Finds a language runtime session by its ID.
+	 *
+	 * @param sessionId The ID of the session to find.
+	 * @returns The found language runtime session.
+	 * @throws An error if the session ID is not known.
+	 */
+	private findSession(sessionId: string): ExtHostLanguageRuntimeSessionAdapter {
+		for (const session of this._sessions.values()) {
+			if (session.sessionId === sessionId) {
+				return session;
+			}
 		}
-
-		return session;
+		throw new Error(`Unknown language runtime session ID: ${sessionId}`);
 	}
 }

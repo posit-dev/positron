@@ -110,6 +110,12 @@ jobs:
         with:
           python-version: "3.10.10"
 
+      # Pinning UV due to https://github.com/rstudio/reticulate/issues/1811
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.7.22"
+
       - name: Install node dependencies
         env:
           npm_config_arch: x64
@@ -202,6 +208,15 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
+      - name: Run Extensions Test
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test-extension -- -l positron-r
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
       - name: Run Bootstrap Extensions Test
         id: bootstrap
         shell: bash
@@ -227,6 +242,7 @@ jobs:
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
@@ -290,3 +306,9 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
+      - name: Fail workflow if extension tests failed
+        if: |
+          steps.extensions.outputs.exit_code != '0'
+        run: |
+          echo "Extension tests failed."
+          exit 1

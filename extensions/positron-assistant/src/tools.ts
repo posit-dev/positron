@@ -315,21 +315,15 @@ export function registerAssistantTools(
 				]);
 			}
 
-			// temporarily only enable for Python sessions
-			let session: positron.LanguageRuntimeSession | undefined;
-			const sessions = await positron.runtime.getActiveSessions();
-			if (sessions && sessions.length > 0) {
-				session = sessions.find(
-					(session) => session.metadata.sessionId === options.input.sessionIdentifier,
-				);
-			}
+			const session = await positron.runtime.getSession(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);
 			}
 
-			if (session.runtimeMetadata.languageId !== 'python') {
+			// Enable only for R and Python sessions
+			if (session.runtimeMetadata.languageId !== 'python' && session.runtimeMetadata.languageId !== 'r') {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('[[]]')
 				]);

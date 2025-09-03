@@ -205,7 +205,7 @@ export class DataGrid {
 
 	constructor(private code: Code, private dataExplorer: DataExplorer) {
 		this.grid = this.code.driver.page.locator('.data-explorer .right-column');
-		this.statusBar = this.code.driver.page.locator('.data-explorer .status-bar');
+		this.statusBar = this.code.driver.page.locator(STATUS_BAR);
 	}
 
 	// --- Actions ---

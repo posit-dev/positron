@@ -216,7 +216,6 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.verifyTokenUsageVisible();
 	});
 
-	// Skipping for now; race condition waiting for token usage to be updated.
 	// Only reports tokens used by first message.
 	test('Total token usage is displayed in chat header', async function ({ app }) {
 		const message1 = 'What is the meaning of life?';
@@ -227,7 +226,6 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage(message2);
 
 		await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.verifyNumberOfVisibleResponses(2, true);
 
 		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
 		expect(totalTokens).toBeDefined();

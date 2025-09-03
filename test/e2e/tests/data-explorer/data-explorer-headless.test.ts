@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
 import { TestTags } from '../../infra';
+import { MetricTargetType } from '../../utils/metrics/index.js';
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
@@ -13,19 +14,19 @@ test.use({
 	suiteId: __filename
 });
 
-const testCases = [
-	{ name: 'parquet', file: 'data-files/flights/flights.parquet', copyValue: '2013' },
-	{ name: 'csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
-	{ name: 'gzipped csv', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
-	{ name: 'tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
-	{ name: 'gzipped tsv', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' },
-	{ name: 'pipe csv', file: 'data-files/flights/flights_piped.csv', copyValue: '0' }
+const testCases: Array<{ target: MetricTargetType; file: string; copyValue: string }> = [
+	{ target: 'file.parquet', file: 'data-files/flights/flights.parquet', copyValue: '2013' },
+	{ target: 'file.csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
+	{ target: 'file.csv.gz', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
+	{ target: 'file.tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
+	{ target: 'file.tsv.gz', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' },
+	{ target: 'file.psv', file: 'data-files/flights/flights_piped.csv', copyValue: '0' }
 ];
 
 const plainTextTestCases = [
-	{ name: 'csv', file: 'flights.csv', searchString: ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour' },
-	{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ },
-	{ name: 'pipe csv', file: 'flights_piped.csv', searchString: '|year|month|day|dep_time|sched_dep_time|dep_delay|arr_time|sched_arr_time|arr_delay|carrier|flight|tailnum|origin|dest|air_time|distance|hour|minute|time_hour' }
+	{ target: 'csv', file: 'flights.csv', searchString: ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour' },
+	{ target: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ },
+	{ target: 'pipe csv', file: 'flights_piped.csv', searchString: '|year|month|day|dep_time|sched_dep_time|dep_delay|arr_time|sched_arr_time|arr_delay|carrier|flight|tailnum|origin|dest|air_time|distance|hour|minute|time_hour' }
 
 ];
 
@@ -42,12 +43,15 @@ test.describe('Headless Data Explorer', {
 		await hotKeys.stackedLayout(); //return to default layout
 	});
 
-	testCases.forEach(({ name, file, copyValue }) => {
-		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
+	testCases.forEach(({ target, file, copyValue }) => {
+		test(`Verify can open and view data with large ${target} file`, { tag: [tags.PERFORMANCE] }, async function ({ app, openDataFile, metric }) {
 			const { editors, dataExplorer, clipboard } = app.workbench;
+			await openDataFile(file);
 
-			await openDataFile(`${file}`);
-			await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
+			await metric.dataExplorer.loadData(async () => {
+				await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
+				await dataExplorer.waitForIdle();
+			}, target);
 
 			// verify can copy data to clipboard
 			await dataExplorer.grid.clickCell(0, 0);
@@ -63,8 +67,8 @@ test.describe('Headless Data Explorer', {
 		});
 	});
 
-	plainTextTestCases.forEach(({ name, file, searchString }) => {
-		test(`Verify can open ${name} file as plaintext`,
+	plainTextTestCases.forEach(({ target, file, searchString }) => {
+		test(`Verify can open ${target} file as plaintext`,
 			{ tag: [TestTags.EDITOR_ACTION_BAR] }, async function ({ app, openDataFile }) {
 				const { dataExplorer, editors } = app.workbench;
 

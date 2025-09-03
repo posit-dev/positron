@@ -221,11 +221,8 @@
           },
           "positron.assistant.gitIntegration.enable": {
             "type": "boolean",
-            "default": false,
-            "description": "%configuration.gitIntegration.description%",
-            "tags": [
-              "experimental"
-            ]
+            "default": true,
+            "description": "%configuration.gitIntegration.description%"
           },
           "positron.assistant.showTokenUsage.enable": {
             "type": "boolean",
@@ -245,6 +242,14 @@
             "type": "boolean",
             "default": true,
             "description": "%configuration.followups.enable.description%"
+          },
+          "positron.assistant.consoleActions.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.consoleActions.enable.description%",
+            "tags": [
+              "experimental"
+            ]
           }
         }
       }
@@ -570,7 +575,7 @@
     "@types/mocha": "^9.1.0",
     "@types/node": "^20",
     "@types/sinon": "^17.0.3",
-    "ai": "^4.1.46",
+    "ai": "^4.3.19",
     "eslint": "^9.13.0",
     "google-auth-library": "^9.15.1",
     "mocha": "^9.2.1",
@@ -585,5 +590,8 @@
     "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.335.0",
     "vscode-languageclient": "^9.0.1"
-  }
+  },
+  "extensionDependencies": [
+    "positron.positron-supervisor"
+  ]
 }

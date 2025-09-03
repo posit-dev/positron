@@ -2283,6 +2283,16 @@ def _select_cell_range(
     }
 
 
+def _select_cell_indices(row_indices: List[int], column_indices: List[int]):
+    return {
+        "kind": "cell_indices",
+        "selection": {
+            "row_indices": row_indices,
+            "column_indices": column_indices,
+        },
+    }
+
+
 def _select_range(first_index: int, last_index: int, kind: str):
     return {
         "kind": kind,
@@ -2311,6 +2321,25 @@ def _select_column_indices(indices: List[int]):
 
 def _select_row_indices(indices: List[int]):
     return _select_indices(indices, "row_indices")
+
+
+def _strip_newline(x):
+    """Helper to strip only the final newline character for cross-platform compatibility."""
+    if x[-1] == "\n":
+        x = x[:-1]
+    return x
+
+
+def _pandas_export_table(x, fmt):
+    """Helper to export pandas DataFrame to various formats with proper line ending handling."""
+    buf = StringIO()
+    if fmt == "csv":
+        x.to_csv(buf, index=False)
+    elif fmt == "tsv":
+        x.to_csv(buf, sep="\t", index=False)
+    elif fmt == "html":
+        x.to_html(buf, index=False)
+    return _strip_newline(buf.getvalue())
 
 
 def test_export_data_selection(dxf: DataExplorerFixture):
@@ -2345,22 +2374,15 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         (_select_row_range(1, 5), (slice(1, 6), slice(None))),
         (_select_row_indices([0, 3, 5, 7]), ([0, 3, 5, 7], slice(None))),
         (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
+        # Test cell_indices selections - Cartesian product of specified rows/columns
+        (_select_cell_indices([1, 3, 5], [10, 15, 19]), ([1, 3, 5], [10, 15, 19])),
+        (_select_cell_indices([0, 2, 4], [0, 1, 2]), ([0, 2, 4], [0, 1, 2])),
+        (_select_cell_indices([10], [5, 10, 15]), ([10], [5, 10, 15])),
+        (_select_cell_indices([1, 3], [7]), ([1, 3], [7])),
+        # Test cell_indices with non-strictly-increasing indices (order preservation)
+        (_select_cell_indices([5, 1, 3], [15, 10, 19]), ([5, 1, 3], [15, 10, 19])),
+        (_select_cell_indices([4, 0, 2], [2, 0, 1]), ([4, 0, 2], [2, 0, 1])),
     ]
-
-    def strip_newline(x):
-        if x[-1] == "\n":
-            x = x[:-1]
-        return x
-
-    def pandas_export_table(x, fmt):
-        buf = StringIO()
-        if fmt == "csv":
-            x.to_csv(buf, index=False)
-        elif fmt == "tsv":
-            x.to_csv(buf, sep="\t", index=False)
-        elif fmt == "html":
-            x.to_html(buf, index=False)
-        return strip_newline(buf.getvalue())
 
     def pandas_export_cell(x, i, j):
         return str(x.iloc[i, j])
@@ -2383,7 +2405,7 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         return str(x[i, j])
 
     data_cases = {
-        ("test_df", pandas_export_cell, pandas_export_table, pandas_iloc),
+        ("test_df", pandas_export_cell, _pandas_export_table, pandas_iloc),
         ("dfp", polars_export_cell, polars_export_table, polars_iloc),
     }
 

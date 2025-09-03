@@ -521,6 +521,10 @@
 						"type": "string",
 						"description": "Name of column as UTF-8 string"
 					},
+					"column_label": {
+						"type": "string",
+						"description": "Display label for column (e.g., from R's label attribute)"
+					},
 					"column_index": {
 						"type": "integer",
 						"description": "The position of the column within the table without any column filters"
@@ -1587,7 +1591,8 @@
 							"column_range",
 							"row_range",
 							"column_indices",
-							"row_indices"
+							"row_indices",
+							"cell_indices"
 						]
 					},
 					"selection": {
@@ -1600,6 +1605,10 @@
 							{
 								"name": "cell_range",
 								"$ref": "#/components/schemas/data_selection_cell_range"
+							},
+							{
+								"name": "cell_indices",
+								"$ref": "#/components/schemas/data_selection_cell_indices"
 							},
 							{
 								"name": "index_range",
@@ -1656,6 +1665,30 @@
 					"last_column_index": {
 						"type": "integer",
 						"description": "The final selected column index (inclusive)"
+					}
+				}
+			},
+			"data_selection_cell_indices": {
+				"type": "object",
+				"description": "A rectangular cell selection defined by arrays of row and column indices",
+				"required": [
+					"row_indices",
+					"column_indices"
+				],
+				"properties": {
+					"row_indices": {
+						"type": "array",
+						"description": "The selected row indices",
+						"items": {
+							"type": "integer"
+						}
+					},
+					"column_indices": {
+						"type": "array",
+						"description": "The selected column indices",
+						"items": {
+							"type": "integer"
+						}
 					}
 				}
 			},

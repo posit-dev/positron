@@ -85,9 +85,9 @@ export class Notebooks {
 
 			await this.code.driver.page.locator(KERNEL_DROPDOWN).click();
 			await this.quickinput.waitForQuickInputOpened();
-			await this.code.driver.page.getByText('Select Another Kernel...').click();
-			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} Environments...`);
-			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+			await this.code.driver.page.getByText('Select Environment...').click();
+			await this.quickinput.type(desiredKernel);
+			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} ${desiredKernel}`);
 			await this.quickinput.waitForQuickInputClosed();
 
 			// Wait for kernel initialization
