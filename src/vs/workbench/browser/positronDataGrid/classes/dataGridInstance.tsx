@@ -3238,7 +3238,6 @@ export abstract class DataGridInstance extends Disposable {
 	getClipboardData(): ClipboardData | undefined {
 		// Cell selection range.
 		if (this._cellSelectionIndexes) {
-			// HERE BRIAN
 			new ClipboardCellRange(
 				this._cellSelectionIndexes.firstColumnIndex,
 				this._cellSelectionIndexes.firstRowIndex,
