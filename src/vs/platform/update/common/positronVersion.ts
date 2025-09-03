@@ -25,9 +25,12 @@ export interface IPositronVersion {
  *
  * @param version - The version string to parse.
  */
-export function parse(version: string): IPositronVersion {
+export function parse(version: string): IPositronVersion | undefined {
+	if (!version || version.length === 0) {
+		return undefined;
+	}
 	if (!POSITRON_VERSION_REGEX.test(version)) {
-		throw new Error('Version format must be YYYY.MM.patch-build');
+		throw new Error(`Invalid version '${version}'; format must be YYYY.MM.patch-build`);
 	}
 	const [year, month, patchBuild] = version.split('.');
 	const [patch, build] = patchBuild.split('-').map(Number);
@@ -56,6 +59,21 @@ export function compare(v1: string, v2: string): number {
 	const p1 = parse(v1);
 	const p2 = parse(v2);
 
+	// Handle empty versions
+	if (p1 === undefined && p2 === undefined) {
+		// Both versions are empty
+		return 0;
+	}
+	if (p1 === undefined) {
+		// Only v1 is empty; v2 is valid, so v1 < v2
+		return -1;
+	}
+	if (p2 === undefined) {
+		// Only v2 is empty; v1 is valid, so v1 > v2
+		return 1;
+	}
+
+	// Compare year, month, patch, and build
 	if (p1.year !== p2.year) {
 		return p1.year - p2.year;
 	}
