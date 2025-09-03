@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
-import { CellSelectionType, SelectionStateMachine, SelectionState } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
@@ -1068,7 +1068,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cells The cells to copy. If not provided, copies the currently selected cells
 	 */
 	copyCells(cells?: IPositronNotebookCell[]): void {
-		const cellsToCopy = cells || this.getSelectedCells();
+		const cellsToCopy = cells || this.selectionStateMachine.getSelectedCells();
 
 		if (cellsToCopy.length === 0) {
 			return;
@@ -1091,7 +1091,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cells The cells to cut. If not provided, cuts the currently selected cells
 	 */
 	cutCells(cells?: IPositronNotebookCell[]): void {
-		const cellsToCut = cells || this.getSelectedCells();
+		const cellsToCut = cells || this.selectionStateMachine.getSelectedCells();
 
 		if (cellsToCut.length === 0) {
 			return;
@@ -1162,7 +1162,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Pastes cells from the clipboard above the first selected cell.
 	 */
 	pasteCellsAbove(): void {
-		const selection = this.getSelectedCells();
+		const selection = this.selectionStateMachine.getSelectedCells();
 		if (selection.length > 0) {
 			const firstSelectedIndex = this.cells.get().indexOf(selection[0]);
 			this.pasteCells(firstSelectedIndex);
@@ -1179,25 +1179,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._clipboardCells.length > 0;
 	}
 
-	// Helper method to get selected cells
-	private getSelectedCells(): IPositronNotebookCell[] {
-		const state = this.selectionStateMachine.state.get();
-
-		switch (state.type) {
-			case SelectionState.SingleSelection:
-			case SelectionState.MultiSelection:
-				return state.selected;
-			case SelectionState.EditingSelection:
-				return [state.selectedCell];
-			case SelectionState.NoSelection:
-			default:
-				return [];
-		}
-	}
 
 	// Helper method to get insertion index
 	private getInsertionIndex(): number {
-		const selections = this.getSelectedCells();
+		const selections = this.selectionStateMachine.getSelectedCells();
 		if (selections.length > 0) {
 			const lastSelectedIndex = this.cells.get().indexOf(selections[selections.length - 1]);
 			return lastSelectedIndex + 1;

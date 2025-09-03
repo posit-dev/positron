@@ -115,14 +115,7 @@ export function registerCellCommand({
 
 			if (multiSelect) {
 				// Handle multiple selected cells
-				const currentState = activeNotebook.selectionStateMachine.state.get();
-				let selectedCells: IPositronNotebookCell[] = [];
-
-				if (currentState.type === 'SingleSelection' || currentState.type === 'MultiSelection') {
-					selectedCells = currentState.selected;
-				} else if (currentState.type === 'EditingSelection') {
-					selectedCells = [currentState.selectedCell];
-				}
+				const selectedCells = activeNotebook.selectionStateMachine.getSelectedCells();
 
 				// Filter cells based on cell condition and execute handler
 				for (const cell of selectedCells) {
