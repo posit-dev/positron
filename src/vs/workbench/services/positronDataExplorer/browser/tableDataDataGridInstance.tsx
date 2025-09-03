@@ -128,7 +128,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this._horizontalScrollOffset = 0;
 				// Force a layout recomputation and repaint
 				this.softReset();
-				this.fireOnDidUpdateEvent()
+				this.fireOnDidUpdateEvent();
 			} else {
 				// Adjust the vertical scroll offset, if needed.
 				if (!this.firstRow) {
@@ -614,7 +614,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 					checked: false,
 					icon: 'positron-unpin',
 					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
-					onSelected: () => this.unpinRow(columnIndex)
+					onSelected: () => this.unpinRow(rowIndex)
 				}));
 			}
 		}

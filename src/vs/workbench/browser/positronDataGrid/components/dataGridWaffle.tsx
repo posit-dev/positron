@@ -219,7 +219,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					context.instance.clearSelection();
 					await context.instance.setScrollOffsets(0, 0);
 					context.instance.setCursorPosition(
-						context.instance.firstColummIndex,
+						context.instance.firstColumnIndex,
 						context.instance.firstRowIndex
 					);
 					return;
@@ -228,7 +228,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Home clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
 				await context.instance.setHorizontalScrollOffset(0);
-				context.instance.setCursorColumn(context.instance.firstColummIndex);
+				context.instance.setCursorColumn(context.instance.firstColumnIndex);
 				break;
 			}
 

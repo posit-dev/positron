@@ -1852,7 +1852,7 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets the first column index.
 	 */
-	get firstColummIndex() {
+	get firstColumnIndex() {
 		return this._columnLayoutManager.firstIndex;
 	}
 
@@ -2927,7 +2927,7 @@ export abstract class DataGridInstance extends Disposable {
 				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
 
 				// Scroll to the row.
-				this.scrollToColumn(rowIndexes[rowIndexes.length - 1]);
+				this.scrollToRow(rowIndexes[rowIndexes.length - 1]);
 
 				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
@@ -3043,7 +3043,7 @@ export abstract class DataGridInstance extends Disposable {
 				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
 
 				// Scroll to the row.
-				this.scrollToColumn(rowIndexes[rowIndexes.length - 1]);
+				this.scrollToRow(rowIndexes[rowIndexes.length - 1]);
 
 				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
