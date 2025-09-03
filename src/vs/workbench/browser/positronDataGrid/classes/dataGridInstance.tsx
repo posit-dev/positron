@@ -1895,6 +1895,7 @@ export abstract class DataGridInstance extends Disposable {
 	pinColumn(columnIndex: number) {
 		// If column pinning is enabled, and the maximum pinned columns limit has not been reached, pin the column.
 		if (this._columnPinning && this._columnLayoutManager.pinnedIndexesCount < this._maximumPinnedColumns && this._columnLayoutManager.pinIndex(columnIndex)) {
+			this.clearSelection();
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -1906,6 +1907,7 @@ export abstract class DataGridInstance extends Disposable {
 	unpinColumn(columnIndex: number) {
 		// If column pinning is enabled, unpin the column.
 		if (this._columnPinning && this._columnLayoutManager.unpinIndex(columnIndex)) {
+			this.clearSelection();
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -1926,6 +1928,7 @@ export abstract class DataGridInstance extends Disposable {
 	pinRow(rowIndex: number) {
 		// If row pinning is enabled, and the maximum pinned rows limit has not been reached, pin the row.
 		if (this._rowPinning && this._rowLayoutManager.pinnedIndexesCount < this._maximumPinnedRows && this._rowLayoutManager.pinIndex(rowIndex)) {
+			this.clearSelection();
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -1937,6 +1940,7 @@ export abstract class DataGridInstance extends Disposable {
 	unpinRow(rowIndex: number) {
 		// If row pinning is enabled, unpin the row.
 		if (this._rowPinning && this._rowLayoutManager.unpinIndex(rowIndex)) {
+			this.clearSelection();
 			this.fireOnDidUpdateEvent();
 		}
 	}
