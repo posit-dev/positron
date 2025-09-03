@@ -2347,11 +2347,10 @@ export namespace LanguageModelChatMessage {
 		// Handle undefined messages
 		if (!message) {
 			console.error('LanguageModelChatMessage.from called with undefined message, creating default User message');
-			message = {
-				role: types.LanguageModelChatMessageRole.User,
-				content: [new types.LanguageModelTextPart('')],
-				name: undefined
-			} as vscode.LanguageModelChatMessage;
+			message = new types.LanguageModelChatMessage(
+				types.LanguageModelChatMessageRole.User,
+				[new types.LanguageModelTextPart('')],
+			);
 		}
 		// --- End Positron ---
 
