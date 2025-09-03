@@ -180,7 +180,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						context.instance.selectColumn(context.instance.cursorColumnIndex);
 					} else if (e.shiftKey && !e.ctrlKey) {
 						context.instance.selectRow(context.instance.cursorRowIndex);
-					} if (e.ctrlKey && e.shiftKey) {
+					} else if (e.ctrlKey && e.shiftKey) {
 						context.instance.selectAll();
 					}
 				}
