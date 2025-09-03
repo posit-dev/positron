@@ -121,8 +121,16 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	select(type: CellSelectionType): void;
 
+	/**
+	 * Reveal the cell in the viewport
+	 * @param type Reveal type.
+	 */
 	reveal(type?: CellRevealType): void;
 
+	/**
+	 * Apply notebook editor options to this cell. Used by the IDE to select and/or reveal the cell.
+	 * @param options Notebook editor options to apply.
+	 */
 	setOptions(options: INotebookEditorOptions | undefined): Promise<void>;
 
 	/**
