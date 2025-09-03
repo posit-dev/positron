@@ -21,7 +21,8 @@ import { DataGridInstance } from '../../../browser/positronDataGrid/classes/data
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
-import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
 
 /**
  * Constants.
@@ -310,6 +311,68 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	isColumnExpanded(columnIndex: number) {
 		return this._tableSummaryCache.isColumnExpanded(columnIndex);
+	}
+
+	/**
+	 * Determines whether summary stats is supported.
+	 * @returns true, if summary stats is supported; otherwise, false.
+	 */
+	isSummaryStatsSupported(): boolean {
+		// Check if summary stats feature is enabled globally
+		const columnProfilesFeatures = this.getSupportedFeatures().get_column_profiles;
+		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
+			status.profile_type === ColumnProfileType.SummaryStats
+		);
+
+		// If the summary status support status is undefined, return false.
+		if (!summaryStatsSupportStatus) {
+			return false;
+		}
+
+		// Return the summary stats support status.
+		return dataExplorerExperimentalFeatureEnabled(
+			summaryStatsSupportStatus.support_status,
+			this.configurationService
+		);
+	}
+
+	/**
+	 * Determines whether the specified column index can be expanded or collapsed.
+	 * @param columnIndex The columm index.
+	 * @returns true if the column can be expanded or collapsed; otherwise, false.
+	 */
+	canToggleColumnExpansion(columnIndex: number): boolean {
+		// Get the column schema. If it hasn't been loaded yet, return false.
+		const columnSchema = this._tableSummaryCache.getColumnSchema(columnIndex);
+		if (!columnSchema) {
+			return false;
+		}
+
+		let summaryStatsSupported;
+		switch (columnSchema.type_display) {
+			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Boolean:
+			case ColumnDisplayType.String:
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Object:
+				summaryStatsSupported = this.isSummaryStatsSupported();
+				break;
+			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+			case ColumnDisplayType.Unknown:
+				summaryStatsSupported = false;
+				break;
+
+			// This shouldn't ever happen.
+			default:
+				summaryStatsSupported = false;
+				break;
+		}
+
+		return summaryStatsSupported;
 	}
 
 	/**
