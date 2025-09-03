@@ -25,7 +25,6 @@ import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { checkPositronNotebookEnabled } from './positronNotebookExperimentalConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
@@ -419,13 +418,9 @@ registerCellCommand({
 
 registerCellCommand({
 	commandId: 'positronNotebook.cell.executeAndSelectBelow',
-	handler: (cell, accessor) => {
+	handler: (cell, notebook) => {
 		cell.run();
-		const notebookService = accessor.get(IPositronNotebookService);
-		const notebook = notebookService.getActiveInstance();
-		if (notebook) {
-			notebook.selectionStateMachine.moveDown(false);
-		}
+		notebook.selectionStateMachine.moveDown(false);
 	},
 	cellCondition: CellConditions.isCode,  // Only show on code cells
 	keybinding: {
@@ -439,11 +434,7 @@ registerCellCommand({
 // Example of position-based conditions
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllAbove',
-	handler: (cell, accessor) => {
-		const notebookService = accessor.get(IPositronNotebookService);
-		const notebook = notebookService.getActiveInstance();
-		if (!notebook) { return; }
-
+	handler: (cell, notebook) => {
 		const cells = notebook.cells.get();
 		const cellIndex = cells.indexOf(cell);
 
@@ -472,9 +463,7 @@ registerCellCommand({
 
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllBelow',
-	handler: (cell, accessor) => {
-		const notebookService = accessor.get(IPositronNotebookService);
-		const notebook = notebookService.getActiveInstance();
+	handler: (cell, notebook) => {
 		if (!notebook) { return; }
 
 		const cells = notebook.cells.get();
@@ -522,6 +511,84 @@ registerCellCommand({
 		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor visibility")
 	}
 });
+
+
+// Copy cells command - Cmd/Ctrl+C
+registerCellCommand({
+	commandId: 'positronNotebook.copyCells',
+	handler: (cell, notebook) => notebook.copyCells(),
+	multiSelect: true,  // Copy all selected cells
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+		mac: {
+			primary: KeyMod.CtrlCmd | KeyCode.KeyC,
+		},
+	},
+	actionBar: {
+		icon: 'codicon-copy',
+		position: 'menu',
+		category: 'Clipboard',
+		order: 10
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.copyCells', "Copy Cell")
+	}
+});
+
+// Cut cells command - Cmd/Ctrl+X
+registerCellCommand({
+	commandId: 'positronNotebook.cutCells',
+	handler: (cell, notebook) => notebook.cutCells(),
+	multiSelect: true,  // Cut all selected cells
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyX,
+	},
+	actionBar: {
+		position: 'menu',
+		category: 'Clipboard',
+		order: 20
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.cutCells', "Cut Cell")
+	}
+});
+
+// Paste cells command - Cmd/Ctrl+V
+registerCellCommand({
+	commandId: 'positronNotebook.pasteCells',
+	handler: (cell, notebook) => notebook.pasteCells(),
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.KeyV,
+		win: { primary: KeyMod.CtrlCmd | KeyCode.KeyV, secondary: [KeyMod.Shift | KeyCode.Insert] },
+		linux: { primary: KeyMod.CtrlCmd | KeyCode.KeyV, secondary: [KeyMod.Shift | KeyCode.Insert] },
+	},
+	actionBar: {
+		position: 'menu',
+		category: 'Clipboard',
+		order: 40
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.pasteCells', "Paste Cell Below")
+	}
+});
+
+// Paste cells above command - Cmd/Ctrl+Shift+V
+registerCellCommand({
+	commandId: 'positronNotebook.pasteCellsAbove',
+	handler: (cell, notebook) => notebook.pasteCellsAbove(),
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV,
+	},
+	actionBar: {
+		position: 'menu',
+		category: 'Clipboard',
+		order: 30
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.pasteCellsAbove', "Paste Cell Above")
+	}
+});
+
 
 //#endregion Cell Commands
 

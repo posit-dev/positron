@@ -14,7 +14,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
-import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState } from '../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
@@ -37,6 +37,8 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -217,6 +219,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Sets the DOM element that contains the cells for the notebook.
 	 * @param container The container element to set, or undefined to clear
 	 */
+	/**
+	 * Sets the DOM element that contains the cells for the notebook.
+	 * @param container The container element to set, or undefined to clear
+	 */
 	setCellsContainer(container: HTMLElement | undefined | null): void {
 		// Clean up any existing listeners
 		this._cellsContainerListeners.clear();
@@ -376,6 +382,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
 	) {
 		super();
 
@@ -456,6 +463,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Public Methods
 
+	/**
+	 * Runs the specified cells in the notebook.
+	 * @param cells The cells to run
+	 * @throws Error if no cells are provided
+	 */
 	async runCells(cells: IPositronNotebookCell[]): Promise<void> {
 		if (!cells) {
 			throw new Error(localize('noCells', "No cells to run"));
@@ -463,11 +475,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this._runCells(cells);
 	}
 
+	/**
+	 * Runs all cells in the notebook.
+	 */
 	async runAllCells(): Promise<void> {
 		await this._runCells(this._cells);
 	}
 
 
+	/**
+	 * Adds a new cell to the notebook at the specified index.
+	 * @param type The type of cell to add (`CellKind`)
+	 * @param index The position where the cell should be inserted
+	 * @throws Error if no language is set for the notebook
+	 */
 	addCell(type: CellKind, index: number): void {
 		this._assertTextModel();
 
@@ -510,6 +531,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
+	/**
+	 * Inserts a new code cell above or below the reference cell (or selected cell if no reference is provided).
+	 * @param aboveOrBelow Whether to insert the cell above or below the reference
+	 * @param referenceCell Optional reference cell. If not provided, uses the currently selected cell
+	 */
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
 		let index: number | null;
 
@@ -529,6 +555,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.addCell(CellKind.Code, index + (aboveOrBelow === 'above' ? 0 : 1));
 	}
 
+	/**
+	 * Deletes a single cell from the notebook.
+	 * @param cellToDelete The cell to delete. If not provided, deletes the currently selected cell
+	 */
 	deleteCell(cellToDelete?: IPositronNotebookCell): void {
 		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
 
@@ -538,6 +568,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.deleteCells([cell]);
 	}
 
+	/**
+	 * Deletes multiple cells from the notebook.
+	 * @param cellsToDelete Array of cells to delete
+	 */
 	deleteCells(cellsToDelete: IPositronNotebookCell[]): void {
 		this._assertTextModel();
 
@@ -626,6 +660,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 
+	/**
+	 * Sets the cell that is currently being edited.
+	 * @param cell The cell to set as editing, or undefined to clear editing state
+	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void {
 		if (cell === undefined) {
 			return;
@@ -633,6 +671,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	}
 
+	/**
+	 * Checks if the notebook contains a specific code editor.
+	 * @param editor The code editor to check for
+	 * @returns True if the editor belongs to one of the notebook's cells, false otherwise
+	 */
 	hasCodeEditor(editor: ICodeEditor): boolean {
 		for (const cell of this._cells) {
 			if (cell.editor && cell.editor === editor) {
@@ -642,6 +685,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return false;
 	}
 
+	/**
+	 * Attaches the notebook view to a DOM container.
+	 * @param container The DOM element to render the notebook into
+	 */
 	async attachView(container: HTMLElement) {
 		this.detachView();
 		this._container = container;
@@ -695,6 +742,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		};
 	}
 
+	/**
+	 * Detaches the notebook view from its container and cleans up resources.
+	 */
 	detachView(): void {
 		this._container = undefined;
 		this._logService.info(this.id, 'detachView');
@@ -704,6 +754,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._detachModel();
 	}
 
+	/**
+	 * Closes the notebook instance and disposes of all resources.
+	 */
 	close(): void {
 		this._logService.info(this.id, 'Closing a notebook instance');
 		this.dispose();
@@ -896,6 +949,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell.
 	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
 	 */
+	/**
+	 * Clears the output of a specific cell in the notebook.
+	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell
+	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
+	 */
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
 		this._assertTextModel();
 
@@ -973,6 +1031,149 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// Fire a single content change event
 			this._onDidChangeContent.fire();
 		}
+	}
+
+
+	// #endregion
+
+	// =============================================================================================
+	// #region Clipboard Methods
+
+	/**
+	 * Internal clipboard for storing cells with full fidelity
+	 */
+	private _clipboardCells: ICellDto2[] = [];
+
+	/**
+	 * Flag to track if the clipboard contains cut cells (vs copied cells)
+	 */
+	private _isClipboardCut: boolean = false;
+
+	/**
+	 * Copies the specified cells to the clipboard.
+	 * @param cells The cells to copy. If not provided, copies the currently selected cells
+	 */
+	copyCells(cells?: IPositronNotebookCell[]): void {
+		const cellsToCopy = cells || this.selectionStateMachine.getSelectedCells();
+
+		if (cellsToCopy.length === 0) {
+			return;
+		}
+
+		// Store internally for full-fidelity paste
+		this._clipboardCells = cellsToCopy.map(cell => cellToCellDto2(cell));
+		this._isClipboardCut = false;
+
+		// Also write to system clipboard as text
+		const clipboardText = serializeCellsToClipboard(cellsToCopy);
+		this._clipboardService.writeText(clipboardText);
+
+		// Log for debugging
+		this._logService.debug(`Copied ${cellsToCopy.length} cells to clipboard`);
+	}
+
+	/**
+	 * Cuts the specified cells to the clipboard (copies then deletes them).
+	 * @param cells The cells to cut. If not provided, cuts the currently selected cells
+	 */
+	cutCells(cells?: IPositronNotebookCell[]): void {
+		const cellsToCut = cells || this.selectionStateMachine.getSelectedCells();
+
+		if (cellsToCut.length === 0) {
+			return;
+		}
+
+		// Copy cells first
+		this.copyCells(cellsToCut);
+		this._isClipboardCut = true;
+
+		// Delete the cells (this handles selection and focus automatically)
+		this.deleteCells(cellsToCut);
+	}
+
+	/**
+	 * Pastes cells from the clipboard at the specified index.
+	 * @param index The position to paste cells at. If not provided, pastes after the last selected cell
+	 */
+	pasteCells(index?: number): void {
+		if (!this.canPaste()) {
+			return;
+		}
+
+		this._assertTextModel();
+
+		const pasteIndex = index ?? this.getInsertionIndex();
+		const cellCount = this._clipboardCells.length;
+
+		// Use textModel.applyEdits to properly create and register cells
+		const synchronous = true;
+		const pushUndoStop = true;
+		const endSelections: ISelectionState = {
+			kind: SelectionStateType.Index,
+			focus: { start: pasteIndex, end: pasteIndex + cellCount },
+			selections: [{ start: pasteIndex, end: pasteIndex + cellCount }]
+		};
+		const focusAfterInsertion = {
+			start: pasteIndex,
+			end: pasteIndex + cellCount
+		};
+
+		this.textModel.applyEdits([
+			{
+				editType: CellEditType.Replace,
+				index: pasteIndex,
+				count: 0,
+				cells: this._clipboardCells
+			}
+		],
+			synchronous,
+			{
+				kind: SelectionStateType.Index,
+				focus: focusAfterInsertion,
+				selections: [focusAfterInsertion]
+			},
+			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
+		);
+
+		// If this was a cut operation, clear the clipboard
+		if (this._isClipboardCut) {
+			this._clipboardCells = [];
+			this._isClipboardCut = false;
+		}
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Pastes cells from the clipboard above the first selected cell.
+	 */
+	pasteCellsAbove(): void {
+		const selection = this.selectionStateMachine.getSelectedCells();
+		if (selection.length > 0) {
+			const firstSelectedIndex = this.cells.get().indexOf(selection[0]);
+			this.pasteCells(firstSelectedIndex);
+		} else {
+			this.pasteCells(0);
+		}
+	}
+
+	/**
+	 * Checks if there are cells available to paste from the clipboard.
+	 * @returns True if cells can be pasted, false otherwise
+	 */
+	canPaste(): boolean {
+		return this._clipboardCells.length > 0;
+	}
+
+
+	// Helper method to get insertion index
+	private getInsertionIndex(): number {
+		const selections = this.selectionStateMachine.getSelectedCells();
+		if (selections.length > 0) {
+			const lastSelectedIndex = this.cells.get().indexOf(selections[selections.length - 1]);
+			return lastSelectedIndex + 1;
+		}
+		return this.cells.get().length;
 	}
 
 	// #endregion

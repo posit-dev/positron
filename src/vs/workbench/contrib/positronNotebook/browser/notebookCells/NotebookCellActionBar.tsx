@@ -63,15 +63,8 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 	const handleActionClick = (action: INotebookCellActionBarItem) => {
 		// If action needs cell context, ensure cell is selected first
 		if (action.needsCellContext) {
-			// Select the cell if not already selected
-			const currentState = instance.selectionStateMachine.state.get();
-			const isSelected = (currentState.type !== 'NoSelection' &&
-				currentState.type !== 'EditingSelection' &&
-				currentState.selected.includes(cell));
-
-			if (!isSelected) {
-				instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-			}
+			// Select the cell (the method handles checking if already selected)
+			instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 		}
 
 		// Execute the command (without passing cell as argument)
