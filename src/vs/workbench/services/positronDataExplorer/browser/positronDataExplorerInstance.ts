@@ -175,6 +175,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			)
 		);
 
+		// Add the onDidChangePinnedColumns event handler.
+		this._register(
+			this._tableDataDataGridInstance.onDidChangePinnedColumns(pinnedColumns =>
+				// Update the pinned rows in the summary data grid instance.
+				this._tableSchemaDataGridInstance.updatePinnedRows(pinnedColumns)
+			)
+		);
+
 		// Add the onDidRequestFocus event handler.
 		this._register(this.onDidRequestFocus(() => {
 			const uri = PositronDataExplorerUri.generate(this._dataExplorerClientInstance.identifier);
