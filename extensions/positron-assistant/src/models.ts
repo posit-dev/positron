@@ -469,30 +469,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
 
 				const providerErrorMessage = this.parseProviderError(part.error);
-				const errorType = (part.error as any)?.name;
 				if (providerErrorMessage) {
 					throw new Error(providerErrorMessage);
 				}
 
-				// Try to extract an API error message with ai-sdk
-				if (ai.APICallError.isInstance(part.error)) {
-					const responseBody = part.error.responseBody;
-					if (responseBody) {
-						try {
-							const json = JSON.parse(responseBody);
-							throw new Error(`${json.message ?? JSON.stringify(json)}`);
-						} catch (_error) {
-							throw new Error(responseBody);
-						}
-					}
-				}
-
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
-				}
-				if ((part.error as any).responseBody) {
-					const error = (part.error as any).responseBody as string;
-					throw new Error(error);
 				}
 				throw new Error(JSON.stringify(part.error));
 			}
@@ -556,11 +538,24 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	}
 
 	/**
-	 * Parses the error returned by the provider.
+	 * Parses for specific ai-sdk errors. Then parses provider specific errors.
 	 * @param error The error object returned by the provider.
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
-	parseProviderError(_error: any): string | undefined {
+	parseProviderError(error: any): string | undefined {
+		// Try to extract an API error message with ai-sdk
+		if (ai.APICallError.isInstance(error)) {
+			const responseBody = error.responseBody;
+			if (responseBody) {
+				try {
+					const json = JSON.parse(responseBody);
+					return `${json.message ?? JSON.stringify(json)}`;
+				} catch (_error) {
+					return `API Error: ${responseBody}`;
+				}
+			}
+		}
+
 		return undefined;
 	}
 }
@@ -824,21 +819,27 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
 	override parseProviderError(error: any): string | undefined {
-		if ((error as any).name) {
-			const name = (error as any).name;
-			const message = (error as any).message;
-
-			if (!message) {
-				return super.parseProviderError(error);
-			}
-
-			if (name === 'CredentialsProviderError') {
-				return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
-			}
-
-			return vscode.l10n.t(`AWS Bedrock error: ${message}`);
+		const aiSdkError = super.parseProviderError(error);
+		if (aiSdkError) {
+			return aiSdkError;
 		}
-		return super.parseProviderError(error);
+
+		if (!(error instanceof Error)) {
+			return undefined;
+		}
+
+		const name = error.name;
+		const message = error.message;
+
+		if (!message) {
+			return super.parseProviderError(error);
+		}
+
+		if (name === 'CredentialsProviderError') {
+			return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
+		}
+
+		return vscode.l10n.t(`AWS Bedrock error: ${message}`);
 	}
 }
 
