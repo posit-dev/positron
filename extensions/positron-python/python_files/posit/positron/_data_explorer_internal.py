@@ -281,7 +281,6 @@ def _get_histogram_polars(
 
             # Use integer division with careful rounding
             range_int = max_int - min_int
-            bin_width_exact = range_int / n_bins  # This gives exact division
 
             # Create bin edges using integer arithmetic where possible
             bin_edges = []

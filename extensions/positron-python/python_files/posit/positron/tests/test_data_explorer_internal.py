@@ -5,13 +5,13 @@ Tests the Polars-based histogram implementation and verifies consistency
 with NumPy implementation across various data types and edge cases.
 """
 
-import math
-import pytest
 import polars as pl
+import pytest
+
 from positron._data_explorer_internal import (
-    _get_histogram_polars,
-    _get_histogram_numpy,
     _get_histogram_method,
+    _get_histogram_numpy,
+    _get_histogram_polars,
 )
 
 
@@ -277,8 +277,6 @@ def test_histogram_sparse_bins():
 
 def test_histogram_large_integer_overflow():
     """Test histogram with very large integers that could cause overflow."""
-    import sys
-
     # Test with large 64-bit integers near the limits
     max_int64 = 2**63 - 1
     large_values = [

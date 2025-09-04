@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import math
 import operator
-import warnings
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
@@ -23,13 +22,13 @@ from typing import (
 
 import comm
 
-from .access_keys import decode_access_key
-from .convert import PandasConverter, PolarsConverter
 from ._data_explorer_internal import (
+    _get_histogram_method,
     _get_histogram_numpy,
     _get_histogram_polars,
-    _get_histogram_method,
 )
+from .access_keys import decode_access_key
+from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -42,7 +41,6 @@ from .data_explorer_comm import (
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
-    ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
     ColumnProfileType,
