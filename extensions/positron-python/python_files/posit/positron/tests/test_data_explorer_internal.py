@@ -120,7 +120,7 @@ def test_histogram_polars_methods():
     np.random.seed(42)
     data_values = np.random.randn(1000).tolist()
 
-    methods = ["fixed", "fd", "sturges", "scott", "rice", "sqrt", "doane", "auto"]
+    methods = ["fixed", "fd", "sturges", "scott"]
 
     for method in methods:
         bin_counts, bin_edges = _get_test_histogram(data_values, num_bins=50, method=method)

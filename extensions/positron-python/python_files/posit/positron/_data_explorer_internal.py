@@ -16,22 +16,6 @@ if TYPE_CHECKING:
 _EMPTY_HISTOGRAM = ([], [0.0, 1.0])
 
 
-def _is_polars_integer_type(dtype) -> bool:
-    """Check if a Polars dtype is an integer type."""
-    import polars as pl
-
-    return dtype in [
-        pl.Int8,
-        pl.Int16,
-        pl.Int32,
-        pl.Int64,
-        pl.UInt8,
-        pl.UInt16,
-        pl.UInt32,
-        pl.UInt64,
-    ]
-
-
 def _calculate_sqrt_fallback_binwidth(data_range: float, n: int) -> float:
     """Calculate fallback bin width using sqrt method."""
     return data_range / math.sqrt(n) if n > 0 else data_range
@@ -185,7 +169,7 @@ def _get_histogram_polars(
     num_bins : int
         Maximum number of bins to use
     method : str
-        Binning method: 'fixed', 'fd', 'sturges', 'auto', 'scott', 'rice', 'sqrt', 'doane'
+        Binning method: 'fixed', 'fd', 'sturges', 'scott'
 
     Returns
     -------
@@ -259,48 +243,6 @@ def _get_histogram_polars(
                 bin_width = 3.5 * std_dev * (n ** (-1.0 / 3.0))  # type: ignore[operator]
             else:
                 bin_width = _calculate_sqrt_fallback_binwidth(data_range, n)
-        elif method == "rice":
-            n_bins_rice = math.ceil(2 * (n ** (1.0 / 3.0)))
-            bin_width = data_range / n_bins_rice
-        elif method == "sqrt":
-            n_bins_sqrt = math.ceil(math.sqrt(n))
-            bin_width = data_range / n_bins_sqrt
-        elif method == "doane":
-            # Doane's method accounts for skewness
-            # g1 = skewness
-            mean_val = data.mean()
-            std_dev = data.std()
-            if mean_val is not None and std_dev is not None and std_dev > 0:  # type: ignore[operator]
-                # Calculate skewness manually
-                centered = (data - mean_val) / std_dev  # type: ignore[operator]
-                g1_val = (centered**3).mean()
-                if g1_val is not None:
-                    g1 = g1_val  # type: ignore[assignment]
-                    # Standard error of skewness
-                    sg1 = math.sqrt(6.0 * (n - 2) / ((n + 1) * (n + 3)))
-                    k = (
-                        1 + math.log2(n) + math.log2(1 + abs(g1) / sg1)  # type: ignore[arg-type,operator]
-                        if sg1 > 0
-                        else 1 + math.log2(n)
-                    )
-                else:
-                    k = 1 + math.log2(n)
-            else:
-                k = 1 + math.log2(n)
-            n_bins_doane = math.ceil(k)
-            bin_width = data_range / n_bins_doane
-        elif method == "auto":
-            # Use minimum of FD and Sturges (with sqrt correction for FD)
-            # FD with correction
-            fd_bw = _calculate_fd_binwidth(data, data_range, n)
-            sqrt_bw = _calculate_sqrt_fallback_binwidth(data_range, n)
-            fd_bw_corrected = max(fd_bw, sqrt_bw / 2)
-
-            # Sturges
-            n_bins_sturges = math.ceil(math.log2(n)) + 1
-            sturges_bw = data_range / n_bins_sturges
-
-            bin_width = min(fd_bw_corrected, sturges_bw)
         else:
             raise ValueError(f"Unknown binning method: {method}")
 
@@ -311,7 +253,7 @@ def _get_histogram_polars(
     n_bins = min(n_bins, num_bins)
 
     # For integer data, ensure bins don't exceed the integer range
-    if _is_polars_integer_type(data.dtype):
+    if data.dtype.is_integer():
         # Ensure we don't have more bins than the integer range
         # Keep cast to prevent overflow with large integer values
         int_range = int(float(max_val) - float(min_val))  # type: ignore[arg-type]
