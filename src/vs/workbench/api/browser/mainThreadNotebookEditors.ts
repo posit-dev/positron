@@ -113,7 +113,7 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 			// --- Start Positron ---
 			// TODO: How do we determine when we should set this override to positron-notebook?
 			// override: viewType,
-			override: checkPositronNotebookEnabled(this._configurationService) ? 'positron-notebook' : viewType,
+			override: checkPositronNotebookEnabled(this._configurationService) ? POSITRON_NOTEBOOK_EDITOR_ID : viewType,
 			// --- End Positron ---
 		};
 
