@@ -280,6 +280,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			// if the model responds, the config works
 			return undefined;
 		} catch (error) {
+			const providerErrorMessage = this.parseProviderError(error);
+			if (providerErrorMessage) {
+				return new Error(providerErrorMessage);
+			}
 			if (ai.AISDKError.isInstance(error)) {
 				return new Error(error.message);
 			}
@@ -467,13 +471,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
 				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
-				// TODO: Deal with various LLM providers' different error response formats
+
+				const providerErrorMessage = this.parseProviderError(part.error);
+				if (providerErrorMessage) {
+					throw new Error(providerErrorMessage);
+				}
+
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
-				}
-				if ((part.error as any).responseBody) {
-					const error = (part.error as any).responseBody as string;
-					throw new Error(error);
 				}
 				throw new Error(JSON.stringify(part.error));
 			}
@@ -526,6 +531,28 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
 		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
 		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
+	}
+
+	/**
+	 * Parses for specific ai-sdk errors. Then parses provider specific errors.
+	 * @param error The error object returned by the provider.
+	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 */
+	parseProviderError(error: any): string | undefined {
+		// Try to extract an API error message with ai-sdk
+		if (ai.APICallError.isInstance(error)) {
+			const responseBody = error.responseBody;
+			if (responseBody) {
+				try {
+					const json = JSON.parse(responseBody);
+					return `${json.message ?? JSON.stringify(json)}`;
+				} catch (_error) {
+					return `API Error: ${responseBody}`;
+				}
+			}
+		}
+
+		return undefined;
 	}
 }
 
@@ -777,6 +804,35 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 	get providerName(): string {
 		return AWSLanguageModel.source.provider.displayName;
+	}
+
+	/**
+	 * Parses the error returned by Bedrock.
+	 * @param error The error object
+	 * @returns A user-friendly error message or undefined if not specifically handled.
+	 */
+	override parseProviderError(error: any): string | undefined {
+		const aiSdkError = super.parseProviderError(error);
+		if (aiSdkError) {
+			return aiSdkError;
+		}
+
+		if (!(error instanceof Error)) {
+			return undefined;
+		}
+
+		const name = error.name;
+		const message = error.message;
+
+		if (!message) {
+			return super.parseProviderError(error);
+		}
+
+		if (name === 'CredentialsProviderError') {
+			return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
+		}
+
+		return vscode.l10n.t(`AWS Bedrock error: ${message}`);
 	}
 }
 
