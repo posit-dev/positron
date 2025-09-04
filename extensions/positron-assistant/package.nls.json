@@ -23,7 +23,7 @@
 	"configuration.toolDetails.enable": "Enable tool call input and output details in the chat view. Must be enabled to include tool call details in the chat export.",
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
 	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats.",
-	"configuration.inlineCompletions.enable.description": "Enable inline completions in the editor for supported providers.",
+	"configuration.inlineCompletions.enable.description": "Languages for which inline completions in the editor are enabled.",
 	"configuration.inlineCompletionExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from inline completions.",
 	"configuration.gitIntegration.description": "Enable Positron Assistant git integration.",
 	"configuration.getTableSummary.description": "Enable Positron Assistant get table summary tool.",

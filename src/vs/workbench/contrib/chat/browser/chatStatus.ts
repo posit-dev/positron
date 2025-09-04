@@ -773,9 +773,6 @@ class ChatStatusDashboard extends Disposable {
 		return update;
 	}
 
-	// --- Start Positron ---
-	// Removed Settings section since it doesn't change Positron Assistant
-	// @ts-ignore
 	private createSettings(container: HTMLElement, disposables: DisposableStore): HTMLElement {
 		const modeId = this.editorService.activeTextEditorLanguageId;
 		const settings = container.appendChild($('div.settings'));
@@ -791,15 +788,19 @@ class ChatStatusDashboard extends Disposable {
 			}
 		}
 
+		// --- Start Positron ---
+		// Disable this setting since we don't currently support it in Positron Assistant
+		/*
 		// --- Next edit suggestions
 		{
 			const setting = append(settings, $('div.setting'));
 			this.createNextEditSuggestionsSetting(setting, localize('settings.nextEditSuggestions', "Next edit suggestions"), this.getCompletionsSettingAccessor(modeId), disposables);
 		}
+		*/
+		// --- End Positron ---
 
 		return settings;
 	}
-	// --- End Positron ---
 
 	private createSetting(container: HTMLElement, settingIdsToReEvaluate: string[], label: string, accessor: ISettingsAccessor, disposables: DisposableStore): Checkbox {
 		const checkbox = disposables.add(new Checkbox(label, Boolean(accessor.readSetting()), { ...defaultCheckboxStyles, hoverDelegate: nativeHoverDelegate }));
