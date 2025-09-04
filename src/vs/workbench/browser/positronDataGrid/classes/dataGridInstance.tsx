@@ -3211,6 +3211,12 @@ export abstract class DataGridInstance extends Disposable {
 			return new ClipboardCellIndexes(this._cellSelectionIndexes.columnIndexes, this._cellSelectionIndexes.rowIndexes);
 		}
 
+		/**
+		 * Sorts selection indexes.
+		 * @param selectionIndexes The selection indexes.
+		 * @param layoutManager The layout manager.
+		 * @returns The sorted selection indexes.
+		 */
 		const sortSelectionIndexesByPosition = (selectionIndexes: number[], layoutManager: LayoutManager) => {
 			// Order the selections.
 			const positionIndexes: PositionIndex[] = [];
