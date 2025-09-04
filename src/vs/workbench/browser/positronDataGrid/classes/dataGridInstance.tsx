@@ -385,18 +385,6 @@ export class ClipboardCell {
 }
 
 /**
- * ClipboardCellRange class.
- */
-export class ClipboardCellRange {
-	constructor(
-		readonly firstColumnIndex: number,
-		readonly firstRowIndex: number,
-		readonly lastColumnIndex: number,
-		readonly lastRowIndex: number
-	) { }
-}
-
-/**
  * ClipboardCellIndexes class.
  */
 export class ClipboardCellIndexes {
@@ -410,31 +398,11 @@ export class ClipboardCellIndexes {
 }
 
 /**
- * ClipboardColumnRange class.
- */
-export class ClipboardColumnRange {
-	constructor(
-		readonly firstColumnIndex: number,
-		readonly lastColumnIndex: number,
-	) { }
-}
-
-/**
  * ClipboardColumnIndexes class.
  */
 export class ClipboardColumnIndexes {
 	constructor(
 		readonly indexes: number[]
-	) { }
-}
-
-/**
- * ClipboardRowRange class.
- */
-export class ClipboardRowRange {
-	constructor(
-		readonly firstRowIndex: number,
-		readonly lastRowIndex: number,
 	) { }
 }
 
@@ -453,9 +421,7 @@ export class ClipboardRowIndexes {
 export type ClipboardData =
 	ClipboardCell |
 	ClipboardCellIndexes |
-	ClipboardColumnRange |
 	ClipboardColumnIndexes |
-	ClipboardRowRange |
 	ClipboardRowIndexes;
 
 /**
@@ -1625,6 +1591,9 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
+		// Clear selection.
+		this.clearSelection();
+
 		// Fire the onDidChangeColumnSorting event.
 		this._onDidChangeColumnSortingEmitter.fire(true);
 
@@ -1657,6 +1626,9 @@ export abstract class DataGridInstance extends Disposable {
 				}
 			});
 
+			// Clear selection.
+			this.clearSelection();
+
 			// Fire the onDidChangeColumnSorting event.
 			this._onDidChangeColumnSortingEmitter.fire(this._columnSortKeys.size > 0);
 
@@ -1675,6 +1647,9 @@ export abstract class DataGridInstance extends Disposable {
 	async clearColumnSortKeys(): Promise<void> {
 		// Clear column sort keys.
 		this._columnSortKeys.clear();
+
+		// Clear selection.
+		this.clearSelection();
 
 		// Fire the onDidChangeColumnSorting event.
 		this._onDidChangeColumnSortingEmitter.fire(false);
@@ -3225,12 +3200,7 @@ export abstract class DataGridInstance extends Disposable {
 	getClipboardData(): ClipboardData | undefined {
 		// Cell selection range.
 		if (this._cellSelectionIndexes) {
-			new ClipboardCellRange(
-				this._cellSelectionIndexes.firstColumnIndex,
-				this._cellSelectionIndexes.firstRowIndex,
-				this._cellSelectionIndexes.lastColumnIndex,
-				this._cellSelectionIndexes.lastRowIndex
-			);
+			return new ClipboardCellIndexes(this._cellSelectionIndexes.columnIndexes, this._cellSelectionIndexes.rowIndexes);
 		}
 
 		// Column selection indexes.
@@ -3245,10 +3215,7 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Cursor cell.
 		if (this._cursorColumnIndex >= 0 && this._cursorRowIndex >= 0) {
-			return new ClipboardCell(
-				this._cursorColumnIndex,
-				this._cursorRowIndex
-			);
+			return new ClipboardCell(this._cursorColumnIndex, this._cursorRowIndex);
 		}
 
 		// Clipboard data isn't available.

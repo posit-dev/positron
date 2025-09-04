@@ -14,11 +14,11 @@ import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js'
 import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
-import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardRowIndexes } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * Constants.
@@ -328,17 +328,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		if (clipboardData instanceof ClipboardCell) {
 			selectedClipboardCells = 1;
 		} else if (clipboardData instanceof ClipboardCellIndexes) {
-			const columns = clipboardData.columnIndexes.length;
-			const rows = clipboardData.rowIndexes.length;
-			selectedClipboardCells = columns * rows;
-		} else if (clipboardData instanceof ClipboardColumnRange) {
-			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
-			selectedClipboardCells = columns * this._tableDataCache.rows;
+			selectedClipboardCells = clipboardData.columnIndexes.length * clipboardData.rowIndexes.length;
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
 			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.rows;
-		} else if (clipboardData instanceof ClipboardRowRange) {
-			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
-			selectedClipboardCells = rows * this._tableDataCache.columns;
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
 			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.columns;
 		} else {

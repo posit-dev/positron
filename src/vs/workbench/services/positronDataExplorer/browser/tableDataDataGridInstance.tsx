@@ -22,8 +22,8 @@ import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExpl
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
-import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 
 /**
@@ -692,24 +692,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				kind: TableSelectionKind.SingleCell,
 				selection
 			};
-		} else if (clipboardData instanceof ClipboardCellRange) {
-			const selection: DataSelectionCellRange = {
-				first_column_index: clipboardData.firstColumnIndex,
-				first_row_index: clipboardData.firstRowIndex,
-				last_column_index: clipboardData.lastColumnIndex,
-				last_row_index: clipboardData.lastRowIndex,
+		} else if (clipboardData instanceof ClipboardCellIndexes) {
+			const selection: DataSelectionCellIndices = {
+				column_indices: clipboardData.columnIndexes,
+				row_indices: clipboardData.rowIndexes
 			};
 			dataSelection = {
-				kind: TableSelectionKind.CellRange,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardColumnRange) {
-			const selection: DataSelectionRange = {
-				first_index: clipboardData.firstColumnIndex,
-				last_index: clipboardData.lastColumnIndex
-			};
-			dataSelection = {
-				kind: TableSelectionKind.ColumnRange,
+				kind: TableSelectionKind.CellIndices,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
@@ -718,15 +707,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			};
 			dataSelection = {
 				kind: TableSelectionKind.ColumnIndices,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardRowRange) {
-			const selection: DataSelectionRange = {
-				first_index: clipboardData.firstRowIndex,
-				last_index: clipboardData.lastRowIndex
-			};
-			dataSelection = {
-				kind: TableSelectionKind.RowRange,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
