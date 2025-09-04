@@ -151,7 +151,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () =>
 			// Update the data grid instance.
-			updateDataGridInstance
+			updateDataGridInstance()
 		));
 
 		// Add the onDidUpdateBackendState event handler.
