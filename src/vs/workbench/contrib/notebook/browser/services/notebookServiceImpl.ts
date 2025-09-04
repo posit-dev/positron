@@ -49,6 +49,9 @@ import { SnapshotContext } from '../../../../services/workingCopy/common/fileWor
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { ICellRange } from '../../common/notebookRange.js';
+// --- Start Positron ---
+import { checkPositronNotebookEnabled } from '../../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+// --- End Positron ---
 
 
 export class NotebookProviderInfoStore extends Disposable {
@@ -347,18 +350,26 @@ export class NotebookProviderInfoStore extends Disposable {
 				notebookFactoryObject,
 			));
 			// Then register the schema handler as exclusive for that notebook
-			disposables.add(this._editorResolverService.registerEditor(
-				`${Schemas.vscodeNotebookCell}:/**/${globPattern}`,
-				// --- Start Positron ---
-				// Use the original contributed priority instead of 'exclusive' to allow
-				// the Positron notebook editor to be configured as the default by users.
-				// See: https://github.com/posit-dev/positron/issues/9253.
-				// { ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
-				notebookEditorInfo,
-				// --- End Positron ---
-				notebookEditorOptions,
-				notebookCellFactoryObject
-			));
+			// --- Start Positron ---
+			// If Positron notebooks are enabled,
+			// let the Positron notebook cell handler take care of it.
+
+			// disposables.add(this._editorResolverService.registerEditor(
+			// 	`${Schemas.vscodeNotebookCell}:/**/${ globPattern } `,
+			// 	{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+			// 	notebookEditorOptions,
+			// 	notebookCellFactoryObject
+			// ));
+
+			if (!checkPositronNotebookEnabled(this._configurationService)) {
+				disposables.add(this._editorResolverService.registerEditor(
+					`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,
+					{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
+					notebookEditorOptions,
+					notebookCellFactoryObject
+				));
+			}
+			// --- End Positron ---
 		}
 
 		return disposables;
