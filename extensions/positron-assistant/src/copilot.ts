@@ -88,6 +88,7 @@ namespace DidPartiallyAcceptCompletionNotification {
 
 /** Register the Copilot service. */
 export function registerCopilotService(context: ExtensionContext) {
+	// Use the singleton pattern to ensure only one CopilotService instance exists
 	const copilotService = CopilotService.create(context);
 	context.subscriptions.push(copilotService);
 }
@@ -111,7 +112,7 @@ export class CopilotService implements vscode.Disposable {
 	/** Create the CopilotLanguageService singleton instance. */
 	public static create(context: ExtensionContext) {
 		if (CopilotService._instance) {
-			throw new Error('CopilotService was already created.');
+			return CopilotService._instance;
 		}
 		CopilotService._instance = new CopilotService(context);
 		return CopilotService._instance;
@@ -314,6 +315,10 @@ export class CopilotService implements vscode.Disposable {
 	dispose(): void {
 		this._disposables.forEach((disposable) => disposable.dispose());
 		this._onSignedInChanged.dispose();
+		this._clientManager?.dispose();
+
+		// Reset the singleton instance when disposing
+		CopilotService._instance = undefined;
 	}
 }
 
