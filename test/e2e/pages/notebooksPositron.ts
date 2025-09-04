@@ -386,4 +386,14 @@ export class PositronNotebooks extends Notebooks {
 			await this.code.driver.page.waitForTimeout(100);
 		});
 	}
+
+	/**
+	 * Get cell content for identification
+	 */
+	async getCellContent(cellIndex: number): Promise<string> {
+		const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
+		const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
+		const content = await editor.textContent();
+		return content ?? '';
+	}
 }

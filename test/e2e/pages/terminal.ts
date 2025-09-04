@@ -25,6 +25,7 @@ export class Terminal {
 		await this.terminalTab.click();
 	}
 
+	// Note, this doesn't work for Windows
 	async waitForTerminalText(
 		terminalText: string,
 		options: {

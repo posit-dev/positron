@@ -213,7 +213,6 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 					this._instantiationService,
 					uri,
 					undefined,
-					options.viewType
 				);
 
 				// Open the editor

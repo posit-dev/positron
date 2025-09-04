@@ -11,7 +11,8 @@ import {
 	LOCAL_API_URL,
 	platformOs,
 	platformVersion,
-	MetricResponse
+	MetricResponse,
+	positronVersion
 } from './metric-base.js';
 import { SPEC_NAME } from '../../fixtures/test-setup/constants.js';
 
@@ -28,6 +29,8 @@ export type PerfMetric = {
 
 export type MetricPayload = {
 	timestamp: string;
+	app_version: string;
+	build_number: string;
 	platform_os: string;
 	platform_version: string;
 	runtime_env: string;
@@ -99,6 +102,8 @@ function createMetricPayload(metric: PerfMetric, isElectronApp: boolean): Metric
 		timestamp: new Date().toISOString(),
 		platform_os: platformOs,
 		platform_version: platformVersion,
+		app_version: positronVersion?.positronVersion || 'unknown',
+		build_number: positronVersion?.buildNumber || 'unknown',
 		runtime_env: isElectronApp ? 'electron' : 'chromium',
 		run_id: process.env.GITHUB_RUN_ID ?? process.env.RUN_ID ?? 'unknown',
 		feature_area,

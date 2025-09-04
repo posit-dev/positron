@@ -5,10 +5,11 @@
 
 import { ISettableObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
-import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
-import { SelectionStateMachine } from './selectionMachine.js';
-import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
+import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -99,6 +100,11 @@ export interface IPositronNotebookInstance {
 	isDisposed: boolean;
 
 	/**
+	 * Indicates whether this notebook is read-only and cannot be edited.
+	 */
+	readonly isReadOnly: boolean;
+
+	/**
 	 * Event that fires when the cells container is scrolled
 	 */
 	readonly onDidScrollCellsContainer: Event<void>;
@@ -156,7 +162,45 @@ export interface IPositronNotebookInstance {
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
 
 	/**
+	 * Checks if the notebook instance contains a code editor.
+	 *
+	 * @param editor The code editor to check for.
+	 */
+	hasCodeEditor(editor: ICodeEditor): boolean;
+
+	/**
 	 * Closes the notebook instance.
 	 */
 	close(): void;
+
+	/**
+	 * Copies the specified cells to the clipboard.
+	 * If no cells are provided, copies the currently selected cells.
+	 * @param cells Optional array of cells to copy. If not provided, uses current selection.
+	 */
+	copyCells(cells?: IPositronNotebookCell[]): void;
+
+	/**
+	 * Cuts the specified cells (copies to clipboard and removes from notebook).
+	 * If no cells are provided, cuts the currently selected cells.
+	 * @param cells Optional array of cells to cut. If not provided, uses current selection.
+	 */
+	cutCells(cells?: IPositronNotebookCell[]): void;
+
+	/**
+	 * Pastes cells from the clipboard at the specified index.
+	 * If no index is provided, pastes after the current selection.
+	 * @param index Optional index to paste at. If not provided, pastes after current selection.
+	 */
+	pasteCells(index?: number): void;
+
+	/**
+	 * Pastes cells from the clipboard above the current selection.
+	 */
+	pasteCellsAbove(): void;
+
+	/**
+	 * Returns whether there are cells available to paste from the clipboard.
+	 */
+	canPaste(): boolean;
 }

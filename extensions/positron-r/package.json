@@ -349,6 +349,11 @@
             ],
             "default": "auto",
             "markdownDescription": "%r.configuration.defaultRepositories.description%"
+          },
+          "positron.r.packageManagerRepository": {
+            "scope": "window",
+            "type": "string",
+            "markdownDescription": "%r.configuration.packageManagerRepository.description%"
           }
         }
       }
@@ -483,7 +488,7 @@
         "when": "isRPackage"
       },
       {
-        "command": "r.sourceCurrentFile",
+        "command": "r.sourceCurrentFileWithEcho",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
         "when": "editorLangId == r && !isRPackage && !positron.hasCodeCells"
@@ -602,17 +607,17 @@
       ],
       "editor/title/run": [
         {
-          "command": "r.sourceCurrentFile",
-          "group": "navigation@0",
-          "icon": "$(play)",
-          "title": "%r.command.sourceCurrentFile.title%",
-          "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
-        },
-        {
           "command": "r.sourceCurrentFileWithEcho",
           "group": "navigation@0",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFileWithEcho.title%",
+          "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
+        },
+        {
+          "command": "r.sourceCurrentFile",
+          "group": "navigation@1",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFile.title%",
           "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
         },
         {
