@@ -25,8 +25,10 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 		<NotebookCellWrapper
 			cell={cell}
 		>
-			<div className='cell-contents positron-notebook-cell-outputs'>
+			<div className={`positron-notebook-editor-container ${editorShown ? '' : 'editor-hidden'}`}>
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
+			</div>
+			<div className='cell-contents positron-notebook-cell-outputs'>
 				<div className='positron-notebook-markup-rendered' onDoubleClick={() => {
 					cell.toggleEditor();
 				}}>

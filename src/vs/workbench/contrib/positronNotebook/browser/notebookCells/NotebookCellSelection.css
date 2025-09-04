@@ -60,7 +60,13 @@
 }
 
 /* When outputs are empty, round both corners of editor bar */
-.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs:empty) .positron-notebook-editor-container::before,
-.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs:empty) .positron-notebook-editor-container::before {
+.positron-notebook-cell.selected:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::before,
+.positron-notebook-cell.editing:has(.positron-notebook-cell-outputs.no-outputs) .positron-notebook-editor-container::before {
 	border-bottom-left-radius: var(--_positron-notebook-selection-bar-radius);
+}
+
+/* When editor container is empty, round both corners of outputs bar (This is the case when markdown has been rendered but doesn't have an editor open) */
+.positron-notebook-cell.selected:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::before {
+	top: var(--_positron-notebook-selection-bar-top-offset);
+	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
