@@ -11,6 +11,7 @@ import { ExtensionContext } from 'vscode';
 import { Command, DidChangeTextDocumentNotification, DidChangeTextDocumentParams, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, Middleware, NotebookDocumentMiddleware, NotificationType, RequestType, ServerOptions, TextDocumentItem, TransportKind } from 'vscode-languageclient/node';
 import { arch, platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { StoredModelConfig } from './config.js';
 
 interface EditorPluginInfo {
 	name: string;
@@ -128,7 +129,16 @@ export class CopilotService implements vscode.Disposable {
 
 	private constructor(
 		private readonly _context: vscode.ExtensionContext,
-	) { }
+	) {
+		// Initialize signed-in state based on whether a copilot model is registered
+		this._signedIn = this.isModelRegistered();
+	}
+
+	/** Check if a copilot model is registered */
+	private isModelRegistered(): boolean {
+		const registeredModels = this._context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
+		return !!registeredModels?.find((modelConfig) => modelConfig.provider === 'copilot');
+	}
 
 	/** Get the Copilot language client. */
 	private client(): LanguageClient {
@@ -227,8 +237,7 @@ export class CopilotService implements vscode.Disposable {
 			throw new vscode.CancellationError();
 		}
 
-		// Consider sign-in successful
-		this.setSignedIn(true);
+		// Sign-in is considered successful when the model is registered in the config service
 	}
 
 	/** Sign out of Copilot. */
@@ -237,7 +246,7 @@ export class CopilotService implements vscode.Disposable {
 
 		try {
 			await client.sendRequest(SignOutRequest.type, {});
-			this.setSignedIn(false);
+			// Sign-out is considered successful when the model is deleted in the config service
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
@@ -250,14 +259,30 @@ export class CopilotService implements vscode.Disposable {
 	}
 
 	private setSignedIn(value: boolean): void {
-		if (this._signedIn !== value) {
-			this._signedIn = value;
+		// Update the session state only for event firing purposes
+		// The actual state is determined by checking if a model is registered
+		const previousValue = this._signedIn;
+		this._signedIn = value;
+		if (previousValue !== value) {
 			this._onSignedInChanged.fire(value);
 		}
 	}
 
 	public get isSignedIn(): boolean {
-		return this._signedIn;
+		// Always check the persistent state to determine if signed in
+		return this.isModelRegistered();
+	}
+
+	/** 
+	 * Refresh the signed-in state based on the current model registration status.
+	 * This should be called when a model is registered or deleted.
+	 */
+	public refreshSignedInState(): void {
+		const currentState = this.isModelRegistered();
+		if (this._signedIn !== currentState) {
+			this._signedIn = currentState;
+			this._onSignedInChanged.fire(currentState);
+		}
 	}
 
 	async inlineCompletion(
