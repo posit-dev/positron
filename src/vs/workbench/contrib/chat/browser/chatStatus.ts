@@ -865,7 +865,12 @@ class ChatStatusDashboard extends Disposable {
 		};
 	}
 
-	private createNextEditSuggestionsSetting(container: HTMLElement, label: string, completionsSettingAccessor: ISettingsAccessor, disposables: DisposableStore): void {
+	// --- Start Positron ---
+	// Make this method public to prevent it from being marked unused.
+	//
+	// We don't support Next Edit Suggestions in Assistant yet.
+	// --- End Positron ---
+	public createNextEditSuggestionsSetting(container: HTMLElement, label: string, completionsSettingAccessor: ISettingsAccessor, disposables: DisposableStore): void {
 		const nesSettingId = defaultChat.nextEditSuggestionsSetting;
 		const completionsSettingId = defaultChat.completionsEnablementSetting;
 		const resource = EditorResourceAccessor.getOriginalUri(this.editorService.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY });

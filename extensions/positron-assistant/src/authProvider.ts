@@ -9,6 +9,9 @@ import { CopilotService } from './copilot.js';
 /**
  * Authentication provider that proxies GitHub Copilot auth via CopilotService.
  *
+ * This provider is used so that VS Code's chat entitlement service tracks the
+ * Copilot OAuth sign-in state and propagates it to the UI.
+ *
  * Note: We do not obtain or expose a real access token from CopilotService.
  * Returning a session object is sufficient for VS Code to treat the user as
  * "signed in" for entitlement purposes; entitlement fetch may stay Unresolved
