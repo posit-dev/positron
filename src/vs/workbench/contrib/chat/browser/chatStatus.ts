@@ -587,16 +587,19 @@ class ChatStatusDashboard extends Disposable {
 			}
 		}
 
-		/*
 		// Settings
-		// {
-		// 	addSeparator(localize('settingsTitle', "Settings"));
+		{
+			const chatSentiment = this.chatEntitlementService.sentiment;
+			addSeparator(localize('codeCompletions', "Code Completions"), chatSentiment.installed && !chatSentiment.disabled && !chatSentiment.untrusted ? toAction({
+				id: 'workbench.action.openChatSettings',
+				label: localize('settingsLabel', "Settings"),
+				tooltip: localize('settingsTooltip', "Open Settings"),
+				class: ThemeIcon.asClassName(Codicon.settingsGear),
+				run: () => this.runCommandAndClose(() => this.commandService.executeCommand('workbench.action.openSettings', { query: `@id:${defaultChat.completionsEnablementSetting} @id:${defaultChat.nextEditSuggestionsSetting}` })),
+			}) : undefined);
 
-		// 	this.createSettings(this.element, disposables);
-		// }
-
-
-		// Remove Copilot
+			this.createSettings(this.element, disposables);
+		}
 
 		// Completions Snooze
 		if (canUseCopilot(this.chatEntitlementService)) {
@@ -604,6 +607,7 @@ class ChatStatusDashboard extends Disposable {
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), disposables);
 		}
 
+		/*
 		// New to Copilot / Signed out
 		{
 			const newUser = isNewUser(this.chatEntitlementService);

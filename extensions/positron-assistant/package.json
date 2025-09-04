@@ -209,6 +209,11 @@
             "default": true,
             "description": "%configuration.streamingEdits.enable%"
           },
+          "positron.assistant.inlineCompletions.enable": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%configuration.inlineCompletions.enable.description%"
+          },
           "positron.assistant.inlineCompletionExcludes": {
             "type": "array",
             "default": [
