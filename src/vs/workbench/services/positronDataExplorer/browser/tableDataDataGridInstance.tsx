@@ -752,8 +752,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, 3),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, 3)
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
 		}
 	}
