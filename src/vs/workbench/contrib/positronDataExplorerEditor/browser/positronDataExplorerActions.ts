@@ -808,6 +808,17 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 					POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
 					POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
 			),
+			keybinding: {
+				when: ContextKeyExpr.and(
+					POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
+					ContextKeyExpr.or(
+						POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
+						POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
+				),
+				weight: KeybindingWeight.WorkbenchContrib,
+				primary: undefined,
+			},
 			icon: Codicon.code,
 			menu: [
 				{
