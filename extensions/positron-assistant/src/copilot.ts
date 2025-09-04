@@ -100,6 +100,11 @@ export class CopilotService implements vscode.Disposable {
 
 	private _clientManager?: CopilotLanguageClientManager;
 
+	/** Current sign-in state. */
+	private _signedIn = false;
+	private readonly _onSignedInChanged = new vscode.EventEmitter<boolean>();
+	public readonly onSignedInChanged = this._onSignedInChanged.event;
+
 	/** The cancellation token for the current operation. */
 	private _cancellationToken: vscode.CancellationTokenSource | null = null;
 
@@ -149,6 +154,19 @@ export class CopilotService implements vscode.Disposable {
 				version: packageJSON.version,
 			};
 			this._clientManager = new CopilotLanguageClientManager(executable, editorPluginInfo);
+
+			// Observe status changes to infer sign-in state
+			const client = this._clientManager.client;
+			this._disposables.push(
+				client.onNotification(DidChangeStatusNotification.type, (params: DidChangeStatusParams) => {
+					// Heuristic: Normal => signed in; Inactive => signed out
+					if (params.kind === StatusKind.Inactive) {
+						this.setSignedIn(false);
+					} else if (params.kind === StatusKind.Normal) {
+						this.setSignedIn(true);
+					}
+				})
+			);
 		}
 		return this._clientManager.client;
 	}
@@ -207,6 +225,9 @@ export class CopilotService implements vscode.Disposable {
 		if (cancelled) {
 			throw new vscode.CancellationError();
 		}
+
+		// Consider sign-in successful
+		this.setSignedIn(true);
 	}
 
 	/** Sign out of Copilot. */
@@ -215,6 +236,7 @@ export class CopilotService implements vscode.Disposable {
 
 		try {
 			await client.sendRequest(SignOutRequest.type, {});
+			this.setSignedIn(false);
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
@@ -224,6 +246,17 @@ export class CopilotService implements vscode.Disposable {
 			}
 			return false;
 		}
+	}
+
+	private setSignedIn(value: boolean): void {
+		if (this._signedIn !== value) {
+			this._signedIn = value;
+			this._onSignedInChanged.fire(value);
+		}
+	}
+
+	public get isSignedIn(): boolean {
+		return this._signedIn;
 	}
 
 	async inlineCompletion(
@@ -280,6 +313,7 @@ export class CopilotService implements vscode.Disposable {
 
 	dispose(): void {
 		this._disposables.forEach((disposable) => disposable.dispose());
+		this._onSignedInChanged.dispose();
 	}
 }
 
