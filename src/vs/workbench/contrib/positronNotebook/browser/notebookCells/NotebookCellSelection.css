@@ -67,6 +67,6 @@
 
 /* When editor container is empty, round both corners of outputs bar (This is the case when markdown has been rendered but doesn't have an editor open) */
 .positron-notebook-cell.selected:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-cell-outputs::before {
-	top: var(--_positron-notebook-selection-bar-top-offset);
+	top: var(--_positron-notebook-selection-bar-inset);
 	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
