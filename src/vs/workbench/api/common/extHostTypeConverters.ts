@@ -2343,6 +2343,17 @@ export namespace LanguageModelChatMessage {
 
 	export function from(message: vscode.LanguageModelChatMessage): chatProvider.IChatMessage {
 
+		// --- Start Positron ---
+		// Handle undefined messages
+		if (!message) {
+			console.error('LanguageModelChatMessage.from called with undefined message, creating default User message');
+			message = new types.LanguageModelChatMessage(
+				types.LanguageModelChatMessageRole.User,
+				[new types.LanguageModelTextPart('')],
+			);
+		}
+		// --- End Positron ---
+
 		const role = LanguageModelChatMessageRole.from(message.role);
 		const name = message.name;
 
@@ -2438,6 +2449,18 @@ export namespace LanguageModelChatMessage2 {
 	}
 
 	export function from(message: vscode.LanguageModelChatMessage2): chatProvider.IChatMessage {
+
+		// --- Start Positron ---
+		// Handle undefined messages
+		if (!message) {
+			console.error('LanguageModelChatMessage2.from called with undefined message, creating default User message');
+			message = {
+				role: types.LanguageModelChatMessageRole.User,
+				content: [new types.LanguageModelTextPart('')],
+				name: undefined
+			} as vscode.LanguageModelChatMessage2;
+		}
+		// --- End Positron ---
 
 		const role = LanguageModelChatMessageRole.from(message.role);
 		const name = message.name;

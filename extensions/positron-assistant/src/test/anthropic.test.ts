@@ -48,7 +48,7 @@ suite('AnthropicLanguageModel', () => {
 		const config: ModelConfig = {
 			id: 'test-model',
 			name: 'Test Model',
-			provider: 'anthropic',
+			provider: 'anthropic-api',
 			model: 'claude-test',
 			apiKey: 'test-api-key', // pragma: allowlist secret
 			type: positron.PositronLanguageModelType.Chat

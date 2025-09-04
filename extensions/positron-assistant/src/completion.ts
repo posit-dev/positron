@@ -440,7 +440,7 @@ class AnthropicCompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'anthropic',
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey'],
@@ -667,7 +667,7 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
-		'anthropic': AnthropicCompletion,
+		'anthropic-api': AnthropicCompletion,
 		'azure': AzureCompletion,
 		'amazon-bedrock': AWSCompletion,
 		'copilot': CopilotCompletion,

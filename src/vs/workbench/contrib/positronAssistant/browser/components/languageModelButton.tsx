@@ -47,7 +47,7 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 export const LanguageModelIcon = (props: { provider: string }) => {
 	function getIcon() {
 		switch (props.provider) {
-			case 'anthropic':
+			case 'anthropic-api':
 				return <Claude className='language-model icon' />;
 			case 'google':
 				return <Gemini className='language-model icon' />;

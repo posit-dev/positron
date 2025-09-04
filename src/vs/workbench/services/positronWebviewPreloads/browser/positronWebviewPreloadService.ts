@@ -7,7 +7,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
-import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 

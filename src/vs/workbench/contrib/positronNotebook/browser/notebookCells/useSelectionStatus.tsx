@@ -7,7 +7,7 @@
 import React from 'react';
 
 // Other dependencies.
-import { CellSelectionStatus, IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionState } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 

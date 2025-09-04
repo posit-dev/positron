@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CellKind, IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellKind, IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 
 /** The type of notebook cell */
 /** The type of notebook cell */

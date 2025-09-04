@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
+import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { availableModels } from './models.js';
@@ -50,7 +50,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'anthropic',
+			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
+			// use 'anthropic-api' instead to make it possible to differentiate
+			// the two.
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
@@ -413,8 +416,10 @@ function toAnthropicToolResultBlock(
 			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
 			// Skip data parts.
+		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
+			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
 		} else {
-			throw new Error('Unsupported part type on tool result part content');
+			throw new Error(`Unsupported part type on tool result part content: ${JSON.stringify(resultPart)}`);
 		}
 	}
 	return withCacheControl(
@@ -468,6 +473,24 @@ function languageModelImagePartToAnthropicImageBlock(
 	);
 }
 
+function languageModelPromptTsxPartToAnthropicBlock(
+	part: vscode.LanguageModelPromptTsxPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.TextBlockParam {
+	// Convert the prompt TSX part to a string representation using the shared utility
+	const text = promptTsxPartToString(part);
+
+	return withCacheControl(
+		{
+			type: 'text',
+			text,
+		},
+		source,
+		dataPart,
+	);
+}
+
 function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
 	if (tools.length === 0) {
 		return [];
@@ -485,6 +508,11 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		type: 'object',
 		properties: {},
 	};
+	// Anthropic requires a type for all tools; default to 'object' if not provided.
+	if (!input_schema.type) {
+		log.warn(`[anthropic] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+		input_schema.type = 'object';
+	}
 	return {
 		name: tool.name,
 		description: tool.description,

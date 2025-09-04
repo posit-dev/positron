@@ -9,19 +9,23 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
+import { observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
+import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
+import { ScrollType } from '../../../../../editor/common/editorCommon.js';
+import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
 	private _container: HTMLElement | undefined;
-	private _editor: CodeEditorWidget | undefined;
+	protected _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
 
-	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+	executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
@@ -32,7 +36,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	get editor(): ICodeEditor | undefined {
-		return this._editor;
+		return this._editor.get();
 	}
 
 	get uri(): URI {
@@ -85,11 +89,51 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 
 	attachEditor(editor: CodeEditorWidget): void {
-		this._editor = editor;
+		this._editor.set(editor, undefined);
 	}
 
 	detachEditor(): void {
-		this._editor = undefined;
+		this._editor.set(undefined, undefined);
+	}
+
+	reveal(type?: CellRevealType): void {
+		// TODO: We may want to support type, but couldn't find any issues without it
+		if (this._container && this._instance.cellsContainer) {
+			// If the cell is less than 50% visible, scroll it to center
+			const rect = this._container.getBoundingClientRect();
+			const parentRect = this._instance.cellsContainer.getBoundingClientRect();
+			const visibleTop = Math.max(parentRect.top, rect.top);
+			const visibleBottom = Math.min(parentRect.bottom, rect.bottom);
+			const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+			const visibilityRatio = visibleHeight / rect.height;
+			if (visibilityRatio < 0.5) {
+				this._container.scrollIntoView({ behavior: 'instant', block: 'center' });
+			}
+		}
+	}
+
+	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		if (!options) {
+			return;
+		}
+
+		// Scroll the cell into view
+		this.reveal(options.cellRevealType);
+
+		// Select the cell in edit mode
+		this.select(CellSelectionType.Edit);
+
+		// Apply any editor options
+		await this.setEditorOptions(options.cellOptions?.options);
+	}
+
+	async setEditorOptions(options: ITextEditorOptions | undefined): Promise<void> {
+		if (options) {
+			const editor = await this.showEditor(!(options.preserveFocus ?? true));
+			if (editor) {
+				applyTextEditorOptions(options, editor, ScrollType.Immediate);
+			}
+		}
 	}
 
 	focus(): void {
@@ -98,8 +142,12 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 	}
 
-	focusEditor(): void {
-		this._editor?.focus();
+	async showEditor(focus = false): Promise<ICodeEditor | undefined> {
+		const editor = this._editor.get();
+		if (editor && focus) {
+			editor.focus();
+		}
+		return editor;
 	}
 
 	defocusEditor(): void {

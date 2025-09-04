@@ -21,6 +21,7 @@ import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from '
 import { AnthropicLanguageModel } from './anthropic.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
+import { PositronAssistantApi } from './api.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -376,4 +377,6 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}));
 	}
+
+	return new PositronAssistantApi();
 }

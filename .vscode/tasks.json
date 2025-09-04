@@ -144,6 +144,15 @@
 			"problemMatcher": []
 		},
 		{
+			"label": "compile positron-copilot-chat",
+			"type": "shell",
+			"command": "git submodule update --init --recursive && cd extensions/positron-copilot-chat && npm run compile",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [],
+		},
+		{
 			"type": "npm",
 			"script": "kill-watch-clientd",
 			"label": "Kill Core - Build",

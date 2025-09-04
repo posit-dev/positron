@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.72",
+			"version": "1.6.1",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "59e50a76fe856c2686867a1af5906a92c0ce6e4681a61ceb2218cf2c2c573210",
+			"sha256": "9c2920c2284ebfb681ef46e9f3bd4b50d5c6404d00485f91649678ede0c61d7e",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -292,6 +292,9 @@
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
+	"trustedExtensionAuthAccess": [
+		"GitHub.copilot-chat"
+	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",

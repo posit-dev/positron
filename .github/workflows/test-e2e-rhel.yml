@@ -1,4 +1,4 @@
-name: "Test: E2E (Ubuntu)"
+name: "Test: E2E (RHEL)"
 
 on:
   workflow_call:
@@ -21,12 +21,12 @@ on:
       display_name:
         required: false
         description: "The name of the job as it will appear in the GitHub Actions UI."
-        default: "e2e-linux"
+        default: "e2e-rhel"
         type: string
       currents_tags:
         required: false
         description: "The tags to use for Currents recording."
-        default: "@ubuntu"
+        default: "@rhel"
         type: string
       report_testrail:
         required: false
@@ -86,12 +86,12 @@ permissions:
   packages: read
 
 jobs:
-  e2e-linux:
-    name: ${{ inputs.display_name || 'e2e-linux' }}
+  e2e-rhel:
+    name: ${{ inputs.display_name || 'e2e-rhel' }}
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:35
+      image: ghcr.io/posit-dev/positron-rocky8-amd64:41
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -99,7 +99,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized-amd64:35
+        image: ghcr.io/posit-dev/positron-postgres-rocky8-amd64:41
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -181,9 +181,6 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      - name: Alter AppArmor Restrictions for Playwright
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
       - name: Run Playwright Tests
         shell: bash
         env:
@@ -197,7 +194,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/rhel' }}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
