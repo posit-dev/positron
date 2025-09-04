@@ -21,7 +21,7 @@ export interface INotebookCellActionBarItem {
 	/** Codicon class for the button icon (optional) */
 	icon?: string;
 	/** Location in UI - either main action bar or dropdown menu */
-	position: 'main' | 'menu';
+	position: 'main' | 'menu' | 'left';
 	/** Sort order within position (lower numbers appear first) */
 	order?: number;
 	/** Visibility condition using VS Code context keys (optional) */
