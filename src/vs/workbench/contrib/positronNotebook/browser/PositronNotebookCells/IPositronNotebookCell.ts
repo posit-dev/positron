@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer } from '../../../../base/common/buffer.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../base/common/observable.js';
-import { URI } from '../../../../base/common/uri.js';
-import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { NotebookPreloadOutputResults } from '../../positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { ISettableObservable } from '../../../../../base/common/observable.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -102,14 +104,34 @@ export interface IPositronNotebookCell extends Disposable {
 	focus(): void;
 
 	/**
-	 * Set focus on the editor within the cell
+	 * Show the cell's editor.
+	 * @param focus Whether to focus the editor after showing it. Default: false.
+	 * @returns Promise that resolves to the editor when it is available, or undefined if the editor could not be shown.
 	 */
-	focusEditor(): void;
+	showEditor(focus?: boolean): Promise<ICodeEditor | undefined>;
 
 	/**
 	 * Remove focus from within monaco editor and out to the cell itself
 	 */
 	defocusEditor(): void;
+
+	/**
+	 * Select this cell
+	 * @param type Selection type.
+	 */
+	select(type: CellSelectionType): void;
+
+	/**
+	 * Reveal the cell in the viewport
+	 * @param type Reveal type.
+	 */
+	reveal(type?: CellRevealType): void;
+
+	/**
+	 * Apply notebook editor options to this cell. Used by the IDE to select and/or reveal the cell.
+	 * @param options Notebook editor options to apply.
+	 */
+	setOptions(options: INotebookEditorOptions | undefined): Promise<void>;
 
 	/**
 	 * Deselect this cell

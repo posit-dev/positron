@@ -12,7 +12,6 @@ test.use({
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
-// Not running uv either because it is not installed on windows for now
 test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
 
@@ -93,7 +92,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await verifyPyprojectTomlNotCreated(app);
 	});
 
-	test('New env: uv environment', { tag: [tags.CRITICAL] }, async function ({ app }) {
+	test('New env: uv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const folderName = addRandomNumSuffix('new-uv');
 
 		await createNewFolder(app, {

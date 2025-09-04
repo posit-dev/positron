@@ -48,7 +48,10 @@ export class ExtensionsProposedApi {
 				const key = ExtensionIdentifier.toKey(k);
 				const proposalNames = value.filter(name => {
 					if (!allApiProposals[<ApiProposalName>name]) {
-						_logService.warn(`Via 'product.json#extensionEnabledApiProposals' extension '${key}' wants API proposal '${name}' but that proposal DOES NOT EXIST. Likely, the proposal has been finalized (check 'vscode.d.ts') or was abandoned.`);
+						// --- Start Positron ---
+						// We can ignore these; Positron does not track or enforce API proposal permissions.
+						// _logService.warn(`Via 'product.json#extensionEnabledApiProposals' extension '${key}' wants API proposal '${name}' but that proposal DOES NOT EXIST. Likely, the proposal has been finalized (check 'vscode.d.ts') or was abandoned.`);
+						// --- End Positron ---
 						return false;
 					}
 					return true;
@@ -59,6 +62,13 @@ export class ExtensionsProposedApi {
 	}
 
 	updateEnabledApiProposals(extensions: IExtensionDescription[]): void {
+		// --- Start Positron ---
+		// Positron does not track or enforce API proposal permissions.
+		if (extensions.length > 0) {
+			return;
+		}
+		// --- End Positron ---
+
 		for (const extension of extensions) {
 			this.doUpdateEnabledApiProposals(extension);
 		}

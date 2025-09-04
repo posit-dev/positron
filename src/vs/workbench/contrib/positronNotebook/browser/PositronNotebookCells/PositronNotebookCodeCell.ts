@@ -10,7 +10,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { parseOutputData } from '../getOutputContents.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCodeCell, NotebookCellOutputs } from './IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { pickPreferredOutputItem } from './notebookOutputUtils.js';
 import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';

@@ -604,5 +604,8 @@
     "@github/copilot-language-server": "^1.335.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
     "vscode-languageclient": "^9.0.1"
-  }
+  },
+  "extensionDependencies": [
+    "positron.positron-supervisor"
+  ]
 }
