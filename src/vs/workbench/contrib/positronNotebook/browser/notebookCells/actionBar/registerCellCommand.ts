@@ -14,7 +14,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platfor
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
-import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 
 
 /**
