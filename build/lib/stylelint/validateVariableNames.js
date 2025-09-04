@@ -29,6 +29,12 @@ function getVariableNameValidator() {
         while (match = RE_VAR_PROP.exec(value)) {
             const variableName = match[1];
             if (variableName && !allVariables.has(variableName) && !iconVariable.test(variableName)) {
+                // --- Start Positron ---
+                // Skip validation for private variables (those starting with --_)
+                if (variableName.startsWith('--_')) {
+                    continue;
+                }
+                // --- End Positron ---
                 report(variableName);
             }
         }
