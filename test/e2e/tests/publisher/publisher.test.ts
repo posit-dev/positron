@@ -74,6 +74,11 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
+		await test.step('Select Posit Connect as deployment target', async () => {
+			await app.workbench.quickInput.waitForQuickInputOpened();
+			await app.workbench.quickInput.selectQuickInputElement(1, false);
+		});
+
 		const existing = app.workbench.quickInput.quickInputList.getByText('shiny-py-example');
 
 		let existingPresent = false;
