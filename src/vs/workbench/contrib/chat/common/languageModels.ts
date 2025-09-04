@@ -203,8 +203,6 @@ export interface ILanguageModelChatResponse {
 }
 
 export interface ILanguageModelChatProvider {
-	// --- Start Positron ---
-	// --- End Positron ---
 	onDidChange: Event<void>;
 	prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]>;
 	sendChatRequest(modelId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
@@ -256,6 +254,9 @@ export interface ILanguageModelsService {
 
 	/** List the available language model providers. */
 	getLanguageModelProviders(): IPositronChatProvider[];
+
+	/** Get the extension identifier for a provider vendor. */
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined;
 	// --- End Positron ---
 
 	// TODO @lramos15 - Make this a richer event in the future. Right now it just indicates some change happened, but not what
@@ -276,7 +277,10 @@ export interface ILanguageModelsService {
 	 */
 	selectLanguageModels(selector: ILanguageModelChatSelector, allowPromptingUser?: boolean): Promise<string[]>;
 
-	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable;
+	// --- Start Positron ---
+	// Add extensionId parameter
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable;
+	// --- End Positron ---
 
 	sendChatRequest(modelId: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
 
@@ -349,6 +353,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	// Positron re-added this in the 1.103.0 merge
 	private readonly _onDidChangeProviders = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
 	readonly onDidChangeProviders = this._onDidChangeProviders.event;
+
+	// Track provider vendor to extension mapping for chat agent selection
+	private readonly _providerExtensions = new Map<string, ExtensionIdentifier>();
 	// --- End Positron ---
 
 	private readonly _providers = new Map<string, ILanguageModelChatProvider>();
@@ -531,15 +538,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 		const providers: IPositronChatProvider[] = [];
 
 		for (const model of this._modelCache.values()) {
-			if (seenProviderIds.has(model.family) ||
+			if (seenProviderIds.has(model.vendor) ||
 				// Only consider user-selectable models.
 				!model.isUserSelectable) {
 				continue;
 			}
-			seenProviderIds.add(model.family);
+			seenProviderIds.add(model.vendor);
 			providers.push({
-				displayName: model.providerName ?? model.family,
-				id: model.family
+				displayName: model.providerName ?? model.vendor,
+				id: model.vendor
 			});
 		}
 
@@ -552,7 +559,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			return Array.from(this._modelCache.keys());
 		}
 		return Array.from(this._modelCache.entries())
-			.filter(([, model]) => model.family === currentProvider.id)
+			.filter(([, model]) => model.vendor === currentProvider.id)
 			.map(([modelId,]) => modelId);
 	}
 
@@ -561,9 +568,17 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	set currentProvider(provider: IPositronChatProvider | undefined) {
+		this._logService.debug(`[LanguageModelsService] Setting current provider to ${provider?.id ?? 'undefined'}`);
 		this._currentProvider = provider;
 		this._onDidChangeCurrentProvider.fire(provider?.id);
 		this._storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
+	}
+
+	/**
+	 * Get the extension identifier for a provider vendor.
+	 */
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
+		return this._providerExtensions.get(vendor);
 	}
 	// --- End Positron ---
 
@@ -646,7 +661,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 		return result;
 	}
 
-	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
+	// --- Start Positron ---
+	// Include the extensionId when registering the provider
+	// --- End Positron ---
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
 		this._logService.trace('[LM] registering language model provider', vendor, provider);
 
 		if (!this._vendors.has(vendor)) {
@@ -657,6 +675,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 		}
 
 		this._providers.set(vendor, provider);
+
+		// --- Start Positron ---
+		// Track the extension that registered this provider vendor
+		this._providerExtensions.set(vendor, extensionId);
+		// --- End Positron ---
 
 		// TODO @lramos15 - Smarter restore logic. Don't activate all providers, but only those which were known to need restoring
 		this.resolveLanguageModels(vendor, true).then(() => {
@@ -675,6 +698,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 			/* ORIGINAL
 			this._providers.delete(vendor);
 			*/
+
+			// Clean up extension mapping when provider is removed
+			if (this._providers.get(vendor) === provider) {
+				// Only remove if this was the provider for this vendor
+				this._providerExtensions.delete(vendor);
+			}
 
 			// Reverse order so that the context update is performed after changing the state
 			const isDeleted = this._providers.delete(vendor);

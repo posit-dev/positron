@@ -1265,7 +1265,10 @@ export interface ExtHostSpeechShape {
 }
 
 export interface MainThreadLanguageModelsShape extends IDisposable {
-	$registerLanguageModelProvider(vendor: string): void;
+	// --- Start Positron ---
+	// Include extensionId when registering language model providers
+	$registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier): void;
+	// --- End Positron ---
 	$onLMProviderChange(vendor: string): void;
 	$unregisterProvider(vendor: string): void;
 	$tryStartChatRequest(extension: ExtensionIdentifier, modelIdentifier: string, requestId: number, messages: SerializableObjectWithBuffers<IChatMessage[]>, options: {}, token: CancellationToken): Promise<void>;
@@ -1317,7 +1320,10 @@ export interface IChatAgentProgressShape {
 
 export interface MainThreadChatAgentsShape2 extends IChatAgentProgressShape, IDisposable {
 	$registerAgent(handle: number, extension: ExtensionIdentifier, id: string, metadata: IExtensionChatAgentMetadata, dynamicProps: IDynamicChatAgentProps | undefined): void;
-	$registerChatParticipantDetectionProvider(handle: number): void;
+	// --- Start Positron ---
+	// Added extension identifier to the chat participant detection provider
+	$registerChatParticipantDetectionProvider(handle: number, extensionId?: ExtensionIdentifier): void;
+	// --- End Positron ---
 	$unregisterChatParticipantDetectionProvider(handle: number): void;
 	$registerRelatedFilesProvider(handle: number, metadata: IChatRelatedFilesProviderMetadata): void;
 	$unregisterRelatedFilesProvider(handle: number): void;

@@ -712,7 +712,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		// --- Start Positron ---
 		const showTokens = this.configService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
-		let experimentalTokenUsage = ['anthropic'];
+		let experimentalTokenUsage = ['anthropic-api'];
 		const approximateTokenCount = this.configService.getValue<Array<string>>('positron.assistant.approximateTokenCount');
 		if (approximateTokenCount?.length > 0) {
 			experimentalTokenUsage = experimentalTokenUsage.concat(approximateTokenCount);

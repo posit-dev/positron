@@ -32,17 +32,21 @@ function withNodeDefaults(/**@type WebpackConfig & { context: string }*/extConfi
 			conditionNames: ['import', 'require', 'node-addons', 'node'],
 			mainFields: ['module', 'main'],
 			// --- Start Positron ---
-			// Add '.wasm' to supported extensions
-			extensions: ['.ts', '.js', '.wasm'], // support ts-files and js-files
-			// --- End Positron ---
+			// Add '.wasm' and '.tsx' to supported extensions
+			extensions: ['.tsx', '.ts', '.js', '.wasm'], // support tsx-files, ts-files and js-files
 			extensionAlias: {
 				// this is needed to resolve dynamic imports that now require the .js extension
-				'.js': ['.js', '.ts'],
+				'.js': ['.js', '.ts', '.tsx'],
 			}
+			// --- End Positron ---
 		},
 		module: {
 			rules: [{
-				test: /\.ts$/,
+				// --- Start Positron ---
+				// test: /\.ts$/,
+				// Add support for .tsx files
+				test: /\.tsx?$/,
+				// --- End Positron ---
 				exclude: /node_modules/,
 				use: [{
 					// configure TypeScript loader:
@@ -130,7 +134,10 @@ function withBrowserDefaults(/**@type WebpackConfig & { context: string }*/extCo
 		target: 'webworker', // extensions run in a webworker context
 		resolve: {
 			mainFields: ['browser', 'module', 'main'],
-			extensions: ['.ts', '.js', '.wasm'], // support ts-files and js-files
+			// --- Start Positron ---
+			// Add '.wasm' and '.tsx' to supported extensions
+			extensions: ['.tsx', '.ts', '.js', '.wasm'], // support tsx-files, ts-files and js-files
+			// --- End Positron ---
 			fallback: {
 				'path': require.resolve('path-browserify'),
 				'os': require.resolve('os-browserify'),
@@ -138,12 +145,19 @@ function withBrowserDefaults(/**@type WebpackConfig & { context: string }*/extCo
 			},
 			extensionAlias: {
 				// this is needed to resolve dynamic imports that now require the .js extension
-				'.js': ['.js', '.ts'],
+				// --- Start Positron ---
+				// Add '.tsx' to supported extensions
+				'.js': ['.js', '.ts', '.tsx'],
+				// --- End Positron ---
 			},
 		},
 		module: {
 			rules: [{
-				test: /\.ts$/,
+				// --- Start Positron ---
+				// test: /\.ts$/,
+				// Add support for .tsx files
+				test: /\.tsx?$/,
+				// --- End Positron ---
 				exclude: /node_modules/,
 				use: [
 					{

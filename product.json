@@ -292,6 +292,9 @@
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
+	"trustedExtensionAuthAccess": [
+		"GitHub.copilot-chat"
+	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",

@@ -20,7 +20,7 @@ test.use({
 test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB, tags.NIGHTLY_ONLY] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		await app.workbench.quickaccess.runCommand(`positron-assistant.configureModels`);
-		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.clickSignOutButton();
 	});
 
@@ -37,7 +37,7 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 		// Sign in to the assistant
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_API_KEY}`);
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.verifySignOutButtonVisible();

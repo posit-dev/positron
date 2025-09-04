@@ -1211,6 +1211,7 @@ const kPositronDuplicativeExtensions = [
 	'vscode.r',
 	'jeanp413.open-remote-ssh',
 	'ms-python.python',
+	'GitHub.copilot-chat'
 ];
 
 interface PositronExtensionCompatibilty {
