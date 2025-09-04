@@ -1,5 +1,5 @@
 """
-Unit tests for _data_explorer_internal.py
+Unit tests for _data_explorer_internal.py.
 
 Tests the Polars-based histogram implementation and verifies consistency
 with NumPy implementation across various data types and edge cases.
@@ -117,8 +117,8 @@ def test_histogram_polars_methods():
     import numpy as np
 
     # Generate some normally distributed data
-    np.random.seed(42)
-    data_values = np.random.randn(1000).tolist()
+    np.random.seed(42)  # noqa: NPY002
+    data_values = np.random.randn(1000).tolist()  # noqa: NPY002
 
     methods = ["fixed", "fd", "sturges", "scott"]
 
@@ -140,12 +140,12 @@ def test_histogram_consistency_with_numpy():
     pytest.importorskip("numpy")
 
     # Test various data distributions
-    np.random.seed(42)
+    np.random.seed(42)  # noqa: NPY002
     test_distributions = [
-        np.random.uniform(0, 10, 1000),  # Uniform distribution
-        np.random.randn(1000),  # Normal distribution
-        np.random.randint(0, 100, 500),  # Integer data
-        np.random.exponential(2, 800),  # Skewed data
+        np.random.uniform(0, 10, 1000),  # Uniform distribution  # noqa: NPY002
+        np.random.randn(1000),  # Normal distribution  # noqa: NPY002
+        np.random.randint(0, 100, 500),  # Integer data  # noqa: NPY002
+        np.random.exponential(2, 800),  # Skewed data  # noqa: NPY002
     ]
 
     for values in test_distributions:
@@ -194,7 +194,7 @@ def test_histogram_datetime_data():
     from datetime import datetime, timedelta
 
     # Create datetime series
-    base = datetime(2024, 1, 1)
+    base = datetime(2024, 1, 1)  # noqa: DTZ001
     dates = [base + timedelta(days=i) for i in range(100)]
     data = pl.Series(dates)
 
