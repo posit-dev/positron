@@ -463,6 +463,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Public Methods
 
+	/**
+	 * Sets editor options for the notebook or a specific cell.
+	 * If cellOptions.resource is provided, applies options to that cell.
+	 * @param options Editor options to set
+	 */
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
 		const cellUri = options?.cellOptions?.resource;
 		const cell = cellUri && this._cells.find(cell => isEqual(cell.uri, cellUri));
