@@ -2122,4 +2122,255 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(numberStats.median, '42', 'Median should be 42');
 		assert.strictEqual(numberStats.stdev, '0', 'Standard deviation should be 0 for single value');
 	});
+
+	test('convertToCode - with row filters', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with more diverse data for filtering
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Get full schema to build row filter
+		const fullSchema = await getSchema(tableName);
+
+		// Create filter: age > 30
+		const rowFilter: RowFilter = {
+			filter_id: 'test-filter',
+			condition: RowFilterCondition.And,
+			column_schema: fullSchema.columns[2], // age column
+			filter_type: RowFilterType.Compare,
+			params: {
+				op: FilterComparisonOp.Gt,
+				value: '30'
+			}
+		};
+
+		// Apply the filter first so it's reflected in the SQL generation
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: {
+				filters: [rowFilter]
+			}
+		});
+
+		// Test convert to code with row filter applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [rowFilter],
+				sort_keys: [],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 3, 'Should have 3 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'WHERE "age" > 30', 'Third line should have the WHERE clause');
+	});
+
+	test('convertToCode - with sort columns', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with more diverse data for sorting
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Create sort key: sort by name descending
+		const sortKey: ColumnSortKey = {
+			column_index: 1, // name column
+			ascending: false
+		};
+
+		// Apply the sort key first so it's reflected in the SQL generation
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: {
+				sort_keys: [sortKey]
+			}
+		});
+
+		// Test convert to code with sort key applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [sortKey],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 3, 'Should have 3 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'ORDER BY "name" DESC', 'Third line should have the ORDER BY clause');
+	});
+
+	test('convertToCode - with both row filters and sort columns', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with data for filtering and sorting
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Get full schema to build row filter
+		const fullSchema = await getSchema(tableName);
+
+		// Create filter: age > 30
+		const rowFilter: RowFilter = {
+			filter_id: 'test-filter',
+			condition: RowFilterCondition.And,
+			column_schema: fullSchema.columns[2], // age column
+			filter_type: RowFilterType.Compare,
+			params: {
+				op: FilterComparisonOp.Gt,
+				value: '30'
+			}
+		};
+
+		// Create sort key: sort by name ascending
+		const sortKey: ColumnSortKey = {
+			column_index: 1, // name column
+			ascending: true
+		};
+
+		// Apply the filter and sort key
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: {
+				filters: [rowFilter]
+			}
+		});
+
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: {
+				sort_keys: [sortKey]
+			}
+		});
+
+		// Test convert to code with both row filter and sort key applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [rowFilter],
+				sort_keys: [sortKey],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 4, 'Should have 4 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'WHERE "age" > 30', 'Third line should have the WHERE clause');
+		assert.strictEqual(result.converted_code[3], 'ORDER BY "name"', 'Fourth line should have the ORDER BY clause');
+	});
+
+	test('convertToCode - with long/complex filename/URI', async () => {
+		// Use a long filename that needs to be quoted in SQL
+		const specialTableName = makeTempTableName() + '_complex_tablename_with_underscores';
+
+		// Create a simple test table
+		await createTempTable(specialTableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3']
+			},
+			{
+				name: 'data',
+				type: 'VARCHAR',
+				values: ["'A'", "'B'", "'C'"]
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: specialTableName });
+
+		// Test convert to code with a complex filename
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 2, 'Should have 2 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+
+		// Verify that the table name is properly quoted in SQL
+		assert.strictEqual(result.converted_code[1], `FROM "${specialTableName}"`, 'Second line should properly quote the table name');
+	});
 });
