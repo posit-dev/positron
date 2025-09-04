@@ -228,6 +228,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 * @returns The custom width of the column; otherwise, undefined.
 	 */
 	override getCustomColumnWidth(columnIndex: number): number | undefined {
+		// Subtrack 8px for margins.
 		return columnIndex === 0 ? this.layoutWidth - 8 : undefined;
 	}
 
