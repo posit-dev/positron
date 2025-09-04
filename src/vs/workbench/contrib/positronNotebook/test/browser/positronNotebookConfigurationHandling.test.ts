@@ -14,7 +14,7 @@ import { ITestInstantiationService } from '../../../../test/browser/workbenchTes
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
 import { usingPositronNotebooks } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
-import { PositronNotebookEditor } from '../../browser/PositronNotebookEditor.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 
 // Mock implementation for testing static editor registration
 class MockPositronNotebookContribution extends DisposableStore {
@@ -38,7 +38,7 @@ class MockPositronNotebookContribution extends DisposableStore {
 		this._currentRegistration = this.editorResolverService.registerEditor(
 			'*.ipynb',
 			{
-				id: PositronNotebookEditor.ID,
+				id: POSITRON_NOTEBOOK_EDITOR_ID,
 				label: 'Positron Notebook',
 				priority: RegisteredEditorPriority.option
 			},
@@ -139,7 +139,7 @@ suite('Positron Notebook Configuration Handling', () => {
 
 		// Verify editor is registered
 		let editors = editorResolverService.getEditors();
-		let positronEditor = editors.find(e => e.id === PositronNotebookEditor.ID);
+		let positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
 		assert.ok(positronEditor);
 
 		// Dispose contribution
@@ -147,7 +147,7 @@ suite('Positron Notebook Configuration Handling', () => {
 
 		// Verify editor is no longer registered
 		editors = editorResolverService.getEditors();
-		positronEditor = editors.find(e => e.id === PositronNotebookEditor.ID);
+		positronEditor = editors.find(e => e.id === POSITRON_NOTEBOOK_EDITOR_ID);
 		assert.strictEqual(positronEditor, undefined);
 	});
 });

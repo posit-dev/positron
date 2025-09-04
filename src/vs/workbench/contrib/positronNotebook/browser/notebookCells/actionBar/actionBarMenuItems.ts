@@ -6,7 +6,7 @@
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { CustomContextMenuItem } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuEntry } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
-import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';

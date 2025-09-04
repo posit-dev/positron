@@ -25,7 +25,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { disposableTimeout } from '../../../../base/common/async.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';

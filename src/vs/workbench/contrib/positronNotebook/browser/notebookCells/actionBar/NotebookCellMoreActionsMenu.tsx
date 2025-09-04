@@ -10,7 +10,7 @@ import React, { useRef } from 'react';
 import { localize } from '../../../../../../nls.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { showCustomContextMenu } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
-import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellActionButton } from './CellActionButton.js';
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';

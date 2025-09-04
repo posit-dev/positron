@@ -21,7 +21,7 @@ import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
-import { PositronNotebookEditor } from './PositronNotebookEditor.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 
 /**
  * Options for Positron notebook editor input, including backup support.
@@ -76,7 +76,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @param resource The resource (aka file) for the notebook we're working with.
 	 * @param preferredResource The preferred resource. See the definition of
 	 * `EditorInputWithPreferredResource` for more info.
-	 	 * @param options Options for the notebook editor input.
+	 * @param options Options for the notebook editor input.
 	 */
 	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, options: PositronNotebookEditorInputOptions = {}) {
 
@@ -102,7 +102,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	constructor(
 		readonly resource: URI,
-				public readonly options: PositronNotebookEditorInputOptions = {},
+		public readonly options: PositronNotebookEditorInputOptions = {},
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -168,7 +168,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * Gets the editor identifier.
 	 */
 	override get editorId(): string {
-		return PositronNotebookEditor.ID;
+		return POSITRON_NOTEBOOK_EDITOR_ID;
 	}
 
 	/**
@@ -341,7 +341,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		return {
 			resource: this.resource,
 			options: {
-				override: PositronNotebookEditor.ID
+				override: POSITRON_NOTEBOOK_EDITOR_ID
 			}
 		};
 	}

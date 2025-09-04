@@ -50,6 +50,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 import { observableValue } from '../../../../base/common/observable.js';
 import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 
 
 /*
@@ -71,8 +72,6 @@ const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
 
 
 export class PositronNotebookEditor extends EditorPane {
-	static readonly ID = 'workbench.editor.positronNotebook';
-
 	/**
 	 * Value to keep track of what instance of the editor this is.
 	 * Used for keeping track of the editor in the logs.
@@ -121,7 +120,7 @@ export class PositronNotebookEditor extends EditorPane {
 	) {
 		// Call the base class's constructor.
 		super(
-			PositronNotebookEditor.ID,
+			POSITRON_NOTEBOOK_EDITOR_ID,
 			_group,
 			telemetryService,
 			themeService,
@@ -368,8 +367,7 @@ export class PositronNotebookEditor extends EditorPane {
 	getViewModel(textModel: NotebookTextModel) {
 		this._logService.info(this._identifier, 'getViewModel');
 
-		const { notebookInstance } = this;
-		if (!notebookInstance) {
+		if (!this.notebookInstance) {
 			throw new Error('Notebook instance is not set.');
 		}
 
@@ -377,9 +375,10 @@ export class PositronNotebookEditor extends EditorPane {
 			throw new Error('Scoped instantiation service is not set. Make sure the editor has been created.');
 		}
 
-		const notebookOptions = notebookInstance.notebookOptions;
+		const notebookOptions = this.notebookInstance.notebookOptions;
 
 
+		const { notebookInstance } = this;
 		const viewContext = new ViewContext(
 			notebookOptions,
 			new NotebookEventDispatcher(),
@@ -393,7 +392,7 @@ export class PositronNotebookEditor extends EditorPane {
 			textModel,
 			viewContext,
 			this.getLayoutInfo(),
-			{ isReadOnly: notebookInstance.isReadOnly }
+			{ isReadOnly: this.notebookInstance.isReadOnly }
 		);
 
 		// Emit an event into the view context for layout change so things can get initialized

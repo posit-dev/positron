@@ -35,6 +35,7 @@ import { registerCellCommand } from './notebookCells/actionBar/registerCellComma
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
 import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 
 
 /**
@@ -58,7 +59,7 @@ class PositronNotebookContribution extends Disposable {
 
 	private registerEditor(): void {
 		const notebookEditorInfo: RegisteredEditorInfo = {
-			id: PositronNotebookEditor.ID,
+			id: POSITRON_NOTEBOOK_EDITOR_ID,
 			label: localize('positronNotebook', "Positron Notebook"),
 			detail: localize('positronNotebook.detail', "Provided by Positron"),
 			priority: RegisteredEditorPriority.option
@@ -206,7 +207,7 @@ class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWo
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(
 		PositronNotebookEditor,
-		PositronNotebookEditor.ID,
+		POSITRON_NOTEBOOK_EDITOR_ID,
 		localize('positronNotebookEditor', "Positron Notebook Editor")
 	),
 	[
