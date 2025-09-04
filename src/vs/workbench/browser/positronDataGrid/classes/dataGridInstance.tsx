@@ -729,11 +729,6 @@ export abstract class DataGridInstance extends Disposable {
 	private _cursorRowIndex = 0;
 
 	/**
-	 * Gets or sets the cell selection range.
-	 */
-	//private _cellSelectionRange?: CellSelectionRange;
-
-	/**
 	 * Gets or sets the cell selection indexes.
 	 */
 	private _cellSelectionIndexes?: CellSelectionIndexes;
@@ -792,7 +787,7 @@ export abstract class DataGridInstance extends Disposable {
 	protected readonly _rowLayoutManager: LayoutManager;
 
 	/**
-	 * Gets the column sort keys.
+	 * Gets the column sort keys. Keyed by column index.
 	 */
 	protected readonly _columnSortKeys = new Map<number, ColumnSortKeyDescriptor>();
 
