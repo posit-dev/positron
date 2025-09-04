@@ -77,6 +77,7 @@
 }
 
 .data-grid-column-header .content .title-description {
+	/* Adjust for the bottom border. */
 	margin-bottom: 1px;
 	grid-column: title-description / sort-indicator;
 }

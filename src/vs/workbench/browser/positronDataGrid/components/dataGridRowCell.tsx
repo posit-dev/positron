@@ -133,7 +133,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		);
 	};
 
-	// Render. 'data-grid-row-cell'
+	// Render.
 	return (
 		<div
 			ref={ref}
