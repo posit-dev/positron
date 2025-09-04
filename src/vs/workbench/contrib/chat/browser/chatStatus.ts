@@ -279,14 +279,20 @@ export class ChatStatus extends Disposable {
 				ariaLabel = localize('copilotDisabledStatus', "Copilot Disabled");
 			}
 
+			// --- Start Positron ---
+			// Dial back the treatment of 'signed out' a little bit, since
+			// everyone is going to be 'signed out' by default unless they are
+			// signed in to Copilot
 			// Signed out
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Unknown) {
 				const signedOutWarning = localize('notSignedIntoCopilot', "Signed out");
 
-				text = `$(copilot-not-connected) ${signedOutWarning}`;
+				// text = `$(copilot-not-connected) ${signedOutWarning}`;
+				text = `$(copilot-not-connected)`;
 				ariaLabel = signedOutWarning;
-				kind = 'prominent';
+				// kind = 'prominent';
 			}
+			// --- End Positron ---
 
 			// Free Quota Exceeded
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (chatQuotaExceeded || completionsQuotaExceeded)) {
