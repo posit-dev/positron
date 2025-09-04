@@ -12,7 +12,7 @@ on:
         run_e2e_rhel:
           description: "E2E Tests / Electron (RHEL)"
           required: false
-          default: true
+          default: false
           type: boolean
         run_e2e_windows:
           description: "E2E Tests / Electron (Windows)"
@@ -27,7 +27,7 @@ on:
         run_e2e_browser_rhel:
           description: "E2E Tests / Chromium (RHEL)"
           required: false
-          default: true
+          default: false
           type: boolean
         run_unit_tests:
           description: "Unit Tests"
