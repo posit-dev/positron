@@ -179,6 +179,12 @@
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
         "icon": "$(stop)"
+      },
+      {
+        "command": "positron-assistant.toggleInlineCompletions",
+        "title": "%commands.toggleInlineCompletions.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [

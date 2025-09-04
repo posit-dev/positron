@@ -211,6 +211,45 @@ function registerExportChatCommands(context: vscode.ExtensionContext) {
 	);
 }
 
+function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.toggleInlineCompletions', async () => {
+			await toggleInlineCompletions();
+		})
+	);
+}
+
+async function toggleInlineCompletions() {
+	// Get the current value of the setting
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const currentSettings = config.get<Record<string, boolean>>('inlineCompletions.enable') || {};
+
+	// Get the current file's language ID if there's an active text editor
+	const activeEditor = vscode.window.activeTextEditor;
+	const currentLanguageId = activeEditor?.document.languageId;
+
+	let keyToToggle: string;
+	let currentValue: boolean;
+
+	if (currentLanguageId && (currentLanguageId in currentSettings)) {
+		// If current file type has an explicit setting, toggle it
+		keyToToggle = currentLanguageId;
+		currentValue = currentSettings[currentLanguageId];
+	} else {
+		// Otherwise toggle the global setting (*)
+		keyToToggle = '*';
+		currentValue = currentSettings['*'] ?? true; // Default to true if not set
+	}
+
+	// Toggle the value
+	const newValue = !currentValue;
+	const updatedSettings = { ...currentSettings };
+	updatedSettings[keyToToggle] = newValue;
+
+	// Update the configuration
+	await config.update('inlineCompletions.enable', updatedSettings, vscode.ConfigurationTarget.Global);
+}
+
 function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize secret storage. In web mode, we currently need to use global
@@ -238,6 +277,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerConfigureModelsCommand(context, storage);
 	registerGenerateCommitMessageCommand(context);
 	registerExportChatCommands(context);
+	registerToggleInlineCompletionsCommand(context);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);
