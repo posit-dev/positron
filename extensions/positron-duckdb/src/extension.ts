@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import {
 	BackendState,
+	CodeSyntaxName,
 	ColumnDisplayType,
 	ColumnFilter,
 	ColumnFilterType,
@@ -21,6 +22,8 @@ import {
 	ColumnSortKey,
 	ColumnSummaryStats,
 	ColumnValue,
+	ConvertedCode,
+	ConvertToCodeParams,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataExplorerResponse,
@@ -1326,7 +1329,8 @@ END`;
 					]
 				},
 				convert_to_code: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{ code_syntax_name: 'SQL' }]
 				}
 			}
 		};
@@ -1654,6 +1658,35 @@ END`;
 		const numRows = Number(result.toArray()[0].num_rows);
 		return [numRows, numColumns];
 	}
+
+	async suggestCodeSyntaxes(): RpcResponse<CodeSyntaxName> {
+		return {
+			code_syntax_name: 'SQL'
+		};
+	}
+
+	async convertToCode(params: ConvertToCodeParams, uri: string): RpcResponse<ConvertedCode> {
+		const parsedUri = vscode.Uri.parse(uri);
+		const filename = path.basename(parsedUri.path, path.extname(parsedUri.path));
+
+		// Escape any quotes in the filename to prevent SQL injection
+		const escapedFilename = filename.replace(/"/g, '""');
+		const result = ["SELECT * ", `FROM "${escapedFilename}"`];
+
+		if (this._whereClause) {
+			const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
+			result.push(whereClause);
+		}
+
+		if (this._sortClause) {
+			const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
+			result.push(sortClause);
+		}
+
+		return {
+			converted_code: result
+		};
+	}
 }
 
 /**
@@ -1823,6 +1856,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				return table.setSortColumns(rpc.params as SetSortColumnsParams);
 			case DataExplorerBackendRequest.SearchSchema:
 				return table.searchSchema(rpc.params as SearchSchemaParams);
+			case DataExplorerBackendRequest.SuggestCodeSyntax:
+				return table.suggestCodeSyntaxes();
+			case DataExplorerBackendRequest.ConvertToCode:
+				return table.convertToCode(rpc.params as ConvertToCodeParams, rpc.uri!);
 			case DataExplorerBackendRequest.SetColumnFilters:
 				return `${rpc.method} not yet implemented`;
 			default:
