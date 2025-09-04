@@ -10,6 +10,7 @@ import './dataGridColumnHeader.css';
 import React, { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
+import * as nls from '../../../../nls.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { IDataColumn } from '../interfaces/dataColumn.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
@@ -45,6 +46,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 	const sortingButtonRef = useRef<HTMLButtonElement>(undefined!);
+	const titleRef = useRef<HTMLDivElement>(undefined!);
 
 	/**
 	 * onMouseDown handler.
@@ -95,6 +97,39 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 		await context.instance.showColumnContextMenu(props.columnIndex, sortingButtonRef.current);
 	};
 
+	/**
+	 * titleMouseOver event handler.
+	 */
+	const titleMouseOver = () => {
+		if (!props.column || !context.instance.hoverManager) {
+			return;
+		}
+
+		// Check if this is a PositronDataExplorerColumn with access to columnSchema
+		const explorerColumn = props.column as any;
+		if (!explorerColumn.columnSchema) {
+			return;
+		}
+
+		// Create tooltip content with type and label if present
+		const typePrefix = nls.localize('positronDataGrid.columnHeader.type', "Type:");
+		let tooltipContent = `${typePrefix} ${explorerColumn.columnSchema.type_name}`;
+
+		if (explorerColumn.columnSchema.column_label) {
+			tooltipContent += `\n${explorerColumn.columnSchema.column_label}`;
+		}
+
+		// Show hover with text content
+		context.instance.hoverManager.showHover(titleRef.current, tooltipContent);
+	};
+
+	/**
+	 * titleMouseLeave event handler.
+	 */
+	const titleMouseLeave = () => {
+		context.instance.hoverManager?.hideHover();
+	};
+
 	// Get the column sort key.
 	const columnSortKey = context.instance.columnSortKey(props.columnIndex);
 
@@ -140,7 +175,14 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				}}
 			>
 				<div className='title-description'>
-					<div className='title'>{renderedColumn}</div>
+					<div
+						ref={titleRef}
+						className='title'
+						onMouseLeave={titleMouseLeave}
+						onMouseOver={titleMouseOver}
+					>
+						{renderedColumn}
+					</div>
 					{props.column?.description &&
 						<div className='description'>{props.column.description}</div>
 					}

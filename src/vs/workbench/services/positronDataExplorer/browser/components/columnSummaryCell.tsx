@@ -50,6 +50,7 @@ interface ColumnSummaryCellProps {
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
+	const columnNameRef = useRef<HTMLDivElement>(undefined!);
 
 	/**
 	 * Determines whether summary stats is supported.
@@ -558,7 +559,19 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						)
 					}
 				/>
-				<div className='column-name'>
+				<div
+					ref={columnNameRef}
+					className='column-name'
+					onMouseLeave={() => props.instance.hoverManager.hideHover()}
+					onMouseOver={() => {
+						if (props.columnSchema.column_label) {
+							props.instance.hoverManager.showHover(
+								columnNameRef.current,
+								props.columnSchema.column_label
+							);
+						}
+					}}
+				>
 					{renderedColumn}
 				</div>
 				{!expanded && <ColumnSparkline />}
