@@ -28,7 +28,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
 	return (
-		<div className='positron-notebook-code-cell-outputs' data-testid='cell-output'>
+		<div className='positron-notebook-code-cell-outputs positron-notebook-cell-outputs' data-testid='cell-output'>
 			{outputs?.map((output) => (
 				<CellOutput key={output.outputId} {...output} />
 			))}
@@ -44,7 +44,9 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 			cell={cell}
 		>
 			<div className='positron-notebook-code-cell-contents'>
-				<CellEditorMonacoWidget cell={cell} />
+				<div className='positron-notebook-editor-container'>
+					<CellEditorMonacoWidget cell={cell} />
+				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>
 			<CellExecutionInfoIcon cell={cell} />
