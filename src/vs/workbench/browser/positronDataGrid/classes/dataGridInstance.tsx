@@ -966,8 +966,6 @@ export abstract class DataGridInstance extends Disposable {
 		return this._defaultRowHeight;
 	}
 
-	// YAYA
-
 	/**
 	 * Gets a value which indicates whether column pinning is enabled
 	 */
@@ -995,8 +993,6 @@ export abstract class DataGridInstance extends Disposable {
 	get maximumPinnedRows() {
 		return this._maximumPinnedRows;
 	}
-
-	// YAYA
 
 	/**
 	 * Gets a value which indicates whether to show the horizontal scrollbar.
@@ -1357,8 +1353,6 @@ export abstract class DataGridInstance extends Disposable {
 		// Return false, indicating that the cursor was already showing.
 		return false;
 	}
-
-	// YAYA
 
 	/**
 	 * Gets column descriptors.
@@ -1877,8 +1871,6 @@ export abstract class DataGridInstance extends Disposable {
 		return this._rowLayoutManager.lastIndex;
 	}
 
-	// YAYA
-
 	/**
 	 * Returns a value which indicates whether the specified column is pinned.
 	 * @param columnIndex The column index.
@@ -2032,8 +2024,6 @@ export abstract class DataGridInstance extends Disposable {
 		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
-
-	// YAYA
 
 	/**
 	 * Scrolls to the cursor.
