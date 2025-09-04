@@ -902,10 +902,7 @@ class ChatStatusDashboard extends Disposable {
 		}));
 	}
 
-	// --- Start Positron ---
-	// Made this method public to avoid unused private method warning
-	// --- End Positron ---
-	public createCompletionsSnooze(container: HTMLElement, label: string, disposables: DisposableStore): void {
+	private createCompletionsSnooze(container: HTMLElement, label: string, disposables: DisposableStore): void {
 		const isEnabled = () => {
 			const completionsEnabled = isCompletionsEnabled(this.configurationService);
 			const completionsEnabledActiveLanguage = isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId);

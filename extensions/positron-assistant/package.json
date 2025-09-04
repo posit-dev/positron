@@ -210,8 +210,13 @@
             "description": "%configuration.streamingEdits.enable%"
           },
           "positron.assistant.inlineCompletions.enable": {
-            "type": "boolean",
-            "default": true,
+            "type": "object",
+            "default": {
+              "*": true
+            },
+            "additionalProperties": {
+              "type": "boolean"
+            },
             "markdownDescription": "%configuration.inlineCompletions.enable.description%"
           },
           "positron.assistant.inlineCompletionExcludes": {

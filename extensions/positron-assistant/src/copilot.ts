@@ -273,7 +273,7 @@ export class CopilotService implements vscode.Disposable {
 		return this.isModelRegistered();
 	}
 
-	/** 
+	/**
 	 * Refresh the signed-in state based on the current model registration status.
 	 * This should be called when a model is registered or deleted.
 	 */
