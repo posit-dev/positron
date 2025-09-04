@@ -9,36 +9,11 @@ import { IPositronNotebookService } from '../../../../../services/positronNotebo
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-
-
-/**
- * Configuration for action bar UI registration.
- */
-export type ICellActionBarOptions = {
-	/** Category of the action bar item. Items that share the same category
-	 * will be grouped together. Ignored for "main" position actions. */
-	category?: string;
-	/** Sort order within position (lower numbers appear first) */
-	order?: number;
-	/** Visibility condition using VS Code context keys */
-	when?: ContextKeyExpression;
-} & ({
-	/** Location in UI - main action bar */
-	position: 'main';
-	/** Codicon class for the button icon - required for main position */
-	icon: string;
-} | {
-	/** Location in UI - dropdown menu */
-	position: 'menu';
-	/** Codicon class for the button icon - optional for menu position */
-	icon?: string;
-});
 
 /**
  * Options for registering a cell command.
@@ -46,6 +21,7 @@ export type ICellActionBarOptions = {
 export interface IRegisterCellCommandOptions {
 	/** The unique command identifier */
 	commandId: string;
+
 	/** The function to execute when the command is invoked, receives the active notebook instance and services accessor */
 	handler: (cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor) => void;
 
@@ -56,7 +32,7 @@ export interface IRegisterCellCommandOptions {
 	cellCondition?: CellConditionPredicate;
 
 	/** Optional UI registration for the action bar */
-	actionBar?: ICellActionBarOptions;
+	actionBar?: Omit<INotebookCellActionBarItem, 'commandId'>;
 
 	/** Optional keybinding configuration */
 	keybinding?: IPositronNotebookCommandKeybinding;
@@ -146,7 +122,6 @@ export function registerCellCommand({
 			category: actionBar.category,
 			order: actionBar.order,
 			when: actionBar.when,
-			needsCellContext: true,  // Always true for cell commands
 			cellCondition  // Pass cell condition to action bar registry
 		};
 

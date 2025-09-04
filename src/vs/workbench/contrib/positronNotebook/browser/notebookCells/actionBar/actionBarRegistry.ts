@@ -26,8 +26,6 @@ export interface INotebookCellActionBarItem {
 	order?: number;
 	/** Visibility condition using VS Code context keys (optional) */
 	when?: ContextKeyExpression;
-	/** If true, the cell will be selected before executing the command */
-	needsCellContext?: boolean;
 	/** Cell-specific condition that determines if this command applies to a given cell */
 	cellCondition?: CellConditionPredicate;
 	/** Category of the action bar item. Items that share the same category will be grouped together. */
