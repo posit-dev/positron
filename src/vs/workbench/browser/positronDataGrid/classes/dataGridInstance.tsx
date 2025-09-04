@@ -510,6 +510,14 @@ export class ColumnSortKeyDescriptor implements IColumnSortKey {
 }
 
 /**
+ * Represents a position and its corresponding index.
+ */
+interface PositionIndex {
+	readonly position: number;
+	readonly index: number;
+}
+
+/**
  * DataGridInstance class.
  */
 export abstract class DataGridInstance extends Disposable {
@@ -3203,14 +3211,50 @@ export abstract class DataGridInstance extends Disposable {
 			return new ClipboardCellIndexes(this._cellSelectionIndexes.columnIndexes, this._cellSelectionIndexes.rowIndexes);
 		}
 
+		const sortSelectionIndexesByPosition = (selectionIndexes: number[], layoutManager: LayoutManager) => {
+			// Order the selections.
+			const positionIndexes: PositionIndex[] = [];
+			for (let i = 0; i < selectionIndexes.length; i++) {
+				// Get the column index and column position.
+				const index = selectionIndexes[i];
+				const position = layoutManager.mapIndexToPosition(index);
+				if (position === undefined) {
+					return selectionIndexes;
+				}
+
+				// Push the position index.
+				positionIndexes.push({
+					position,
+					index
+				});
+			}
+
+			// Return the sorted indexes.
+			return positionIndexes.sort((a, b) => a.position - b.position).map(positionIndex => positionIndex.index);
+		};
+
 		// Column selection indexes.
 		if (this._columnSelectionIndexes) {
-			return new ClipboardColumnIndexes(this._columnSelectionIndexes.indexes);
+			// Get the column selection indexes.
+			const columnSelectionIndexes = this._columnSelectionIndexes.indexes;
+			if (columnSelectionIndexes.length === 0) {
+				return;
+			}
+
+			// Return the sorted column selection indexes.
+			return new ClipboardColumnIndexes(sortSelectionIndexesByPosition(columnSelectionIndexes, this._columnLayoutManager));
 		}
 
 		// Row selection indexes.
 		if (this._rowSelectionIndexes) {
-			return new ClipboardRowIndexes(this._rowSelectionIndexes.indexes);
+			// Get the row selection indexes.
+			const rowSelectionIndexes = this._rowSelectionIndexes.indexes;
+			if (rowSelectionIndexes.length === 0) {
+				return;
+			}
+
+			// Return the sorted row selection indexes.
+			return new ClipboardColumnIndexes(sortSelectionIndexesByPosition(rowSelectionIndexes, this._columnLayoutManager));
 		}
 
 		// Cursor cell.
