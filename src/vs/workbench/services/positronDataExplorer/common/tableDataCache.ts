@@ -36,17 +36,6 @@ export enum InvalidateCacheFlags {
 	All = ColumnSchema | Data
 }
 
-// /**
-//  * UpdateDescriptor interface.
-//  */
-// interface UpdateDescriptor {
-// 	invalidateCache: InvalidateCacheFlags;
-// 	firstColumnIndex: number;
-// 	screenColumns: number;
-// 	firstRowIndex: number;
-// 	screenRows: number;
-// }
-
 /**
  * UpdateDescriptor interface.
  */
