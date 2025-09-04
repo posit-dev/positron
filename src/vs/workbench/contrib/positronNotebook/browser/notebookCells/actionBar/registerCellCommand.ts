@@ -6,7 +6,7 @@
 import { CommandsRegistry, ICommandMetadata } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookCell } from '../../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -14,7 +14,7 @@ import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platfor
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
-import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 
 
 /**
