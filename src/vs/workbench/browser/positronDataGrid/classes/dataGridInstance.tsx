@@ -1937,8 +1937,6 @@ export abstract class DataGridInstance extends Disposable {
 		}
 	}
 
-	// CURSOR MOVEMENT
-
 	/**
 	 * Moves the cursor up.
 	 */
