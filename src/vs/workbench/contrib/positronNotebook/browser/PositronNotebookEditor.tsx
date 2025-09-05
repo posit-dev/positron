@@ -49,7 +49,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 import { observableValue } from '../../../../base/common/observable.js';
-import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
+import { PositronNotebookEditorControl } from './adapters/PositronNotebookEditorControl.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 
 
