@@ -18,6 +18,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { EditorOption } from '../../../common/config/editorOptions.js';
 import { EnterOperation } from '../../../common/cursor/cursorTypeEditOperations.js';
+import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 
 interface IPositronCommentMarkers {
 	startText: string;
@@ -225,6 +226,10 @@ export class FillToEndOfLineAction extends EditorAction {
 			id: FillToEndOfLineAction.ID,
 			label: nls.localize2('positron.fillToEndOfline', 'Fill Symbol to End of Line'),
 			precondition: EditorContextKeys.writable,
+			kbOpts: {
+				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyL),
+				weight: 100
+			}
 		});
 	}
 
