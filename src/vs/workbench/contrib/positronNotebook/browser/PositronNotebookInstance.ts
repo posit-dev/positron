@@ -399,7 +399,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._positronNotebookService.registerInstance(this);
 
 		this.selectionStateMachine = this._register(
-			this._instantiationService.createInstance(SelectionStateMachine)
+			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
 		);
 
 
