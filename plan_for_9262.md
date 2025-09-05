@@ -12,10 +12,16 @@ The current cell execution info icon should be replaced with a more dynamic icon
 
 
 ## Next Steps:
-- Switch run cell to 'left' position
-- Verify it doesn't show up in the action bar
-- Add new method to get the left-hand actions from the registry
-- Add logic to pull left-hand actions for the cell info icon
-- Render primary left-hand-action in place of the current info icon when cell is selected or icon is hovered.
-- Add logic for extra actions to show up in a dropdown menu.
+- [x] Switch run cell to 'left' position
+- [x] Verify it doesn't show up in the action bar
+- [x] Add new method to get the left-hand actions from the registry
+- [x] Use CellActionButton component in the cell action bar as well.
+- [x] Add logic to pull left-hand actions from registry into the cell info icon component.
+- [x] Render primary left-hand-action in place of the current info icon when icon is hovered.
+- [x] Add observable value to `IPositronNotebookCell` that indicates whether the cell is selected.
+- [ ] Hook up cell selected observable to the info icon component to control if the primary left-hand-action is shown for selection.
+- [ ] Cleanup the hover styles for run cell button.
+- [x] Utilize the isSelected variable in other locations to clean up code.
+- [ ] Add logic for extra actions to show up in a dropdown menu.
+
 - Test by adding a dummy run-cell action.

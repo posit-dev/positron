@@ -120,7 +120,11 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 							role='img'
 						/>
 					) : (
-						<span className='execution-order-badge'> {String(executionOrder)}</span>
+						<>
+							<span className='execution-order-badge-bracket'>[</span>
+							<span className='execution-order-badge'> {String(executionOrder)} </span>
+							<span className='execution-order-badge-bracket'>]</span>
+						</>
 					)
 					)}
 			</div>

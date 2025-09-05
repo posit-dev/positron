@@ -7,23 +7,33 @@
 	position: absolute;
 	top: 6px;
 	left: -20px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 10px;
-	height: 12px;
+	--_icon-dim: 16px;
+	width: var(--_icon-dim);
+	height: var(--_icon-dim);
 	font-size: 7px;
-	border-inline: 1px solid color-mix(in srgb, var(--vscode-widget-border) 60%, transparent);
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 1px;
 	background-color: transparent;
-	padding: 1px 2px;
 	user-select: none;
 	transition: border-color 0.15s ease;
 	z-index: 10;
 	pointer-events: auto;
+
+
+	& > button {
+		padding: 2px;
+	}
+
 }
 
 .cell-execution-info-icon span.execution-order-badge {
 	cursor: default;
+}
+
+.cell-execution-info-icon span.execution-order-badge-bracket {
+	font-size: 14px;
 }
 .cell-execution-info-icon:hover {
 	border-color: color-mix(in srgb, var(--vscode-widget-border) 80%, transparent);
