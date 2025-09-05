@@ -210,7 +210,7 @@ export class FillToEndOfLineAction extends EditorAction {
 			// Only fill if target column is greater than current position
 			if (targetColumn > currentColumn) {
 				const fillLength = targetColumn - currentColumn;
-				const fillString = fillChar.repeat(fillLength + 1);
+				const fillString = fillChar.repeat(fillLength + 1) + '\n';
 
 				commands.push(new ReplaceCommand(new Range(lineNumber, currentColumn, lineNumber, currentColumn), fillString));
 			}
