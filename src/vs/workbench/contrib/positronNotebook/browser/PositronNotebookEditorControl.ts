@@ -476,6 +476,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	}
 }
 
+// TODO: Can we extend NotebookViewModel instead of INotebookViewModel?
 class PositronNotebookViewModel extends Disposable implements INotebookViewModel {
 	//#region Events
 	private readonly _onDidChangeViewCells = this._register(new Emitter<INotebookViewCellsUpdateEvent>());
@@ -560,6 +561,7 @@ class PositronNotebookViewModel extends Disposable implements INotebookViewModel
 	}
 }
 
+// TODO: Can we extend CodeCellViewModel and MarkupCellViewModel instead of BaseCellViewModel?
 class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellViewModel {
 	// TODO: Needs to be codecell or markdown cell event?
 	protected _pauseableEmitter = this._register(new PauseableEmitter<CodeCellLayoutChangeEvent | MarkupCellLayoutChangeEvent>());
@@ -617,17 +619,26 @@ class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellVi
 		};
 	}
 
-	//#region BaseCellViewModel
+	//#region BaseCellViewModel abstract
 	get cellKind() {
 		return this._cell.kind;
 	}
-	override onDeselect(): void {
+	onDeselect(): void {
 		throw new Error('Method not implemented.');
 	}
-	override layoutChange(change: CodeCellLayoutChangeEvent | MarkupCellLayoutChangeEvent, source?: string): void {
+	layoutChange(change: CodeCellLayoutChangeEvent | MarkupCellLayoutChangeEvent, source?: string): void {
 		throw new Error('Method not implemented.');
 	}
-	protected override onDidChangeTextModelContent(): void {
+	onDidChangeTextModelContent(): void {
+		throw new Error('Method not implemented.');
+	}
+	getHeight(lineHeight: number): number {
+		throw new Error('Method not implemented.');
+	}
+	getOutputOffset(index: number): number {
+		throw new Error('Method not implemented.');
+	}
+	updateOutputHeight(index: number, height: number, source?: string): void {
 		throw new Error('Method not implemented.');
 	}
 	//#endregion
@@ -701,13 +712,4 @@ class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellVi
 		return this._outputViewModels;
 	}
 	//#endregion
-	getHeight(lineHeight: number): number {
-		throw new Error('Method not implemented.');
-	}
-	getOutputOffset(index: number): number {
-		throw new Error('Method not implemented.');
-	}
-	updateOutputHeight(index: number, height: number, source?: string): void {
-		throw new Error('Method not implemented.');
-	}
 }
