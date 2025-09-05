@@ -159,6 +159,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _textModel: NotebookTextModel | undefined = undefined;
 
+	private readonly _onDidChangeTextModel = this._register(new Emitter<NotebookTextModel | undefined>());
+	readonly onDidChangeTextModel = this._onDidChangeTextModel.event;
+
 	/**
 	 * Internal event emitter for when the editor's options change.
 	 */
@@ -815,6 +818,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._textModel = model.notebook;
+		this._onDidChangeTextModel.fire(this._textModel);
 
 		this._modelStore.add(
 			this._textModel.onDidChangeContent((e) => {

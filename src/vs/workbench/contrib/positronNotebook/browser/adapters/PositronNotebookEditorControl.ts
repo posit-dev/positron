@@ -93,6 +93,22 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 
 		this._notebookEditorService.addNotebookEditor(this);
 
+		// TODO: Would be great if we could ensure textModel and therefore viewModel are always defined.
+		// But need to rework some async handling that sets textModel in notebookInstance first.
+		const createViewModel = (textModel: NotebookTextModel) => {
+			return this._instantiationService.createInstance(PositronNotebookViewModel, this._notebookInstance, textModel);
+		};
+		if (this._notebookInstance.textModel) {
+			this._viewModel.value = createViewModel(this._notebookInstance.textModel);
+		}
+		this._register(this._notebookInstance.onDidChangeTextModel((textModel) => {
+			if (textModel) {
+				this._viewModel.value = createViewModel(textModel);
+			} else {
+				this._viewModel.clear();
+			}
+		}));
+
 		// Update the active code editor when the notebook selection state changes.
 		this._register(autorun(reader => {
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
@@ -220,9 +236,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		return this._notebookInstance.cells.get().length;
 	}
 	getSelections(): ICellRange[] {
-		// TODO: Would be great if we could ensure textModel and therefore viewModel are always defined.
-		// But need to rework some async handling that sets textModel in notebookInstance first.
-		return this.getViewModel()?.getSelections() ?? [];
+		return this._viewModel.value?.getSelections() ?? [];
 	}
 	setSelections(selections: ICellRange[]): void {
 		throw new Error('Method not implemented.');
@@ -237,10 +251,6 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		return this._uuid;
 	}
 	getViewModel(): INotebookViewModel | undefined {
-		if (this._notebookInstance.textModel && !this._viewModel.value) {
-			// TODO: If the text model can change, we'll need to update the view model.
-			this._viewModel.value = this._instantiationService.createInstance(PositronNotebookViewModel, this._notebookInstance, this._notebookInstance.textModel);
-		}
 		return this._viewModel.value;
 	}
 	hasModel(): this is IActiveNotebookEditor {
