@@ -17,7 +17,7 @@ import { ITextModel } from '../../../common/model.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { EditorOption } from '../../../common/config/editorOptions.js';
-import { ReplaceCommand } from '../../../common/commands/replaceCommand.js';
+import { EnterOperation } from '../../../common/cursor/cursorTypeEditOperations.js';
 
 interface IPositronCommentMarkers {
 	startText: string;
@@ -153,6 +153,53 @@ export class AddPositronCommentMarkersAction extends EditorAction {
 }
 
 /**
+ * Custom command that fills with characters to end of line
+ */
+class FillToEndCommand implements ICommand {
+	private readonly _selection: Selection;
+	private readonly _fillText: string;
+	private _selectionId: string | null = null;
+
+	constructor(selection: Selection, fillText: string) {
+		this._selection = selection;
+		this._fillText = fillText;
+	}
+
+	public getEditOperations(model: ITextModel, builder: IEditOperationBuilder): void {
+		// Insert the fill text at the current cursor position
+		const range = new Range(
+			this._selection.startLineNumber,
+			this._selection.startColumn,
+			this._selection.endLineNumber,
+			this._selection.endColumn
+		);
+
+		builder.addEditOperation(range, this._fillText);
+
+		// Calculate the position after inserting the fill text
+		const newColumn = this._selection.startColumn + this._fillText.length;
+		const newSelection = new Selection(
+			this._selection.startLineNumber,
+			newColumn,
+			this._selection.startLineNumber,
+			newColumn
+		);
+
+		// Track the selection so we can position cursor after the fill text
+		this._selectionId = builder.trackSelection(newSelection);
+	}
+
+	public computeCursorState(model: ITextModel, helper: ICursorStateComputerData): Selection {
+		if (this._selectionId === null) {
+			return this._selection;
+		}
+
+		// Get the tracked selection which represents the position after fill text
+		return helper.getTrackedSelection(this._selectionId);
+	}
+}
+
+/**
  * Fills from the cursor position to the end of the line with a symbol
  * character, e.g.
  *
@@ -187,14 +234,20 @@ export class FillToEndOfLineAction extends EditorAction {
 			return;
 		}
 
+		const viewModel = editor._getViewModel();
+		if (!viewModel) {
+			return;
+		}
+
 		const selections = editor.getSelections();
 		if (!selections || selections.length === 0) {
 			return;
 		}
 
-		const commands: ICommand[] = [];
+		const fillCommands: ICommand[] = [];
 		const parsedArgs = this.parseArgs(args);
 
+		// Create commands to fill each selection
 		for (const selection of selections) {
 			const position = selection.getStartPosition();
 			const lineNumber = position.lineNumber;
@@ -210,15 +263,27 @@ export class FillToEndOfLineAction extends EditorAction {
 			// Only fill if target column is greater than current position
 			if (targetColumn > currentColumn) {
 				const fillLength = targetColumn - currentColumn;
-				const fillString = fillChar.repeat(fillLength + 1) + '\n';
+				const fillString = fillChar.repeat(fillLength + 1);
 
-				commands.push(new ReplaceCommand(new Range(lineNumber, currentColumn, lineNumber, currentColumn), fillString));
+				fillCommands.push(new FillToEndCommand(selection, fillString));
 			}
 		}
 
-		if (commands.length > 0) {
+		if (fillCommands.length > 0) {
 			editor.pushUndoStop();
-			editor.executeCommands(this.id, commands);
+			// First fill to end of line
+			editor.executeCommands(this.id, fillCommands);
+
+			// Then simulate an Enter so that auto-indent moves the cursor to
+			// the correct position on the next line
+			setTimeout(() => {
+				const newSelections = editor.getSelections();
+				if (newSelections) {
+					const enterCommands = EnterOperation.lineInsertAfter(viewModel.cursorConfig, model, newSelections);
+					editor.executeCommands(this.id, enterCommands);
+				}
+			}, 0);
+
 			editor.pushUndoStop();
 		}
 	}
