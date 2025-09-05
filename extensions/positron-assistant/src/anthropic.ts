@@ -13,6 +13,7 @@ import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { availableModels } from './models.js';
 import { TokenUsage } from './tokens.js';
+import { resolve } from 'path';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -83,7 +84,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		const models = availableModels.get(this.provider);
+		const models = await this.resolveModels(token);
 
 		if (!models || models.length === 0) {
 			return [
@@ -95,16 +96,15 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					maxInputTokens: 0,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
-
 				}
 			];
 		}
 
 		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
-			id: model.identifier,
+			id: model.id,
 			name: model.name,
 			family: this._config.provider,
-			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
+			version: model.id, // 1.103.0 TODO: is there a better value? this may vary between providers
 			maxInputTokens: this.maxInputTokens,
 			maxOutputTokens: this.maxOutputTokens,
 			capabilities: this.capabilities,
@@ -299,6 +299,22 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		} catch (error) {
 			return error as Error;
 		}
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<positron.ai.LanguageModelDescriptor[] | undefined> {
+		const models = await this._client.models.list();
+		const availableModels: positron.ai.LanguageModelDescriptor[] = [];
+
+		models.data.forEach(model => {
+			availableModels.push({
+				id: model.id,
+				name: model.display_name,
+			});
+		});
+
+		return new Promise((resolve) => {
+			resolve(availableModels);
+		});
 	}
 }
 

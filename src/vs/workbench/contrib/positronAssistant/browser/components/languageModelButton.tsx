@@ -12,6 +12,7 @@ import Gemini from '../icons/gemini.js';
 import GithubCopilot from '../icons/githubCopilot.js';
 import Bedrock from '../icons/bedrockColor.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import OpenAI from '../icons/openai.js';
 
 interface LanguageModelButtonProps {
 	identifier: string;
@@ -56,6 +57,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 			case 'amazon-bedrock': // Vercel API uses this as an id
 			case 'bedrock':
 				return <Bedrock className='language-model icon' />;
+			case 'openai':
+				return <OpenAI className='language-model icon' />;
 			case 'error':
 				return <div className={`language-model icon button-icon codicon codicon-error`} />;
 			case 'echo':
