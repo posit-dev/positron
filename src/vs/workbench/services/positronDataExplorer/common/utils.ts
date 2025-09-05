@@ -21,11 +21,24 @@ export const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
 	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
 
 /**
- * Performs a linear conversion from one range to another range.
- * @param value The value to convert.
- * @param from The from range.
- * @param to The to range.
- * @returns The converted value.
+ * Determines whether an array of numbers is contiguous.
+ * @param array The array of numbers.
+ * @returns true if the array is contiguous; otherwise, false.
  */
-export const linearConversion = (value: number, from: Range, to: Range) =>
-	((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min;
+export const isContiguous = (array: number[]) => {
+	if (array.length === 0) {
+		return false;
+	}
+
+	if (array.length === 1) {
+		return true;
+	}
+
+	for (let i = 1; i < array.length; i++) {
+		if (array[i - 1] + 1 !== array[i]) {
+			return false;
+		}
+	}
+
+	return true;
+};

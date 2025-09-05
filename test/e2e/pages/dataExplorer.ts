@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,7 +9,7 @@ import { Workbench } from '../infra/workbench';
 
 const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-headers';
 const HEADER_TITLES = '.data-grid-column-header .title-description .title';
-const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows';
+const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
 const DATA_GRID_ROW = '.data-grid-row';
 
 const SCROLLBAR_LOWER_RIGHT_CORNER = '.data-grid-scrollbar-corner';
