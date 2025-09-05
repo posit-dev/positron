@@ -42,7 +42,7 @@
 	bottom: var(--_positron-notebook-selection-bar-inset);
 }
 
-/* Don't round bottom corner for editor bar to make it look like a continuous bar*/
+/* Don't round bottom corner for editor bar to make it look like a continuous bar */
 .positron-notebook-cell.selected .positron-notebook-editor-container::before,
 .positron-notebook-cell.editing .positron-notebook-editor-container::before {
 	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
