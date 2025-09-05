@@ -385,7 +385,7 @@ registerCellCommand({
 	},
 	actionBar: {
 		icon: 'codicon-play',
-		position: 'main',
+		position: 'left',
 		order: CELL_EXECUTION_POSITION,
 		category: 'Execution'
 	},
@@ -406,7 +406,7 @@ registerCellCommand({
 	},
 	actionBar: {
 		icon: 'codicon-stop',
-		position: 'main',
+		position: 'left',
 		order: CELL_EXECUTION_POSITION,
 		category: 'Execution'
 	},
