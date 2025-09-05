@@ -119,7 +119,12 @@ export class ToolConfirmationSubPart extends BaseChatToolInvocationSubPart {
 			));
 		} else {
 			const codeBlockRenderOptions: ICodeBlockRenderOptions = {
-				hideToolbar: true,
+				// --- Start Positron ---
+				// Show the toolbar for code execution tool confirmations to allow copy/apply in editor
+
+				// hideToolbar: true,
+				hideToolbar: toolInvocation.toolId !== 'executeCode',
+				// --- End Positron ---
 				reserveWidth: 19,
 				verticalPadding: 5,
 				editorOptions: {
