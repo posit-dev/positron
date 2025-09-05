@@ -315,25 +315,32 @@ export class DataGrid {
 	// --- Verifications ---
 
 	async verifyColumnHeaders(expectedHeaders: string[]) {
-		await this.jumpToStart();
-		await this.clickCell(0, 0)
-		let maxScrollAttempts = await this.getColumnCount()
-		for (let i = 0; i < expectedHeaders.length; i++) {
-			const headerIsVisible = this.columnHeaders.getByText(expectedHeaders[i], { exact: true }).isVisible();
-			if (await headerIsVisible) {
-				await expect(this.columnHeaders.getByText(expectedHeaders[i], { exact: true })).toBeVisible();
-				continue;
+		await test.step('Verify column headers', async () => {
+			await this.jumpToStart();
+			await this.clickCell(0, 0);
+
+			// Calculate max attempts based on expected column count
+			const columnCount = await this.getColumnCount();
+			let maxScrollAttempts = columnCount;
+
+			for (let i = 0; i < expectedHeaders.length; i++) {
+				const headerIsVisible = await this.columnHeaders.getByText(expectedHeaders[i], { exact: true }).isVisible();
+				if (headerIsVisible) {
+					await expect(this.columnHeaders.getByText(expectedHeaders[i], { exact: true })).toBeVisible();
+					continue;
+				}
+
+				if (maxScrollAttempts > 0) {
+					await this.code.driver.page.keyboard.press('ArrowRight');
+					maxScrollAttempts--;
+					i--; // Try this header again after scrolling
+				} else {
+					throw new Error(`Could not find column header: ${expectedHeaders[i]}`);
+				}
 			}
-			if (maxScrollAttempts > 0) {
-				await this.code.driver.page.keyboard.press('ArrowRight');
-				await this.code.driver.page.keyboard.press('ArrowRight');
-				maxScrollAttempts = maxScrollAttempts - 2;
-				i--;
-			} else {
-				throw new Error(`Could not find column header: ${expectedHeaders[i]}`);
-			}
-		}
+		});
 	}
+
 
 	async verifyTableDataLength(expectedLength: number) {
 		await test.step('Verify data explorer table data length', async () => {
