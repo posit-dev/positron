@@ -75,7 +75,6 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		});
 
 		await test.step('Select Posit Connect as deployment target', async () => {
-			await app.workbench.quickInput.waitForQuickInputOpened();
 			await app.workbench.quickInput.selectQuickInputElement(1, false);
 		});
 
