@@ -7,8 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
 
-const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-headers';
-const HEADER_TITLES = '.data-grid-column-header .title-description .title';
+const HEADER_TITLES = '.data-grid-column-header .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
 const DATA_GRID_ROW = '.data-grid-row';
 
@@ -200,8 +199,11 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private headers = this.code.driver.page.locator(`${COLUMN_HEADERS} ${HEADER_TITLES}`);
+	private columnHeaders = this.code.driver.page.locator(HEADER_TITLES);
 	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
+	cell = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
+		`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`
+	);
 
 	constructor(private code: Code, private dataExplorer: DataExplorer) {
 		this.grid = this.code.driver.page.locator('.data-explorer .right-column');
@@ -233,10 +235,24 @@ export class DataGrid {
 		});
 	}
 
-	async clickCell(rowIndex: number, columnIndex: number) {
-		await test.step(`Click cell at row ${rowIndex}, column ${columnIndex}`, async () => {
-			const cellLocator = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`);
-			await cellLocator.click();
+	/**
+	 * Click a cell by its visual position (Index is 0-based)
+	 * For example, if column 0 is a pin, clicking (0,0) will click the pinned column despite its index
+	 */
+	async clickCell(rowIndex: number, columnIndex: number, withShift = false) {
+		await test.step(`Click cell by 0-based position: row ${rowIndex}, column ${columnIndex}`, async () => {
+			await this.cell(rowIndex, columnIndex).click({ modifiers: withShift ? ['Shift'] : [] });
+		});
+	}
+
+	/**
+	 * Click a cell by its index (Index is 0-based, these never change even with sorting or filtering)
+	 * If a column/row is pinned, this method finds the cell by its original row/col index values
+	 */
+	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
+		await test.step(`Click cell by index: row ${rowIndex}, column ${columnIndex}`, async () => {
+			const cell = this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`);
+			await cell.click({ modifiers: withShift ? ['Shift'] : [] });
 		});
 	}
 
@@ -267,7 +283,7 @@ export class DataGrid {
 		// need a brief additional wait
 		await this.code.wait(1000);
 
-		const allHeaders = await this.headers.all();
+		const allHeaders = await this.columnHeaders.all();
 		const allRows = await this.rows.all();
 		const headerNames = await Promise.all(allHeaders.map(async (header) => await header.textContent()));
 
@@ -299,11 +315,24 @@ export class DataGrid {
 	// --- Verifications ---
 
 	async verifyColumnHeaders(expectedHeaders: string[]) {
-		await test.step('Verify column headers', async () => {
-			const actualHeaders = await this.getColumnHeaders();
-			const missing = expectedHeaders.filter(item => !actualHeaders.includes(item));
-			expect(missing).toEqual([]); // Will throw if any are missing
-		});
+		await this.jumpToStart();
+		await this.clickCell(0, 0)
+		let maxScrollAttempts = await this.getColumnCount()
+		for (let i = 0; i < expectedHeaders.length; i++) {
+			const headerIsVisible = this.columnHeaders.getByText(expectedHeaders[i], { exact: true }).isVisible();
+			if (await headerIsVisible) {
+				await expect(this.columnHeaders.getByText(expectedHeaders[i], { exact: true })).toBeVisible();
+				continue;
+			}
+			if (maxScrollAttempts > 0) {
+				await this.code.driver.page.keyboard.press('ArrowRight');
+				await this.code.driver.page.keyboard.press('ArrowRight');
+				maxScrollAttempts = maxScrollAttempts - 2;
+				i--;
+			} else {
+				throw new Error(`Could not find column header: ${expectedHeaders[i]}`);
+			}
+		}
 	}
 
 	async verifyTableDataLength(expectedLength: number) {
@@ -697,3 +726,5 @@ export interface ColumnProfile {
 	profileData: { [key: string]: string };
 	profileSparklineHeights: string[];
 }
+
+export type CellPosition = { row: number; col: number };
