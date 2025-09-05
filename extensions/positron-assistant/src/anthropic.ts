@@ -11,8 +11,6 @@ import { isLanguageModelImagePart, LanguageModelImagePart } from './languageMode
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
-import { availableModels } from './models.js';
-import { resolve } from 'path';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -39,6 +37,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	maxInputTokens: number;
 	maxOutputTokens: number;
 	tokenCount: number = 0;
+	modelListing: vscode.LanguageModelChatInformation[];
 
 	capabilities = {
 		vision: true,
@@ -77,12 +76,13 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this.version = '';
 		this.maxInputTokens = 0;
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+		this.modelListing = [];
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		const models = await this.resolveModels(token);
-
-		if (!models || models.length === 0) {
+		if (this.modelListing.length > 0) {
+			return this.modelListing;
+		} else {
 			return [
 				{
 					id: this.id,
@@ -92,23 +92,11 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					maxInputTokens: 0,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
+					isDefault: true,
+					isUserSelectable: true,
 				}
 			];
 		}
-
-		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
-			id: model.id,
-			name: model.name,
-			family: this._config.provider,
-			version: model.id, // 1.103.0 TODO: is there a better value? this may vary between providers
-			maxInputTokens: this.maxInputTokens,
-			maxOutputTokens: this.maxOutputTokens,
-			capabilities: this.capabilities,
-			isDefault: model === models[0],
-			isUserSelectable: true,
-		}));
-
-		return languageModels;
 	}
 
 	async provideLanguageModelChatResponse(
@@ -294,16 +282,40 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		}
 	}
 
-	async resolveModels(token: vscode.CancellationToken): Promise<positron.ai.LanguageModelDescriptor[] | undefined> {
-		const models = await this._client.models.list();
-		const availableModels: positron.ai.LanguageModelDescriptor[] = [];
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		const availableModels: vscode.LanguageModelChatInformation[] = [];
+		// Fetch all pages of models until has_more is false
+		let hasMore = true;
+		let nextPageToken: string | undefined;
+		let isFirst = true;
 
-		models.data.forEach(model => {
-			availableModels.push({
-				id: model.id,
-				name: model.display_name,
+		while (hasMore) {
+			const modelsPage = nextPageToken
+				? await this._client.models.list({ after_id: nextPageToken })
+				: await this._client.models.list();
+
+			modelsPage.data.forEach(model => {
+				availableModels.push({
+					id: model.id,
+					name: model.display_name,
+					family: this.provider,
+					version: model.created_at,
+					maxInputTokens: 0,
+					maxOutputTokens: DEFAULT_MAX_TOKEN_OUTPUT,
+					capabilities: {},
+					isDefault: isFirst,
+					isUserSelectable: true,
+				});
+				isFirst = false;
 			});
-		});
+
+			hasMore = modelsPage.has_more;
+			if (hasMore && modelsPage.data.length > 0) {
+				nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
+			}
+		}
+
+		this.modelListing = availableModels;
 
 		return new Promise((resolve) => {
 			resolve(availableModels);
