@@ -18,16 +18,17 @@ import { test, tags } from '../_test.setup';
 
 const columnOrder = {
 	default: ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
-	pinCol6: ['column6', 'column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8', 'column9'],
 	pinCol2: ['column2', 'column0', 'column1', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
 	pinCol4: ['column4', 'column0', 'column1', 'column2', 'column3', 'column5', 'column6', 'column7', 'column8', 'column9'],
+	pinCol6: ['column6', 'column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8', 'column9'],
 	pinCol4And6: ['column4', 'column6', 'column0', 'column1', 'column2', 'column3', 'column5', 'column7', 'column8', 'column9'],
 };
 const rowOrder = {
 	default: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
 	pinRow5: [5, 0, 1, 2, 3, 4, 6, 7, 8, 9],
+	pinRow6: [6, 0, 1, 2, 3, 4, 5, 7, 8, 9],
 	pinRow8: [8, 0, 1, 2, 3, 4, 5, 6, 7, 9],
-	pinRow6And8: [6, 8, 0, 1, 2, 3, 4, 5, 7, 9]
+	pinRow8And6: [8, 6, 0, 1, 2, 3, 4, 5, 7, 9]
 };
 
 test.use({
@@ -48,7 +49,7 @@ test.describe('Data Explorer: Pins', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLO
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Row/column pinning persists across scroll and can be added/removed', async function ({ app }) {
+	test('Rows and columns can be pinned, unpinned and persist with scrolling', async function ({ app }) {
 		const { dataExplorer } = app.workbench;
 
 		// Initial state
@@ -73,7 +74,7 @@ test.describe('Data Explorer: Pins', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLO
 		// Pin row 6
 		await dataExplorer.grid.pinRow(7); // after pinning row 8, row 6 is now at index 7
 		await dataExplorer.grid.expectRowsToBePinned([8, 6]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow6And8);
+		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow8And6);
 
 		// Ensure pins persist with scrolling
 		await dataExplorer.grid.clickLowerRightCorner();
@@ -92,7 +93,7 @@ test.describe('Data Explorer: Pins', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLO
 		// Unpin rows
 		await dataExplorer.grid.unpinRow(0);
 		await dataExplorer.grid.expectRowsToBePinned([6]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow8);
+		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow6);
 		await dataExplorer.grid.unpinRow(0);
 		await dataExplorer.grid.expectRowsToBePinned([]);
 		await dataExplorer.grid.expectRowOrderToBe(rowOrder.default);

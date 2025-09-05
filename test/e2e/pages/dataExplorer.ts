@@ -229,10 +229,14 @@ export class DataGrid {
 		await this.code.driver.page.locator(DATA_GRID_TOP_LEFT).click();
 	}
 
-	async sortColumnBy(columnIndex: number, sortBy: string) {
+	/**
+	 *
+	 * @param columnIndex (Index is 1-based)
+	 * @param sortBy
+	 */
+	async sortColumnBy(columnIndex: number, sortBy: 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting') {
 		await test.step(`Sort column ${columnIndex} by: ${sortBy}`, async () => {
-			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
-			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text('${sortBy}')`).click();
+			await this.selectColumnAction(columnIndex, sortBy);
 		});
 	}
 
@@ -247,7 +251,8 @@ export class DataGrid {
 	}
 
 	/**
-	 * Click a cell by its index (Index is 0-based, these never change even with sorting or filtering)
+	 * Click a cell by its index (Index is 0-based)
+	 * These indexes never change even with sorting or filtering
 	 * If a column/row is pinned, this method finds the cell by its original row/col index values
 	 */
 	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
@@ -262,24 +267,32 @@ export class DataGrid {
 	}
 
 	// index based
-	async selectColumnAction(colIndex: number, action: 'Copy' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter') {
+	private async selectColumnAction(colIndex: number, action: ColumnRightMenuOption) {
 		await test.step(`Select column action: ${action}`, async () => {
 			await this.code.driver.page.locator(`div:nth-child(${colIndex}) > .content > .positron-button`).click();
 			await this.code.driver.page.getByRole('button', { name: action }).click();
 		});
 	}
 
+	/**
+	 * Pin a column by its index
+	 * @param colIndex (Index is 0-based)
+	 */
 	async pinColumn(colIndex: number) {
 		await test.step(`Pin column at index ${colIndex}`, async () => {
-			// colIndex is 0-based, selectColumnAction is 1-based
-			await this.selectColumnAction(colIndex + 1, 'Pin Column')
+			await this.jumpToStart(); // make sure we are at the start so our index is accurate
+			await this.selectColumnAction(colIndex + 1, 'Pin Column'); // selectColumnAction is 1-based
 		});
 	}
 
+	/**
+	 * Unpin a column by its index
+	 * @param colIndex (Index is 0-based)
+	 */
 	async unpinColumn(colIndex = 0) {
 		await test.step(`Unpin column at index ${colIndex}`, async () => {
-			// colIndex is 0-based, selectColumnAction is 1-based
-			await this.selectColumnAction(colIndex + 1, 'Unpin Column')
+			await this.jumpToStart(); // make sure we are at the start so our index is accurate
+			await this.selectColumnAction(colIndex + 1, 'Unpin Column'); // selectColumnAction is 1-based
 		});
 	}
 
@@ -302,20 +315,27 @@ export class DataGrid {
 		});
 	}
 
-	async selectRange({ start, end }: { start: CellPosition, end: CellPosition }) {
+	async selectRange({ start, end }: { start: CellPosition; end: CellPosition }) {
 		await test.step(`Select range: [${start.row}, ${start.col}] - [${end.row}, ${end.col}]`, async () => {
 			await this.clickCell(start.row, start.col);
 			await this.shiftClickCell(end.row, end.col);
 		});
 	}
 
+	/**
+	 * Click a column header by its title
+	 * @param columnTitle The exact title of the column to click
+	 */
 	async clickColumnHeader(columnTitle: string) {
 		await test.step(`Click column header: ${columnTitle}`, async () => {
 			await this.columnHeaders.getByText(columnTitle).click();
 		});
 	}
 
-	/** 1-based just as it is in the UI */
+	/**
+	 * Click a row header by its visual position
+	 * Index is 1-based to match UI
+	 **/
 	async clickRowHeader(rowIndex: number) {
 		await test.step(`Click row header: ${rowIndex}`, async () => {
 			await this.rowHeaders.getByText(rowIndex.toString(), { exact: true }).click();
@@ -460,7 +480,7 @@ export class DataGrid {
 		});
 	}
 
-	async expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number, colIndex: number, value: string | number }): Promise<void> {
+	async expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string | number }): Promise<void> {
 		await test.step(`Verify cell content at (${rowIndex}, ${colIndex}): ${value}`, async () => {
 			await expect(async () => {
 				const cell = this.grid.locator(`#data-grid-row-cell-content-${colIndex}-${rowIndex}`);
@@ -469,7 +489,7 @@ export class DataGrid {
 		});
 	}
 
-	async expectRangeToBeSelected(expectedRange: { rows: number[], cols: number[] }): Promise<void> {
+	async expectRangeToBeSelected(expectedRange: { rows: number[]; cols: number[] }): Promise<void> {
 		await test.step(`Verify selection range: ${JSON.stringify(expectedRange)}`, async () => {
 			const selectedCells = this.grid.locator('.selection-overlay');
 			await expect(selectedCells).toHaveCount((expectedRange.rows.length) * (expectedRange.cols.length));
@@ -550,17 +570,12 @@ export class DataGrid {
 		});
 	}
 
-	async expectRowCountToBe(expectedCount: number) {
-		await test.step('Verify row count', async () => {
-			// const actualCount = await this.getRowHeaders();
-			// expect(actualCount.length).toBe(expectedCount);
-		});
-	}
-
 	async expectRowOrderToBe(expectedOrder: number[]) {
 		await test.step(`Verify row order: ${expectedOrder}`, async () => {
-			// const actualOrder = await this.getRowHeaders();
-			// expect(actualOrder).toEqual(expectedOrder);
+			const rowHeaders = this.code.driver.page.locator('.data-grid-row-headers > .data-grid-row-header .content');
+			const actualOrder = await rowHeaders.allInnerTexts();
+			const actualOrderNumbers = actualOrder.map(text => parseInt(text, 10));
+			expect(actualOrderNumbers).toEqual(expectedOrder);
 		});
 	}
 
@@ -913,3 +928,5 @@ export interface ColumnProfile {
 }
 
 export type CellPosition = { row: number; col: number };
+
+export type ColumnRightMenuOption = 'Copy' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';
