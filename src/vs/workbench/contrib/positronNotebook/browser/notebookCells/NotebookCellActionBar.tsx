@@ -21,10 +21,9 @@ import { useObservedValue } from '../useObservedValue.js';
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
 	children: React.ReactNode;
-	isHovered: boolean;
 }
 
-export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCellActionBarProps) {
+export function NotebookCellActionBar({ cell, children }: NotebookCellActionBarProps) {
 	const actionsForCell = useActionsForCell(cell);
 	const instance = useNotebookInstance();
 	const mainActions = actionsForCell.main;

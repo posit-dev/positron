@@ -8,7 +8,7 @@ import './NotebookCellWrapper.css';
 import './NotebookCellSelection.css';
 
 // React.
-import React, { useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -28,7 +28,6 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
-	const [isHovered, setIsHovered] = useState(false);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -78,10 +77,8 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
-		onMouseEnter={() => setIsHovered(true)}
-		onMouseLeave={() => setIsHovered(false)}
 	>
-		<NotebookCellActionBar cell={cell} isHovered={isHovered}>
+		<NotebookCellActionBar cell={cell}>
 			{actionBarChildren}
 		</NotebookCellActionBar>
 		{children}
