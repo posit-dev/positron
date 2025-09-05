@@ -371,6 +371,16 @@ class ShowDialogParams(BaseModel):
     )
 
 
+class ShowPromptParams(BaseModel):
+    """
+    Show a prompt
+    """
+
+    prompt: StrictStr = Field(
+        description="The prompt, such as 'What is the airspeed velocity of an unladen swallow?'",
+    )
+
+
 class AskForPasswordParams(BaseModel):
     """
     Ask the user for a password
@@ -566,6 +576,8 @@ ShowMessageParams.update_forward_refs()
 ShowQuestionParams.update_forward_refs()
 
 ShowDialogParams.update_forward_refs()
+
+ShowPromptParams.update_forward_refs()
 
 AskForPasswordParams.update_forward_refs()
 

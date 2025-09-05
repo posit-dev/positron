@@ -292,6 +292,17 @@ export interface ShowDialogParams {
 }
 
 /**
+ * Parameters for the ShowPrompt method.
+ */
+export interface ShowPromptParams {
+	/**
+	 * The prompt, such as 'What is the airspeed velocity of an unladen
+	 * swallow?'
+	 */
+	prompt: string;
+}
+
+/**
  * Parameters for the AskForPassword method.
  */
 export interface AskForPasswordParams {
@@ -701,6 +712,20 @@ export interface ShowDialogRequest {
 }
 
 /**
+ * Request: Show a prompt
+ *
+ * Use this for an input box where user can input any string
+ */
+export interface ShowPromptRequest {
+	/**
+	 * The prompt, such as 'What is the airspeed velocity of an unladen
+	 * swallow?'
+	 */
+	prompt: string;
+
+}
+
+/**
  * Request: Ask the user for a password
  *
  * Use this for an input box where the user can input a password
@@ -836,6 +861,7 @@ export enum UiFrontendRequest {
 	NewDocument = 'new_document',
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
+	ShowPrompt = 'show_prompt',
 	AskForPassword = 'ask_for_password',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',

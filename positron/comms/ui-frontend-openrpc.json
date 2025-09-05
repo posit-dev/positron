@@ -57,7 +57,10 @@
 					"required": false,
 					"schema": {
 						"type": "string",
-						"enum": ["path", "uri"]
+						"enum": [
+							"path",
+							"uri"
+						]
 					}
 				}
 			]
@@ -160,6 +163,27 @@
 				}
 			],
 			"result": {}
+		},
+		{
+			"name": "show_prompt",
+			"summary": "Show a prompt",
+			"description": "Use this for an input box where user can input any string",
+			"params": [
+				{
+					"name": "prompt",
+					"description": "The prompt, such as 'What is the airspeed velocity of an unladen swallow?'",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"required": false,
+				"schema": {
+					"type": "string",
+					"description": "The input from the user"
+				}
+			}
 		},
 		{
 			"name": "ask_for_password",
