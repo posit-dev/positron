@@ -20,7 +20,46 @@ class MockAnthropicClient {
 			Parameters<Anthropic['messages']['stream']>,
 			ReturnType<Anthropic['messages']['stream']>
 		>().returns(mock<MessageStream>({
-			on: (event, listener) => mock<MessageStream>({}),
+			on: (event, listener) => {
+				if (event === 'streamEvent') {
+					const _listener = listener as (event: Anthropic.Messages.RawMessageStreamEvent) => void;
+					const events: Anthropic.Messages.RawMessageStreamEvent[] = [{
+						type: 'message_start',
+						message: {
+							id: 'mock-message-id',
+							model: 'mock-model',
+							type: "message",
+							stop_reason: null,
+							stop_sequence: null,
+							role: 'assistant',
+							content: [],
+							usage: {
+								server_tool_use: null,
+								cache_creation_input_tokens: 20,
+								cache_read_input_tokens: 20,
+								input_tokens: 80,
+								output_tokens: 0,
+								service_tier: "standard"
+							},
+						}
+					}, {
+						type: 'message_delta',
+						delta: {
+							stop_reason: "end_turn",
+							stop_sequence: null,
+						},
+						usage: {
+							server_tool_use: null,
+							cache_creation_input_tokens: 20,
+							cache_read_input_tokens: 20,
+							input_tokens: 80,
+							output_tokens: 50,
+						},
+					}];
+					events.forEach(event => _listener(event));
+				}
+				return mock<MessageStream>({});
+			},
 			abort: () => { },
 			done: () => Promise.resolve(),
 			finalMessage: () => Promise.resolve(mock<Anthropic.Message>({})),
@@ -34,10 +73,17 @@ type ChatMessageValidateInfo = {
 	validate: (content: any[]) => void;
 };
 
+type MockAnthropicProgress = {
+	report: sinon.SinonStub<Parameters<vscode.Progress<{
+		index: number;
+		part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart | vscode.LanguageModelDataPart;
+	}>['report']>, void>;
+};
+
 suite('AnthropicLanguageModel', () => {
 	let model: AnthropicLanguageModel;
 	let mockClient: MockAnthropicClient;
-	let progress: vscode.Progress<vscode.ChatResponseFragment2>;
+	let progress: MockAnthropicProgress;
 	let cancellationToken: vscode.CancellationToken;
 
 	setup(() => {
@@ -144,6 +190,35 @@ suite('AnthropicLanguageModel', () => {
 			msg.content.some((content: any) => content.type === 'text' && content.text === nonEmptyText)
 		);
 		assert.strictEqual(hasMessageWithNonEmptyContent, true, 'Messages with non-empty content should be included');
+	});
+
+
+	suite('provideLanguageModelResponse response streaming behaviour', () => {
+		test('token usage is streamed back as part of the response', async () => {
+			const decoder = new TextDecoder();
+			const messages = [vscode.LanguageModelChatMessage.User('Token usage test')];
+			await provideLanguageModelResponse(messages);
+
+			const initialData = progress.report.getCall(0).args[0].part;
+			const initialExpected = { type: 'usage', data: { inputTokens: 100, outputTokens: 0, cachedTokens: 20 } };
+			assert.ok(initialData instanceof vscode.LanguageModelDataPart, 'Initial response should be a LanguageModelDataPart');
+			assert.strictEqual(initialData.mimeType, 'text/x-json', 'Initial response should have `application/json` mimeType');
+
+			const initialObject = JSON.parse(decoder.decode(initialData.data));
+			assert.ok("providerMetadata" in initialObject.data, 'Initial response contains additional provider specific metadata.');
+			delete initialObject.data["providerMetadata"];
+			assert.deepStrictEqual(initialObject, initialExpected, 'Remaining initial usage data should decode as expected');
+
+			const finalData = progress.report.getCall(1).args[0].part;
+			const finalExpected = { type: 'usage', data: { inputTokens: 100, outputTokens: 50, cachedTokens: 20 } };
+			assert.ok(finalData instanceof vscode.LanguageModelDataPart, 'Final response should be a LanguageModelDataPart');
+			assert.strictEqual(finalData.mimeType, 'text/x-json', 'Final response should have `application/json` mimeType');
+
+			const finalObject = JSON.parse(decoder.decode(finalData.data));
+			assert.ok("providerMetadata" in finalObject.data, 'Final response contains additional provider specific metadata.');
+			delete finalObject.data["providerMetadata"];
+			assert.deepStrictEqual(finalObject, finalExpected, 'Remaining final usage data should decode as expected');
+		});
 	});
 
 	suite('provideLanguageModelResponse processes LanguageModelToolCallPart and LanguageModelToolResultPart contents correctly', () => {

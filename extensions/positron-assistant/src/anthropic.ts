@@ -12,6 +12,7 @@ import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMe
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { availableModels } from './models.js';
+import { TokenUsage } from './tokens.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -176,6 +177,18 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			this.onText(textDelta, progress);
 		});
 
+		// Report token usage information as part of the output stream.
+		stream.on('streamEvent', (event) => {
+			if (event.type === 'message_start' || event.type === 'message_delta') {
+				const usage = event.type === 'message_start' ? event.message.usage : event.usage;
+				const part: any = vscode.LanguageModelDataPart.json({
+					type: 'usage',
+					data: toTokenUsage(usage)
+				});
+				progress.report({ index: 0, part: part });
+			}
+		});
+
 		try {
 			await stream.done();
 		} catch (error) {
@@ -213,24 +226,15 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 		// Record token usage
 		if (message.usage && this._context) {
-			const inputTokens = message.usage.input_tokens || 0;
-			const outputTokens = message.usage.output_tokens || 0;
-			recordTokenUsage(this._context, this.provider, inputTokens, outputTokens);
+			const tokens = toTokenUsage(message.usage);
+			recordTokenUsage(this._context, this.provider, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, inputTokens, outputTokens);
+				recordRequestTokenUsage(requestId, this.provider, tokens);
 			}
 		}
-
-		// Return token usage information for display in the chat UI
-		return message.usage ? {
-			tokenUsage: {
-				inputTokens: message.usage.input_tokens || 0,
-				outputTokens: message.usage.output_tokens || 0
-			}
-		} : undefined;
 	}
 
 	get providerName(): string {
@@ -296,6 +300,22 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			return error as Error;
 		}
 	}
+}
+
+function toTokenUsage(usage: Anthropic.MessageDeltaUsage): TokenUsage {
+	const input = usage.input_tokens || 0;
+	const output = usage.output_tokens || 0;
+	const cache_creation = usage.cache_creation_input_tokens || 0;
+	const cache_read = usage.cache_read_input_tokens || 0;
+
+	return {
+		inputTokens: input + cache_creation,
+		outputTokens: output,
+		cachedTokens: cache_read,
+		providerMetadata: {
+			anthropic: usage,
+		}
+	};
 }
 
 function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {

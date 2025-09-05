@@ -1862,24 +1862,26 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	/**
 	 * Calculate the total token usage from a view model's items
 	 */
-	private calculateTotalTokenUsage(viewModel: any): { totalInputTokens: number; totalOutputTokens: number } | undefined {
+	private calculateTotalTokenUsage(viewModel: any): { totalInputTokens: number; totalOutputTokens: number; totalCachedTokens: number } | undefined {
 		if (!viewModel) {
 			return undefined;
 		}
 
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
+		let totalCachedTokens = 0;
 		let hasAnyTokenUsage = false;
 
 		for (const item of viewModel.getItems()) {
 			if (isResponseVM(item) && item.tokenUsage && item.isComplete) {
-				totalInputTokens += item.tokenUsage.inputTokens;
-				totalOutputTokens += item.tokenUsage.outputTokens;
+				totalInputTokens += item.tokenUsage.tokens.inputTokens;
+				totalOutputTokens += item.tokenUsage.tokens.outputTokens;
+				totalCachedTokens += item.tokenUsage.tokens.cachedTokens;
 				hasAnyTokenUsage = true;
 			}
 		}
 
-		return hasAnyTokenUsage ? { totalInputTokens, totalOutputTokens } : undefined;
+		return hasAnyTokenUsage ? { totalInputTokens, totalOutputTokens, totalCachedTokens } : undefined;
 	}
 
 	/**
@@ -1900,7 +1902,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				dom.clearNode(this.tokenUsageContainer);
 				this.tokenUsageContainer.appendChild(
 					dom.$('.token-usage-total', undefined,
-						localize('totalTokenUsage', "Total tokens: ↑{0} ↓{1}", totalTokens.totalInputTokens, totalTokens.totalOutputTokens)
+						localize('totalTokenUsage', "Total tokens: ↑{0} ↓{1} ↩{2}", totalTokens.totalInputTokens, totalTokens.totalOutputTokens, totalTokens.totalCachedTokens)
 					)
 				);
 				this.tokenUsageContainer.style.display = 'block';

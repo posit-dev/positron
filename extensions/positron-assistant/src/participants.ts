@@ -19,6 +19,7 @@ import { log, getRequestTokenUsage } from './extension.js';
 import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
+import { TokenUsage } from './tokens.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -588,7 +589,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
-	): Promise<{ inputTokens?: number; outputTokens?: number } | undefined> {
+	): Promise<{ provider: string; tokens: TokenUsage } | undefined> {
 		if (token.isCancellationRequested) {
 			return;
 		}
