@@ -108,7 +108,7 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				{selectionStatus === CellSelectionStatus.Selected || isHovered ? (
+				{selectionStatus !== CellSelectionStatus.Unselected || isHovered ? (
 					<CellActionButton action={primaryLeftAction} cell={cell} />
 				) :
 					(showPending ? (
