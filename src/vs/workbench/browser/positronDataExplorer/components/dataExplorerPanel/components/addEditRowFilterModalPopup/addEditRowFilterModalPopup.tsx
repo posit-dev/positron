@@ -209,7 +209,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			identifier: RowFilterDescrType.IS_NULL,
 			title: localize(
 				'positron.addEditRowFilter.conditionIsNull',
-				"is null"
+				"is missing"
 			),
 			value: RowFilterDescrType.IS_NULL
 		}));
@@ -217,7 +217,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			identifier: RowFilterDescrType.IS_NOT_NULL,
 			title: localize(
 				'positron.addEditRowFilter.conditionIsNotNull',
-				"is not null"
+				"is not missing"
 			),
 			value: RowFilterDescrType.IS_NOT_NULL
 		}));
