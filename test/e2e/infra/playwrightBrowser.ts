@@ -167,7 +167,9 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	}
 
 	const page = await measureAndLog(() => context.newPage(), 'context.newPage()', logger);
+	// --- Start Positron ---
 	await measureAndLog(() => page.setViewportSize({ width: 2560, height: 1440 }), 'page.setViewportSize', logger);
+	// --- End Positron ---
 
 	if (options.verbose) {
 		context.on('page', () => logger.log(`Playwright (Browser): context.on('page')`));
