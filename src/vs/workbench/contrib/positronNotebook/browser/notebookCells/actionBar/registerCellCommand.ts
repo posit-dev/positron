@@ -115,7 +115,7 @@ export function registerCellCommand({
 
 			if (multiSelect) {
 				// Handle multiple selected cells
-				const selectedCells = activeNotebook.selectionStateMachine.getSelectedCells();
+				const selectedCells = activeNotebook.selectionStateMachine.selectedCells.get();
 
 				// Filter cells based on cell condition and execute handler
 				for (const cell of selectedCells) {

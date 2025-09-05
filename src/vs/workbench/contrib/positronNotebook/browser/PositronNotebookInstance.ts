@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, SelectionStateMachine } from './selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -879,7 +879,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
 		this.cells.set(this._cells, undefined);
-		this.selectionStateMachine.setCells(this._cells);
 	}
 
 	/**
@@ -960,11 +959,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Clears the output of a specific cell in the notebook.
 	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell.
-	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
-	 */
-	/**
-	 * Clears the output of a specific cell in the notebook.
-	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell
 	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
 	 */
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
@@ -1067,7 +1061,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cells The cells to copy. If not provided, copies the currently selected cells
 	 */
 	copyCells(cells?: IPositronNotebookCell[]): void {
-		const cellsToCopy = cells || this.selectionStateMachine.getSelectedCells();
+		const cellsToCopy = cells || this.selectionStateMachine.selectedCells.get();
 
 		if (cellsToCopy.length === 0) {
 			return;
@@ -1090,7 +1084,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cells The cells to cut. If not provided, cuts the currently selected cells
 	 */
 	cutCells(cells?: IPositronNotebookCell[]): void {
-		const cellsToCut = cells || this.selectionStateMachine.getSelectedCells();
+		const cellsToCut = cells || this.selectionStateMachine.selectedCells.get();
 
 		if (cellsToCut.length === 0) {
 			return;
@@ -1161,7 +1155,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Pastes cells from the clipboard above the first selected cell.
 	 */
 	pasteCellsAbove(): void {
-		const selection = this.selectionStateMachine.getSelectedCells();
+		const selection = this.selectionStateMachine.selectedCells.get();
 		if (selection.length > 0) {
 			const firstSelectedIndex = this.cells.get().indexOf(selection[0]);
 			this.pasteCells(firstSelectedIndex);
@@ -1181,7 +1175,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// Helper method to get insertion index
 	private getInsertionIndex(): number {
-		const selections = this.selectionStateMachine.getSelectedCells();
+		const selections = this.selectionStateMachine.selectedCells.get();
 		if (selections.length > 0) {
 			const lastSelectedIndex = this.cells.get().indexOf(selections[selections.length - 1]);
 			return lastSelectedIndex + 1;

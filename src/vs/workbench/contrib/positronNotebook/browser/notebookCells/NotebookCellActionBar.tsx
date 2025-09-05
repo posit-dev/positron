@@ -20,7 +20,7 @@ import { NotebookCellMoreActionsMenu } from './actionBar/NotebookCellMoreActions
 import { useActionBarVisibility } from './actionBar/useActionBarVisibility.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBar/actionBarRegistry.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../selectionMachine.js';
 import { createCellInfo } from './actionBar/cellConditions.js';
 
 
