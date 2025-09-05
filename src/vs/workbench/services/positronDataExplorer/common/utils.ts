@@ -12,15 +12,6 @@ export interface Range {
 }
 
 /**
- * Creates an array from an index range.
- * @param startIndex The start index.
- * @param endIndex The end index.
- * @returns An array with the specified index range.
- */
-export const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
-	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
-
-/**
  * Determines whether an array of numbers is contiguous.
  * @param array The array of numbers.
  * @returns true if the array is contiguous; otherwise, false.
