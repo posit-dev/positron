@@ -6,6 +6,7 @@
 import { ICodeEditor } from '../../../browser/editorBrowser.js';
 import { EditorAction, registerEditorAction, ServicesAccessor } from '../../../browser/editorExtensions.js';
 import { ISingleEditOperation } from '../../../common/core/editOperation.js';
+import * as nls from '../../../../nls.js';
 import { IPosition } from '../../../common/core/position.js';
 import { Range } from '../../../common/core/range.js';
 import { Selection } from '../../../common/core/selection.js';
@@ -175,8 +176,7 @@ export class FillToEndOfLineAction extends EditorAction {
 	constructor() {
 		super({
 			id: FillToEndOfLineAction.ID,
-			label: 'Fill Symbol to End of Line',
-			alias: 'Fill Symbol to End of Line',
+			label: nls.localize2('positron.fillToEndOfline', 'Fill Symbol to End of Line'),
 			precondition: EditorContextKeys.writable,
 		});
 	}
