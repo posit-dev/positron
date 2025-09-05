@@ -15,6 +15,8 @@ import { useObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { CellExecutionInfoPopup } from './CellExecutionInfoPopup.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
+import { CellActionButton } from './actionBar/CellActionButton.js';
+import { useActionsForCell } from './actionBar/useActionsForCell.js';
 
 interface CellExecutionInfoIconProps {
 	cell: PositronNotebookCodeCell;
@@ -26,9 +28,15 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 	// Reference hooks.
 	const containerRef = useRef<HTMLDivElement>(null);
 	const hoverTimeoutIdRef = useRef<number | null>(null);
+	const actionsForCell = useActionsForCell(cell);
+	const leftActions = actionsForCell.left;
+	// const multipleLeftActions = leftActions.length > 1;
+	const primaryLeftAction = leftActions[0];
 
 	// State hooks.
 	const [showPopup, setShowPopup] = useState(false);
+	const [isHovered, setIsHovered] = useState(false);
+	const [isSelected,] = useState(false);
 
 	// Observed values for icon display (popup will observe its own values)
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
@@ -37,6 +45,7 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 
 	// Icon hover handlers
 	const handleMouseEnter = useCallback(() => {
+		setIsHovered(true);
 		if (!showPopup && containerRef.current) {
 			const targetWindow = DOM.getWindow(containerRef.current);
 			const timeoutId = targetWindow.setTimeout(() => {
@@ -48,6 +57,7 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 	}, [showPopup]);
 
 	const handleMouseLeave = useCallback(() => {
+		setIsHovered(false);
 		// Clear the hover timeout if we leave before the popup shows
 		if (hoverTimeoutIdRef.current !== null && containerRef.current) {
 			const targetWindow = DOM.getWindow(containerRef.current);
@@ -97,19 +107,21 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				{showPending ? (
-					<span className='execution-order-badge'>-</span>
-				) : executionStatus === 'running' ? (
-					<span
-						aria-label='Cell is executing'
-						className='execution-icon codicon codicon-sync codicon-modifier-spin'
-						role='img'
-					></span>
-				) : (
-					<span className='execution-order-badge'>
-						{String(executionOrder)}
-					</span>
-				)}
+				{isSelected || isHovered ? (
+					<CellActionButton action={primaryLeftAction} cell={cell} />
+				) :
+					(showPending ? (
+						<span className='execution-order-badge'>-</span>
+					) : executionStatus === 'running' ? (
+						<span
+							aria-label='Cell is executing'
+							className='execution-icon codicon codicon-sync codicon-modifier-spin'
+							role='img'
+						/>
+					) : (
+						<span className='execution-order-badge'> {String(executionOrder)}</span>
+					)
+					)}
 			</div>
 			{showPopup && containerRef.current && (
 				<Popover
