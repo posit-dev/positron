@@ -98,7 +98,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await test.step('Enter Connect server and API key', async () => {
 				// await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
 				// await page.keyboard.press('Enter');
-				await app.workbench.quickInput.selectQuickInputElement(1, false);
+				await app.workbench.quickInput.selectQuickInputElement(1, true);
 				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
 				await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
 				await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
