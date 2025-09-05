@@ -17,6 +17,7 @@ import { CellExecutionInfoPopup } from './CellExecutionInfoPopup.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
 import { CellActionButton } from './actionBar/CellActionButton.js';
 import { useActionsForCell } from './actionBar/useActionsForCell.js';
+import { CellSelectionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
 
 interface CellExecutionInfoIconProps {
 	cell: PositronNotebookCodeCell;
@@ -36,9 +37,9 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 	// State hooks.
 	const [showPopup, setShowPopup] = useState(false);
 	const [isHovered, setIsHovered] = useState(false);
-	const [isSelected,] = useState(false);
 
 	// Observed values for icon display (popup will observe its own values)
+	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionOrder = useObservedValue(cell.lastExecutionOrder);
 	const lastRunSuccess = useObservedValue(cell.lastRunSuccess);
 	const executionStatus = useObservedValue(cell.executionStatus);
@@ -107,7 +108,7 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				{isSelected || isHovered ? (
+				{selectionStatus === CellSelectionStatus.Selected || isHovered ? (
 					<CellActionButton action={primaryLeftAction} cell={cell} />
 				) :
 					(showPending ? (
