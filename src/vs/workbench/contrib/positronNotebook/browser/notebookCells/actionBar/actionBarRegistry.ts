@@ -47,6 +47,7 @@ export class NotebookCellActionBarRegistry {
 	// Observable arrays for reactive UI updates
 	private _mainActions = observableValue<INotebookCellActionBarItem[]>('mainActions', []);
 	private _menuActions = observableValue<INotebookCellActionBarItem[]>('menuActions', []);
+	private _leftActions = observableValue<INotebookCellActionBarItem[]>('leftActions', []);
 
 	// Event emitter for changes
 	private _onDidChange = new Emitter<void>();
@@ -96,6 +97,12 @@ export class NotebookCellActionBarRegistry {
 			.filter(item => item.position === 'menu')
 			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
 		this._menuActions.set(menuActions, undefined);
+
+		// Update left actions
+		const leftActions = Array.from(this.items.values())
+			.filter(item => item.position === 'left')
+			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
+		this._leftActions.set(leftActions, undefined);
 	}
 
 	/**
@@ -110,5 +117,12 @@ export class NotebookCellActionBarRegistry {
 	 */
 	get menuActions(): ISettableObservable<INotebookCellActionBarItem[]> {
 		return this._menuActions;
+	}
+
+	/**
+	 * Gets the observable array of left-positioned actions.
+	 */
+	get leftActions(): ISettableObservable<INotebookCellActionBarItem[]> {
+		return this._leftActions;
 	}
 }
