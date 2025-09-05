@@ -63,8 +63,8 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 
 		// search with no results
 		await dataExplorer.summaryPanel.search('snickerdoodle');
-		// await dataExplorer.summaryPanel.expectColumnCountToBe(0); <-- NEW: search isn't working
-		// await dataExplorer.summaryPanel.expectEmptyState(); // <--- no empty state created in UI yet
+		await dataExplorer.summaryPanel.expectColumnCountToBe(0);
+		//await dataExplorer.summaryPanel.expectEmptyState(); // <--- no empty state created in UI yet
 	});
 
 	test('Summary Panel: Sort', async function ({ app, openDataFile }) {
@@ -92,10 +92,10 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column9', 'column8', 'column7', 'column6', 'column5', 'column4', 'column3', 'column2', 'column1', 'column0']);
 
 		// verify changing sort retains expansion for correct column
-		// await dataExplorer.summaryPanel.clearSort();
-		// await dataExplorer.summaryPanel.expectSortToBeBy('Original');
-		// await dataExplorer.summaryPanel.expectColumnOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
-		// await dataExplorer.summaryPanel.expectColumnToBe({ index: 0, name: 'column0', expanded: false });
-		// await dataExplorer.summaryPanel.expectColumnToBe({ index: 9, name: 'column9', expanded: true });
+		await dataExplorer.summaryPanel.clearSort();
+		await dataExplorer.summaryPanel.expectSortToBeBy('Original');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
+		await dataExplorer.summaryPanel.expectColumnToBe({ index: 0, name: 'column0', expanded: false });
+		await dataExplorer.summaryPanel.expectColumnToBe({ index: 9, name: 'column9', expanded: true });
 	});
 });
