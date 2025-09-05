@@ -64,7 +64,7 @@ export class SelectionStateMachine extends Disposable {
 		owner: this,
 		equalsFn: areSelectionStatesEqual
 	}, { type: SelectionState.NoSelection });
-	private readonly _selectedCells: IObservable<IPositronNotebookCell[]>;
+	private readonly _selectedCells: IObservable<{ type: SelectionState; cells: IPositronNotebookCell[] }>;
 	private readonly _selectedCell: IObservable<IPositronNotebookCell | null>;
 	private readonly _editingCell: IObservable<IPositronNotebookCell | null>;
 	//#endregion Private Properties
@@ -84,19 +84,28 @@ export class SelectionStateMachine extends Disposable {
 			switch (state.type) {
 				case SelectionState.SingleSelection:
 				case SelectionState.MultiSelection:
-					return cells.filter(c => state.selectedHandles.includes(c.handleId));
+					return {
+						type: state.type,
+						cells: cells.filter(c => state.selectedHandles.includes(c.handleId))
+					};
 				case SelectionState.EditingSelection:
-					return cells.filter(c => c.handleId === state.selectedHandle);
+					return {
+						type: state.type,
+						cells: cells.filter(c => c.handleId === state.selectedHandle)
+					};
 				case SelectionState.NoSelection:
 				default:
-					return [];
+					return {
+						type: state.type,
+						cells: []
+					};
 			}
 		});
 
 		// Derive single selected cell from selected cells
 		this._selectedCell = derived(this, reader => {
-			const cells = this._selectedCells.read(reader);
-			return cells.length === 1 ? cells[0] : null;
+			const selection = this._selectedCells.read(reader);
+			return selection.cells.length === 1 ? selection.cells[0] : null;
 		});
 
 		// Derive editing cell from state
@@ -111,11 +120,11 @@ export class SelectionStateMachine extends Disposable {
 
 		// Auto-clear selection if selected cells are removed
 		this._register(autorun(reader => {
-			const selectedCells = this._selectedCells.read(reader);
+			const selection = this._selectedCells.read(reader);
 			const state = this._state.get();
 
 			// If we have a selection but no cells match anymore, clear selection
-			if (state.type !== SelectionState.NoSelection && selectedCells.length === 0) {
+			if (state.type !== SelectionState.NoSelection && selection.cells.length === 0) {
 				this._setState({ type: SelectionState.NoSelection });
 			}
 		}));
@@ -135,7 +144,7 @@ export class SelectionStateMachine extends Disposable {
 	 * Observable of the currently selected cells
 	 */
 	get selectedCells(): IObservable<IPositronNotebookCell[]> {
-		return this._selectedCells;
+		return this._selectedCells.map(selection => selection.cells);
 	}
 
 	/**
@@ -229,11 +238,13 @@ export class SelectionStateMachine extends Disposable {
 				this._setState({ type: SelectionState.NoSelection });
 			} else if (updatedHandles.length === 1) {
 				this._setState({ type: SelectionState.SingleSelection, selectedHandles: updatedHandles });
+				// TODO: This should happen in the view layer...
 				// Focus the remaining cell
 				const remainingCell = this._cells.get().find(c => c.handleId === updatedHandles[0]);
 				remainingCell?.focus();
 			} else {
 				this._setState({ type: SelectionState.MultiSelection, selectedHandles: updatedHandles });
+				// TODO: This should happen in the view layer...
 				// Focus the last cell in selection
 				const lastHandle = updatedHandles[updatedHandles.length - 1];
 				const lastCell = this._cells.get().find(c => c.handleId === lastHandle);
@@ -264,18 +275,13 @@ export class SelectionStateMachine extends Disposable {
 	 * Enters the editor for the selected cell.
 	 */
 	enterEditor(): void {
-		const state = this._state.get();
-
-		if (state.type !== SelectionState.SingleSelection) {
+		const selection = this._selectedCells.get();
+		if (selection.type !== SelectionState.SingleSelection || selection.cells.length === 0) {
 			return;
 		}
 
-		const cellToEdit = this._cells.get().find(c => c.handleId === state.selectedHandles[0]);
-		if (!cellToEdit) {
-			return;
-		}
-
-		this._setState({ type: SelectionState.EditingSelection, selectedHandle: state.selectedHandles[0] });
+		const cellToEdit = selection.cells[0];
+		this._setState({ type: SelectionState.EditingSelection, selectedHandle: cellToEdit.handleId });
 		// Timeout here avoids the problem of enter applying to the editor widget itself.
 		this._register(
 			disposableTimeout(async () => await cellToEdit.showEditor(true), 0)
