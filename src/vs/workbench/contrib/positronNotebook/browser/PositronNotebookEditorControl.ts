@@ -3,34 +3,28 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { autorun } from '../../../../base/common/observable.js';
-import { Emitter, PauseableEmitter } from '../../../../base/common/event.js';
+import { autorun, observableValue } from '../../../../base/common/observable.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Mimes } from '../../../../base/common/mime.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
+import { IEditorCommentsOptions } from '../../../../editor/common/config/editorOptions.js';
+import { IPosition } from '../../../../editor/common/core/position.js';
 import { Range } from '../../../../editor/common/core/range.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
-import { TrackedRangeStickiness } from '../../../../editor/common/model.js';
-import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
+import { IModelDeltaDecoration, ITextModel, TrackedRangeStickiness } from '../../../../editor/common/model.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IUndoRedoService } from '../../../../platform/undoRedo/common/undoRedo.js';
-import { IInlineChatSessionService } from '../../inlineChat/browser/inlineChatSessionService.js';
-import { CellFindMatchWithIndex, CellLayoutState, CodeCellLayoutChangeEvent, CodeCellLayoutInfo, IActiveNotebookEditor, IBaseCellEditorOptions, ICellOutputViewModel, ICellViewModel, IFocusNotebookCellOptions, IInsetRenderOutput, IModelDecorationsChangeAccessor, INotebookCellOverlayChangeAccessor, INotebookDeltaCellStatusBarItems, INotebookDeltaDecoration, INotebookDeltaViewZoneDecoration, INotebookEditor, INotebookEditorContribution, INotebookEditorMouseEvent, INotebookEditorOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent, INotebookViewModel, INotebookViewZoneChangeAccessor, INotebookWebviewMessage, MarkupCellLayoutChangeEvent } from '../../notebook/browser/notebookBrowser.js';
+import { CellEditState, CellFindMatchWithIndex, CellFocusMode, CellLayoutState, CodeCellLayoutInfo, IActiveNotebookEditor, IBaseCellEditorOptions, ICellOutputViewModel, ICellViewModel, ICommonCellViewModelLayoutChangeInfo, IEditableCellViewModel, IFocusNotebookCellOptions, IInsetRenderOutput, IModelDecorationsChangeAccessor, INotebookCellDecorationOptions, INotebookCellOverlayChangeAccessor, INotebookDeltaCellStatusBarItems, INotebookDeltaDecoration, INotebookDeltaViewZoneDecoration, INotebookEditor, INotebookEditorContribution, INotebookEditorMouseEvent, INotebookEditorOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent, INotebookViewModel, INotebookViewZoneChangeAccessor, INotebookWebviewMessage } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
-import { NotebookCellStateChangedEvent, NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
+import { CellViewModelStateChangeEvent, NotebookCellStateChangedEvent, NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
-import { BaseCellViewModel } from '../../notebook/browser/viewModel/baseCellViewModel.js';
-import { CellOutputViewModel } from '../../notebook/browser/viewModel/cellOutputViewModel.js';
-import { NotebookEventDispatcher } from '../../notebook/browser/viewModel/eventDispatcher.js';
-import { ViewContext } from '../../notebook/browser/viewModel/viewContext.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
-import { INotebookFindOptions } from '../../notebook/common/notebookCommon.js';
+import { ICellOutput, INotebookCellStatusBarItem, INotebookFindOptions, IOrderedMimeType } from '../../notebook/common/notebookCommon.js';
 import { INotebookKernel } from '../../notebook/common/notebookKernelService.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
-import { INotebookService } from '../../notebook/common/notebookService.js';
 import { IWebviewElement } from '../../webview/browser/webview.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
@@ -38,10 +32,6 @@ import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 /**
  * The PositronNotebookEditorControl is used by features like inline chat, debugging, and outlines
  * to access the code editor widget of the selected cell in a Positron notebook.
- *
- * TODO: Some notebook functionality (possibly debugging and outlines) require that the editor control
- * also have a `notebookEditor: INotebookEditor` property. We'll need to investigate what that unlocks,
- * whether to implement INotebookEditor, or find a different solution.
  */
 export class PositronNotebookEditorControl extends Disposable implements INotebookEditor {
 	//#region private properties
@@ -488,7 +478,6 @@ class PositronNotebookViewModel extends Disposable implements INotebookViewModel
 	public readonly onDidFoldingStateChanged = this.onDidFoldingStateChangedEmitter.event;
 	//#endregion
 
-	private _viewContext: ViewContext;
 	private _viewCells: PositronNotebookCellViewModel[] = [];
 
 	constructor(
@@ -498,14 +487,8 @@ class PositronNotebookViewModel extends Disposable implements INotebookViewModel
 	) {
 		super();
 
-		const eventDispatcher = this._register(new NotebookEventDispatcher());
-		this._viewContext = new ViewContext(
-			this._notebookInstance.notebookOptions,
-			eventDispatcher,
-			language => this._notebookInstance.getBaseCellEditorOptions(language));
-
 		for (const cell of this._notebookInstance.cells.get()) {
-			const viewCell = this._instantiationService.createInstance(PositronNotebookCellViewModel, this._notebook.viewType, cell, this.layoutInfo, this._viewContext);
+			const viewCell = this._instantiationService.createInstance(PositronNotebookCellViewModel, this._notebook.viewType, cell, this._notebookInstance, this.layoutInfo);
 			this._viewCells.push(viewCell);
 		}
 	}
@@ -561,46 +544,44 @@ class PositronNotebookViewModel extends Disposable implements INotebookViewModel
 	}
 }
 
-// TODO: Can we extend CodeCellViewModel and MarkupCellViewModel instead of BaseCellViewModel?
-class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellViewModel {
-	// TODO: Needs to be codecell or markdown cell event?
-	protected _pauseableEmitter = this._register(new PauseableEmitter<CodeCellLayoutChangeEvent | MarkupCellLayoutChangeEvent>());
+class PositronNotebookCellViewModel extends Disposable implements ICellViewModel {
+	//#region Events
+	private readonly _onDidChangeLayout = this._register(new Emitter<ICommonCellViewModelLayoutChangeInfo>());
+	private readonly _onDidChangeCellStatusBarItems = this._register(new Emitter<void>());
+	private readonly _onCellDecorationsChanged = this._register(new Emitter<{ added: INotebookCellDecorationOptions[]; removed: INotebookCellDecorationOptions[] }>());
+	private readonly _onDidChangeState = this._register(new Emitter<CellViewModelStateChangeEvent>());
+	private readonly _onDidChangeEditorAttachState = this._register(new Emitter<void>());
 
-	public readonly onDidChangeLayout = this._pauseableEmitter.event;
+	public readonly onDidChangeLayout = this._onDidChangeLayout.event;
+	public readonly onDidChangeCellStatusBarItems = this._onDidChangeCellStatusBarItems.event;
+	public readonly onCellDecorationsChanged = this._onCellDecorationsChanged.event;
+	public readonly onDidChangeState = this._onDidChangeState.event;
+	public readonly onDidChangeEditorAttachState = this._onDidChangeEditorAttachState.event;
+	//#endregion
 
+	public readonly id = generateUuid();
+
+	/**
+	 * Should be set by INotebookEditor.focusNotebookCell
+	 */
 	public focusedOutputId?: string | undefined;
 
 	constructor(
-		viewType: string,
+		private readonly viewType: string,
 		private readonly _cell: IPositronNotebookCell,
+		private readonly _notebookInstance: PositronNotebookInstance,
 		initialNotebookLayoutInfo: NotebookLayoutInfo | null,
-		readonly viewContext: ViewContext,
-		@IConfigurationService configurationService: IConfigurationService,
-		@ITextModelService modelService: ITextModelService,
-		@IUndoRedoService undoRedoService: IUndoRedoService,
-		@ICodeEditorService codeEditorService: ICodeEditorService,
-		@IInlineChatSessionService inlineChatSessionService: IInlineChatSessionService,
-		@INotebookService private readonly _notebookService: INotebookService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
-		super(
-			viewType,
-			_cell.cellModel,
-			generateUuid(),
-			viewContext,
-			configurationService,
-			modelService,
-			undoRedoService,
-			codeEditorService,
-			inlineChatSessionService
-		);
+		super();
 
-		this._outputViewModels = this.model.outputs.map(output => new CellOutputViewModel(this, output, this._notebookService));
+		this._outputViewModels = this.model.outputs.map(output => new PositronCellOutputViewModel(this, output));
 
 		this._layoutInfo = {
 			fontInfo: initialNotebookLayoutInfo?.fontInfo || null,
 			editorHeight: 0,
 			editorWidth: initialNotebookLayoutInfo
-				? this.viewContext.notebookOptions.computeCodeCellEditorWidth(initialNotebookLayoutInfo.width)
+				? this._notebookInstance.notebookOptions.computeCodeCellEditorWidth(initialNotebookLayoutInfo.width)
 				: 0,
 			chatHeight: 0,
 			statusBarHeight: 0,
@@ -617,41 +598,188 @@ class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellVi
 			layoutState: CellLayoutState.Uninitialized,
 			estimatedHasHorizontalScrolling: false
 		};
-	}
 
-	//#region BaseCellViewModel abstract
+		this._commentOptions = this._configurationService.getValue<IEditorCommentsOptions>('editor.comments', { overrideIdentifier: this.language });
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('editor.comments')) {
+				this._commentOptions = this._configurationService.getValue<IEditorCommentsOptions>('editor.comments', { overrideIdentifier: this.language });
+			}
+		}));
+	}
 	get cellKind() {
 		return this._cell.kind;
 	}
-	onDeselect(): void {
-		throw new Error('Method not implemented.');
+
+	get model() {
+		return this._cell.cellModel;
 	}
-	layoutChange(change: CodeCellLayoutChangeEvent | MarkupCellLayoutChangeEvent, source?: string): void {
-		throw new Error('Method not implemented.');
+
+	//#region BaseCellViewModel
+	get handle() {
+		return this.model.handle;
 	}
-	onDidChangeTextModelContent(): void {
-		throw new Error('Method not implemented.');
+
+	get uri() {
+		return this.model.uri;
 	}
-	getHeight(lineHeight: number): number {
-		throw new Error('Method not implemented.');
+
+	// get lineCount() {
+	// 	return this.model.textBuffer.getLineCount();
+	// }
+
+	get metadata() {
+		return this.model.metadata;
 	}
-	getOutputOffset(index: number): number {
-		throw new Error('Method not implemented.');
+
+	get internalMetadata() {
+		return this.model.internalMetadata;
 	}
-	updateOutputHeight(index: number, height: number, source?: string): void {
-		throw new Error('Method not implemented.');
+
+	get language() {
+		return this.model.language;
+	}
+
+	get mime() {
+		if (typeof this.model.mime === 'string') {
+			return this.model.mime;
+		}
+
+		switch (this.language) {
+			case 'markdown':
+				return Mimes.markdown;
+
+			default:
+				return Mimes.text;
+		}
+	}
+
+	get textBuffer() {
+		return this.model.textBuffer;
+	}
+
+	get editorAttached(): boolean {
+		return Boolean(this._cell.editor);
+	}
+
+	get textModel(): ITextModel | undefined {
+		return this.model.textModel;
+	}
+
+	private _editStateSource: string = '';
+
+	get editStateSource(): string {
+		return this._editStateSource;
+	}
+
+	getText(): string {
+		return this.model.getValue();
+	}
+	getAlternativeId(): number {
+		return this.model.alternativeId;
+	}
+	getTextLength(): number {
+		return this.model.getTextLength();
+	}
+	hasModel(): this is IEditableCellViewModel {
+		return !!this.textModel;
+	}
+	getSelections(): Selection[] {
+		// TODO: Check editor view state if no editor?
+		return this._cell.editor?.getSelections() ?? [];
+	}
+	setSelections(selections: Selection[]): void {
+		if (selections.length) {
+			if (this._cell.editor) {
+				this._cell.editor.setSelections(selections);
+			}
+			// TODO: Set in editor view state if no editor?
+		}
+	}
+	getSelectionsStartPosition(): IPosition[] | undefined {
+		if (this._cell.editor) {
+			const selections = this._cell.editor.getSelections();
+			return selections?.map(s => s.getStartPosition());
+		}
+		// TODO: Check editor view state if no editor?
+		return undefined;
+	}
+	private _inputCollapsed: boolean = false;
+	get isInputCollapsed(): boolean {
+		return this._inputCollapsed;
+	}
+	set isInputCollapsed(v: boolean) {
+		this._inputCollapsed = v;
+		this._onDidChangeState.fire({ inputCollapsedChanged: true });
+	}
+	private _outputCollapsed: boolean = false;
+	get isOutputCollapsed(): boolean {
+		return this._outputCollapsed;
+	}
+	set isOutputCollapsed(v: boolean) {
+		this._outputCollapsed = v;
+		this._onDidChangeState.fire({ outputCollapsedChanged: true });
+	}
+	private _dragging: boolean = false;
+	get dragging(): boolean {
+		return this._dragging;
+	}
+
+	set dragging(v: boolean) {
+		this._dragging = v;
+		this._onDidChangeState.fire({ dragStateChanged: true });
+	}
+	private _lineNumbers: 'on' | 'off' | 'inherit' = 'inherit';
+	get lineNumbers(): 'on' | 'off' | 'inherit' {
+		return this._lineNumbers;
+	}
+
+	set lineNumbers(lineNumbers: 'on' | 'off' | 'inherit') {
+		if (lineNumbers === this._lineNumbers) {
+			return;
+		}
+
+		this._lineNumbers = lineNumbers;
+		this._onDidChangeState.fire({ cellLineNumberChanged: true });
+	}
+	private _commentOptions: IEditorCommentsOptions;
+	public get commentOptions(): IEditorCommentsOptions {
+		return this._commentOptions;
+	}
+
+	public set commentOptions(newOptions: IEditorCommentsOptions) {
+		this._commentOptions = newOptions;
+	}
+	private _focusMode: CellFocusMode = CellFocusMode.Container;
+	get focusMode() {
+		return this._focusMode;
+	}
+	set focusMode(newMode: CellFocusMode) {
+		if (this._focusMode !== newMode) {
+			this._focusMode = newMode;
+			this._onDidChangeState.fire({ focusModeChanged: true });
+		}
+	}
+
+	protected _commentHeight = 0;
+
+	set commentHeight(height: number) {
+		if (this._commentHeight === height) {
+			return;
+		}
+		this._commentHeight = height;
+		// this.layoutChange({ commentHeight: true }, 'BaseCellViewModel#commentHeight');
 	}
 	//#endregion
 
 	//#region CodeCellViewModel
 	private computeTotalHeight(editorHeight: number, outputsTotalHeight: number, outputShowMoreContainerHeight: number, chatHeight: number): number {
-		const layoutConfiguration = this.viewContext.notebookOptions.getLayoutConfiguration();
-		const { bottomToolbarGap } = this.viewContext.notebookOptions.computeBottomToolbarDimensions(this.viewType);
+		const layoutConfiguration = this._notebookInstance.notebookOptions.getLayoutConfiguration();
+		const { bottomToolbarGap } = this._notebookInstance.notebookOptions.computeBottomToolbarDimensions(this.viewType);
 		return layoutConfiguration.editorToolbarHeight
 			+ layoutConfiguration.cellTopMargin
 			+ chatHeight
 			+ editorHeight
-			+ this.viewContext.notebookOptions.computeEditorStatusbarHeight(this.internalMetadata, this.uri)
+			+ this._notebookInstance.notebookOptions.computeEditorStatusbarHeight(this.internalMetadata, this.uri)
 			+ this._commentHeight
 			+ outputsTotalHeight
 			+ outputShowMoreContainerHeight
@@ -665,7 +793,7 @@ class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellVi
 		}
 
 		this._chatHeight = height;
-		this.layoutChange({ chatHeight: true }, 'CodeCellViewModel#chatHeight');
+		// this.layoutChange({ chatHeight: true }, 'CodeCellViewModel#chatHeight');
 	}
 	get chatHeight() {
 		return this._chatHeight;
@@ -712,4 +840,69 @@ class PositronNotebookCellViewModel extends BaseCellViewModel implements ICellVi
 		return this._outputViewModels;
 	}
 	//#endregion
+
+	getHeight(lineHeight: number): number {
+		throw new Error('Method not implemented.');
+	}
+	resolveTextModel(): Promise<ITextModel> {
+		throw new Error('Method not implemented.');
+	}
+	getCellDecorations(): INotebookCellDecorationOptions[] {
+		throw new Error('Method not implemented.');
+	}
+	getCellStatusBarItems(): INotebookCellStatusBarItem[] {
+		throw new Error('Method not implemented.');
+	}
+	getEditState(): CellEditState {
+		throw new Error('Method not implemented.');
+	}
+	updateEditState(state: CellEditState, source: string): void {
+		throw new Error('Method not implemented.');
+	}
+	deltaModelDecorations(oldDecorations: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[] {
+		throw new Error('Method not implemented.');
+	}
+	getCellDecorationRange(id: string): Range | null {
+		throw new Error('Method not implemented.');
+	}
+	enableAutoLanguageDetection(): void {
+		throw new Error('Method not implemented.');
+	}
+	getOutputOffset(index: number): number {
+		throw new Error('Method not implemented.');
+	}
+	updateOutputHeight(index: number, height: number, source?: string): void {
+		throw new Error('Method not implemented.');
+	}
+}
+
+class PositronCellOutputViewModel extends Disposable implements ICellOutputViewModel {
+	private readonly _onDidResetRenderer = this._register(new Emitter<void>());
+	public readonly onDidResetRenderer = this._onDidResetRenderer.event;
+
+	visible = observableValue<boolean>('outputVisible', false);
+
+	constructor(
+		public readonly cellViewModel: ICellViewModel,
+		public readonly model: ICellOutput,
+	) {
+		super();
+	}
+
+	resolveMimeTypes(textModel: NotebookTextModel, kernelProvides: readonly string[] | undefined): [readonly IOrderedMimeType[], number] {
+		throw new Error('Method not implemented.');
+	}
+	pickedMimeType: IOrderedMimeType | undefined;
+	hasMultiMimeType(): boolean {
+		throw new Error('Method not implemented.');
+	}
+	setVisible(visible: boolean, force?: boolean): void {
+		throw new Error('Method not implemented.');
+	}
+	resetRenderer(): void {
+		throw new Error('Method not implemented.');
+	}
+	toRawJSON() {
+		throw new Error('Method not implemented.');
+	}
 }
