@@ -12,6 +12,7 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -55,7 +56,7 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * The notebook text model for the cell.
 	 */
-	cellModel: PositronNotebookCellTextModel;
+	cellModel: NotebookCellTextModel;
 
 	/**
 	 * The cell's code editor widget.
@@ -258,15 +259,4 @@ export interface NotebookCellOutputs {
 	outputs: NotebookCellOutputItem[];
 	parsed: ParsedOutput;
 	preloadMessageResult?: NotebookPreloadOutputResults | undefined;
-}
-
-/**
- * Lightweight copy of the vscode `NotebookCellTextModel` interface.
- */
-export interface PositronNotebookCellTextModel {
-	readonly uri: URI;
-	handle: number;
-	language: string;
-	cellKind: CellKind;
-	outputs: Pick<NotebookCellOutputs, 'outputId' | 'outputs'>[];
 }
