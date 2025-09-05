@@ -5,6 +5,7 @@
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Mimes } from '../../../../base/common/mime.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
@@ -555,26 +556,12 @@ class PositronNotebookCellViewModel extends Disposable implements ICellViewModel
 	public readonly onDidChangeEditorAttachState = this._onDidChangeEditorAttachState.event;
 	//#endregion
 
-	id: string;
-	textBuffer: IReadonlyTextBuffer;
-	layoutInfo: CellLayoutInfo;
-	editStateSource: string;
-	isInputCollapsed: boolean;
-	isOutputCollapsed: boolean;
-	dragging: boolean;
-	handle: number;
-	uri: URI;
-	language: string;
-	mime: string;
-	lineNumbers: 'on' | 'off' | 'inherit';
-	commentOptions: IEditorCommentsOptions;
+	public readonly id = generateUuid();
 	chatHeight: number;
 	commentHeight: number;
 	focusMode: CellFocusMode;
 	focusedOutputId?: string | undefined;
 	outputIsHovered: boolean;
-	metadata: NotebookCellMetadata;
-	internalMetadata: NotebookCellInternalMetadata;
 	outputIsFocused: boolean;
 	inputInOutputIsFocused: boolean;
 	outputsViewModels: ICellOutputViewModel[];
@@ -589,6 +576,71 @@ class PositronNotebookCellViewModel extends Disposable implements ICellViewModel
 
 		this.cellKind = this._cell.kind;
 		this.model = this._cell.cellModel;
+
+		this._layoutInfo = {
+			fontInfo: initialNotebookLayoutInfo?.fontInfo || null,
+			editorHeight: 0,
+			editorWidth: initialNotebookLayoutInfo
+				? this.viewContext.notebookOptions.computeCodeCellEditorWidth(initialNotebookLayoutInfo.width)
+				: 0,
+			chatHeight: 0,
+			statusBarHeight: 0,
+			commentOffset: 0,
+			commentHeight: 0,
+			outputContainerOffset: 0,
+			outputTotalHeight: 0,
+			outputShowMoreContainerHeight: 0,
+			outputShowMoreContainerOffset: 0,
+			totalHeight: this.computeTotalHeight(17, 0, 0, 0),
+			codeIndicatorHeight: 0,
+			outputIndicatorHeight: 0,
+			bottomToolbarOffset: 0,
+			layoutState: CellLayoutState.Uninitialized,
+			estimatedHasHorizontalScrolling: false
+		};
+	}
+
+	//#region BaseCellViewModel
+	get handle() {
+		return this.model.handle;
+	}
+
+	get uri() {
+		return this.model.uri;
+	}
+
+	// get lineCount() {
+	// 	return this.model.textBuffer.getLineCount();
+	// }
+
+	get metadata() {
+		return this.model.metadata;
+	}
+
+	get internalMetadata() {
+		return this.model.internalMetadata;
+	}
+
+	get language() {
+		return this.model.language;
+	}
+
+	get mime() {
+		if (typeof this.model.mime === 'string') {
+			return this.model.mime;
+		}
+
+		switch (this.language) {
+			case 'markdown':
+				return Mimes.markdown;
+
+			default:
+				return Mimes.text;
+		}
+	}
+
+	get textBuffer() {
+		return this.model.textBuffer;
 	}
 
 	get editorAttached(): boolean {
@@ -597,6 +649,12 @@ class PositronNotebookCellViewModel extends Disposable implements ICellViewModel
 
 	get textModel(): ITextModel | undefined {
 		return this.model.textModel;
+	}
+
+	private _editStateSource: string = '';
+
+	get editStateSource(): string {
+		return this._editStateSource;
 	}
 
 	getText(): string {
@@ -608,14 +666,8 @@ class PositronNotebookCellViewModel extends Disposable implements ICellViewModel
 	getTextLength(): number {
 		return this.model.getTextLength();
 	}
-	getHeight(lineHeight: number): number {
-		throw new Error('Method not implemented.');
-	}
 	hasModel(): this is IEditableCellViewModel {
 		return !!this.textModel;
-	}
-	resolveTextModel(): Promise<ITextModel> {
-		throw new Error('Method not implemented.');
 	}
 	getSelections(): Selection[] {
 		// TODO: Check editor view state if no editor?
@@ -636,6 +688,68 @@ class PositronNotebookCellViewModel extends Disposable implements ICellViewModel
 		}
 		// TODO: Check editor view state if no editor?
 		return undefined;
+	}
+	private _inputCollapsed: boolean = false;
+	get isInputCollapsed(): boolean {
+		return this._inputCollapsed;
+	}
+	set isInputCollapsed(v: boolean) {
+		this._inputCollapsed = v;
+		this._onDidChangeState.fire({ inputCollapsedChanged: true });
+	}
+	private _outputCollapsed: boolean = false;
+	get isOutputCollapsed(): boolean {
+		return this._outputCollapsed;
+	}
+	set isOutputCollapsed(v: boolean) {
+		this._outputCollapsed = v;
+		this._onDidChangeState.fire({ outputCollapsedChanged: true });
+	}
+	private _dragging: boolean = false;
+	get dragging(): boolean {
+		return this._dragging;
+	}
+
+	set dragging(v: boolean) {
+		this._dragging = v;
+		this._onDidChangeState.fire({ dragStateChanged: true });
+	}
+	private _lineNumbers: 'on' | 'off' | 'inherit' = 'inherit';
+	get lineNumbers(): 'on' | 'off' | 'inherit' {
+		return this._lineNumbers;
+	}
+
+	set lineNumbers(lineNumbers: 'on' | 'off' | 'inherit') {
+		if (lineNumbers === this._lineNumbers) {
+			return;
+		}
+
+		this._lineNumbers = lineNumbers;
+		this._onDidChangeState.fire({ cellLineNumberChanged: true });
+	}
+	private _commentOptions: IEditorCommentsOptions;
+	public get commentOptions(): IEditorCommentsOptions {
+		return this._commentOptions;
+	}
+
+	public set commentOptions(newOptions: IEditorCommentsOptions) {
+		this._commentOptions = newOptions;
+	}
+	//#endregion
+
+	//#region CodeCellViewModel
+	private _layoutInfo: CellLayoutInfo;
+
+	get layoutInfo() {
+		return this._layoutInfo;
+	}
+	//#endregion
+
+	getHeight(lineHeight: number): number {
+		throw new Error('Method not implemented.');
+	}
+	resolveTextModel(): Promise<ITextModel> {
+		throw new Error('Method not implemented.');
 	}
 	getCellDecorations(): INotebookCellDecorationOptions[] {
 		throw new Error('Method not implemented.');
