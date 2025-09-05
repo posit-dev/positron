@@ -306,6 +306,21 @@
 		"https://staging.connect.posit.cloud",
 		"https://posit.co"
 	],
+	"defaultChatAgent": {
+		"extensionId": "positron.positron-assistant",
+		"chatExtensionId": "positron.positron-assistant",
+		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"provider": {
+			"default": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			},
+			"enterprise": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			}
+		}
+	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
 	],
