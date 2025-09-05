@@ -246,7 +246,20 @@ export class DataGrid {
 	 */
 	async clickCell(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by 0-based position: row ${rowIndex}, column ${columnIndex}`, async () => {
-			await this.cell(rowIndex, columnIndex).click({ modifiers: withShift ? ['Shift'] : [] });
+			const target = this.cell(rowIndex, columnIndex);
+			await target.scrollIntoViewIfNeeded();
+
+			if (withShift) {
+				// Use keyboard down/up so Shift state is recognized consistently on macOS/Windows/Linux
+				await this.code.driver.page.keyboard.down('Shift');
+				try {
+					await target.click();
+				} finally {
+					await this.code.driver.page.keyboard.up('Shift');
+				}
+			} else {
+				await target.click();
+			}
 		});
 	}
 
@@ -258,12 +271,22 @@ export class DataGrid {
 	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by index: row ${rowIndex}, column ${columnIndex}`, async () => {
 			const cell = this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`);
-			await cell.click({ modifiers: withShift ? ['Shift'] : [] });
+			await cell.scrollIntoViewIfNeeded();
+			if (withShift) {
+				await this.code.driver.page.keyboard.down('Shift');
+				try {
+					await cell.click();
+				} finally {
+					await this.code.driver.page.keyboard.up('Shift');
+				}
+			} else {
+				await cell.click();
+			}
 		});
 	}
 
 	async shiftClickCell(rowIndex: number, columnIndex: number) {
-		this.clickCell(rowIndex, columnIndex, true);
+		await this.clickCell(rowIndex, columnIndex, true);
 	}
 
 	// index based
