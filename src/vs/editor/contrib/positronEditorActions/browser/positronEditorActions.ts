@@ -15,6 +15,8 @@ import { ILanguageConfigurationService } from '../../../common/languages/languag
 import { ITextModel } from '../../../common/model.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { EditorOption } from '../../../common/config/editorOptions.js';
+import { ReplaceCommand } from '../../../common/commands/replaceCommand.js';
 
 interface IPositronCommentMarkers {
 	startText: string;
@@ -149,4 +151,140 @@ export class AddPositronCommentMarkersAction extends EditorAction {
 	}
 }
 
+/**
+ * Fills from the cursor position to the end of the line with a symbol
+ * character, e.g.
+ *
+ * // foo-bar
+ * =>
+ * // foo-bar ------------------------------------------------------------------
+ *
+ * By default, uses '-' as the fill character and fills to column 80, but tries
+ * to be smart-ish:
+ *
+ * - If the character to the left of the cursor is a symbol, fills with that instead of
+ *   a dash
+ * - If you've defined a margin column, fills to there instead of to column 80
+ * - Can override with command arguments
+ *
+ */
+export class FillToEndOfLineAction extends EditorAction {
+
+	public static readonly ID = 'editor.fillToEndOfLine';
+
+	constructor() {
+		super({
+			id: FillToEndOfLineAction.ID,
+			label: 'Fill Symbol to End of Line',
+			alias: 'Fill Symbol to End of Line',
+			precondition: EditorContextKeys.writable,
+		});
+	}
+
+	public run(accessor: ServicesAccessor, editor: ICodeEditor, args: any): void {
+		const model = editor.getModel();
+		if (!model) {
+			return;
+		}
+
+		const selections = editor.getSelections();
+		if (!selections || selections.length === 0) {
+			return;
+		}
+
+		const commands: ICommand[] = [];
+		const parsedArgs = this.parseArgs(args);
+
+		for (const selection of selections) {
+			const position = selection.getStartPosition();
+			const lineNumber = position.lineNumber;
+			const currentColumn = position.column;
+			const lineContent = model.getLineContent(lineNumber);
+
+			// Determine fill character
+			const fillChar = this.determineFillCharacter(parsedArgs.fillCharacter, lineContent, currentColumn);
+
+			// Determine target column
+			const targetColumn = this.determineTargetColumn(parsedArgs.column, editor);
+
+			// Only fill if target column is greater than current position
+			if (targetColumn > currentColumn) {
+				const fillLength = targetColumn - currentColumn;
+				const fillString = fillChar.repeat(fillLength + 1);
+
+				commands.push(new ReplaceCommand(new Range(lineNumber, currentColumn, lineNumber, currentColumn), fillString));
+			}
+		}
+
+		if (commands.length > 0) {
+			editor.pushUndoStop();
+			editor.executeCommands(this.id, commands);
+			editor.pushUndoStop();
+		}
+	}
+
+	private parseArgs(args: unknown): { fillCharacter?: string; column?: number } {
+		if (typeof args === 'object' && args !== null) {
+			const argsObj = args as any;
+			return {
+				fillCharacter: typeof argsObj.fillCharacter === 'string' ? argsObj.fillCharacter : undefined,
+				column: typeof argsObj.column === 'number' ? argsObj.column : undefined
+			};
+		}
+		return {};
+	}
+
+	private determineFillCharacter(providedChar: string | undefined, lineContent: string, currentColumn: number): string {
+		if (providedChar) {
+			return providedChar;
+		}
+
+		// Check character to the left of cursor
+		if (currentColumn > 1) {
+			const charToLeft = lineContent.charAt(currentColumn - 2); // -2 because column is 1-based and charAt is 0-based
+			if (this.isSymbol(charToLeft)) {
+				return charToLeft;
+			}
+		}
+
+		// Default to dash
+		return '-';
+	}
+
+	private isSymbol(char: string): boolean {
+		// Check if character is a symbol (non-alphanumeric, non-whitespace)
+		return /^[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]$/.test(char);
+	}
+
+	private determineTargetColumn(providedColumn: number | undefined, editor: ICodeEditor): number {
+		if (providedColumn !== undefined) {
+			return providedColumn;
+		}
+
+		// Try to get ruler columns from editor options
+		const rulers = editor.getOption(EditorOption.rulers);
+		if (rulers && rulers.length > 0) {
+			// Find the first ruler column that's a number
+			for (const ruler of rulers) {
+				if (typeof ruler === 'number') {
+					return ruler;
+				}
+				if (typeof ruler === 'object' && ruler !== null && typeof ruler.column === 'number') {
+					return ruler.column;
+				}
+			}
+		}
+
+		// Try to get word wrap column
+		const wrappingInfo = editor.getOption(EditorOption.wrappingInfo);
+		if (wrappingInfo && wrappingInfo.wrappingColumn > 0) {
+			return wrappingInfo.wrappingColumn;
+		}
+
+		// Default to 80
+		return 80;
+	}
+}
+
 registerEditorAction(AddPositronCommentMarkersAction);
+registerEditorAction(FillToEndOfLineAction);
