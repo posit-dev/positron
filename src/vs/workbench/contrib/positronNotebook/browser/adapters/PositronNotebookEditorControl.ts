@@ -21,7 +21,7 @@ import { INotebookFindOptions } from '../../../notebook/common/notebookCommon.js
 import { INotebookKernel } from '../../../notebook/common/notebookKernelService.js';
 import { ICellRange } from '../../../notebook/common/notebookRange.js';
 import { IWebviewElement } from '../../../webview/browser/webview.js';
-import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookViewModel } from './PositronNotebookViewModel.js';
 
 /**
@@ -85,7 +85,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	//#endregion
 
 	constructor(
-		private readonly _notebookInstance: PositronNotebookInstance,
+		private readonly _notebookInstance: IPositronNotebookInstance,
 		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {

@@ -15,8 +15,8 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { ICellViewModel, ICommonCellViewModelLayoutChangeInfo, INotebookCellDecorationOptions, CellLayoutState, IEditableCellViewModel, CellFocusMode, CodeCellLayoutInfo, ICellOutputViewModel, CellEditState } from '../../../notebook/browser/notebookBrowser.js';
 import { CellViewModelStateChangeEvent, NotebookLayoutInfo } from '../../../notebook/browser/notebookViewEvents.js';
 import { INotebookCellStatusBarItem } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { PositronCellOutputViewModel } from './PositronCellOutputViewModel.js';
 
 export class PositronNotebookCellViewModel extends Disposable implements ICellViewModel {
@@ -43,7 +43,7 @@ export class PositronNotebookCellViewModel extends Disposable implements ICellVi
 	constructor(
 		private readonly viewType: string,
 		private readonly _cell: IPositronNotebookCell,
-		private readonly _notebookInstance: PositronNotebookInstance,
+		private readonly _notebookInstance: IPositronNotebookInstance,
 		initialNotebookLayoutInfo: NotebookLayoutInfo | null,
 		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {

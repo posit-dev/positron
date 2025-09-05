@@ -10,6 +10,9 @@ import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { IBaseCellEditorOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -100,9 +103,25 @@ export interface IPositronNotebookInstance {
 	readonly isDisposed: boolean;
 
 	/**
+	 * The current text model for the notebook, representing its content and structure.
+	 */
+	readonly textModel: NotebookTextModel | undefined;
+
+	/**
+	 * Event that fires when the notebook's text model changes.
+	 */
+	readonly onDidChangeTextModel: Event<NotebookTextModel | undefined>;
+
+	/**
 	 * Indicates whether this notebook is read-only and cannot be edited.
 	 */
 	readonly isReadOnly: boolean;
+
+	/**
+	 * Options for how the notebook should be displayed. Currently not really used but will be as
+	 * notebook gets fleshed out.
+	 */
+	readonly notebookOptions: NotebookOptions;
 
 	/**
 	 * Event that fires when the cells container is scrolled
@@ -110,6 +129,10 @@ export interface IPositronNotebookInstance {
 	readonly onDidScrollCellsContainer: Event<void>;
 
 	// ===== Methods =====
+	getEditorViewState(): INotebookEditorViewState;
+	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
+	setOptions(options: INotebookEditorOptions | undefined): Promise<void>;
+
 	/**
 	 * Executes the specified cells in order.
 	 *

@@ -11,7 +11,7 @@ import { INotebookViewModel, INotebookViewCellsUpdateEvent, ICellViewModel, INot
 import { NotebookLayoutInfo } from '../../../notebook/browser/notebookViewEvents.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { ICellRange } from '../../../notebook/common/notebookRange.js';
-import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { PositronNotebookCellViewModel } from './PositronNotebookCellViewModel.js';
 
 export class PositronNotebookViewModel extends Disposable implements INotebookViewModel {
@@ -27,7 +27,7 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 	private _viewCells: PositronNotebookCellViewModel[] = [];
 
 	constructor(
-		private readonly _notebookInstance: PositronNotebookInstance,
+		private readonly _notebookInstance: IPositronNotebookInstance,
 		private readonly _notebook: NotebookTextModel,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
@@ -42,7 +42,7 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 	get notebookDocument() {
 		return this._notebook;
 	}
-	get viewCells(): ICellViewModel[] {
+	get viewCells() {
 		return this._viewCells;
 	}
 	get layoutInfo(): NotebookLayoutInfo {
