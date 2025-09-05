@@ -16,7 +16,6 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useSelectionStatus } from './useSelectionStatus.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 
@@ -27,7 +26,7 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
-	const selectionStatus = useSelectionStatus(cell);
+	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const [isHovered, setIsHovered] = useState(false);
 

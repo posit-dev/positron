@@ -11,13 +11,12 @@ import React, { useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useSelectionStatus } from './useSelectionStatus.js';
 import { NotebookCellMoreActionsMenu } from './actionBar/NotebookCellMoreActionsMenu.js';
-import { useActionBarVisibility } from './actionBar/useActionBarVisibility.js';
 import { useActionsForCell } from './actionBar/useActionsForCell.js';
 import { CellActionButton } from './actionBar/CellActionButton.js';
+import { useObservedValue } from '../useObservedValue.js';
 
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
@@ -31,12 +30,12 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 	const mainActions = actionsForCell.main;
 	const menuActions = actionsForCell.menu;
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
-	const selectionStatus = useSelectionStatus(cell);
+	const selectionStatus = useObservedValue(cell.selectionStatus);
 
 	const hasMenuActions = menuActions.length > 0;
 
 	// Determine visibility using the extracted hook
-	const shouldShowActionBar = useActionBarVisibility(isHovered, isMenuOpen, selectionStatus);
+	const shouldShowActionBar = isMenuOpen || selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
 
 	return <div
 		aria-hidden={!shouldShowActionBar}
