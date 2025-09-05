@@ -266,7 +266,11 @@
       {
         "vendor": "anthropic",
         "displayName": "Anthropic"
-      }
+      },
+	  {
+		"vendor": "openai",
+		"displayName": "OpenAI"
+	  }
     ],
     "languageModelTools": [
       {

@@ -2080,6 +2080,14 @@ declare module 'positron' {
 			 * Returns an error if the connection fails.
 			 */
 			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+
+			/**
+			 * Retrieves a list of supported models from the provider.
+			 *
+			 * This is used to populate the model selection dropdown in the language model configuration dialog.
+			 * @returns A list of supported model identifiers, or undefined if the provider does not support a model listing.
+			 */
+			resolveModels(token: vscode.CancellationToken): Thenable<LanguageModelDescriptor[] | undefined>;
 		}
 
 		/**
@@ -2171,6 +2179,11 @@ declare module 'positron' {
 			defaults: LanguageModelConfigOptions;
 			signedIn?: boolean;
 			authMethods?: string[];
+		}
+
+		export interface LanguageModelDescriptor {
+			name: string;
+			id: string;
 		}
 
 		/**
