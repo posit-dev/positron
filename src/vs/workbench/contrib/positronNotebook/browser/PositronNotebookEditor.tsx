@@ -288,7 +288,7 @@ export class PositronNotebookEditor extends EditorPane {
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		this._control.value = new PositronNotebookEditorControl(input.notebookInstance);
+		this._control.value = this._instantiationService.createInstance(PositronNotebookEditorControl, input.notebookInstance);
 
 		await super.setInput(input, options, context, token);
 
