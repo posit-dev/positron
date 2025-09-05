@@ -35,6 +35,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		super();
 	}
 
+	get index(): number {
+		return this._instance.cells.get().indexOf(this);
+	}
+
 	get editor(): ICodeEditor | undefined {
 		return this._editor.get();
 	}

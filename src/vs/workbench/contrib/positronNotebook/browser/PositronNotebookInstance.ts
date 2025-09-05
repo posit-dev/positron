@@ -558,7 +558,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			const cellIndex = this.textModel.cells.indexOf(referenceCell.cellModel as NotebookCellTextModel);
 			index = cellIndex >= 0 ? cellIndex : null;
 		} else {
-			index = this.selectionStateMachine.getIndexOfSelectedCell();
+			index = this.selectionStateMachine.singleSelectedCell.get()?.index ?? null;
 		}
 
 		if (index === null) {
@@ -573,7 +573,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellToDelete The cell to delete. If not provided, deletes the currently selected cell
 	 */
 	deleteCell(cellToDelete?: IPositronNotebookCell): void {
-		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
+		const cell = cellToDelete ?? this.selectionStateMachine.singleSelectedCell.get();
 
 		if (!cell) {
 			return;
@@ -964,7 +964,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
 		this._assertTextModel();
 
-		const targetCell = cell ?? this.selectionStateMachine.getSelectedCell();
+		const targetCell = cell ?? this.selectionStateMachine.singleSelectedCell.get();
 		if (!targetCell) {
 			return;
 		}

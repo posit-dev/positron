@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { autorun, derived, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
+import { autorun, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -64,9 +64,8 @@ export class SelectionStateMachine extends Disposable {
 		owner: this,
 		equalsFn: areSelectionStatesEqual
 	}, { type: SelectionState.NoSelection });
-	private readonly _selectedCells: IObservable<{ type: SelectionState; cells: IPositronNotebookCell[] }>;
-	private readonly _selectedCell: IObservable<IPositronNotebookCell | null>;
-	private readonly _editingCell: IObservable<IPositronNotebookCell | null>;
+	private readonly _selectedCells: IObservable<IPositronNotebookCell[]>;
+	private readonly _singleSelectedCell: IObservable<IPositronNotebookCell | null>;
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -76,55 +75,29 @@ export class SelectionStateMachine extends Disposable {
 	) {
 		super();
 
-		// Derive the selected cells from state - now we directly have the cells
-		this._selectedCells = derived(this, reader => {
-			const state = this._state.read(reader);
-
+		// Derive selected cells from selection state
+		this._selectedCells = this._state.map(state => {
 			switch (state.type) {
 				case SelectionState.SingleSelection:
 				case SelectionState.MultiSelection:
-					return {
-						type: state.type,
-						cells: state.selected
-					};
+					return state.selected;
 				case SelectionState.EditingSelection:
-					return {
-						type: state.type,
-						cells: [state.selectedCell]
-					};
+					return [state.selectedCell];
 				case SelectionState.NoSelection:
 				default:
-					return {
-						type: state.type,
-						cells: []
-					};
+					return [];
 			}
 		});
 
 		// Derive single selected cell from selected cells
-		this._selectedCell = derived(this, reader => {
-			const selection = this._selectedCells.read(reader);
-			return selection.cells.length === 1 ? selection.cells[0] : null;
+		this._singleSelectedCell = this._selectedCells.map(cells => {
+			return cells.length === 1 ? cells[0] : null;
 		});
 
-		// Derive editing cell from state
-		this._editingCell = derived(this, reader => {
-			const state = this._state.read(reader);
-			if (state.type !== SelectionState.EditingSelection) {
-				return null;
-			}
-			return state.selectedCell;
-		});
-
-		// Auto-clear selection if selected cells are removed
+		// Update the selection state when cells change
 		this._register(autorun(reader => {
-			const selection = this._selectedCells.read(reader);
-			const state = this._state.get();
-
-			// If we have a selection but no cells match anymore, clear selection
-			if (state.type !== SelectionState.NoSelection && selection.cells.length === 0) {
-				this._setState({ type: SelectionState.NoSelection });
-			}
+			const cells = this._cells.read(reader);
+			this._setCells(cells);
 		}));
 	}
 	//#endregion Constructor & Dispose
@@ -142,21 +115,14 @@ export class SelectionStateMachine extends Disposable {
 	 * Observable of the currently selected cells
 	 */
 	get selectedCells(): IObservable<IPositronNotebookCell[]> {
-		return this._selectedCells.map(selection => selection.cells);
+		return this._selectedCells;
 	}
 
 	/**
 	 * Observable of the currently selected single cell (null if none or multiple)
 	 */
-	get selectedCell(): IObservable<IPositronNotebookCell | null> {
-		return this._selectedCell;
-	}
-
-	/**
-	 * Observable of the currently editing cell (null if not editing)
-	 */
-	get editingCell(): IObservable<IPositronNotebookCell | null> {
-		return this._editingCell;
+	get singleSelectedCell(): IObservable<IPositronNotebookCell | null> {
+		return this._singleSelectedCell;
 	}
 
 	//#endregion Public Properties
@@ -297,24 +263,42 @@ export class SelectionStateMachine extends Disposable {
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
 
-	/**
-	 * Get the index of the selected cell.
-	 * @returns The index of the selected cell. -1 if there is no selection.
-	 */
-	getIndexOfSelectedCell(): number | null {
-		const state = this._state.get();
-		if (state.type === SelectionState.SingleSelection) {
-			// TODO: Can index live on cell instance?
-			return this._cells.get().indexOf(state.selected[0]);
-		}
-
-		return null;
-	}
-
 	//#endregion Public Methods
 
 
 	//#region Private Methods
+	/**
+	 * Updates the selection state when cells change.
+	 *
+	 * @param cells The new cells to set.
+	 */
+	private _setCells(cells: IPositronNotebookCell[]): void {
+		const state = this._state.get();
+
+		if (state.type === SelectionState.NoSelection) {
+			return;
+		}
+
+		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
+		// If it isn't we need to reset the selection.
+		if (state.type === SelectionState.EditingSelection) {
+			if (!cells.includes(state.selectedCell)) {
+				this._setState({ type: SelectionState.NoSelection });
+				return;
+			}
+			return;
+		}
+
+		const newSelection = state.selected.filter(c => cells.includes(c));
+		if (newSelection.length === 0) {
+			this._setState({ type: SelectionState.NoSelection });
+			return;
+		}
+
+		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: newSelection });
+	}
+
+
 	private _setState(state: SelectionStates) {
 		// Alert the observable that the state has changed.
 		this._state.set(state, undefined);

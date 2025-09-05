@@ -25,8 +25,9 @@ export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionSt
 	React.useEffect(() => {
 		const selectionMachine = notebookInstance.selectionStateMachine;
 		const disposable = autorun(reader => {
+			// TODO: Does this only fire once if all of these things change, since they're derived from each other?
 			const state = selectionMachine.state.read(reader);
-			const selectedCell = selectionMachine.selectedCell.read(reader);
+			const selectedCell = selectionMachine.singleSelectedCell.read(reader);
 			const selectedCells = selectionMachine.selectedCells.read(reader);
 			if (state.type === SelectionState.EditingSelection) {
 				setSelectionStatus(selectedCell === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);

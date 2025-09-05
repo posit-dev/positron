@@ -33,6 +33,11 @@ export interface IPositronNotebookCell extends Disposable {
 	kind: CellKind;
 
 	/**
+	 * The current index of the cell in the notebook
+	 */
+	get index(): number;
+
+	/**
 	 * Cell specific uri for the cell within the notebook
 	 */
 	get uri(): URI;

@@ -125,7 +125,7 @@ export function registerCellCommand({
 				}
 			} else {
 				// Handle single cell
-				const cell = activeNotebook.selectionStateMachine.getSelectedCell();
+				const cell = activeNotebook.selectionStateMachine.singleSelectedCell.get();
 				if (cell && cellPassesCondition(cell, activeNotebook)) {
 					handler(cell, activeNotebook, accessor);
 				}
