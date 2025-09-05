@@ -817,7 +817,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 						POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
 				),
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.KeyQ,
+				primary: KeyMod.Shift | KeyCode.KeyC | KeyCode.KeyV,
 			},
 			icon: Codicon.code,
 			menu: [
