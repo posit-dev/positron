@@ -44,7 +44,7 @@
 
 	/* Size variables used throughout notebooks */
 	--vscode-positronNotebook-header-h: 30px;
-	--vscode-positronNotebook-cell-radius: 6px;
+	--vscode-positronNotebook-cell-radius: 8px;
 	--vscode-positronNotebook-action-bar-h: 22px;
 	--vscode-positronNotebook-action-bar-inset: calc(
 		var(--vscode-positronNotebook-action-bar-h) / 2

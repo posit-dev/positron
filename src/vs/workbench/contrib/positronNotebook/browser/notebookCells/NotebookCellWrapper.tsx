@@ -5,6 +5,7 @@
 
 // CSS.
 import './NotebookCellWrapper.css';
+import './NotebookCellSelection.css';
 
 // React.
 import React, { useState } from 'react';
@@ -56,12 +57,18 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			// 'positron-cell-editor-monaco-widget' then don't run the select code as the editor
 			// widget itself handles that logic
 			const childOfEditor = clickTarget.closest('.positron-cell-editor-monaco-widget');
-			if (childOfEditor || selectionStatus === CellSelectionStatus.Editing) {
+			if (childOfEditor) {
 				return;
 			}
 
 			// If the clicked element is a link, let it do its thing.
 			if (clickTarget.tagName === 'A') {
+				return;
+			}
+
+			// If we're in editing mode and clicking outside the editor, exit editing mode
+			if (selectionStatus === CellSelectionStatus.Editing) {
+				selectionStateMachine.exitEditor();
 				return;
 			}
 
