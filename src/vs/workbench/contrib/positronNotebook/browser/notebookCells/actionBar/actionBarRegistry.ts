@@ -10,6 +10,11 @@ import { ISettableObservable, observableValue } from '../../../../../../base/com
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 import { CellConditionPredicate } from './cellConditions.js';
 
+
+/**
+ * The position of a cell action bar item.
+ */
+export type CellActionPosition = 'main' | 'menu' | 'left';
 /**
  * Interface for notebook cell action bar items that define how commands appear in the UI.
  */
@@ -21,7 +26,7 @@ export interface INotebookCellActionBarItem {
 	/** Codicon class for the button icon (optional) */
 	icon?: string;
 	/** Location in UI - either main action bar or dropdown menu */
-	position: 'main' | 'menu' | 'left';
+	position: CellActionPosition;
 	/** Sort order within position (lower numbers appear first) */
 	order?: number;
 	/** Visibility condition using VS Code context keys (optional) */
