@@ -194,7 +194,7 @@
 					"name": "timeout",
 					"description": "The number of seconds to wait for the user to reply before giving up.",
 					"schema": {
-						"type": "number"
+						"type": "integer"
 					}
 				}
 			],

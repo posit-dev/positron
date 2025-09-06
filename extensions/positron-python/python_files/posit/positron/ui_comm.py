@@ -388,7 +388,7 @@ class ShowPromptParams(BaseModel):
         description="The value to return if the user does not enter one, such as 'African or European?'",
     )
 
-    timeout: Union[StrictInt, StrictFloat] = Field(
+    timeout: StrictInt = Field(
         description="The number of seconds to wait for the user to reply before giving up.",
     )
 
