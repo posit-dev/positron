@@ -16,7 +16,7 @@ test.describe('Data Explorer: Column Names', { tag: [tags.WEB, tags.WIN, tags.DA
 		await openDataFile('data-files/data_explorer/data_columns.csv');
 		await dataExplorer.maximize();
 
-		await dataExplorer.grid.verifyColumnHeaders([
+		await dataExplorer.grid.expectColumnHeadersToBe([
 			'normal_name',
 			'leading_space',
 			'trailing_space',
@@ -39,6 +39,10 @@ test.describe('Data Explorer: Column Names', { tag: [tags.WEB, tags.WIN, tags.DA
 			'Número_do_Pedido',
 			'اسم_عربي',
 			'رمز_المنتج',
+			'שם_עברי',
+			'מספר_פריט',
+			'Heizölrückstoßabdämpfung',
+			'100.000 pro Bevölkerung'
 		]);
 	});
 });
