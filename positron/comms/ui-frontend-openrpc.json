@@ -182,6 +182,20 @@
 					"schema": {
 						"type": "string"
 					}
+				},
+				{
+					"name": "default",
+					"description": "The value to return if the user does not enter one, such as 'African or European?'",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "timeout",
+					"description": "The number of seconds to wait for the user to reply before giving up.",
+					"schema": {
+						"type": "number"
+					}
 				}
 			],
 			"result": {

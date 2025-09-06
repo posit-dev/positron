@@ -305,6 +305,17 @@ export interface ShowPromptParams {
 	 * velocity of an unladen swallow?
 	 */
 	message: string;
+
+	/**
+	 * The value to return if the user does not enter one, such as 'African
+	 * or European?'
+	 */
+	default: string;
+
+	/**
+	 * The number of seconds to wait for the user to reply before giving up.
+	 */
+	timeout: number;
 }
 
 /**
@@ -732,6 +743,17 @@ export interface ShowPromptRequest {
 	 * velocity of an unladen swallow?
 	 */
 	message: string;
+
+	/**
+	 * The value to return if the user does not enter one, such as 'African
+	 * or European?'
+	 */
+	default: string;
+
+	/**
+	 * The number of seconds to wait for the user to reply before giving up.
+	 */
+	timeout: number;
 
 }
 

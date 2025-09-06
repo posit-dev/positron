@@ -384,6 +384,14 @@ class ShowPromptParams(BaseModel):
         description="The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?",
     )
 
+    default: StrictStr = Field(
+        description="The value to return if the user does not enter one, such as 'African or European?'",
+    )
+
+    timeout: Union[StrictInt, StrictFloat] = Field(
+        description="The number of seconds to wait for the user to reply before giving up.",
+    )
+
 
 class AskForPasswordParams(BaseModel):
     """
