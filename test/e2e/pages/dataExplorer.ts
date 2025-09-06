@@ -340,6 +340,7 @@ export class DataGrid {
 
 	async selectRange({ start, end }: { start: CellPosition; end: CellPosition }) {
 		await test.step(`Select range: [${start.row}, ${start.col}] - [${end.row}, ${end.col}]`, async () => {
+			await this.jumpToStart();
 			await this.clickCell(start.row, start.col);
 			await this.shiftClickCell(end.row, end.col);
 		});
