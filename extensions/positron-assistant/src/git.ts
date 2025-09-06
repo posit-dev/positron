@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { ParticipantService } from './participants.js';
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
 import { MD_DIR } from './constants';
 
@@ -131,17 +132,15 @@ export async function getWorkspaceGitChanges(kind: GitRepoChangeKind): Promise<G
 }
 
 /** Generate a commit message for git repositories with staged changes */
-export async function generateCommitMessage(context: vscode.ExtensionContext) {
+export async function generateCommitMessage(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
 	await vscode.commands.executeCommand('setContext', generatingGitCommitKey, true);
 
-	const models = (await vscode.lm.selectChatModels()).filter((model) => {
-		return model.family !== 'echo' && model.family !== 'error';
-	});
-	if (models.length === 0) {
-		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
-		throw new Error('No language models available for commit message generation.');
-	}
-	const model = models[0];
+	const model = await getModel(participantService);
+	log.info(`[git] Generating commit message. Selected model (${model.vendor}) ${model.id} for commit message generation.`);
 
 	const tokenSource: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
 	const cancelDisposable = vscode.commands.registerCommand('positron-assistant.cancelGenerateCommitMessage', () => {
@@ -153,6 +152,7 @@ export async function generateCommitMessage(context: vscode.ExtensionContext) {
 	const allChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
 	const stagedChanges = await getWorkspaceGitChanges(GitRepoChangeKind.Staged);
 	const gitChanges = stagedChanges.length > 0 ? stagedChanges : allChanges;
+	log.trace(`[git] Sending changes ${JSON.stringify(gitChanges)} to model provider.`);
 
 	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/git/commit.md`, 'utf8');
 	try {
@@ -171,8 +171,31 @@ export async function generateCommitMessage(context: vscode.ExtensionContext) {
 				}
 			}
 		}));
+	} catch (e) {
+		const error = e as Error;
+		log.error(`[git] Error generating commit message: ${error.message}`);
+		void vscode.window.showErrorMessage(`Error generating commit message: ${error.message}`);
+		throw e;
 	} finally {
 		cancelDisposable.dispose();
 		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
 	}
+}
+
+async function getModel(participantService: ParticipantService): Promise<vscode.LanguageModelChat> {
+	// Check for the latest chat session and use its model.
+	const sessionModelId = participantService.getCurrentSessionModel();
+	if (sessionModelId) {
+		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
+		if (models && models.length > 0) {
+			return models[0];
+		}
+	}
+
+	// Fall back to the first available model.
+	const models = await vscode.lm.selectChatModels();
+	if (models.length === 0) {
+		throw new Error('No language models available for git commit message generation');
+	}
+	return models.filter((model) => model.family !== 'echo' && model.family !== 'error')[0];
 }
