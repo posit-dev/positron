@@ -170,8 +170,15 @@
 			"description": "Use this for an input box where user can input any string",
 			"params": [
 				{
-					"name": "prompt",
-					"description": "The prompt, such as 'What is the airspeed velocity of an unladen swallow?'",
+					"name": "title",
+					"description": "The title of the prompt dialog, such as 'Enter Swallow Velocity'",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "message",
+					"description": "The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?",
 					"schema": {
 						"type": "string"
 					}

@@ -376,8 +376,12 @@ class ShowPromptParams(BaseModel):
     Show a prompt
     """
 
-    prompt: StrictStr = Field(
-        description="The prompt, such as 'What is the airspeed velocity of an unladen swallow?'",
+    title: StrictStr = Field(
+        description="The title of the prompt dialog, such as 'Enter Swallow Velocity'",
+    )
+
+    message: StrictStr = Field(
+        description="The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?",
     )
 
 

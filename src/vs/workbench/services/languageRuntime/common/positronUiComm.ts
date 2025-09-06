@@ -296,10 +296,15 @@ export interface ShowDialogParams {
  */
 export interface ShowPromptParams {
 	/**
-	 * The prompt, such as 'What is the airspeed velocity of an unladen
-	 * swallow?'
+	 * The title of the prompt dialog, such as 'Enter Swallow Velocity'
 	 */
-	prompt: string;
+	title: string;
+
+	/**
+	 * The message prompting the user for text, such as 'What is the airspeed
+	 * velocity of an unladen swallow?
+	 */
+	message: string;
 }
 
 /**
@@ -718,10 +723,15 @@ export interface ShowDialogRequest {
  */
 export interface ShowPromptRequest {
 	/**
-	 * The prompt, such as 'What is the airspeed velocity of an unladen
-	 * swallow?'
+	 * The title of the prompt dialog, such as 'Enter Swallow Velocity'
 	 */
-	prompt: string;
+	title: string;
+
+	/**
+	 * The message prompting the user for text, such as 'What is the airspeed
+	 * velocity of an unladen swallow?
+	 */
+	message: string;
 
 }
 
