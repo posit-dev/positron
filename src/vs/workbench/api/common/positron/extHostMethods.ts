@@ -136,6 +136,18 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						params.message as string);
 					break;
 				}
+				case UiFrontendRequest.ShowPrompt: {
+					if (!params ||
+						!Object.keys(params).includes('title') ||
+						!Object.keys(params).includes('message')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.showPrompt(params.title as string,
+						params.message as string,
+						params.default_value as string | undefined,
+						params.placeholder as string | undefined);
+					break;
+				}
 				case UiFrontendRequest.AskForPassword: {
 					if (!params || !Object.keys(params).includes('prompt')) {
 						return newInvalidParamsError(method);
@@ -278,6 +290,10 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	async showDialog(title: string, message: string): Promise<null> {
 		return this.dialogs.showSimpleModalDialogMessage(title, message);
+	}
+
+	async showPrompt(title: string, message: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
+		return this.dialogs.showSimpleModalDialogInput(title, message, defaultValue, placeholder);
 	}
 
 	async createDocument(contents: string, languageId: string): Promise<null> {

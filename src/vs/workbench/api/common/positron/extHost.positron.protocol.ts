@@ -102,6 +102,7 @@ export interface ExtHostLanguageRuntimeShape {
 export interface MainThreadModalDialogsShape extends IDisposable {
 	$showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean>;
 	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null>;
+	$showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string): Promise<string | null>;
 }
 
 // The interface to the main thread exposed by the extension host

@@ -7,7 +7,7 @@
 import './positronModalDialogs.css';
 
 // React.
-import React from 'react';
+import React, { useState } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
@@ -18,6 +18,7 @@ import { VerticalStack } from '../../../browser/positronComponents/positronModal
 import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { OKCancelActionBar } from '../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
 import { OKCancelModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
+import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
@@ -242,5 +243,82 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				resolve(null);
 			});
 		});
+	}
+
+	/**
+	 * Shows a modal dialog with a text input field.
+	 *
+	 * @param title The title of the dialog
+	 * @param message The message to display in the dialog
+	 * @param defaultValue The default value to show in the input field (optional)
+	 * @param placeholder The placeholder text for the input field (optional)
+	 *
+	 * @returns A promise that resolves to the text entered by the user, or null if cancelled.
+	 */
+	showSimpleModalDialogInput(
+		title: string,
+		message: string,
+		defaultValue?: string,
+		placeholder?: string
+	): Promise<string | null> {
+		// Create the modal React renderer.
+		const renderer = new PositronModalReactRenderer();
+
+		// Component to handle the input dialog
+		const InputDialogComponent = () => {
+			const [inputValue, setInputValue] = useState(defaultValue || '');
+
+			const acceptHandler = () => {
+				renderer.dispose();
+				resolve(inputValue);
+			};
+
+			const cancelHandler = () => {
+				renderer.dispose();
+				resolve(null);
+			};
+
+			return (
+				<PositronModalDialog height={280} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
+					<ContentArea>
+						<VerticalStack>
+							{message && (
+								<div>
+									{renderHtml(
+										message,
+										{
+											componentOverrides: {
+												a: (props) => <ExternalLink {...props} />
+											}
+										}
+									)}
+								</div>
+							)}
+							<LabeledTextInput
+								label=""
+								value={inputValue}
+								autoFocus={true}
+								onChange={(e) => setInputValue(e.target.value)}
+								{...placeholder && { placeholder }}
+							/>
+						</VerticalStack>
+					</ContentArea>
+					<OKCancelActionBar
+						onAccept={acceptHandler}
+						onCancel={cancelHandler}
+					/>
+				</PositronModalDialog>
+			);
+		};
+
+		// Promise to handle the user's input
+		let resolve: (value: string | null) => void;
+		const promise = new Promise<string | null>((res) => {
+			resolve = res;
+		});
+
+		renderer.render(<InputDialogComponent />);
+
+		return promise;
 	}
 }
