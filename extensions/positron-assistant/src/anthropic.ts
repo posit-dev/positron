@@ -12,6 +12,7 @@ import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMe
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
+import { availableModels } from './models.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -85,6 +86,9 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	async prepareLanguageModelChat(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.trace('Preparing Anthropic language model');
+
+		await this.resolveModels(token);
+
 		if (this.modelListing.length > 0) {
 			return this.modelListing;
 		} else {
@@ -291,8 +295,9 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		const availableModels: vscode.LanguageModelChatInformation[] = [];
-		// Fetch all pages of models until has_more is false
+		const modelListing: vscode.LanguageModelChatInformation[] = [];
+		const knownAnthropicModels = availableModels.get(this.provider);
+		const userSetMaxOutputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
 		let hasMore = true;
 		let nextPageToken: string | undefined;
 		let isFirst = true;
@@ -305,13 +310,15 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 				: await this._client.models.list();
 
 			modelsPage.data.forEach(model => {
-				availableModels.push({
+				const knownModelMaxOutputTokens = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier))?.maxOutputTokens;
+				const maxOutputTokens = userSetMaxOutputTokens[model.id] ?? knownModelMaxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+				modelListing.push({
 					id: model.id,
 					name: model.display_name,
 					family: this.provider,
 					version: model.created_at,
 					maxInputTokens: 0,
-					maxOutputTokens: DEFAULT_MAX_TOKEN_OUTPUT,
+					maxOutputTokens: maxOutputTokens,
 					capabilities: {},
 					isDefault: isFirst,
 					isUserSelectable: true,
@@ -325,10 +332,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 		}
 
-		this.modelListing = availableModels;
+		this.modelListing = modelListing;
 
 		return new Promise((resolve) => {
-			resolve(availableModels);
+			resolve(modelListing);
 		});
 	}
 }

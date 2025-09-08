@@ -314,6 +314,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		await this.resolveModels(token);
+
 		// Prepare the language model chat information
 		const providerId = this._config.provider;
 		const models = this.modelListing ?? availableModels.get(providerId);
@@ -668,7 +670,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		super(_config, _context);
 		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
+			baseURL: this.baseUrl,
 		});
 	}
 
@@ -676,12 +678,16 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		return OpenAILanguageModel.source.provider.displayName;
 	}
 
+	get baseUrl(): string | undefined {
+		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
+
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		// fetch the model list from OpenAI
 		// use the baseUrl/v1/models endpoint
 		try {
 			// make an http request to the models endpoint
-			const response = await fetch(`${this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl}/v1/models`, {
+			const response = await fetch(`${this.baseUrl}/models`, {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${this._config.apiKey}`,
@@ -722,7 +728,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		try {
-			const response = await fetch(`${this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl}/v1/models`, {
+			const response = await fetch(`${this.baseUrl}/models`, {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${this._config.apiKey}`,
@@ -1073,25 +1079,31 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 // suitable for chat and we don't want the selection to be too large
 export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
 	[
+		//
 		['anthropic-api', [
 			{
 				name: 'Claude 4 Sonnet',
-				identifier: 'claude-sonnet-4-20250514',
+				identifier: 'claude-sonnet-4',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 4 Opus',
-				identifier: 'claude-opus-4-20250514',
+				identifier: 'claude-opus-4',
 				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.7 Sonnet v1',
-				identifier: 'claude-3-7-sonnet-latest',
+				identifier: 'claude-3-7-sonnet',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet-latest',
+				identifier: 'claude-3-5-sonnet',
+				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
+				name: 'Claude 3.5 Haiku',
+				identifier: 'claude-3-5-haiku',
 				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]],
