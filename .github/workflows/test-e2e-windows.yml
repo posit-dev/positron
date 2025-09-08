@@ -135,14 +135,8 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          npm_config_msvs_version: 2022
         shell: pwsh
-        # nvm on windows does not see .nvmrc
-        #
-        # the installation of the npm package windows-process-tree is known to fail
-        # intermittently in the Github Actions build environment, so we retry
-        # this step a few times if necessary.
-        #
-        # see https://github.com/posit-dev/positron/issues/3481
         run: |
           # Use robocopy to reliably clear node_modules directories
           if (Test-Path "node_modules") {
@@ -161,10 +155,20 @@ jobs:
             Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
           }
 
-          # Configure npm for better performance
+          # Clear node-gyp cache
+          if (Test-Path "$env:USERPROFILE\AppData\Local\node-gyp") {
+            Remove-Item -Path "$env:USERPROFILE\AppData\Local\node-gyp" -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          # Configure npm for better performance and single-threaded builds
           npm config set audit false
           npm config set fund false
           npm config set prefer-offline true
+          npm config set msvs_version 2022
+
+          # Force single-threaded builds
+          $env:JOBS = "1"
+          $env:MSBUILD_ARGS = "/maxcpucount:1"
 
           .\scripts\run-with-retry.ps1 -maxAttempts 5 -command "npm clean-install --fetch-timeout 120000"
           npm --prefix test/e2e ci
