@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -192,7 +193,14 @@ async function getModel(participantService: ParticipantService): Promise<vscode.
 		}
 	}
 
-	// Fall back to the first available model.
+	// Fall back to the first model for the currently selected provider.
+	const currentProvider = await positron.ai.getCurrentProvider();
+	if (currentProvider) {
+		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
+		return models[0];
+	}
+
+	// Fall back to the first available model from any provider.
 	const models = await vscode.lm.selectChatModels();
 	if (models.length === 0) {
 		throw new Error('No language models available for git commit message generation');
