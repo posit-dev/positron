@@ -50,15 +50,15 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		// verify collapse and expand retains in search
 		await dataExplorer.summaryPanel.expandColumnProfile();
 		await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0);
-		await dataExplorer.summaryPanel.hide()
+		await dataExplorer.summaryPanel.hide();
 		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0);
 		await dataExplorer.summaryPanel.expectColumnCountToBe(1);
 
 		// clear search and ensure col profile still expanded
-		await dataExplorer.summaryPanel.clearSearch()
+		await dataExplorer.summaryPanel.clearSearch();
 		await dataExplorer.summaryPanel.expectColumnCountToBe(10);
-		await dataExplorer.summaryPanel.expectColumnProfileToBeCollapsed(0)
+		await dataExplorer.summaryPanel.expectColumnProfileToBeCollapsed(0);
 		await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(9);
 
 		// search with no results

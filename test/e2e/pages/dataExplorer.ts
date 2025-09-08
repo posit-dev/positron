@@ -691,7 +691,7 @@ export class SummaryPanel {
 
 	async clearSort() {
 		await test.step('Clear sort in summary panel', async () => {
-			await this.clearColumnSortingButton.click();
+			await this.sortBy('Original');
 		});
 	}
 
