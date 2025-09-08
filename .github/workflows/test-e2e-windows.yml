@@ -119,6 +119,16 @@ jobs:
         with:
           version: "0.7.22"
 
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            test/e2e/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json', 'test/e2e/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
       - name: Install node dependencies
         env:
           npm_config_arch: x64
