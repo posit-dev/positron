@@ -40,7 +40,7 @@ export class Clipboard {
 			const clipboardText = await this.getClipboardText();
 			expect(clipboardText).toBe(expectedText);
 		}).toPass({ timeout: 20000 });
-	}
+	};
 
 	async setClipboardText(text: string): Promise<void> {
 		// Grant permissions to write to clipboard
