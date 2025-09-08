@@ -3215,7 +3215,7 @@ export abstract class DataGridInstance extends Disposable {
 		 * Sorts selection indexes by position.
 		 * @param selectionIndexes The selection indexes.
 		 * @param layoutManager The layout manager.
-		 * @returns The election indexes sorted by position.
+		 * @returns The selection indexes sorted by position.
 		 */
 		const sortSelectionIndexesByPosition = (selectionIndexes: number[], layoutManager: LayoutManager) => {
 			// Order the selections.
