@@ -230,7 +230,7 @@ export class DataGrid {
 	}
 
 	/**
-	 *
+	 * Sort the specified column by the given sort option.
 	 * @param columnIndex (Index is 1-based)
 	 * @param sortBy
 	 */
@@ -242,31 +242,19 @@ export class DataGrid {
 
 	/**
 	 * Click a cell by its visual position (Index is 0-based)
-	 * If a column/row is pinned, this method finds the cell by its visual position.
+	 * For example, if a column/row is pinned, the position would be index 0.
 	 */
 	async clickCell(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by 0-based position: row ${rowIndex}, column ${columnIndex}`, async () => {
-			const target = this.cell(rowIndex, columnIndex);
-			await target.scrollIntoViewIfNeeded();
-
-			if (withShift) {
-				// Use keyboard down/up so Shift state is recognized consistently on macOS/Windows/Linux
-				await this.code.driver.page.keyboard.down('Shift');
-				try {
-					await target.click();
-				} finally {
-					await this.code.driver.page.keyboard.up('Shift');
-				}
-			} else {
-				await target.click();
-			}
+			withShift
+				? await this.cell(rowIndex, columnIndex).click({ modifiers: ['Shift'] })
+				: await this.cell(rowIndex, columnIndex).click();
 		});
 	}
 
 	/**
 	 * Click a cell by its index (Index is 0-based)
-	 * These indexes never change even with sorting or filtering
-	 * If a column/row is pinned, this method finds the cell by its original row/col index values
+	 * These indexes never change even with sorting, filtering, or pinning.
 	 */
 	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by index: row ${rowIndex}, column ${columnIndex}`, async () => {
@@ -285,11 +273,21 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Shift-click a cell by its visual position (Index is 0-based)
+	 * For example, if a column/row is pinned, the position would be index 0.
+	 * @param rowIndex
+	 * @param columnIndex
+	 */
 	async shiftClickCell(rowIndex: number, columnIndex: number) {
 		await this.clickCell(rowIndex, columnIndex, true);
 	}
 
-	// index based
+	/**
+	 * Select a column action from the right-click menu.
+	 * @param colIndex (Index is 1-based)
+	 * @param action menu action to select
+	 */
 	private async selectColumnAction(colIndex: number, action: ColumnRightMenuOption) {
 		await test.step(`Select column action: ${action}`, async () => {
 			await this.code.driver.page.locator(`div:nth-child(${colIndex}) > .content > .positron-button`).click();
@@ -298,7 +296,7 @@ export class DataGrid {
 	}
 
 	/**
-	 * Pin a column by its index
+	 * Pin a column by its visual index
 	 * @param colIndex (Index is 0-based)
 	 */
 	async pinColumn(colIndex: number) {
@@ -309,7 +307,7 @@ export class DataGrid {
 	}
 
 	/**
-	 * Unpin a column by its index
+	 * Unpin a column by its visual index
 	 * @param colIndex (Index is 0-based)
 	 */
 	async unpinColumn(colIndex = 0) {
@@ -319,6 +317,10 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Pin a row by its visual index
+	 * @param rowIndex (Index is 0-based)
+	 */
 	async pinRow(rowIndex: number) {
 		await test.step(`Pin row at index ${rowIndex}`, async () => {
 			await this.code.driver.page
@@ -329,6 +331,10 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Unpin a row by its visual index
+	 * @param rowIndex (Index is 0-based)
+	 */
 	async unpinRow(rowIndex = 0) {
 		await test.step(`Unpin row at index ${rowIndex}`, async () => {
 			await this.code.driver.page
@@ -338,6 +344,11 @@ export class DataGrid {
 		});
 	}
 
+	/**
+	 * Select a range of cells
+	 * @param start The starting cell position
+	 * @param end The ending cell position
+	 */
 	async selectRange({ start, end }: { start: CellPosition; end: CellPosition }) {
 		await test.step(`Select range: [${start.row}, ${start.col}] - [${end.row}, ${end.col}]`, async () => {
 			await this.jumpToStart();
@@ -551,14 +562,11 @@ export class DataGrid {
 	 */
 	async expectColumnsToBePinned(expectedTitles: string[]) {
 		await test.step(`Verify pinned columns: ${expectedTitles}`, async () => {
-			// Locate all pinned column headers
 			const pinnedColumns = this.code.driver.page.locator('.data-grid-column-header.pinned');
 
 			if (expectedTitles.length === 0) {
-				// If we expect no pinned columns, verify count is 0
 				await expect(pinnedColumns).toHaveCount(0);
 			} else {
-				// Assert the count matches the expected length
 				await expect(pinnedColumns).toHaveCount(expectedTitles.length);
 
 				// Assert each pinned column has the correct title, in order
