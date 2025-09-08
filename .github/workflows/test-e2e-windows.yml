@@ -144,6 +144,28 @@ jobs:
         #
         # see https://github.com/posit-dev/positron/issues/3481
         run: |
+          # Use robocopy to reliably clear node_modules directories
+          if (Test-Path "node_modules") {
+            Write-Host "Clearing main node_modules with robocopy..."
+            $null = New-Item -ItemType Directory -Path "empty_temp" -Force
+            robocopy "empty_temp" "node_modules" /mir /r:0 /w:0 | Out-Null
+            Remove-Item -Path "node_modules" -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
+          }
+
+          if (Test-Path "test/e2e/node_modules") {
+            Write-Host "Clearing e2e node_modules with robocopy..."
+            $null = New-Item -ItemType Directory -Path "empty_temp" -Force
+            robocopy "empty_temp" "test/e2e/node_modules" /mir /r:0 /w:0 | Out-Null
+            Remove-Item -Path "test/e2e/node_modules" -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
+          }
+
+          # Configure npm for better performance
+          npm config set audit false
+          npm config set fund false
+          npm config set prefer-offline true
+
           .\scripts\run-with-retry.ps1 -maxAttempts 5 -command "npm clean-install --fetch-timeout 120000"
           npm --prefix test/e2e ci
 
