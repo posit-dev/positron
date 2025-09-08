@@ -119,13 +119,28 @@ jobs:
         with:
           version: "0.7.22"
 
+      - name: Configure Git and normalize files
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+          # Normalize ALL package-lock.json files
+          Get-ChildItem -Path . -Name "package-lock.json" -Recurse | ForEach-Object {
+            Write-Host "Normalizing line endings in: $_"
+            $content = Get-Content $_ -Raw
+            $content = $content -replace "`r`n", "`n"
+            Set-Content $_ -Value $content -NoNewline
+          }
+
       - name: Cache npm dependencies
         uses: actions/cache@v4
         with:
           path: |
             ~/.npm
             test/e2e/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json', 'test/e2e/package-lock.json') }}
+          # Include ALL package-lock.json files
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
 
