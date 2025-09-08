@@ -76,7 +76,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		throw new Error(this._message);
 	}
 
-	resolveModels(token: vscode.CancellationToken): Thenable<positron.ai.LanguageModelDescriptor[] | undefined> {
+	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
 		throw new Error(this._message);
 	}
 }
@@ -207,10 +207,15 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		return Promise.resolve(undefined);
 	}
 
-	async resolveModels(token: vscode.CancellationToken): Promise<positron.ai.LanguageModelDescriptor[] | undefined> {
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		return Promise.resolve([{
 			id: this.id,
 			name: this.name,
+			family: this.provider,
+			version: '1.0.0',
+			maxInputTokens: 100,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
 		}]);
 	}
 }
@@ -225,7 +230,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	protected abstract aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
 	protected aiOptions: Record<string, any> = {};
 
-	private modelListing?: positron.ai.LanguageModelDescriptor[];
+	protected modelListing?: vscode.LanguageModelChatInformation[];
 
 	capabilities = {
 		vision: true,
@@ -280,19 +285,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		});
 
 		try {
-			this.modelListing = await this.resolveModels(token);
+			// send a test message to the model
+			const result = await ai.generateText({
+				model: this.aiProvider(this._config.model, this.aiOptions),
+				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
+			});
 
-			// If there is no model listing, we verify the connection by sending a test message
-			if (!this.modelListing) {
-				// send a test message to the model
-				const result = await ai.generateText({
-					model: this.aiProvider(this._config.model, this.aiOptions),
-					prompt: 'I\'m checking to see if you\'re there. Response only with the word "hello".',
-				});
-
-				// if the model responds, the config works
-				return undefined;
-			}
+			// if the model responds, the config works
+			return undefined;
 		} catch (error) {
 			const providerErrorMessage = this.parseProviderError(error);
 			if (providerErrorMessage) {
@@ -310,7 +310,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		// Prepare the language model chat information
 		const providerId = this._config.provider;
-		let models = await this.resolveModels(token);
+		const models = this.modelListing ?? availableModels.get(providerId);
 
 		if (!models || models.length === 0) {
 			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
@@ -329,18 +329,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			];
 		}
 
-		const modelListing = await this.resolveModels(token);
-		// if there is a model listing, filter the models to only those in the listing
-		if (modelListing && modelListing.length > 0) {
-			models = models.filter(m => modelListing.some(ml => ml.id === m.id));
-		}
-
 		// Return the available models for this provider
 		// The first model is the default model
-		const languageModels: vscode.LanguageModelChatInformation[] = models.map(m => {
-			const aiModel = this.aiProvider(m.id);
+		const languageModels: vscode.LanguageModelChatInformation[] = models.map((m, index) => {
+			const modelId = 'identifier' in m ? m.identifier : m.id;
+			const aiModel = this.aiProvider(modelId);
 			return {
-				id: m.id,
+				id: modelId,
 				name: m.name,
 				family: aiModel.provider,
 				version: aiModel.specificationVersion,
@@ -348,7 +343,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
 				capabilities: this.capabilities,
 				// is default if it's the first model out of models
-				isDefault: m === models[0],
+				isDefault: index === 0,
 				isUserSelectable: true,
 			};
 		});
@@ -588,14 +583,21 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	 * @param token The cancellation token.
 	 * @returns A promise that resolves to an array of language model descriptors or undefined if unsupported.
 	 */
-	async resolveModels(token: vscode.CancellationToken): Promise<positron.ai.LanguageModelDescriptor[] | undefined> {
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		return new Promise((resolve) => {
 			const models = availableModels.get(this._config.provider);
 			if (models) {
 				resolve(models.map(model => ({
 					id: model.identifier,
-					name: model.name
-				})));
+					name: model.name,
+					family: this.provider,
+					version: this.aiProvider(model.identifier).specificationVersion,
+					maxInputTokens: 0,
+					maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+					capabilities: this.capabilities,
+					isDefault: false,
+					isUserSelectable: true,
+				} satisfies vscode.LanguageModelChatInformation)));
 			} else {
 				resolve(undefined);
 			}
@@ -665,7 +667,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		return OpenAILanguageModel.source.provider.displayName;
 	}
 
-	async resolveModels(token: vscode.CancellationToken): Promise<positron.ai.LanguageModelDescriptor[] | undefined> {
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		// fetch the model list from OpenAI
 		// use the baseUrl/v1/models endpoint
 		try {
@@ -682,12 +684,18 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			} else {
 				const data = await response.json();
 				if (data && data.data && Array.isArray(data.data)) {
-					const models: positron.ai.LanguageModelDescriptor[] = data.data.map((model: any) => {
+					const models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
 						return {
 							id: model.id,
 							name: model.id,
+							family: this.provider,
+							version: model.id,
+							maxInputTokens: 0,
+							maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+							capabilities: this.capabilities,
 						};
 					});
+					this.modelListing = models;
 					return models;
 				} else {
 					return undefined;
@@ -701,6 +709,31 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			}
 			return undefined;
 		}
+	}
+
+	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		try {
+			const response = await fetch(`${this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl}/v1/models`, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Bearer ${this._config.apiKey}`,
+					'Content-Type': 'application/json'
+				}
+			});
+			if (!response.ok) {
+				const errorText = await response.text();
+				log.error(`Error fetching OpenAI models: ${errorText}`);
+				return new Error(`Error fetching OpenAI models: ${response.status} ${response.statusText}`);
+			}
+		} catch (error) {
+			if (ai.AISDKError.isInstance(error)) {
+				log.error(`Error fetching OpenAI models: ${error.message}`);
+			} else {
+				log.error(`Error fetching OpenAI models: ${JSON.stringify(error)}`);
+			}
+			return error instanceof Error ? error : new Error('Unknown error');
+		}
+		return undefined;
 	}
 }
 
@@ -984,7 +1017,6 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 	return modelConfigs;
 }
 
-// export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
 export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider2 {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {

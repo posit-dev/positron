@@ -2084,54 +2084,11 @@ declare module 'positron' {
 			/**
 			 * Retrieves a list of supported models from the provider.
 			 *
-			 * This is used to populate the model selection dropdown in the language model configuration dialog.
+			 * This is used to populate the model selection dropdown in the language model configuration dialog. This
+			 * should be called before registering the chat provider.
 			 * @returns A list of supported model identifiers, or undefined if the provider does not support a model listing.
 			 */
-			resolveModels(token: vscode.CancellationToken): Thenable<LanguageModelDescriptor[] | undefined>;
-		}
-
-		/**
-		 * A language model provider, extends vscode.LanguageModelChatProvider.
-		 */
-		export interface LanguageModelChatProvider {
-			name: string;
-			provider: string;
-			identifier: string;
-
-			providerName: string;
-			maxOutputTokens: number;
-
-			readonly capabilities?: {
-				readonly vision?: boolean;
-				readonly toolCalling?: boolean;
-				readonly agentMode?: boolean;
-			};
-
-			/**
-			 * Handle a language model request with tool calls and streaming chat responses.
-			 */
-			provideLanguageModelResponse(
-				messages: Array<vscode.LanguageModelChatMessage>,
-				options: vscode.LanguageModelChatRequestOptions,
-				extensionId: string,
-				progress: vscode.Progress<{
-					index: number;
-					part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart;
-				}>,
-				token: vscode.CancellationToken,
-			): Thenable<any>;
-
-			/**
-			 * Calculate the token count for a given string.
-			 */
-			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
-
-			/**
-			 * Tests the connection to the language model provider.
-			 *
-			 * Returns an error if the connection fails.
-			 */
-			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+			resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined>;
 		}
 
 		/**
@@ -2179,11 +2136,6 @@ declare module 'positron' {
 			defaults: LanguageModelConfigOptions;
 			signedIn?: boolean;
 			authMethods?: string[];
-		}
-
-		export interface LanguageModelDescriptor {
-			name: string;
-			id: string;
 		}
 
 		/**
