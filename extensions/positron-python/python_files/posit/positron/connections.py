@@ -978,7 +978,6 @@ class SnowflakeConnection(Connection):
 
         database, schema, table = path
 
-        # Use DuckDB's native pandas integration via .df() method
         query = f'SELECT * FROM "{database.name}"."{schema.name}"."{table.name}" LIMIT 1000;'
         var_name = var_name or "conn"
         preview = self.conn.cursor().execute(query).fetch_pandas_all()
