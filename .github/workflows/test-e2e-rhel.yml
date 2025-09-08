@@ -126,6 +126,9 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       # - name: Load secret
       #   uses: 1password/load-secrets-action@v3

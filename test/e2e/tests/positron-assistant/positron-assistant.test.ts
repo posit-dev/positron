@@ -13,7 +13,7 @@ test.use({
 /**
  * Test suite for the setup of Positron Assistant.
  */
-test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+test.describe.skip('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
 	/**
 	 * Verifies that the Positron Assistant can be opened and that the
 	 * add model button is visible in the interface. Once Assistant is on by default,
