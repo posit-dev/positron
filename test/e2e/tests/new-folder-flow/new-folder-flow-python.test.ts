@@ -50,6 +50,8 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			createPyprojectToml: true,
 		});
 
+		await app.workbench.modals.installIPyKernel();
+
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyGitFilesArePresent(app);
@@ -85,6 +87,8 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			pythonEnv: 'venv',
 			createPyprojectToml: false,
 		});
+
+		await app.workbench.modals.installIPyKernel();
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
