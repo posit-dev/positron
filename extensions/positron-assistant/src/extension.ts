@@ -335,5 +335,5 @@ export function activate(context: vscode.ExtensionContext) {
 			}));
 	}
 
-	return new PositronAssistantApi();
+	return PositronAssistantApi.get();
 }
