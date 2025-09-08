@@ -83,7 +83,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this.modelListing = [];
 	}
 
-	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	async prepareLanguageModelChat(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		log.trace('Preparing Anthropic language model');
 		if (this.modelListing.length > 0) {
 			return this.modelListing;
 		} else {
@@ -295,6 +296,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		let hasMore = true;
 		let nextPageToken: string | undefined;
 		let isFirst = true;
+
+		log.trace(`Fetching models from Anthropic API for provider ${this.provider}`);
 
 		while (hasMore) {
 			const modelsPage = nextPageToken
