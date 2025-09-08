@@ -720,7 +720,7 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		const tokenUsageElements = templateData.value.getElementsByClassName('token-usage');
 		if (element.tokenUsage && element.isComplete && showTokens && experimentalTokenUsage.includes(element.tokenUsage.provider)) {
-			const tokenUsageText = localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens);
+			const tokenUsageText = localize('tokenUsage', "Tokens: ↑{0} ↓{1} ↩{2}", element.tokenUsage.tokens.inputTokens, element.tokenUsage.tokens.outputTokens, element.tokenUsage.tokens.cachedTokens);
 			if (tokenUsageElements.length > 0) {
 				tokenUsageElements[0].textContent = tokenUsageText;
 			} else {
