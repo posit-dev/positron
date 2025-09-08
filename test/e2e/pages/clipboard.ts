@@ -39,7 +39,7 @@ export class Clipboard {
 		await expect(async () => {
 			const clipboardText = await this.getClipboardText();
 			expect(clipboardText).toBe(expectedText);
-		}).toPass({ timeout: 20000 });
+		}, { message: 'clipboard text to be...' }).toPass({ timeout: 20000 });
 	};
 
 	async setClipboardText(text: string): Promise<void> {
