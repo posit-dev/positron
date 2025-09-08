@@ -105,6 +105,7 @@ SIMPLER_NAMES = {
     # Just display Int64Index as pandas.Index, since the former is deprecated since pandas v1.4.0.
     "pandas.core.indexes.numeric.Int64Index": "pandas.Index",
     "duckdb.duckdb.DuckDBPyConnection": "duckdb.DuckDBPyConnection",
+    "ibis.expr.types.relations.Table": "ibis.Table",
 }
 
 
@@ -886,7 +887,7 @@ class MapInspector(_BaseMapInspector[Mapping]):
         return "".join(parts), truncated
 
 
-Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
+Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index", "ibis.Column")
 
 
 class BaseColumnInspector(_BaseMapInspector[Column], ABC):
@@ -1014,7 +1015,15 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         return self.value.to_frame().write_csv(file=None, separator="\t")
 
 
-Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame")
+class IbisColumnInspector(BaseColumnInspector["ibis.Column"]):
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        return f"Ibis column {type(self.value)}"
+
+    def has_children(self):
+        return False
+
+
+Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame", "ibis.expr.types.relations.Table")
 
 
 class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
@@ -1107,6 +1116,52 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
 
     def to_plaintext(self) -> str:
         return self.value.write_csv(file=None, separator="\t")
+
+
+class IbisDataFrameInspector(BaseTableInspector["ibis.Table", "ibis.Column"]):
+    CLASS_QNAME = ("ibis.expr.types.relations.Table", "ibis.Table")
+
+    def get_size(self) -> int:
+        rows = self.value.count().execute()
+        columns = len(self.value.columns)
+        return rows * columns
+
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        display_value = _get_simplified_qualname(self.value)
+        rows = self.value.count().execute()
+        columns = len(self.value.columns)
+        display_value = f"[{rows} rows x {columns} columns] {display_value}"
+
+        return (_maybe_truncate_string(display_value, level=level)[0], True)
+
+    def get_display_name(self, key: int) -> str:
+        return str(self.value.columns[key])
+
+    def get_children(self):
+        return self.value.columns
+
+    def get_child(self, key: str) -> Any:
+        return self.value[key]
+
+    def get_display_type(self) -> str:
+        type_name = type(self.value).__name__
+        rows = self.value.count().execute()
+        columns = len(self.value.columns)
+        return f"{type_name} [{rows}x{columns}]"
+
+    def get_kind(self) -> str:
+        return "table"
+
+    def get_length(self) -> int:
+        # send number of columns.
+        # number of rows per column is handled by ColumnInspector
+        return len(self.value.columns)
+
+    def has_viewer(self) -> bool:
+        return True
+
+    def is_mutable(self) -> bool:
+        return True
 
 
 class BaseConnectionInspector(ObjectInspector):
@@ -1202,6 +1257,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
     **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
     **dict.fromkeys(DuckDBConnectionInspector.CLASS_QNAME, DuckDBConnectionInspector),
+    **dict.fromkeys(IbisDataFrameInspector.CLASS_QNAME, IbisDataFrameInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,

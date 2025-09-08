@@ -106,10 +106,12 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import is_pandas, is_polars
+from .third_party import is_ibis, is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
+    import ibis
+    import ibis.expr.types as ir
     import pandas as pd
     import polars as pl
 
@@ -2807,6 +2809,403 @@ class PyArrowView(DataExplorerTableView):
     pass
 
 
+# ----------------------------------------------------------------------
+# ibis Data Explorer RPC implementations
+
+
+def _ibis_summarize_number(col, options: FormatOptions):
+    """Summarize a numeric column."""
+    # Convert to pandas for summary stats
+    pd_col = col.to_pandas()
+
+    float_format = _get_float_formatter(options)
+    min_val = max_val = median_val = mean_val = std_val = None
+
+    try:
+        # Calculate basic stats
+        min_val = float_format(pd_col.min())
+        max_val = float_format(pd_col.max())
+        mean_val = float_format(pd_col.mean())
+        median_val = float_format(pd_col.median())
+        std_val = float_format(pd_col.std())
+    except Exception:
+        # If we can't calculate some stats, return what we have
+        pass
+
+    return _box_number_stats(
+        min_val,
+        max_val,
+        mean_val,
+        median_val,
+        std_val,
+    )
+
+
+def _ibis_summarize_string(col, _options: FormatOptions):
+    """Summarize a string column."""
+    # Convert to pandas for summary stats
+    pd_col = col.to_pandas()
+
+    try:
+        num_empty = (pd_col == "").sum()
+        num_unique = pd_col.nunique()
+        return _box_string_stats(num_empty, num_unique)
+    except Exception:
+        # Default values if we encounter errors
+        return _box_string_stats(0, 0)
+
+
+def _ibis_summarize_boolean(col, _options: FormatOptions):
+    """Summarize a boolean column."""
+    # Convert to pandas for summary stats
+    pd_col = col.to_pandas()
+
+    try:
+        null_count = pd_col.isna().sum()
+        true_count = pd_col.sum()
+        false_count = len(pd_col) - true_count - null_count
+        return _box_boolean_stats(true_count, false_count)
+    except Exception:
+        # Default values if we encounter errors
+        return _box_boolean_stats(0, 0)
+
+
+def _ibis_summarize_date(col, _options: FormatOptions):
+    """Summarize a date column."""
+    # Convert to pandas for summary stats
+    pd_col = col.to_pandas()
+
+    try:
+        num_unique = pd_col.nunique()
+        min_date = pd_col.min()
+        max_date = pd_col.max()
+
+        # Calculate mean and median dates
+        mean_date = pd.to_datetime(pd_col.mean())
+        median_date = pd.to_datetime(pd_col.median())
+
+        return _box_date_stats(num_unique, min_date, mean_date, median_date, max_date)
+    except Exception:
+        # Return None for all values if we encounter errors
+        return _box_date_stats(0, None, None, None, None)
+
+
+def _ibis_summarize_datetime(col, _options: FormatOptions):
+    """Summarize a datetime column."""
+    # Convert to pandas for summary stats
+    pd_col = col.to_pandas()
+
+    try:
+        num_unique = pd_col.nunique()
+        min_date = pd_col.min()
+        max_date = pd_col.max()
+
+        # Calculate mean and median datetimes
+        mean_date = pd.to_datetime(pd_col.mean())
+        median_date = pd.to_datetime(pd_col.median())
+
+        # Get timezone info
+        timezone = getattr(pd_col.dtype, "tz", None)
+        timezone_str = str(timezone) if timezone else None
+
+        return _box_datetime_stats(
+            "ns",  # Time unit - assuming nanoseconds
+            num_unique,
+            min_date,
+            mean_date,
+            median_date,
+            max_date,
+            timezone_str,
+        )
+    except Exception:
+        # Return None for all values if we encounter errors
+        return _box_datetime_stats("ns", 0, None, None, None, None, None)
+
+
+def _ibis_summarize_object(col, _options: FormatOptions, type_display=ColumnDisplayType.Object):
+    """Summarize an object column."""
+    # Convert to pandas for summary stats
+    pd_col = col.to_pandas()
+
+    try:
+        num_unique = pd_col.nunique()
+        return _box_other_stats(num_unique, type_display=type_display)
+    except Exception:
+        # Default values if we encounter errors
+        return _box_other_stats(0, type_display=type_display)
+
+
+class IbisView(DataExplorerTableView):
+    """DataExplorer view implementation for Ibis tables."""
+
+    def __init__(
+        self,
+        table,
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
+    ):
+        self._pd_cache = None  # Cache for pandas conversion
+        super().__init__(table, comm, state, job_queue, sql_string)
+
+    def _update_schema_cache(self):
+        if self._should_cache_schema(self.table) and self.state.schema_cache is None:
+            self.state.schema_cache = [
+                self._get_single_column_schema(i) for i in range(len(self.table.columns))
+            ]
+
+    @classmethod
+    def _should_cache_schema(cls, table):
+        return len(table.columns) < SCHEMA_CACHE_THRESHOLD
+
+    def _to_pandas(self, force_refresh=False):
+        """Convert the Ibis expression to pandas DataFrame."""
+        if self._pd_cache is None or force_refresh:
+            self._pd_cache = self.table.execute()
+        return self._pd_cache
+
+    def get_updated_state(self, new_table) -> tuple[bool, DataExplorerState]:
+        """Update the state when the table changes."""
+        # Create a new state with the current name
+        new_state = DataExplorerState(self.state.name)
+
+        # Assume schema has updated - for simplicity
+        schema_updated = True
+
+        # Reuse existing row filters and sort keys
+        new_state.row_filters = self.state.row_filters
+        new_state.sort_keys = self.state.sort_keys
+
+        # Return that schema is updated and the new state
+        return schema_updated, new_state
+
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
+        """Returns the supported code types for exporting data."""
+        return CodeSyntaxName(code_syntax_name=None).dict()
+
+    def _get_single_column_schema(self, column_index: int):
+        """Get schema information for a single column."""
+        if self.state.schema_cache:
+            return self.state.schema_cache[column_index]
+        elif column_index in self.schema_memo:
+            return self.schema_memo[column_index]
+        else:
+            column_name = self.table.columns[column_index]
+
+            # Get Ibis type information
+            col = self.table[column_name]
+            ibis_dtype = col.type()
+            type_name = str(ibis_dtype)
+
+            # Map Ibis types to display types
+            type_display = self._get_type_display(ibis_dtype)
+
+            col_schema = ColumnSchema(
+                column_name=column_name,
+                column_index=column_index,
+                type_name=type_name,
+                type_display=type_display,
+                timezone=None,  # Timezone handling could be added if needed
+            )
+
+            self.schema_memo[column_index] = col_schema
+            return col_schema
+
+    def _get_column_name(self, index: int) -> str:
+        """Get the name of a column by index."""
+        return self.table.columns[index]
+
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
+        """Get the display type for a column."""
+        column_name = self.table.columns[column_index]
+        col = self.table[column_name]
+        ibis_dtype = col.type()
+        return self._get_type_display(ibis_dtype)
+
+    @classmethod
+    def _get_type_display(cls, dtype) -> ColumnDisplayType:
+        """Map Ibis types to display types."""
+        # Convert dtype to string for easier matching
+        dtype_str = str(dtype).lower()
+
+        if (
+            "int" in dtype_str
+            or "float" in dtype_str
+            or "double" in dtype_str
+            or "decimal" in dtype_str
+        ):
+            return ColumnDisplayType.Number
+        elif "bool" in dtype_str:
+            return ColumnDisplayType.Boolean
+        elif "string" in dtype_str or "varchar" in dtype_str or "char" in dtype_str:
+            return ColumnDisplayType.String
+        elif "date" in dtype_str and "time" not in dtype_str:
+            return ColumnDisplayType.Date
+        elif "time" in dtype_str or "timestamp" in dtype_str:
+            return ColumnDisplayType.Datetime
+        else:
+            return ColumnDisplayType.Object
+
+    def _get_data_values(
+        self,
+        selections: list[ColumnSelection],
+        format_options: FormatOptions,
+    ) -> dict:
+        """Get data values for selected columns."""
+        # Convert to pandas for data retrieval
+        df = self._to_pandas()
+
+        formatted_columns = []
+        for selection in selections:
+            col_name = self.table.columns[selection.column_index]
+            col = df[col_name]
+            spec = selection.spec
+
+            if isinstance(spec, DataSelectionRange):
+                if self.row_view_indices is not None:
+                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
+                    values = col.iloc[view_slice]
+                else:
+                    values = col.iloc[spec.first_index : spec.last_index + 1]
+            else:
+                if self.row_view_indices is not None:
+                    values = col.iloc[self.row_view_indices].iloc[spec.indices]
+                else:
+                    values = col.iloc[spec.indices]
+
+            formatted_columns.append(self._format_values(values, format_options))
+
+        return {"columns": formatted_columns}
+
+    def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
+        """Format values for display."""
+        float_format = _get_float_formatter(options)
+        max_length = options.max_value_length
+
+        def _format_value(x):
+            import numpy as np
+
+            if pd.isna(x):
+                return 0  # _VALUE_NULL
+            elif isinstance(x, float):
+                if np.isnan(x):
+                    return 2  # _VALUE_NAN
+                elif np.isinf(x):
+                    return 10 if x > 0 else 11  # _VALUE_INF or _VALUE_NEGINF
+                else:
+                    return float_format(x)
+            else:
+                return _safe_stringify(x, max_length)
+
+        return [_format_value(x) for x in values]
+
+    def _prof_null_count(self, column_index: int) -> int:
+        """Count null values in a column."""
+        df = self._to_pandas()
+        col_name = self.table.columns[column_index]
+
+        if self.filtered_indices is not None:
+            return df[col_name].iloc[self.filtered_indices].isna().sum()
+        else:
+            return df[col_name].isna().sum()
+
+    def _get_column(self, column_index: int):
+        """Get a column by index."""
+        col_name = self.table.columns[column_index]
+        col = self.table[col_name]
+        return col
+
+    # Define which filters are supported
+    SUPPORTED_FILTERS = frozenset(
+        {
+            RowFilterType.Between,
+            RowFilterType.Compare,
+            RowFilterType.IsEmpty,
+            RowFilterType.IsFalse,
+            RowFilterType.IsNull,
+            RowFilterType.IsTrue,
+            RowFilterType.NotBetween,
+            RowFilterType.NotEmpty,
+            RowFilterType.NotNull,
+            RowFilterType.Search,
+            RowFilterType.SetMembership,
+        }
+    )
+
+    # Define which summarizers are supported for different column types
+    _SUMMARIZERS = MappingProxyType(
+        {
+            ColumnDisplayType.Boolean: _ibis_summarize_boolean,
+            ColumnDisplayType.Number: _ibis_summarize_number,
+            ColumnDisplayType.String: _ibis_summarize_string,
+            ColumnDisplayType.Date: _ibis_summarize_date,
+            ColumnDisplayType.Datetime: _ibis_summarize_datetime,
+            ColumnDisplayType.Object: _ibis_summarize_object,
+        }
+    )
+
+    # Define feature support
+    FEATURES = SupportedFeatures(
+        search_schema=SearchSchemaFeatures(
+            support_status=SupportStatus.Supported,
+            supported_types=[
+                ColumnFilterTypeSupportStatus(
+                    column_filter_type=ColumnFilterType.TextSearch,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnFilterTypeSupportStatus(
+                    column_filter_type=ColumnFilterType.MatchDataTypes,
+                    support_status=SupportStatus.Supported,
+                ),
+            ],
+        ),
+        set_column_filters=SetColumnFiltersFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
+        ),
+        set_row_filters=SetRowFiltersFeatures(
+            support_status=SupportStatus.Supported,
+            supports_conditions=SupportStatus.Unsupported,
+            supported_types=[
+                RowFilterTypeSupportStatus(
+                    row_filter_type=x, support_status=SupportStatus.Supported
+                )
+                for x in SUPPORTED_FILTERS
+            ],
+        ),
+        get_column_profiles=GetColumnProfilesFeatures(
+            support_status=SupportStatus.Supported,
+            supported_types=[
+                ColumnProfileTypeSupportStatus(
+                    profile_type=profile_type,
+                    support_status=SupportStatus.Supported,
+                )
+                for profile_type in [
+                    "null_count",
+                    "summary_stats",
+                    "small_frequency_table",
+                    "large_frequency_table",
+                    "small_histogram",
+                    "large_histogram",
+                ]
+            ],
+        ),
+        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
+        export_data_selection=ExportDataSelectionFeatures(
+            support_status=SupportStatus.Supported,
+            supported_formats=[
+                ExportFormat.Csv,
+                ExportFormat.Tsv,
+                ExportFormat.Html,
+            ],
+        ),
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[CodeSyntaxName(code_syntax_name="ibis")],
+        ),
+    )
+
+
 def _get_table_view(
     table,
     comm: PositronComm,
@@ -2821,6 +3220,9 @@ def _get_table_view(
         return PandasView(table, comm, state, job_queue, sql_string)
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
+    elif is_ibis(table):
+        # Import here to avoid circular imports
+        return IbisView(table, comm, state, job_queue, sql_string)
     else:
         return UnsupportedView(table, comm, state, job_queue)
 
@@ -2828,7 +3230,9 @@ def _get_table_view(
 def _value_type_is_supported(value):
     if is_pandas(value):
         return True
-    return bool(is_polars(value))
+    if is_polars(value):
+        return True
+    return bool(is_ibis(value))
 
 
 class DataExplorerService:
