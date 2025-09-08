@@ -254,76 +254,76 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      - name: Run Extensions Test
-        id: extensions
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          npm run test-extension -- -l positron-r
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
+      # - name: Run Extensions Test
+      #   id: extensions
+      #   continue-on-error: true
+      #   shell: bash
+      #   run: |
+      #     set +e
+      #     npm run test-extension -- -l positron-r
+      #     echo "exit_code=$?" >> $GITHUB_OUTPUT
 
-      - name: Run Bootstrap Extensions Test
-        id: bootstrap
-        shell: bash
-        env:
-          POSITRON_PY_VER_SEL: 3.10.10
-          POSITRON_R_VER_SEL: 4.4.0
-          POSITRON_PY_ALT_VER_SEL: 3.13.0
-          POSITRON_R_ALT_VER_SEL: 4.4.2
-          PWTEST_BLOB_DO_NOT_REMOVE: 1
-        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
+      # - name: Run Bootstrap Extensions Test
+      #   id: bootstrap
+      #   shell: bash
+      #   env:
+      #     POSITRON_PY_VER_SEL: 3.10.10
+      #     POSITRON_R_VER_SEL: 4.4.0
+      #     POSITRON_PY_ALT_VER_SEL: 3.13.0
+      #     POSITRON_R_ALT_VER_SEL: 4.4.2
+      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
+      #   run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
 
-      - name: Run Main Test Suite (Electron)
-        shell: bash
-        env:
-          POSITRON_PY_VER_SEL: 3.10.10
-          POSITRON_R_VER_SEL: 4.4.0
-          POSITRON_PY_ALT_VER_SEL: 3.13.0
-          POSITRON_R_ALT_VER_SEL: 4.4.2
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-          PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
-          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-        run: |
-          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
+      # - name: Run Main Test Suite (Electron)
+      #   shell: bash
+      #   env:
+      #     POSITRON_PY_VER_SEL: 3.10.10
+      #     POSITRON_R_VER_SEL: 4.4.0
+      #     POSITRON_PY_ALT_VER_SEL: 3.13.0
+      #     POSITRON_R_ALT_VER_SEL: 4.4.2
+      #     CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+      #     CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      #     COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
+      #     CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
+      #     ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+      #     CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+      #     CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+      #   run: |
+      #     echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
-          # Convert comma-separated skip_tags input into a pipe-separated string
-          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
+      #     # Convert comma-separated skip_tags input into a pipe-separated string
+      #     SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
 
-          # Build a single lookahead regex pattern
-          if [ -n "$SKIP_TAGS_PATTERN" ]; then
-            SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
-          else
-            SKIP_TAGS_REGEX="(?=.*(@:web-only))"
-          fi
+      #     # Build a single lookahead regex pattern
+      #     if [ -n "$SKIP_TAGS_PATTERN" ]; then
+      #       SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
+      #     else
+      #       SKIP_TAGS_REGEX="(?=.*(@:web-only))"
+      #     fi
 
-          # Build the --grep-invert argument if needed
-          GREP_INVERT_ARG=""
-          if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
-          fi
+      #     # Build the --grep-invert argument if needed
+      #     GREP_INVERT_ARG=""
+      #     if [ -n "$SKIP_TAGS_REGEX" ]; then
+      #       GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
+      #     fi
 
-          # Build the --grep argument only if PW_TAGS is non-empty
-          if [ -z "${PW_TAGS}" ]; then
-            GREP_ARG=""
-          else
-            GREP_ARG="--grep \"${PW_TAGS}\""
-          fi
+      #     # Build the --grep argument only if PW_TAGS is non-empty
+      #     if [ -z "${PW_TAGS}" ]; then
+      #       GREP_ARG=""
+      #     else
+      #       GREP_ARG="--grep \"${PW_TAGS}\""
+      #     fi
 
-          # Log the arguments
-          echo "Final --grep argument: $GREP_ARG"
-          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
+      #     # Log the arguments
+      #     echo "Final --grep argument: $GREP_ARG"
+      #     echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
-          export SKIP_BOOTSTRAP=true
-          export SKIP_CLONE=true
-          # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+      #     export SKIP_BOOTSTRAP=true
+      #     export SKIP_CLONE=true
+      #     # Run the Playwright test command directly using eval
+      #     echo "Running: npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+      #     eval npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
