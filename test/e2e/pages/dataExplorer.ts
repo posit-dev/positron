@@ -202,9 +202,10 @@ export class DataGrid {
 	private rowHeaders = this.code.driver.page.locator('.data-grid-row-headers');
 	private columnHeaders = this.code.driver.page.locator(HEADER_TITLES);
 	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
-	private cell = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
+	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
 		`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`
 	);
+	private cellByIndex = (rowIndex: number, columnIndex: number) => this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`);
 
 	constructor(private code: Code, private dataExplorer: DataExplorer) {
 		this.grid = this.code.driver.page.locator('.data-explorer .right-column');
@@ -247,8 +248,8 @@ export class DataGrid {
 	async clickCell(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by 0-based position: row ${rowIndex}, column ${columnIndex}`, async () => {
 			withShift
-				? await this.cell(rowIndex, columnIndex).click({ modifiers: ['Shift'] })
-				: await this.cell(rowIndex, columnIndex).click();
+				? await this.cellByPosition(rowIndex, columnIndex).click({ modifiers: ['Shift'] })
+				: await this.cellByPosition(rowIndex, columnIndex).click();
 		});
 	}
 
@@ -258,18 +259,9 @@ export class DataGrid {
 	 */
 	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
 		await test.step(`Click cell by index: row ${rowIndex}, column ${columnIndex}`, async () => {
-			const cell = this.grid.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex}`);
-			await cell.scrollIntoViewIfNeeded();
-			if (withShift) {
-				await this.code.driver.page.keyboard.down('Shift');
-				try {
-					await cell.click();
-				} finally {
-					await this.code.driver.page.keyboard.up('Shift');
-				}
-			} else {
-				await cell.click();
-			}
+			withShift
+				? await this.cellByIndex(rowIndex, columnIndex).click({ modifiers: ['Shift'] })
+				: await this.cellByIndex(rowIndex, columnIndex).click();
 		});
 	}
 
@@ -613,7 +605,7 @@ export class DataGrid {
 
 	async expectCellToBeSelected(row: number, col: number) {
 		await test.step(`Verify cell at (${row}, ${col}) is selected`, async () => {
-			await expect(this.cell(row, col).locator('.border-overlay .cursor-border')).toBeVisible();
+			await expect(this.cellByPosition(row, col).locator('.border-overlay .cursor-border')).toBeVisible();
 		});
 	}
 
