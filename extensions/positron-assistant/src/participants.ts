@@ -55,6 +55,7 @@ export interface IPositronAssistantParticipant extends vscode.ChatParticipant {
 export class ParticipantService implements vscode.Disposable {
 	private readonly _participants = new Map<ParticipantID, IPositronAssistantParticipant>();
 	private readonly _sessionModels = new Map<string, string>(); // sessionId -> modelId
+	private _lastSessionModel: string | undefined;
 
 	registerParticipant(participant: IPositronAssistantParticipant): void {
 		this._participants.set(participant.id, participant);
@@ -90,6 +91,7 @@ export class ParticipantService implements vscode.Disposable {
 	 * @param modelId The language model ID used for this session
 	 */
 	trackSessionModel(sessionId: string, modelId: string): void {
+		this._lastSessionModel = modelId;
 		this._sessionModels.set(sessionId, modelId);
 	}
 
@@ -101,6 +103,15 @@ export class ParticipantService implements vscode.Disposable {
 	 */
 	getSessionModel(sessionId: string): string | undefined {
 		return this._sessionModels.get(sessionId);
+	}
+
+	/**
+	 * Get the most recently used model ID.
+	 *
+	 * @returns The model ID if exists, undefined otherwise
+	 */
+	getCurrentSessionModel(): string | undefined {
+		return this._lastSessionModel;
 	}
 
 	dispose() {

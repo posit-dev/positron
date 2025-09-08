@@ -293,6 +293,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);
 			},
+			getCurrentProvider(): Promise<positron.ai.ChatProvider | undefined> {
+				return extHostAiFeatures.getCurrentProvider();
+			},
+			getProviders(): Promise<positron.ai.ChatProvider[]> {
+				return extHostAiFeatures.getProviders();
+			},
+			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
+				return extHostAiFeatures.setCurrentProvider(id);
+			},
 		};
 
 		// --- End Positron ---

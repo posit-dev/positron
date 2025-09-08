@@ -2270,6 +2270,29 @@ declare module 'positron' {
 		}
 
 		/**
+		 * A chat language model provider.
+		 */
+		export interface ChatProvider {
+			readonly id: string;
+			readonly displayName: string;
+		}
+
+		/**
+		 * Get the current langauge model provider.
+		 */
+		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Get all the available langauge model providers.
+		 */
+		export function getProviders(): Thenable<ChatProvider[]>;
+
+		/**
+		 * Set the current language chat provider.
+		 */
+		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
+
+		/**
 		 * Checks if completions are enabled for the given file.
 		 * @param uri The file URI to check if completions are enabled.
 		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.

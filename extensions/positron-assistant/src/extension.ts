@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
 import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
-import { registerParticipants } from './participants';
+import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
@@ -188,10 +188,14 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 	);
 }
 
-function registerGenerateCommitMessageCommand(context: vscode.ExtensionContext) {
+function registerGenerateCommitMessageCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.generateCommitMessage', () => {
-			generateCommitMessage(context);
+			generateCommitMessage(context, participantService, log);
 		})
 	);
 }
@@ -231,7 +235,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Commands
 	registerConfigureModelsCommand(context, storage);
-	registerGenerateCommitMessageCommand(context);
+	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
 
 	// Register mapped edits provider
