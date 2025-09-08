@@ -133,16 +133,8 @@ jobs:
             Set-Content $_ -Value $content -NoNewline
           }
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            test/e2e/.npm
-          # Include ALL package-lock.json files
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Install node dependencies
         env:
@@ -153,22 +145,22 @@ jobs:
           npm_config_msvs_version: 2022
         shell: pwsh
         run: |
-          # Use robocopy to reliably clear node_modules directories
-          if (Test-Path "node_modules") {
-            Write-Host "Clearing main node_modules with robocopy..."
-            $null = New-Item -ItemType Directory -Path "empty_temp" -Force
-            robocopy "empty_temp" "node_modules" /mir /r:0 /w:0 | Out-Null
-            Remove-Item -Path "node_modules" -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
-          }
+          # # Use robocopy to reliably clear node_modules directories
+          # if (Test-Path "node_modules") {
+          #   Write-Host "Clearing main node_modules with robocopy..."
+          #   $null = New-Item -ItemType Directory -Path "empty_temp" -Force
+          #   robocopy "empty_temp" "node_modules" /mir /r:0 /w:0 | Out-Null
+          #   Remove-Item -Path "node_modules" -Force -ErrorAction SilentlyContinue
+          #   Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
+          # }
 
-          if (Test-Path "test/e2e/node_modules") {
-            Write-Host "Clearing e2e node_modules with robocopy..."
-            $null = New-Item -ItemType Directory -Path "empty_temp" -Force
-            robocopy "empty_temp" "test/e2e/node_modules" /mir /r:0 /w:0 | Out-Null
-            Remove-Item -Path "test/e2e/node_modules" -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
-          }
+          # if (Test-Path "test/e2e/node_modules") {
+          #   Write-Host "Clearing e2e node_modules with robocopy..."
+          #   $null = New-Item -ItemType Directory -Path "empty_temp" -Force
+          #   robocopy "empty_temp" "test/e2e/node_modules" /mir /r:0 /w:0 | Out-Null
+          #   Remove-Item -Path "test/e2e/node_modules" -Force -ErrorAction SilentlyContinue
+          #   Remove-Item -Path "empty_temp" -Force -ErrorAction SilentlyContinue
+          # }
 
           # Clear node-gyp cache
           if (Test-Path "$env:USERPROFILE\AppData\Local\node-gyp") {
