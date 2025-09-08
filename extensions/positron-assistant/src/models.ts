@@ -86,12 +86,35 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	readonly provider = 'echo';
 	readonly id = 'echo-language-model';
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+	availableModels: vscode.LanguageModelChatInformation[] = [];
 
 	constructor(
 		_config: ModelConfig,
 		private readonly _context?: vscode.ExtensionContext
 	) {
-		// No additional setup needed for echo model
+		this.availableModels = [
+			{
+				id: this.id,
+				name: this.name,
+				family: this.provider,
+				version: '1.0.0',
+				maxInputTokens: 100,
+				maxOutputTokens: this.maxOutputTokens,
+				capabilities: this.capabilities,
+				isDefault: true,
+				isUserSelectable: true,
+			},
+			{
+				id: 'echo-language-model-v2',
+				name: 'Echo Language Model v2',
+				family: this.provider,
+				version: '1.0.0',
+				maxInputTokens: 100,
+				maxOutputTokens: this.maxOutputTokens,
+				capabilities: this.capabilities,
+				isUserSelectable: true,
+			}
+		];
 	}
 
 	static source = {
@@ -119,19 +142,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		return [
-			{
-				id: this.id,
-				name: this.name,
-				family: this.provider,
-				version: '1.0.0',
-				maxInputTokens: 0,
-				maxOutputTokens: this.maxOutputTokens,
-				capabilities: this.capabilities,
-				isDefault: true,
-				isUserSelectable: true,
-			} satisfies vscode.LanguageModelChatInformation
-		];
+		return this.availableModels;
 	}
 
 	async provideLanguageModelChatResponse(
@@ -161,6 +172,9 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		}
 		else if (inputText === 'Send R Code') {
 			response = '```r\nfoo <- 200\n```';
+		}
+		else if (inputText === 'Return model') {
+			response = model.id;
 		}
 		else {
 			// Default case: echo back the input message
@@ -208,15 +222,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		return Promise.resolve([{
-			id: this.id,
-			name: this.name,
-			family: this.provider,
-			version: '1.0.0',
-			maxInputTokens: 100,
-			maxOutputTokens: this.maxOutputTokens,
-			capabilities: this.capabilities,
-		}]);
+		return Promise.resolve(this.availableModels);
 	}
 }
 
@@ -311,6 +317,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		// Prepare the language model chat information
 		const providerId = this._config.provider;
 		const models = this.modelListing ?? availableModels.get(providerId);
+
+		log.trace(`Preparing ${providerId} language model`);
 
 		if (!models || models.length === 0) {
 			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
@@ -584,6 +592,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	 * @returns A promise that resolves to an array of language model descriptors or undefined if unsupported.
 	 */
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		log.trace(`Resolving models for provider ${this._config.provider}`);
 		return new Promise((resolve) => {
 			const models = availableModels.get(this._config.provider);
 			if (models) {
@@ -997,6 +1006,7 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 	models.forEach(model => {
 		if ('apiKeyEnvVar' in model.source.defaults) {
 			const key = model.source.defaults.apiKeyEnvVar?.key;
+			// pragma: allowlist nextline secret
 			const apiKey = key ? process.env[key] : undefined;
 
 			if (key && apiKey) {
@@ -1007,6 +1017,7 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 					name: model.source.provider.displayName,
 					model: model.source.defaults.model,
 					apiKey: apiKey,
+					// pragma: allowlist nextline secret
 					apiKeyEnvVar: 'apiKeyEnvVar' in model.source.defaults ? model.source.defaults.apiKeyEnvVar : undefined,
 				};
 				modelConfigs.push(modelConfig);
