@@ -280,7 +280,7 @@
         "displayName": "Amazon Bedrock"
       },
       {
-        "vendor": "anthropic",
+        "vendor": "anthropic-api",
         "displayName": "Anthropic"
       }
     ],
@@ -370,7 +370,10 @@
         "name": "executeCode",
         "displayName": "Execute Code",
         "modelDescription": "Execute a piece of code in the specified programming language. Only use this tool if you absolutely need to execute code, otherwise reply directly to the user with markdown code snippets.",
-        "canBeReferencedInPrompt": false,
+        "icon": "$(play)",
+        "toolReferenceName": "executeCode",
+        "userDescription": "Execute code in the console",
+        "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -397,6 +400,9 @@
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
         "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
+        "icon": "$(list)",
+        "toolReferenceName": "inspectVariables",
+        "userDescription": "Inspect data and variables in the current session",
         "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
@@ -432,6 +438,9 @@
         "name": "getPlot",
         "displayName": "View active plot",
         "modelDescription": "View the current active plot if one exists. Don't invoke this tool if there are no plots in the session.",
+        "icon": "$(graph)",
+        "toolReferenceName": "getPlot",
+        "userDescription": "View the current active plot.",
         "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant",
@@ -442,6 +451,10 @@
         "name": "getTableSummary",
         "displayName": "Get Table Summary",
         "modelDescription": "Get structured information about table variables in the current session.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getTableSummary",
+        "userDescription": "Get a summary of a table's data and structure.",
+        "icon": "$(table)",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -604,7 +617,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@github/copilot-language-server": "^1.335.0",
+    "@github/copilot-language-server": "^1.367.0",
+    "@vscode/prompt-tsx": "^0.4.0-alpha.5",
     "vscode-languageclient": "^9.0.1"
   },
   "extensionDependencies": [

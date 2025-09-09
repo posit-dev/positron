@@ -23,21 +23,12 @@ interface LanguageModelConfigComponentProps {
 type IProvider = IPositronLanguageModelSource['provider'];
 
 const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit EULA');
-const completionsOnlyEmphasizedText = localize('positron.languageModelConfig.completionsOnly', 'code completions only');
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
 const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
-
-function getProviderCompletionsOnlyNoticeText(providerDisplayName: string) {
-	return localize(
-		'positron.languageModelConfig.completionsOnlyNotice',
-		'{0} functions for {code-completions-only} in Positron at this time.',
-		providerDisplayName,
-	);
-}
 
 function getProviderTermsOfServiceText(providerDisplayName: string) {
 	return localize(
@@ -79,19 +70,6 @@ function getProviderPrivacyPolicyLink(providerId: string) {
 		default:
 			return undefined;
 	}
-}
-
-function getProviderCompletionsOnlyNotice(provider: IProvider) {
-	if (provider.id === 'copilot') {
-		const text = getProviderCompletionsOnlyNoticeText(provider.displayName);
-		return interpolate(
-			text,
-			(key) => key === 'code-completions-only' ?
-				<strong>{completionsOnlyEmphasizedText}</strong> :
-				undefined
-		);
-	}
-	return undefined;
 }
 
 /**
@@ -192,8 +170,6 @@ const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, o
 }
 
 const ProviderNotice = (props: { provider: IProvider }) => {
-	const completionsOnlyNotice = getProviderCompletionsOnlyNotice(props.provider);
-
 	const termsOfServiceText = getProviderTermsOfServiceText(props.provider.displayName);
 	const termsOfService = interpolate(
 		termsOfServiceText,
@@ -222,7 +198,6 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 	const disclaimerText = getProviderUsageDisclaimerText(props.provider.displayName);
 
 	return <div className='language-model-dialog-tos' id='model-tos'>
-		{completionsOnlyNotice ? <p>{completionsOnlyNotice}</p> : null}
 		<p>{termsOfService}</p>
 		<p>{disclaimerText}</p>
 	</div>;

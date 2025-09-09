@@ -18,9 +18,14 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 
 	_serviceBrand: undefined;
 
-	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
+	// --- Start Positron ---
+	_currentProvider: IPositronChatProvider | undefined;
+
+	// Add extension identifier to parameters
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
 		return Disposable.None;
 	}
+	// --- End Positron ---
 
 	onDidChangeLanguageModels = Event.None;
 
@@ -59,16 +64,20 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	// --- Start Positron ---
 	// Add Positron-specific methods
 	get currentProvider(): IPositronChatProvider | undefined {
-		throw new Error('Method not implemented.');
+		return this._currentProvider;
 	}
 	set currentProvider(provider: IPositronChatProvider | undefined) {
-		throw new Error('Method not implemented.');
+		this._currentProvider = provider;
 	}
 	onDidChangeCurrentProvider: Event<string> = Event.None;
 	getLanguageModelIdsForCurrentProvider(): string[] {
 		throw new Error('Method not implemented.');
 	}
 	getLanguageModelProviders(): IPositronChatProvider[] {
+		throw new Error('Method not implemented.');
+	}
+
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
 		throw new Error('Method not implemented.');
 	}
 	// --- End Positron ---

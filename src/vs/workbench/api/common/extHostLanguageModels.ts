@@ -102,6 +102,10 @@ class LanguageModelResponse {
 				out = new extHostTypes.LanguageModelTextPart(fragment.part.value, fragment.part.audience);
 			} else if (fragment.part.type === 'data') {
 				out = new extHostTypes.LanguageModelTextPart('');
+				// --- Start Positron ---
+				// Enable LanguageModelDataPart fragments in the response stream
+				out = new extHostTypes.LanguageModelDataPart(fragment.part.value.data.buffer, fragment.part.value.mimeType) as any;
+				// --- End Positron ---
 			} else {
 				out = new extHostTypes.LanguageModelToolCallPart(fragment.part.toolCallId, fragment.part.name, fragment.part.parameters);
 			}
@@ -178,7 +182,10 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 	registerLanguageModelProvider(extension: IExtensionDescription, vendor: string, provider: vscode.LanguageModelChatProvider2): IDisposable {
 
 		this._languageModelProviders.set(vendor, { extension: extension.identifier, extensionName: extension.displayName || extension.name, provider });
-		this._proxy.$registerLanguageModelProvider(vendor);
+		// --- Start Positron ---
+		// Include extensionId when registering the provider
+		this._proxy.$registerLanguageModelProvider(vendor, extension.identifier);
+		// --- End Positron ---
 
 		let providerChangeEventDisposable: IDisposable | undefined;
 		if (provider.onDidChange) {

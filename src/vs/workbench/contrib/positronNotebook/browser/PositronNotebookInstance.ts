@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
@@ -21,11 +21,11 @@ import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.j
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
-import { IPositronNotebookCell } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { disposableTimeout } from '../../../../base/common/async.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -464,6 +464,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Public Methods
 
 	/**
+	 * Sets editor options for the notebook or a specific cell.
+	 * If cellOptions.resource is provided, applies options to that cell.
+	 * @param options Editor options to set
+	 */
+	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
+		const cellUri = options?.cellOptions?.resource;
+		const cell = cellUri && this._cells.find(cell => isEqual(cell.uri, cellUri));
+		if (cell) {
+			await cell.setOptions(options);
+		}
+	}
+
+	/**
 	 * Runs the specified cells in the notebook.
 	 * @param cells The cells to run
 	 * @throws Error if no cells are provided
@@ -856,9 +869,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		if (newlyAddedCells.length === 1) {
 			// If we've only added one cell, we can set it as the selected cell.
-			this._register(disposableTimeout(() => {
+			this._register(disposableTimeout(async () => {
 				this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-				newlyAddedCells[0].focusEditor();
+				await newlyAddedCells[0].showEditor(true);
 			}, 0));
 		}
 

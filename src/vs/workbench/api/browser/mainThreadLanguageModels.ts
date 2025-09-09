@@ -54,9 +54,11 @@ export class MainThreadLanguageModels implements MainThreadLanguageModelsShape {
 		this._store.dispose();
 	}
 
-	$registerLanguageModelProvider(vendor: string): void {
+	// --- Start Positron ---
+	// Add extensionId parameter
+	$registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier): void {
 		const dipsosables = new DisposableStore();
-		dipsosables.add(this._chatProviderService.registerLanguageModelProvider(vendor, {
+		dipsosables.add(this._chatProviderService.registerLanguageModelProvider(vendor, extensionId, {
 			onDidChange: Event.filter(this._lmProviderChange.event, e => e.vendor === vendor, dipsosables) as unknown as Event<void>,
 			prepareLanguageModelChat: async (options, token) => {
 				const modelsAndIdentifiers = await this._proxy.$prepareLanguageModelProvider(vendor, options, token);
@@ -98,6 +100,7 @@ export class MainThreadLanguageModels implements MainThreadLanguageModelsShape {
 		}));
 		this._providerRegistrations.set(vendor, dipsosables);
 	}
+	// --- End Positron ---
 
 	$onLMProviderChange(vendor: string): void {
 		this._lmProviderChange.fire({ vendor });

@@ -74,6 +74,12 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
+		await test.step('Select Posit Connect as deployment target', async () => {
+			await app.workbench.quickInput.selectQuickInputElement(1, true);
+			await app.workbench.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
+			await page.keyboard.press('Enter');
+		});
+
 		const existing = app.workbench.quickInput.quickInputList.getByText('shiny-py-example');
 
 		let existingPresent = false;
@@ -90,8 +96,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		} else {
 			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
 			await test.step('Enter Connect server and API key', async () => {
-				await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
-				await page.keyboard.press('Enter');
+				await app.workbench.quickInput.selectQuickInputElement(1, true);
 				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
 				await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
 				await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);

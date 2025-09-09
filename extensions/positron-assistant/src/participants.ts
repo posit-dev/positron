@@ -18,6 +18,8 @@ import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
 import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
+import { getEnabledTools, getPositronContextPrompts } from './api.js';
+import { TokenUsage } from './tokens.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -53,6 +55,7 @@ export interface IPositronAssistantParticipant extends vscode.ChatParticipant {
 export class ParticipantService implements vscode.Disposable {
 	private readonly _participants = new Map<ParticipantID, IPositronAssistantParticipant>();
 	private readonly _sessionModels = new Map<string, string>(); // sessionId -> modelId
+	private _lastSessionModel: string | undefined;
 
 	registerParticipant(participant: IPositronAssistantParticipant): void {
 		this._participants.set(participant.id, participant);
@@ -88,6 +91,7 @@ export class ParticipantService implements vscode.Disposable {
 	 * @param modelId The language model ID used for this session
 	 */
 	trackSessionModel(sessionId: string, modelId: string): void {
+		this._lastSessionModel = modelId;
 		this._sessionModels.set(sessionId, modelId);
 	}
 
@@ -99,6 +103,15 @@ export class ParticipantService implements vscode.Disposable {
 	 */
 	getSessionModel(sessionId: string): string | undefined {
 		return this._sessionModels.get(sessionId);
+	}
+
+	/**
+	 * Get the most recently used model ID.
+	 *
+	 * @returns The model ID if exists, undefined otherwise
+	 */
+	getCurrentSessionModel(): string | undefined {
+		return this._lastSessionModel;
 	}
 
 	dispose() {
@@ -242,116 +255,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
-		// See IChatRuntimeSessionContext for the structure of the active
-		// session context objects
-		const activeSessions: Set<string> = new Set();
-		let hasVariables = false;
-		let hasConsoleSessions = false;
-		for (const reference of request.references) {
-			const value = reference.value as any;
-
-			// Build a list of languages for which we have active sessions.
-			if (value.activeSession) {
-				activeSessions.add(value.activeSession.languageId);
-				if (value.activeSession.mode === positron.LanguageRuntimeSessionMode.Console) {
-					hasConsoleSessions = true;
-				}
-			}
-
-			// Check if there are variables defined in the session.
-			if (value.variables && value.variables.length > 0) {
-				hasVariables = true;
-			}
-		}
-
 		// List of tools for use by the language model.
+		const enabledTools = getEnabledTools(request, vscode.lm.tools, this.id);
 		const toolAvailability = new Map(
 			vscode.lm.tools.map(
 				tool => {
-					const available = (value: boolean) => [tool.name as PositronAssistantToolName, value] as [PositronAssistantToolName, boolean];
-
-					// Don't allow any tools in the terminal.
-					if (this.id === ParticipantID.Terminal) {
-						return available(false);
-					}
-
-					// Define more readable variables for filtering.
-					const inChatPane = request.location2 === undefined;
-					const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
-					const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
-					const isEditMode = this.id === ParticipantID.Edit;
-					const isAgentMode = this.id === ParticipantID.Agent;
-					const isStreamingInlineEditor = isStreamingEditsEnabled() && (this.id === ParticipantID.Editor || this.id === ParticipantID.Notebook);
-
-					// If streaming edits are enabled, don't allow any tools in inline editor chats.
-					if (isStreamingInlineEditor) {
-						return available(false);
-					}
-
-					// If the tool requires a workspace, but no workspace is open, don't allow the tool.
-					if (tool.tags.includes(TOOL_TAG_REQUIRES_WORKSPACE) && !isWorkspaceOpen()) {
-						return available(false);
-					}
-
-					// If the tool requires an active session, but no active session
-					// is available, don't allow the tool.
-					if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIVE_SESSION) && activeSessions.size === 0) {
-						return available(false);
-					}
-
-					// If the tool requires a session to be active for a specific
-					// language, but no active session is available for that
-					// language, don't allow the tool.
-					for (const tag of tool.tags) {
-						if (tag.startsWith(TOOL_TAG_REQUIRES_ACTIVE_SESSION + ':') &&
-							!activeSessions.has(tag.split(':')[1])) {
-							return available(false);
-						}
-					}
-
-					switch (tool.name) {
-						// Only include the execute code tool in the Chat pane; the other
-						// panes do not have an affordance for confirming executions.
-						//
-						// CONSIDER: It would be better for us to introspect the tool itself
-						// to see if it requires confirmation, but that information isn't
-						// currently exposed in `vscode.LanguageModelChatTool`.
-						case PositronAssistantToolName.ExecuteCode:
-							// The tool can only be used with console sessions and
-							// when in agent mode; it does not currently support
-							// notebook mode.
-							return available(inChatPane && hasConsoleSessions && isAgentMode);
-						// Only include the documentEdit tool in an editor and if there is
-						// no selection.
-						case PositronAssistantToolName.DocumentEdit:
-							return available(inEditor && !hasSelection);
-						// Only include the selectionEdit tool in an editor and if there is
-						// a selection.
-						case PositronAssistantToolName.SelectionEdit:
-							return available(inEditor && hasSelection);
-						// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
-						case PositronAssistantToolName.EditFile:
-							return available(isEditMode || isAgentMode);
-						// Only include the documentCreate tool in the chat pane in edit or agent mode.
-						case PositronAssistantToolName.DocumentCreate:
-							return available(inChatPane && (isEditMode || isAgentMode));
-						// Only include the getTableSummary tool for Python sessions until supported in R
-						case PositronAssistantToolName.GetTableSummary:
-							return available(hasVariables);
-						// Only include the getPlot tool if there is a plot available.
-						case PositronAssistantToolName.GetPlot:
-							return available(positronContext.plots?.hasPlots === true);
-						// Only include the inspectVariables tool if there are variables defined.
-						case PositronAssistantToolName.InspectVariables:
-							return available(hasVariables);
-						// Otherwise, include the tool if it is tagged for use with Positron Assistant.
-						// Allow all tools in Agent mode.
-						default:
-							return available(isAgentMode ||
-								tool.tags.includes('positron-assistant'));
-					}
-				}
-			)
+					return [tool.name as PositronAssistantToolName, enabledTools.includes(tool.name as PositronAssistantToolName)]
+				})
 		);
 
 		const participant = this;
@@ -367,7 +277,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					return assistantContext.contextInfo;
 				}
 
-				const info = assistantContext.contextInfo = await participant.getContextInfo(request, incomingContext, response, positronContext);
+				const info = assistantContext.contextInfo = await participant.getContextInfo(request, response, positronContext);
 				if (info) {
 					messages.push(info.message);
 				}
@@ -459,7 +369,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	private async getContextInfo(
 		request: vscode.ChatRequest,
-		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		positronContext: positron.ai.ChatContext,
 	): Promise<ContextInfo | undefined> {
@@ -649,34 +558,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 
 		// Add Positron IDE context to the prompt.
-		const positronContextPrompts: string[] = [];
-
-		// Note: Runtime session information (active session, variables, execution history)
-		// is now provided through IChatRequestRuntimeSessionEntry mechanism rather than
-		// being included in the global positronContext. The chat system will automatically
-		// include this information when available.
-		if (positronContext.shell) {
-			const shellNode = xml.node('shell', positronContext.shell, {
-				description: 'Current active shell',
-			});
-			positronContextPrompts.push(shellNode);
-			log.debug(`[context] adding shell context: ${shellNode.length} characters`);
-		}
-		if (positronContext.plots && positronContext.plots.hasPlots) {
-			const plotsNode = xml.node('plots', 'A plot is visible.');
-			positronContextPrompts.push(plotsNode);
-			log.debug(`[context] adding plots context: ${plotsNode.length} characters`);
-		}
-		if (positronContext.positronVersion) {
-			const versionNode = xml.node('version', `Positron version: ${positronContext.positronVersion}`);
-			positronContextPrompts.push(versionNode);
-			log.debug(`[context] adding positron version context: ${versionNode.length} characters`);
-		}
-		if (positronContext.currentDate) {
-			const dateNode = xml.node('date', `Today's date is: ${positronContext.currentDate}`);
-			positronContextPrompts.push(dateNode);
-			log.debug(`[context] adding date context: ${dateNode.length} characters`);
-		}
+		const positronContextPrompts = getPositronContextPrompts(positronContext);
 		if (positronContextPrompts.length > 0) {
 			prompts.push(xml.node('context', positronContextPrompts.join('\n\n')));
 		}
@@ -718,7 +600,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
-	): Promise<{ inputTokens?: number; outputTokens?: number } | undefined> {
+	): Promise<{ provider: string; tokens: TokenUsage } | undefined> {
 		if (token.isCancellationRequested) {
 			return;
 		}
@@ -1047,7 +929,7 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 /**
  * Whether the experimental streaming edit mode is enabled.
  */
-function isStreamingEditsEnabled(): boolean {
+export function isStreamingEditsEnabled(): boolean {
 	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', true);
 }
 

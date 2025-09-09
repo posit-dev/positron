@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useSelectionStatus } from './useSelectionStatus.js';

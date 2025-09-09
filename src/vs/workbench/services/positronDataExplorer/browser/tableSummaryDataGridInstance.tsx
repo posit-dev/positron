@@ -8,20 +8,20 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
-import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
-import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
 import { COLUMN_PROFILE_OBJECT_LINE_COUNT } from './components/columnProfileObject.js';
 import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileString.js';
 import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
-import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
-import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
+import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -81,6 +81,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			defaultRowHeight: SUMMARY_HEIGHT,
 			columnResize: false,
 			rowResize: false,
+			columnPinning: false,
+			rowPinning: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -93,7 +95,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		});
 
 		// Set the column layout entries. There is always one column.
-		this._columnLayoutManager.setLayoutEntries(1);
+		this._columnLayoutManager.setEntries(1);
 
 		/**
 		 * Updates the layout entries.
@@ -106,7 +108,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			}
 
 			// Set the layout entries.
-			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
+			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
 
 			// Adjust the vertical scroll offset, if needed.
 			if (!this.firstRow) {
@@ -152,7 +154,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the table summary cache onDidUpdate event handler.
 		this._register(this._tableSummaryCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 
 		// Create the hover manager.
@@ -162,7 +164,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._services.hoverService
 		));
 
-		// Show tooltip hovers right away
+		// Show tooltip hovers right away.
 		this._hoverManager.setCustomHoverDelay(0);
 	}
 
@@ -211,7 +213,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	override get firstColumn() {
 		return {
 			columnIndex: 0,
-			left: 0
+			left: 0,
+			width: 0,
 		};
 	}
 
@@ -245,11 +248,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the width of a column.
+	 * Gets the custom width of a column.
 	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
 	 */
-	override getColumnWidth(columnIndex: number): number {
-		return this.layoutWidth;
+	override getCustomColumnWidth(columnIndex: number): number | undefined {
+		return columnIndex === 0 ? this.layoutWidth : undefined;
 	}
 
 	/**
@@ -335,9 +339,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	async toggleExpandColumn(columnIndex: number) {
 		if (this._tableSummaryCache.isColumnExpanded(columnIndex)) {
-			this._rowLayoutManager.clearLayoutOverride(columnIndex);
+			this._rowLayoutManager.clearSizeOverride(columnIndex);
 		} else {
-			this._rowLayoutManager.setLayoutOverride(columnIndex, this.expandedRowHeight(columnIndex));
+			this._rowLayoutManager.setSizeOverride(columnIndex, this.expandedRowHeight(columnIndex));
 		}
 		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
 	}

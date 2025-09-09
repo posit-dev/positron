@@ -11,6 +11,7 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridColumnHeader } from './dataGridColumnHeader.js';
+import { ColumnDescriptors } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 // Other dependencies.
@@ -19,8 +20,9 @@ import { usePositronDataGridContext } from '../positronDataGridContext.js';
  * DataGridColumnHeadersProps interface.
  */
 interface DataGridColumnHeadersProps {
-	width: number;
+	columnDescriptors: ColumnDescriptors;
 	height: number;
+	width: number;
 }
 
 /**
@@ -32,19 +34,33 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Create the data grid column headers.
+	// Create the pinned data grid column header elements.
 	const dataGridColumnHeaders: JSX.Element[] = [];
-	for (
-		let columnDescriptor = context.instance.firstColumn;
-		columnDescriptor && columnDescriptor.left < context.instance.layoutRight;
-		columnDescriptor = context.instance.getColumn(columnDescriptor.columnIndex + 1)
-	) {
+	for (const pinnedColumnDescriptor of props.columnDescriptors.pinnedColumnDescriptors) {
+		// Push the pinned column header element to the array.
 		dataGridColumnHeaders.push(
 			<DataGridColumnHeader
-				key={columnDescriptor.columnIndex}
-				column={context.instance.column(columnDescriptor.columnIndex)}
-				columnIndex={columnDescriptor.columnIndex}
-				left={columnDescriptor.left - context.instance.horizontalScrollOffset}
+				key={`pinned-column-header-${pinnedColumnDescriptor.columnIndex}`}
+				column={context.instance.column(pinnedColumnDescriptor.columnIndex)}
+				columnIndex={pinnedColumnDescriptor.columnIndex}
+				left={pinnedColumnDescriptor.left}
+				pinned={true}
+				width={pinnedColumnDescriptor.width}
+			/>
+		);
+	}
+
+	// Create the unpinned data grid column header elements.
+	for (const unpinnedColumnDescriptor of props.columnDescriptors.unpinnedColumnDescriptors) {
+		// Push the unpinned column header element to the array.
+		dataGridColumnHeaders.push(
+			<DataGridColumnHeader
+				key={`unpinned-column-header-${unpinnedColumnDescriptor.columnIndex}`}
+				column={context.instance.column(unpinnedColumnDescriptor.columnIndex)}
+				columnIndex={unpinnedColumnDescriptor.columnIndex}
+				left={unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset}
+				pinned={false}
+				width={unpinnedColumnDescriptor.width}
 			/>
 		);
 	}

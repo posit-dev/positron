@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
-import { ParsedTextOutput } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { ParsedTextOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';

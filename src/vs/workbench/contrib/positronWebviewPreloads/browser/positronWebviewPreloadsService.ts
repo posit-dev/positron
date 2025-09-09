@@ -14,7 +14,7 @@ import { NotebookMultiMessagePlotClient } from '../../positronPlots/browser/note
 import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
-import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 
 /**
  * Format of output from a notebook cell

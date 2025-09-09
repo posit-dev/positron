@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
 import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
-import { registerParticipants } from './participants';
+import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
@@ -16,11 +16,12 @@ import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
-import { TokenTracker } from './tokens.js';
+import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
+import { PositronAssistantApi } from './api.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -190,10 +191,14 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 	);
 }
 
-function registerGenerateCommitMessageCommand(context: vscode.ExtensionContext) {
+function registerGenerateCommitMessageCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.generateCommitMessage', () => {
-			generateCommitMessage(context);
+			generateCommitMessage(context, participantService, log);
 		})
 	);
 }
@@ -275,7 +280,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Commands
 	registerConfigureModelsCommand(context, storage);
-	registerGenerateCommitMessageCommand(context);
+	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 
@@ -304,8 +309,8 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	return participantService;
 }
 
-export function recordTokenUsage(context: vscode.ExtensionContext, provider: string, input: number, output: number) {
-	tokenTracker.addTokens(provider, input, output);
+export function recordTokenUsage(context: vscode.ExtensionContext, provider: string, tokens: TokenUsage) {
+	tokenTracker.addTokens(provider, tokens);
 }
 
 export function clearTokenUsage(context: vscode.ExtensionContext, provider: string) {
@@ -313,9 +318,9 @@ export function clearTokenUsage(context: vscode.ExtensionContext, provider: stri
 }
 
 // Registry to store token usage by request ID for individual requests
-const requestTokenUsage = new Map<string, { inputTokens: number; outputTokens: number; provider: string }>();
+const requestTokenUsage = new Map<string, { tokens: TokenUsage; provider: string }>();
 
-export function recordRequestTokenUsage(requestId: string, provider: string, inputTokens: number, outputTokens: number) {
+export function recordRequestTokenUsage(requestId: string, provider: string, tokens: TokenUsage) {
 	const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
 
 	enabledProviders.push(AnthropicLanguageModel.source.provider.id); // ensure anthropicId is always included
@@ -324,14 +329,14 @@ export function recordRequestTokenUsage(requestId: string, provider: string, inp
 		return; // Skip if token counting is disabled for this provider
 	}
 
-	requestTokenUsage.set(requestId, { inputTokens, outputTokens, provider });
+	requestTokenUsage.set(requestId, { provider, tokens });
 	// Clean up old entries to prevent memory leaks
 	setTimeout(() => {
 		requestTokenUsage.delete(requestId);
 	}, 30000); // Clean up after 30 seconds
 }
 
-export function getRequestTokenUsage(requestId: string): { inputTokens: number; outputTokens: number } | undefined {
+export function getRequestTokenUsage(requestId: string): { tokens: TokenUsage; provider: string } | undefined {
 	return requestTokenUsage.get(requestId);
 }
 
@@ -339,7 +344,6 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
-	const tokenTrackerData = context.workspaceState.get('positron.assistant.tokenCounts');
 	tokenTracker = new TokenTracker(context);
 
 	// Check to see if the assistant is enabled
@@ -376,4 +380,6 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}));
 	}
+
+	return PositronAssistantApi.get();
 }

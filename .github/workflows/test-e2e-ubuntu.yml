@@ -126,6 +126,9 @@ jobs:
       R_LIBS_USER: /usr/local/lib/R/site-library
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       # - name: Load secret
       #   uses: 1password/load-secrets-action@v3
@@ -181,10 +184,10 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      - name: Alter AppArmor Restrictions for Playwright (Electron)
+      - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Run Playwright Tests (Electron)
+      - name: Run Playwright Tests
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"

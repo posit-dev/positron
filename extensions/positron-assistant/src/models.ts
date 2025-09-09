@@ -21,6 +21,7 @@ import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
+import { TokenUsage } from './tokens.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -166,19 +167,14 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 
 		// Record token usage if context is available
 		if (this._context) {
-			const inputCount = await this.provideTokenCount(model, inputText, token);
-			const outputCount = await this.provideTokenCount(model, response, token);
-			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
-			tokenUsage = {
-				provider: this.provider,
-				inputTokens: inputCount,
-				outputTokens: outputCount,
-			};
-
+			const inputTokens = await this.provideTokenCount(model, inputText, token);
+			const outputTokens = await this.provideTokenCount(model, response, token);
+			tokenUsage = { inputTokens, outputTokens, cachedTokens: 0 };
+			recordTokenUsage(this._context, this.provider, tokenUsage);
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+				recordRequestTokenUsage(requestId, this.provider, tokenUsage);
 			}
 		}
 
@@ -352,7 +348,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic' ||
+		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
 			aiModel.modelId.startsWith('us.anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
@@ -493,39 +489,47 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 		// ai-sdk provides token usage in the result but it's not clear how it is calculated
 		const usage = await result.usage;
-		const outputCount = usage.completionTokens;
-		const inputCount = usage.promptTokens;
+		const metadata = await result.providerMetadata;
+		const tokens: TokenUsage = {
+			inputTokens: usage.promptTokens,
+			outputTokens: usage.completionTokens,
+			cachedTokens: 0,
+			providerMetadata: metadata,
+		};
+
+		// Log Bedrock usage if available
+		if (metadata && metadata.bedrock && metadata.bedrock.usage) {
+			// Get the Bedrock usage object; it typically contains
+			// `cacheReadInputTokens` and `cacheWriteInputTokens`
+			const metaUsage = metadata.bedrock.usage as Record<string, any>;
+
+			// Update the usage to take into account cache hits
+			tokens.inputTokens += metaUsage.cacheWriteInputTokens || 0;
+			tokens.cachedTokens += metaUsage.cacheReadInputTokens || 0;
+
+			// Report token usage information as part of the output stream.
+			const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
+			progress.report({ index: 0, part: part });
+
+			// Log the Bedrock usage
+			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
+		}
 
 		if (requestId) {
-			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+			recordRequestTokenUsage(requestId, this.provider, tokens);
 		}
 
 		if (this._context) {
-			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+			recordTokenUsage(this._context, this.provider, tokens);
 		}
 
-		const other = await result.providerMetadata;
-
-		log.info(`[vercel]: End request ${requestId}; usage: ${inputCount} input tokens, ${outputCount} output tokens`);
-
-		// Log Bedrock usage if available
-		if (other && other.bedrock && other.bedrock.usage) {
-			// Get the Bedrock usage object; it typically contains
-			// `cacheReadInputTokens` and `cacheWriteInputTokens`
-			const usage = other.bedrock.usage as Record<string, any>;
-
-			// Add the input and output tokens to the usage object
-			usage.inputTokens = inputCount;
-			usage.outputTokens = outputCount;
-
-			// Log the Bedrock usage
-			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(other.bedrock.usage, null, 2)}`);
-		}
+		log.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
-		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
-		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
+		// TODO: This is a naive approximation, a model specific tokenizer should be used.
+		const len = typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
+		return Math.ceil(len / 4);
 	}
 }
 
@@ -535,7 +539,10 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'anthropic',
+			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
+			// use 'anthropic-api' instead to make it possible to differentiate
+			// the two.
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
@@ -886,7 +893,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 // suitable for chat and we don't want the selection to be too large
 export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
 	[
-		['anthropic', [
+		['anthropic-api', [
 			{
 				name: 'Claude 4 Sonnet',
 				identifier: 'claude-sonnet-4-20250514',

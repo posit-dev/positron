@@ -566,10 +566,11 @@ class ChatStatusDashboard extends Disposable {
 			providers.forEach(provider => {
 				const inputCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.input`);
 				const outputCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.output`);
+				const cachedCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.cached`);
 				if (typeof inputCount === 'number' && typeof outputCount === 'number') {
 					const span = document.createElement('div');
 
-					span.innerText = `${provider.displayName}: ↑${inputCount} ↓${outputCount}`;
+					span.innerText = `${provider.displayName}: ↑${inputCount} ↓${outputCount} ↩${cachedCount}`;
 					details.push(span);
 				} else {
 					// add an element to the container with the name and a message
