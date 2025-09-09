@@ -14,7 +14,7 @@ import React, { useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useSelectionStatus } from './useSelectionStatus.js';
 import { useObservedValue } from '../useObservedValue.js';

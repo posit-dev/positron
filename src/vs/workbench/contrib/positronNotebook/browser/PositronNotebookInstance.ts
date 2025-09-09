@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, SelectionStateMachine } from './selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -399,7 +399,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._positronNotebookService.registerInstance(this);
 
 		this.selectionStateMachine = this._register(
-			this._instantiationService.createInstance(SelectionStateMachine)
+			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
 		);
 
 
@@ -879,7 +879,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
 		this.cells.set(this._cells, undefined);
-		this.selectionStateMachine.setCells(this._cells);
 	}
 
 	/**
@@ -960,11 +959,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Clears the output of a specific cell in the notebook.
 	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell.
-	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
-	 */
-	/**
-	 * Clears the output of a specific cell in the notebook.
-	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell
 	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
 	 */
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {

@@ -11,7 +11,7 @@ import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCe
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
@@ -33,6 +33,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
+	}
+
+	get index(): number {
+		return this._instance.cells.get().indexOf(this);
 	}
 
 	get editor(): ICodeEditor | undefined {

@@ -7,8 +7,9 @@
 import React from 'react';
 
 // Other dependencies.
+import { autorun } from '../../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { SelectionState } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { SelectionStateType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 /**
@@ -23,17 +24,16 @@ export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionSt
 
 	React.useEffect(() => {
 		const selectionMachine = notebookInstance.selectionStateMachine;
-		const observer = selectionMachine.onNewState((state) => {
-			if (state.type === SelectionState.EditingSelection) {
-				setSelectionStatus(state.selectedCell === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);
-			} else if (state.type === SelectionState.NoSelection) {
+		return autorun(reader => {
+			const state = selectionMachine.state.read(reader);
+			if (state.type === SelectionStateType.EditingSelection) {
+				setSelectionStatus(selectionMachine.getSelectedCell() === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);
+			} else if (state.type === SelectionStateType.NoSelection) {
 				setSelectionStatus(CellSelectionStatus.Unselected);
 			} else {
-				setSelectionStatus(state.selected.includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected);
+				setSelectionStatus(selectionMachine.getSelectedCells().includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected);
 			}
-		});
-
-		return observer.dispose;
+		}).dispose;
 	}, [notebookInstance, cell]);
 
 	return selectionStatus;

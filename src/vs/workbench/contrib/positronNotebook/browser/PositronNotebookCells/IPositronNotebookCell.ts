@@ -11,7 +11,7 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../selectionMachine.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -31,6 +31,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 * The kind of cell
 	 */
 	kind: CellKind;
+
+	/**
+	 * The current index of the cell in the notebook
+	 */
+	get index(): number;
 
 	/**
 	 * Cell specific uri for the cell within the notebook
