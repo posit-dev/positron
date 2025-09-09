@@ -24,7 +24,7 @@ export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionSt
 
 	React.useEffect(() => {
 		const selectionMachine = notebookInstance.selectionStateMachine;
-		return autorun(reader => {
+		const disposable = autorun(reader => {
 			const state = selectionMachine.state.read(reader);
 			if (state.type === SelectionState.EditingSelection) {
 				setSelectionStatus(selectionMachine.getSelectedCell() === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);
@@ -33,7 +33,10 @@ export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionSt
 			} else {
 				setSelectionStatus(selectionMachine.getSelectedCells().includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected);
 			}
-		}).dispose;
+		});
+		return () => {
+			disposable.dispose();
+		}
 	}, [notebookInstance, cell]);
 
 	return selectionStatus;

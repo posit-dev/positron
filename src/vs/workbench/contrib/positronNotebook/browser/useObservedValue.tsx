@@ -22,10 +22,13 @@ export function useObservedValue<T, M>(observable: ISettableObservable<T>, map?:
 	const [value, setValue] = React.useState(() => typeof map === 'function' ? map(observable.get()) : observable.get());
 
 	React.useEffect(() => {
-		return autorun(reader => {
+		const disposable = autorun(reader => {
 			const val = observable.read(reader);
 			setValue(typeof map === 'function' ? map(val) : val);
-		}).dispose;
+		});
+		return () => {
+			disposable.dispose();
+		}
 	}, [map, observable]);
 
 	return value as T | undefined | M extends (x: T) => infer Out ? Out : never;
