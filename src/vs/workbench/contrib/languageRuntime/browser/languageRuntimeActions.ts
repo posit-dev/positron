@@ -119,7 +119,9 @@ const selectLanguageRuntimeSession = async (
 	options?: {
 		allowStartSession?: boolean;
 		title?: string;
-	}): Promise<ILanguageRuntimeSession | undefined> => {
+	},
+	sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console,
+): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// Constants
 	const startNewRuntimeId = generateUuid();
@@ -131,7 +133,7 @@ const selectLanguageRuntimeSession = async (
 
 	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
 	const sortedActiveSessions = runtimeSessionService.activeSessions
-		.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
+		.filter(session => session.metadata.sessionMode === sessionMode)
 		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
 	const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
@@ -158,7 +160,7 @@ const selectLanguageRuntimeSession = async (
 			return {
 				id: session.sessionId,
 				label: session.dynState.sessionName,
-				detail: session.runtimeMetadata.runtimePath,
+				detail: session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook ? session.metadata.notebookUri?.fsPath : session.runtimeMetadata.runtimePath,
 				description: isForegroundSession ? 'Currently Selected' : undefined,
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
@@ -1254,5 +1256,75 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 		} catch (e) {
 			notificationService.error(e);
 		}
+	}
+});
+
+registerAction2(class SetNotebookWorkingDirectoryCommand extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.action.setNotebookWorkingDirectory',
+			title: nls.localize2('setNotebookWorkingDirectory', "Set Working Directory of Notebook Kernel"),
+			category,
+			f1: true,
+		});
+	}
+
+	/**
+	 * Invoke the command
+	 *
+	 * @param accessor The services accessor
+	 * @param notebookSession The session of the notebook whose working directory needs to be changed. If not provided, the user will be prompted to select a notebook session.
+	 * @param resource The resource to set as the working directory. If not provided, the user will be prompted to select a folder.
+	 * @returns
+	 */
+	async run(accessor: ServicesAccessor, notebookSession?: ILanguageRuntimeSession, resource?: URI) {
+		const notificationService = accessor.get(INotificationService);
+		const environmentService = accessor.get(IWorkbenchEnvironmentService);
+		const fileDialogService = accessor.get(IFileDialogService);
+
+		// If no notebook session was provided, ask the user to select one.
+		if (!notebookSession) {
+			const selectedSession = await selectLanguageRuntimeSession(accessor, {
+				title: nls.localize('positron.setNotebookWorkingDirectory.setNotebookSession', "Select Notebook Interpreter Session"),
+				allowStartSession: false,
+			}, LanguageRuntimeSessionMode.Notebook);
+			if (!selectedSession) {
+				return;
+			}
+			notebookSession = selectedSession;
+		}
+		// If no resource was provided, ask the user to select a folder.
+		if (!resource) {
+			const selection = await fileDialogService.showOpenDialog({
+				canSelectFolders: true,
+				canSelectFiles: false,
+				canSelectMany: false,
+				openLabel: nls.localize('positron.setNotebookWorkingDirectory.setDirectory',
+					'Set Directory')
+			});
+			if (!selection) {
+				// No folder was selected.
+				return;
+			}
+
+			// Use the first selected folder (there should only ever be one selected since we specified `canSelectMany: false`).
+			resource = selection[0];
+		}
+
+		// Attempt to set the working directory to the selected folder.
+		try {
+			if (environmentService.remoteAuthority) {
+				// When connected to a remote environment, use the path directly.
+				notebookSession.setWorkingDirectory(resource.path);
+			} else {
+				// When not connected to a remote environment, use the local
+				// filesystem path if it exists.
+				notebookSession.setWorkingDirectory(resource.fsPath ?? resource.path);
+			}
+		} catch (e) {
+			notificationService.error(e);
+		}
+		const notebookId = notebookSession.metadata.notebookUri ? notebookSession.metadata.notebookUri.fsPath : notebookSession.dynState.sessionName;
+		notificationService.info(nls.localize('positron.setNotebookWorkingDirectory.success', 'Working directory for notebook {0} set to {1}.', notebookId, resource.path));
 	}
 });
