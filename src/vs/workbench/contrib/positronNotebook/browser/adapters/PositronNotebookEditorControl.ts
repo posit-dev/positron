@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
-import { Disposable, MutableDisposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
@@ -36,6 +36,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	private _activeCodeEditor: ICodeEditor | undefined;
 
 	private readonly _viewModel = this._register(new MutableDisposable<PositronNotebookViewModel>());
+	private readonly _viewModelDisposables = this._register(new DisposableStore());
 
 	/**
 	 * A unique identifier for this notebook editor control.
@@ -94,27 +95,41 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		this._notebookEditorService.addNotebookEditor(this);
 
 		// TODO: Would be great if we could ensure textModel and therefore viewModel are always defined.
-		// But need to rework some async handling that sets textModel in notebookInstance first.
-		const createViewModel = (textModel: NotebookTextModel) => {
-			return this._instantiationService.createInstance(PositronNotebookViewModel, this._notebookInstance, textModel);
+		//       But need to rework some async handling that sets textModel in notebookInstance first.
+		const setTextModel = (textModel: NotebookTextModel | undefined) => {
+			this._viewModelDisposables.clear();
+
+			if (!textModel) {
+				this._viewModel.clear();
+				return;
+			}
+
+			const viewModel = this._instantiationService.createInstance(PositronNotebookViewModel, this._notebookInstance, textModel);
+			this._viewModel.value = viewModel;
+
+			// Forward view model events.
+			this._viewModelDisposables.add(viewModel.onDidChangeSelection(() => {
+				this._onDidChangeSelection.fire();
+			}));
 		};
+
 		if (this._notebookInstance.textModel) {
-			this._viewModel.value = createViewModel(this._notebookInstance.textModel);
+			setTextModel(this._notebookInstance.textModel);
 		}
 		this._register(this._notebookInstance.onDidChangeTextModel((textModel) => {
-			if (textModel) {
-				this._viewModel.value = createViewModel(textModel);
-			} else {
-				this._viewModel.clear();
-			}
+			setTextModel(textModel);
 		}));
 
 		// Update the active code editor when the notebook selection state changes.
 		this._register(autorun(reader => {
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 			selectionStateMachine.state.read(reader);
-			this._activeCodeEditor = selectionStateMachine.getSelectedCells()[0]?.editor;
-			this._onDidChangeActiveEditor.fire(this);
+
+			const editor = selectionStateMachine.getSelectedCells()[0]?.editor;
+			if (this._activeCodeEditor !== editor) {
+				this._activeCodeEditor = editor;
+				this._onDidChangeActiveEditor.fire(this);
+			}
 		}));
 	}
 

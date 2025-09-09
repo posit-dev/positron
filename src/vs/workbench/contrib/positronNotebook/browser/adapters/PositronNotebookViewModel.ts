@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { autorun } from '../../../../../base/common/observable.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { TrackedRangeStickiness } from '../../../../../editor/common/model.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -24,7 +25,11 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 	public readonly onDidChangeSelection = this._onDidChangeSelection.event;
 	public readonly onDidFoldingStateChanged = this.onDidFoldingStateChangedEmitter.event;
 	//#endregion
+
+	//#region Private Properties
+	private _selection: ICellRange[] = [];
 	private _viewCells: PositronNotebookCellViewModel[] = [];
+	//#endregion Private Properties
 
 	constructor(
 		private readonly _notebookInstance: IPositronNotebookInstance,
@@ -37,6 +42,16 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 			const viewCell = this._instantiationService.createInstance(PositronNotebookCellViewModel, this._notebook.viewType, cell, this._notebookInstance, this.layoutInfo);
 			this._viewCells.push(viewCell);
 		}
+
+		this._register(autorun(reader => {
+			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
+			selectionStateMachine.state.read(reader);
+			// TODO: Think this isn't handling single vs multi selections correctly.
+			//       Can we have the right logic here and fix it in selection state machine later?
+			this._selection = selectionStateMachine.getSelectedCells().map(cell => ({ start: cell.index, end: cell.index + 1 }));
+			// TODO: Currently hardcoding source to 'view'
+			this._onDidChangeSelection.fire('view');
+		}));
 	}
 
 	get notebookDocument() {
@@ -64,8 +79,7 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 		throw new Error('Method not implemented.');
 	}
 	getSelections(): ICellRange[] {
-		// TODO: Implement selections
-		return [];
+		return this._selection;
 	}
 	getCellIndex(cell: ICellViewModel): number {
 		throw new Error('Method not implemented.');
