@@ -62,7 +62,7 @@ export class SelectionStateMachine extends Disposable {
 
 	//#region Private Properties
 	private readonly _state = observableValueOpts<SelectionStates>({
-		owner: this,
+		debugName: 'selectionState',
 		equalsFn: isSelectionStateEqual
 	}, { type: SelectionState.NoSelection });
 
