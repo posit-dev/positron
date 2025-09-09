@@ -21,6 +21,21 @@ import { log } from './extension.js';
  * instructions and context for embedding in Copilot prompts.
  */
 export class PositronAssistantApi {
+
+	/** The singleton instance. */
+	private static _instance?: PositronAssistantApi;
+
+	/** An emitter for sign-in events */
+	private _signInEmitter = new vscode.EventEmitter<string>();
+
+	/** Get or create the singleton instance. */
+	public static get() {
+		if (!PositronAssistantApi._instance) {
+			PositronAssistantApi._instance = new PositronAssistantApi();
+		}
+		return PositronAssistantApi._instance;
+	}
+
 	/**
 	 * Generates assistant prompt content.
 	 *
@@ -82,6 +97,25 @@ export class PositronAssistantApi {
 	 */
 	public getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Array<string> {
 		return getEnabledTools(request, tools);
+	}
+
+	/**
+	 * Called from the Assistant side to notify that a provider has signed in
+	 *
+	 * @param provider The provider that signed in
+	 */
+	public notifySignIn(provider: string) {
+		log.info(`[Assistant API] Provider signed in: ${provider}`);
+		this._signInEmitter.fire(provider)
+	}
+
+	/**
+	 * Notifies other extensions of a sign-in event
+	 *
+	 * @returns The event
+	 */
+	public onProviderSignIn(callback: (s: string) => void): vscode.Disposable {
+		return this._signInEmitter.event(callback);
 	}
 }
 

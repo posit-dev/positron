@@ -1,4 +1,4 @@
-#!/bin/bash
+ #!/bin/bash
 # Script to parse tags from a GitHub Pull Request body
 # Usage: bash parse-pr-tags.sh
 
@@ -38,6 +38,14 @@ fi
 if echo "$PR_BODY" | grep -q "@:web"; then
 	echo "Found web tag in PR body. Setting to run web tests."
 	echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
+if echo "$PR_BODY" | grep -q "@:rhel-electron"; then
+	echo "Found RHEL electron tag in PR body. Setting to run RHEL electron tests."
+	echo "rhel_electron_tag_found=true" >> "$GITHUB_OUTPUT"
+fi
+if echo "$PR_BODY" | grep -q "@:rhel-web"; then
+	echo "Found RHEL web tag in PR body. Setting to run RHEL web tests."
+	echo "rhel_web_tag_found=true" >> "$GITHUB_OUTPUT"
 fi
 
 # Check if @:all is present in the PR body

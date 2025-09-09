@@ -152,8 +152,11 @@ export interface IResponse {
 // --- Start Positron ---
 export interface IChatTokenUsage {
 	readonly provider: string;
-	readonly inputTokens: number;
-	readonly outputTokens: number;
+	readonly tokens: {
+		inputTokens: number;
+		outputTokens: number;
+		cachedTokens: number;
+	};
 }
 // --- End Positron ---
 

@@ -19,6 +19,7 @@ import { log, getRequestTokenUsage } from './extension.js';
 import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
+import { TokenUsage } from './tokens.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -54,6 +55,7 @@ export interface IPositronAssistantParticipant extends vscode.ChatParticipant {
 export class ParticipantService implements vscode.Disposable {
 	private readonly _participants = new Map<ParticipantID, IPositronAssistantParticipant>();
 	private readonly _sessionModels = new Map<string, string>(); // sessionId -> modelId
+	private _lastSessionModel: string | undefined;
 
 	registerParticipant(participant: IPositronAssistantParticipant): void {
 		this._participants.set(participant.id, participant);
@@ -89,6 +91,7 @@ export class ParticipantService implements vscode.Disposable {
 	 * @param modelId The language model ID used for this session
 	 */
 	trackSessionModel(sessionId: string, modelId: string): void {
+		this._lastSessionModel = modelId;
 		this._sessionModels.set(sessionId, modelId);
 	}
 
@@ -100,6 +103,15 @@ export class ParticipantService implements vscode.Disposable {
 	 */
 	getSessionModel(sessionId: string): string | undefined {
 		return this._sessionModels.get(sessionId);
+	}
+
+	/**
+	 * Get the most recently used model ID.
+	 *
+	 * @returns The model ID if exists, undefined otherwise
+	 */
+	getCurrentSessionModel(): string | undefined {
+		return this._lastSessionModel;
 	}
 
 	dispose() {
@@ -588,7 +600,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
-	): Promise<{ inputTokens?: number; outputTokens?: number } | undefined> {
+	): Promise<{ provider: string; tokens: TokenUsage } | undefined> {
 		if (token.isCancellationRequested) {
 			return;
 		}
