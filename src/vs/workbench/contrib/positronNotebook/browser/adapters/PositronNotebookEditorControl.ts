@@ -223,7 +223,17 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	 * The cell/code editor pairs.
 	 */
 	public get codeEditors(): [ICellViewModel, ICodeEditor][] {
-		throw new Error('Method not implemented.');
+		const codeEditors: [ICellViewModel, ICodeEditor][] = [];
+		for (const [index, cell] of this._notebookInstance.cells.get().entries()) {
+			if (cell.editor) {
+				const viewCell = this._viewModel.value?.viewCells[index];
+				if (!viewCell) {
+					throw new Error(`View cell for cell at index ${index} not found`);
+				}
+				codeEditors.push([viewCell, cell.editor]);
+			}
+		}
+		return codeEditors;
 	}
 
 	/**
