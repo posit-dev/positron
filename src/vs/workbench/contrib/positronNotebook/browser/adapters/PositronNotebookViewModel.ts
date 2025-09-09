@@ -19,15 +19,14 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 	//#region Events
 	private readonly _onDidChangeViewCells = this._register(new Emitter<INotebookViewCellsUpdateEvent>());
 	private readonly _onDidChangeSelection = this._register(new Emitter<string>());
-	private readonly onDidFoldingStateChangedEmitter = this._register(new Emitter<void>());
+	private readonly _onDidFoldingStateChanged = this._register(new Emitter<void>());
 
 	public readonly onDidChangeViewCells = this._onDidChangeViewCells.event;
 	public readonly onDidChangeSelection = this._onDidChangeSelection.event;
-	public readonly onDidFoldingStateChanged = this.onDidFoldingStateChangedEmitter.event;
-	//#endregion
+	public readonly onDidFoldingStateChanged = this._onDidFoldingStateChanged.event;
+	//#endregion Events
 
 	//#region Private Properties
-	private _selection: ICellRange[] = [];
 	private _viewCells: PositronNotebookCellViewModel[] = [];
 	//#endregion Private Properties
 
@@ -39,7 +38,7 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 	) {
 		super();
 
-		// TODO: Should update view cells when base cells are added/removed/moved.
+		// TODO: Should update view cells when cells are added/removed/moved.
 		for (const cell of this._notebookInstance.cells.get()) {
 			const viewCell = this._instantiationService.createInstance(PositronNotebookCellViewModel, this._notebook.viewType, cell, this._notebookInstance, this._layoutInfo);
 			this._viewCells.push(viewCell);
@@ -48,10 +47,7 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 		this._register(autorun(reader => {
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 			selectionStateMachine.state.read(reader);
-			// TODO: Think this isn't handling single vs multi selections correctly.
-			//       Can we have the right logic here and fix it in selection state machine later?
-			this._selection = selectionStateMachine.getSelectedCells().map(cell => ({ start: cell.index, end: cell.index + 1 }));
-			// TODO: Currently hardcoding source to 'view'
+			// TODO: How should we determine the event source (currently hardcoding 'view')?
 			this._onDidChangeSelection.fire('view');
 		}));
 	}
@@ -81,10 +77,16 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 		throw new Error('Method not implemented.');
 	}
 	getSelections(): ICellRange[] {
-		return this._selection;
+		// TODO: Think this isn't handling single vs multi selections correctly.
+		//       Can we have the right logic here and fix it in selection state machine later?
+		const cells = this._notebookInstance.selectionStateMachine.getSelectedCells();
+		return cells.map(cell => ({ start: cell.index, end: cell.index + 1 }));
 	}
 	getCellIndex(cell: ICellViewModel): number {
-		throw new Error('Method not implemented.');
+		if (cell instanceof PositronNotebookCellViewModel) {
+			return this._viewCells.indexOf(cell);
+		}
+		return -1;
 	}
 	getMostRecentlyExecutedCell(): ICellViewModel | undefined {
 		throw new Error('Method not implemented.');
