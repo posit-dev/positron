@@ -150,10 +150,6 @@ export class MainThreadNotebooksAndEditors {
 			}
 		}
 
-		// TODO: Maybe we need getControl() to implement INotebookEditor after all?...
-		//       might simplify our integration?
-		//       Could get away with subset that is needed by exthost here?
-		//       Can i separate this work for another issue?
 		const activeNotebookEditor = getNotebookEditorFromEditorPane(this._editorService.activeEditorPane);
 		let activeEditor: string | null = null;
 		if (activeNotebookEditor) {
