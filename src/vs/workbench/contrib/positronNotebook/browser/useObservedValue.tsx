@@ -7,8 +7,7 @@
 import React from 'react';
 
 // Other dependencies.
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
-import { Event } from '../../../../base/common/event.js';
+import { autorun, ISettableObservable } from '../../../../base/common/observable.js';
 
 /**
  * Automatically updates the component when the observable changes.
@@ -23,12 +22,10 @@ export function useObservedValue<T, M>(observable: ISettableObservable<T>, map?:
 	const [value, setValue] = React.useState(() => typeof map === 'function' ? map(observable.get()) : observable.get());
 
 	React.useEffect(() => {
-		const onObservableChange = Event.fromObservable(observable);
-		const observer = onObservableChange((val) => {
+		return autorun(reader => {
+			const val = observable.read(reader);
 			setValue(typeof map === 'function' ? map(val) : val);
-		});
-
-		return observer.dispose;
+		}).dispose;
 	}, [map, observable]);
 
 	return value as T | undefined | M extends (x: T) => infer Out ? Out : never;
