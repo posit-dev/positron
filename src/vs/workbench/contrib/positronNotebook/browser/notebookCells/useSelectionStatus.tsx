@@ -9,7 +9,7 @@ import React from 'react';
 // Other dependencies.
 import { autorun } from '../../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { SelectionStateType } from '../selectionMachine.js';
+import { SelectionState } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 /**
@@ -26,9 +26,9 @@ export function useSelectionStatus(cell: IPositronNotebookCell): CellSelectionSt
 		const selectionMachine = notebookInstance.selectionStateMachine;
 		return autorun(reader => {
 			const state = selectionMachine.state.read(reader);
-			if (state.type === SelectionStateType.EditingSelection) {
+			if (state.type === SelectionState.EditingSelection) {
 				setSelectionStatus(selectionMachine.getSelectedCell() === cell ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected);
-			} else if (state.type === SelectionStateType.NoSelection) {
+			} else if (state.type === SelectionState.NoSelection) {
 				setSelectionStatus(CellSelectionStatus.Unselected);
 			} else {
 				setSelectionStatus(selectionMachine.getSelectedCells().includes(cell) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected);

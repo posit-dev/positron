@@ -8,27 +8,27 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { disposableTimeout } from '../../../../base/common/async.js';
 
-export enum SelectionStateType {
+export enum SelectionState {
 	NoSelection = 'NoSelection',
 	SingleSelection = 'SingleSelection',
 	MultiSelection = 'MultiSelection',
 	EditingSelection = 'EditingSelection'
 }
 
-type SelectionState =
+type SelectionStates =
 	| {
-		type: SelectionStateType.NoSelection;
+		type: SelectionState.NoSelection;
 	}
 	| {
-		type: SelectionStateType.SingleSelection;
+		type: SelectionState.SingleSelection;
 		selected: IPositronNotebookCell[];
 	}
 	| {
-		type: SelectionStateType.MultiSelection;
+		type: SelectionState.MultiSelection;
 		selected: IPositronNotebookCell[];
 	}
 	| {
-		type: SelectionStateType.EditingSelection;
+		type: SelectionState.EditingSelection;
 		selectedCell: IPositronNotebookCell;
 	};
 
@@ -41,16 +41,16 @@ export enum CellSelectionType {
 /**
  * Determines if two selection states are equal.
  */
-function isSelectionStateEqual(a: SelectionState, b: SelectionState): boolean {
+function isSelectionStateEqual(a: SelectionStates, b: SelectionStates): boolean {
 	switch (a.type) {
-		case SelectionStateType.NoSelection:
+		case SelectionState.NoSelection:
 			return a.type === b.type;
-		case SelectionStateType.SingleSelection:
-		case SelectionStateType.MultiSelection:
+		case SelectionState.SingleSelection:
+		case SelectionState.MultiSelection:
 			return a.type === b.type &&
 				a.selected.length === (b as typeof a).selected.length &&
 				a.selected.every(cell => (b as typeof a).selected.includes(cell));
-		case SelectionStateType.EditingSelection:
+		case SelectionState.EditingSelection:
 			return a.type === b.type &&
 				a.selectedCell === (b as typeof a).selectedCell;
 		default:
@@ -61,10 +61,10 @@ function isSelectionStateEqual(a: SelectionState, b: SelectionState): boolean {
 export class SelectionStateMachine extends Disposable {
 
 	//#region Private Properties
-	private readonly _state = observableValueOpts<SelectionState>({
+	private readonly _state = observableValueOpts<SelectionStates>({
 		owner: this,
 		equalsFn: isSelectionStateEqual
-	}, { type: SelectionStateType.NoSelection });
+	}, { type: SelectionState.NoSelection });
 
 
 	//#endregion Private Properties
@@ -89,7 +89,7 @@ export class SelectionStateMachine extends Disposable {
 	/**
 	 * Observable of the current selection state
 	 */
-	get state(): IObservable<SelectionState> {
+	get state(): IObservable<SelectionStates> {
 		return this._state;
 	}
 
@@ -104,38 +104,38 @@ export class SelectionStateMachine extends Disposable {
 	 */
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 		if (selectType === CellSelectionType.Normal) {
-			this._setState({ type: SelectionStateType.SingleSelection, selected: [cell] });
+			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
 			return;
 		}
 
 		if (selectType === CellSelectionType.Edit) {
-			this._setState({ type: SelectionStateType.EditingSelection, selectedCell: cell });
+			this._setState({ type: SelectionState.EditingSelection, selectedCell: cell });
 			return;
 		}
 
 		const state = this._state.get();
 
 		if (selectType === CellSelectionType.Add) {
-			if (state.type === SelectionStateType.NoSelection) {
-				this._setState({ type: SelectionStateType.SingleSelection, selected: [cell] });
+			if (state.type === SelectionState.NoSelection) {
+				this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
 				return;
 			}
 
-			if (state.type === SelectionStateType.SingleSelection) {
+			if (state.type === SelectionState.SingleSelection) {
 				// Check if cell is already selected
 				if (state.selected.includes(cell)) {
 					return;
 				}
-				this._setState({ type: SelectionStateType.MultiSelection, selected: [...state.selected, cell] });
+				this._setState({ type: SelectionState.MultiSelection, selected: [...state.selected, cell] });
 				return;
 			}
 
-			if (state.type === SelectionStateType.MultiSelection) {
+			if (state.type === SelectionState.MultiSelection) {
 				// Check if cell is already in the selection
 				if (state.selected.includes(cell)) {
 					return;
 				}
-				this._setState({ type: SelectionStateType.MultiSelection, selected: [...state.selected, cell] });
+				this._setState({ type: SelectionState.MultiSelection, selected: [...state.selected, cell] });
 				return;
 			}
 		}
@@ -152,30 +152,28 @@ export class SelectionStateMachine extends Disposable {
 	deselectCell(cell: IPositronNotebookCell): void {
 		const state = this._state.get();
 
-		if (state.type === SelectionStateType.NoSelection) {
+		if (state.type === SelectionState.NoSelection) {
 			return;
 		}
 
-		const deselectingCurrentSelection = (state.type === SelectionStateType.SingleSelection && state.selected.includes(cell))
-			|| (state.type === SelectionStateType.EditingSelection && state.selectedCell === cell);
+		const deselectingCurrentSelection = (state.type === SelectionState.SingleSelection && state.selected.includes(cell))
+			|| (state.type === SelectionState.EditingSelection && state.selectedCell === cell);
 
 		if (deselectingCurrentSelection) {
-			this._setState({ type: SelectionStateType.NoSelection });
+			this._setState({ type: SelectionState.NoSelection });
 			return;
 		}
 
-		if (state.type === SelectionStateType.MultiSelection) {
+		if (state.type === SelectionState.MultiSelection) {
 			const updatedCells = state.selected.filter(c => c !== cell);
 			if (updatedCells.length === 0) {
-				this._setState({ type: SelectionStateType.NoSelection });
+				this._setState({ type: SelectionState.NoSelection });
 			} else if (updatedCells.length === 1) {
-				this._setState({ type: SelectionStateType.SingleSelection, selected: updatedCells });
-				// TODO: Can we move this to the view layer?
+				this._setState({ type: SelectionState.SingleSelection, selected: updatedCells });
 				// Focus the remaining cell
 				updatedCells[0]?.focus();
 			} else {
-				this._setState({ type: SelectionStateType.MultiSelection, selected: updatedCells });
-				// TODO: Can we move this to the view layer?
+				this._setState({ type: SelectionState.MultiSelection, selected: updatedCells });
 				// Focus the last cell in selection
 				const lastCell = updatedCells[updatedCells.length - 1];
 				lastCell?.focus();
@@ -206,14 +204,13 @@ export class SelectionStateMachine extends Disposable {
 	 */
 	enterEditor(): void {
 		const state = this._state.get();
-		if (state.type !== SelectionStateType.SingleSelection || state.selected.length === 0) {
+		if (state.type !== SelectionState.SingleSelection || state.selected.length === 0) {
 			return;
 		}
 
 		const cellToEdit = state.selected[0];
-		this._setState({ type: SelectionStateType.EditingSelection, selectedCell: cellToEdit });
+		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
 		// Timeout here avoids the problem of enter applying to the editor widget itself.
-		// TODO: Can we move this to the view layer?
 		this._register(
 			disposableTimeout(async () => await cellToEdit.showEditor(true), 0)
 		);
@@ -224,11 +221,11 @@ export class SelectionStateMachine extends Disposable {
 	 */
 	exitEditor(): void {
 		const state = this._state.get();
-		if (state.type !== SelectionStateType.EditingSelection) {
+		if (state.type !== SelectionState.EditingSelection) {
 			return;
 		}
 		state.selectedCell.defocusEditor();
-		this._setState({ type: SelectionStateType.SingleSelection, selected: [state.selectedCell] });
+		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
 
 	/**
@@ -237,7 +234,7 @@ export class SelectionStateMachine extends Disposable {
 	 */
 	getSelectedCell(): IPositronNotebookCell | null {
 		const state = this._state.get();
-		if (state.type === SelectionStateType.SingleSelection) {
+		if (state.type === SelectionState.SingleSelection) {
 			return state.selected[0];
 		}
 
@@ -251,12 +248,12 @@ export class SelectionStateMachine extends Disposable {
 	getSelectedCells(): IPositronNotebookCell[] {
 		const state = this._state.get();
 		switch (state.type) {
-			case SelectionStateType.SingleSelection:
-			case SelectionStateType.MultiSelection:
+			case SelectionState.SingleSelection:
+			case SelectionState.MultiSelection:
 				return state.selected;
-			case SelectionStateType.EditingSelection:
+			case SelectionState.EditingSelection:
 				return [state.selectedCell];
-			case SelectionStateType.NoSelection:
+			case SelectionState.NoSelection:
 			default:
 				return [];
 		}
@@ -274,15 +271,15 @@ export class SelectionStateMachine extends Disposable {
 	private _setCells(cells: IPositronNotebookCell[]): void {
 		const state = this._state.get();
 
-		if (state.type === SelectionStateType.NoSelection) {
+		if (state.type === SelectionState.NoSelection) {
 			return;
 		}
 
 		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
 		// If it isn't we need to reset the selection.
-		if (state.type === SelectionStateType.EditingSelection) {
+		if (state.type === SelectionState.EditingSelection) {
 			if (!cells.includes(state.selectedCell)) {
-				this._setState({ type: SelectionStateType.NoSelection });
+				this._setState({ type: SelectionState.NoSelection });
 				return;
 			}
 			return;
@@ -290,15 +287,15 @@ export class SelectionStateMachine extends Disposable {
 
 		const newSelection = state.selected.filter(c => cells.includes(c));
 		if (newSelection.length === 0) {
-			this._setState({ type: SelectionStateType.NoSelection });
+			this._setState({ type: SelectionState.NoSelection });
 			return;
 		}
 
-		this._setState({ type: newSelection.length === 1 ? SelectionStateType.SingleSelection : SelectionStateType.MultiSelection, selected: newSelection });
+		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: newSelection });
 	}
 
 
-	private _setState(state: SelectionState) {
+	private _setState(state: SelectionStates) {
 		// Alert the observable that the state has changed.
 		this._state.set(state, undefined);
 	}
@@ -307,10 +304,10 @@ export class SelectionStateMachine extends Disposable {
 		const state = this._state.get();
 		const cells = this._cells.get();
 
-		if (state.type === SelectionStateType.EditingSelection) {
+		if (state.type === SelectionState.EditingSelection) {
 			return;
 		}
-		if (state.type === SelectionStateType.NoSelection) {
+		if (state.type === SelectionState.NoSelection) {
 			// Select first cell if selecting down and the last cell if selecting up.
 			const cellToSelect = cells.at(up ? -1 : 0);
 			if (cellToSelect) {
@@ -335,13 +332,13 @@ export class SelectionStateMachine extends Disposable {
 			}
 			const newSelection = up ? [nextCell, ...state.selected] : [...state.selected, nextCell];
 			this._setState({
-				type: SelectionStateType.MultiSelection,
+				type: SelectionState.MultiSelection,
 				selected: newSelection
 			});
 			return;
 		}
 
-		if (state.type === SelectionStateType.MultiSelection) {
+		if (state.type === SelectionState.MultiSelection) {
 			this.selectCell(nextCell, CellSelectionType.Normal);
 			return;
 		}
