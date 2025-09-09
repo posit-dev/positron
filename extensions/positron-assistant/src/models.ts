@@ -538,7 +538,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	}
 
 	/**
-	 * Parses for specific ai-sdk errors. Then parses provider specific errors.
+	 * Parses for specific ai-sdk errors.
 	 * @param error The error object returned by the provider.
 	 * @returns A user-friendly error message or undefined if not specifically handled.
 	 */
@@ -836,10 +836,10 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		}
 
 		if (name === 'CredentialsProviderError') {
-			return vscode.l10n.t(`Invalid AWS credentials. ${message}`);
+			return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
 		}
 
-		return vscode.l10n.t(`AWS Bedrock error: ${message}`);
+		return vscode.l10n.t(`AWS Bedrock error: {0}`, message);
 	}
 }
 
