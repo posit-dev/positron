@@ -35,142 +35,167 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Data Explorer: Pins', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, () => {
+const testCases: {
+	env: 'Polars' | 'Pandas' | 'R' | 'DuckDB';
+	rowIndexOffset: number;
+	data: string;
+}[] = [
+		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")' },
+		{ env: 'DuckDB', rowIndexOffset: 0, data: 'data-files/small_file.csv' },
+		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")' },
+		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")' }
+	];
 
-	test.beforeEach(async function ({ app, openDataFile }) {
-		const { dataExplorer } = app.workbench;
+for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
+	test.describe('Data Explorer: Pins', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, () => {
 
-		await openDataFile(join('data-files', 'small_file.csv'));
-		await dataExplorer.maximize(true);
-		await dataExplorer.waitForIdle();
-	});
+		test.beforeEach(async function ({ app, openDataFile, hotKeys }) {
+			const { dataExplorer, console, sessions, variables } = app.workbench;
 
-	test.afterEach(async function ({ hotKeys }) {
-		await hotKeys.closeAllEditors();
-	});
-
-	test('Rows and columns can be pinned, unpinned and persist with scrolling', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
-
-		// Initial state
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.default);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.default);
-
-		// Pin "column4"
-		await dataExplorer.grid.pinColumn(4);
-		await dataExplorer.grid.expectColumnsToBePinned(['column4']);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
-
-		// Pin "column6"
-		await dataExplorer.grid.pinColumn(6);
-		await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column6']);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4And6);
-
-		// Pin row 8
-		await dataExplorer.grid.pinRow(8);
-		await dataExplorer.grid.expectRowsToBePinned([8]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow8);
-
-		// Pin row 6
-		await dataExplorer.grid.pinRow(7); // after pinning row 8, row 6 is now at index 7
-		await dataExplorer.grid.expectRowsToBePinned([8, 6]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow8And6);
-
-		// Ensure pins persist with scrolling
-		await dataExplorer.grid.clickLowerRightCorner();
-		await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column6']);
-		await dataExplorer.grid.expectRowsToBePinned([8, 6]);
-
-		// Unpin columns
-		await dataExplorer.grid.unpinColumn(0);
-		await dataExplorer.grid.expectColumnsToBePinned(['column6']);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol6);
-
-		await dataExplorer.grid.unpinColumn(0);
-		await dataExplorer.grid.expectColumnsToBePinned([]);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.default);
-
-		// Unpin rows
-		await dataExplorer.grid.unpinRow(0);
-		await dataExplorer.grid.expectRowsToBePinned([6]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow6);
-		await dataExplorer.grid.unpinRow(0);
-		await dataExplorer.grid.expectRowsToBePinned([]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.default);
-	});
-
-	test('Range selection respects pinned columns (excludes vs includes cases)', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
-
-		// pin column2
-		await dataExplorer.grid.pinColumn(2);
-		await dataExplorer.grid.expectColumnsToBePinned(['column2']);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol2);
-
-		// select range that excludes pinned column
-		await dataExplorer.grid.selectRange({
-			start: { row: 4, col: 4 },
-			end: { row: 6, col: 1 }
-		});
-		await dataExplorer.grid.expectRangeToBeSelected({
-			rows: [4, 5, 6],
-			cols: [0, 1, 3, 4]
+			if (env === 'DuckDB') {
+				await openDataFile(join(data));
+			} else {
+				await sessions.start(env === 'R' ? 'r' : 'python');
+				await console.pasteCodeToConsole(data, true);
+				await hotKeys.showSecondarySidebar();
+				await variables.doubleClickVariableRow('df');
+			}
+			await dataExplorer.waitForIdle();
+			await dataExplorer.maximize(true);
 		});
 
-		// select range that includes pinned column
-		await dataExplorer.grid.selectRange({
-			start: { row: 3, col: 0 },
-			end: { row: 5, col: 2 }
+		test.afterEach(async function ({ hotKeys }) {
+			await hotKeys.closeAllEditors();
 		});
-		await dataExplorer.grid.expectRangeToBeSelected({
-			rows: [3, 4, 5],
-			cols: [2, 0, 1]
+
+		test(`${env} - Rows and columns can be pinned, unpinned and persist with scrolling`, async function ({ app }) {
+			const { dataExplorer } = app.workbench;
+
+			// Initial state
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.default);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.default, indexOffset);
+
+			// Pin "column4"
+			await dataExplorer.grid.pinColumn(4);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
+
+			// Pin "column6"
+			await dataExplorer.grid.pinColumn(6);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column6']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4And6);
+
+			// Pin row 8
+			await dataExplorer.grid.pinRow(8);
+			await dataExplorer.grid.expectRowsToBePinned([8], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow8, indexOffset);
+
+			// Pin row 6
+			await dataExplorer.grid.pinRow(7);
+			await dataExplorer.grid.expectRowsToBePinned([8, 6], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow8And6, indexOffset);
+
+			// Ensure pins persist with scrolling
+			await dataExplorer.grid.clickLowerRightCorner();
+			await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column6']);
+			await dataExplorer.grid.expectRowsToBePinned([8, 6], indexOffset);
+
+			// Unpin columns
+			await dataExplorer.grid.unpinColumn(0);
+			await dataExplorer.grid.expectColumnsToBePinned(['column6']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol6);
+
+			await dataExplorer.grid.unpinColumn(0);
+			await dataExplorer.grid.expectColumnsToBePinned([]);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.default);
+
+			// Unpin rows
+			await dataExplorer.grid.unpinRow(0);
+			await dataExplorer.grid.expectRowsToBePinned([6], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow6, indexOffset);
+			await dataExplorer.grid.unpinRow(0);
+			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.default, indexOffset);
+		});
+
+		test(`${env} - Range selection respects pinned columns (excludes vs includes cases)`, async function ({ app }) {
+			const { dataExplorer } = app.workbench;
+
+			// pin column2
+			await dataExplorer.grid.pinColumn(2);
+			await dataExplorer.grid.expectColumnsToBePinned(['column2']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol2);
+
+			// select range that excludes pinned column
+			await dataExplorer.grid.selectRange({
+				start: { row: 4, col: 4 },
+				end: { row: 6, col: 1 }
+			});
+			await dataExplorer.grid.expectRangeToBeSelected({
+				rows: [4, 5, 6],
+				cols: [0, 1, 3, 4]
+			});
+
+			// select range that includes pinned column
+			await dataExplorer.grid.selectRange({
+				start: { row: 3, col: 0 },
+				end: { row: 5, col: 2 }
+			});
+			await dataExplorer.grid.expectRangeToBeSelected({
+				rows: [3, 4, 5],
+				cols: [2, 0, 1]
+			});
+		});
+
+		test(`${env} - Cell navigation works with pinned columns and rows`, async function ({ app }) {
+			const { dataExplorer } = app.workbench;
+			const { keyboard } = app.code.driver.page;
+
+			// pin column 2
+			await dataExplorer.grid.pinColumn(2);
+			await dataExplorer.grid.expectColumnsToBePinned(['column2']);
+
+			// pin row 8
+			await dataExplorer.grid.pinRow(8);
+			await dataExplorer.grid.expectRowsToBePinned([8], indexOffset);
+
+			// verify navigation with keyboard is in right direction and doesn't skip cells
+			await dataExplorer.grid.clickCell(0, 0);
+
+			await keyboard.press('ArrowDown');
+			await dataExplorer.grid.expectCellToBeSelected(1, 0);
+
+			await keyboard.press('ArrowRight');
+			await dataExplorer.grid.expectCellToBeSelected(1, 1);
+
+			await keyboard.press('ArrowRight');
+			await dataExplorer.grid.expectCellToBeSelected(1, 2);
+		});
+
+		test(`${env} - Column sorting doesn't impact pin locations`, {
+			annotation: [
+				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9344' },
+			],
+		}, async function ({ app }) {
+			if (env !== 'DuckDB') { test.skip(); }  // Once issue 9344 is fixed, we can enable for R and Python
+			const { dataExplorer } = app.workbench;
+
+			// pin column 4
+			await dataExplorer.grid.pinColumn(4);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
+
+			// pin row 5
+			await dataExplorer.grid.pinRow(5);
+			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
+
+			// sort by column 4
+			await dataExplorer.grid.sortColumnBy(4, 'Sort Descending');
+			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
 		});
 	});
-
-	test('Cell navigation works with pinned columns and rows', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
-		const { keyboard } = app.code.driver.page;
-
-		// pin column 2
-		await dataExplorer.grid.pinColumn(2);
-		await dataExplorer.grid.expectColumnsToBePinned(['column2']);
-
-		// pin row 8
-		await dataExplorer.grid.pinRow(8);
-		await dataExplorer.grid.expectRowsToBePinned([8]);
-
-		// verify navigation with keyboard is in right direction and doesn't skip cells
-		await dataExplorer.grid.clickCell(0, 0);
-
-		await keyboard.press('ArrowDown');
-		await dataExplorer.grid.expectCellToBeSelected(1, 0);
-
-		await keyboard.press('ArrowRight');
-		await dataExplorer.grid.expectCellToBeSelected(1, 1);
-
-		await keyboard.press('ArrowRight');
-		await dataExplorer.grid.expectCellToBeSelected(1, 2);
-	});
-
-	test("Column sorting doesn't impact pin locations", async function ({ app }) {
-		const { dataExplorer } = app.workbench;
-
-		// pin column 4
-		await dataExplorer.grid.pinColumn(4);
-		await dataExplorer.grid.expectColumnsToBePinned(['column4']);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
-
-		// pin row 5
-		await dataExplorer.grid.pinRow(5);
-		await dataExplorer.grid.expectRowsToBePinned([5]);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5);
-
-		// sort by column 4
-		await dataExplorer.grid.sortColumnBy(4, 'Sort Descending');
-		await dataExplorer.grid.expectRowsToBePinned([5]);
-		await dataExplorer.grid.expectColumnsToBePinned(['column4']);
-		await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5);
-		await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
-	});
-})
+}
