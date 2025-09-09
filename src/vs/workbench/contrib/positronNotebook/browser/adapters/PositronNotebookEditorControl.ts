@@ -37,7 +37,7 @@ import { PositronNotebookViewModel } from './PositronNotebookViewModel.js';
  */
 export class PositronNotebookEditorControl extends Disposable implements INotebookEditor {
 	//#region private properties
-	private _fontInfo: FontInfo | undefined;
+	private _fontInfo: FontInfo;
 	private _dimension?: DOM.Dimension;
 	private _layoutInfo: ISettableObservable<NotebookLayoutInfo>;
 
@@ -99,10 +99,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	) {
 		super();
 
-		const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
-		// TODO: Pass this dom node?
-		const activeWindow = DOM.getActiveWindow();
-		this._fontInfo = FontMeasurements.readFontInfo(activeWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(activeWindow).value));
+		this._fontInfo = this._generateFontInfo();
 		this._layoutInfo = observableValue('layoutInfo', {
 			width: this._dimension?.width ?? 0,
 			height: this._dimension?.height ?? 0,
@@ -127,8 +124,6 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	}
 
 	//#region Custom Public Methods
-	// TODO: Would be great if we could ensure textModel and therefore viewModel are always defined.
-	//       But need to rework some async handling that sets textModel in notebookInstance first.
 	public setTextModel(textModel: NotebookTextModel | undefined): void {
 		this._viewModelDisposables.clear();
 
@@ -253,6 +248,12 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	}
 
 	//#region Private methods
+	private _generateFontInfo() {
+		const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
+		const targetWindow = DOM.getWindow(this.getDomNode());
+		return FontMeasurements.readFontInfo(targetWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
+	}
+
 	private toPositronCells(cells?: Iterable<ICellViewModel>): IPositronNotebookCell[] {
 		const allPositronCells = this._notebookInstance.cells.get();
 		if (!cells) {
@@ -304,7 +305,10 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		return this._notebookInstance.textModel !== undefined;
 	}
 	getDomNode(): HTMLElement {
-		throw new Error('Method not implemented.');
+		if (!this._notebookInstance.cellsContainer) {
+			throw new Error('Notebook instance does not have a cells container');
+		}
+		return this._notebookInstance.cellsContainer;
 	}
 	getInnerWebview(): IWebviewElement | undefined {
 		throw new Error('Method not implemented.');
