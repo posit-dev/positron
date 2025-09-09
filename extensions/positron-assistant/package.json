@@ -179,6 +179,12 @@
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
         "icon": "$(stop)"
+      },
+      {
+        "command": "positron-assistant.toggleInlineCompletions",
+        "title": "%commands.toggleInlineCompletions.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [
@@ -208,6 +214,16 @@
             "type": "boolean",
             "default": true,
             "description": "%configuration.streamingEdits.enable%"
+          },
+          "positron.assistant.inlineCompletions.enable": {
+            "type": "object",
+            "default": {
+              "*": true
+            },
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "markdownDescription": "%configuration.inlineCompletions.enable.description%"
           },
           "positron.assistant.inlineCompletionExcludes": {
             "type": "array",
@@ -601,7 +617,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
-    "@github/copilot-language-server": "^1.335.0",
+    "@github/copilot-language-server": "^1.367.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
     "vscode-languageclient": "^9.0.1"
   },

@@ -117,7 +117,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     // For now, just use the full path, passed through JSON encoding
                     // to ensure that it is properly escaped.
                     if (fsStat) {
-                        const command = `%run ${JSON.stringify(filePath)}`;
+                        // Use -- to ensure everything after is treated as the path, not flags
+                        // This prevents paths with -m (or other dash options) from being misinterpreted
+                        const command = `%run -- ${JSON.stringify(filePath)}`;
                         positron.runtime.executeCode('python', command, false, true);
                     }
                 } catch (e) {

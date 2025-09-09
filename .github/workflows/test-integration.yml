@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       pull_request:
-        description: 'Is this a pull request run?'
+        description: "Is this a pull request run?"
         required: false
         default: false
         type: boolean
@@ -22,7 +22,7 @@ jobs:
   integration-tests:
     name: integration
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -68,7 +68,7 @@ jobs:
       - name: Setup R
         uses: ./.github/actions/install-r
         with:
-            version: "4.4.0"
+          version: "4.4.0"
 
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile

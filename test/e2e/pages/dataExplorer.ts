@@ -313,11 +313,11 @@ export class DataGrid {
 	 * Pin a row by its visual index
 	 * @param rowIndex (Index is 0-based)
 	 */
-	async pinRow(rowIndex: number) {
+	async pinRow(rowIndex: number, indexOffset = 0) {
 		await test.step(`Pin row at index ${rowIndex}`, async () => {
 			await this.code.driver.page
 				// rowIndex is 0-based, nth-child is 1-based
-				.locator(`.data-grid-row-headers > div:nth-child(${rowIndex + 1})`)
+				.locator(`.data-grid-row-headers > div:nth-child(${rowIndex + 1 + indexOffset})`)
 				.click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
 		});
@@ -570,7 +570,7 @@ export class DataGrid {
 		});
 	}
 
-	async expectRowsToBePinned(expectedRows: number[]) {
+	async expectRowsToBePinned(expectedRows: number[], indexOffset = 0) {
 		await test.step(`Verify pinned rows: ${expectedRows}`, async () => {
 			const pinnedRows = this.code.driver.page.locator('.data-grid-row-header.pinned');
 
@@ -582,7 +582,7 @@ export class DataGrid {
 
 			for (let i = 0; i < expectedRows.length; i++) {
 				const content = pinnedRows.nth(i).locator('.content');
-				await expect(content).toHaveText(String(expectedRows[i]));
+				await expect(content).toHaveText(String(expectedRows[i] + indexOffset));
 			}
 		});
 	}
@@ -594,12 +594,12 @@ export class DataGrid {
 		});
 	}
 
-	async expectRowOrderToBe(expectedOrder: number[]) {
+	async expectRowOrderToBe(expectedOrder: number[], indexOffset = 0) {
 		await test.step(`Verify row order: ${expectedOrder}`, async () => {
 			const rowHeaders = this.code.driver.page.locator('.data-grid-row-headers > .data-grid-row-header .content');
 			const actualOrder = await rowHeaders.allInnerTexts();
 			const actualOrderNumbers = actualOrder.map(text => parseInt(text, 10));
-			expect(actualOrderNumbers).toEqual(expectedOrder);
+			expect(actualOrderNumbers).toEqual(expectedOrder.map(num => num + indexOffset));
 		});
 	}
 

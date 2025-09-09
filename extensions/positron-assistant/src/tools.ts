@@ -134,11 +134,14 @@ export function registerAssistantTools(
 		 * @returns A vscode.PreparedToolInvocation object
 		 */
 		prepareInvocation: async (options, token) => {
+			const codeBlock = new vscode.MarkdownString();
+			codeBlock.appendCodeblock(options.input.code, options.input.language);
 
 			// Ask user for confirmation before proceeding
 			const result: vscode.PreparedToolInvocation = {
 				// The command (code to run)
-				invocationMessage: options.input.code,
+				// Now a Markdown string to enable rich code block rendering
+				invocationMessage: codeBlock,
 
 				// The language (used for syntax highlighting)
 				// language: options.input.language,
@@ -146,7 +149,9 @@ export function registerAssistantTools(
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
 					title: options.input.summary ?? vscode.l10n.t('Run Code'),
-					message: `\`\`\`${options.input.language}\n${options.input.code}\n\`\`\``
+					// Markdown string to enable rich code block rendering
+					// Standard string loses copy/apply in editor actions
+					message: codeBlock
 				},
 			};
 			return result;

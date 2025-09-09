@@ -11,6 +11,7 @@ import { ExtensionContext } from 'vscode';
 import { Command, DidChangeTextDocumentNotification, DidChangeTextDocumentParams, DidCloseTextDocumentNotification, DidOpenTextDocumentNotification, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, Middleware, NotebookDocumentMiddleware, NotificationType, RequestType, ServerOptions, TextDocumentItem, TransportKind } from 'vscode-languageclient/node';
 import { arch, platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { StoredModelConfig } from './config.js';
 
 interface EditorPluginInfo {
 	name: string;
@@ -88,6 +89,7 @@ namespace DidPartiallyAcceptCompletionNotification {
 
 /** Register the Copilot service. */
 export function registerCopilotService(context: ExtensionContext) {
+	// Use the singleton pattern to ensure only one CopilotService instance exists
 	const copilotService = CopilotService.create(context);
 	context.subscriptions.push(copilotService);
 }
@@ -100,13 +102,18 @@ export class CopilotService implements vscode.Disposable {
 
 	private _clientManager?: CopilotLanguageClientManager;
 
+	/** Current sign-in state. */
+	private _signedIn = false;
+	private readonly _onSignedInChanged = new vscode.EventEmitter<boolean>();
+	public readonly onSignedInChanged = this._onSignedInChanged.event;
+
 	/** The cancellation token for the current operation. */
 	private _cancellationToken: vscode.CancellationTokenSource | null = null;
 
 	/** Create the CopilotLanguageService singleton instance. */
 	public static create(context: ExtensionContext) {
 		if (CopilotService._instance) {
-			throw new Error('CopilotService was already created.');
+			return CopilotService._instance;
 		}
 		CopilotService._instance = new CopilotService(context);
 		return CopilotService._instance;
@@ -122,7 +129,16 @@ export class CopilotService implements vscode.Disposable {
 
 	private constructor(
 		private readonly _context: vscode.ExtensionContext,
-	) { }
+	) {
+		// Initialize signed-in state based on whether a copilot model is registered
+		this._signedIn = this.isModelRegistered();
+	}
+
+	/** Check if a copilot model is registered */
+	private isModelRegistered(): boolean {
+		const registeredModels = this._context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
+		return !!registeredModels?.find((modelConfig) => modelConfig.provider === 'copilot');
+	}
 
 	/** Get the Copilot language client. */
 	private client(): LanguageClient {
@@ -149,6 +165,19 @@ export class CopilotService implements vscode.Disposable {
 				version: packageJSON.version,
 			};
 			this._clientManager = new CopilotLanguageClientManager(executable, editorPluginInfo);
+
+			// Observe status changes to infer sign-in state
+			const client = this._clientManager.client;
+			this._disposables.push(
+				client.onNotification(DidChangeStatusNotification.type, (params: DidChangeStatusParams) => {
+					// Heuristic: Normal => signed in; Inactive => signed out
+					if (params.kind === StatusKind.Inactive) {
+						this.setSignedIn(false);
+					} else if (params.kind === StatusKind.Normal) {
+						this.setSignedIn(true);
+					}
+				})
+			);
 		}
 		return this._clientManager.client;
 	}
@@ -207,6 +236,8 @@ export class CopilotService implements vscode.Disposable {
 		if (cancelled) {
 			throw new vscode.CancellationError();
 		}
+
+		// Sign-in is considered successful when the model is registered in the config service
 	}
 
 	/** Sign out of Copilot. */
@@ -215,6 +246,7 @@ export class CopilotService implements vscode.Disposable {
 
 		try {
 			await client.sendRequest(SignOutRequest.type, {});
+			// Sign-out is considered successful when the model is deleted in the config service
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
@@ -223,6 +255,33 @@ export class CopilotService implements vscode.Disposable {
 				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of GitHub Copilot.'));
 			}
 			return false;
+		}
+	}
+
+	private setSignedIn(value: boolean): void {
+		// Update the session state only for event firing purposes
+		// The actual state is determined by checking if a model is registered
+		const previousValue = this._signedIn;
+		this._signedIn = value;
+		if (previousValue !== value) {
+			this._onSignedInChanged.fire(value);
+		}
+	}
+
+	public get isSignedIn(): boolean {
+		// Always check the persistent state to determine if signed in
+		return this.isModelRegistered();
+	}
+
+	/**
+	 * Refresh the signed-in state based on the current model registration status.
+	 * This should be called when a model is registered or deleted.
+	 */
+	public refreshSignedInState(): void {
+		const currentState = this.isModelRegistered();
+		if (this._signedIn !== currentState) {
+			this._signedIn = currentState;
+			this._onSignedInChanged.fire(currentState);
 		}
 	}
 
@@ -280,6 +339,11 @@ export class CopilotService implements vscode.Disposable {
 
 	dispose(): void {
 		this._disposables.forEach((disposable) => disposable.dispose());
+		this._onSignedInChanged.dispose();
+		this._clientManager?.dispose();
+
+		// Reset the singleton instance when disposing
+		CopilotService._instance = undefined;
 	}
 }
 
