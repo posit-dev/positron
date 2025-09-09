@@ -279,14 +279,20 @@ export class ChatStatus extends Disposable {
 				ariaLabel = localize('copilotDisabledStatus', "Copilot Disabled");
 			}
 
+			// --- Start Positron ---
+			// Dial back the treatment of 'signed out' a little bit, since
+			// everyone is going to be 'signed out' by default unless they are
+			// signed in to Copilot
 			// Signed out
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Unknown) {
 				const signedOutWarning = localize('notSignedIntoCopilot', "Signed out");
 
-				text = `$(copilot-not-connected) ${signedOutWarning}`;
+				// text = `$(copilot-not-connected) ${signedOutWarning}`;
+				text = `$(copilot-not-connected)`;
 				ariaLabel = signedOutWarning;
-				kind = 'prominent';
+				// kind = 'prominent';
 			}
+			// --- End Positron ---
 
 			// Free Quota Exceeded
 			else if (this.chatEntitlementService.entitlement === ChatEntitlement.Free && (chatQuotaExceeded || completionsQuotaExceeded)) {
@@ -588,16 +594,19 @@ class ChatStatusDashboard extends Disposable {
 			}
 		}
 
-		/*
 		// Settings
-		// {
-		// 	addSeparator(localize('settingsTitle', "Settings"));
+		{
+			const chatSentiment = this.chatEntitlementService.sentiment;
+			addSeparator(localize('codeCompletions', "Code Completions"), chatSentiment.installed && !chatSentiment.disabled && !chatSentiment.untrusted ? toAction({
+				id: 'workbench.action.openChatSettings',
+				label: localize('settingsLabel', "Settings"),
+				tooltip: localize('settingsTooltip', "Open Settings"),
+				class: ThemeIcon.asClassName(Codicon.settingsGear),
+				run: () => this.runCommandAndClose(() => this.commandService.executeCommand('workbench.action.openSettings', { query: `@id:${defaultChat.completionsEnablementSetting} @id:${defaultChat.nextEditSuggestionsSetting}` })),
+			}) : undefined);
 
-		// 	this.createSettings(this.element, disposables);
-		// }
-
-
-		// Remove Copilot
+			this.createSettings(this.element, disposables);
+		}
 
 		// Completions Snooze
 		if (canUseCopilot(this.chatEntitlementService)) {
@@ -605,6 +614,7 @@ class ChatStatusDashboard extends Disposable {
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), disposables);
 		}
 
+		/*
 		// New to Copilot / Signed out
 		{
 			const newUser = isNewUser(this.chatEntitlementService);
@@ -770,9 +780,6 @@ class ChatStatusDashboard extends Disposable {
 		return update;
 	}
 
-	// --- Start Positron ---
-	// Removed Settings section since it doesn't change Positron Assistant
-	// @ts-ignore
 	private createSettings(container: HTMLElement, disposables: DisposableStore): HTMLElement {
 		const modeId = this.editorService.activeTextEditorLanguageId;
 		const settings = container.appendChild($('div.settings'));
@@ -788,15 +795,19 @@ class ChatStatusDashboard extends Disposable {
 			}
 		}
 
+		// --- Start Positron ---
+		// Disable this setting since we don't currently support it in Positron Assistant
+		/*
 		// --- Next edit suggestions
 		{
 			const setting = append(settings, $('div.setting'));
 			this.createNextEditSuggestionsSetting(setting, localize('settings.nextEditSuggestions', "Next edit suggestions"), this.getCompletionsSettingAccessor(modeId), disposables);
 		}
+		*/
+		// --- End Positron ---
 
 		return settings;
 	}
-	// --- End Positron ---
 
 	private createSetting(container: HTMLElement, settingIdsToReEvaluate: string[], label: string, accessor: ISettingsAccessor, disposables: DisposableStore): Checkbox {
 		const checkbox = disposables.add(new Checkbox(label, Boolean(accessor.readSetting()), { ...defaultCheckboxStyles, hoverDelegate: nativeHoverDelegate }));
@@ -861,7 +872,12 @@ class ChatStatusDashboard extends Disposable {
 		};
 	}
 
-	private createNextEditSuggestionsSetting(container: HTMLElement, label: string, completionsSettingAccessor: ISettingsAccessor, disposables: DisposableStore): void {
+	// --- Start Positron ---
+	// Make this method public to prevent it from being marked unused.
+	//
+	// We don't support Next Edit Suggestions in Assistant yet.
+	// --- End Positron ---
+	public createNextEditSuggestionsSetting(container: HTMLElement, label: string, completionsSettingAccessor: ISettingsAccessor, disposables: DisposableStore): void {
 		const nesSettingId = defaultChat.nextEditSuggestionsSetting;
 		const completionsSettingId = defaultChat.completionsEnablementSetting;
 		const resource = EditorResourceAccessor.getOriginalUri(this.editorService.activeEditor, { supportSideBySide: SideBySideEditor.PRIMARY });
@@ -899,10 +915,7 @@ class ChatStatusDashboard extends Disposable {
 		}));
 	}
 
-	// --- Start Positron ---
-	// Made this method public to avoid unused private method warning
-	// --- End Positron ---
-	public createCompletionsSnooze(container: HTMLElement, label: string, disposables: DisposableStore): void {
+	private createCompletionsSnooze(container: HTMLElement, label: string, disposables: DisposableStore): void {
 		const isEnabled = () => {
 			const completionsEnabled = isCompletionsEnabled(this.configurationService);
 			const completionsEnabledActiveLanguage = isCompletionsEnabled(this.configurationService, this.editorService.activeTextEditorLanguageId);
