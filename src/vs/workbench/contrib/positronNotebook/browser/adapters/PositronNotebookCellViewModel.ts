@@ -5,6 +5,7 @@
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { Mimes } from '../../../../../base/common/mime.js';
+import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IEditorCommentsOptions } from '../../../../../editor/common/config/editorOptions.js';
 import { IPosition } from '../../../../../editor/common/core/position.js';
@@ -44,14 +45,15 @@ export class PositronNotebookCellViewModel extends Disposable implements ICellVi
 		private readonly viewType: string,
 		private readonly _cell: IPositronNotebookCell,
 		private readonly _notebookInstance: IPositronNotebookInstance,
-		initialNotebookLayoutInfo: NotebookLayoutInfo | null,
+		private readonly _notebookLayoutInfo: ISettableObservable<NotebookLayoutInfo>,
 		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
 
 		this._outputViewModels = this.model.outputs.map(output => new PositronCellOutputViewModel(this, output));
 
-		this._layoutInfo = {
+		const initialNotebookLayoutInfo = this._notebookLayoutInfo.get();
+		this._layoutInfo = observableValue('cellLayoutInfo', {
 			fontInfo: initialNotebookLayoutInfo?.fontInfo || null,
 			editorHeight: 0,
 			editorWidth: initialNotebookLayoutInfo
@@ -71,7 +73,7 @@ export class PositronNotebookCellViewModel extends Disposable implements ICellVi
 			bottomToolbarOffset: 0,
 			layoutState: CellLayoutState.Uninitialized,
 			estimatedHasHorizontalScrolling: false
-		};
+		});
 
 		this._commentOptions = this._configurationService.getValue<IEditorCommentsOptions>('editor.comments', { overrideIdentifier: this.language });
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
@@ -300,10 +302,10 @@ export class PositronNotebookCellViewModel extends Disposable implements ICellVi
 		this._focusInputInOutput = v;
 	}
 
-	private _layoutInfo: CodeCellLayoutInfo;
+	private _layoutInfo: ISettableObservable<CodeCellLayoutInfo>;
 
 	get layoutInfo() {
-		return this._layoutInfo;
+		return this._layoutInfo.get();
 	}
 
 	private _outputViewModels: ICellOutputViewModel[];

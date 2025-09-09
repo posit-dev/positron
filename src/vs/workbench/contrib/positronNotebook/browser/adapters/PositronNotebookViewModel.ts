@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { autorun } from '../../../../../base/common/observable.js';
+import { autorun, ISettableObservable } from '../../../../../base/common/observable.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { TrackedRangeStickiness } from '../../../../../editor/common/model.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -34,12 +34,14 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 	constructor(
 		private readonly _notebookInstance: IPositronNotebookInstance,
 		private readonly _notebook: NotebookTextModel,
+		private readonly _layoutInfo: ISettableObservable<NotebookLayoutInfo>,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		super();
 
+		// TODO: Should update view cells when base cells are added/removed/moved.
 		for (const cell of this._notebookInstance.cells.get()) {
-			const viewCell = this._instantiationService.createInstance(PositronNotebookCellViewModel, this._notebook.viewType, cell, this._notebookInstance, this.layoutInfo);
+			const viewCell = this._instantiationService.createInstance(PositronNotebookCellViewModel, this._notebook.viewType, cell, this._notebookInstance, this._layoutInfo);
 			this._viewCells.push(viewCell);
 		}
 
@@ -61,7 +63,7 @@ export class PositronNotebookViewModel extends Disposable implements INotebookVi
 		return this._viewCells;
 	}
 	get layoutInfo(): NotebookLayoutInfo {
-		throw new Error('Method not implemented.');
+		return this._layoutInfo.get();
 	}
 	get viewType(): string {
 		return this._notebook.viewType;

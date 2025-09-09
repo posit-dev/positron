@@ -2,14 +2,20 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+import * as DOM from '../../../../../base/browser/dom.js';
+import { PixelRatio } from '../../../../../base/browser/pixelRatio.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../base/common/lifecycle.js';
-import { autorun } from '../../../../../base/common/observable.js';
+import { autorun, ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { FontMeasurements } from '../../../../../editor/browser/config/fontMeasurements.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
+import { BareFontInfo, FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { Selection } from '../../../../../editor/common/core/selection.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { CellFindMatchWithIndex, IActiveNotebookEditor, IBaseCellEditorOptions, ICellOutputViewModel, ICellViewModel, IFocusNotebookCellOptions, IInsetRenderOutput, IModelDecorationsChangeAccessor, INotebookCellOverlayChangeAccessor, INotebookDeltaDecoration, INotebookEditor, INotebookEditorContribution, INotebookEditorMouseEvent, INotebookEditorOptions, INotebookEditorViewState, INotebookViewCellsUpdateEvent, INotebookViewModel, INotebookViewZoneChangeAccessor, INotebookWebviewMessage } from '../../../notebook/browser/notebookBrowser.js';
@@ -34,6 +40,10 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	 * The active cell's code editor.
 	 */
 	private _activeCodeEditor: ICodeEditor | undefined;
+
+	private _fontInfo: FontInfo | undefined;
+	private _dimension?: DOM.Dimension;
+	private _layoutInfo: ISettableObservable<NotebookLayoutInfo>;
 
 	private readonly _viewModel = this._register(new MutableDisposable<PositronNotebookViewModel>());
 	private readonly _viewModelDisposables = this._register(new DisposableStore());
@@ -87,38 +97,30 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 
 	constructor(
 		private readonly _notebookInstance: IPositronNotebookInstance,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super();
 
+		const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
+		// TODO: Pass this dom node?
+		const activeWindow = DOM.getActiveWindow();
+		this._fontInfo = FontMeasurements.readFontInfo(activeWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(activeWindow).value));
+		this._layoutInfo = observableValue('layoutInfo', {
+			width: this._dimension?.width ?? 0,
+			height: this._dimension?.height ?? 0,
+			scrollHeight: 0,
+			// TODO: Implement this
+			// scrollHeight: this._list?.getScrollHeight() ?? 0,
+			fontInfo: this._fontInfo,
+			stickyHeight: 0,
+			// TODO: Implement this
+			// stickyHeight: this._notebookStickyScroll?.getCurrentStickyHeight() ?? 0
+			listViewOffsetTop: 0
+		});
+
 		this._notebookEditorService.addNotebookEditor(this);
-
-		// TODO: Would be great if we could ensure textModel and therefore viewModel are always defined.
-		//       But need to rework some async handling that sets textModel in notebookInstance first.
-		const setTextModel = (textModel: NotebookTextModel | undefined) => {
-			this._viewModelDisposables.clear();
-
-			if (!textModel) {
-				this._viewModel.clear();
-				return;
-			}
-
-			const viewModel = this._instantiationService.createInstance(PositronNotebookViewModel, this._notebookInstance, textModel);
-			this._viewModel.value = viewModel;
-
-			// Forward view model events.
-			this._viewModelDisposables.add(viewModel.onDidChangeSelection(() => {
-				this._onDidChangeSelection.fire();
-			}));
-		};
-
-		if (this._notebookInstance.textModel) {
-			setTextModel(this._notebookInstance.textModel);
-		}
-		this._register(this._notebookInstance.onDidChangeTextModel((textModel) => {
-			setTextModel(textModel);
-		}));
 
 		// Update the active code editor when the notebook selection state changes.
 		this._register(autorun(reader => {
@@ -132,6 +134,28 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 			}
 		}));
 	}
+
+	//#region Custom Public Methods
+	// TODO: Would be great if we could ensure textModel and therefore viewModel are always defined.
+	//       But need to rework some async handling that sets textModel in notebookInstance first.
+	public setTextModel(textModel: NotebookTextModel | undefined): void {
+		this._viewModelDisposables.clear();
+
+		if (!textModel) {
+			this._viewModel.clear();
+			return;
+		}
+
+		const viewModel = this._instantiationService.createInstance(PositronNotebookViewModel, this._notebookInstance, textModel, this._layoutInfo);
+		this._viewModel.value = viewModel;
+
+		// Forward view model events.
+		this._viewModelDisposables.add(viewModel.onDidChangeSelection(() => {
+			this._onDidChangeSelection.fire();
+		}));
+	}
+
+	//#endregion Custom Public Methods
 
 	//#region readonly properties
 	/**
@@ -310,8 +334,12 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	focusElement(cell: ICellViewModel): void {
 		throw new Error('Method not implemented.');
 	}
+	/**
+	 * Gather info about editor layout such as width, height, and scroll behavior.
+	 * @returns The current layout info for the editor.
+	 */
 	getLayoutInfo(): NotebookLayoutInfo {
-		throw new Error('Method not implemented.');
+		return this._layoutInfo.get();
 	}
 	getVisibleRangesPlusViewportAboveAndBelow(): ICellRange[] {
 		throw new Error('Method not implemented.');
