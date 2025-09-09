@@ -272,7 +272,12 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		throw new Error('Method not implemented.');
 	}
 	getFocus(): ICellRange {
-		throw new Error('Method not implemented.');
+		// TODO: Is this necessarily the first selected cell?
+		const activeCell = this._notebookInstance.selectionStateMachine.getSelectedCells()[0];
+		if (activeCell) {
+			return { start: activeCell.index, end: activeCell.index + 1 };
+		}
+		return { start: 0, end: 0 };
 	}
 	setFocus(focus: ICellRange): void {
 		throw new Error('Method not implemented.');
@@ -467,7 +472,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		throw new Error('Method not implemented.');
 	}
 	getCellIndex(cell: ICellViewModel): number | undefined {
-		throw new Error('Method not implemented.');
+		return this._viewModel.value?.getCellIndex(cell);
 	}
 	getNextVisibleCellIndex(index: number): number | undefined {
 		throw new Error('Method not implemented.');
