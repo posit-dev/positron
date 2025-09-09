@@ -172,11 +172,12 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await dataExplorer.grid.expectCellToBeSelected(1, 2);
 		});
 
-		test.skip(`${env} - Column sorting doesn't impact pin locations`, {
+		test(`${env} - Column sorting doesn't impact pin locations`, {
 			annotation: [
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9344' },
 			],
 		}, async function ({ app }) {
+			if (env !== 'DuckDB') { test.skip(); }  // Once issue 9344 is fixed, we can enable for R and Python
 			const { dataExplorer } = app.workbench;
 
 			// pin column 4
