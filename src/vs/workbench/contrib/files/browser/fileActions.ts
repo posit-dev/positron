@@ -61,7 +61,6 @@ import { Categories } from '../../../../platform/action/common/actionCommonCateg
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { getPathForFile } from '../../../../platform/dnd/browser/dnd.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR } from '../../positronDataExplorerEditor/browser/positronDataExplorerContextKeys.js';
 
 export const NEW_FILE_COMMAND_ID = 'explorer.newFile';
 export const NEW_FILE_LABEL = nls.localize2('newFile', "New File...");
@@ -839,9 +838,7 @@ export class CompareWithClipboardAction extends Action2 {
 			title: CompareWithClipboardAction.LABEL,
 			f1: true,
 			category: Categories.File,
-			keybinding: {
-				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyC), weight: KeybindingWeight.WorkbenchContrib, when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR.negate()
-			},
+			keybinding: { primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyC), weight: KeybindingWeight.WorkbenchContrib },
 			metadata: {
 				description: nls.localize2('compareWithClipboardMeta', "Opens a new diff editor to compare the active file with the contents of the clipboard.")
 			}

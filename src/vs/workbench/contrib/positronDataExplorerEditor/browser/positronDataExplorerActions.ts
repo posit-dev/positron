@@ -816,7 +816,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 						POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
 						POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
 				),
-				weight: KeybindingWeight.EditorContrib,
+				weight: KeybindingWeight.WorkbenchContrib + 1,
 				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyC),
 			},
 			icon: Codicon.code,
