@@ -60,8 +60,8 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 				await hotKeys.showSecondarySidebar();
 				await variables.doubleClickVariableRow('df');
 			}
-			await dataExplorer.maximize(true);
 			await dataExplorer.waitForIdle();
+			await dataExplorer.maximize(true);
 		});
 
 		test.afterEach(async function ({ hotKeys }) {
