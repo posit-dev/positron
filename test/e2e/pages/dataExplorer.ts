@@ -639,8 +639,6 @@ export class SummaryPanel {
 	private sortFilter: Locator;
 	private columnSummary: Locator;
 	private columnSummaryName: Locator;
-	private actionBar: Locator;
-	private clearColumnSortingButton: Locator;
 	private verticalScrollbar: Locator;
 
 	constructor(private code: Code, private workbench: Workbench,) {
@@ -650,8 +648,6 @@ export class SummaryPanel {
 		this.sortFilter = this.summaryFilterBar.getByRole('button', { name: 'Sort summary row data' });
 		this.columnSummary = this.summaryPanel.locator('.column-summary');
 		this.columnSummaryName = this.columnSummary.locator('.column-name');
-		this.actionBar = this.code.driver.page.locator('.editor-action-bar');
-		this.clearColumnSortingButton = this.actionBar.getByRole('button', { name: 'Clear Column Sorting' });
 		this.verticalScrollbar = this.summaryPanel.locator('div.data-grid-scrollbar-slider');
 	}
 
