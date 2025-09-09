@@ -28,6 +28,7 @@ import { INotebookKernel } from '../../../notebook/common/notebookKernelService.
 import { ICellRange } from '../../../notebook/common/notebookRange.js';
 import { IWebviewElement } from '../../../webview/browser/webview.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { PositronNotebookViewModel } from './PositronNotebookViewModel.js';
 
 /**
@@ -252,23 +253,24 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	}
 
 	//#region Private methods
-	// private toPositronCells(cells?: Iterable<ICellViewModel>): IPositronNotebookCell[] {
-	// 	const allPositronCells = this._notebookInstance.cells.get();
-	// 	if (!cells) {
-	// 		return allPositronCells;
-	// 	}
+	private toPositronCells(cells?: Iterable<ICellViewModel>): IPositronNotebookCell[] {
+		const allPositronCells = this._notebookInstance.cells.get();
+		if (!cells) {
+			return allPositronCells;
+		}
 
-	// 	const positronCells: IPositronNotebookCell[] = [];
-	// 	for (const cell of cells) {
-	// 		// TODO: Worth making a map of handleId to cell for performance?
-	// 		const positronCell = allPositronCells.find(c => c.handleId === cell.handle);
-	// 		if (!positronCell) {
-	// 			throw new Error(`Cell with handleId ${cell.handle} not found in Positron notebook instance`);
-	// 		}
-	// 		positronCells.push(positronCell);
-	// 	}
-	// 	return positronCells;
-	// }
+		const positronCells: IPositronNotebookCell[] = [];
+		for (const cell of cells) {
+			// TODO: Worth making a map of handleId to cell for performance?
+			// TODO: Should we use index instead?
+			const positronCell = allPositronCells.find(c => c.handleId === cell.handle);
+			if (!positronCell) {
+				throw new Error(`Cell with handleId ${cell.handle} not found in Positron notebook instance`);
+			}
+			positronCells.push(positronCell);
+		}
+		return positronCells;
+	}
 	//#endregion
 
 	//#region Public methods
@@ -354,9 +356,8 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		throw new Error('Method not implemented.');
 	}
 	async executeNotebookCells(cells?: Iterable<ICellViewModel>): Promise<void> {
-		throw new Error('Method not implemented.');
-		// const positronCells = this.toPositronCells(cells);
-		// await this._notebookInstance.runCells(positronCells);
+		const positronCells = this.toPositronCells(cells);
+		await this._notebookInstance.runCells(positronCells);
 	}
 	cancelNotebookCells(cells?: Iterable<ICellViewModel>): Promise<void> {
 		throw new Error('Method not implemented.');
@@ -467,14 +468,23 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		throw new Error('Method not implemented.');
 	}
 	getContribution<T extends INotebookEditorContribution>(id: string): T {
-		throw new Error('Method not implemented.');
+		// TODO: Implement notebook editor contributions
+		return null as unknown as T;
 	}
 	getViewIndexByModelIndex(index: number): number {
 		throw new Error('Method not implemented.');
 	}
 	getCellsInRange(range?: ICellRange): ReadonlyArray<ICellViewModel> {
-		throw new Error('Method not implemented.');
+		const viewCells = this._viewModel.value?.viewCells ?? [];
+		if (!range) {
+			// Return all cells if no range is specified
+			return viewCells;
+		}
+		// Return cells within the specified range [start, end)
+		// Note: end is exclusive based on typical VS Code patterns
+		return viewCells.slice(range.start, range.end);
 	}
+
 	cellAt(index: number): ICellViewModel | undefined {
 		throw new Error('Method not implemented.');
 	}
