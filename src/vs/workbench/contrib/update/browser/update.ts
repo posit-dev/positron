@@ -104,7 +104,7 @@ function isMajorMinorUpdate(before: IPositronVersion, after: IPositronVersion): 
 export class ProductContribution implements IWorkbenchContribution {
 
 	// --- Start Positron ---
-	public static readonly KEY = 'releaseNotes/lastVersion';
+	public static readonly KEY = 'positronReleaseNotes/lastVersion';
 	// --- End Positron ---
 
 	constructor(
