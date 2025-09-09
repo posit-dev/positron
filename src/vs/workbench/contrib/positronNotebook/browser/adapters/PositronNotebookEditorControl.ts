@@ -36,11 +36,6 @@ import { PositronNotebookViewModel } from './PositronNotebookViewModel.js';
  */
 export class PositronNotebookEditorControl extends Disposable implements INotebookEditor {
 	//#region private properties
-	/**
-	 * The active cell's code editor.
-	 */
-	private _activeCodeEditor: ICodeEditor | undefined;
-
 	private _fontInfo: FontInfo | undefined;
 	private _dimension?: DOM.Dimension;
 	private _layoutInfo: ISettableObservable<NotebookLayoutInfo>;
@@ -123,15 +118,10 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		this._notebookEditorService.addNotebookEditor(this);
 
 		// Update the active code editor when the notebook selection state changes.
+		const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 		this._register(autorun(reader => {
-			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
 			selectionStateMachine.state.read(reader);
-
-			const editor = selectionStateMachine.getSelectedCells()[0]?.editor;
-			if (this._activeCodeEditor !== editor) {
-				this._activeCodeEditor = editor;
-				this._onDidChangeActiveEditor.fire(this);
-			}
+			this._onDidChangeActiveEditor.fire(this);
 		}));
 	}
 
@@ -247,7 +237,8 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	 */
 	public get activeCodeEditor(): ICodeEditor | undefined {
 		// Required for Composite Editor check. The interface should not be changed.
-		return this._activeCodeEditor;
+		const activeCell = this._notebookInstance.selectionStateMachine.getSelectedCells()[0];
+		return activeCell?.editor;
 	}
 
 	//#region Private methods
@@ -356,7 +347,13 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		throw new Error('Method not implemented.');
 	}
 	getActiveCell(): ICellViewModel | undefined {
-		throw new Error('Method not implemented.');
+		if (this._viewModel.value) {
+			const activeCell = this._notebookInstance.selectionStateMachine.getSelectedCells()[0];
+			if (activeCell) {
+				return this._viewModel.value.viewCells[activeCell.index];
+			}
+		}
+		return undefined;
 	}
 	layoutNotebookCell(cell: ICellViewModel, height: number): Promise<void> {
 		throw new Error('Method not implemented.');
