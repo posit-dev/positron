@@ -37,7 +37,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 	});
 
 	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
-	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings }) {
+	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings, python }) {
 		const folderName = addRandomNumSuffix('git-init');
 		await settings.set({ 'files.exclude': { '**/.git': false, '**/.gitignore': false } }, { waitMs: 1000 });
 
@@ -49,8 +49,6 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			pythonEnv: 'venv',
 			createPyprojectToml: true,
 		});
-
-		await app.workbench.modals.installIPyKernel();
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
@@ -77,7 +75,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await verifyPyprojectTomlCreated(app);
 	});
 
-	test('New env: Venv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test('New env: Venv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, python }) {
 		const folderName = addRandomNumSuffix('new-venv');
 
 		await createNewFolder(app, {
@@ -87,8 +85,6 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			pythonEnv: 'venv',
 			createPyprojectToml: false,
 		});
-
-		await app.workbench.modals.installIPyKernel();
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
