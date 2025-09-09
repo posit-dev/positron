@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { autorun } from '../../../../base/common/observable.js';
 import { ICompositeCodeEditor, IEditor } from '../../../../editor/common/editorCommon.js';
-import { SelectionState } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 /**
@@ -33,14 +33,10 @@ export class PositronNotebookEditorControl extends Disposable implements ICompos
 		super();
 
 		// Update the active code editor when the notebook selection state changes.
-		this._register(this._notebookInstance.selectionStateMachine.onNewState((state) => {
-			if (state.type === SelectionState.EditingSelection) {
-				this._activeCodeEditor = state.selectedCell.editor;
-			} else if (state.type === SelectionState.NoSelection) {
-				this._activeCodeEditor = undefined;
-			} else {
-				this._activeCodeEditor = state.selected[0]?.editor;
-			}
+		this._register(autorun(reader => {
+			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
+			selectionStateMachine.state.read(reader);
+			this._activeCodeEditor = selectionStateMachine.getSelectedCells()[0]?.editor;
 		}));
 	}
 
