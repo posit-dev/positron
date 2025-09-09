@@ -33,7 +33,7 @@ export interface IPositronNotebookCell extends Disposable {
 	kind: CellKind;
 
 	/**
-	 * The current index of the cell in the notebook
+	 * The current zero-based index of the cell in the notebook
 	 */
 	get index(): number;
 

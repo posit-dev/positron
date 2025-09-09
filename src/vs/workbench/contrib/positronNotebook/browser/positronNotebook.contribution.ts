@@ -435,10 +435,9 @@ registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllAbove',
 	handler: (cell, notebook) => {
 		const cells = notebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
 
 		// Run all code cells above the current cell
-		for (let i = 0; i < cellIndex; i++) {
+		for (let i = 0; i < cell.index; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();
@@ -466,10 +465,9 @@ registerCellCommand({
 		if (!notebook) { return; }
 
 		const cells = notebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
 
 		// Run all code cells below the current cell
-		for (let i = cellIndex + 1; i < cells.length; i++) {
+		for (let i = cell.index + 1; i < cells.length; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();

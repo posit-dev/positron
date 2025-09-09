@@ -94,7 +94,7 @@ export function registerCellCommand({
 		}
 
 		const cells = activeNotebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
+		const cellIndex = cell.index;
 		if (cellIndex === -1) {
 			return false;
 		}

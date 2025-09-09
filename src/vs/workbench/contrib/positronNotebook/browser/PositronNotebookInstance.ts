@@ -555,10 +555,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._assertTextModel();
 
 		if (referenceCell) {
-			const cellIndex = this.textModel.cells.indexOf(referenceCell.cellModel as NotebookCellTextModel);
+			const cellIndex = referenceCell.index;
 			index = cellIndex >= 0 ? cellIndex : null;
 		} else {
-			index = this.selectionStateMachine.getIndexOfSelectedCell();
+			index = this.selectionStateMachine.getSelectedCell()?.index ?? null;
 		}
 
 		if (index === null) {
@@ -599,7 +599,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Get indices and sort in descending order to avoid index shifting
 		const cellIndices = cellsToDelete
-			.map(cell => textModel.cells.indexOf(cell.cellModel as NotebookCellTextModel))
+			.map(cell => cell.index)
 			.filter(index => index >= 0)
 			.sort((a, b) => b - a);
 
@@ -969,7 +969,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		const cellIndex = this.textModel.cells.indexOf(targetCell.cellModel as NotebookCellTextModel);
+		const cellIndex = targetCell.index;
 		if (cellIndex === -1) {
 			return;
 		}
@@ -1157,7 +1157,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	pasteCellsAbove(): void {
 		const selection = this.selectionStateMachine.getSelectedCells();
 		if (selection.length > 0) {
-			const firstSelectedIndex = this.cells.get().indexOf(selection[0]);
+			const firstSelectedIndex = selection[0].index;
 			this.pasteCells(firstSelectedIndex);
 		} else {
 			this.pasteCells(0);
@@ -1177,7 +1177,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private getInsertionIndex(): number {
 		const selections = this.selectionStateMachine.getSelectedCells();
 		if (selections.length > 0) {
-			const lastSelectedIndex = this.cells.get().indexOf(selections[selections.length - 1]);
+			const lastSelectedIndex = selections[selections.length - 1].index;
 			return lastSelectedIndex + 1;
 		}
 		return this.cells.get().length;

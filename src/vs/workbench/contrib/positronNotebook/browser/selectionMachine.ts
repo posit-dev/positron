@@ -320,7 +320,7 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		const edgeCell = state.selected.at(up ? 0 : -1)!;
-		const indexOfEdgeCell = cells.indexOf(edgeCell);
+		const indexOfEdgeCell = edgeCell.index;
 		const nextCell = cells[indexOfEdgeCell + (up ? -1 : 1)];
 
 		if (!nextCell) {
