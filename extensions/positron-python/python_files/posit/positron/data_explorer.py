@@ -22,6 +22,9 @@ from typing import (
 
 import comm
 
+# Import ibis directly since we're using it in runtime code
+import ibis
+
 from ._data_explorer_internal import (
     _get_histogram_method,
     _get_histogram_numpy,
@@ -110,7 +113,6 @@ from .third_party import is_ibis, is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
-    import ibis
     import ibis.expr.types as ir
     import pandas as pd
     import polars as pl
@@ -2815,19 +2817,16 @@ class PyArrowView(DataExplorerTableView):
 
 def _ibis_summarize_number(col, options: FormatOptions):
     """Summarize a numeric column."""
-    # Convert to pandas for summary stats
-    pd_col = col.to_pandas()
-
     float_format = _get_float_formatter(options)
     min_val = max_val = median_val = mean_val = std_val = None
 
     try:
-        # Calculate basic stats
-        min_val = float_format(pd_col.min())
-        max_val = float_format(pd_col.max())
-        mean_val = float_format(pd_col.mean())
-        median_val = float_format(pd_col.median())
-        std_val = float_format(pd_col.std())
+        # Calculate basic stats using ibis methods directly
+        min_val = float_format(col.min().execute())
+        max_val = float_format(col.max().execute())
+        mean_val = float_format(col.mean().execute())
+        median_val = float_format(col.approx_median().execute())
+        std_val = float_format(col.std().execute())
     except Exception:
         # If we can't calculate some stats, return what we have
         pass
@@ -2843,12 +2842,9 @@ def _ibis_summarize_number(col, options: FormatOptions):
 
 def _ibis_summarize_string(col, _options: FormatOptions):
     """Summarize a string column."""
-    # Convert to pandas for summary stats
-    pd_col = col.to_pandas()
-
     try:
-        num_empty = (pd_col == "").sum()
-        num_unique = pd_col.nunique()
+        num_empty = col.eq("").sum().execute()
+        num_unique = col.nunique().execute()
         return _box_string_stats(num_empty, num_unique)
     except Exception:
         # Default values if we encounter errors
@@ -2857,13 +2853,12 @@ def _ibis_summarize_string(col, _options: FormatOptions):
 
 def _ibis_summarize_boolean(col, _options: FormatOptions):
     """Summarize a boolean column."""
-    # Convert to pandas for summary stats
-    pd_col = col.to_pandas()
-
     try:
-        null_count = pd_col.isna().sum()
-        true_count = pd_col.sum()
-        false_count = len(pd_col) - true_count - null_count
+        null_count = col.isna().sum().execute()
+        true_count = col.sum().execute()
+        # Count total rows in the column and subtract true and null counts
+        total_count = col.count().execute()
+        false_count = total_count - true_count - null_count
         return _box_boolean_stats(true_count, false_count)
     except Exception:
         # Default values if we encounter errors
@@ -2872,15 +2867,17 @@ def _ibis_summarize_boolean(col, _options: FormatOptions):
 
 def _ibis_summarize_date(col, _options: FormatOptions):
     """Summarize a date column."""
-    # Convert to pandas for summary stats
-    pd_col = col.to_pandas()
-
     try:
-        num_unique = pd_col.nunique()
-        min_date = pd_col.min()
-        max_date = pd_col.max()
+        # Get basic statistics using Ibis methods
+        num_unique = col.nunique().execute()
+        min_date = col.min().execute()
+        max_date = col.max().execute()
 
-        # Calculate mean and median dates
+        # For mean and median, we need to convert to integers, take the mean/median, and convert back
+        # Since Ibis doesn't have direct date mean/median operations that return dates
+        import pandas as pd
+
+        pd_col = col.to_pandas()
         mean_date = pd.to_datetime(pd_col.mean())
         median_date = pd.to_datetime(pd_col.median())
 
@@ -2892,19 +2889,21 @@ def _ibis_summarize_date(col, _options: FormatOptions):
 
 def _ibis_summarize_datetime(col, _options: FormatOptions):
     """Summarize a datetime column."""
-    # Convert to pandas for summary stats
-    pd_col = col.to_pandas()
-
     try:
-        num_unique = pd_col.nunique()
-        min_date = pd_col.min()
-        max_date = pd_col.max()
+        # Get basic statistics using Ibis methods
+        num_unique = col.nunique().execute()
+        min_date = col.min().execute()
+        max_date = col.max().execute()
 
-        # Calculate mean and median datetimes
+        # For mean and median, we still need pandas since Ibis doesn't have direct
+        # datetime mean/median operations that return datetimes
+        import pandas as pd
+
+        pd_col = col.to_pandas()
         mean_date = pd.to_datetime(pd_col.mean())
         median_date = pd.to_datetime(pd_col.median())
 
-        # Get timezone info
+        # Get timezone info from the pandas column
         timezone = getattr(pd_col.dtype, "tz", None)
         timezone_str = str(timezone) if timezone else None
 
@@ -2924,11 +2923,9 @@ def _ibis_summarize_datetime(col, _options: FormatOptions):
 
 def _ibis_summarize_object(col, _options: FormatOptions, type_display=ColumnDisplayType.Object):
     """Summarize an object column."""
-    # Convert to pandas for summary stats
-    pd_col = col.to_pandas()
-
     try:
-        num_unique = pd_col.nunique()
+        # Use Ibis nunique method directly
+        num_unique = col.nunique().execute()
         return _box_other_stats(num_unique, type_display=type_display)
     except Exception:
         # Default values if we encounter errors
@@ -2949,11 +2946,44 @@ class IbisView(DataExplorerTableView):
         self._pd_cache = None  # Cache for pandas conversion
         super().__init__(table, comm, state, job_queue, sql_string)
 
+    def get_state(self, _unused):
+        self._recompute_if_needed()
+
+        num_rows, num_columns = self.table.count().execute(), len(self.table.columns)
+
+        # Account for filters
+        if self.row_view_indices is not None:
+            filtered_num_rows = len(self.row_view_indices)
+        else:
+            filtered_num_rows = num_rows
+
+        if self.column_view_indices is not None:
+            filtered_num_columns = len(self.column_view_indices)
+        else:
+            filtered_num_columns = num_columns
+
+        return BackendState(
+            display_name=self.state.name,
+            table_shape=TableShape(
+                num_rows=filtered_num_rows,
+                num_columns=filtered_num_columns,
+            ),
+            table_unfiltered_shape=TableShape(num_rows=num_rows, num_columns=num_columns),
+            has_row_labels=self._has_row_labels,
+            column_filters=self.state.column_filters,
+            row_filters=self.state.row_filters,
+            sort_keys=self.state.sort_keys,
+            supported_features=self.FEATURES,
+        )
+
     def _update_schema_cache(self):
-        if self._should_cache_schema(self.table) and self.state.schema_cache is None:
-            self.state.schema_cache = [
-                self._get_single_column_schema(i) for i in range(len(self.table.columns))
-            ]
+        try:
+            if self._should_cache_schema(self.table) and self.state.schema_cache is None:
+                self.state.schema_cache = [
+                    self._get_single_column_schema(i) for i in range(len(self.table.columns))
+                ]
+        except Exception as err:
+            print(err)
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -3047,36 +3077,37 @@ class IbisView(DataExplorerTableView):
         else:
             return ColumnDisplayType.Object
 
-    def _get_data_values(
-        self,
-        selections: list[ColumnSelection],
-        format_options: FormatOptions,
-    ) -> dict:
-        """Get data values for selected columns."""
-        # Convert to pandas for data retrieval
-        df = self._to_pandas()
+    def _query_with_row_selection(self, col_expr, indices):
+        """Helper method to select specific rows from an Ibis column expression."""
+        # Create a table with just the rows we need
+        # This works by first getting a row_number and then filtering
+        # to only the rows in our indices list
+        table_expr = self.table
 
-        formatted_columns = []
-        for selection in selections:
-            col_name = self.table.columns[selection.column_index]
-            col = df[col_name]
-            spec = selection.spec
+        # Convert indices to a list to ensure we have a concrete sequence
+        if not isinstance(indices, list):
+            indices = list(indices)
 
-            if isinstance(spec, DataSelectionRange):
-                if self.row_view_indices is not None:
-                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
-                    values = col.iloc[view_slice]
-                else:
-                    values = col.iloc[spec.first_index : spec.last_index + 1]
-            else:
-                if self.row_view_indices is not None:
-                    values = col.iloc[self.row_view_indices].iloc[spec.indices]
-                else:
-                    values = col.iloc[spec.indices]
+        if not indices:  # Handle empty indices case
+            # Return an empty result
+            return col_expr.filter(False)
 
-            formatted_columns.append(self._format_values(values, format_options))
-
-        return {"columns": formatted_columns}
+        # Create a computed column with row numbers
+        row_idx_col = "row_idx"
+        try:
+            # Try using ibis row_number window function
+            ibis_table = table_expr.mutate(
+                row_idx=lambda t: t.count().over(
+                    ibis.window(preceding=None, following=None, order_by=None)
+                )
+            )
+            # Filter to only the rows in our indices
+            filtered = ibis_table.filter(ibis_table[row_idx_col].isin(indices))
+            return filtered[col_expr.get_name()]
+        except (AttributeError, NotImplementedError):
+            # Fallback: Row filtering not properly supported in this Ibis backend
+            # This will force execution to use a pandas approach when needed
+            raise NotImplementedError("This Ibis backend doesn't support row selection by index")
 
     def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
         """Format values for display."""
@@ -3085,36 +3116,76 @@ class IbisView(DataExplorerTableView):
 
         def _format_value(x):
             import numpy as np
+            import pandas as pd
 
+            # Handle Ibis scalar values if they come through
+            # Ibis scalars are automatically evaluated when accessed in Python
             if pd.isna(x):
-                return 0  # _VALUE_NULL
+                return _VALUE_NULL
             elif isinstance(x, float):
                 if np.isnan(x):
-                    return 2  # _VALUE_NAN
+                    return _VALUE_NAN
                 elif np.isinf(x):
-                    return 10 if x > 0 else 11  # _VALUE_INF or _VALUE_NEGINF
+                    return _VALUE_INF if x > 0 else _VALUE_NEGINF
                 else:
                     return float_format(x)
+            elif x is None:
+                return _VALUE_NONE
+            elif x is pd.NaT:
+                return _VALUE_NAT
+            elif x is pd.NA:
+                return _VALUE_NA
             else:
                 return _safe_stringify(x, max_length)
 
         return [_format_value(x) for x in values]
 
     def _prof_null_count(self, column_index: int) -> int:
-        """Count null values in a column."""
-        df = self._to_pandas()
+        """Count null values in a column using Ibis methods."""
+        # Get the column expression
         col_name = self.table.columns[column_index]
+        col = self.table[col_name]
 
+        # Count nulls using Ibis methods
         if self.filtered_indices is not None:
-            return df[col_name].iloc[self.filtered_indices].isna().sum()
+            # For filtered data, we need pandas
+            result_df = self._to_pandas()
+            return result_df[col_name].iloc[self.filtered_indices].isna().sum()
         else:
-            return df[col_name].isna().sum()
+            # For full table, we can use Ibis directly
+            return col.isnull().sum().execute()
 
     def _get_column(self, column_index: int):
         """Get a column by index."""
         col_name = self.table.columns[column_index]
-        col = self.table[col_name]
-        return col
+        return self.table[col_name]
+
+    def _get_data_values(
+        self,
+        selections: list[ColumnSelection],
+        format_options: FormatOptions,
+    ) -> dict:
+        formatted_columns = []
+        for selection in selections:
+            col_name = self.table.columns[selection.column_index]
+            col = self.table[col_name].execute()
+            spec = selection.spec
+            if isinstance(spec, DataSelectionRange):
+                if self.row_view_indices is not None:
+                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
+                    values = col.gather(view_slice)
+                else:
+                    # No filtering or sorting, just slice
+                    values = col[spec.first_index : spec.last_index + 1]
+            else:
+                if self.row_view_indices is not None:
+                    values = col.gather(self.row_view_indices.gather(spec.indices))
+                else:
+                    values = col.gather(spec.indices)
+            formatted_columns.append(self._format_values(values, format_options))
+
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns}
 
     # Define which filters are supported
     SUPPORTED_FILTERS = frozenset(
@@ -3192,7 +3263,7 @@ class IbisView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         export_data_selection=ExportDataSelectionFeatures(
-            support_status=SupportStatus.Supported,
+            support_status=SupportStatus.Unsupported,
             supported_formats=[
                 ExportFormat.Csv,
                 ExportFormat.Tsv,
@@ -3200,8 +3271,8 @@ class IbisView(DataExplorerTableView):
             ],
         ),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Supported,
-            code_syntaxes=[CodeSyntaxName(code_syntax_name="ibis")],
+            support_status=SupportStatus.Unsupported,
+            code_syntaxes=[],
         ),
     )
 

@@ -1134,8 +1134,8 @@ class IbisDataFrameInspector(BaseTableInspector["ibis.Table", "ibis.Column"]):
 
         return (_maybe_truncate_string(display_value, level=level)[0], True)
 
-    def get_display_name(self, key: int) -> str:
-        return str(self.value.columns[key])
+    def get_display_name(self, key: str) -> str:
+        return str(key)
 
     def get_children(self):
         return self.value.columns
