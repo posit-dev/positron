@@ -71,16 +71,12 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			// verify copy and paste on columns
 			await dataExplorer.grid.clickColumnHeader('column3');
 			await clipboard.copy();
-			env === 'Polars'
-				? await clipboard.expectClipboardTextToBe(expectedData['col3'] + '\n')
-				: await clipboard.expectClipboardTextToBe(expectedData['col3']);
+			await clipboard.expectClipboardTextToBe(expectedData['col3'], '\n');
 
 			// verify copy and paste on rows
 			await dataExplorer.grid.clickRowHeader(9);
 			await clipboard.copy();
-			env === 'Polars'
-				? await clipboard.expectClipboardTextToBe(expectedData['row9'] + '\n')
-				: await clipboard.expectClipboardTextToBe(expectedData['row9']);
+			await clipboard.expectClipboardTextToBe(expectedData['row9'], '\n');
 
 			// verify copy and paste on cell
 			await dataExplorer.grid.clickCell(6, 2);
@@ -90,9 +86,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			// verify copy and paste on range
 			await dataExplorer.grid.selectRange({ start: { row: 0, col: 0 }, end: { row: 1, col: 1 } });
 			await clipboard.copy();
-			env === 'Polars'
-				? await clipboard.expectClipboardTextToBe(expectedData['col0_col1'] + '\n')
-				: await clipboard.expectClipboardTextToBe(expectedData['col0_col1']);
+			await clipboard.expectClipboardTextToBe(expectedData['col0_col1'], '\n');
 		})
 
 		test.skip(`${env} - Copy and Paste works with sorted data`, {
@@ -142,10 +136,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 
 			await dataExplorer.grid.clickUpperLeftCorner()
 			await clipboard.copy();
-			// For Polars we need to append a newline to the end of the expected data
-			env === 'Polars'
-				? await clipboard.expectClipboardTextToBe(expectedData['col4_col0_col1'] + '\n')
-				: await clipboard.expectClipboardTextToBe(expectedData['col4_col0_col1']);
+			await clipboard.expectClipboardTextToBe(expectedData['col4_col0_col1'], '\n')
 		});
 	})
 }

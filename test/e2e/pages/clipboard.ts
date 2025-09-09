@@ -34,13 +34,17 @@ export class Clipboard {
 
 		return clipboardText;
 	}
-
-	async expectClipboardTextToBe(expectedText: string): Promise<void> {
+	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string): Promise<void> {
 		await expect(async () => {
-			const clipboardText = await this.getClipboardText();
+			let clipboardText = await this.getClipboardText();
+
+			if (stripTrailingChar && clipboardText?.endsWith(stripTrailingChar)) {
+				clipboardText = clipboardText.slice(0, -1);
+			}
+
 			expect(clipboardText).toBe(expectedText);
 		}, { message: 'clipboard text to be...' }).toPass({ timeout: 20000 });
-	};
+	}
 
 	async setClipboardText(text: string): Promise<void> {
 		// Grant permissions to write to clipboard
