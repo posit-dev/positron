@@ -195,6 +195,12 @@ export class TableSummaryCache extends Disposable {
 		// Clear the trim cache timeout.
 		this.clearTrimCacheTimeout();
 
+		// If we have empty column indices and we're not invalidating the cache, skip the update.
+		// This can happen during UI state transitions (like resizing) when layoutHeight is 0.
+		if (updateDescriptor.columnIndices.length === 0 && !updateDescriptor.invalidateCache) {
+			return;
+		}
+
 		// If a cache update is already in progress, set the pending update descriptor and return.
 		// This allows cache updates that are happening in rapid succession to overwrite one another
 		// so that only the last one gets processed. (For example, this happens when a user drags a
@@ -268,8 +274,12 @@ export class TableSummaryCache extends Disposable {
 				// Release the trim cache timeout.
 				this._trimCacheTimeout = undefined;
 
-				// Trim the cache.
-				this.trimCache(new Set(columnIndices));
+				// Only trim the cache if we have actual column indices to preserve.
+				// This prevents accidentally clearing all cached data when columnIndices is an empty array
+				// which happens during UI state transitions (e.g., during resizing when layoutHeight is 0).
+				if (columnIndices.length > 0) {
+					this.trimCache(new Set(columnIndices));
+				}
 			}, TRIM_CACHE_TIMEOUT);
 		}
 	}

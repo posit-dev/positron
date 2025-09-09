@@ -210,10 +210,19 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
 		if (rowDescriptor) {
-			await this._tableSummaryCache.update({
-				invalidateCache: !!invalidateCache,
-				columnIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR),
-			})
+			// Get the layout indices for visible data.
+			const columnIndices = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR);
+
+			// Only update the cache if layout indices array is not empty.
+			// This avoids accidentally clearing the cache during UI state
+			// transitions (like resizing) which cause layout indices to be
+			// temporarily empty.
+			if (columnIndices.length > 0 || invalidateCache) {
+				await this._tableSummaryCache.update({
+					invalidateCache: !!invalidateCache,
+					columnIndices,
+				});
+			}
 		}
 	}
 
