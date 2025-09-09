@@ -156,8 +156,9 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		const deselectingCurrentSelection = (state.type === SelectionState.SingleSelection && state.selected.includes(cell))
-			|| (state.type === SelectionState.EditingSelection && state.selectedCell === cell);
+		const deselectingCurrentSelection = state.type === SelectionState.SingleSelection
+			|| state.type === SelectionState.EditingSelection
+			&& state.selectedCell === cell;
 
 		if (deselectingCurrentSelection) {
 			this._setState({ type: SelectionState.NoSelection });
@@ -165,19 +166,11 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		if (state.type === SelectionState.MultiSelection) {
-			const updatedCells = state.selected.filter(c => c !== cell);
-			if (updatedCells.length === 0) {
-				this._setState({ type: SelectionState.NoSelection });
-			} else if (updatedCells.length === 1) {
-				this._setState({ type: SelectionState.SingleSelection, selected: updatedCells });
-				// Focus the remaining cell
-				updatedCells[0]?.focus();
-			} else {
-				this._setState({ type: SelectionState.MultiSelection, selected: updatedCells });
-				// Focus the last cell in selection
-				const lastCell = updatedCells[updatedCells.length - 1];
-				lastCell?.focus();
-			}
+			const updatedSelection = state.selected.filter(c => c !== cell);
+			// Set focus on the last cell in the selection to avoid confusingly leaving selection
+			// styles on cell just deselected. Not sure if this is the best UX.
+			updatedSelection.at(-1)?.focus();
+			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
 		}
 
 		// If the cell is not in the selection, do nothing.
@@ -204,7 +197,7 @@ export class SelectionStateMachine extends Disposable {
 	 */
 	enterEditor(): void {
 		const state = this._state.get();
-		if (state.type !== SelectionState.SingleSelection || state.selected.length === 0) {
+		if (state.type !== SelectionState.SingleSelection) {
 			return;
 		}
 
@@ -221,9 +214,7 @@ export class SelectionStateMachine extends Disposable {
 	 */
 	exitEditor(): void {
 		const state = this._state.get();
-		if (state.type !== SelectionState.EditingSelection) {
-			return;
-		}
+		if (state.type !== SelectionState.EditingSelection) { return; }
 		state.selectedCell.defocusEditor();
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
