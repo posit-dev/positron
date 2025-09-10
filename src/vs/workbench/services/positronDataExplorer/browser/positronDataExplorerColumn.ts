@@ -57,8 +57,7 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 	 * Gets the description.
 	 */
 	get description() {
-		// Show column label if available, otherwise show type
-		return this._columnSchema.column_label || this._columnSchema.type_name;
+		return this._columnSchema.type_name;
 	}
 
 	/**
