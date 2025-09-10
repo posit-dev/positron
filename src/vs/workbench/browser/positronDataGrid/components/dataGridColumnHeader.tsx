@@ -141,6 +141,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
+	// Render the column title
+	const renderedColumn = renderLeadingTrailingWhitespace(props.column?.name);
+
 	// Render.
 	return (
 		<div
