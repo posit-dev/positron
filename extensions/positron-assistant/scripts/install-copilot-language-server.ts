@@ -64,12 +64,13 @@ async function main() {
 		// On macOS, we need both the x64 and arm64 versions of the language
 		// server. By default npm just installs the one for the current CPU
 		// architecture.
-		if (platform() === 'darwin') {
+		if (platform() === 'darwin' && process.env.GITHUB_ACTIONS) {
 			console.log(`Installing ${packageName} (${targetArch})...`);
 
 			// Use --force to prevent npm from blocking the installation due to
-			// CPU architecture mismatch
-			const npmInstallCmd = `npm install ${packageName}@${npmVersion} --force`;
+			// CPU architecture mismatch, and --no-save to prevent modifying
+			// package.json/lock files
+			const npmInstallCmd = `npm install ${packageName}@${npmVersion} --force --no-save`;
 			console.log(npmInstallCmd);
 			execSync(npmInstallCmd, { stdio: 'inherit' });
 		}
