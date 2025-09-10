@@ -218,9 +218,6 @@ export class TableSummaryCache extends Disposable {
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
-		// Sort the column and row indices in the update descriptor.
-		updateDescriptor.columnIndices.sort((a, b) => a - b);
-
 		// Set the column indices of the column schema we need to load.
 		let columnIndices: number[];
 		if (updateDescriptor.invalidateCache) {
@@ -267,19 +264,16 @@ export class TableSummaryCache extends Disposable {
 			return this.update(pendingUpdateDescriptor);
 		}
 
-		// Schedule trimming the cache.
-		if (!updateDescriptor.invalidateCache) {
+		// Schedule trimming the cache if we have actual column indices to preserve.
+		// This prevents accidentally clearing all cached data when columnIndices is an empty array
+		// which happens during UI state transitions (e.g. during resizing when layoutHeight is 0).
+		if (!updateDescriptor.invalidateCache && columnIndices.length) {
 			// Set the trim cache timeout.
 			this._trimCacheTimeout = setTimeout(() => {
 				// Release the trim cache timeout.
 				this._trimCacheTimeout = undefined;
-
-				// Only trim the cache if we have actual column indices to preserve.
-				// This prevents accidentally clearing all cached data when columnIndices is an empty array
-				// which happens during UI state transitions (e.g., during resizing when layoutHeight is 0).
-				if (columnIndices.length > 0) {
-					this.trimCache(new Set(columnIndices));
-				}
+				// Trim the cache.
+				this.trimCache(new Set(columnIndices));
 			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
