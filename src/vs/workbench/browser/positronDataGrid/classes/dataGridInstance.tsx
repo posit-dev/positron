@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,12 +7,12 @@
 import { JSX } from 'react';
 
 // Other dependencies.
-import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IDataColumn } from '../interfaces/dataColumn.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { IColumnSortKey } from '../interfaces/columnSortKey.js';
+import { ILayoutEntry, LayoutManager } from './layoutManager.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { AnchorPoint } from '../../positronComponents/positronModalPopup/positronModalPopup.js';
-import { ILayoutEntry, LayoutManager } from '../../../services/positronDataExplorer/common/layoutManager.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 /**
@@ -72,6 +72,28 @@ type RowResizeOptions = | {
 	readonly minimumRowHeight: number;
 	readonly maximumRowHeight: number;
 };
+
+/**
+ * ColumnPinningOptions type.
+ */
+type ColumnPinningOptions = | {
+	readonly columnPinning: false;
+	readonly maximumPinnedColumns?: never;
+} | {
+	readonly columnPinning: true;
+	readonly maximumPinnedColumns: number;
+}
+
+/**
+ * RowPinningOptions type.
+ */
+type RowPinningOptions = | {
+	readonly rowPinning: false;
+	readonly maximumPinnedRows?: never;
+} | {
+	readonly rowPinning: true;
+	readonly maximumPinnedRows: number;
+}
 
 /**
  * ScrollbarOptions type.
@@ -143,6 +165,8 @@ type DataGridOptions =
 	DefaultSizeOptions &
 	ColumnResizeOptions &
 	RowResizeOptions &
+	ColumnPinningOptions &
+	RowPinningOptions &
 	ScrollbarOptions &
 	DisplayOptions &
 	CursorOptions &
@@ -155,6 +179,15 @@ type DataGridOptions =
 export interface ColumnDescriptor {
 	readonly columnIndex: number;
 	readonly left: number;
+	readonly width: number;
+}
+
+/**
+ * ColumnDescriptors interface.
+ */
+export interface ColumnDescriptors {
+	pinnedColumnDescriptors: ColumnDescriptor[];
+	unpinnedColumnDescriptors: ColumnDescriptor[];
 }
 
 /**
@@ -163,6 +196,15 @@ export interface ColumnDescriptor {
 export interface RowDescriptor {
 	readonly rowIndex: number;
 	readonly top: number;
+	readonly height: number;
+}
+
+/**
+ * RowDescriptors interface.
+ */
+export interface RowDescriptors {
+	pinnedRowDescriptors: RowDescriptor[];
+	unpinnedRowDescriptors: RowDescriptor[];
 }
 
 /**
@@ -202,7 +244,7 @@ export enum ColumnSelectionState {
 	None = 0,
 	Selected = 1,
 	SelectedLeft = 2,
-	SelectedRight = 4
+	SelectedRight = 4,
 }
 
 /**
@@ -212,7 +254,7 @@ export enum RowSelectionState {
 	None = 0,
 	Selected = 1,
 	SelectedTop = 8,
-	SelectedBottom = 16
+	SelectedBottom = 16,
 }
 
 /**
@@ -225,65 +267,66 @@ export enum MouseSelectionType {
 }
 
 /**
- * CellSelectionRange interface.
+ * CellSelectionIndexes class.
  */
-class CellSelectionRange {
+class CellSelectionIndexes {
+	/**
+	 * Gets the column indexes set.
+	 */
+	private readonly _columnIndexesSet: Set<number>;
+
+	/**
+	 * Gets the row indexes set.
+	 */
+	private readonly _rowIndexesSet: Set<number>;
+
+	/**
+	 * Gets the first column index.
+	 */
+	get firstColumnIndex() {
+		return this.columnIndexes[0];
+	}
+
+	/**
+	 * Gets the last column index.
+	 */
+	get lastColumnIndex() {
+		return this.columnIndexes[this.columnIndexes.length - 1];
+	}
+
+	/**
+	 * Gets the first row index.
+	 */
+	get firstRowIndex() {
+		return this.rowIndexes[0];
+	}
+
+	/**
+	 * Gets the last row index.
+	 */
+	get lastRowIndex() {
+		return this.rowIndexes[this.rowIndexes.length - 1];
+	}
+
 	/**
 	 * Constructor.
-	 * @param firstColumnIndex The first column index.
-	 * @param firstRowIndex The first row index.
-	 * @param lastColumnIndex The last column index.
-	 * @param lastRowIndex The last row index.
+	 * @param columnIndexes The column indices.
+	 * @param rowIndexes The row indices.
 	 */
-	constructor(
-		public firstColumnIndex: number,
-		public firstRowIndex: number,
-		public lastColumnIndex: number,
-		public lastRowIndex: number
-	) { }
+	constructor(public readonly columnIndexes: number[], public readonly rowIndexes: number[]) {
+		this._columnIndexesSet = new Set(columnIndexes);
+		this._rowIndexesSet = new Set(rowIndexes);
+	}
 
 	/**
 	 * Returns a value which indicates whether the specified column index and row index is contained
-	 * in the cell selection range
+	 * in the cell selection.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
-	 * @returns true if the column index and row index is contained in the cell selection range;
-	 * otherwise, false.
+	 * @returns true if the column index and row index is contained in the cell selection range; otherwise, false.
 	 */
 	contains(columnIndex: number, rowIndex: number) {
-		return columnIndex >= this.firstColumnIndex && columnIndex <= this.lastColumnIndex &&
-			rowIndex >= this.firstRowIndex && rowIndex <= this.lastRowIndex;
-	}
-}
-
-/**
- * SelectionRange interface.
- */
-class SelectionRange {
-	/**
-	 * Constructor.
-	 * @param firstIndex The first index.
-	 * @param lastIndex The last index.
-	 */
-	constructor(public firstIndex: number, public lastIndex: number) { }
-
-	/**
-	 * Returns a value which indicates whether the specified index is contained in the selection
-	 * range.
-	 * @param index The index.
-	 * @returns true if the index is contained in the selection range; otherwise, false.
-	 */
-	contains(index: number) {
-		return index >= this.firstIndex && index <= this.lastIndex;
-	}
-
-	indexes() {
-		const indexes: number[] = [this.lastIndex - this.firstIndex];
-		for (let index = this.firstIndex; index <= this.lastIndex; index++) {
-			indexes.push(index);
-		}
-
-		return new SelectionIndexes(indexes);
+		return this._columnIndexesSet.has(columnIndex) && this._rowIndexesSet.has(rowIndex);
 	}
 }
 
@@ -292,69 +335,39 @@ class SelectionRange {
  */
 class SelectionIndexes {
 	/**
-	 * Gets or sets the indexes.
+	 * Gets the indexes set.
 	 */
-	readonly indexes = new Set<number>();
+	private readonly _indexesSet = new Set<number>();
+
+	/**
+	 * Gets the first column index.
+	 */
+	get firstIndex() {
+		return this.indexes[0];
+	}
+
+	/**
+	 * Gets the last index.
+	 */
+	get lastIndex() {
+		return this.indexes[this.indexes.length - 1];
+	}
 
 	/**
 	 * Constructor.
-	 * @param indexes The initial indexes.
+	 * @param indexes The indexes.
 	 */
-	constructor(indexes: number | number[]) {
-		if (Array.isArray(indexes)) {
-			indexes.forEach(index => this.indexes.add(index));
-		} else {
-			this.indexes.add(indexes);
-		}
+	constructor(public readonly indexes: number[]) {
+		this._indexesSet = new Set(indexes);
 	}
 
 	/**
-	 * Determines whether the selection indexes has the specified index.
+	 * Determines whether the selection indexes contains the specified index.
 	 * @param index The index.
-	 * @returns true, if the selection indexes has the specified index; otherwise, false.
+	 * @returns true, if the selection indexes contains the specified index; otherwise, false.
 	 */
-	has(index: number) {
-		return this.indexes.has(index);
-	}
-
-	/**
-	 * Returns a value which indicates whether the selection indexes is empty.
-	 * @returns true, if the selection indexes is empty; otherwise, false.
-	 */
-	isEmpty() {
-		return this.indexes.size === 0;
-	}
-
-	/**
-	 * Adds the specified index to the selection indexes.
-	 * @param index The index.
-	 */
-	add(index: number) {
-		this.indexes.add(index);
-	}
-
-	/**
-	 * Deletes the specified index from the set of selection indexes.
-	 * @param index The index.
-	 */
-	delete(index: number) {
-		this.indexes.delete(index);
-	}
-
-	/**
-	 * Returns the max selection index.
-	 * @returns The max selection index.
-	 */
-	max() {
-		return Math.max(...this.indexes);
-	}
-
-	/**
-	 * Returns the selection indexes as a sorted array.
-	 * @returns The selection indexes as a sorted array.
-	 */
-	sortedArray() {
-		return Array.from(this.indexes).sort((a, b) => a - b);
+	contains(index: number) {
+		return this._indexesSet.has(index);
 	}
 }
 
@@ -362,32 +375,26 @@ class SelectionIndexes {
  * ClipboardCell class.
  */
 export class ClipboardCell {
-	constructor(
-		readonly columnIndex: number,
-		readonly rowIndex: number
-	) { }
+	/**
+	 * Constructor.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 */
+	constructor(readonly columnIndex: number, readonly rowIndex: number) {
+	}
 }
 
 /**
- * ClipboardCellRange class.
+ * ClipboardCellIndexes class.
  */
-export class ClipboardCellRange {
-	constructor(
-		readonly firstColumnIndex: number,
-		readonly firstRowIndex: number,
-		readonly lastColumnIndex: number,
-		readonly lastRowIndex: number
-	) { }
-}
-
-/**
- * ClipboardColumnRange class.
- */
-export class ClipboardColumnRange {
-	constructor(
-		readonly firstColumnIndex: number,
-		readonly lastColumnIndex: number,
-	) { }
+export class ClipboardCellIndexes {
+	/**
+	 * Constructor.
+	 * @param columnIndexes The column indexes.
+	 * @param rowIndexes The row indexes.
+	 */
+	constructor(readonly columnIndexes: number[], readonly rowIndexes: number[]) {
+	}
 }
 
 /**
@@ -396,16 +403,6 @@ export class ClipboardColumnRange {
 export class ClipboardColumnIndexes {
 	constructor(
 		readonly indexes: number[]
-	) { }
-}
-
-/**
- * ClipboardRowRange class.
- */
-export class ClipboardRowRange {
-	constructor(
-		readonly firstRowIndex: number,
-		readonly lastRowIndex: number,
 	) { }
 }
 
@@ -423,10 +420,8 @@ export class ClipboardRowIndexes {
  */
 export type ClipboardData =
 	ClipboardCell |
-	ClipboardCellRange |
-	ClipboardColumnRange |
+	ClipboardCellIndexes |
 	ClipboardColumnIndexes |
-	ClipboardRowRange |
 	ClipboardRowIndexes;
 
 /**
@@ -515,6 +510,14 @@ export class ColumnSortKeyDescriptor implements IColumnSortKey {
 }
 
 /**
+ * Represents a position and its corresponding index.
+ */
+interface PositionIndex {
+	readonly position: number;
+	readonly index: number;
+}
+
+/**
  * DataGridInstance class.
  */
 export abstract class DataGridInstance extends Disposable {
@@ -584,6 +587,26 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the default row height.
 	 */
 	private readonly _defaultRowHeight: number;
+
+	/**
+	 * Gets a value which indicates whether column pinning is enabled.
+	 */
+	private readonly _columnPinning: boolean;
+
+	/**
+	 * Gets the maximum number of pinned columns.
+	 */
+	private readonly _maximumPinnedColumns: number;
+
+	/**
+	 * Gets a value which indicates whether row pinning is enabled.
+	 */
+	private readonly _rowPinning: boolean;
+
+	/**
+	 * Gets the maximum number of pinned rows.
+	 */
+	private readonly _maximumPinnedRows: number;
 
 	/**
 	 * Gets a value which indicates whether to show the horizontal scrollbar.
@@ -670,16 +693,6 @@ export abstract class DataGridInstance extends Disposable {
 	private _height = 0;
 
 	/**
-	 * The horizontal scroll offset.
-	 */
-	protected _horizontalScrollOffset = 0;
-
-	/**
-	 * The vertical scroll offset.
-	 */
-	protected _verticalScrollOffset = 0;
-
-	/**
 	 * Gets or sets the cursor column index.
 	 */
 	private _cursorColumnIndex = 0;
@@ -690,14 +703,9 @@ export abstract class DataGridInstance extends Disposable {
 	private _cursorRowIndex = 0;
 
 	/**
-	 * Gets or sets the cell selection range.
+	 * Gets or sets the cell selection indexes.
 	 */
-	private _cellSelectionRange?: CellSelectionRange;
-
-	/**
-	 * Gets or sets the column selection range.
-	 */
-	private _columnSelectionRange?: SelectionRange;
+	private _cellSelectionIndexes?: CellSelectionIndexes;
 
 	/**
 	 * Gets the column selection indexes.
@@ -705,18 +713,42 @@ export abstract class DataGridInstance extends Disposable {
 	private _columnSelectionIndexes?: SelectionIndexes;
 
 	/**
-	 * Gets or sets the row selection range.
-	 */
-	private _rowSelectionRange?: SelectionRange;
-
-	/**
 	 * Gets the row selection indexes.
 	 */
 	private _rowSelectionIndexes?: SelectionIndexes;
 
+	/**
+	 * A value which indicates that there is a pending onDidUpdate event.
+	 */
+	private _pendingOnDidUpdateEvent = false;
+
 	//#endregion Private Properties
 
+	//#region Private Events
+
+	/**
+	 * The onDidUpdate event emitter.
+	 */
+	private readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onDidChangeColumnSorting event emitter.
+	 */
+	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
+
+	//#endregion Private Events
+
 	//#region Protected Properties
+
+	/**
+	 * The horizontal scroll offset.
+	 */
+	protected _horizontalScrollOffset = 0;
+
+	/**
+	 * The vertical scroll offset.
+	 */
+	protected _verticalScrollOffset = 0;
 
 	/**
 	 * Gets the column layout manager.
@@ -729,25 +761,11 @@ export abstract class DataGridInstance extends Disposable {
 	protected readonly _rowLayoutManager: LayoutManager;
 
 	/**
-	 * Gets the column sort keys.
+	 * Gets the column sort keys. Keyed by column index.
 	 */
 	protected readonly _columnSortKeys = new Map<number, ColumnSortKeyDescriptor>();
 
 	//#endregion Protected Properties
-
-	//#region Protected Events
-
-	/**
-	 * The onDidUpdate event emitter.
-	 */
-	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
-
-	/**
-	 * The onDidChangeColumnSorting event emitter.
-	 */
-	protected readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
-
-	//#endregion Protected Events
 
 	//#region Constructor & Dispose
 
@@ -781,6 +799,14 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
 		this._maximumRowHeight = options.maximumRowHeight ?? options.defaultRowHeight;
+
+		// ColumnPinningOptions.
+		this._columnPinning = options.columnPinning || false;
+		this._maximumPinnedColumns = this._columnPinning ? options.maximumPinnedColumns ?? 0 : 0;
+
+		// RowPinningOptions.
+		this._rowPinning = options.rowPinning || false;
+		this._maximumPinnedRows = this._rowPinning ? options.maximumPinnedRows ?? 0 : 0;
 
 		// ScrollbarOptions.
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
@@ -910,6 +936,34 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets a value which indicates whether column pinning is enabled
+	 */
+	get columnPinning() {
+		return this._columnPinning;
+	}
+
+	/**
+	 * Gets the maximum number of pinned columns.
+	 */
+	get maximumPinnedColumns() {
+		return this._maximumPinnedColumns;
+	}
+
+	/**
+	 * Gets a value which indicates whether row pinning is enabled
+	 */
+	get rowPinning() {
+		return this._rowPinning;
+	}
+
+	/**
+	 * Gets the maximum number of pinned rows.
+	 */
+	get maximumPinnedRows() {
+		return this._maximumPinnedRows;
+	}
+
+	/**
 	 * Gets a value which indicates whether to show the horizontal scrollbar.
 	 */
 	get horizontalScrollbar() {
@@ -1026,14 +1080,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the scroll width.
 	 */
 	get scrollWidth() {
-		return this._columnLayoutManager.size + this._scrollbarOverscroll;
+		return this._columnLayoutManager.unpinnedLayoutEntriesSize + this._scrollbarOverscroll;
 	}
 
 	/**
 	 * Gets the scroll height.
 	 */
 	get scrollHeight() {
-		return (this._rowsMargin * 2) + this._rowLayoutManager.size + this._scrollbarOverscroll;
+		return (this._rowsMargin * 2) + this._rowLayoutManager.unpinnedLayoutEntriesSize + this._scrollbarOverscroll;
 	}
 
 	/**
@@ -1054,16 +1108,25 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the layout width.
 	 */
 	get layoutWidth() {
-		// Calculate the layout width.
+		// Set the layout width.
 		let layoutWidth = this._width;
+
+		// If row headers are enabled, subtract the row headers width.
 		if (this.rowHeaders) {
 			layoutWidth -= this._rowHeadersWidth;
 		}
+
+		// If column pinning is enabled, subtract the pinned columns width.
+		if (this.columnPinning) {
+			layoutWidth -= this._columnLayoutManager.pinnedLayoutEntriesSize;
+		}
+
+		// If the vertical scrollbar is enabled, subtract the scrollbar width.
 		if (this._verticalScrollbar) {
 			layoutWidth -= this._scrollbarThickness;
 		}
 
-		// Done.
+		// Return the layout width.
 		return layoutWidth;
 	}
 
@@ -1078,16 +1141,25 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the layout height.
 	 */
 	get layoutHeight() {
-		// Calculate the layout height.
+		// Set the layout height.
 		let layoutHeight = this._height;
+
+		// If column headers are enabled, subtract the column headers height.
 		if (this.columnHeaders) {
 			layoutHeight -= this._columnHeadersHeight;
 		}
+
+		// If row pinning is enabled, subtract the pinned rows height.
+		if (this.rowPinning) {
+			layoutHeight -= this._rowLayoutManager.pinnedLayoutEntriesSize;
+		}
+
+		// If the horizontal scrollbar is enabled, subtract the scrollbar height.
 		if (this._horizontalScrollbar) {
 			layoutHeight -= this._scrollbarThickness;
 		}
 
-		// Done.
+		// Return the layout height.
 		return layoutHeight;
 	}
 
@@ -1135,7 +1207,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get firstColumn(): ColumnDescriptor | undefined {
 		// Get the first column layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
+		const layoutEntry = this._columnLayoutManager.findFirstUnpinnedLayoutEntry(this.horizontalScrollOffset);
 		if (!layoutEntry) {
 			return undefined;
 		}
@@ -1143,7 +1215,8 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the column descriptor for the first column.
 		return {
 			columnIndex: layoutEntry.index,
-			left: layoutEntry.start
+			left: layoutEntry.start,
+			width: layoutEntry.size,
 		};
 	}
 
@@ -1152,7 +1225,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get firstRow(): RowDescriptor | undefined {
 		// Get the first row layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		const layoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (!layoutEntry) {
 			return undefined;
 		}
@@ -1160,7 +1233,8 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the row descriptor for the first row.
 		return {
 			rowIndex: layoutEntry.index,
-			top: layoutEntry.start
+			top: layoutEntry.start,
+			height: layoutEntry.size,
 		};
 	}
 
@@ -1228,7 +1302,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._focused = focused;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1250,56 +1324,93 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets a column descriptor.
-	 * @param columnIndex The column index.
-	 * @returns The column descriptor, if found; otherwise, undefined.
+	 * Gets column descriptors.
+	 * @param horizontalOffset The horizontal offset of the unpinned column descriptors to return.
+	 * @param width The width of the unpinned column descriptors to return.
+	 * @returns The column descriptors.
 	 */
-	getColumn(columnIndex: number): ColumnDescriptor | undefined {
-		// Get the column layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
-		if (!layoutEntry) {
-			return undefined;
-		}
+	getColumnDescriptors(horizontalOffset: number, width: number): ColumnDescriptors {
+		// Get the pinned column descriptors.
+		const pinnedLayoutEntries = this._columnLayoutManager.pinnedLayoutEntries(width);
+		const pinnedColumnDescriptors = pinnedLayoutEntries.map((pinnedLayoutEntry): ColumnDescriptor => ({
+			columnIndex: pinnedLayoutEntry.index,
+			left: pinnedLayoutEntry.start,
+			width: pinnedLayoutEntry.size,
+		}));
 
-		// Return the column descriptor for the column.
+		// Calculate the total width of the pinned column descriptors.
+		const pinnedColumnDescriptorsWidth = (() => {
+			if (!pinnedColumnDescriptors.length) {
+				return 0;
+			} else {
+				const lastPinnedColumnDescriptor = pinnedColumnDescriptors[pinnedColumnDescriptors.length - 1];
+				return lastPinnedColumnDescriptor.left + lastPinnedColumnDescriptor.width;
+			}
+		})();
+
+		// Get the unpinned column descriptors.
+		const unpinnedLayoutEntries = this._columnLayoutManager.unpinnedLayoutEntries(horizontalOffset, width - pinnedColumnDescriptorsWidth);
+		const unpinnedColumnDescriptors = unpinnedLayoutEntries.map((pinnedLayoutEntry): ColumnDescriptor => ({
+			columnIndex: pinnedLayoutEntry.index,
+			left: pinnedColumnDescriptorsWidth + pinnedLayoutEntry.start,
+			width: pinnedLayoutEntry.size,
+		}));
+
+		// Return the column descriptors.
 		return {
-			columnIndex: layoutEntry.index,
-			left: layoutEntry.start
+			pinnedColumnDescriptors,
+			unpinnedColumnDescriptors,
 		};
 	}
 
 	/**
-	 * Gets a row descriptor.
-	 * @param columnIndex The row index.
-	 * @returns The row descriptor, if found; otherwise, undefined.
+	 * Gets row descriptors.
+	 * @param verticalOffset The vertical offset of the unpinned row descriptors to return.
+	 * @param layoutHeight The height of the unpinned row descriptors to return.
+	 * @returns The row descriptors.
 	 */
-	getRow(rowIndex: number): RowDescriptor | undefined {
-		// Get the row layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
-		if (!layoutEntry) {
-			return undefined;
-		}
+	getRowDescriptors(verticalOffset: number, layoutHeight: number): RowDescriptors {
+		// Get the pinned row descriptors.
+		const pinnedLayoutEntries = this._rowLayoutManager.pinnedLayoutEntries(layoutHeight);
+		const pinnedRowDescriptors = pinnedLayoutEntries.map((pinnedLayoutEntry): RowDescriptor => ({
+			rowIndex: pinnedLayoutEntry.index,
+			top: pinnedLayoutEntry.start,
+			height: pinnedLayoutEntry.size,
+		}))
 
-		// Return the row descriptor for the row.
+		// Calculate the total height of the pinned row descriptors.
+		const pinnedRowDescriptorsHeight = (() => {
+			if (!pinnedRowDescriptors.length) {
+				return 0;
+			} else {
+				const lastPinnedRowDescriptor = pinnedRowDescriptors[pinnedRowDescriptors.length - 1];
+				return lastPinnedRowDescriptor.top + lastPinnedRowDescriptor.height;
+			}
+		})();
+
+		// Get the unpinned row descriptors.
+		const unpinnedLayoutEntries = this._rowLayoutManager.unpinnedLayoutEntries(verticalOffset, layoutHeight - pinnedRowDescriptorsHeight);
+		const unpinnedRowDescriptors = unpinnedLayoutEntries.map((pinnedLayoutEntry): RowDescriptor => ({
+			rowIndex: pinnedLayoutEntry.index,
+			top: pinnedRowDescriptorsHeight + pinnedLayoutEntry.start,
+			height: pinnedLayoutEntry.size,
+		}));
+
+		// Return the row descriptors.
 		return {
-			rowIndex: layoutEntry.index,
-			top: layoutEntry.start
+			pinnedRowDescriptors,
+			unpinnedRowDescriptors,
 		};
 	}
 
 	/**
-	 * Gets the width of a column.
+	 * Gets the custom width of a column. This can be overridden by subclasses to provide
+	 * custom column widths (e.g., for fixed-width columns).
 	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
 	 */
-	getColumnWidth(columnIndex: number): number {
-		// Get the column layout entry. If it wasn't found, return 0.
-		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
-		if (!layoutEntry) {
-			return 0;
-		}
-
-		// Return the column width.
-		return layoutEntry.size;
+	getCustomColumnWidth(columnIndex: number): number | undefined {
+		return undefined;
 	}
 
 	/**
@@ -1315,28 +1426,13 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Set the column width override.
-		this._columnLayoutManager.setLayoutOverride(columnIndex, columnWidth);
+		this._columnLayoutManager.setSizeOverride(columnIndex, columnWidth);
 
 		// Fetch data.
 		await this.fetchData();
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-	}
-
-	/**
-	 * Gets the height of a row.
-	 * @param rowIndex The row index.
-	 */
-	getRowHeight(rowIndex: number) {
-		// Get the row layout entry. If it wasn't found, return 0.
-		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
-		if (!layoutEntry) {
-			return undefined;
-		}
-
-		// Return the row height.
-		return layoutEntry.size;
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1352,13 +1448,13 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Set the row height override.
-		this._rowLayoutManager.setLayoutOverride(rowIndex, rowHeight);
+		this._rowLayoutManager.setSizeOverride(rowIndex, rowHeight);
 
 		// Fetch data.
 		await this.fetchData();
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1366,40 +1462,59 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollPageUp() {
-		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
-		if (firstLayoutEntry && firstLayoutEntry.index > 1) {
-			// Find the layout entry that will be to first layout entry for the previous page.
-			let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
-			for (let index = firstLayoutEntry.index - 1; index >= 0; index--) {
-				// Get the layout entry.
-				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
-				if (layoutEntry) {
-					if (layoutEntry.start >= this.verticalScrollOffset - this.layoutHeight) {
-						lastFullyVisibleLayoutEntry = layoutEntry;
-					} else {
-						// Set the vertical scroll offset.
-						this.setVerticalScrollOffset(
-							lastFullyVisibleLayoutEntry?.start ?? layoutEntry.start
-						);
+		// Get the first unpinned layout entry.
+		const firstUnpinnedLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
+		if (firstUnpinnedLayoutEntry === undefined) {
+			return;
+		}
 
-						// Fetch data.
-						await this.fetchData();
+		// Get the first unpinned layout entry position.
+		const firstUnpinnedLayoutEntryPosition = this._rowLayoutManager.mapIndexToPosition(firstUnpinnedLayoutEntry.index);
+		if (firstUnpinnedLayoutEntryPosition === undefined) {
+			return;
+		}
 
-						// Fire the onDidUpdate event.
-						this._onDidUpdateEmitter.fire();
+		// Find the layout entry that will be the first layout entry for the previous page.
+		let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
+		for (let position = firstUnpinnedLayoutEntryPosition - 1; position >= 0; position--) {
+			// Get the index of the position.
+			const index = this._rowLayoutManager.mapPositionToIndex(position);
+			if (index === undefined) {
+				return;
+			}
 
-						// Done.
-						return;
-					}
-				}
+			// Get the layout entry.
+			const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
+			if (layoutEntry === undefined) {
+				return;
+			}
+
+			// Check if the layout entry is fully visible, note it; otherwise, scroll the viewport and return.
+			if (layoutEntry.start >= this.verticalScrollOffset - this.layoutHeight) {
+				lastFullyVisibleLayoutEntry = layoutEntry;
+			} else {
+				// Set the vertical scroll offset.
+				this.setVerticalScrollOffset(lastFullyVisibleLayoutEntry?.start ?? layoutEntry.start);
+
+				// Fetch data.
+				await this.fetchData();
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+
+				// Done.
+				return;
 			}
 		}
 
-		// Scroll to the top.
+		// If we drop through to here, scroll to the top.
 		this.setVerticalScrollOffset(0);
+
+		// Fetch data.
 		await this.fetchData();
-		this._onDidUpdateEmitter.fire();
+
+		// Fire the onDidUpdate event.
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1407,39 +1522,56 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollPageDown() {
-		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
-		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
+		// Get the first unpinned layout entry.
+		const firstUnpinnedLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
+		if (firstUnpinnedLayoutEntry === undefined) {
+			return;
+		}
 
-			// Find the layout entry that will be to first layout entry for the next page.
-			for (let index = firstLayoutEntry.index + 1; index < this.rows; index++) {
-				// Get the layout entry.
-				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
-				if (layoutEntry) {
-					if (layoutEntry.end >= this.verticalScrollOffset + this.layoutHeight) {
-						// Set the vertical scroll offset.
-						this.setVerticalScrollOffset(Math.min(
-							layoutEntry.start,
-							this.maximumVerticalScrollOffset
-						));
+		// Get the first unpinned layout entry position.
+		const firstUnpinnedLayoutEntryPosition = this._rowLayoutManager.mapIndexToPosition(firstUnpinnedLayoutEntry.index);
+		if (firstUnpinnedLayoutEntryPosition === undefined) {
+			return;
+		}
 
-						// Fetch data.
-						await this.fetchData();
+		// Scroll down to the next unpinned layout entry.
+		for (let position = firstUnpinnedLayoutEntryPosition + 1; position < this._rowLayoutManager.entryCount; position++) {
+			// Get the index of the position.
+			const index = this._rowLayoutManager.mapPositionToIndex(position);
+			if (index === undefined) {
+				return;
+			}
 
-						// Fire the onDidUpdate event.
-						this._onDidUpdateEmitter.fire();
+			// Get the layout entry.
+			const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
+			if (layoutEntry === undefined) {
+				return;
+			}
 
-						// Done.
-						return;
-					}
-				}
+			// If the layout entry ends at or beyond the viewport, scroll to it.
+			if (layoutEntry.end >= this.verticalScrollOffset + this.layoutHeight) {
+				// Set the vertical scroll offset.
+				this.setVerticalScrollOffset(Math.min(layoutEntry.start, this.maximumVerticalScrollOffset));
+
+				// Fetch data.
+				await this.fetchData();
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+
+				// Done.
+				return;
 			}
 		}
 
-		// Scroll to the bottom.
+		// If we drop through to here, scroll to the bottom.
 		this.setVerticalScrollOffset(this.maximumVerticalScrollOffset);
+
+		// Fetch data.
 		await this.fetchData();
-		this._onDidUpdateEmitter.fire();
+
+		// Fire the onDidUpdate event.
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1467,11 +1599,14 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
+		// Clear selection.
+		this.clearSelection();
+
 		// Fire the onDidChangeColumnSorting event.
 		this._onDidChangeColumnSortingEmitter.fire(true);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 
 		// Sort the data.
 		await this.doSortData();
@@ -1499,11 +1634,14 @@ export abstract class DataGridInstance extends Disposable {
 				}
 			});
 
+			// Clear selection.
+			this.clearSelection();
+
 			// Fire the onDidChangeColumnSorting event.
 			this._onDidChangeColumnSortingEmitter.fire(this._columnSortKeys.size > 0);
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 
 			// Sort the data.
 			await this.doSortData();
@@ -1518,11 +1656,14 @@ export abstract class DataGridInstance extends Disposable {
 		// Clear column sort keys.
 		this._columnSortKeys.clear();
 
+		// Clear selection.
+		this.clearSelection();
+
 		// Fire the onDidChangeColumnSorting event.
 		this._onDidChangeColumnSortingEmitter.fire(false);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 
 		// Sort the data.
 		await this.doSortData();
@@ -1543,7 +1684,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1570,7 +1711,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1596,7 +1737,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1614,7 +1755,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1632,10 +1773,9 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
-
 
 	/**
 	 * Sets the cursor position.
@@ -1643,15 +1783,13 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param cursorRowIndex The cursor row index.
 	 */
 	setCursorPosition(cursorColumnIndex: number, cursorRowIndex: number) {
-		if (cursorColumnIndex !== this._cursorColumnIndex ||
-			cursorRowIndex !== this._cursorRowIndex
-		) {
+		if (cursorColumnIndex !== this._cursorColumnIndex || cursorRowIndex !== this._cursorRowIndex) {
 			// Set the cursor position.
 			this._cursorColumnIndex = cursorColumnIndex;
 			this._cursorRowIndex = cursorRowIndex;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1665,7 +1803,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._cursorColumnIndex = cursorColumnIndex;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1679,8 +1817,188 @@ export abstract class DataGridInstance extends Disposable {
 			this._cursorRowIndex = cursorRowIndex;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
+	}
+
+	/**
+	 * Gets the first column index.
+	 */
+	get firstColumnIndex() {
+		return this._columnLayoutManager.firstIndex;
+	}
+
+	/**
+	 * Gets the last column index.
+	 */
+	get lastColummIndex() {
+		return this._columnLayoutManager.lastIndex;
+	}
+
+	/**
+	 * Gets the first row index.
+	 */
+	get firstRowIndex() {
+		return this._rowLayoutManager.firstIndex;
+	}
+
+	/**
+	 * Gets the last row index.
+	 */
+	get lastRowIndex() {
+		return this._rowLayoutManager.lastIndex;
+	}
+
+	/**
+	 * Returns a value which indicates whether the specified column is pinned.
+	 * @param columnIndex The column index.
+	 * @returns true if the specified column is pinned; otherwise, false.
+	 */
+	isColumnPinned(columnIndex: number) {
+		return this._columnLayoutManager.isPinnedIndex(columnIndex);
+	}
+
+	/**
+	 * Pins a column.
+	 * @param columnIndex The index of the column to pin.
+	 */
+	pinColumn(columnIndex: number) {
+		// If column pinning is enabled, and the maximum pinned columns limit has not been reached, pin the column.
+		if (this._columnPinning && this._columnLayoutManager.pinnedIndexesCount < this._maximumPinnedColumns && this._columnLayoutManager.pinIndex(columnIndex)) {
+			this.clearSelection();
+			this.fireOnDidUpdateEvent();
+		}
+	}
+
+	/**
+	 * Unpins a column.
+	 * @param columnIndex The index of the column to unpin.
+	 */
+	unpinColumn(columnIndex: number) {
+		// If column pinning is enabled, unpin the column.
+		if (this._columnPinning && this._columnLayoutManager.unpinIndex(columnIndex)) {
+			this.clearSelection();
+			this.fireOnDidUpdateEvent();
+		}
+	}
+
+	/**
+	 * Returns a value which indicates whether the specified row is pinned.
+	 * @param rowIndex The row index.
+	 * @returns true if the specified row is pinned; otherwise, false.
+	 */
+	isRowPinned(rowIndex: number) {
+		return this._rowLayoutManager.isPinnedIndex(rowIndex);
+	}
+
+	/**
+	 * Pins a row.
+	 * @param rowIndex The index of the row to pin.
+	 */
+	pinRow(rowIndex: number) {
+		// If row pinning is enabled, and the maximum pinned rows limit has not been reached, pin the row.
+		if (this._rowPinning && this._rowLayoutManager.pinnedIndexesCount < this._maximumPinnedRows && this._rowLayoutManager.pinIndex(rowIndex)) {
+			this.clearSelection();
+			this.fireOnDidUpdateEvent();
+		}
+	}
+
+	/**
+	 * Unpins a row.
+	 * @param rowIndex The index of the row to unpin.
+	 */
+	unpinRow(rowIndex: number) {
+		// If row pinning is enabled, unpin the row.
+		if (this._rowPinning && this._rowLayoutManager.unpinIndex(rowIndex)) {
+			this.clearSelection();
+			this.fireOnDidUpdateEvent();
+		}
+	}
+
+	/**
+	 * Moves the cursor up.
+	 */
+	moveCursorUp() {
+		// Get the previous row index using the row layout manager.
+		const previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex)
+
+		// If the previous row index is undefined, this means that the cursor is already at the top row.
+		if (previousRowIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor row index to the previous row index and fire the onDidUpdate event.
+		this._cursorRowIndex = previousRowIndex;
+
+		this.scrollToCursor()
+
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Moves the cursor down.
+	 */
+	moveCursorDown() {
+		// Get the next row index using the row layout manager.
+		const nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex)
+
+		// If the next row index is undefined, this means that the cursor is already at the bottom row.
+		if (nextRowIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor row index to the next row index and fire the onDidUpdate event.
+		this._cursorRowIndex = nextRowIndex;
+
+		// Scroll to the cursor.
+		this.scrollToCursor()
+
+		// Fire the onDidUpdate event.
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Moves the cursor left.
+	 */
+	moveCursorLeft() {
+		// Get the previous column index using the column layout manager.
+		const previousColumnIndex = this._columnLayoutManager.previousIndex(this._cursorColumnIndex)
+
+		// If the previous column index is undefined, this means that the cursor is already at the first column.
+		if (previousColumnIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor column index to the previous column index.
+		this._cursorColumnIndex = previousColumnIndex;
+
+		// Scroll to the cursor column index.
+		this.scrollToColumn(this._cursorColumnIndex);
+
+		// Fire the onDidUpdate event.
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Moves the cursor right.
+	 */
+	moveCursorRight() {
+		// Get the next column index using the column layout manager.
+		const nextColumnIndex = this._columnLayoutManager.nextIndex(this._cursorColumnIndex)
+
+		// If the next column index is undefined, this means that the cursor is already at the last column.
+		if (nextColumnIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor column index to the next column index.
+		this._cursorColumnIndex = nextColumnIndex;
+
+		// Scroll to the cursor column index.
+		this.scrollToColumn(this._cursorColumnIndex);
+
+		// Fire the onDidUpdate event.
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1729,7 +2047,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._verticalScrollOffset = rowLayoutEntry.start;
 			scrollOffsetUpdated = true;
 		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
-			this._verticalScrollOffset = rowIndex === this.rows - 1 ?
+			this._verticalScrollOffset = rowIndex === this._rowLayoutManager.lastIndex ?
 				this._verticalScrollOffset = this.maximumVerticalScrollOffset :
 				this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
 			scrollOffsetUpdated = true;
@@ -1741,7 +2059,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1750,7 +2068,12 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async scrollToColumn(columnIndex: number): Promise<void> {
+	async scrollToColumn(columnIndex: number) {
+		// If the column is pinned, return.
+		if (this._columnLayoutManager.isPinnedIndex(columnIndex)) {
+			return;
+		}
+
 		// Get the column layout entry. If it wasn't found, return.
 		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
 		if (!columnLayoutEntry) {
@@ -1770,6 +2093,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	async scrollToRow(rowIndex: number) {
+		// If the row is pinned, return.
+		if (this._rowLayoutManager.isPinnedIndex(rowIndex)) {
+			return;
+		}
+
 		// Get the row layout entry. If it wasn't found, return.
 		const rowLayoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
 		if (!rowLayoutEntry) {
@@ -1789,18 +2117,29 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	selectAll() {
 		// Clear cell selection.
-		this._cellSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 
-		// Clear column selection.
-		this._columnSelectionRange = undefined;
+		// Select all.
 		this._columnSelectionIndexes = undefined;
-
-		// Select all by selecting all rows. (We could have done this with selecting all columns.)
 		this._rowSelectionIndexes = undefined;
-		this._rowSelectionRange = new SelectionRange(0, this.rows - 1);
+
+		// Get the column indexes for all columns.
+		const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(0, this._columnLayoutManager.entryCount - 1);
+		if (columnIndexes === undefined) {
+			return;
+		}
+
+		// Get the row indexes for all rows.
+		const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(0, this._rowLayoutManager.entryCount - 1);
+		if (rowIndexes === undefined) {
+			return;
+		}
+
+		// Set the cell selection indexes.
+		this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1808,19 +2147,18 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
 	 * @param selectionType The mouse selection type.
-	 * @returns A Promise<void> that resolves when the operation is complete.
+	 * @returns A Promise<boolean> that resolves when the operation is complete.
 	 */
 	async mouseSelectCell(
 		columnIndex: number,
 		rowIndex: number,
+		pinned: boolean,
 		selectionType: MouseSelectionType
-	) {
+	): Promise<void> {
 		// Clear column selection.
-		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes = undefined;
 
 		// Clear row selection.
-		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
 
 		// Process the selection based on selection type.
@@ -1828,38 +2166,81 @@ export abstract class DataGridInstance extends Disposable {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Clear cell selection.
-				this._cellSelectionRange = undefined;
+				this._cellSelectionIndexes = undefined;
 
-				// Adjust the cursor and scroll to it.
+				// Adjust the cursor position.
 				this.setCursorPosition(columnIndex, rowIndex);
-				await this.scrollToCursor();
+
+				// If the cursor position isn't pinned, scroll to it.
+				if (!pinned) {
+					await this.scrollToCursor();
+				}
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
 			// Range selection.
 			case MouseSelectionType.Range: {
-				// Create a new cell selection range.
-				this._cellSelectionRange = new CellSelectionRange(
-					Math.min(this._cursorColumnIndex, columnIndex),
-					Math.min(this._cursorRowIndex, rowIndex),
-					Math.max(this._cursorColumnIndex, columnIndex),
-					Math.max(this._cursorRowIndex, rowIndex),
-				);
+				// Get the cursor column position.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined) {
+					return;
+				}
+
+				// Get the column position.
+				const columnPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
+				if (columnPosition === undefined) {
+					return;
+				}
+
+				// Get the cursor row position.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined) {
+					return;
+				}
+
+				// Get the row position.
+				const rowPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
+				if (rowPosition === undefined) {
+					return;
+				}
+
+				// Determine the first column position and the last column position.
+				const firstColumnPosition = Math.min(cursorColumnPosition, columnPosition);
+				const lastColumnPosition = Math.max(cursorColumnPosition, columnPosition);
+
+				// Determine the first row position and the last row position.
+				const firstRowPosition = Math.min(cursorRowPosition, rowPosition);
+				const lastRowPosition = Math.max(cursorRowPosition, rowPosition);
+
+				// Calculate the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Calculate the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
 
 				// Scroll the cell into view.
 				await this.scrollToCell(columnIndex, rowIndex);
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
 			// Multi selection.
 			case MouseSelectionType.Multi: {
-				// Not supported at this time. Do nothing.
+				// Not supported at this time. Silently succeed.
 				return;
 			}
 		}
@@ -1871,18 +2252,16 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	selectColumn(columnIndex: number) {
 		// Clear cell selection.
-		this._cellSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 
 		// Clear row selection.
-		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
 
 		// Single select the column.
-		this._columnSelectionRange = undefined;
-		this._columnSelectionIndexes = new SelectionIndexes(columnIndex);
+		this._columnSelectionIndexes = new SelectionIndexes([columnIndex]);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1893,10 +2272,9 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async mouseSelectColumn(columnIndex: number, selectionType: MouseSelectionType): Promise<void> {
 		// Clear cell selection.
-		this._cellSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 
 		// Clear row selection.
-		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
 
 		/**
@@ -1914,76 +2292,90 @@ export abstract class DataGridInstance extends Disposable {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Single select the column.
-				this._columnSelectionRange = undefined;
-				this._columnSelectionIndexes = new SelectionIndexes(columnIndex);
+				this._columnSelectionIndexes = new SelectionIndexes([columnIndex]);
 
-				// Adjust the cursor and update the waffle.
+				// Adjust the cursor and scroll to the column.
 				await adjustCursor(columnIndex);
 				await this.scrollToColumn(columnIndex);
+
+				// Fetch data.
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
 			// Range selection.
 			case MouseSelectionType.Range: {
-				// Clear individually-selected columns.
-				this._columnSelectionIndexes = undefined;
+				// Get the cursor column position.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined) {
+					return;
+				}
 
-				// Set the column selection range.
-				this._columnSelectionRange = new SelectionRange(
-					Math.min(this._cursorColumnIndex, columnIndex),
-					Math.max(this._cursorColumnIndex, columnIndex)
-				);
+				// Get the column position.
+				const columnPosition = this._columnLayoutManager.mapIndexToPosition(columnIndex);
+				if (columnPosition === undefined) {
+					return;
+				}
+
+				// Determine the first column position and the last column position.
+				const firstColumnPosition = Math.min(cursorColumnPosition, columnPosition);
+				const lastColumnPosition = Math.max(cursorColumnPosition, columnPosition);
+
+				// Calculate the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the column selection indexes.
+				this._columnSelectionIndexes = new SelectionIndexes(columnIndexes);
 
 				// Update the waffle.
 				await this.scrollToColumn(columnIndex);
+
+				// Fetch data.
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
 			// Multi selection.
 			case MouseSelectionType.Multi: {
-				// If the column index is part of the column selection range, ignore the event to
-				// preserve the user's selection.
-				if (this._columnSelectionRange?.contains(columnIndex)) {
-					return;
-				}
-
-				// Multi select the column.
-				if (this._columnSelectionIndexes?.has(columnIndex)) {
-					// Unselect the column.
-					this._columnSelectionIndexes.delete(columnIndex);
-					if (this._columnSelectionIndexes.isEmpty()) {
-						this._columnSelectionIndexes = undefined;
-					}
+				// Build the column selection indexes.
+				let indexes: number[] = [];
+				if (this._columnSelectionIndexes === undefined) {
+					indexes.push(columnIndex);
 				} else {
-					// Select the column.
-					if (this._columnSelectionIndexes) {
-						this._columnSelectionIndexes.add(columnIndex);
+					if (this._columnSelectionIndexes.contains(columnIndex)) {
+						indexes = this._columnSelectionIndexes.indexes.filter(index => index !== columnIndex);
 					} else {
-						if (!this._columnSelectionRange) {
-							this._columnSelectionIndexes = new SelectionIndexes(columnIndex);
-						} else {
-							this._columnSelectionIndexes = this._columnSelectionRange.indexes();
-							this._columnSelectionIndexes.add(columnIndex);
-							this._columnSelectionRange = undefined;
-						}
+						indexes = [...this._columnSelectionIndexes.indexes, columnIndex];
 					}
-
-					// Adjust the cursor and update the waffle.
-					await adjustCursor(columnIndex);
-					await this.scrollToColumn(columnIndex);
-					await this.fetchData();
 				}
+
+				// Set the column selection indexes.
+				if (indexes.length === 0) {
+					this._columnSelectionIndexes = undefined;
+				} else {
+					this._columnSelectionIndexes = new SelectionIndexes(indexes);
+				}
+
+				// Adjust the cursor.
+				await adjustCursor(columnIndex);
+
+				// Scroll to the column.
+				await this.scrollToColumn(columnIndex);
+
+				// Fetch data.
+				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 		}
@@ -1995,18 +2387,16 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	selectRow(rowIndex: number) {
 		// Clear cell selection.
-		this._cellSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 
 		// Clear column selection.
-		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes = undefined;
 
 		// Single select the row.
-		this._rowSelectionRange = undefined;
-		this._rowSelectionIndexes = new SelectionIndexes(rowIndex);
+		this._rowSelectionIndexes = new SelectionIndexes([rowIndex]);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -2017,10 +2407,9 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async mouseSelectRow(rowIndex: number, selectionType: MouseSelectionType): Promise<void> {
 		// Clear cell selection.
-		this._cellSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 
 		// Clear column selection.
-		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes = undefined;
 
 		/**
@@ -2038,76 +2427,90 @@ export abstract class DataGridInstance extends Disposable {
 			// Single selection.
 			case MouseSelectionType.Single: {
 				// Single select the row.
-				this._rowSelectionRange = undefined;
-				this._rowSelectionIndexes = new SelectionIndexes(rowIndex);
+				this._rowSelectionIndexes = new SelectionIndexes([rowIndex]);
 
-				// Adjust the cursor and update the waffle.
+				// Adjust the cursor and scroll to the row.
 				await adjustCursor(rowIndex);
 				await this.scrollToRow(rowIndex);
+
+				// Fetch data.
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
 			// Range selection.
 			case MouseSelectionType.Range: {
-				// Clear individually-selected rows.
-				this._rowSelectionIndexes = undefined;
+				// Get the cursor row position.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined) {
+					return;
+				}
 
-				// Set the row selection range.
-				this._rowSelectionRange = new SelectionRange(
-					Math.min(this._cursorRowIndex, rowIndex),
-					Math.max(this._cursorRowIndex, rowIndex)
-				);
+				// Get the row position.
+				const rowPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
+				if (rowPosition === undefined) {
+					return;
+				}
 
-				// Update the waffle.
+				// Determine the first row position and the last row position.
+				const firstRowPosition = Math.min(cursorRowPosition, rowPosition);
+				const lastRowPosition = Math.max(cursorRowPosition, rowPosition);
+
+				// Calculate the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the row selection indexes.
+				this._rowSelectionIndexes = new SelectionIndexes(rowIndexes);
+
+				// Scroll to the row.
 				await this.scrollToRow(rowIndex);
+
+				// Fetch data.
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
 			// Multi selection.
 			case MouseSelectionType.Multi: {
-				// If the row index is part of the row selection range, ignore the event to preserve
-				// the user's selection.
-				if (this._rowSelectionRange?.contains(rowIndex)) {
-					return;
-				}
-
-				// Multi select the row.
-				if (this._rowSelectionIndexes?.has(rowIndex)) {
-					// Unselect the row.
-					this._rowSelectionIndexes.delete(rowIndex);
-					if (this._rowSelectionIndexes.isEmpty()) {
-						this._rowSelectionIndexes = undefined;
-					}
+				// Build the row selection indexes.
+				let indexes: number[] = [];
+				if (this._rowSelectionIndexes === undefined) {
+					indexes.push(rowIndex);
 				} else {
-					// Select the row.
-					if (this._rowSelectionIndexes) {
-						this._rowSelectionIndexes.add(rowIndex);
+					if (this._rowSelectionIndexes.contains(rowIndex)) {
+						indexes = this._rowSelectionIndexes.indexes.filter(index => index !== rowIndex);
 					} else {
-						if (!this._rowSelectionRange) {
-							this._rowSelectionIndexes = new SelectionIndexes(rowIndex);
-						} else {
-							this._rowSelectionIndexes = this._rowSelectionRange.indexes();
-							this._rowSelectionIndexes.add(rowIndex);
-							this._rowSelectionRange = undefined;
-						}
+						indexes = [...this._rowSelectionIndexes.indexes, rowIndex];
 					}
-
-					// Adjust the cursor and update the waffle.
-					await adjustCursor(rowIndex);
-					await this.scrollToRow(rowIndex);
-					await this.fetchData();
 				}
+
+				// Set the row selection indexes.
+				if (indexes.length === 0) {
+					this._rowSelectionIndexes = undefined;
+				} else {
+					this._rowSelectionIndexes = new SelectionIndexes(indexes);
+				}
+
+				// Adjust the cursor.
+				await adjustCursor(rowIndex);
+
+				// Scroll to the row.
+				await this.scrollToRow(rowIndex);
+
+				// Fetch data.
+				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 		}
@@ -2119,67 +2522,139 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	extendColumnSelectionLeft(extendColumnSelectionBy: ExtendColumnSelectionBy) {
 		// If there is a row selection, do nothing.
-		if (this._rowSelectionRange || this._rowSelectionIndexes) {
+		if (this._rowSelectionIndexes) {
 			return;
 		}
 
 		// Process extend selection left based on what is currently selected.
 		if (this._columnSelectionIndexes) {
-			// Convert an individually selected column into a column selection range, if possible.
-			if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
-				if (this._cursorColumnIndex > 0) {
-					// Clear the individually-selected columns.
-					this._columnSelectionIndexes = undefined;
-
-					// Set the column selection range.
-					this._columnSelectionRange = new SelectionRange(
-						this._cursorColumnIndex - 1,
-						this._cursorColumnIndex
-					);
-
-					// Sroll to the column.
-					this.scrollToColumn(this._columnSelectionRange.firstIndex);
-
-					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+			// Extend column selection left.
+			if (this._columnSelectionIndexes.contains(this._cursorColumnIndex)) {
+				// Get the cursor column position. If it's undefined, or the first column position, return.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined || cursorColumnPosition === 0) {
+					return;
 				}
-			}
-		} else if (this._columnSelectionRange) {
-			// Expand or contract the column selection range, if possible.
-			if (this._cursorColumnIndex === this._columnSelectionRange.lastIndex) {
-				if (this._columnSelectionRange.firstIndex > 0) {
-					this._columnSelectionRange.firstIndex--;
-					this.scrollToColumn(this._columnSelectionRange.firstIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Get the previous column index.
+				const previousColumnIndex = this._columnLayoutManager.mapPositionToIndex(cursorColumnPosition - 1);
+				if (previousColumnIndex === undefined) {
+					return;
 				}
-			} else if (this._cursorColumnIndex === this._columnSelectionRange.firstIndex) {
-				this._columnSelectionRange.lastIndex--;
-				this.scrollToColumn(this._columnSelectionRange.lastIndex);
-				this._onDidUpdateEmitter.fire();
-			}
-		} else if (this._cellSelectionRange) {
-			// Expand or contract the cell selection range along the column axis, if possible.
-			if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
-				if (this._cellSelectionRange.firstColumnIndex > 0) {
-					this._cellSelectionRange.firstColumnIndex--;
-					this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Move the cursor to the previous column index.
+				this.setCursorColumn(previousColumnIndex);
+
+				// Update the column selection indexes.
+				if (!this._columnSelectionIndexes.contains(previousColumnIndex)) {
+					this._columnSelectionIndexes = new SelectionIndexes([previousColumnIndex, ...this._columnSelectionIndexes.indexes]);
 				}
-			} else if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
-				this._cellSelectionRange.lastColumnIndex--;
-				this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
-				this._onDidUpdateEmitter.fire();
+
+				// Sroll to the column.
+				this.scrollToColumn(previousColumnIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorColumnIndex > 0) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex - 1,
-				this._cursorRowIndex,
-				this._cursorColumnIndex,
-				this._cursorRowIndex
-			);
-			this.scrollToCell(this._cellSelectionRange.firstColumnIndex, this._cursorRowIndex);
-			this._onDidUpdateEmitter.fire();
+		} else if (this._cellSelectionIndexes) {
+			if (this._cursorColumnIndex === this._cellSelectionIndexes.lastColumnIndex) {
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (!firstColumnPosition) {
+					return;
+				}
+
+				// If the first column cannot be moved left, return.
+				if (!(firstColumnPosition > 0)) {
+					return;
+				}
+
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (lastColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition - 1, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[0]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorColumnIndex === this._cellSelectionIndexes.firstColumnIndex) {
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (firstColumnPosition === undefined) {
+					return;
+				}
+
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (lastColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition - 1);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[columnIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			}
+		} else {
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// If the cursor column position cannot be moved left, return.
+			if (!(cursorColumnPosition > 0)) {
+				return;
+			}
+
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (cursorRowPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition - 1, cursorColumnPosition)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(columnIndexes[columnIndexes.length - 1], this._cursorRowIndex);
+
+			// Fire the onDidUpdate event.
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2189,67 +2664,140 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	extendColumnSelectionRight(extendColumnSelectionBy: ExtendColumnSelectionBy) {
 		// If there is a row selection, do nothing.
-		if (this._rowSelectionRange || this._rowSelectionIndexes) {
+		if (this._rowSelectionIndexes) {
 			return;
 		}
 
 		// Process extend selection right based on what is currently selected.
 		if (this._columnSelectionIndexes) {
-			// Convert an individually selected column into a column selection range, if possible.
-			if (this._columnSelectionIndexes.has(this._cursorColumnIndex)) {
-				if (this._cursorColumnIndex < this.columns - 1) {
-					// Clear the individually-selected columns.
-					this._columnSelectionIndexes = undefined;
-
-					// Set the column selection range.
-					this._columnSelectionRange = new SelectionRange(
-						this._cursorColumnIndex,
-						this._cursorColumnIndex + 1
-					);
-
-					// Sroll to the column.
-					this.scrollToColumn(this._columnSelectionRange.lastIndex);
-
-					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+			// Extend column selection right.
+			if (this._columnSelectionIndexes.contains(this._cursorColumnIndex)) {
+				// Get the cursor column position. If it's undefined, or the last column position, return.
+				const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+				if (cursorColumnPosition === undefined || cursorColumnPosition === this._columnLayoutManager.entryCount - 1) {
+					return;
 				}
-			}
-		} else if (this._columnSelectionRange) {
-			// Expand or contract the column selection range, if possible.
-			if (this._cursorColumnIndex === this._columnSelectionRange.firstIndex) {
-				if (this._columnSelectionRange.lastIndex < this.columns - 1) {
-					this._columnSelectionRange.lastIndex++;
-					this.scrollToColumn(this._columnSelectionRange.lastIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Get the next column index.
+				const nextColumnIndex = this._columnLayoutManager.mapPositionToIndex(cursorColumnPosition + 1);
+				if (nextColumnIndex === undefined) {
+					return;
 				}
-			} else if (this._cursorColumnIndex === this._columnSelectionRange.lastIndex) {
-				this._columnSelectionRange.firstIndex++;
-				this.scrollToColumn(this._columnSelectionRange.firstIndex);
-				this._onDidUpdateEmitter.fire();
+
+				// Move the cursor to the next column index.
+				this.setCursorColumn(nextColumnIndex);
+
+				// Update the column selection indexes.
+				if (!this._columnSelectionIndexes.contains(nextColumnIndex)) {
+					this._columnSelectionIndexes = new SelectionIndexes([...this._columnSelectionIndexes.indexes, nextColumnIndex]);
+				}
+
+				// Sroll to the column.
+				this.scrollToColumn(nextColumnIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cellSelectionRange) {
+		} else if (this._cellSelectionIndexes) {
 			// Expand or contract the cell selection range along the column axis, if possible.
-			if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
-				if (this._cellSelectionRange.lastColumnIndex < this.columns - 1) {
-					this._cellSelectionRange.lastColumnIndex++;
-					this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
-					this._onDidUpdateEmitter.fire();
+			if (this._cursorColumnIndex === this._cellSelectionIndexes.firstColumnIndex) {
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (!lastColumnPosition) {
+					return;
 				}
-			} else if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
-				this._cellSelectionRange.firstColumnIndex++;
-				this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
-				this._onDidUpdateEmitter.fire();
+
+				// If the last column cannot be moved right, return.
+				if (!(lastColumnPosition < this._columnLayoutManager.entryCount - 1)) {
+					return;
+				}
+
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (firstColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition, lastColumnPosition + 1);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[columnIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorColumnIndex === this._cellSelectionIndexes.lastColumnIndex) {
+				// Get the first column position.
+				const firstColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstColumnIndex);
+				if (firstColumnPosition === undefined) {
+					return;
+				}
+
+				// Get the last column position.
+				const lastColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastColumnIndex);
+				if (lastColumnPosition === undefined) {
+					return;
+				}
+
+				// Build the column indexes.
+				const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(firstColumnPosition + 1, lastColumnPosition);
+				if (columnIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, this._cellSelectionIndexes.rowIndexes);
+
+				// Scroll to the column.
+				this.scrollToColumn(columnIndexes[columnIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorColumnIndex < this.columns - 1) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex,
-				this._cursorRowIndex,
-				this._cursorColumnIndex + 1,
-				this._cursorRowIndex
-			);
-			this.scrollToCell(this._cellSelectionRange.lastColumnIndex, this._cursorRowIndex);
-			this._onDidUpdateEmitter.fire();
+		} else {
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// If the cursor column position cannot be moved right, return.
+			if (!(cursorColumnPosition < this._columnLayoutManager.entryCount - 1)) {
+				return;
+			}
+
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (cursorRowPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition + 1)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(columnIndexes[columnIndexes.length - 1], this._cursorRowIndex);
+
+			// Fire the onDidUpdate event.
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2259,67 +2807,139 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	extendRowSelectionUp(extendRowSelectionBy: ExtendRowSelectionBy) {
 		// If there is a column selection, do nothing.
-		if (this._columnSelectionRange || this._columnSelectionIndexes) {
+		if (this._columnSelectionIndexes) {
 			return;
 		}
 
 		// Process extend selection up based on what is currently selected.
 		if (this._rowSelectionIndexes) {
-			// Convert an individually selected row into a row selection range, if possible.
-			if (this._rowSelectionIndexes.has(this._cursorRowIndex)) {
-				if (this._cursorRowIndex > 0) {
-					// Clear the individually-selected rows.
-					this._rowSelectionIndexes = undefined;
-
-					// Set the row selection range.
-					this._rowSelectionRange = new SelectionRange(
-						this._cursorRowIndex - 1,
-						this._cursorRowIndex
-					);
-
-					// Scroll the row into view.
-					this.scrollToRow(this._rowSelectionRange.firstIndex);
-
-					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+			// Extend row selection up.
+			if (this._rowSelectionIndexes.contains(this._cursorRowIndex)) {
+				// Get the cursor row position. If it's undefined, or the first row position, return.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined || cursorRowPosition === 0) {
+					return;
 				}
-			}
-		} else if (this._rowSelectionRange) {
-			// Expand or contract the row selection range, if possible.
-			if (this._cursorRowIndex === this._rowSelectionRange.lastIndex) {
-				if (this._rowSelectionRange.firstIndex > 0) {
-					this._rowSelectionRange.firstIndex--;
-					this.scrollToRow(this._rowSelectionRange.firstIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Get the previous row index.
+				const previousRowIndex = this._rowLayoutManager.mapPositionToIndex(cursorRowPosition - 1);
+				if (previousRowIndex === undefined) {
+					return;
 				}
-			} else if (this._cursorRowIndex === this._rowSelectionRange.firstIndex) {
-				this._rowSelectionRange.lastIndex--;
-				this.scrollToRow(this._rowSelectionRange.lastIndex);
-				this._onDidUpdateEmitter.fire();
-			}
-		} else if (this._cellSelectionRange) {
-			// Expand or contract the cell selection range along the row axis, if possible.
-			if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
-				if (this._cellSelectionRange.firstRowIndex > 0) {
-					this._cellSelectionRange.firstRowIndex--;
-					this.scrollToRow(this._cellSelectionRange.firstRowIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Move the cursor to the previous row index.
+				this.setCursorRow(previousRowIndex);
+
+				// Update the row selection indexes.
+				if (!this._rowSelectionIndexes.contains(previousRowIndex)) {
+					this._rowSelectionIndexes = new SelectionIndexes([previousRowIndex, ...this._rowSelectionIndexes.indexes]);
 				}
-			} else if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
-				this._cellSelectionRange.lastRowIndex--;
-				this.scrollToRow(this._cellSelectionRange.lastRowIndex);
-				this._onDidUpdateEmitter.fire();
+
+				// Sroll to the row.
+				this.scrollToRow(previousRowIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorRowIndex > 0) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex,
-				this._cursorRowIndex - 1,
-				this._cursorColumnIndex,
-				this._cursorRowIndex
-			);
-			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.firstRowIndex);
-			this._onDidUpdateEmitter.fire();
+		} else if (this._cellSelectionIndexes) {
+			if (this._cursorRowIndex === this._cellSelectionIndexes.lastRowIndex) {
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (!firstRowPosition) {
+					return;
+				}
+
+				// If the first row cannot be moved up, return.
+				if (!(firstRowPosition > 0)) {
+					return;
+				}
+
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (lastRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition - 1, lastRowPosition);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToRow(rowIndexes[0]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorRowIndex === this._cellSelectionIndexes.firstRowIndex) {
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (firstRowPosition === undefined) {
+					return;
+				}
+
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (lastRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition - 1);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToRow(rowIndexes[rowIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			}
+		} else {
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (!cursorRowPosition) {
+				return;
+			}
+
+			// If the cursor row position cannot be moved up, return.
+			if (!(cursorRowPosition > 0)) {
+				return;
+			}
+
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition - 1, cursorRowPosition)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionIndexes.firstRowIndex);
+
+			// Fire the onDidUpdate event.
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2329,67 +2949,140 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	extendRowSelectionDown(extendRowSelectionBy: ExtendRowSelectionBy) {
 		// If there is a column selection, do nothing.
-		if (this._columnSelectionRange || this._columnSelectionIndexes) {
+		if (this._columnSelectionIndexes) {
 			return;
 		}
 
 		// Process extend selection down based on what is currently selected.
 		if (this._rowSelectionIndexes) {
-			// Convert an individually selected row into a row selection range, if possible.
-			if (this._rowSelectionIndexes.has(this._cursorRowIndex)) {
-				if (this._cursorRowIndex < this.rows - 1) {
-					// Clear the individually-selected rows.
-					this._rowSelectionIndexes = undefined;
-
-					// Set the row selection range.
-					this._rowSelectionRange = new SelectionRange(
-						this._cursorRowIndex,
-						this._cursorRowIndex + 1
-					);
-
-					// Scroll to the row.
-					this.scrollToRow(this._rowSelectionRange.lastIndex);
-
-					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+			// Extend row selection down.
+			if (this._rowSelectionIndexes.contains(this._cursorRowIndex)) {
+				// Get the cursor row position. If it's undefined, or the last row position, return.
+				const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+				if (cursorRowPosition === undefined || cursorRowPosition === this._rowLayoutManager.entryCount - 1) {
+					return;
 				}
-			}
-		} else if (this._rowSelectionRange) {
-			// Expand or contract the row selection range, if possible.
-			if (this._cursorRowIndex === this._rowSelectionRange.firstIndex) {
-				if (this._rowSelectionRange.lastIndex < this.rows - 1) {
-					this._rowSelectionRange.lastIndex++;
-					this.scrollToRow(this._rowSelectionRange.lastIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Get the next row index.
+				const nextRowIndex = this._rowLayoutManager.mapPositionToIndex(cursorRowPosition + 1);
+				if (nextRowIndex === undefined) {
+					return;
 				}
-			} else if (this._cursorRowIndex === this._rowSelectionRange.lastIndex) {
-				this._rowSelectionRange.firstIndex++;
-				this.scrollToRow(this._rowSelectionRange.firstIndex);
-				this._onDidUpdateEmitter.fire();
-			}
-		} else if (this._cellSelectionRange) {
-			// Expand or contract the cell selection range along the row axis, if possible.
-			if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
-				if (this._cellSelectionRange.lastRowIndex < this.rows - 1) {
-					this._cellSelectionRange.lastRowIndex++;
-					this.scrollToRow(this._cellSelectionRange.lastRowIndex);
-					this._onDidUpdateEmitter.fire();
+
+				// Move the cursor to the next row index.
+				this.setCursorRow(nextRowIndex);
+
+				// Update the row selection indexes.
+				if (!this._rowSelectionIndexes.contains(nextRowIndex)) {
+					this._rowSelectionIndexes = new SelectionIndexes([...this._rowSelectionIndexes.indexes, nextRowIndex]);
 				}
-			} else if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
-				this._cellSelectionRange.firstRowIndex++;
-				this.scrollToRow(this._cellSelectionRange.firstRowIndex);
-				this._onDidUpdateEmitter.fire();
+
+				// Sroll to the row.
+				this.scrollToRow(nextRowIndex);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
 			}
-		} else if (this._cursorRowIndex < this.rows - 1) {
-			// Create a new cell selection range.
-			this._cellSelectionRange = new CellSelectionRange(
-				this._cursorColumnIndex,
-				this._cursorRowIndex,
-				this._cursorColumnIndex,
-				this._cursorRowIndex + 1
-			);
-			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.lastRowIndex);
-			this._onDidUpdateEmitter.fire();
+		} else if (this._cellSelectionIndexes) {
+			// Expand or contract the row selection range along the row axis, if possible.
+			if (this._cursorRowIndex === this._cellSelectionIndexes.firstRowIndex) {
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (!lastRowPosition) {
+					return;
+				}
+
+				// If the last row cannot be moved down, return.
+				if (!(lastRowPosition < this._rowLayoutManager.entryCount - 1)) {
+					return;
+				}
+
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (firstRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition, lastRowPosition + 1);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToRow(rowIndexes[rowIndexes.length - 1]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			} else if (this._cursorRowIndex === this._cellSelectionIndexes.lastRowIndex) {
+				// Get the first row position.
+				const firstRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.firstRowIndex);
+				if (firstRowPosition === undefined) {
+					return;
+				}
+
+				// Get the last row position.
+				const lastRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cellSelectionIndexes.lastRowIndex);
+				if (lastRowPosition === undefined) {
+					return;
+				}
+
+				// Build the row indexes.
+				const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(firstRowPosition + 1, lastRowPosition);
+				if (rowIndexes === undefined) {
+					return;
+				}
+
+				// Set the cell selection indexes.
+				this._cellSelectionIndexes = new CellSelectionIndexes(this._cellSelectionIndexes.columnIndexes, rowIndexes);
+
+				// Scroll to the row.
+				this.scrollToRow(rowIndexes[0]);
+
+				// Fire the onDidUpdate event.
+				this.fireOnDidUpdateEvent();
+			}
+		} else {
+			// Get the cursor row position.
+			const cursorRowPosition = this._rowLayoutManager.mapIndexToPosition(this._cursorRowIndex);
+			if (cursorRowPosition === undefined) {
+				return;
+			}
+
+			// If the cursor column position cannot be moved down, return.
+			if (!(cursorRowPosition < this._rowLayoutManager.entryCount - 1)) {
+				return;
+			}
+
+			// Get the cursor column position.
+			const cursorColumnPosition = this._columnLayoutManager.mapIndexToPosition(this._cursorColumnIndex);
+			if (cursorColumnPosition === undefined) {
+				return;
+			}
+
+			// Build the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(cursorColumnPosition, cursorColumnPosition)
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Build the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(cursorRowPosition, cursorRowPosition + 1)
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Set the cell selection indexes.
+			this._cellSelectionIndexes = new CellSelectionIndexes(columnIndexes, rowIndexes);
+
+			// Scroll to the cell.
+			this.scrollToCell(this._cursorColumnIndex, rowIndexes[rowIndexes.length - 1]);
+
+			// Fire the onDidUpdate event.
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2400,34 +3093,58 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A CellSelectionState that represents the cell selection state.
 	 */
 	cellSelectionState(columnIndex: number, rowIndex: number) {
-		// If there isn't a cell selection range, return the column selection state and the row
-		// selection state.
-		if (!this._cellSelectionRange) {
-			return this.columnSelectionState(columnIndex) | this.rowSelectionState(rowIndex);
+		// If there isn't a cell selection, return the column selection state or the row selection state.
+		if (!this._cellSelectionIndexes) {
+			// Return the column selection state.
+			let columnSelectionState = this.columnSelectionState(columnIndex);
+			if (columnSelectionState !== ColumnSelectionState.None) {
+				// If the row index is the last index, set the selected bottom bit.
+				if (rowIndex === this._rowLayoutManager.lastIndex) {
+					columnSelectionState |= RowSelectionState.SelectedBottom;
+				}
+
+				// Return the column selection state.
+				return columnSelectionState;
+			}
+
+			// Return the row selection state.
+			const rowSelectionState = this.rowSelectionState(rowIndex);
+			if (rowSelectionState !== RowSelectionState.None) {
+				// If the column index is the last index, set the selected right bit.
+				if (columnIndex === this._columnLayoutManager.lastIndex) {
+					columnSelectionState |= ColumnSelectionState.SelectedRight;
+				}
+
+				// Return the row selection state.
+				return rowSelectionState;
+			}
+
+			// The cell is not selected.
+			return CellSelectionState.None;
 		}
 
 		// If the cell is selected, return the cell selection state.
-		if (this._cellSelectionRange?.contains(columnIndex, rowIndex)) {
+		if (this._cellSelectionIndexes.contains(columnIndex, rowIndex)) {
 			// Set the selected bit.
 			let cellSelectionState = CellSelectionState.Selected;
 
 			// If the column index is the first selected column index, set the selected left bit.
-			if (columnIndex === this._cellSelectionRange.firstColumnIndex) {
+			if (columnIndex === this._cellSelectionIndexes.firstColumnIndex) {
 				cellSelectionState |= CellSelectionState.SelectedLeft;
 			}
 
 			// If the column index is the last selected column index, set the selected right bit.
-			if (columnIndex === this._cellSelectionRange.lastColumnIndex) {
+			if (columnIndex === this._cellSelectionIndexes.lastColumnIndex) {
 				cellSelectionState |= CellSelectionState.SelectedRight;
 			}
 
 			// If the row index is the first selected row index, set the selected top bit.
-			if (rowIndex === this._cellSelectionRange.firstRowIndex) {
+			if (rowIndex === this._cellSelectionIndexes.firstRowIndex) {
 				cellSelectionState |= CellSelectionState.SelectedTop;
 			}
 
 			// If the row index is the last selected row index, set the selected bottom bit.
-			if (rowIndex === this._cellSelectionRange.lastRowIndex) {
+			if (rowIndex === this._cellSelectionIndexes.lastRowIndex) {
 				cellSelectionState |= CellSelectionState.SelectedBottom;
 			}
 
@@ -2442,99 +3159,29 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Returns the column selection state.
 	 * @param columnIndex The column index.
-	 * @returns A SelectionState that represents the column selection state.
+	 * @returns A ColumnSelectionState that represents the column selection state.
 	 */
 	columnSelectionState(columnIndex: number) {
-		// If the column index is individually selected, return the appropriate selection state.
-		if (this._columnSelectionIndexes?.has(columnIndex)) {
-			// The column index is selected.
-			let selectionState = ColumnSelectionState.Selected;
-
-			// See if the column index is the left selected column index in a range.
-			if (!this._columnSelectionIndexes.has(columnIndex - 1)) {
-				selectionState |= ColumnSelectionState.SelectedLeft;
-			}
-
-			// See if the column index is the right selected column index in a range.
-			if (!this._columnSelectionIndexes.has(columnIndex + 1)) {
-				selectionState |= ColumnSelectionState.SelectedRight;
-			}
-
-			// Return the selection state.
-			return selectionState;
+		// If the column isn't selected, return none.
+		if (this._columnSelectionIndexes === undefined || !this._columnSelectionIndexes.contains(columnIndex)) {
+			return ColumnSelectionState.None;
+		} else {
+			return ColumnSelectionState.Selected | ColumnSelectionState.SelectedLeft | ColumnSelectionState.SelectedRight;
 		}
-
-		// See if the column index is in the column selection range.
-		if (this._columnSelectionRange &&
-			columnIndex >= this._columnSelectionRange.firstIndex &&
-			columnIndex <= this._columnSelectionRange.lastIndex) {
-			// The column index is selected.
-			let selectionState = ColumnSelectionState.Selected;
-
-			// See if the column index is the first selected column index.
-			if (columnIndex === this._columnSelectionRange.firstIndex) {
-				selectionState |= ColumnSelectionState.SelectedLeft;
-			}
-
-			// See if the column index is the last selected column index.
-			if (columnIndex === this._columnSelectionRange.lastIndex) {
-				selectionState |= ColumnSelectionState.SelectedRight;
-			}
-
-			// Return the selection state.
-			return selectionState;
-		}
-
-		// The column is not selected.
-		return ColumnSelectionState.None;
 	}
 
 	/**
 	 * Returns the row selection state.
 	 * @param rowIndex The row index.
-	 * @returns A SelectionState that represents the row selection state.
+	 * @returns A RowSelectionState that represents the row selection state.
 	 */
 	rowSelectionState(rowIndex: number) {
-		// If the row index is individually selected, return the appropriate selection state.
-		if (this._rowSelectionIndexes?.has(rowIndex)) {
-			// The row index is selected.
-			let selectionState = RowSelectionState.Selected;
-
-			// See if the row index is the first row index in a range.
-			if (!this._rowSelectionIndexes.has(rowIndex - 1)) {
-				selectionState |= RowSelectionState.SelectedTop;
-			}
-
-			// See if the row index is the last row index in a range.
-			if (!this._rowSelectionIndexes.has(rowIndex + 1)) {
-				selectionState |= RowSelectionState.SelectedBottom;
-			}
-
-			// Return the selection state.
-			return selectionState;
+		// If the row isn't selected, return none.
+		if (this._rowSelectionIndexes === undefined || !this._rowSelectionIndexes.contains(rowIndex)) {
+			return RowSelectionState.None;
+		} else {
+			return RowSelectionState.Selected | RowSelectionState.SelectedTop | RowSelectionState.SelectedBottom;
 		}
-
-		// See if the row index is in the selection range.
-		if (this._rowSelectionRange?.contains(rowIndex)) {
-			// The row index is selected.
-			let selectionState = RowSelectionState.Selected;
-
-			// See if the row index is the first selected row index.
-			if (rowIndex === this._rowSelectionRange.firstIndex) {
-				selectionState |= RowSelectionState.SelectedTop;
-			}
-
-			// See if the row index is the last selected row index.
-			if (rowIndex === this._rowSelectionRange.lastIndex) {
-				selectionState |= RowSelectionState.SelectedBottom;
-			}
-
-			// Return the selection state.
-			return selectionState;
-		}
-
-		// The row is not selected.
-		return RowSelectionState.None;
 	}
 
 	/**
@@ -2542,18 +3189,16 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	clearSelection() {
 		// Clear cell selection.
-		this._cellSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 
 		// Clear column selection.
-		this._columnSelectionRange = undefined;
 		this._columnSelectionIndexes = undefined;
 
 		// Clear row selection.
-		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -2562,47 +3207,83 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	getClipboardData(): ClipboardData | undefined {
 		// Cell selection range.
-		if (this._cellSelectionRange) {
-			return new ClipboardCellRange(
-				this._cellSelectionRange.firstColumnIndex,
-				this._cellSelectionRange.firstRowIndex,
-				this._cellSelectionRange.lastColumnIndex,
-				this._cellSelectionRange.lastRowIndex
-			);
+		if (this._cellSelectionIndexes) {
+			return new ClipboardCellIndexes(this._cellSelectionIndexes.columnIndexes, this._cellSelectionIndexes.rowIndexes);
 		}
 
-		// Column selection range.
-		if (this._columnSelectionRange) {
-			return new ClipboardColumnRange(
-				this._columnSelectionRange.firstIndex,
-				this._columnSelectionRange.lastIndex
-			);
-		}
+		/**
+		 * Sorts selection indexes by position.
+		 * @param selectionIndexes The selection indexes.
+		 * @param layoutManager The layout manager.
+		 * @returns The selection indexes sorted by position.
+		 */
+		const sortSelectionIndexesByPosition = (selectionIndexes: number[], layoutManager: LayoutManager) => {
+			// Order the selections.
+			const positionIndexes: PositionIndex[] = [];
+			for (let i = 0; i < selectionIndexes.length; i++) {
+				// Get the column index and column position.
+				const index = selectionIndexes[i];
+				const position = layoutManager.mapIndexToPosition(index);
+				if (position === undefined) {
+					return selectionIndexes;
+				}
 
-		// Column selection indexes.
+				// Push the position index.
+				positionIndexes.push({
+					position,
+					index
+				});
+			}
+
+			// Return the sorted indexes.
+			return positionIndexes.sort((a, b) => a.position - b.position).map(positionIndex => positionIndex.index);
+		};
+
+		// Column selection.
 		if (this._columnSelectionIndexes) {
-			return new ClipboardColumnIndexes(this._columnSelectionIndexes.sortedArray());
-		}
+			// Get the column selection indexes.
+			const columnSelectionIndexes = this._columnSelectionIndexes.indexes;
+			if (columnSelectionIndexes.length === 0) {
+				return;
+			}
 
-		// Row selection range.
-		if (this._rowSelectionRange) {
-			return new ClipboardRowRange(
-				this._rowSelectionRange.firstIndex,
-				this._rowSelectionRange.lastIndex
+			// Get the row indexes.
+			const rowIndexes = this._rowLayoutManager.mapPositionsToIndexes(0, this._rowLayoutManager.entryCount - 1);
+			if (rowIndexes === undefined) {
+				return;
+			}
+
+			// Return the clipboard cell indexes.
+			return new ClipboardCellIndexes(
+				sortSelectionIndexesByPosition(columnSelectionIndexes, this._columnLayoutManager),
+				rowIndexes
 			);
 		}
 
-		// Row selection indexes.
+		// Row selection.
 		if (this._rowSelectionIndexes) {
-			return new ClipboardRowIndexes(this._rowSelectionIndexes.sortedArray());
+			// Get the row selection indexes.
+			const rowSelectionIndexes = this._rowSelectionIndexes.indexes;
+			if (rowSelectionIndexes.length === 0) {
+				return;
+			}
+
+			// Get the column indexes.
+			const columnIndexes = this._columnLayoutManager.mapPositionsToIndexes(0, this._columnLayoutManager.entryCount - 1);
+			if (columnIndexes === undefined) {
+				return;
+			}
+
+			// Return the clipboard cell indexes.
+			return new ClipboardCellIndexes(
+				columnIndexes,
+				sortSelectionIndexesByPosition(rowSelectionIndexes, this._rowLayoutManager)
+			);
 		}
 
 		// Cursor cell.
 		if (this._cursorColumnIndex >= 0 && this._cursorRowIndex >= 0) {
-			return new ClipboardCell(
-				this._cursorColumnIndex,
-				this._cursorRowIndex
-			);
+			return new ClipboardCell(this._cursorColumnIndex, this._cursorRowIndex);
 		}
 
 		// Clipboard data isn't available.
@@ -2633,7 +3314,7 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Gets a column.
-	 * @param rowIndex The row index.
+	 * @param columnIndex The column index.
 	 * @returns The row label.
 	 */
 	column(columnIndex: number): IDataColumn | undefined {
@@ -2730,11 +3411,31 @@ export abstract class DataGridInstance extends Disposable {
 	 * Resets the selection of the data grid.
 	 */
 	protected resetSelection() {
-		this._cellSelectionRange = undefined;
-		this._columnSelectionRange = undefined;
+		this._cellSelectionIndexes = undefined;
 		this._columnSelectionIndexes = undefined;
-		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
+	}
+
+	/**
+	 * Fires the onDidUpdate event.
+	 */
+	protected fireOnDidUpdateEvent() {
+		// If the onDidUpdate event has already been fired, do nothing.
+		if (this._pendingOnDidUpdateEvent) {
+			return;
+		}
+
+		// Set the pending flag.
+		this._pendingOnDidUpdateEvent = true;
+
+		// Fire the event in a microtask.
+		Promise.resolve().then(() => {
+			// Clear the pending flag.
+			this._pendingOnDidUpdateEvent = false;
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		});
 	}
 
 	//#endregion Protected Methods

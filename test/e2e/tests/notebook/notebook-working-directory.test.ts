@@ -17,7 +17,9 @@ test.describe('Notebook Working Directory Configuration', {
 	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
 }, () => {
 
-	test.beforeAll(async function ({ python }) { });
+	test.beforeAll(async function ({ python, app }) {
+		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
+	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.notebooks.closeNotebookWithoutSaving();

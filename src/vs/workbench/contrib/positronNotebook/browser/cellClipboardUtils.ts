@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPositronNotebookCell, CellKind } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { ICellDto2 } from '../../notebook/common/notebookCommon.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
  * Converts a Positron notebook cell to ICellDto2 format for clipboard storage.
@@ -53,6 +53,7 @@ export function serializeCellsToClipboard(cells: IPositronNotebookCell[]): strin
 						// Convert output items to a format compatible with Jupyter
 						acc[item.mime] = item.data.toString();
 						return acc;
+						// eslint-disable-next-line local/code-no-dangerous-type-assertions
 					}, {} as Record<string, string>),
 					metadata: {}
 				})),

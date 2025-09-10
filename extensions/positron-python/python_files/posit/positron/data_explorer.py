@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import math
 import operator
-import warnings
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
@@ -23,6 +22,11 @@ from typing import (
 
 import comm
 
+from ._data_explorer_internal import (
+    _get_histogram_method,
+    _get_histogram_numpy,
+    _get_histogram_polars,
+)
 from .access_keys import decode_access_key
 from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
@@ -37,7 +41,6 @@ from .data_explorer_comm import (
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
-    ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
     ColumnProfileType,
@@ -2009,95 +2012,6 @@ COMPARE_OPS = {
 }
 
 
-def _get_histogram_method(method: ColumnHistogramParamsMethod):
-    return {
-        ColumnHistogramParamsMethod.Fixed: "fixed",
-        ColumnHistogramParamsMethod.Sturges: "sturges",
-        ColumnHistogramParamsMethod.FreedmanDiaconis: "fd",
-        ColumnHistogramParamsMethod.Scott: "scott",
-    }[method]
-
-
-def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
-    try:
-        import numpy as np
-    except ModuleNotFoundError as e:
-        # If NumPy is not installed, we cannot compute histograms
-        # intentionally printing since errors will not show up in the console
-        warnings.warn(
-            "Numpy not installed, histogram computation will not work. "
-            "Please install NumPy to enable this feature.",
-            category=DataExplorerWarning,
-            stacklevel=1,
-        )
-        raise e
-
-    if to_numpy:
-        data = data.to_numpy()
-
-    assert num_bins is not None
-    hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
-
-    if data.dtype == object:
-        # For decimals, we convert to float which is lossy but works for now
-        return _get_histogram_numpy(data.astype(float), num_bins, method=method)
-
-    # We optimistically compute the histogram once, and then do extra
-    # work in the special cases where the binning method produces a
-    # finer-grained histogram than the maximum number of bins that we
-    # want to render, as indicated by the num_bins argument
-    try:
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-    except ValueError:
-        if issubclass(data.dtype.type, np.integer):
-            # Issue #5176. There is a class of error for integers where np.histogram
-            # will fail on Windows (platform int issue), e.g. this array fails with Numpy 2.1.1
-            # array([ -428566661,  1901704889,   957355142,  -401364305, -1978594834,
-            #         519144975,  1384373326,  1974689646,   194821408, -1564699930],
-            #         dtype=int32)
-            # So we try again with the data converted to floating point as a fallback
-            return _get_histogram_numpy(data.astype(np.float64), num_bins, method=method)
-
-        # If there are inf/-inf values in the dataset, ValueError is
-        # raised. We catch it and try again to avoid paying the
-        # filtering cost every time
-        data = data[np.isfinite(data)]
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-
-    need_recompute = False
-
-    # If the method returns more bins than what the front-end requested,
-    # we re-define the bin edges.
-    if len(bin_edges) > num_bins:
-        hist_params = {"bins": num_bins}
-        need_recompute = True
-
-    # For integers, we want to make sure the number of bins is smaller
-    # then than `data.max() - data.min()`, so we don't endup with more bins
-    # then there's data to display.
-    # hist_params = {"bins": bin_edges.tolist()}
-    if issubclass(data.dtype.type, np.integer):
-        # Avoid overflows with smaller integers
-        width = (data.max().astype(np.int64) - data.min().astype(np.int64)).item()
-        if len(bin_edges) > width and width > 0:
-            hist_params = {"bins": width + 1}
-            need_recompute = True
-
-    if need_recompute:
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-
-    # Special case: if we have a single bin, check if all values are the same
-    # If so, override the bin edges to be the same value instead of value +/- 0.5
-    if len(bin_counts) == 1 and len(data) > 0:
-        # Check if all non-null values are the same
-        unique_values = np.unique(data)
-        if len(unique_values) == 1:
-            # All values are the same, set bin edges to [value, value]
-            bin_edges = np.array([unique_values[0], unique_values[0]])
-
-    return bin_counts, bin_edges
-
-
 def _date_median(x):
     """
     Computes the median of a date or datetime series.
@@ -2824,9 +2738,8 @@ class PolarsView(DataExplorerTableView):
 
         method = _get_histogram_method(params.method)
 
-        bin_counts, bin_edges = _get_histogram_numpy(
-            data, params.num_bins, method=method, to_numpy=True
-        )
+        # Always use the Polars implementation for PolarsView
+        bin_counts, bin_edges = _get_histogram_polars(data, params.num_bins, method=method)
         bin_edges = pl.Series(bin_edges)
 
         if cast_bin_edges:

@@ -93,6 +93,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			defaultRowHeight: ROW_HEIGHT,
 			columnResize: false,
 			rowResize: false,
+			columnPinning: false,
+			rowPinning: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 8,
@@ -114,8 +116,11 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			this._columnSchemaCache = new ColumnSchemaCache(this._dataExplorerClientInstance)
 		);
 
-		// Set the initial layout entries in the row layout manager.
-		this._rowLayoutManager.setLayoutEntries(backendState.table_shape.num_columns);
+		// Set the column layout entries. There is always one column.
+		this._columnLayoutManager.setEntries(1);
+
+		// Set the row layout entries.
+		this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
 		/**
 		 * Updates the data grid instance.
@@ -131,7 +136,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			this._backendState = backendState;
 
 			// Set the layout entries in the row layout manager.
-			this._rowLayoutManager.setLayoutEntries(backendState.table_shape.num_columns);
+			this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
 			// Scroll to the top.
 			await this.setScrollOffsets(0, 0);
@@ -146,21 +151,19 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () =>
 			// Update the data grid instance.
-			updateDataGridInstance
+			updateDataGridInstance()
 		));
 
 		// Add the onDidUpdateBackendState event handler.
-		this._register(
-			this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState =>
-				// Update the data grid instance.
-				updateDataGridInstance(backendState)
-			)
-		);
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState =>
+			// Update the data grid instance.
+			updateDataGridInstance(backendState)
+		));
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._columnSchemaCache.onDidUpdateCache(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 	}
 
@@ -195,7 +198,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	override get firstColumn() {
 		return {
 			columnIndex: 0,
-			left: 0
+			left: 0,
+			width: 0,
 		};
 	}
 
@@ -219,11 +223,13 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the width of a column.
+	 * Gets the custom width of a column.
 	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
 	 */
-	override getColumnWidth(columnIndex: number): number {
-		return this.layoutWidth - 8;
+	override getCustomColumnWidth(columnIndex: number): number | undefined {
+		// Subtrack 8px for margins.
+		return columnIndex === 0 ? this.layoutWidth - 8 : undefined;
 	}
 
 	selectItem(rowIndex: number): void {

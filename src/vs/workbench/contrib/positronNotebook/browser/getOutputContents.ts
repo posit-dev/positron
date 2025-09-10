@@ -6,7 +6,7 @@
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput } from '../../notebook/common/notebookCommon.js';
-import { ParsedOutput, ParsedTextOutput } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
 
 type CellOutputInfo = { id: string; content: string };
 

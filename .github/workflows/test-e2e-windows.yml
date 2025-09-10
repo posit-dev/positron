@@ -71,7 +71,7 @@ jobs:
     name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
-    timeout-minutes: 100
+    timeout-minutes: 120
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -81,6 +81,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       # - name: Load secret
       #   uses: 1password/load-secrets-action@v3
@@ -97,7 +100,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
@@ -112,7 +115,7 @@ jobs:
 
       # Pinning UV due to https://github.com/rstudio/reticulate/issues/1811
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           version: "0.7.22"
 
@@ -200,7 +203,7 @@ jobs:
           tinytex: true
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}

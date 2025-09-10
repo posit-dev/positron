@@ -375,15 +375,19 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		this._agentIdsToCompletionProviders.deleteAndDispose(id);
 	}
 
-	$registerChatParticipantDetectionProvider(handle: number): void {
+	// --- Start Positron ---
+	// Added extensionId to the chat participant detection provider
+	$registerChatParticipantDetectionProvider(handle: number, extensionId?: ExtensionIdentifier): void {
 		this._chatParticipantDetectionProviders.set(handle, this._chatAgentService.registerChatParticipantDetectionProvider(handle,
 			{
 				provideParticipantDetection: async (request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation; participants: IChatParticipantMetadata[] }, token: CancellationToken) => {
 					return await this._proxy.$detectChatParticipant(handle, request, { history }, options, token);
 				}
-			}
+			},
+			extensionId
 		));
 	}
+	// --- End Positron ---
 
 	$unregisterChatParticipantDetectionProvider(handle: number): void {
 		this._chatParticipantDetectionProviders.deleteAndDispose(handle);

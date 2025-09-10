@@ -13,10 +13,6 @@
 		outline: 1px solid var(--vscode-focusBorder);
 		animation: running-cell-pulse 2s ease-in-out infinite;
 	}
-
-	&.selected {
-		outline: 1px solid var(--vscode-focusBorder);
-	}
 }
 
 @keyframes running-cell-pulse {

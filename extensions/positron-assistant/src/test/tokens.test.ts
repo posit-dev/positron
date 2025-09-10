@@ -17,7 +17,7 @@ suite('TokenTracker', () => {
 	let getConfigurationStub: sinon.SinonStub;
 	let onDidChangeConfigurationStub: sinon.SinonStub;
 
-	const ANTHROPIC_PROVIDER_ID = 'anthropic';
+	const ANTHROPIC_PROVIDER_ID = 'anthropic-api';
 	const TEST_PROVIDER_ID = 'test-provider';
 	const TOKEN_COUNT_KEY = 'positron.assistant.tokenCounts';
 
@@ -72,38 +72,42 @@ suite('TokenTracker', () => {
 
 		test('should restore valid token usage from stored data', () => {
 			const storedData = JSON.stringify([
-				[ANTHROPIC_PROVIDER_ID, { input: 100, output: 50 }],
-				[TEST_PROVIDER_ID, { input: 200, output: 75 }]
+				[ANTHROPIC_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }],
+				[TEST_PROVIDER_ID, { inputTokens: 200, outputTokens: 75, cachedTokens: 20 }]
 			]);
 			(mockWorkspaceState.get as sinon.SinonStub).withArgs(TOKEN_COUNT_KEY).returns(storedData);
 
 			const tracker = new TokenTracker(mockContext);
 
 			// Should set context for both providers
-			assert.strictEqual(executeCommandStub.callCount, 4);
+			assert.strictEqual(executeCommandStub.callCount, 6);
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.input`, 100));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.output`, 50));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.cached`, 20));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, 200));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.output`, 75));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.cached`, 20));
 		});
 
 		test('should filter out invalid entries from stored data', () => {
 			const storedData = JSON.stringify([
-				[ANTHROPIC_PROVIDER_ID, { input: 100, output: 50 }], // valid
+				[ANTHROPIC_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }], // valid
 				['invalid-entry'], // invalid - missing usage data
-				[TEST_PROVIDER_ID, { input: 'not-a-number', output: 75 }], // invalid - input not a number
-				['another-provider', { input: 200, output: 100 }] // valid
+				[TEST_PROVIDER_ID, { inputTokens: 'not-a-number', outputTokens: 75, cachedTokens: 20 }], // invalid - input not a number
+				['another-provider', { inputTokens: 200, outputTokens: 100, cachedTokens: 20 }] // valid
 			]);
 			(mockWorkspaceState.get as sinon.SinonStub).withArgs(TOKEN_COUNT_KEY).returns(storedData);
 
 			const tracker = new TokenTracker(mockContext);
 
-			// Should only set context for valid entries (2 providers * 2 context keys each)
-			assert.strictEqual(executeCommandStub.callCount, 4);
+			// Should only set context for valid entries (2 providers * 3 context keys each)
+			assert.strictEqual(executeCommandStub.callCount, 6);
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.input`, 100));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.output`, 50));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.cached`, 20));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.another-provider.tokenCount.input`, 200));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.another-provider.tokenCount.output`, 100));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.another-provider.tokenCount.cached`, 20));
 		});
 
 		test('should handle JSON parse errors gracefully', () => {
@@ -165,7 +169,7 @@ suite('TokenTracker', () => {
 		test('should clear tokens for disabled providers when configuration changes', () => {
 			// Set up initial state with tokens for test provider
 			const storedData = JSON.stringify([
-				[TEST_PROVIDER_ID, { input: 100, output: 50 }]
+				[TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }]
 			]);
 			(mockWorkspaceState.get as sinon.SinonStub).withArgs(TOKEN_COUNT_KEY).returns(storedData);
 
@@ -195,6 +199,7 @@ suite('TokenTracker', () => {
 			// Should clear context for the disabled provider
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, undefined));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.output`, undefined));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.cached`, undefined));
 
 			// Should update workspace state
 			assert.ok((mockWorkspaceState.update as sinon.SinonStub).calledWith(TOKEN_COUNT_KEY, sinon.match.string));
@@ -242,14 +247,15 @@ suite('TokenTracker', () => {
 			(mockWorkspaceState.update as sinon.SinonStub).resetHistory();
 
 			// Now add tokens for the enabled provider
-			tracker.addTokens(TEST_PROVIDER_ID, 100, 50);
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 });
 
 			// Should set context for the provider
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, 100));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.output`, 50));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.cached`, 20));
 
 			// Should update workspace state
-			const expectedData = JSON.stringify([[TEST_PROVIDER_ID, { input: 100, output: 50 }]]);
+			const expectedData = JSON.stringify([[TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }]]);
 			assert.ok((mockWorkspaceState.update as sinon.SinonStub).calledWith(TOKEN_COUNT_KEY, expectedData));
 		});
 
@@ -266,12 +272,13 @@ suite('TokenTracker', () => {
 			// Reset call count after initialization
 			executeCommandStub.resetHistory();
 
-			tracker.addTokens(TEST_PROVIDER_ID, 100, 50);
-			tracker.addTokens(TEST_PROVIDER_ID, 75, 25);
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 0 });
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 25, outputTokens: 25, cachedTokens: 100 });
 
 			// Should set context with accumulated values
-			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, 175));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, 125));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.output`, 75));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.cached`, 100));
 		});
 
 		test('should skip adding tokens for disabled provider', () => {
@@ -286,7 +293,7 @@ suite('TokenTracker', () => {
 			executeCommandStub.resetHistory();
 			(mockWorkspaceState.update as sinon.SinonStub).resetHistory();
 
-			tracker.addTokens(TEST_PROVIDER_ID, 100, 50);
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 0 });
 
 			// Should not set context or update state for disabled provider
 			assert.strictEqual(executeCommandStub.callCount, 0);
@@ -305,14 +312,15 @@ suite('TokenTracker', () => {
 			executeCommandStub.resetHistory();
 			(mockWorkspaceState.update as sinon.SinonStub).resetHistory();
 
-			tracker.addTokens(ANTHROPIC_PROVIDER_ID, 100, 50);
+			tracker.addTokens(ANTHROPIC_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 });
 
 			// Should set context for Anthropic provider even when not in config
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.input`, 100));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.output`, 50));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${ANTHROPIC_PROVIDER_ID}.tokenCount.cached`, 20));
 
 			// Should update workspace state
-			const expectedData = JSON.stringify([[ANTHROPIC_PROVIDER_ID, { input: 100, output: 50 }]]);
+			const expectedData = JSON.stringify([[ANTHROPIC_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }]]);
 			assert.ok((mockWorkspaceState.update as sinon.SinonStub).calledWith(TOKEN_COUNT_KEY, expectedData));
 		});
 	});
@@ -320,7 +328,7 @@ suite('TokenTracker', () => {
 	suite('clearTokens', () => {
 		test('should clear tokens for existing provider', () => {
 			const storedData = JSON.stringify([
-				[TEST_PROVIDER_ID, { input: 100, output: 50 }]
+				[TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }]
 			]);
 			(mockWorkspaceState.get as sinon.SinonStub).withArgs(TOKEN_COUNT_KEY).returns(storedData);
 
@@ -335,6 +343,7 @@ suite('TokenTracker', () => {
 			// Should delete context for the provider
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, undefined));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.output`, undefined));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.cached`, undefined));
 
 			// Should update workspace state with empty data
 			const expectedData = JSON.stringify([]);
@@ -359,8 +368,8 @@ suite('TokenTracker', () => {
 
 		test('should preserve other providers when clearing one', () => {
 			const storedData = JSON.stringify([
-				[TEST_PROVIDER_ID, { input: 100, output: 50 }],
-				[ANTHROPIC_PROVIDER_ID, { input: 200, output: 75 }]
+				[TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 20 }],
+				[ANTHROPIC_PROVIDER_ID, { inputTokens: 200, outputTokens: 75, cachedTokens: 20 }]
 			]);
 			(mockWorkspaceState.get as sinon.SinonStub).withArgs(TOKEN_COUNT_KEY).returns(storedData);
 
@@ -375,9 +384,10 @@ suite('TokenTracker', () => {
 			// Should delete context for the cleared provider
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.input`, undefined));
 			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.output`, undefined));
+			assert.ok(executeCommandStub.calledWith('setContext', `positron-assistant.${TEST_PROVIDER_ID}.tokenCount.cached`, undefined));
 
 			// Should update workspace state with remaining provider
-			const expectedData = JSON.stringify([[ANTHROPIC_PROVIDER_ID, { input: 200, output: 75 }]]);
+			const expectedData = JSON.stringify([[ANTHROPIC_PROVIDER_ID, { inputTokens: 200, outputTokens: 75, cachedTokens: 20 }]]);
 			assert.ok((mockWorkspaceState.update as sinon.SinonStub).calledWith(TOKEN_COUNT_KEY, expectedData));
 		});
 	});
@@ -392,8 +402,8 @@ suite('TokenTracker', () => {
 			const tracker = new TokenTracker(mockContext);
 
 			// Add tokens
-			tracker.addTokens(TEST_PROVIDER_ID, 100, 50);
-			tracker.addTokens(TEST_PROVIDER_ID, 25, 10);
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 0 });
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 25, outputTokens: 10, cachedTokens: 100 });
 
 			// Clear tokens
 			tracker.clearTokens(TEST_PROVIDER_ID);
@@ -414,8 +424,8 @@ suite('TokenTracker', () => {
 			const tracker = new TokenTracker(mockContext);
 
 			// Add tokens for both providers
-			tracker.addTokens(TEST_PROVIDER_ID, 100, 50);
-			tracker.addTokens('another-provider', 200, 75);
+			tracker.addTokens(TEST_PROVIDER_ID, { inputTokens: 100, outputTokens: 50, cachedTokens: 0 });
+			tracker.addTokens('another-provider', { inputTokens: 200, outputTokens: 75, cachedTokens: 0 });
 
 			// Clear only one provider
 			tracker.clearTokens(TEST_PROVIDER_ID);
@@ -426,7 +436,7 @@ suite('TokenTracker', () => {
 			assert.ok(lastCall, 'Expected at least one call to update');
 			const finalData = JSON.parse(lastCall.args[1]);
 			assert.strictEqual(finalData.length, 1);
-			assert.deepStrictEqual(finalData[0], ['another-provider', { input: 200, output: 75 }]);
+			assert.deepStrictEqual(finalData[0], ['another-provider', { inputTokens: 200, outputTokens: 75, cachedTokens: 0 }]);
 		});
 	});
 });

@@ -45,7 +45,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v5
         with:
           cache: 'npm'
           node-version: ${{ env.NODE_VERSION }}
@@ -178,6 +178,10 @@ jobs:
             python: '3.12'
           - os: 'ubuntu-latest'
             python: '3.13'
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -268,7 +272,7 @@ jobs:
           path: ${{ env.special-working-directory-relative }}
 
       - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'

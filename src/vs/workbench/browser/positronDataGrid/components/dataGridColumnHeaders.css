@@ -6,6 +6,6 @@
 .data-grid-column-headers {
 	overflow: hidden;
 	position: relative;
-	grid-column: waffle / end;
+	grid-column: waffle / end-waffle;
 	grid-row: headers / waffle;
 }

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
-import { IPositronNotebookCell } from './IPositronNotebookCell.js';
+import { IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { Event } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -205,7 +205,7 @@ export class SelectionStateMachine extends Disposable {
 		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
 		// Timeout here avoids the problem of enter applying to the editor widget itself.
 		this._register(
-			disposableTimeout(() => cellToEdit.focusEditor(), 0)
+			disposableTimeout(async () => await cellToEdit.showEditor(true), 0)
 		);
 	}
 

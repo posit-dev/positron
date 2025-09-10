@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Tuple, TypedDict
@@ -304,6 +305,8 @@ class ConnectionsService:
             return SQLAlchemyConnection(obj)
         elif safe_isinstance(obj, "duckdb", "DuckDBPyConnection"):
             return DuckDBConnection(obj)
+        elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
+            return SnowflakeConnection(obj)
         else:
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
@@ -317,6 +320,7 @@ class ConnectionsService:
                 safe_isinstance(obj, "sqlite3", "Connection")
                 or safe_isinstance(obj, "sqlalchemy", "Engine")
                 or safe_isinstance(obj, "duckdb", "DuckDBPyConnection")
+                or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -908,3 +912,98 @@ class DuckDBConnection(Connection):
 
     def disconnect(self):
         self.conn.close()  # type: ignore
+
+
+class SnowflakeConnection(Connection):
+    """Support for Snowflake Connection connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+        self.icon = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTYxLjA2MzIgMjguMjk2NEw1My43Mzg1IDMyLjQzOTVMNjEuMDYzMiAzNi41ODI1QzYyLjkyNTUgMzcuNjMwNSA2My41NDYyIDM5Ljk0NTggNjIuNDc4NSA0MS43NDkyQzYxLjQxMDkgNDMuNTUyNyA1OS4wNTIgNDQuMTYxOSA1Ny4xODk4IDQzLjEzODRMNDQuMDU0OCAzNS43Mjk2QzQzLjE4NTggMzUuMjQyMSA0Mi41NjUxIDM0LjQ2MjMgNDIuMjkxOSAzMy41ODQ5QzQyLjE2NzggMzMuMTcwNiA0Mi4wOTMzIDMyLjc1NjMgNDIuMTE4MSAzMi4zNjYzQzQyLjExODEgMzIuMDczOSA0Mi4xNjc4IDMxLjc4MTQgNDIuMjQyMyAzMS40NjQ2QzQyLjUxNTQgMzAuNTM4NSA0My4xMTEzIDI5LjcwOTkgNDQuMDMgMjkuMTk4MUw1Ny4xNjUgMjEuNzg5M0M1OS4wMDI0IDIwLjc0MTMgNjEuMzg2IDIxLjM3NSA2Mi40NTM3IDIzLjE3ODVDNjMuNTIxNCAyNC45ODE5IDYyLjkwMDYgMjcuMjk3MiA2MS4wMzg0IDI4LjM0NTFMNjEuMDYzMiAyOC4yOTY0Wk01NC4xMTA5IDQ4LjM3ODFMNDAuOTc2IDQwLjk2OTNDNDAuMjgwNyA0MC41Nzk0IDM5LjQ4NjIgNDAuNDA4OCAzOC43NDEzIDQwLjQ4MTlDMzYuNzMwMSA0MC42MjgxIDM1LjE2NTggNDIuMjYxIDM1LjE2NTggNDQuMjM1MVY1OS4wNTI3QzM1LjE2NTggNjEuMTQ4NiAzNi44NzkxIDYyLjgzMDIgMzkuMDM5MiA2Mi44MzAyQzQxLjE5OTQgNjIuODMwMiA0Mi45MTI3IDYxLjE0ODYgNDIuOTEyNyA1OS4wNTI3VjUwLjc2NjVMNTAuMjYyMyA1NC45MDk2QzUyLjA5OTcgNTUuOTU3NSA1NC40ODM0IDU1LjM0ODMgNTUuNTUxIDUzLjU0NDhDNTYuNjE4NyA1MS43NDEzIDU1Ljk5OCA0OS40MjYxIDU0LjEzNTcgNDguMzc4MUg1NC4xMTA5Wk0zOC45NjQ4IDMzLjkwMTdMMzMuNTAyMiAzOS4yMzlDMzMuMzUzMiAzOS4zODUyIDMzLjA1NTMgMzkuNTMxNCAzMi44MDcgMzkuNTMxNEgzMS4xOTNDMzAuOTY5NiAzOS41MzE0IDMwLjY3MTYgMzkuNDA5NiAzMC40OTc4IDM5LjIzOUwyNS4wMzUzIDMzLjkwMTdDMjQuODg2MyAzMy43NTU1IDI0Ljc2MjEgMzMuNDM4NyAyNC43NjIxIDMzLjI0MzdWMzEuNjg0QzI0Ljc2MjEgMzEuNDY0NiAyNC44ODYzIDMxLjE3MjIgMjUuMDM1MyAzMS4wMDE2TDMwLjQ5NzggMjUuNjY0M0MzMC42NDY4IDI1LjUxODEgMzAuOTY5NiAyNS4zOTYyIDMxLjE5MyAyNS4zOTYySDMyLjgwN0MzMy4wMzA0IDI1LjM5NjIgMzMuMzI4NCAyNS41MTgxIDMzLjUwMjIgMjUuNjY0M0wzOC45NjQ4IDMxLjAwMTZDMzkuMTEzNyAzMS4xNDc4IDM5LjIzNzkgMzEuNDY0NiAzOS4yMzc5IDMxLjY4NFYzMy4yNDM3QzM5LjIzNzkgMzMuNDYzMSAzOS4xMTM3IDMzLjc1NTUgMzguOTY0OCAzMy45MDE3Wk0zNC41OTQ3IDMyLjQxNTFDMzQuNTk0NyAzMi4xOTU4IDM0LjQ3MDYgMzEuOTAzMyAzNC4yOTY4IDMxLjczMjdMMzIuNzA3NiAzMC4xOTczQzMyLjU1ODcgMzAuMDUxMSAzMi4yMzU5IDI5LjkyOTIgMzIuMDEyNCAyOS45MjkySDMxLjkzNzlDMzEuNzE0NSAyOS45MjkyIDMxLjQxNjUgMzAuMDUxMSAzMS4yNjc1IDMwLjE5NzNMMjkuNjc4NCAzMS43MzI3QzI5LjUyOTQgMzEuOTAzMyAyOS40MDUzIDMyLjE5NTggMjkuNDA1MyAzMi40MTUxVjMyLjQ2MzhDMjkuNDA1MyAzMi42ODMyIDI5LjUyOTQgMzIuOTc1NiAyOS42Nzg0IDMzLjEyMTlMMzEuMjY3NSAzNC42NTcyQzMxLjQxNjUgMzQuODAzNSAzMS43MzkzIDM0LjkyNTMgMzEuOTM3OSAzNC45MjUzSDMyLjAxMjRDMzIuMjM1OSAzNC45MjUzIDMyLjUzMzggMzQuODAzNSAzMi43MDc2IDM0LjY1NzJMMzQuMjk2OCAzMy4xMjE5QzM0LjQ0NTcgMzIuOTc1NiAzNC41OTQ3IDMyLjY1ODggMzQuNTk0NyAzMi40NjM4VjMyLjQxNTFaTTkuODg5MDkgMTYuNDc2NEwyMy4wMjQgMjMuODg1MkMyMy43MTkzIDI0LjI3NTIgMjQuNTEzOCAyNC40NDU4IDI1LjI1ODcgMjQuMzcyNkMyNy4yNjk5IDI0LjIyNjQgMjguODM0MiAyMi41OTM2IDI4LjgzNDIgMjAuNTk1MVY1Ljc3NzUxQzI4LjgzNDIgMy43MDU5NyAyNy4wOTYxIDIgMjQuOTYwOCAyQzIyLjgyNTQgMiAyMS4wODczIDMuNjgxNiAyMS4wODczIDUuNzc3NTFWMTQuMDYzN0wxMy43Mzc3IDkuOTIwNkMxMS45MDAzIDguODcyNjQgOS41NDE0NyA5LjUwNjI5IDguNDQ4OTcgMTEuMzA5N0M3LjM4MTI4IDEzLjExMzIgOC4wMDIwMyAxNS40Mjg1IDkuODY0MjYgMTYuNDc2NEg5Ljg4OTA5Wk0zOC43NDEzIDI0LjM5N0MzOS40ODYyIDI0LjQ0NTggNDAuMjgwNyAyNC4yOTk1IDQwLjk3NiAyMy45MDk2TDU0LjExMDkgMTYuNTAwOEM1NS45NzMxIDE1LjQ1MjggNTYuNTkzOSAxMy4xMzc2IDU1LjUyNjIgMTEuMzM0MUM1NC40NTg1IDkuNTMwNjYgNTIuMDk5NyA4LjkyMTM4IDUwLjIzNzUgOS45NDQ5N0w0Mi44ODc5IDE0LjA4OFY1LjgwMTg5QzQyLjg4NzkgMy43MzAzNCA0MS4xNDk4IDIuMDI0MzcgMzkuMDE0NCAyLjAyNDM3QzM2Ljg3OTEgMi4wMjQzNyAzNS4xNDEgMy43MDU5NyAzNS4xNDEgNS44MDE4OVYyMC42MTk1QzM1LjE0MSAyMi42MTc5IDM2LjcwNTIgMjQuMjUwOCAzOC43MTY1IDI0LjM5N0gzOC43NDEzWk0yNS4yODM2IDQwLjQ4MTlDMjQuNTM4NyA0MC40MDg4IDIzLjc0NDEgNDAuNTc5NCAyMy4wNDg5IDQwLjk2OTNMOS45MTM5MiA0OC4zNzgxQzguMDc2NTIgNDkuNDI2MSA3LjQzMDk1IDUxLjc0MTMgOC40OTg2MyA1My41NDQ4QzkuNTY2MzEgNTUuMzQ4MyAxMS45MjUxIDU1Ljk1NzUgMTMuNzg3NCA1NC45MDk2TDIxLjEzNyA1MC43NjY1VjU5LjA1MjdDMjEuMTM3IDYxLjE0ODYgMjIuODc1MSA2Mi44MzAyIDI1LjAxMDQgNjIuODMwMkMyNy4xNDU4IDYyLjgzMDIgMjguODgzOSA2MS4xNDg2IDI4Ljg4MzkgNTkuMDUyN1Y0NC4yMzUxQzI4Ljg4MzkgNDIuMjM2NiAyNy4yOTQ4IDQwLjYwMzggMjUuMzA4NCA0MC40ODE5SDI1LjI4MzZaTTIxLjcwODEgMzMuNTYwNUMyMS44MzIyIDMzLjE0NjIgMjEuODgxOSAzMi43MzE5IDIxLjg4MTkgMzIuMzQyQzIxLjg4MTkgMzIuMDQ5NSAyMS44MzIyIDMxLjc1NzEgMjEuNzMyOSAzMS40NDAzQzIxLjQ4NDYgMzAuNTE0MSAyMC44NjM4IDI5LjY4NTUgMTkuOTQ1MSAyOS4xNzM3TDYuODEwMiAyMS43NjQ5QzQuOTQ3OTcgMjAuNzE3IDIuNTg5MTQgMjEuMzUwNiAxLjUyMTQ2IDIzLjE1NDFDMC40NTM3NzcgMjQuOTU3NSAxLjA3NDUzIDI3LjI3MjggMi45MzY3NiAyOC4zMjA4TDEwLjI2MTUgMzIuNDYzOEwyLjkzNjc2IDM2LjYwNjlDMS4wNzQ1MyAzNy42NTQ5IDAuNDUzNzc3IDM5Ljk3MDEgMS41MjE0NiA0MS43NzM2QzIuNTg5MTQgNDMuNTc3IDQuOTQ3OTcgNDQuMTg2MyA2LjgxMDIgNDMuMTYyN0wxOS45NDUxIDM1Ljc1MzlDMjAuODM5IDM1LjI2NjUgMjEuNDM0OSAzNC40ODY2IDIxLjcwODEgMzMuNjA5M1YzMy41NjA1WiIgZmlsbD0iIzI5QjVFOCIvPgo8L3N2Zz4K"
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT CURRENT_ACCOUNT()")
+            self.host = cursor.fetchone()[0]
+        except Exception:
+            self.host = "<unknown>"
+
+        self.display_name = f"Snowflake ({self.host})"
+        self.type = "Snowflake"
+        self.code = self._make_code()
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            res = self.conn.cursor().execute("SHOW DATABASES;")
+            return [
+                ConnectionObject({"name": row[1], "kind": "database"}) for row in res.fetchall()
+            ]
+
+        if len(path) == 1:
+            database = path[0]
+            res = self.conn.cursor().execute(f"SHOW SCHEMAS in DATABASE {database.name}")
+            return [ConnectionObject({"name": row[1], "kind": "schema"}) for row in res.fetchall()]
+
+        if len(path) == 2:
+            database, schema = path
+            tables = self.conn.cursor().execute(
+                f"SHOW TABLES in SCHEMA {database.name}.{schema.name}"
+            )
+            views = self.conn.cursor().execute(
+                f"SHOW VIEWS in SCHEMA {database.name}.{schema.name}"
+            )
+            return [
+                ConnectionObject({"name": row[1], "kind": "table"}) for row in tables.fetchall()
+            ] + [ConnectionObject({"name": row[1], "kind": "view"}) for row in views.fetchall()]
+
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+
+        res = self.conn.cursor().execute(
+            f"SHOW COLUMNS IN {database.name}.{schema.name}.{table.name}"
+        )
+        return [
+            ConnectionObjectFields({"name": row[2], "dtype": json.loads(row[3])["type"]})
+            for row in res.fetchall()
+        ]
+
+    def preview_object(self, path, var_name: str | None = None):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+
+        query = f'SELECT * FROM "{database.name}"."{schema.name}"."{table.name}" LIMIT 1000;'
+        var_name = var_name or "conn"
+        preview = self.conn.cursor().execute(query).fetch_pandas_all()
+        sql = (
+            f"# {table.name} = {var_name}.execute({query!r}).df() # where {var_name} is your connection variable",
+        )
+        return preview, sql
+
+    def list_object_types(self):
+        return {
+            "database": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+        }
+
+    def disconnect(self):
+        self.conn.close()  # type: ignore
+
+    def _make_code(self):
+        args = ["account", "authenticator", "host", "user", "password", "port"]
+        code = "import snowflake.connector\ncon = snowflake.connector.connect(\n"
+        for arg in args:
+            val = getattr(self.conn, f"_{arg}")
+            if val is not None:
+                val = repr(val)
+                code += f"    {arg}={val},\n"
+        code += ")\n"
+        return code

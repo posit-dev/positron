@@ -8,7 +8,7 @@ import { ICommandMetadata, CommandsRegistry } from '../../../../../../platform/c
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
-import { IPositronNotebookInstance } from '../../../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 
@@ -29,7 +29,7 @@ export function registerNotebookCommand({
 }: {
 	commandId: string;
 	handler: (notebook: IPositronNotebookInstance, accessor: ServicesAccessor) => void;
-		keybinding?: IPositronNotebookCommandKeybinding;
+	keybinding?: IPositronNotebookCommandKeybinding;
 	metadata?: ICommandMetadata;
 }): IDisposable {
 	const disposables = new DisposableStore();

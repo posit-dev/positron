@@ -52,7 +52,10 @@ suite('LanguageModels', function () {
 			collector: null!
 		}]);
 
-		store.add(languageModels.registerLanguageModelProvider('test-vendor', {
+		// --- Start Positron ---
+		// Add dummy extension id
+		// --- End Positron ---
+		store.add(languageModels.registerLanguageModelProvider('test-vendor', new ExtensionIdentifier('test-ext'), {
 			onDidChange: Event.None,
 			prepareLanguageModelChat: async () => {
 				const modelMetadata = [
@@ -126,7 +129,10 @@ suite('LanguageModels', function () {
 
 	test('sendChatRequest returns a response-stream', async function () {
 
-		store.add(languageModels.registerLanguageModelProvider('actual-vendor', {
+		// --- Start Positron ---
+		// Add extension identifier to parameters
+		// --- End Positron ---
+		store.add(languageModels.registerLanguageModelProvider('actual-vendor', new ExtensionIdentifier('actual-ext'), {
 			onDidChange: Event.None,
 			prepareLanguageModelChat: async () => {
 				const modelMetadata = [

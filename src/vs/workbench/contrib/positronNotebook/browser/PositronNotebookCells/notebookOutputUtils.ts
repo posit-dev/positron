@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { NotebookCellOutputItem } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { NotebookCellOutputItem } from './IPositronNotebookCell.js';
 
 /**
  * Get the priority of a mime type for sorting purposes
