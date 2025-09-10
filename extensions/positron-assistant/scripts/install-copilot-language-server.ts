@@ -53,8 +53,7 @@ async function main() {
 	// Bundle both arm64 and x64 for macOS, and use the one that matches the
 	// current architecture on Linux.
 	const targetArches = platform() === 'win32' ? ['x64'] :
-		platform() === 'darwin' ? ['arm64', 'x64'] :
-			[process.env.npm_config_arch || arch()];
+		[process.env.npm_config_arch || arch()];
 
 	// Copy the server for each target architecture.
 	for (const targetArch of targetArches) {
@@ -63,7 +62,7 @@ async function main() {
 			path.join(bundleDir, targetArch) : bundleDir;
 
 		await mkdir(serverDir, { recursive: true });
-		const npmServerPath = path.join(npmDir, 'native', `${platform()}-${targetArch}`, serverName);
+		const npmServerPath = path.join(`${npmDir}-${platform()}-${targetArch}`, serverName);
 		const bundledServerPath = path.join(serverDir, serverName);
 		await copyFile(npmServerPath, bundledServerPath);
 	}
