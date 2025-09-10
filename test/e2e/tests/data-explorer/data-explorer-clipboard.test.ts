@@ -3,16 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-/*
- * Verifies Data Explorer copy and paste behavior:
- *   - Copying and pasting works with unsorted data
- *   - Copying and pasting works with sorted data
- *   - Copying and pasting works with pinned rows and columns
- */
-
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
-
 
 const expectedData = {
 	'col3': 'column3\n56\n13\n41\n12\n17\n99\n89\n33\n43\n47',
@@ -23,7 +15,7 @@ const expectedData = {
 	'row4': 'column0\tcolumn1\tcolumn2\tcolumn3\tcolumn4\tcolumn5\tcolumn6\tcolumn7\tcolumn8\tcolumn9\n22\t9\t4\t43\t40\t73\t79\t98\t80\t24',
 	'row9': 'column0\tcolumn1\tcolumn2\tcolumn3\tcolumn4\tcolumn5\tcolumn6\tcolumn7\tcolumn8\tcolumn9\n30\t8\t19\t47\t46\t15\t88\t15\t84\t38',
 	'row9_sorted_desc': 'column0\tcolumn1\tcolumn2\tcolumn3\tcolumn4\tcolumn5\tcolumn6\tcolumn7\tcolumn8\tcolumn9\n22\t9\t4\t43\t40\t73\t79\t98\t80\t24'
-}
+};
 
 const testCases: {
 	env: 'Polars' | 'Pandas' | 'R' | 'DuckDB';
@@ -65,7 +57,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await hotKeys.closeAllEditors();
 		});
 
-		test(`${env} - Copy and Paste works on rows, columns, and ranges of data`, async function ({ app }) {
+		test(`${env} - Copy and paste works on cells, rows, columns, and ranges of unsorted data`, async function ({ app }) {
 			const { dataExplorer, clipboard } = app.workbench;
 
 			// verify copy and paste on columns
@@ -87,10 +79,10 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await dataExplorer.grid.selectRange({ start: { row: 0, col: 0 }, end: { row: 1, col: 1 } });
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(expectedData['col0_col1'], '\n');
-		})
+		});
 
-		test.skip(`${env} - Copy and Paste works with sorted data`, {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/93444' }]
+		test.skip(`${env} - Copy and paste works on cells, rows, columns, and ranges of sorted data`, {
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9344' }]
 		}, async function ({ app }) {
 			const { dataExplorer, clipboard } = app.workbench;
 
@@ -116,7 +108,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await clipboard.expectClipboardTextToBe('column2\tcolumn3\n47\t99\n8\t89');
 		});
 
-		test(`${env} - Copy and Paste works with pinned data`, async function ({ app }) {
+		test(`${env} - Copy and paste of ranges works with pinned data`, async function ({ app }) {
 			const { dataExplorer, clipboard } = app.workbench;
 
 			// pin column 4
@@ -134,9 +126,9 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 				cols: [4, 0, 1]
 			});
 
-			await dataExplorer.grid.clickUpperLeftCorner()
+			await dataExplorer.grid.clickUpperLeftCorner();
 			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe(expectedData['col4_col0_col1'], '\n')
+			await clipboard.expectClipboardTextToBe(expectedData['col4_col0_col1'], '\n');
 		});
-	})
+	});
 }

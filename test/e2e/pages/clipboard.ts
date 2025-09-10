@@ -34,12 +34,21 @@ export class Clipboard {
 
 		return clipboardText;
 	}
+
 	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string): Promise<void> {
 		await expect(async () => {
 			let clipboardText = await this.getClipboardText();
 
-			if (stripTrailingChar && clipboardText?.endsWith(stripTrailingChar)) {
-				clipboardText = clipboardText.slice(0, -1);
+			if (clipboardText) {
+				// Normalize line endings (Windows uses \r\n, but expected data uses \n)
+				clipboardText = clipboardText.replace(/\r\n/g, '\n');
+			}
+
+			if (stripTrailingChar && clipboardText) {
+				// Strip all trailing occurrences of the character, not just one
+				while (clipboardText.endsWith(stripTrailingChar)) {
+					clipboardText = clipboardText.slice(0, -stripTrailingChar.length);
+				}
 			}
 
 			expect(clipboardText).toBe(expectedText);
