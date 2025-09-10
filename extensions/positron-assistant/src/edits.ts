@@ -28,26 +28,24 @@ export function registerMappedEditsProvider(
 			token: vscode.CancellationToken
 		): Promise<vscode.MappedEditsResult> {
 			const model = await getModel(request, participantService);
-
 			for (const block of request.codeBlocks) {
 				const document = await vscode.workspace.openTextDocument(block.resource);
 				log.info(`Mapping edits for block in ${block.resource.toString()}`);
+
 				const text = document.getText();
-				const json = await mapEdit(model, text, block.code, token);
-				if (!json) {
-					return {};
-				}
+				let lastTime = Date.now();
+				const logTime = () => {
+					const now = Date.now();
+					const diff = now - lastTime;
+					lastTime = now;
+					log.info(`Time since last edit: ${diff}ms`);
+				};
+				for await (const json of mapEdit(model, text, block.code, token, log)) {
+					logTime();
+					const edit = JSON.parse(json) as LMTextEdit;
+					log.trace(`Received edit: ${JSON.stringify(edit)}`);
 
-				let edits = JSON.parse(json) as LMTextEdit[];
-
-				// When the model returns a single edit, it may forget to wrap
-				// it in an array. Tolerate this by ensuring edits is always an
-				// array.
-				if (!Array.isArray(edits)) {
-					edits = [edits];
-				}
-
-				for (const edit of edits) {
+					const text = document.getText();
 					if ('append' in edit) {
 						const lastLine = document.lineAt(document.lineCount - 1);
 						const endPosition = lastLine.range.end;
@@ -118,12 +116,13 @@ async function getModel(
 	return models[0];
 }
 
-async function mapEdit(
+async function* mapEdit(
 	model: vscode.LanguageModelChat,
 	document: string,
 	block: string,
 	token: vscode.CancellationToken,
-): Promise<string | null> {
+	log: vscode.LogOutputChannel
+) {
 	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/chat/mapedit.md`, 'utf8');
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
@@ -131,30 +130,53 @@ async function mapEdit(
 		)
 	], { modelOptions: { system } }, token);
 
-	let replacement = '';
+	let hasCodeFence = false;
+	let buffer = '';
+	let newlineIndex;
+
+	const { logTime, getAverage } = getLogTime(log);
 	for await (const delta of response.text) {
+		logTime();
 		if (token.isCancellationRequested) {
 			return null;
 		}
-		replacement += delta;
-	}
-
-	// The model is instructed in `mapedit.md` to return the result as plain
-	// JSON. Despite these instructions, it has been known to return the JSON
-	// inside a Markdown code fence. If it does, we need to extract the JSON
-	// content from it so it can be parsed correctly.
-	const jsonStart = replacement.indexOf('```json');
-	if (jsonStart !== -1) {
-		const jsonEnd = replacement.indexOf('```', jsonStart + 6);
-		if (jsonEnd !== -1) {
-			replacement = replacement.substring(jsonStart + 6, jsonEnd).trim();
-		} else {
-			// If the closing code fence is missing, we return the whole content after the opening code fence.
-			replacement = replacement.substring(jsonStart + 6).trim();
+		buffer += delta;
+		// Remove code fence if present at the start of the buffer
+		if (!hasCodeFence && buffer.startsWith('```')) {
+			const fenceEnd = buffer.indexOf('\n');
+			if (fenceEnd !== -1) {
+				buffer = buffer.slice(fenceEnd + 1);
+				hasCodeFence = true;
+			}
 		}
-	} else {
-		// If no code fence is found, we assume the model returned plain JSON.
-		replacement = replacement.trim();
+
+		// Remove code fence if present at the end of the buffer
+		if (hasCodeFence && buffer.endsWith('```')) {
+			buffer = buffer.slice(0, buffer.length - 3);
+		}
+
+		while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+			const line = buffer.slice(0, newlineIndex);
+			log.info(`Average time between deltas: ${getAverage()}ms`);
+			yield line;
+			buffer = buffer.slice(newlineIndex + 1);
+		}
 	}
-	return replacement;
+	yield buffer;
+
+	log.info(`Average time between deltas: ${getAverage()}ms`);
+	return null;
 }
+
+const getLogTime = ((log: vscode.LogOutputChannel) => {
+	let lastTime = Date.now();
+	const diffs: number[] = [];
+	const logTime = () => {
+		const now = Date.now();
+		const diff = now - lastTime;
+		lastTime = now;
+		diffs.push(diff);
+		return diff;
+	};
+	return { logTime, getAverage: () => diffs.length > 0 ? diffs.reduce((a, b) => a + b) / diffs.length : 0 };
+});
