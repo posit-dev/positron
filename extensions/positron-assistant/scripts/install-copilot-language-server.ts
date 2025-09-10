@@ -6,6 +6,7 @@
 import { copyFile, mkdir, readFile, writeFile } from 'fs/promises';
 import { arch, platform } from 'os';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 async function getNpmCopilotVersion(copilotDir: string): Promise<string> {
 	const packageJsonPath = path.join(copilotDir, 'package.json');
@@ -53,10 +54,26 @@ async function main() {
 	// Bundle both arm64 and x64 for macOS, and use the one that matches the
 	// current architecture on Linux.
 	const targetArches = platform() === 'win32' ? ['x64'] :
-		[process.env.npm_config_arch || arch()];
+		platform() === 'darwin' ? ['arm64', 'x64'] :
+			[process.env.npm_config_arch || arch()];
 
 	// Copy the server for each target architecture.
 	for (const targetArch of targetArches) {
+		const packageName = `@github/copilot-language-server-${platform()}-${targetArch}`;
+
+		// On macOS, we need both the x64 and arm64 versions of the language
+		// server. By default npm just installs the one for the current CPU
+		// architecture.
+		if (platform() === 'darwin') {
+			console.log(`Installing ${packageName} (${targetArch})...`);
+
+			// Use --force to prevent npm from blocking the installation due to
+			// CPU architecture mismatch
+			const npmInstallCmd = `npm install ${packageName} --force`;
+			console.log(npmInstallCmd);
+			execSync(npmInstallCmd, { stdio: 'inherit' });
+		}
+
 		// Use the architecture as a subdirectory for macOS.
 		const serverDir = platform() === 'darwin' ?
 			path.join(bundleDir, targetArch) : bundleDir;
