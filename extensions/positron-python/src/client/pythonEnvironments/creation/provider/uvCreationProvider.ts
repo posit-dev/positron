@@ -45,8 +45,9 @@ async function createUvVenv(
         cwd: workspace.uri.fsPath,
     });
 
-    const venvPath = `${workspace.uri.fsPath}${os.platform() === 'win32' ? '\\.venv\\Scripts\\python.exe' : '/.venv/bin/python'
-        }`;
+    const venvPath = `${workspace.uri.fsPath}${
+        os.platform() === 'win32' ? '\\.venv\\Scripts\\python.exe' : '/.venv/bin/python'
+    }`;
     out.subscribe(
         (value) => {
             const output = value.out.split(/\r?\n/g).join(os.EOL);
