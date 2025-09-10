@@ -9,11 +9,11 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { CellSelectionType } from '../selectionMachine.js';
+import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { observableValue } from '../../../../../base/common/observable.js';
+import { derived, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -27,12 +27,26 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
+	public readonly selectionStatus;
+
 	constructor(
 		public cellModel: NotebookCellTextModel,
 		public _instance: PositronNotebookInstance,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
+
+		const selectionMachine = _instance.selectionStateMachine;
+		this.selectionStatus = derived(this, (reader): CellSelectionStatus => {
+			const state = selectionMachine.state.read(reader);
+			if (state.type === SelectionState.EditingSelection) {
+				return selectionMachine.getSelectedCell() === this ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected;
+			} else if (state.type === SelectionState.NoSelection) {
+				return CellSelectionStatus.Unselected;
+			} else {
+				return selectionMachine.getSelectedCells().includes(this) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected;
+			}
+		});
 	}
 
 	get index(): number {

@@ -15,7 +15,6 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useSelectionStatus } from './useSelectionStatus.js';
 import { NotebookCellMoreActionsMenu } from './actionBar/NotebookCellMoreActionsMenu.js';
 import { useActionBarVisibility } from './actionBar/useActionBarVisibility.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBar/actionBarRegistry.js';
@@ -36,9 +35,9 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 	const instance = useNotebookInstance();
 	const registry = NotebookCellActionBarRegistry.getInstance();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
-	const selectionStatus = useSelectionStatus(cell);
 
 	// Use observable values for reactive updates
+	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const allMainActions = useObservedValue(registry.mainActions) ?? [];
 	const allMenuActions = useObservedValue(registry.menuActions) ?? [];
 

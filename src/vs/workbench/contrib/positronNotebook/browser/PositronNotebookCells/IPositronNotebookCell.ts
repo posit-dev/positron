@@ -5,7 +5,7 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../../base/common/observable.js';
+import { IObservable, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
@@ -51,6 +51,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 * Current execution status for this cell
 	 */
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
+
+	/**
+	 * Current selection status for this cell
+	 */
+	selectionStatus: IObservable<CellSelectionStatus>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.
