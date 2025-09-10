@@ -35,7 +35,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          cache: false
+          package-manager-cache: false
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
