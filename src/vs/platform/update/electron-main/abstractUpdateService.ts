@@ -194,7 +194,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
 		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
-		if (this.state.type !== StateType.Idle) {
+		if (this.state.type !== StateType.Idle && this.state.type !== StateType.Ready) {
 			return;
 		}
 

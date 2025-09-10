@@ -187,7 +187,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			return;
 		}
 
-		// TODO: Code for installing updates is disabled due to this.enableAutoUpdate being false
 		this.setState(State.Downloading);
 
 		this.cleanup(update.version).then(() => {
