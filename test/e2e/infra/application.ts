@@ -174,7 +174,7 @@ export class Application {
 	private async checkExternalServerWorkbenchReady(code: Code): Promise<void> {
 		// For external servers, check for key UI elements that indicate readiness
 		// instead of relying on lifecycle phases which may have already completed
-		await code.driver.page.getByRole('button', { name: 'Yes, I trust the authors' }).click();
+		// await code.driver.page.getByRole('button', { name: 'Yes, I trust the authors' }).click();
 
 		// Wait for the explorer to be visible (main workbench element)
 		await expect(code.driver.page.locator('.explorer-folders-view')).toBeVisible({ timeout: 60000 });

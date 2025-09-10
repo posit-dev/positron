@@ -16,6 +16,13 @@ export class HotKeys {
 		return process.platform === 'darwin' ? 'Meta' : 'Control';
 	}
 
+	private isExternalBrowser(): boolean {
+		// Check if we're running against an external server (browser mode)
+		// This can be detected by checking if the URL contains port 8080
+		const currentUrl = this.code.driver.page.url();
+		return currentUrl.includes('8080');
+	}
+
 	// ----------------------
 	// --- Editing Actions ---
 	// ----------------------
@@ -184,7 +191,7 @@ export class HotKeys {
 	}
 
 	public async openWorkspaceSettingsJSON() {
-		await this.pressHotKeys('Cmd+J K', 'Open workspace settings JSON');
+		await this.pressHotKeys('Cmd+J K', 'Open workspace settings JSON', true);
 	}
 
 	public async reloadWindow() {
@@ -220,7 +227,7 @@ export class HotKeys {
 	 * Note: Supports multiple key sequences separated by spaces.
 	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
 	 */
-	private async pressHotKeys(keyCombo: string, description?: string): Promise<void> {
+	private async pressHotKeys(keyCombo: string, description?: string, needsFocusFirst = false): Promise<void> {
 		const stepWrapper = (label: string, fn: () => Promise<void>) => {
 			try {
 				// Check if running in a test context
@@ -239,6 +246,14 @@ export class HotKeys {
 			: `Press hotkeys: ${keyCombo}`;
 
 		await stepWrapper(stepDescription, async () => {
+			// For external browser testing, first click on the titlebar to ensure focus
+			if (this.isExternalBrowser() && needsFocusFirst) {
+				const titlebarDragRegion = this.code.driver.page.locator('.titlebar-drag-region');
+				if (await titlebarDragRegion.isVisible()) {
+					await titlebarDragRegion.click();
+				}
+			}
+
 			// Replace "Cmd" with the platform-appropriate modifier key
 			// and (for Windows and Ubuntu) replace "Option" with "Alt"
 			const keySequences = keyCombo.split(' ').map(keys => {
