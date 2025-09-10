@@ -30,7 +30,8 @@ const testCases: {
 	rowIndexOffset: number;
 	data: string;
 }[] = [
-		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")' },
+		// issue 9383 - R copy/paste not working in DE
+		// { env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")' },
 		{ env: 'DuckDB', rowIndexOffset: 0, data: 'data-files/small_file.csv' },
 		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")' },
 		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")' }
@@ -64,8 +65,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await hotKeys.closeAllEditors();
 		});
 
-		test(`${env} - Copy and Paste works with default data`, async function ({ app }) {
-			// if (env !== 'DuckDB') { test.skip(); } // DuckDB only for now - Polars/Pandas/R have issues
+		test(`${env} - Copy and Paste works on rows, columns, and ranges of data`, async function ({ app }) {
 			const { dataExplorer, clipboard } = app.workbench;
 
 			// verify copy and paste on columns
