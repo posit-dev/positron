@@ -1174,7 +1174,14 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 */
 	performRpcWithBuffers<T>(request: Input, timeout: number | undefined, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
-		const messageId = generateUuid();
+		let messageId;
+		if ((request as any)?.id) {
+			// If the request already has an id field, use it as id. This is typically
+			// the case with nested JSON-RPC messages.
+			messageId = (request as any).id;
+		} else {
+			messageId = generateUuid();
+		}
 
 		// Add the promise to the list of pending RPCs.
 		const pending = new PendingRpc<T>(responseKeys);
