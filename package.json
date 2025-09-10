@@ -48,6 +48,7 @@
     "e2e-win": "npx playwright test --project e2e-electron --grep @:win",
     "e2e-failed": "npx playwright test --last-failed",
     "e2e-summary": "python test/e2e/create-test-summary.py test/e2e/tests",
+    "e2e-start-server": "./scripts/e2e-start-server.sh 8080 dev-token",
     "e2e-ui": "PW_UI_MODE=true npx playwright test --ui",
     "prelaunch": "node build/lib/preLaunch.js",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",

@@ -239,6 +239,9 @@ export class Sessions {
 				await this.delete(sessionIds[i]);
 			}
 
+			// Workaround for external browser
+			try { await this.page.getByRole('button', { name: 'Delete Session' }).click({ timeout: 1000 }); } catch (error) { }
+
 			await expect(this.page.getByText('There is no session running.')).toBeVisible();
 		});
 	}

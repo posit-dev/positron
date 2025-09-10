@@ -16,6 +16,16 @@ export interface CustomTestOptions {
 	web: boolean;
 	artifactDir: string;
 	headless?: boolean;
+	/**
+	 * When true, connects to an existing server instead of launching one.
+	 * Use with externalServerUrl to specify the server to connect to.
+	 */
+	useExternalServer?: boolean;
+	/**
+	 * The URL of an external server to connect to.
+	 * Only used when useExternalServer is true.
+	 */
+	externalServerUrl?: string;
 }
 
 export interface AppFixtureOptions {
@@ -57,7 +67,9 @@ export function OptionsFixture() {
 			tracing: true,
 			snapshots,
 			quality: Quality.Dev,
-			version
+			version,
+			useExternalServer: project.useExternalServer,
+			externalServerUrl: project.externalServerUrl
 		};
 
 		options.userDataDir = getRandomUserDataDir(options);
@@ -98,6 +110,13 @@ export function UserDataDirFixture() {
 export function AppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
 		const { options, logsPath, logger, workerInfo } = fixtureOptions;
+
+		// For external server mode, use a different approach
+		if (options.useExternalServer) {
+			return await ExternalServerAppFixture()(fixtureOptions, use);
+		}
+
+		// Standard app fixture for managed servers/electron
 		const app = createApp(options);
 
 		try {
@@ -121,6 +140,44 @@ export function AppFixture() {
 			throw error; // re-throw the error to ensure test failure
 		} finally {
 			await app.stop();
+
+			// rename the temp logs dir to the spec name (if available)
+			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
+			await moveAndOverwrite(logger, logsPath, specLogsPath);
+		}
+	};
+}
+
+export function ExternalServerAppFixture() {
+	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
+		const { options, logsPath, logger, workerInfo } = fixtureOptions;
+		const app = createApp(options);
+
+		try {
+			// For external server, we don't launch the app, just connect to it
+			await app.connectToExternalServer();
+
+			// workaround since we have rogue sessions at startup
+			await app.workbench.sessions.expectNoStartUpMessaging();
+			await app.workbench.sessions.deleteAll();
+
+			await use(app);
+		} catch (error) {
+			// capture a screenshot on failure
+			const screenshotPath = path.join(logsPath, 'external-server-failure.png');
+			try {
+				const page = app.code?.driver?.page;
+				if (page) {
+					const screenshot = await page.screenshot({ path: screenshotPath });
+					setFixtureScreenshot(screenshot);
+				}
+			} catch {
+				// ignore
+			}
+
+			throw error; // re-throw the error to ensure test failure
+		} finally {
+			await app.stopExternalServer();
 
 			// rename the temp logs dir to the spec name (if available)
 			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);

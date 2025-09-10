@@ -125,7 +125,10 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 #### Test Explorer
 
 1. Open the **Testing** extension.
-2. Ensure the correct project (`e2e-electron` or `e2e-browser`) is selected; otherwise, no tests will populate in the Test Explorer.
+2. Ensure the correct project is selected; otherwise, no tests will populate in the Test Explorer.
+   - `e2e-electron`: Standard Electron app testing
+   - `e2e-browser`: Browser testing with managed server
+   - `e2e-browser-external`: Browser testing with external server ⭐
 3. Expand the file tree to locate the desired test.
 4. Use the action buttons next to each test to:
    - **Run Test**: Executes the selected test.
@@ -206,9 +209,8 @@ When creating a pull request, the test runner automatically scans the PR descrip
 1. Use the format `@:tag` anywhere in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-> [!NOTE]
-> **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
-For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
+> [!NOTE] > **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
+> For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 ### Running Windows and Browser Tests
 
@@ -216,6 +218,7 @@ By default, only Linux E2E tests run. If you need to include additional environm
 
 - Add `@:win` to your PR description to run tests on Windows. (Note: Windows tests take longer to complete.)
 - Add `@:web` to run browser-based tests.
+- Add `@:external` to run tests against external server
 
 ## Running Tests in Github Actions
 
