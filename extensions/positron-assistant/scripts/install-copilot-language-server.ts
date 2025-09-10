@@ -69,7 +69,7 @@ async function main() {
 
 			// Use --force to prevent npm from blocking the installation due to
 			// CPU architecture mismatch
-			const npmInstallCmd = `npm install ${packageName} --force`;
+			const npmInstallCmd = `npm install ${packageName}@${npmVersion} --force`;
 			console.log(npmInstallCmd);
 			execSync(npmInstallCmd, { stdio: 'inherit' });
 		}
