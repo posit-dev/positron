@@ -19,6 +19,7 @@ Usage:
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample, json_dataset
+import json
 from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import Solver, solver
 
@@ -65,12 +66,18 @@ def json_model_graded_eval():
 	Evaluation task that loads responses from JSON and grades them using model_graded_qa.
 
 	This task:
-	1. Loads a JSONL dataset containing pre-generated model responses
+	1. Loads a JSON dataset containing pre-generated model responses
 	2. Uses model_graded_qa to evaluate the quality of those responses
 	3. Returns accuracy and standard error metrics
 	"""
 	# Load the dataset from JSON file
-	dataset = json_dataset("response-dataset.jsonl", sample_fields=record_to_sample)
+	# Load JSON file and convert to samples
+	with open("response-dataset.json", "r") as f:
+		data = json.load(f)
+	# Create samples from the loaded JSON data
+	samples = [record_to_sample(record) for record in data]
+	# Create a dataset from the samples
+	dataset = samples
 
 	return Task(
 		dataset=dataset,
