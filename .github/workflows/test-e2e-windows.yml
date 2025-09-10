@@ -103,6 +103,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          cache: false
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"

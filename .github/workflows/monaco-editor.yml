@@ -26,6 +26,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          cache: false
 
       - name: Compute node modules cache key
         id: nodeModulesCacheKey
