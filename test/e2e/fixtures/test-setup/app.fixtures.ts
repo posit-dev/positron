@@ -151,6 +151,16 @@ export function AppFixture() {
 export function ExternalServerAppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
 		const { options, logsPath, logger, workerInfo } = fixtureOptions;
+
+		// For external server mode, use the server's actual user data directory
+		const serverUserDataDir = join(os.homedir(), '.positron-e2e-test');
+		const userDir = join(serverUserDataDir, 'User');
+
+		console.log('External server user data dir:', serverUserDataDir);
+		await mkdir(userDir, { recursive: true });
+		await copyFixtureFile('keybindings.json', userDir, true);
+		await copyFixtureFile('settings.json', userDir);
+
 		const app = createApp(options);
 
 		try {
