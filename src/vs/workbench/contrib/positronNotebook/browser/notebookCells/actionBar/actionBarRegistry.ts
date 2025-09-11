@@ -5,7 +5,7 @@
 
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
-import { derived, IObservable, ObservableMap } from '../../../../../../base/common/observable.js';
+import { derived, ObservableMap } from '../../../../../../base/common/observable.js';
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 import { CellConditionPredicate } from './cellConditions.js';
 
@@ -45,19 +45,25 @@ export class NotebookCellActionBarRegistry {
 	private static instance: NotebookCellActionBarRegistry;
 	private items = new ObservableMap<string, INotebookCellActionBarItem>();
 
-	// Observable arrays for reactive UI updates
-	private _mainActions;
-	private _menuActions;
+	/**
+	 * The observable array of main action bar actions.
+	 */
+	public readonly mainActions;
+
+	/**
+	 * The observable array of dropdown menu actions.
+	 */
+	public readonly menuActions;
 
 	constructor() {
-		this._mainActions = derived(this, reader => {
+		this.mainActions = derived(this, reader => {
 			/** @description mainActions */
 			return Array.from(this.items.observable.read(reader).values())
 				.filter(item => item.position === 'main')
 				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
 		});
 
-		this._menuActions = derived(this, reader => {
+		this.menuActions = derived(this, reader => {
 			/** @description menuActions */
 			return Array.from(this.items.observable.read(reader).values())
 				.filter(item => item.position === 'menu')
@@ -87,19 +93,5 @@ export class NotebookCellActionBarRegistry {
 				this.items.delete(item.commandId);
 			}
 		};
-	}
-
-	/**
-	 * Gets the observable array of main action bar actions.
-	 */
-	get mainActions(): IObservable<INotebookCellActionBarItem[]> {
-		return this._mainActions;
-	}
-
-	/**
-	 * Gets the observable array of dropdown menu actions.
-	 */
-	get menuActions(): IObservable<INotebookCellActionBarItem[]> {
-		return this._menuActions;
 	}
 }
