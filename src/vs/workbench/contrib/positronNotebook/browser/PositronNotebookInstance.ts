@@ -388,9 +388,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Update the kernel status based on the current runtime.
 		this._register(autorun(reader => {
-			if (!this.currentRuntime.read(reader)) {
-				this.kernelStatus.set(KernelStatus.Disconnected, undefined);
-			}
+			const runtime = this.currentRuntime.read(reader);
+			this.kernelStatus.set(runtime ? KernelStatus.Connected : KernelStatus.Disconnected, undefined);
 		}));
 
 		this.contextManager = this._register(
