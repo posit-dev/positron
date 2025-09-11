@@ -51,11 +51,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this.selectionStatus = derived(this, (reader): CellSelectionStatus => {
 			const state = selectionMachine.state.read(reader);
 			if (state.type === SelectionState.EditingSelection) {
-				return selectionMachine.getSelectedCell() === this ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected;
+				return state.selectedCell === this ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected;
 			} else if (state.type === SelectionState.NoSelection) {
 				return CellSelectionStatus.Unselected;
 			} else {
-				return selectionMachine.getSelectedCells().includes(this) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected;
+				return state.selected.includes(this) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected;
 			}
 		});
 	}
