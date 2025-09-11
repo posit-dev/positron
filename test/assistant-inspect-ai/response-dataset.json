@@ -1,18 +1,21 @@
 [
 	{
 		"id": "sample_1",
+		"mode": "Ask",
 		"question": "What e the capital of France?",
 		"model_response": "",
 		"target": "The answer should correctly identify Paris as the capital of France"
 	},
 	{
 		"id": "sample_2",
+		"mode": "Ask",
 		"question": "What version is this?",
 		"model_response": "",
 		"target": "The answer should return at least the version of Positron being used and either a Python or R version."
 	},
 	{
 		"id": "sample_3",
+		"mode": "Ask",
 		"question": "Summarize my table df.",
 		"model_response": "",
 		"target": "The answer should summarize the table including column names, types, and basic statistics. It should also mention the use of the `getTableSummary` tool."

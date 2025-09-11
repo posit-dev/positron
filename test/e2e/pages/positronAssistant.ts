@@ -31,9 +31,11 @@ const INSERT_NEW_FILE_BUTTON = 'a.action-label.codicon.codicon-new-file[role="bu
 const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
-const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label="Send and Dispatch (Enter)"]';
+const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label^="Send"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label^="New Chat"]';
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
+const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
+const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -238,6 +240,32 @@ export class Assistant {
 
 	async waitForSendButtonVisible() {
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).waitFor({ state: 'visible' });
+	}
+
+	async selectChatMode(mode: string) {
+		// Click the mode dropdown to open it
+		await this.code.driver.page.locator(MODE_DROPDOWN).click();
+
+		// Wait for the dropdown menu to appear
+		await this.code.driver.page.locator(MODE_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
+
+		// Find and click the item with the matching text
+		const items = this.code.driver.page.locator(MODE_DROPDOWN_ITEM);
+		const count = await items.count();
+
+		for (let i = 0; i < count; i++) {
+			const item = items.nth(i);
+			const titleSpan = item.locator('span.title');
+			const text = await titleSpan.textContent();
+
+			if (text?.trim() === mode) {
+				// Use force: true to bypass the pointer block
+				await item.click({ force: true });
+				return;
+			}
+		}
+
+		throw new Error(`Mode "${mode}" not found in dropdown`);
 	}
 
 	async getChatResponseText(exportFolder?: string) {

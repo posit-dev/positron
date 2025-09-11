@@ -92,6 +92,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 				await setupAction(app);
 			}
 			await app.workbench.assistant.clickNewChatButton();
+			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
 			await app.workbench.assistant.enterChatMessage(item.question);
 			await app.workbench.assistant.waitForSendButtonVisible();
 			await app.code.wait(5000);
