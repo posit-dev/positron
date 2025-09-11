@@ -94,7 +94,7 @@ def test_view_simple_expression(shell: PositronShell, mock_dataexplorer_service:
     expected_result = 6
     shell.run_cell('%view "x + 1"')
     mock_dataexplorer_service.register_table.assert_called_once()
-    args, kwargs = mock_dataexplorer_service.register_table.call_args
+    args, _kwargs = mock_dataexplorer_service.register_table.call_args
     assert args[0] is expected_result  # First arg is the object
     # Check that the title is either the quoted or unquoted expression (platform-dependent)
     assert args[1] in ('"x + 1"', "x + 1")
@@ -106,7 +106,7 @@ def test_view_complex_expression(shell: PositronShell, mock_dataexplorer_service
     expected_result = [1, 2, 6]
     shell.run_cell('%view "my_list[:2] + [sum(my_list)]"')
     mock_dataexplorer_service.register_table.assert_called_once()
-    args, kwargs = mock_dataexplorer_service.register_table.call_args
+    args, _kwargs = mock_dataexplorer_service.register_table.call_args
     assert args[0] == expected_result
     # Check that the title is either the quoted or unquoted expression (platform-dependent)
     assert args[1] in ('"my_list[:2] + [sum(my_list)]"', "my_list[:2] + [sum(my_list)]")
@@ -119,7 +119,7 @@ def test_view_expression_with_title(shell: PositronShell, mock_dataexplorer_serv
     expected_result = 20
     shell.run_cell('%view "x * 2" "Doubled Value"')
     mock_dataexplorer_service.register_table.assert_called_once()
-    args, kwargs = mock_dataexplorer_service.register_table.call_args
+    args, _kwargs = mock_dataexplorer_service.register_table.call_args
     assert args[0] is expected_result
     assert args[1] == title
 
