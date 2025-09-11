@@ -1496,7 +1496,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// Mark ready after a successful restart
 			this.markReady('restart complete');
 		} catch (err) {
-			if (err instanceof HttpError) {
+			if (isAxiosError(err)) {
 				throw new Error(summarizeAxiosError(err));
 			} else {
 				throw err;

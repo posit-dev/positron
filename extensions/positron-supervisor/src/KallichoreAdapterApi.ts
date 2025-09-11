@@ -591,7 +591,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create a bearer auth object with the token
 		const bearerToken = connectionData.bearer_token;
-		this.createApi(connectionData.base_path!, bearerToken);
+		this.createApi(connectionData);
 
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
@@ -725,12 +725,15 @@ export class KCApi implements PositronSupervisorApi {
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
 
-	private createApi(basePath: string, bearerToken: string) {
+	private createApi(state: KallichoreServerState) {
 		this._api = new DefaultApi(
 			new Configuration({
-				accessToken: bearerToken
+				accessToken: state.bearer_token,
+				baseOptions: {
+					socketPath: state.socket_path
+				},
 			}),
-			basePath
+			state.base_path
 		);
 	}
 
@@ -825,7 +828,7 @@ export class KCApi implements PositronSupervisorApi {
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
-		this.createApi(serverState.base_path!, serverState.bearer_token);
+		this.createApi(serverState);
 
 		// Re-establish the log stream
 		if (this._logStreamer) {

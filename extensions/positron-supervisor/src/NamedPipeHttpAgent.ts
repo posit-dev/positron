@@ -5,7 +5,6 @@
 
 import * as http from 'http';
 import * as net from 'net';
-import * as request from 'request';
 import WebSocket from 'ws';
 
 /**
@@ -106,7 +105,7 @@ export function createHttpAgent(basePath: string): http.Agent | undefined {
  * Request interceptor that configures custom agents for named pipe connections
  * @param requestOptions The request options to modify
  */
-export function namedPipeInterceptor(requestOptions: request.Options): Promise<void> {
+export function namedPipeInterceptor(requestOptions: any): Promise<void> {
 	return new Promise((resolve) => {
 		// Check if this is a named pipe request
 		const uri = (requestOptions as any).uri;
