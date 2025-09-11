@@ -44,15 +44,14 @@ export type CellConditionPredicate = (cellInfo: ICellInfo) => boolean;
 /**
  * Creates ICellInfo from a cell and its position in the notebook.
  * @param cell The notebook cell
- * @param cellIndex The cell's index in the notebook
  * @param totalCells Total number of cells in the notebook
  * @returns Cell information object
  */
 export function createCellInfo(
 	cell: IPositronNotebookCell,
-	cellIndex: number,
 	totalCells: number
 ): ICellInfo {
+	const cellIndex = cell.index;
 	return {
 		cellType: cell.kind === CellKind.Code ? NotebookCellType.Code :
 			cell.kind === CellKind.Markup ? NotebookCellType.Markdown : NotebookCellType.Raw,

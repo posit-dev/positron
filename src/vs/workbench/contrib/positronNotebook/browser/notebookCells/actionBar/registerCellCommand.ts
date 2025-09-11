@@ -88,18 +88,17 @@ export function registerCellCommand({
 	const disposables = new DisposableStore();
 
 	// Helper to check if a cell passes the cell condition
-	const cellPassesCondition = (cell: IPositronNotebookCell, activeNotebook: any) => {
+	const cellPassesCondition = (cell: IPositronNotebookCell, activeNotebook: IPositronNotebookInstance) => {
 		if (!cellCondition) {
 			return true;
 		}
 
-		const cells = activeNotebook.cells.get();
-		const cellIndex = cell.index;
-		if (cellIndex === -1) {
+		if (cell.index === -1) {
 			return false;
 		}
 
-		const cellInfo = createCellInfo(cell, cellIndex, cells.length);
+		const cells = activeNotebook.cells.get();
+		const cellInfo = createCellInfo(cell, cells.length);
 		return cellCondition(cellInfo);
 	};
 

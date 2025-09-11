@@ -43,7 +43,7 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 
 	// Filter actions based on cell conditions
 	const cells = instance.cells.get();
-	const cellInfo = createCellInfo(cell, cell.index, cells.length);
+	const cellInfo = createCellInfo(cell, cells.length);
 
 	const mainActions = allMainActions.filter(action => {
 		return !action.cellCondition || action.cellCondition(cellInfo);
