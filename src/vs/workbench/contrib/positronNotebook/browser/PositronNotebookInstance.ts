@@ -548,18 +548,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param referenceCell Optional reference cell. If not provided, uses the currently selected cell
 	 */
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
-		let index: number | null;
+		let index: number | undefined;
 
 		this._assertTextModel();
 
 		if (referenceCell) {
 			const cellIndex = referenceCell.index;
-			index = cellIndex >= 0 ? cellIndex : null;
+			index = cellIndex >= 0 ? cellIndex : undefined;
 		} else {
-			index = this.selectionStateMachine.getSelectedCell()?.index ?? null;
+			index = this.selectionStateMachine.getSelectedCell()?.index;
 		}
 
-		if (index === null) {
+		if (index === undefined) {
 			return;
 		}
 
