@@ -1918,7 +1918,6 @@
             {
                 "name": "getAttachedPythonPackages",
                 "displayName": "Get attached Python packages",
-                "when": "false",
                 "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
                 "canBeReferencedInPrompt": false,
                 "inputSchema": {
@@ -1938,7 +1937,6 @@
             {
                 "name": "getInstalledPythonPackageVersion",
                 "displayName": "Get installed Python package version",
-                "when": "false",
                 "modelDescription": "Given the name of a Python package, returns the version of the package that's installed in the current Python session, or NULL if the package is not installed.",
                 "canBeReferencedInPrompt": false,
                 "inputSchema": {
