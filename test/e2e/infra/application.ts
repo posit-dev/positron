@@ -184,13 +184,5 @@ export class Application {
 
 		// Wait for the status bar to be ready
 		await expect(code.driver.page.locator('.statusbar')).toBeVisible({ timeout: 30000 });
-
-		// Not sure if we need this. Maybe?
-
-		// Ensure no loading indicators are present
-		// await expect(code.driver.page.locator('.monaco-progress-container.active')).toHaveCount(0, { timeout: 30000 });
-
-		// // Give a small buffer for any remaining initialization
-		// await code.driver.page.waitForTimeout(1000);
 	}
 }

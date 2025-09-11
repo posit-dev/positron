@@ -79,7 +79,7 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 		`["logLevel","${options.verbose ? 'trace' : 'info'}"]`
 	].join(',')}]`;
 
-	// Construct URL for external server (assuming it follows the same pattern)
+	// Construct URL for external server
 	const workspaceParam = workspacePath.endsWith('.code-workspace') ? 'workspace' : 'folder';
 	const fullUrl = `${serverUrl}&${workspaceParam}=${URI.file(workspacePath!).path}&payload=${payloadParam}`;
 

@@ -209,7 +209,8 @@ When creating a pull request, the test runner automatically scans the PR descrip
 1. Use the format `@:tag` anywhere in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-> [!NOTE] > **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
+> [!NOTE]
+> **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
 > For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 ### Running Windows and Browser Tests
@@ -218,7 +219,6 @@ By default, only Linux E2E tests run. If you need to include additional environm
 
 - Add `@:win` to your PR description to run tests on Windows. (Note: Windows tests take longer to complete.)
 - Add `@:web` to run browser-based tests.
-- Add `@:external` to run tests against external server
 
 ## Running Tests in Github Actions
 
