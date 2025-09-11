@@ -567,20 +567,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 			// Create a combined entry map that includes both pinned columns and search results
 			// Pinned columns should appear first, followed by search results that aren't already pinned
-			const combinedEntries: number[] = [];
-
-			// Add pinned columns first
-			pinnedColumns.forEach(pinnedColumn => {
-				combinedEntries.push(pinnedColumn);
-			});
-
-			// Add search results that aren't already pinned
 			const pinnedSet = new Set(pinnedColumns);
-			searchResults.matches.forEach(matchedColumn => {
-				if (!pinnedSet.has(matchedColumn)) {
-					combinedEntries.push(matchedColumn);
-				}
-			});
+			const combinedEntries: number[] = [
+				...pinnedColumns,
+				...searchResults.matches.filter(matchedColumn => !pinnedSet.has(matchedColumn))
+			];
 
 			this._rowLayoutManager.setEntries(combinedEntries.length, undefined, combinedEntries);
 		}
