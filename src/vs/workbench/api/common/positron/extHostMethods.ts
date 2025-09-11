@@ -144,7 +144,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					}
 					result = await this.showPrompt(params.title as string,
 						params.message as string,
-						params.default_value as string | undefined,
+						params.default as string | undefined,
 						params.placeholder as string | undefined);
 					break;
 				}

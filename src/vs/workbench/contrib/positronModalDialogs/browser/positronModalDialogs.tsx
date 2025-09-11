@@ -279,7 +279,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			};
 
 			return (
-				<PositronModalDialog height={280} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
+				<PositronModalDialog height={200} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
 					<ContentArea>
 						<VerticalStack>
 							{message && (
