@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { observableValue, waitForState } from '../../../../../base/common/observable.js';
+import { observableFromEvent, observableValue, waitForState } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -14,8 +14,8 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
-	markdownString = observableValue<string | undefined>('markdownString', undefined);
-	editorShown = observableValue<boolean>('editorShown', false);
+	readonly markdownString;
+	readonly editorShown = observableValue<boolean>('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
 	constructor(
@@ -25,16 +25,11 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 	) {
 		super(cellModel, instance, textModelResolverService);
 
-		// Render the markdown content and update the observable when the cell content changes
-		this._register(this.cellModel.onDidChangeContent(() => {
-			this.markdownString.set(this.getContent(), undefined);
-		}));
-
-		this._updateContent();
-	}
-
-	private _updateContent(): void {
-		this.markdownString.set(this.getContent(), undefined);
+		// Create the markdown string observable
+		this.markdownString = observableFromEvent(this, this.cellModel.onDidChangeContent, () => {
+			/** @description markdownString */
+			return this.getContent();
+		});
 	}
 
 	toggleEditor(): void {
