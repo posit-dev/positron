@@ -162,7 +162,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 
 			try {
 				// If not visible, don't mount the webview
-				if (!visibilityObservable) {
+				if (!visibilityObservable.get()) {
 					return emptyDisposable;
 				}
 
@@ -240,18 +240,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 		}
 
 		// Listen for changes in visibility, claiming or releasing the webview
-		if (visibilityObservable) {
-			disposables.add(
-				autorun(reader => {
-					const isVisible = visibilityObservable.read(reader);
-					if (isVisible) {
-						claimWebview();
-					} else {
-						releaseWebview();
-					}
-				})
-			);
-		}
+		disposables.add(
+			autorun(reader => {
+				const isVisible = visibilityObservable.read(reader);
+				if (isVisible) {
+					claimWebview();
+				} else {
+					releaseWebview();
+				}
+			})
+		);
 
 		// Actually start the mounting process
 		mountWebview();
