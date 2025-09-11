@@ -5,7 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { DEFAULT_EDITOR_ASSOCIATION, EditorResourceAccessor, IEditorPane } from '../../../common/editor.js';
-import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -808,6 +808,17 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 					POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
 					POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
 			),
+			keybinding: {
+				when: ContextKeyExpr.and(
+					POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE,
+					ContextKeyExpr.or(
+						POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING,
+						POSITRON_DATA_EXPLORER_IS_ROW_FILTERING)
+				),
+				weight: KeybindingWeight.WorkbenchContrib + 1,
+				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyC),
+			},
 			icon: Codicon.code,
 			menu: [
 				{

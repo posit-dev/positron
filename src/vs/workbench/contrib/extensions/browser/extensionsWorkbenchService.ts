@@ -2171,10 +2171,15 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 			case StateType.Downloaded:
 			case StateType.Updating:
 			case StateType.Ready: {
+				// --- Start Positron ---
+				// Removing for now until the release update metadata populates with the CodeOSS version
+				/*
 				const version = this.updateService.state.update.productVersion;
 				if (version && semver.valid(version)) {
 					return { version, date: this.updateService.state.update.timestamp ? new Date(this.updateService.state.update.timestamp).toISOString() : undefined };
 				}
+				*/
+				// --- End Positron ---
 			}
 		}
 		return undefined;

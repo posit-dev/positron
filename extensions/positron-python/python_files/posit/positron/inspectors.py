@@ -1017,7 +1017,7 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
 Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame")
 
 
-class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
+class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):  # noqa: PYI059
     """Base inspector for tabular data."""
 
     def get_display_type(self) -> str:

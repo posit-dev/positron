@@ -153,7 +153,7 @@ suite('Terminal - Code Execution Helper', async () => {
     });
     // --- End Positron ---
 
-    test('normalizeLines should handle attach_bracket_paste correctly', async () => {
+    test('normalizeLines with BASIC_REPL does not attach bracketed paste mode', async () => {
         configurationService
             .setup((c) => c.getSettings(TypeMoq.It.isAny()))
             .returns({
@@ -179,7 +179,7 @@ suite('Terminal - Code Execution Helper', async () => {
 
         const result = await helper.normalizeLines('print("Looks like you are on 3.13")', ReplType.terminal);
 
-        expect(result).to.equal(`\u001b[200~print("Looks like you are on 3.13")\u001b[201~`);
+        expect(result).to.equal(`print("Looks like you are on 3.13")`);
         jsonParseStub.restore();
     });
 

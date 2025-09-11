@@ -292,3 +292,5 @@ interface WorkerFixtures {
 	};
 	vsCodeSettings: VscodeSettings;
 }
+
+export { CustomTestOptions };

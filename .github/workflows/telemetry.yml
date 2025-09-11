@@ -11,9 +11,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: 'actions/setup-node@v4'
+      - uses: 'actions/setup-node@v5'
         with:
           node-version: 'lts/*'
+          package-manager-cache: false
 
       - name: 'Run vscode-telemetry-extractor'
         run: 'npx --package=@vscode/telemetry-extractor@1.14.0 --yes vscode-telemetry-extractor -s .'
