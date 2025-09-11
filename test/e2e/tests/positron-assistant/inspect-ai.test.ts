@@ -61,7 +61,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		// Define setup actions in a separate object (could even be moved to its own file later)
 		const setupActions = {
-			'sample_3': async (app: any) => {
+			'sample_2': async (app: any) => {
 				await expect(async () => {
 					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 					await app.workbench.quickaccess.runCommand('python.execInConsole');

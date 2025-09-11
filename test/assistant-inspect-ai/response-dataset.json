@@ -1,20 +1,15 @@
 [
 	{
 		"id": "sample_1",
-		"mode": "Ask",
-		"question": "What e the capital of France?",
-		"model_response": "",
-		"target": "The answer should correctly identify Paris as the capital of France"
-	},
-	{
-		"id": "sample_2",
+		"description": "Check context include Positron version and interpreter version.",
 		"mode": "Ask",
 		"question": "What version is this?",
 		"model_response": "",
 		"target": "The answer should return at least the version of Positron being used and either a Python or R version."
 	},
 	{
-		"id": "sample_3",
+		"id": "sample_2",
+		"description": "Check the getTableSummary tool is called in 'ask' mode. Uses python and 'chinook-sqlite.py'",
 		"mode": "Ask",
 		"question": "Summarize my table df.",
 		"model_response": "",
