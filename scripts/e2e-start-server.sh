@@ -58,12 +58,12 @@ trap cleanup EXIT
 
 # Start the server with explicit user data directory and additional e2e options
 ./scripts/code-server.sh --no-launch --connection-token "$TOKEN" --port "$PORT" \
-  --user-data-dir "$USER_DATA_DIR" \
-  --disable-telemetry \
-  --disable-experiments \
-  --skip-welcome \
-  --skip-release-notes \
-  --no-cached-data \
-  --disable-updates \
-  --use-inmemory-secretstorage \
-  --disable-workspace-trust
+	--user-data-dir "$USER_DATA_DIR" \
+	--disable-telemetry \
+	--disable-experiments \
+	--skip-welcome \
+	--skip-release-notes \
+	--no-cached-data \
+	--disable-updates \
+	--use-inmemory-secretstorage \
+	--disable-workspace-trust

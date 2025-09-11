@@ -17,10 +17,7 @@ export class HotKeys {
 	}
 
 	private isExternalBrowser(): boolean {
-		// Check if we're running against an external server (browser mode)
-		// This can be detected by checking if the URL contains port 8080
-		const currentUrl = this.code.driver.page.url();
-		return currentUrl.includes('8080');
+		return this.code.driver.page.url().includes('8080');
 	}
 
 	// ----------------------
@@ -28,27 +25,27 @@ export class HotKeys {
 	// ----------------------
 
 	public async copy() {
-		await this.pressHotKeys('Cmd+C');
+		await this.pressHotKeys('Cmd+C', 'Copy');
 	}
 
 	public async cut() {
-		await this.pressHotKeys('Cmd+X');
+		await this.pressHotKeys('Cmd+X', 'Cut');
 	}
 
 	public async paste() {
-		await this.pressHotKeys('Cmd+V');
+		await this.pressHotKeys('Cmd+V', 'Paste');
 	}
 
 	public async redo() {
-		await this.pressHotKeys('Cmd+Shift+Z');
+		await this.pressHotKeys('Cmd+Shift+Z', 'Redo');
 	}
 
 	public async selectAll() {
-		await this.pressHotKeys('Cmd+A');
+		await this.pressHotKeys('Cmd+A', 'Select All');
 	}
 
 	public async undo() {
-		await this.pressHotKeys('Cmd+Z');
+		await this.pressHotKeys('Cmd+Z', 'Undo');
 	}
 
 	// ------------------------
@@ -68,11 +65,11 @@ export class HotKeys {
 	// --------------------
 
 	public async openFile() {
-		await this.pressHotKeys('Cmd+O');
+		await this.pressHotKeys('Cmd+O', 'Open File');
 	}
 
 	public async save() {
-		await this.pressHotKeys('Cmd+S');
+		await this.pressHotKeys('Cmd+S', 'Save');
 	}
 
 	// -------------------------
@@ -81,6 +78,12 @@ export class HotKeys {
 
 	public async closeAllEditors() {
 		await this.pressHotKeys('Cmd+K Cmd+W', 'Close all editors');
+		if (this.isExternalBrowser()) {
+			const dontSaveButton = this.code.driver.page.getByRole('button', { name: 'Don\'t Save' });
+			if (await dontSaveButton.isVisible()) {
+				await dontSaveButton.click();
+			}
+		}
 	}
 
 	public async closeTab() {
@@ -170,7 +173,7 @@ export class HotKeys {
 	// -------------------------
 
 	public async closeWorkspace() {
-		await this.pressHotKeys('Cmd+J W');
+		await this.pressHotKeys('Cmd+J W', 'Close workspace');
 		await expect(this.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible();
 	}
 

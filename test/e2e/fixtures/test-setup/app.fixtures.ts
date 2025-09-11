@@ -159,6 +159,7 @@ export function ExternalServerAppFixture() {
 
 			// workaround since we have rogue sessions at startup
 			await app.workbench.sessions.expectNoStartUpMessaging();
+			await app.workbench.hotKeys.closeAllEditors();
 			await app.workbench.sessions.deleteAll();
 
 			await use(app);
