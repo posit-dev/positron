@@ -437,7 +437,8 @@ registerCellCommand({
 		const cells = notebook.cells.get();
 
 		// Run all code cells above the current cell
-		for (let i = 0; i < cell.index; i++) {
+		const cellIndex = cell.index;
+		for (let i = 0; i < cellIndex; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();
