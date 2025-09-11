@@ -119,11 +119,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Private Properties
 
 	/**
-	 * Internal cells that we use to manage the state of the notebook
-	 */
-	private _cells: IPositronNotebookCell[] = [];
-
-	/**
 	 * A set of disposables that are linked to a given model
 	 * that need to be cleaned up when the model is changed.
 	 */
@@ -269,8 +264,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * User facing cells wrapped in an observerable for the UI to react to changes
 	 */
 	cells;
-	selectedCells = observableValue<IPositronNotebookCell[]>('positronNotebookSelectedCells', []);
-	editingCell = observableValue<IPositronNotebookCell | undefined>('positronNotebookEditingCell', undefined);
 	selectionStateMachine;
 	contextManager;
 
@@ -389,8 +382,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._setupNotebookTextModel();
 
 		this._id = _input.uniqueId;
-		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
-		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
+		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
+		this.kernelStatus = observableValue('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
 
 		this.contextManager = this._register(
@@ -470,7 +463,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
 		const cellUri = options?.cellOptions?.resource;
-		const cell = cellUri && this._cells.find(cell => isEqual(cell.uri, cellUri));
+		const cell = cellUri && this.cells.get().find(cell => isEqual(cell.uri, cellUri));
 		if (cell) {
 			await cell.setOptions(options);
 		}
@@ -492,7 +485,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Runs all cells in the notebook.
 	 */
 	async runAllCells(): Promise<void> {
-		await this._runCells(this._cells);
+		await this._runCells(this.cells.get());
 	}
 
 
@@ -661,8 +654,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// to maintain focus on the appropriate cell after deletion
 		if (targetFocusIndex !== null) {
 			this._register(disposableTimeout(() => {
-				if (targetFocusIndex !== null && targetFocusIndex < this._cells.length) {
-					const cellToFocus = this._cells[targetFocusIndex];
+				if (targetFocusIndex !== null && targetFocusIndex < this.cells.get().length) {
+					const cellToFocus = this.cells.get()[targetFocusIndex];
 					if (cellToFocus) {
 						this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
 						cellToFocus.focus();
@@ -690,7 +683,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns True if the editor belongs to one of the notebook's cells, false otherwise
 	 */
 	hasCodeEditor(editor: ICodeEditor): boolean {
-		for (const cell of this._cells) {
+		for (const cell of this.cells.get()) {
 			if (cell.editor && cell.editor === editor) {
 				return true;
 			}
@@ -826,9 +819,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 				if (
 					// If there are the same number of cells...
-					newCells.length === this._cells.length &&
+					newCells.length === this.cells.get().length &&
 					// ... and they are in the same order...
-					newCells.every((cell, i) => this._cells[i].cellModel === cell)
+					newCells.every((cell, i) => this.cells.get()[i].cellModel === cell)
 				) {
 					// ... then we don't need to sync the cells.
 					return;
@@ -849,12 +842,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const modelCells = this.textModel.cells;
 
 		const cellModelToCellMap = new Map(
-			this._cells.map(cell => [cell.cellModel, cell])
+			this.cells.get().map(cell => [cell.cellModel, cell])
 		);
 
 		const newlyAddedCells: IPositronNotebookCell[] = [];
 
-		this._cells = modelCells.map(cell => {
+		const cells = modelCells.map(cell => {
 			const existingCell = cellModelToCellMap.get(cell);
 			if (existingCell) {
 				// Remove cell from map so we know it's been used.
@@ -878,7 +871,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
-		this.cells.set(this._cells, undefined);
+		this.cells.set(cells, undefined);
 	}
 
 	/**
@@ -985,7 +978,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			// Clear outputs from all cells
 			this.textModel.cells.forEach((cell, index) => {
-				this.clearCellOutput(this._cells[index], true);
+				this.clearCellOutput(this.cells.get()[index], true);
 			});
 
 			// Clear execution metadata for non-executing cells
