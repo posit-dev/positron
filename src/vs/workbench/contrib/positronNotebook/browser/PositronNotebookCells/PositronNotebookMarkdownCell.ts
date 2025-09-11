@@ -11,6 +11,7 @@ import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
@@ -21,9 +22,10 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 	constructor(
 		cellModel: NotebookCellTextModel,
 		instance: PositronNotebookInstance,
-		textModelResolverService: ITextModelService
+		executionStateService: INotebookExecutionStateService,
+		textModelResolverService: ITextModelService,
 	) {
-		super(cellModel, instance, textModelResolverService);
+		super(cellModel, instance, executionStateService, textModelResolverService);
 
 		// Create the markdown string observable
 		this.markdownString = observableFromEvent(this, this.cellModel.onDidChangeContent, () => {

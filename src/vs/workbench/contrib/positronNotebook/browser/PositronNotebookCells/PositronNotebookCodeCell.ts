@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { observableValue } from '../../../../../base/common/observable.js';
+import { observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -29,26 +29,22 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	constructor(
 		cellModel: NotebookCellTextModel,
 		private instance: PositronNotebookInstance,
+		@INotebookExecutionStateService _executionStateService: INotebookExecutionStateService,
 		@ITextModelService _textModelResolverService: ITextModelService,
 		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService,
-		@INotebookExecutionStateService private _executionStateService: INotebookExecutionStateService
 	) {
-		super(cellModel, instance, _textModelResolverService);
+		super(cellModel, instance, _executionStateService, _textModelResolverService);
 
-		this.outputs = observableValue<NotebookCellOutputs[]>('cellOutputs', this.parseCellOutputs());
+		this.outputs = observableFromEvent(this, this.cellModel.onDidChangeOutputs, () => {
+			/** @description cellOutputs */
+			return this.parseCellOutputs();
+		});
 
 		// Initialize execution timing observables
-		this.lastExecutionDuration = observableValue<number | undefined>('positronNotebookCodeCell.lastExecutionDuration', this.calculateExecutionDuration());
-		this.lastExecutionOrder = observableValue<number | undefined>('positronNotebookCodeCell.lastExecutionOrder', cellModel.internalMetadata.executionOrder);
-		this.lastRunSuccess = observableValue<boolean | undefined>('positronNotebookCodeCell.lastRunSuccess', cellModel.internalMetadata.lastRunSuccess);
-		this.lastRunEndTime = observableValue<number | undefined>('positronNotebookCodeCell.lastRunEndTime', cellModel.internalMetadata.runEndTime);
-
-		// Listen for changes to the cell outputs and update the observable
-		this._register(
-			this.cellModel.onDidChangeOutputs(() => {
-				this.outputs.set(this.parseCellOutputs(), undefined);
-			})
-		);
+		this.lastExecutionDuration = observableValue('positronNotebookCodeCell.lastExecutionDuration', this.calculateExecutionDuration());
+		this.lastExecutionOrder = observableValue('positronNotebookCodeCell.lastExecutionOrder', cellModel.internalMetadata.executionOrder);
+		this.lastRunSuccess = observableValue('positronNotebookCodeCell.lastRunSuccess', cellModel.internalMetadata.lastRunSuccess);
+		this.lastRunEndTime = observableValue('positronNotebookCodeCell.lastRunEndTime', cellModel.internalMetadata.runEndTime);
 
 		// Listen for changes to the internal metadata to update execution timing
 		this._register(
@@ -59,9 +55,8 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 		// Listen for execution state changes
 		this._register(
-			this._executionStateService.onDidChangeExecution(e => {
+			_executionStateService.onDidChangeExecution(e => {
 				if (e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {
-					this.executionStatus.set(e.changed ? 'running' : 'idle', undefined);
 					this.updateExecutionInfo();
 				}
 			})

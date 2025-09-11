@@ -13,28 +13,39 @@ import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPos
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, observableValue } from '../../../../../base/common/observable.js';
+import { derived, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
 import { ScrollType } from '../../../../../editor/common/editorCommon.js';
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
 	protected readonly _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
 
-	readonly executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+	public readonly executionStatus;
 
 	public readonly selectionStatus;
 
 	constructor(
-		public cellModel: NotebookCellTextModel,
-		public _instance: PositronNotebookInstance,
+		public readonly cellModel: NotebookCellTextModel,
+		public readonly _instance: PositronNotebookInstance,
+		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
+
+		// Track this cell's execution status
+		this.executionStatus = observableFromEvent(this, this._executionStateService.onDidChangeExecution, (e): ExecutionStatus => {
+			/** @description executionStatus */
+			if (e && e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {
+				return e.changed ? 'running' : 'idle';
+			}
+			return 'idle';
+		});
 
 		const selectionMachine = _instance.selectionStateMachine;
 		this.selectionStatus = derived(this, (reader): CellSelectionStatus => {
