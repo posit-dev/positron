@@ -28,7 +28,7 @@ export function useObservedValue<T, M>(observable: IObservable<T>, map?: (x: T) 
 		});
 		return () => {
 			disposable.dispose();
-		}
+		};
 	}, [map, observable]);
 
 	return value as T | M extends (x: T) => infer Out ? Out : never;

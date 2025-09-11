@@ -5,7 +5,7 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { IObservable, ISettableObservable } from '../../../../../base/common/observable.js';
+import { IObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
@@ -50,7 +50,7 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * Current execution status for this cell
 	 */
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
+	executionStatus: IObservable<ExecutionStatus>;
 
 	/**
 	 * Current selection status for this cell
@@ -176,27 +176,27 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	/**
 	 * Current cell outputs as an observable
 	 */
-	outputs: ISettableObservable<NotebookCellOutputs[], void>;
+	outputs: IObservable<NotebookCellOutputs[]>;
 
 	/**
 	 * Duration of the last execution in milliseconds
 	 */
-	lastExecutionDuration: ISettableObservable<number | undefined>;
+	lastExecutionDuration: IObservable<number | undefined>;
 
 	/**
 	 * Execution order number for the last execution
 	 */
-	lastExecutionOrder: ISettableObservable<number | undefined>;
+	lastExecutionOrder: IObservable<number | undefined>;
 
 	/**
 	 * Whether the last execution was successful
 	 */
-	lastRunSuccess: ISettableObservable<boolean | undefined>;
+	lastRunSuccess: IObservable<boolean | undefined>;
 
 	/**
 	 * Timestamp when the last execution ended
 	 */
-	lastRunEndTime: ISettableObservable<number | undefined>;
+	lastRunEndTime: IObservable<number | undefined>;
 }
 
 
@@ -210,12 +210,12 @@ export interface IPositronNotebookMarkdownCell extends IPositronNotebookCell {
 	/**
 	 * Observable content of cell. Equivalent to the cell's content, but as an observable
 	 */
-	markdownString: ISettableObservable<string | undefined>;
+	markdownString: IObservable<string | undefined>;
 
 	/**
 	 * Observable that indicates whether the editor is currently shown
 	 */
-	editorShown: ISettableObservable<boolean>;
+	editorShown: IObservable<boolean>;
 
 	/**
 	 * Toggle the editor for this cell

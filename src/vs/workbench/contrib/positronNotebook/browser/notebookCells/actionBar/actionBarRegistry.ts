@@ -6,7 +6,7 @@
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
+import { IObservable, observableValue } from '../../../../../../base/common/observable.js';
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 import { CellConditionPredicate } from './cellConditions.js';
 
@@ -103,14 +103,14 @@ export class NotebookCellActionBarRegistry {
 	/**
 	 * Gets the observable array of main action bar actions.
 	 */
-	get mainActions(): ISettableObservable<INotebookCellActionBarItem[]> {
+	get mainActions(): IObservable<INotebookCellActionBarItem[]> {
 		return this._mainActions;
 	}
 
 	/**
 	 * Gets the observable array of dropdown menu actions.
 	 */
-	get menuActions(): ISettableObservable<INotebookCellActionBarItem[]> {
+	get menuActions(): IObservable<INotebookCellActionBarItem[]> {
 		return this._menuActions;
 	}
 }

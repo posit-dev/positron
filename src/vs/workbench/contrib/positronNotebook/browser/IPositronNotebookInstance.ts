@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable } from '../../../../base/common/observable.js';
+import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
@@ -73,19 +73,19 @@ export interface IPositronNotebookInstance {
 	 * Observable array of cells that make up the notebook. Changes to this array
 	 * will trigger UI updates in connected views.
 	 */
-	cells: ISettableObservable<IPositronNotebookCell[]>;
+	cells: IObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Observable status of the notebook's kernel connection. UI elements can
 	 * react to changes in kernel connectivity.
 	 */
-	kernelStatus: ISettableObservable<KernelStatus>;
+	kernelStatus: IObservable<KernelStatus>;
 
 	/**
 	 * Observable reference to the current runtime session for the notebook.
 	 * This manages the connection to the kernel and execution environment.
 	 */
-	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined>;
+	currentRuntime: IObservable<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.

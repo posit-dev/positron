@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable, observableValue, waitForState } from '../../../../../base/common/observable.js';
+import { observableValue, waitForState } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -14,8 +14,8 @@ import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
-	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
-	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
+	markdownString = observableValue<string | undefined>('markdownString', undefined);
+	editorShown = observableValue<boolean>('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
 	constructor(
