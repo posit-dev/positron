@@ -38,8 +38,8 @@ export function NotebookCellActionBar({ cell, children, isHovered }: NotebookCel
 
 	// Use observable values for reactive updates
 	const selectionStatus = useObservedValue(cell.selectionStatus);
-	const allMainActions = useObservedValue(registry.mainActions) ?? [];
-	const allMenuActions = useObservedValue(registry.menuActions) ?? [];
+	const allMainActions = useObservedValue(registry.mainActions);
+	const allMenuActions = useObservedValue(registry.menuActions);
 
 	// Filter actions based on cell conditions
 	const cells = instance.cells.get();

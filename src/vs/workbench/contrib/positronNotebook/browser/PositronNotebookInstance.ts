@@ -34,7 +34,7 @@ import { INotebookKernelService } from '../../notebook/common/notebookKernelServ
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { observableValue } from '../../../../base/common/observable.js';
+import { autorun, observableValue } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
@@ -386,6 +386,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.kernelStatus = observableValue('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
 
+		// Update the kernel status based on the current runtime.
+		this._register(autorun(reader => {
+			if (!this.currentRuntime.read(reader)) {
+				this.kernelStatus.set(KernelStatus.Disconnected, undefined);
+			}
+		}));
+
 		this.contextManager = this._register(
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
 		);
@@ -420,11 +427,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this.runtimeSessionService.onDidStartRuntime((session) => {
 				if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
 					this.currentRuntime.set(session, undefined);
-					this.kernelStatus.set(KernelStatus.Connected, undefined);
 
 					session.onDidEndSession(() => {
 						this.currentRuntime.set(undefined, undefined);
-						this.kernelStatus.set(KernelStatus.Disconnected, undefined);
 					});
 				}
 			})
