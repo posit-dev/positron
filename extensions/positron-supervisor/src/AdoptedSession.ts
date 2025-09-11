@@ -6,8 +6,8 @@
 import { JupyterKernel, JupyterSession } from './positron-supervisor.d';
 import { KallichoreSession } from './KallichoreSession';
 import { KernelInfoReply } from './jupyter/KernelInfoRequest';
-import { ConnectionInfo, DefaultApi, HttpError } from './kcclient/api';
-import { summarizeHttpError } from './util';
+import { ConnectionInfo, DefaultApi } from './kcclient/api';
+import { summarizeAxiosError } from './util';
 import { Barrier } from './async';
 
 /**
@@ -46,9 +46,9 @@ export class AdoptedSession implements JupyterKernel {
 	async connectToSession(session: JupyterSession): Promise<void> {
 		try {
 			// Adopt the session via the API, using the connection information
-			this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, this._connectionInfo)).body;
+			this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, this._connectionInfo)).data;
 		} catch (err) {
-			const message = err instanceof HttpError ? summarizeHttpError(err) : err.message;
+			const message = err.message;
 			throw new Error(`Failed to adopt session: ${message}`);
 		} finally {
 			// Open the connected barrier to indicate we've finished connecting

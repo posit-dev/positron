@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { HttpError } from './kcclient/api';
+import { AxiosError, isAxiosError } from 'axios';
 import { Buffer } from 'buffer';
 import * as vscode from 'vscode';
 
@@ -25,9 +25,9 @@ export function createUniqueId(): string {
  * @returns A human-readable string summarizing the error.
  */
 export function summarizeError(err: any): string {
-	if (err instanceof HttpError) {
+	if (isAxiosError(err)) {
 		// HTTP errors are common and should be summarized
-		return summarizeHttpError(err);
+		return summarizeAxiosError(err);
 	} else if (err.errors) {
 		// If we have multiple errors (as in the case of an AggregateError),
 		// summarize each one
@@ -51,32 +51,25 @@ export function summarizeError(err: any): string {
  * @param err The error to summarize.
  * @returns A human-readable string summarizing the error.
  */
-export function summarizeHttpError(err: HttpError): string {
+export function summarizeAxiosError(err: AxiosError): string {
 	let result = '';
 
-	// Add the URL if it's available
-	if (err.response && err.response.url) {
-		result += `${err.response.url}: `;
-	}
-
 	// Add the status code
-	if (err.statusCode) {
-		result += `HTTP ${err.statusCode}. `;
+	if (err.status) {
+		result += `HTTP ${err.status}. `;
 	}
 
 	// Add the message if it's available
-	if (err.body) {
-		if (err.body.message) {
-			// If the error has a specific message, return that.
-			result += `${err.body.message}`;
+	if (err.message) {
+		// If the error has a specific message, return that.
+		result += `${err.message}`;
+	} else {
+		if (typeof err.response?.data === 'string') {
+			// If the body is a string, return that.
+			result += err.response.data;;
 		} else {
-			if (typeof err.body === 'string') {
-				// If the body is a string, return that.
-				result += err.body;
-			} else {
-				// Otherwise, return the JSON representation of the body.
-				result += JSON.stringify(err.body);
-			}
+			// Otherwise, return the JSON representation of the body.
+			result += JSON.stringify(err.response?.data);
 		}
 	}
 	return result;
