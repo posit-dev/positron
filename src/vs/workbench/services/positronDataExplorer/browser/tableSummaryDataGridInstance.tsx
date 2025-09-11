@@ -474,9 +474,27 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 *
 	 * @param pinnedColumnIndices An array of column indices to pin as rows in the summary panel.
 	 */
-	updatePinnedRows(pinnedColumnIndices: number[]): void {
-		// Update the pinned indexes in the row layout manager.
+	async updatePinnedRows(pinnedColumnIndices: number[]): Promise<void> {
+
+		// Temporarily reset the layout to allow pinning any column index
+		// This is needed for the case where we have an active search/sort
+		// because the layout manager checks against the current entry map
+		// of filtered columns, but we want to be able to pin columns that
+		// are not in the current entry map.
+		const state = await this._dataExplorerClientInstance.getBackendState();
+		this._rowLayoutManager.setEntries(state.table_shape.num_columns);
+
+		// Now update the pinned indexes in the row layout manager.
 		this._rowLayoutManager.setPinnedIndexes(pinnedColumnIndices);
+
+		// If there's an active search or sort, we need to refresh the layout entries
+		// to ensure the new pinned columns are included in the combined entry map
+		if (!this.hasNoSearchOrSort()) {
+			await this.updateLayoutEntries();
+			// Invalidate the cache when pinned columns change with active search/sort
+			await this.fetchData(true);
+		}
+
 		// Force a re-render when the pinned columns change
 		this.fireOnDidUpdateEvent();
 	}
@@ -535,13 +553,36 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			}
 			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
 		} else {
+			// Get current pinned indexes from the layout manager BEFORE doing anything else
+			// This is important because setEntries() can clear the pinned indexes if they're not
+			// in the new entry map
+			const pinnedColumns = Array.from(this._rowLayoutManager.pinnedIndexes);
+
 			// When there is a search or sort option, we need to tell the layout manager
-			// to use the filtered table shape and render only the matching data.
+			// to use the filtered table shape and render both pinned columns and search results.
 			const searchResults = await this._dataExplorerClientInstance.searchSchema2({
 				searchText: this._searchText,
 				sortOption: this._sortOption,
 			});
-			this._rowLayoutManager.setEntries(searchResults.matches.length, undefined, searchResults.matches)
+
+			// Create a combined entry map that includes both pinned columns and search results
+			// Pinned columns should appear first, followed by search results that aren't already pinned
+			const combinedEntries: number[] = [];
+
+			// Add pinned columns first
+			pinnedColumns.forEach(pinnedColumn => {
+				combinedEntries.push(pinnedColumn);
+			});
+
+			// Add search results that aren't already pinned
+			const pinnedSet = new Set(pinnedColumns);
+			searchResults.matches.forEach(matchedColumn => {
+				if (!pinnedSet.has(matchedColumn)) {
+					combinedEntries.push(matchedColumn);
+				}
+			});
+
+			this._rowLayoutManager.setEntries(combinedEntries.length, undefined, combinedEntries);
 		}
 
 		// Ensures the user is not scrolled off the screen
