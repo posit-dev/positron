@@ -21,11 +21,11 @@ import { ScrollType } from '../../../../../editor/common/editorCommon.js';
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
-	kind!: CellKind;
+	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
-	protected _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
+	protected readonly _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
 
-	executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+	readonly executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	public readonly selectionStatus;
 
