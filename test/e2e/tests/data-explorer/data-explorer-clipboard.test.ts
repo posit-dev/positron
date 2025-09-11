@@ -21,19 +21,22 @@ const testCases: {
 	env: 'Polars' | 'Pandas' | 'R' | 'DuckDB';
 	rowIndexOffset: number;
 	data: string;
+	tags: string[];
 }[] = [
-		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")' },
-		{ env: 'DuckDB', rowIndexOffset: 0, data: 'data-files/small_file.csv' },
-		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")' },
-		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")' }
+		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")', tags: [tags.WIN] },
+		{ env: 'DuckDB', rowIndexOffset: 0, data: 'data-files/small_file.csv', tags: [tags.WIN] },
+		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")', tags: [tags.WIN] },
+		// Note: Pandas test is problematic on Windows in CI and the clipboard content is incorrect. Jon confirmed manually on his Windows machine that it works.
+		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")', tags: [] }
 	];
 
 test.use({
 	suiteId: __filename
 });
 
-for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
-	test.describe('Data Explorer: Copy/Paste', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, () => {
+for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of testCases) {
+	test.describe('Data Explorer: Copy/Paste', { tag: [tags.WEB, tags.DATA_EXPLORER, ...testTags] }, () => {
+
 
 		test.beforeEach(async function ({ app, openDataFile, hotKeys }) {
 			const { dataExplorer, console, sessions, variables } = app.workbench;
