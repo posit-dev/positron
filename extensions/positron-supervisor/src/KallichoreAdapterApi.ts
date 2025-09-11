@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ClientHeartbeat, DefaultApi, HttpBearerAuth, ServerStatus, Status } from './kcclient/api';
+import { ClientHeartbeat, DefaultApi, ServerStatus, Status } from './kcclient/api';
 import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
 import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
@@ -16,6 +16,7 @@ import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
 import { namedPipeInterceptor } from './NamedPipeHttpAgent';
 import { isAxiosError } from 'axios';
+import { Configuration } from './kcclient/configuration.js';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
@@ -124,7 +125,7 @@ export class KCApi implements PositronSupervisorApi {
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */
-	private readonly _api: DefaultApi;
+	private _api: DefaultApi | undefined;
 
 	/** A barrier that opens when the Kallichore server has successfully started;
 	 * used to hold operations until we're online */
@@ -177,8 +178,6 @@ export class KCApi implements PositronSupervisorApi {
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _log: vscode.OutputChannel) {
-
-		this._api = new DefaultApi();
 
 		// Add interceptor for named pipe support on Windows. This interceptor
 		// allows us to perform HTTP over named pipes, which is not natively
@@ -592,18 +591,14 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create a bearer auth object with the token
 		const bearerToken = connectionData.bearer_token;
-		const bearer = new HttpBearerAuth();
-		bearer.accessToken = bearerToken;
-
-		// Establish the API
-		this._api.setDefaultAuthentication(bearer);
+		this.createApi(connectionData.base_path!, bearerToken);
 
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
 		// HTTP server is ready, so we may need to retry a few times.
 		for (let retry = 0; retry < 100; retry++) {
 			try {
-				const status = await this._api.serverStatus();
+				const status = await this._api!.serverStatus();
 				this.log(`Kallichore ${status.data.version} server online with ${status.data.sessions} sessions`);
 
 				// Update the process ID; this can be different than the process
@@ -730,6 +725,15 @@ export class KCApi implements PositronSupervisorApi {
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
 
+	private createApi(basePath: string, bearerToken: string) {
+		this._api = new DefaultApi(
+			new Configuration({
+				accessToken: bearerToken
+			}),
+			basePath
+		);
+	}
+
 	/***
 	 * Get the number of hours to wait before shutting down the server when idle.
 	 *
@@ -821,9 +825,7 @@ export class KCApi implements PositronSupervisorApi {
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
-		const bearer = new HttpBearerAuth();
-		bearer.accessToken = serverState.bearer_token;
-		this._api.setDefaultAuthentication(bearer);
+		this.createApi(serverState.base_path!, serverState.bearer_token);
 
 		// Re-establish the log stream
 		if (this._logStreamer) {
@@ -852,7 +854,7 @@ export class KCApi implements PositronSupervisorApi {
 			throw new Error('Server state missing base_path, socket_path, and named_pipe');
 		}
 
-		const status = await this._api.serverStatus();
+		const status = await this._api!.serverStatus();
 		this._started.open();
 		this.log(`Kallichore ${status.data.version} server reconnected with ${status.data.sessions} sessions`);
 
@@ -875,7 +877,7 @@ export class KCApi implements PositronSupervisorApi {
 	async updateIdleTimeout() {
 		const timeout = this.getShutdownHours();
 		try {
-			await this._api.setServerConfiguration({
+			await this._api!.setServerConfiguration({
 				idle_shutdown_hours: timeout
 			});
 		} catch (err) {
@@ -902,7 +904,7 @@ export class KCApi implements PositronSupervisorApi {
 		const interval = setInterval(() => {
 			if (this._started.isOpen()) {
 				// The server is still started; send a heartbeat
-				this._api.clientHeartbeat(heartbeatPayload).catch(async (err) => {
+				this._api!.clientHeartbeat(heartbeatPayload).catch(async (err) => {
 					if (err.code === 'ECONNREFUSED') {
 						// We thought the server was online, but ECONNREFUSED
 						// suggests that it isn't. See if the server has exited
@@ -951,7 +953,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create the session object
 		const session = new KallichoreSession(
-			sessionMetadata, runtimeMetadata, dynState, this._api, true, _extra);
+			sessionMetadata, runtimeMetadata, dynState, this._api!, true, _extra);
 
 		this.log(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
@@ -1145,7 +1147,7 @@ export class KCApi implements PositronSupervisorApi {
 		}
 		try {
 			// Get the session status from the server
-			const session = await this._api.getSession(sessionId);
+			const session = await this._api!.getSession(sessionId);
 
 			// The session is valid if it's in one of the running states (i.e.
 			// not 'never started' or 'exited').
@@ -1192,7 +1194,7 @@ export class KCApi implements PositronSupervisorApi {
 		await this.ensureStarted();
 
 		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
-			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
+			this._api!.getSession(sessionMetadata.sessionId).then(async (response) => {
 				// Make sure the session is still running; it may have exited
 				// while we were disconnected.
 				const kcSession = response.data;
@@ -1207,7 +1209,7 @@ export class KCApi implements PositronSupervisorApi {
 					sessionName: dynState.sessionName,
 					continuationPrompt: kcSession.continuation_prompt,
 					inputPrompt: kcSession.input_prompt
-				}, this._api, false);
+				}, this._api!, false);
 
 				// Restore the session from the server
 				try {
@@ -1243,7 +1245,7 @@ export class KCApi implements PositronSupervisorApi {
 	 * @returns The server status.
 	 */
 	public async serverStatus(): Promise<ServerStatus> {
-		const status = await this._api.serverStatus();
+		const status = await this._api!.serverStatus();
 		return status.data;
 	}
 
@@ -1381,7 +1383,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Shut down the server itself
 		try {
-			await this._api.shutdownServer();
+			await this._api!.shutdownServer();
 		} catch (err) {
 			// We can start a new server even if we failed to shut down the old
 			// one, so just log this error
