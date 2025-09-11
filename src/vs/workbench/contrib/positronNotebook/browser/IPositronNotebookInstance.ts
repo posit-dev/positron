@@ -43,7 +43,7 @@ export interface IPositronNotebookInstance {
 	 * Unique identifier for the notebook instance. Used for debugging and claiming
 	 * ownership of various resources.
 	 */
-	id: string;
+	readonly id: string;
 
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier
@@ -73,31 +73,31 @@ export interface IPositronNotebookInstance {
 	 * Observable array of cells that make up the notebook. Changes to this array
 	 * will trigger UI updates in connected views.
 	 */
-	cells: IObservable<IPositronNotebookCell[]>;
+	readonly cells: IObservable<IPositronNotebookCell[]>;
 
 	/**
 	 * Observable status of the notebook's kernel connection. UI elements can
 	 * react to changes in kernel connectivity.
 	 */
-	kernelStatus: IObservable<KernelStatus>;
+	readonly kernelStatus: IObservable<KernelStatus>;
 
 	/**
 	 * Observable reference to the current runtime session for the notebook.
 	 * This manages the connection to the kernel and execution environment.
 	 */
-	currentRuntime: IObservable<ILanguageRuntimeSession | undefined>;
+	readonly currentRuntime: IObservable<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.
 	 * Handles complex selection scenarios like multi-select and keyboard navigation.
 	 */
-	selectionStateMachine: SelectionStateMachine;
+	readonly selectionStateMachine: SelectionStateMachine;
 
 	/**
 	 * Indicates whether this notebook instance has been disposed.
 	 * Used to prevent operations on destroyed instances.
 	 */
-	isDisposed: boolean;
+	readonly isDisposed: boolean;
 
 	/**
 	 * Indicates whether this notebook is read-only and cannot be edited.

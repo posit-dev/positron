@@ -30,7 +30,7 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * The kind of cell
 	 */
-	kind: CellKind;
+	readonly kind: CellKind;
 
 	/**
 	 * The current zero-based index of the cell in the notebook
@@ -50,12 +50,12 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * Current execution status for this cell
 	 */
-	executionStatus: IObservable<ExecutionStatus>;
+	readonly executionStatus: IObservable<ExecutionStatus>;
 
 	/**
 	 * Current selection status for this cell
 	 */
-	selectionStatus: IObservable<CellSelectionStatus>;
+	readonly selectionStatus: IObservable<CellSelectionStatus>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.
@@ -65,12 +65,12 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * The notebook text model for the cell.
 	 */
-	cellModel: PositronNotebookCellTextModel;
+	readonly cellModel: PositronNotebookCellTextModel;
 
 	/**
 	 * The cell's code editor widget.
 	 */
-	editor: ICodeEditor | undefined;
+	readonly editor: ICodeEditor | undefined;
 
 	/**
 	 * Get the handle number for cell from cell model
@@ -170,33 +170,33 @@ export interface IPositronNotebookCell extends Disposable {
  * Cell that contains code that can be executed
  */
 export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
-	kind: CellKind.Code;
+	readonly kind: CellKind.Code;
 
 
 	/**
 	 * Current cell outputs as an observable
 	 */
-	outputs: IObservable<NotebookCellOutputs[]>;
+	readonly outputs: IObservable<NotebookCellOutputs[]>;
 
 	/**
 	 * Duration of the last execution in milliseconds
 	 */
-	lastExecutionDuration: IObservable<number | undefined>;
+	readonly lastExecutionDuration: IObservable<number | undefined>;
 
 	/**
 	 * Execution order number for the last execution
 	 */
-	lastExecutionOrder: IObservable<number | undefined>;
+	readonly lastExecutionOrder: IObservable<number | undefined>;
 
 	/**
 	 * Whether the last execution was successful
 	 */
-	lastRunSuccess: IObservable<boolean | undefined>;
+	readonly lastRunSuccess: IObservable<boolean | undefined>;
 
 	/**
 	 * Timestamp when the last execution ended
 	 */
-	lastRunEndTime: IObservable<number | undefined>;
+	readonly lastRunEndTime: IObservable<number | undefined>;
 }
 
 
@@ -205,17 +205,17 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
  * Cell that contains markdown content
  */
 export interface IPositronNotebookMarkdownCell extends IPositronNotebookCell {
-	kind: CellKind.Markup;
+	readonly kind: CellKind.Markup;
 
 	/**
 	 * Observable content of cell. Equivalent to the cell's content, but as an observable
 	 */
-	markdownString: IObservable<string | undefined>;
+	readonly markdownString: IObservable<string | undefined>;
 
 	/**
 	 * Observable that indicates whether the editor is currently shown
 	 */
-	editorShown: IObservable<boolean>;
+	readonly editorShown: IObservable<boolean>;
 
 	/**
 	 * Toggle the editor for this cell
@@ -264,9 +264,9 @@ export type ParsedOutput = ParsedTextOutput |
 
 
 export interface NotebookCellOutputs {
-	outputId: string;
-	outputs: NotebookCellOutputItem[];
-	parsed: ParsedOutput;
+	readonly outputId: string;
+	readonly outputs: NotebookCellOutputItem[];
+	readonly parsed: ParsedOutput;
 	preloadMessageResult?: NotebookPreloadOutputResults | undefined;
 }
 
@@ -275,8 +275,8 @@ export interface NotebookCellOutputs {
  */
 export interface PositronNotebookCellTextModel {
 	readonly uri: URI;
-	handle: number;
-	language: string;
-	cellKind: CellKind;
-	outputs: Pick<NotebookCellOutputs, 'outputId' | 'outputs'>[];
+	readonly handle: number;
+	readonly language: string;
+	readonly cellKind: CellKind;
+	readonly outputs: Pick<NotebookCellOutputs, 'outputId' | 'outputs'>[];
 }
