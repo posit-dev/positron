@@ -26,8 +26,13 @@ import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 suite('TableSummaryDataGridInstance', () => {
 	let instance: TableSummaryDataGridInstance;
 	let mockTableSummaryCache: TableSummaryCache;
-	let sandbox: sinon.SinonSandbox;
 	let originalServices: any;
+
+	// Pre-configured stubs for easier testing
+	let isColumnExpandedStub: sinon.SinonStub;
+	let getColumnSchemaStub: sinon.SinonStub;
+	let getColumnProfileStub: sinon.SinonStub;
+	let toggleExpandColumnStub: sinon.SinonStub;
 
 	// Mock backend state
 	const mockBackendState: BackendState = {
@@ -75,8 +80,6 @@ suite('TableSummaryDataGridInstance', () => {
 	};
 
 	setup(() => {
-		sandbox = sinon.createSandbox();
-
 		// Store original services to restore later
 		originalServices = PositronReactServices.services;
 
@@ -87,28 +90,34 @@ suite('TableSummaryDataGridInstance', () => {
 		};
 		PositronReactServices.services = mockServices as PositronReactServices;
 
+		// Create pre-configured stubs
+		isColumnExpandedStub = sinon.stub().returns(false);
+		getColumnSchemaStub = sinon.stub();
+		getColumnProfileStub = sinon.stub();
+		toggleExpandColumnStub = sinon.stub().resolves();
+
 		// Create mock data explorer client
 		const mockDataExplorerClient: Partial<DataExplorerClientInstance> = {
 			onDidSchemaUpdate: new Emitter<SchemaUpdateEvent>().event,
 			onDidDataUpdate: new Emitter<void>().event,
 			onDidUpdateBackendState: new Emitter<BackendState>().event,
-			getBackendState: sandbox.stub().resolves(mockBackendState),
-			searchSchema2: sandbox.stub().resolves({ matches: [0, 1, 2] }),
-			getSupportedFeatures: sandbox.stub().returns(mockBackendState.supported_features),
-			dispose: sandbox.stub()
+			getBackendState: sinon.stub().resolves(mockBackendState),
+			searchSchema2: sinon.stub().resolves({ matches: [0, 1, 2] }),
+			getSupportedFeatures: sinon.stub().returns(mockBackendState.supported_features),
+			dispose: sinon.stub()
 		};
 
 		// Create mock table summary cache
 		const partialMockTableSummaryCache: Partial<TableSummaryCache> = {
 			columns: 10,
 			rows: 100,
-			isColumnExpanded: sandbox.stub().returns(false),
-			getColumnSchema: sandbox.stub(),
-			getColumnProfile: sandbox.stub(),
-			toggleExpandColumn: sandbox.stub().resolves(),
+			isColumnExpanded: isColumnExpandedStub,
+			getColumnSchema: getColumnSchemaStub,
+			getColumnProfile: getColumnProfileStub,
+			toggleExpandColumn: toggleExpandColumnStub,
 			onDidUpdate: new Emitter<void>().event,
-			update: sandbox.stub().resolves(),
-			dispose: sandbox.stub()
+			update: sinon.stub().resolves(),
+			dispose: sinon.stub()
 		};
 		mockTableSummaryCache = partialMockTableSummaryCache as TableSummaryCache;
 
@@ -125,60 +134,61 @@ suite('TableSummaryDataGridInstance', () => {
 		if (originalServices) {
 			PositronReactServices.services = originalServices;
 		}
-		sandbox.restore();
 	});
 
 	test('columns should always return 1', () => {
 		assert.strictEqual(instance.columns, 1);
 	});
 
-	test('rows should return cache columns count', () => {
+	test('rows should return column count', () => {
 		assert.strictEqual(instance.rows, 10);
 	});
 
-	test('setSearchText should trigger layout update', async () => {
-		const spy = sandbox.spy(instance, 'fetchData');
+	test('setSearchText should trigger fetchData', async () => {
+		const spy = sinon.spy(instance, 'fetchData');
 		await instance.setSearchText('test');
 		assert(spy.called);
+		spy.restore();
 	});
 
-	test('setSortOption should trigger layout update', async () => {
-		const spy = sandbox.spy(instance, 'fetchData');
+	test('setSortOption should trigger fetchData', async () => {
+		const spy = sinon.spy(instance, 'fetchData');
 		await instance.setSortOption(SearchSchemaSortOrder.DescendingName);
 		assert(spy.called);
+		spy.restore();
 	});
 
 	test('isColumnExpanded should delegate to cache', () => {
-		(mockTableSummaryCache.isColumnExpanded as sinon.SinonStub).returns(true);
+		isColumnExpandedStub.returns(true);
 		assert.strictEqual(instance.isColumnExpanded(5), true);
-		assert((mockTableSummaryCache.isColumnExpanded as sinon.SinonStub).calledWith(5));
+		assert(isColumnExpandedStub.calledWith(5));
 	});
 
 	test('canToggleColumnExpansion should return false for unsupported column types', () => {
 		const unsupportedColumnSchema = getColumnSchema('test', 0, 'unknown', ColumnDisplayType.Unknown);
-		(mockTableSummaryCache.getColumnSchema as sinon.SinonStub).returns(unsupportedColumnSchema);
+		getColumnSchemaStub.returns(unsupportedColumnSchema);
 		assert.strictEqual(instance.canToggleColumnExpansion(0), false);
 	});
 
 	test('canToggleColumnExpansion should return true for supported column types when feature is enabled', () => {
 		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Number);
-		(mockTableSummaryCache.getColumnSchema as sinon.SinonStub).returns(supportedColumnSchema);
+		getColumnSchemaStub.returns(supportedColumnSchema);
 		assert.strictEqual(instance.canToggleColumnExpansion(0), true);
 	});
 
 	test('toggleExpandColumn should update row layout manager', async () => {
 		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Number);
-		(mockTableSummaryCache.getColumnSchema as sinon.SinonStub).returns(supportedColumnSchema);
+		getColumnSchemaStub.returns(supportedColumnSchema);
 		await instance.toggleExpandColumn(0);
-		assert((mockTableSummaryCache.toggleExpandColumn as sinon.SinonStub).calledWith(0));
+		assert(toggleExpandColumnStub.calledWith(0));
 	});
 
 	test('getColumnProfileNullCount should delegate to cache', () => {
 		const mockProfile = { null_count: 5 };
-		(mockTableSummaryCache.getColumnProfile as sinon.SinonStub).returns(mockProfile);
+		getColumnProfileStub.returns(mockProfile);
 		const result = instance.getColumnProfileNullCount(0);
 		assert.strictEqual(result, 5);
-		assert((mockTableSummaryCache.getColumnProfile as sinon.SinonStub).calledWith(0));
+		assert(getColumnProfileStub.calledWith(0));
 	});
 
 	// Ensure that all disposables are cleaned up.
