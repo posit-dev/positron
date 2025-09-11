@@ -7,6 +7,7 @@ import { fail } from 'assert';
 import { test, tags } from '../_test.setup';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -31,11 +32,14 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 	 * Load dataset and process each question
 	 * @param app - Application fixture providing access to UI elements
 	 */
-	test('Process Dataset Questions', async function ({ app }) {
+	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
 		// Load dataset from file
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
 		const datasetContent = readFileSync(datasetPath, 'utf-8');
 		const dataset = JSON.parse(datasetContent);
+
+		// Start a Python Session
+		const [pySession] = await sessions.start(['python']);
 
 		// Sign in to the assistant
 		await app.workbench.assistant.openPositronAssistantChat();
@@ -55,9 +59,38 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		// Track if we've updated any items
 		let updatedItems = false;
 
+		// Define setup actions in a separate object (could even be moved to its own file later)
+		const setupActions = {
+			'sample_3': async (app: any) => {
+				await expect(async () => {
+					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+					await app.workbench.quickaccess.runCommand('python.execInConsole');
+				}).toPass({ timeout: 5000 });
+			}
+			// Easy to add more cases here as needed
+		} as const;
+		// Define cleanup actions in a separate object (could even be moved to its own file later)
+		const cleanupActions = {
+			'sample_3': async (app: any) => {
+
+				await hotKeys.closeAllEditors();
+				await sessions.restart(pySession.id);
+
+			}
+			// Easy to add more cases here as needed
+		} as const;
+
 		// Loop through each question in the dataset
 		for (const item of dataset) {
+
 			console.log(`Processing question from dataset: ${item.id}`);
+
+			// Execute setup action if one exists for this item
+			const setupAction = setupActions[item.id as keyof typeof setupActions];
+			if (setupAction) {
+				console.log(`Running setup for: ${item.id}`);
+				await setupAction(app);
+			}
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.enterChatMessage(item.question);
 			await app.workbench.assistant.waitForSendButtonVisible();
@@ -67,12 +100,17 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			if (!response || response.trim() === '') {
 				fail(`No response received for question: ${item.question}`);
 			}
-			// Update the model_response in the dataset item
 			item.model_response = response;
 			updatedItems = true;
 
-			// Wait a bit between questions to avoid rate limiting
 			await new Promise(resolve => setTimeout(resolve, 1000));
+
+			// Execute cleanup action if one exists for this item
+			const cleanupAction = cleanupActions[item.id as keyof typeof cleanupActions];
+			if (cleanupAction) {
+				console.log(`Running cleanup for: ${item.id}`);
+				await cleanupAction(app);
+			}
 		}
 
 		// Write updated dataset back to file if any items were updated

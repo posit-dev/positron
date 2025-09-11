@@ -18,7 +18,7 @@ Usage:
 """
 
 from inspect_ai import Task, task
-from inspect_ai.dataset import Sample, json_dataset
+from inspect_ai.dataset import Sample
 import json
 from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import Solver, solver

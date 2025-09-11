@@ -309,6 +309,7 @@ export class Assistant {
 			const chatData = JSON.parse(fileContent);
 
 			const responses: string[] = [];
+			const toolCalls: string[] = [];
 
 			// Extract response text from all requests
 			if (chatData.requests && Array.isArray(chatData.requests)) {
@@ -318,12 +319,23 @@ export class Assistant {
 							if (responseItem.value && typeof responseItem.value === 'string') {
 								responses.push(responseItem.value);
 							}
+							// Check for tool calls
+							if (responseItem.toolId && typeof responseItem.toolId === 'string') {
+								toolCalls.push(responseItem.toolId);
+							}
 						}
 					}
 				}
 			}
 
-			return responses.join('\n');
+			let result = responses.join('\n');
+
+			// Add tool calls information if any were found
+			if (toolCalls.length > 0) {
+				result += '\n\nTools called: ' + toolCalls.join(', ');
+			}
+
+			return result;
 		} catch (error) {
 			throw new Error(`Failed to parse chat export file ${filePath}: ${error}`);
 		}

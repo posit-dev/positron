@@ -9,12 +9,12 @@
 		"id": "sample_2",
 		"question": "What version is this?",
 		"model_response": "",
-		"target": "The answer should return at least the version of Positron being used."
+		"target": "The answer should return at least the version of Positron being used and either a Python or R version."
 	},
 	{
 		"id": "sample_3",
-		"question": "What is the current date?",
+		"question": "Summarize my table df.",
 		"model_response": "",
-		"target": "The answer should return the current date in a human-readable format."
+		"target": "The answer should summarize the table including column names, types, and basic statistics. It should also mention the use of the `getTableSummary` tool."
 	}
 ]
