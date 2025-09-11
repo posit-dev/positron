@@ -48,8 +48,10 @@ class PositronDebugger(Debugger):
                 None,
                 (self.shell_socket.getsockopt(ROUTING_ID)),
             )
-
-            ident, msg = self.session.recv(self.shell_socket, mode=0)
+            # --- Start Positron ---
+            # change ident to _ident for RUF059
+            _ident, msg = self.session.recv(self.shell_socket, mode=0)
+            # --- End Positron ---
             self.debugpy_initialized = msg["content"]["status"] == "ok"
             # --- Start Positron ---
             # Construct the error from the response.
