@@ -22,8 +22,7 @@ const testCases: {
 	rowIndexOffset: number;
 	data: string;
 }[] = [
-		// issue 9383 - R copy/paste not working in DE
-		// { env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")' },
+		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")' },
 		{ env: 'DuckDB', rowIndexOffset: 0, data: 'data-files/small_file.csv' },
 		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")' },
 		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")' }
@@ -66,7 +65,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await clipboard.expectClipboardTextToBe(expectedData['col3'], '\n');
 
 			// verify copy and paste on rows
-			await dataExplorer.grid.clickRowHeader(9);
+			await dataExplorer.grid.clickRowHeader(9 + indexOffset);
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(expectedData['row9'], '\n');
 
@@ -93,7 +92,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await clipboard.expectClipboardTextToBe(expectedData['col3']);
 
 			// verify copy and paste on rows - issue 9344
-			await dataExplorer.grid.clickRowHeader(4);
+			await dataExplorer.grid.clickRowHeader(4 + indexOffset);
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(expectedData['row4']);
 

@@ -11,8 +11,22 @@ export class Clipboard {
 
 	constructor(private code: Code, private hotKeys: HotKeys) { }
 
-	async copy(): Promise<void> {
+	async copy(timeoutMs = 5000): Promise<void> {
+		const seed = '__SEED__';
+		// Seed the clipboard
+		await this.setClipboardText(seed);
+
+		// Invoke the copy hotkey
 		await this.hotKeys.copy();
+
+		// Wait until clipboard value differs from the seed
+		await expect
+			.poll(async () => (await this.getClipboardText()) ?? '', {
+				message: 'clipboard should change after copy',
+				timeout: timeoutMs,
+				intervals: [100, 150, 200, 300, 500, 800],
+			})
+			.not.toBe(seed);
 	}
 
 	async paste(): Promise<void> {
