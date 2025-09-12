@@ -38,7 +38,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	const hoverTimeoutIdRef = useRef<number | null>(null);
 	const actionsForCell = useActionsForCell(cell);
 	const leftActions = actionsForCell.left;
-	const primaryLeftAction = leftActions[0];
+	const primaryLeftAction = leftActions.at(0);
 
 	// State hooks.
 	const [showPopup, setShowPopup] = useState(false);
@@ -84,7 +84,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 
 	const dataExecutionStatus = executionStatus || 'idle';
 
-	const actionMenu = isSelected || isHovered ? (
+	const actionMenu = (isSelected || isHovered) && primaryLeftAction ? (
 		<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
 			<CellActionButton action={primaryLeftAction} cell={cell} />
 		</div>
