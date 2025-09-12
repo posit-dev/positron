@@ -617,8 +617,8 @@ export class LayoutManager {
 				return index;
 			}
 
-			// Return the entry-mapped index. This will naturally return undefined, if the index is invalid.
-			return this._entryMap[index];
+			// Return the inverse entry-mapped index. This will naturally return undefined, if the index is invalid.
+			return this._inverseEntryMap.get(index);
 		}
 
 		// If the index is pinned, return its position.

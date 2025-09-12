@@ -53,7 +53,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * If no sort option is set, the summary rows
 	 * are displayed in their original order.
 	 */
-	private _sortOption?: SearchSchemaSortOrder;
+	private _sortOption: SearchSchemaSortOrder = SearchSchemaSortOrder.Original;
 
 	/**
 	 * The onDidSelectColumn event emitter.
