@@ -374,7 +374,7 @@ registerCellCommand(
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
 registerCellCommand({
-	commandId: 'positronNotebook.cell.executeAndFocusContainer',
+	commandId: 'positronNotebook.cell.execute',
 	handler: (cell) => cell.run(),
 	cellCondition: CellConditions.and(
 		CellConditions.isCode,
@@ -385,7 +385,7 @@ registerCellCommand({
 	},
 	actionBar: {
 		icon: 'codicon-play',
-		position: 'main',
+		position: 'left',
 		order: CELL_EXECUTION_POSITION,
 		category: 'Execution'
 	},
@@ -405,8 +405,8 @@ registerCellCommand({
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	actionBar: {
-		icon: 'codicon-stop',
-		position: 'main',
+		icon: 'codicon-primitive-square',
+		position: 'left',
 		order: CELL_EXECUTION_POSITION,
 		category: 'Execution'
 	},
