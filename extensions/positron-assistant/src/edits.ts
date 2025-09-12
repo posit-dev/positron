@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { MD_DIR } from './constants';
-import { IPositronAssistantParticipant, ParticipantID, ParticipantService } from './participants.js';
+import { ParticipantService } from './participants.js';
 
 type LMTextEdit = { append: string } | { delete: string; replace: string };
 
@@ -21,37 +21,44 @@ export function registerMappedEditsProvider(
 	participantService: ParticipantService,
 	log: vscode.LogOutputChannel
 ) {
+	// Implements the MappedEditsProvider2 interface for mapped code edits
 	const editsProvider: vscode.MappedEditsProvider2 = {
+		/**
+		 * Provides mapped edits for code blocks in a document by sending them to a language model.
+		 */
 		provideMappedEdits: async function (
 			request: vscode.MappedEditsRequest,
 			result: vscode.MappedEditsResponseStream,
 			token: vscode.CancellationToken
 		): Promise<vscode.MappedEditsResult> {
+			// Select the appropriate language model for the request
 			const model = await getModel(request, participantService);
+
+			// Iterate over each code block in the request
 			for (const block of request.codeBlocks) {
+				// Open the text document for the code block resource
 				const document = await vscode.workspace.openTextDocument(block.resource);
 				log.info(`Mapping edits for block in ${block.resource.toString()}`);
 
 				const text = document.getText();
-				let lastTime = Date.now();
-				const logTime = () => {
-					const now = Date.now();
-					const diff = now - lastTime;
-					lastTime = now;
-					log.info(`Time since last edit: ${diff}ms`);
-				};
-				for await (const json of mapEdit(model, text, block.code, token, log)) {
-					logTime();
+
+				// Stream edits from the language model
+				for await (const json of mapEdit(model, text, block.code, token)) {
 					const edit = JSON.parse(json) as LMTextEdit;
 					log.trace(`Received edit: ${JSON.stringify(edit)}`);
 
 					const text = document.getText();
+
+					// Handle append edits
 					if ('append' in edit) {
 						const lastLine = document.lineAt(document.lineCount - 1);
 						const endPosition = lastLine.range.end;
+						// If the last line is empty, append directly; otherwise, add a newline
 						const append = lastLine.isEmptyOrWhitespace ? edit.append : `\n${edit.append}`;
 						const textEdit = vscode.TextEdit.insert(endPosition, append);
 						result.textEdit(block.resource, textEdit);
+
+						// Handle delete and replace edits
 					} else if ('delete' in edit && 'replace' in edit) {
 						const deleteText = edit.delete;
 						const startPos = text.indexOf(deleteText);
@@ -60,6 +67,8 @@ export function registerMappedEditsProvider(
 						const range = new vscode.Range(startPosition, endPosition);
 						const textEdit = vscode.TextEdit.replace(range, edit.replace);
 						result.textEdit(block.resource, textEdit);
+
+						// Handle unexpected edit types gracefully
 					} else {
 						// If the edit is neither an append nor a delete/replace,
 						// we skip it. This should not happen with the current
@@ -68,10 +77,12 @@ export function registerMappedEditsProvider(
 					}
 				}
 			}
+			// Return an empty result object as required by the interface
 			return {};
 		}
 	};
 
+	// Register the mapped edits provider with the VS Code chat API
 	context.subscriptions.push(
 		vscode.chat.registerMappedEditsProvider2(editsProvider)
 	);
@@ -121,27 +132,29 @@ async function* mapEdit(
 	document: string,
 	block: string,
 	token: vscode.CancellationToken,
-	log: vscode.LogOutputChannel
 ) {
+	// Read the system prompt for the language model from the markdown file
 	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/chat/mapedit.md`, 'utf8');
+
+	// Send a request to the language model with the document and code block
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })
 		)
 	], { modelOptions: { system } }, token);
 
-	let hasCodeFence = false;
-	let buffer = '';
+	let hasCodeFence = false; // Tracks if a code fence has been detected
+	let buffer = ''; // Buffer for accumulating streamed text
 	let newlineIndex;
 
-	const { logTime, getAverage } = getLogTime(log);
+	// Stream the response text from the language model
 	for await (const delta of response.text) {
-		logTime();
 		if (token.isCancellationRequested) {
-			return null;
+			return null; // Stop processing if the operation is cancelled
 		}
 		buffer += delta;
-		// Remove code fence if present at the start of the buffer
+
+		// Remove code fence at the start of the buffer if present
 		if (!hasCodeFence && buffer.startsWith('```')) {
 			const fenceEnd = buffer.indexOf('\n');
 			if (fenceEnd !== -1) {
@@ -150,33 +163,18 @@ async function* mapEdit(
 			}
 		}
 
-		// Remove code fence if present at the end of the buffer
+		// Remove code fence at the end of the buffer if present
 		if (hasCodeFence && buffer.endsWith('```')) {
 			buffer = buffer.slice(0, buffer.length - 3);
 		}
 
+		// Yield each line as it is completed
 		while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
 			const line = buffer.slice(0, newlineIndex);
-			log.info(`Average time between deltas: ${getAverage()}ms`);
 			yield line;
 			buffer = buffer.slice(newlineIndex + 1);
 		}
 	}
+	// Yield any remaining text in the buffer
 	yield buffer;
-
-	log.info(`Average time between deltas: ${getAverage()}ms`);
-	return null;
 }
-
-const getLogTime = ((log: vscode.LogOutputChannel) => {
-	let lastTime = Date.now();
-	const diffs: number[] = [];
-	const logTime = () => {
-		const now = Date.now();
-		const diff = now - lastTime;
-		lastTime = now;
-		diffs.push(diff);
-		return diff;
-	};
-	return { logTime, getAverage: () => diffs.length > 0 ? diffs.reduce((a, b) => a + b) / diffs.length : 0 };
-});
