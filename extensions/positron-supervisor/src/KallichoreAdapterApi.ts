@@ -310,8 +310,8 @@ export class KCApi implements PositronSupervisorApi {
 			if (os.platform() === 'win32') {
 				// Use start /b on Windows to run the server in the background
 				this.log(`Running Kallichore server with 'start /b' to persist sessions`);
-				wrapperPath = 'start';
-				shellArgs.unshift('/b', kernelWrapper);
+				wrapperPath = 'cmd.exe';
+				shellArgs.unshift('/c', 'start', '/b', kernelWrapper);
 			} else {
 				// Use nohup as the wrapper on Unix-like systems; this becomes
 				// the first argument to the wrapper script.
