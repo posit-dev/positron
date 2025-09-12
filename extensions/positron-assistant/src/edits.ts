@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { MD_DIR } from './constants';
-import { IPositronAssistantParticipant, ParticipantID, ParticipantService } from './participants.js';
+import { ParticipantService } from './participants.js';
 
 type LMTextEdit = { append: string } | { delete: string; replace: string };
 
@@ -21,39 +21,44 @@ export function registerMappedEditsProvider(
 	participantService: ParticipantService,
 	log: vscode.LogOutputChannel
 ) {
+	// Implements the MappedEditsProvider2 interface for mapped code edits
 	const editsProvider: vscode.MappedEditsProvider2 = {
+		/**
+		 * Provides mapped edits for code blocks in a document by sending them to a language model.
+		 */
 		provideMappedEdits: async function (
 			request: vscode.MappedEditsRequest,
 			result: vscode.MappedEditsResponseStream,
 			token: vscode.CancellationToken
 		): Promise<vscode.MappedEditsResult> {
+			// Select the appropriate language model for the request
 			const model = await getModel(request, participantService);
 
+			// Iterate over each code block in the request
 			for (const block of request.codeBlocks) {
+				// Open the text document for the code block resource
 				const document = await vscode.workspace.openTextDocument(block.resource);
 				log.info(`Mapping edits for block in ${block.resource.toString()}`);
+
 				const text = document.getText();
-				const json = await mapEdit(model, text, block.code, token);
-				if (!json) {
-					return {};
-				}
 
-				let edits = JSON.parse(json) as LMTextEdit[];
+				// Stream edits from the language model
+				for await (const json of mapEdit(model, text, block.code, token)) {
+					const edit = JSON.parse(json) as LMTextEdit;
+					log.trace(`Received edit: ${JSON.stringify(edit)}`);
 
-				// When the model returns a single edit, it may forget to wrap
-				// it in an array. Tolerate this by ensuring edits is always an
-				// array.
-				if (!Array.isArray(edits)) {
-					edits = [edits];
-				}
+					const text = document.getText();
 
-				for (const edit of edits) {
+					// Handle append edits
 					if ('append' in edit) {
 						const lastLine = document.lineAt(document.lineCount - 1);
 						const endPosition = lastLine.range.end;
+						// If the last line is empty, append directly; otherwise, add a newline
 						const append = lastLine.isEmptyOrWhitespace ? edit.append : `\n${edit.append}`;
 						const textEdit = vscode.TextEdit.insert(endPosition, append);
 						result.textEdit(block.resource, textEdit);
+
+						// Handle delete and replace edits
 					} else if ('delete' in edit && 'replace' in edit) {
 						const deleteText = edit.delete;
 						const startPos = text.indexOf(deleteText);
@@ -62,6 +67,8 @@ export function registerMappedEditsProvider(
 						const range = new vscode.Range(startPosition, endPosition);
 						const textEdit = vscode.TextEdit.replace(range, edit.replace);
 						result.textEdit(block.resource, textEdit);
+
+						// Handle unexpected edit types gracefully
 					} else {
 						// If the edit is neither an append nor a delete/replace,
 						// we skip it. This should not happen with the current
@@ -70,10 +77,12 @@ export function registerMappedEditsProvider(
 					}
 				}
 			}
+			// Return an empty result object as required by the interface
 			return {};
 		}
 	};
 
+	// Register the mapped edits provider with the VS Code chat API
 	context.subscriptions.push(
 		vscode.chat.registerMappedEditsProvider2(editsProvider)
 	);
@@ -118,43 +127,54 @@ async function getModel(
 	return models[0];
 }
 
-async function mapEdit(
+async function* mapEdit(
 	model: vscode.LanguageModelChat,
 	document: string,
 	block: string,
 	token: vscode.CancellationToken,
-): Promise<string | null> {
+) {
+	// Read the system prompt for the language model from the markdown file
 	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/chat/mapedit.md`, 'utf8');
+
+	// Send a request to the language model with the document and code block
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })
 		)
 	], { modelOptions: { system } }, token);
 
-	let replacement = '';
+	let hasCodeFence = false; // Tracks if a code fence has been detected
+	let buffer = ''; // Buffer for accumulating streamed text
+	let newlineIndex;
+
+	// Stream the response text from the language model
 	for await (const delta of response.text) {
 		if (token.isCancellationRequested) {
-			return null;
+			return null; // Stop processing if the operation is cancelled
 		}
-		replacement += delta;
-	}
+		buffer += delta;
 
-	// The model is instructed in `mapedit.md` to return the result as plain
-	// JSON. Despite these instructions, it has been known to return the JSON
-	// inside a Markdown code fence. If it does, we need to extract the JSON
-	// content from it so it can be parsed correctly.
-	const jsonStart = replacement.indexOf('```json');
-	if (jsonStart !== -1) {
-		const jsonEnd = replacement.indexOf('```', jsonStart + 6);
-		if (jsonEnd !== -1) {
-			replacement = replacement.substring(jsonStart + 6, jsonEnd).trim();
-		} else {
-			// If the closing code fence is missing, we return the whole content after the opening code fence.
-			replacement = replacement.substring(jsonStart + 6).trim();
+		// Remove code fence at the start of the buffer if present
+		if (!hasCodeFence && buffer.startsWith('```')) {
+			const fenceEnd = buffer.indexOf('\n');
+			if (fenceEnd !== -1) {
+				buffer = buffer.slice(fenceEnd + 1);
+				hasCodeFence = true;
+			}
 		}
-	} else {
-		// If no code fence is found, we assume the model returned plain JSON.
-		replacement = replacement.trim();
+
+		// Remove code fence at the end of the buffer if present
+		if (hasCodeFence && buffer.endsWith('```')) {
+			buffer = buffer.slice(0, buffer.length - 3);
+		}
+
+		// Yield each line as it is completed
+		while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+			const line = buffer.slice(0, newlineIndex);
+			yield line;
+			buffer = buffer.slice(newlineIndex + 1);
+		}
 	}
-	return replacement;
+	// Yield any remaining text in the buffer
+	yield buffer;
 }
