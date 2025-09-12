@@ -84,7 +84,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			columnResize: false,
 			rowResize: false,
 			columnPinning: false,
-			rowPinning: false,
+			// Enable row pinning so that trhe layout height is properly calculated. Note that in
+			// TableSummaryDataGridInstance, pinned rows are actually pinned columns, and there is
+			// not UI in the table summary panel to pin/unpin rows.
+			rowPinning: true,
+			maximumPinnedRows: 10,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -564,7 +568,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Get current pinned indexes from the layout manager BEFORE doing anything else
 			// This is important because setEntries() can clear the pinned indexes if they're not
 			// in the new entry map
-			const pinnedColumns = Array.from(this._rowLayoutManager.pinnedIndexes);
+			const pinnedColumns = this._rowLayoutManager.pinnedIndexes;
 
 			// When there is a search or sort option, we need to tell the layout manager
 			// to use the filtered table shape and render both pinned columns and search results.
