@@ -45,6 +45,7 @@ jobs:
       install_license: false
       skip_tags: "@:nightly-only"
       upload_logs: false
+      workers: 3
     secrets: inherit
 
   e2e-windows-electron:
