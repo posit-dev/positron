@@ -81,6 +81,8 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	prepareToolInvocation(toolName: string): void {
 	}
+	clearToPreviousToolInvocation(reason: vscode.ChatResponseClearToPreviousToolInvocationReason): void {
+	}
 }
 
 suite('PositronAssistantParticipant', () => {

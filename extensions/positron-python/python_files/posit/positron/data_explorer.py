@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import math
 import operator
-import warnings
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
@@ -23,8 +22,13 @@ from typing import (
 
 import comm
 
+from ._data_explorer_internal import (
+    _get_histogram_method,
+    _get_histogram_numpy,
+    _get_histogram_polars,
+)
 from .access_keys import decode_access_key
-from .convert import PandasConverter
+from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -37,7 +41,6 @@ from .data_explorer_comm import (
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
-    ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
     ColumnProfileType,
@@ -52,6 +55,7 @@ from .data_explorer_comm import (
     ConvertToCodeParams,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
+    DataSelectionCellIndices,
     DataSelectionCellRange,
     DataSelectionIndices,
     DataSelectionRange,
@@ -185,12 +189,14 @@ class DataExplorerTableView:
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None,
     ):
         # Note: we must not ever modify the user's data
         self.table = table
         self.comm = comm
         self.state = state
         self.job_queue = job_queue
+        self.sql_string = sql_string
 
         self.schema_memo = {}
 
@@ -308,12 +314,26 @@ class DataExplorerTableView:
             self._search_schema_last_result = (filters, matches)
 
         # Apply sorting based on sort_order
-        if sort_order == SearchSchemaSortOrder.Ascending:
+        if sort_order == SearchSchemaSortOrder.AscendingName:
             # Sort by column name ascending
-            matches = sorted(matches, key=lambda idx: self._get_column_name(idx))
-        elif sort_order == SearchSchemaSortOrder.Descending:
+            matches = sorted(matches, key=lambda idx: self._get_column_name(idx).lower())
+        elif sort_order == SearchSchemaSortOrder.DescendingName:
             # Sort by column name descending
-            matches = sorted(matches, key=lambda idx: self._get_column_name(idx), reverse=True)
+            matches = sorted(
+                matches, key=lambda idx: self._get_column_name(idx).lower(), reverse=True
+            )
+        elif sort_order == SearchSchemaSortOrder.AscendingType:
+            # Sort by column type ascending (using lowercase type name)
+            matches = sorted(
+                matches, key=lambda idx: str(self._get_column_type_display(idx)).lower()
+            )
+        elif sort_order == SearchSchemaSortOrder.DescendingType:
+            # Sort by column type descending (using lowercase type name)
+            matches = sorted(
+                matches,
+                key=lambda idx: str(self._get_column_type_display(idx)).lower(),
+                reverse=True,
+            )
         # For SearchSchemaSortOrder.Original, keep original order (no sorting needed)
 
         return SearchSchemaResult(matches=matches)
@@ -409,6 +429,9 @@ class DataExplorerTableView:
                 slice(sel.first_column_index, sel.last_column_index + 1),
                 fmt,
             )
+        elif kind == TableSelectionKind.CellIndices:
+            assert isinstance(sel, DataSelectionCellIndices)
+            return self._export_tabular(sel.row_indices, sel.column_indices, fmt)
         elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
@@ -942,8 +965,8 @@ def _box_datetime_stats(
 
 
 class UnsupportedView(DataExplorerTableView):
-    def __init__(self, table, comm, state, job_queue):
-        super().__init__(table, comm, state, job_queue)
+    def __init__(self, table, comm, state, job_queue, sql_string: str | None = None):
+        super().__init__(table, comm, state, job_queue, sql_string)
 
 
 # Special value codes for the protocol
@@ -1201,14 +1224,14 @@ class PandasView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
         self.was_series = False
         table = self._maybe_wrap(table)
-
         # For lazy importing NumPy
         self.math_helper = NumPyMathHelper()
 
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @property
     def _has_row_labels(self):
@@ -1385,9 +1408,13 @@ class PandasView(DataExplorerTableView):
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
         converter = PandasConverter(
-            self.table, self.state.name, request, was_series=self.was_series
+            self.table,
+            self.state.name,
+            request,
+            was_series=self.was_series,
+            sql_string=self.sql_string,
         )
-        converted_code = converter.convert()
+        converted_code = converter.build_code()
         return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
@@ -1985,95 +2012,6 @@ COMPARE_OPS = {
 }
 
 
-def _get_histogram_method(method: ColumnHistogramParamsMethod):
-    return {
-        ColumnHistogramParamsMethod.Fixed: "fixed",
-        ColumnHistogramParamsMethod.Sturges: "sturges",
-        ColumnHistogramParamsMethod.FreedmanDiaconis: "fd",
-        ColumnHistogramParamsMethod.Scott: "scott",
-    }[method]
-
-
-def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
-    try:
-        import numpy as np
-    except ModuleNotFoundError as e:
-        # If NumPy is not installed, we cannot compute histograms
-        # intentionally printing since errors will not show up in the console
-        warnings.warn(
-            "Numpy not installed, histogram computation will not work. "
-            "Please install NumPy to enable this feature.",
-            category=DataExplorerWarning,
-            stacklevel=1,
-        )
-        raise e
-
-    if to_numpy:
-        data = data.to_numpy()
-
-    assert num_bins is not None
-    hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
-
-    if data.dtype == object:
-        # For decimals, we convert to float which is lossy but works for now
-        return _get_histogram_numpy(data.astype(float), num_bins, method=method)
-
-    # We optimistically compute the histogram once, and then do extra
-    # work in the special cases where the binning method produces a
-    # finer-grained histogram than the maximum number of bins that we
-    # want to render, as indicated by the num_bins argument
-    try:
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-    except ValueError:
-        if issubclass(data.dtype.type, np.integer):
-            # Issue #5176. There is a class of error for integers where np.histogram
-            # will fail on Windows (platform int issue), e.g. this array fails with Numpy 2.1.1
-            # array([ -428566661,  1901704889,   957355142,  -401364305, -1978594834,
-            #         519144975,  1384373326,  1974689646,   194821408, -1564699930],
-            #         dtype=int32)
-            # So we try again with the data converted to floating point as a fallback
-            return _get_histogram_numpy(data.astype(np.float64), num_bins, method=method)
-
-        # If there are inf/-inf values in the dataset, ValueError is
-        # raised. We catch it and try again to avoid paying the
-        # filtering cost every time
-        data = data[np.isfinite(data)]
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-
-    need_recompute = False
-
-    # If the method returns more bins than what the front-end requested,
-    # we re-define the bin edges.
-    if len(bin_edges) > num_bins:
-        hist_params = {"bins": num_bins}
-        need_recompute = True
-
-    # For integers, we want to make sure the number of bins is smaller
-    # then than `data.max() - data.min()`, so we don't endup with more bins
-    # then there's data to display.
-    # hist_params = {"bins": bin_edges.tolist()}
-    if issubclass(data.dtype.type, np.integer):
-        # Avoid overflows with smaller integers
-        width = (data.max().astype(np.int64) - data.min().astype(np.int64)).item()
-        if len(bin_edges) > width and width > 0:
-            hist_params = {"bins": width + 1}
-            need_recompute = True
-
-    if need_recompute:
-        bin_counts, bin_edges = np.histogram(data, **hist_params)
-
-    # Special case: if we have a single bin, check if all values are the same
-    # If so, override the bin edges to be the same value instead of value +/- 0.5
-    if len(bin_counts) == 1 and len(data) > 0:
-        # Check if all non-null values are the same
-        unique_values = np.unique(data)
-        if len(unique_values) == 1:
-            # All values are the same, set bin edges to [value, value]
-            bin_edges = np.array([unique_values[0], unique_values[0]])
-
-    return bin_counts, bin_edges
-
-
 def _date_median(x):
     """
     Computes the median of a date or datetime series.
@@ -2253,8 +2191,9 @@ class PolarsView(DataExplorerTableView):
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
     ):
-        super().__init__(table, comm, state, job_queue)
+        super().__init__(table, comm, state, job_queue, sql_string)
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -2357,7 +2296,9 @@ class PolarsView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        raise NotImplementedError("Convert to code is not implemented for Polars DataFrames.")
+        converter = PolarsConverter(self.table, self.state.name, request)
+        converted_code = converter.build_code()
+        return ConvertedCode(converted_code=converted_code).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2401,6 +2342,7 @@ class PolarsView(DataExplorerTableView):
             column_index=column_index,
             type_name=type_name,
             type_display=ColumnDisplayType(type_display),
+            timezone=getattr(column.dtype, "time_zone", None),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -2796,9 +2738,8 @@ class PolarsView(DataExplorerTableView):
 
         method = _get_histogram_method(params.method)
 
-        bin_counts, bin_edges = _get_histogram_numpy(
-            data, params.num_bins, method=method, to_numpy=True
-        )
+        # Always use the Polars implementation for PolarsView
+        bin_counts, bin_edges = _get_histogram_polars(data, params.num_bins, method=method)
         bin_edges = pl.Series(bin_edges)
 
         if cast_bin_edges:
@@ -2847,8 +2788,11 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Unsupported,
-            code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[
+                CodeSyntaxName(code_syntax_name="polars"),
+                CodeSyntaxName(code_syntax_name="pandas"),
+            ],
         ),
     )
 
@@ -2868,11 +2812,13 @@ def _get_table_view(
     comm: PositronComm,
     state: DataExplorerState,
     job_queue: BackgroundJobQueue,
+    *,
+    sql_string: str | None = None,
 ):
     state.name = state.name or guid()
 
     if is_pandas(table):
-        return PandasView(table, comm, state, job_queue)
+        return PandasView(table, comm, state, job_queue, sql_string)
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
     else:
@@ -2920,6 +2866,8 @@ class DataExplorerService:
         title,
         variable_path: list[str] | None = None,
         comm_id=None,
+        *,
+        sql_string: str | None = None,
     ):
         """
         Set up a new comm and data explorer table query wrapper to handle requests and manage state.
@@ -2938,6 +2886,10 @@ class DataExplorerService:
         comm_id : str, default None
             A specific comm identifier to use, otherwise generate a
             random uuid.
+        sql_string : str, default None
+            If the data explorer was opened from a SQL query result,
+            this is the SQL string that was executed to produce the
+            result. This is used for code generation.
 
         Returns
         -------
@@ -2968,7 +2920,7 @@ class DataExplorerService:
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
 
         self.table_views[comm_id] = _get_table_view(
-            table, wrapped_comm, DataExplorerState(title), self.job_queue
+            table, wrapped_comm, DataExplorerState(title), self.job_queue, sql_string=sql_string
         )
 
         if variable_path is not None:
@@ -3102,7 +3054,7 @@ class DataExplorerService:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 
         self.table_views[comm_id] = _get_table_view(
-            new_table, table_view.comm, new_state, self.job_queue
+            new_table, table_view.comm, new_state, self.job_queue, sql_string=table_view.sql_string
         )
 
         if schema_updated:

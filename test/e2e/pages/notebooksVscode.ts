@@ -25,7 +25,7 @@ export class VsCodeNotebooks extends Notebooks {
 	/**
 	 * Verify: a VS Code notebook is visible on the page.
 	 */
-	async expectToBeVisible(timeout = 5000): Promise<void> {
+	async expectToBeVisible(timeout = 25000): Promise<void> {
 		await test.step('Verify VS Code notebook is visible', async () => {
 			await expect(this.startChatButton).toBeVisible({ timeout });
 		});

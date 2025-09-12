@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Tuple, TypedDict
@@ -127,7 +128,9 @@ class Connection:
         """
         raise NotImplementedError
 
-    def preview_object(self, path: list[ObjectSchema]) -> Any:
+    def preview_object(
+        self, path: list[ObjectSchema], var_name: str | None = None
+    ) -> tuple[Any, str | None]:
         """
         Returns a small sample of the object's data for previewing.
 
@@ -136,6 +139,11 @@ class Connection:
 
         Args:
             path: The path to the object.
+
+        Returns:
+            A tuple containing:
+            - The preview data (pandas dataframe or similar)
+            - A strings representing the code to recreate the data
         """
         raise NotImplementedError
 
@@ -295,6 +303,10 @@ class ConnectionsService:
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
             return SQLAlchemyConnection(obj)
+        elif safe_isinstance(obj, "duckdb", "DuckDBPyConnection"):
+            return DuckDBConnection(obj)
+        elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
+            return SnowflakeConnection(obj)
         else:
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
@@ -302,10 +314,13 @@ class ConnectionsService:
     def object_is_supported(self, obj: Any) -> bool:
         """Checks if an object is supported by the connections pane."""
         try:
-            # This block might fail if for some reason 'Connection' or 'Engine' are
+            # This block might fail if for some reason 'Connection', 'Engine', or 'DuckDBPyConnection' are
             # not available in their modules.
-            return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
-                obj, "sqlalchemy", "Engine"
+            return (
+                safe_isinstance(obj, "sqlite3", "Connection")
+                or safe_isinstance(obj, "sqlalchemy", "Engine")
+                or safe_isinstance(obj, "duckdb", "DuckDBPyConnection")
+                or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -439,7 +454,7 @@ class ConnectionsService:
         elif isinstance(request, GetIconRequest):
             result = self.handle_get_icon_request(connection, request)
         elif isinstance(request, PreviewObjectRequest):
-            self.handle_preview_object_request(connection, request)
+            self.handle_preview_object_request(connection, request, comm_id)
             result = None
         elif isinstance(request, GetMetadataRequest):
             result = self.handle_get_metadata_request(connection, request)  # type: ignore
@@ -486,11 +501,21 @@ class ConnectionsService:
         return conn.list_fields(request.params.path)
 
     def handle_preview_object_request(
-        self, conn: Connection, request: PreviewObjectRequest
+        self, conn: Connection, request: PreviewObjectRequest, comm_id: str
     ) -> None:
-        res = conn.preview_object(request.params.path)
+        # Get variable name if available
+        var_name = None
+        if comm_id in self.comm_id_to_path:
+            # Get the first path (variable name)
+            path_key = next(iter(self.comm_id_to_path[comm_id]))
+            if path_key and len(path_key) > 0:
+                # Decode the variable name from the path
+                var_name = decode_access_key(path_key[0])
+
+        res, sql_string = conn.preview_object(request.params.path, var_name)
         title = request.params.path[-1].name
-        self._kernel.data_explorer_service.register_table(res, title)
+
+        self._kernel.data_explorer_service.register_table(res, title, sql_string=sql_string)
 
     def handle_get_metadata_request(
         self, conn: Connection, _request: GetMetadataRequest
@@ -587,7 +612,7 @@ class SQLite3Connection(Connection):
     def disconnect(self):
         self.conn.close()
 
-    def preview_object(self, path: list[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
         try:
             import pandas as pd
         except ImportError as e:
@@ -602,9 +627,14 @@ class SQLite3Connection(Connection):
                 "Path must include a schema and a table/view in this order.", f"Path: {path}"
             )
 
-        return pd.read_sql(
-            f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;",
-            self.conn,
+        sql_string = f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;"
+        var_name = var_name or "conn"
+        return (
+            pd.read_sql(
+                sql_string,
+                self.conn,
+            ),
+            f'# {table.name} = pd.read_sql("""{sql_string}""", {var_name}) # where {var_name} is your connection variable',
         )
 
     def list_object_types(self):
@@ -688,7 +718,7 @@ class SQLAlchemyConnection(Connection):
             "database": ConnectionObjectInfo({"contains": None, "icon": None}),
         }
 
-    def preview_object(self, path: list[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
         try:
             import sqlalchemy
         except ImportError as e:
@@ -708,9 +738,15 @@ class SQLAlchemyConnection(Connection):
             table.name, sqlalchemy.MetaData(), autoload_with=self.conn, schema=schema.name
         )
         stmt = sqlalchemy.sql.select(table).limit(1000)
+        var_name = var_name or "conn"
+        sql_string = f"""# table = sqlalchemy.Table(
+        #    {table.name!r}, sqlalchemy.MetaData(), autoload_with={var_name}, schema={schema.name!r}
+        # ) # where {var_name} is your connection variable
+        # {table.name} = pd.read_sql(sqlalchemy.sql.select(table), {var_name}.connect())
+        """
         # using conn.connect() is safer then using the conn directly and is also supported
         # with older pandas versions such as 1.5
-        return pd.read_sql(stmt, self.conn.connect())
+        return pd.read_sql(stmt, self.conn.connect()), sql_string
 
     def disconnect(self):
         self.conn.dispose()
@@ -727,3 +763,247 @@ class SQLAlchemyConnection(Connection):
                 "Invalid path. Expected path to contain a schema and a table/view.",
                 f"But got schema.kind={schema.kind} and table.kind={table.kind}",
             )
+
+
+class DuckDBConnection(Connection):
+    """Support for DuckDB connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+        self.icon = "data:image/png;base64,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"
+
+        db_list = conn.execute("PRAGMA database_list;").fetchall()
+        databases = ", ".join([row[1] for row in db_list])
+
+        self.host = db_list[0][2]  # pragma database_list returns (seq, name, file)
+        if self.host == "" or self.host is None:
+            self.host = ":memory:"
+
+        self.display_name = f"DuckDB ({databases})"
+        self.type = "DuckDB"
+
+        # DuckDB allows attaching other databases, thus we can't really get to the exact same
+        # state. But we can at least show how to connect to the initial database.
+        self.code = (
+            f"import duckdb\nconn = duckdb.connect(database={self.host!r})\n%connection_show conn\n"
+        )
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            # we are at the root of the connection. DuckDB allows a connection to attach to multiple
+            # databases. so we return a list of 'catalogs'.
+            res = self.conn.execute(
+                "SELECT DISTINCT catalog_name FROM information_schema.schemata WHERE catalog_name NOT IN ('system', 'temp');"
+            )
+
+            return [
+                ConnectionObject({"name": name, "kind": "catalog"}) for (name,) in res.fetchall()
+            ]
+
+        if len(path) == 1:
+            # We must have a catalog on the path, and we return the list of schemas in that catalog.
+            catalog = path[0]
+            if catalog.kind != "catalog":
+                raise ValueError(
+                    f"Invalid path. Expected it to include a catalog, but got '{catalog.kind}'",
+                    f"Path: {path}",
+                )
+
+            res = self.conn.execute(
+                """
+                SELECT DISTINCT schema_name FROM information_schema.schemata
+                WHERE catalog_name = ?;
+                """,
+                (catalog.name,),
+            )
+
+            return [
+                ConnectionObject({"name": name, "kind": "schema"}) for (name,) in res.fetchall()
+            ]
+
+        if len(path) == 2:
+            # Query for tables and views in the catalog/ schema
+            catalog, schema = path
+            if catalog.kind != "catalog" or schema.kind != "schema":
+                raise ValueError(
+                    "Path must include a catalog and a schema in this order.", f"Path: {path}"
+                )
+
+            res = self.conn.execute(
+                """
+                SELECT table_name, table_type
+                FROM information_schema.tables
+                WHERE table_schema = ? AND table_catalog = ?
+                """,
+                (schema.name, catalog.name),
+            )
+
+            tables: list[ConnectionObject] = []
+            for name, table_type in res.fetchall():
+                # Convert DuckDB table types to our standard types
+                kind = "view" if table_type == "VIEW" else "table"
+                tables.append(ConnectionObject({"name": name, "kind": kind}))
+
+            return tables
+
+        # DuckDB doesn't have deeper hierarchies. If we get to this point
+        # it means the path is invalid.
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            schema.kind != "schema"
+            or table.kind not in ["table", "view"]
+            or catalog.kind != "catalog"
+        ):
+            raise ValueError(
+                "Path must include a catalog, a schema and a table/view in this order.",
+                f"Path: {path}",
+            )
+
+        # Query for column information
+        res = self.conn.execute(
+            """
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = ? AND table_catalog = ?
+            ORDER BY ordinal_position;
+            """,
+            (schema.name, table.name, catalog.name),
+        )
+
+        return [
+            ConnectionObjectFields({"name": name, "dtype": dtype}) for name, dtype in res.fetchall()
+        ]
+
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            schema.kind != "schema"
+            or table.kind not in ["table", "view"]
+            or catalog.kind != "catalog"
+        ):
+            raise ValueError(
+                "Path must include a catalog, a schema and a table/view in this order.",
+                f"Path: {path}",
+            )
+
+        # Use DuckDB's native pandas integration via .df() method
+        query = f'SELECT * FROM "{catalog.name}"."{schema.name}"."{table.name}" LIMIT 1000'
+        var_name = var_name or "conn"
+        return (
+            self.conn.execute(query).df(),
+            f"# {table.name} = {var_name}.execute({query!r}).df() # where {var_name} is your connection variable",
+        )
+
+    def list_object_types(self):
+        return {
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+        }
+
+    def disconnect(self):
+        self.conn.close()  # type: ignore
+
+
+class SnowflakeConnection(Connection):
+    """Support for Snowflake Connection connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+        self.icon = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTYxLjA2MzIgMjguMjk2NEw1My43Mzg1IDMyLjQzOTVMNjEuMDYzMiAzNi41ODI1QzYyLjkyNTUgMzcuNjMwNSA2My41NDYyIDM5Ljk0NTggNjIuNDc4NSA0MS43NDkyQzYxLjQxMDkgNDMuNTUyNyA1OS4wNTIgNDQuMTYxOSA1Ny4xODk4IDQzLjEzODRMNDQuMDU0OCAzNS43Mjk2QzQzLjE4NTggMzUuMjQyMSA0Mi41NjUxIDM0LjQ2MjMgNDIuMjkxOSAzMy41ODQ5QzQyLjE2NzggMzMuMTcwNiA0Mi4wOTMzIDMyLjc1NjMgNDIuMTE4MSAzMi4zNjYzQzQyLjExODEgMzIuMDczOSA0Mi4xNjc4IDMxLjc4MTQgNDIuMjQyMyAzMS40NjQ2QzQyLjUxNTQgMzAuNTM4NSA0My4xMTEzIDI5LjcwOTkgNDQuMDMgMjkuMTk4MUw1Ny4xNjUgMjEuNzg5M0M1OS4wMDI0IDIwLjc0MTMgNjEuMzg2IDIxLjM3NSA2Mi40NTM3IDIzLjE3ODVDNjMuNTIxNCAyNC45ODE5IDYyLjkwMDYgMjcuMjk3MiA2MS4wMzg0IDI4LjM0NTFMNjEuMDYzMiAyOC4yOTY0Wk01NC4xMTA5IDQ4LjM3ODFMNDAuOTc2IDQwLjk2OTNDNDAuMjgwNyA0MC41Nzk0IDM5LjQ4NjIgNDAuNDA4OCAzOC43NDEzIDQwLjQ4MTlDMzYuNzMwMSA0MC42MjgxIDM1LjE2NTggNDIuMjYxIDM1LjE2NTggNDQuMjM1MVY1OS4wNTI3QzM1LjE2NTggNjEuMTQ4NiAzNi44NzkxIDYyLjgzMDIgMzkuMDM5MiA2Mi44MzAyQzQxLjE5OTQgNjIuODMwMiA0Mi45MTI3IDYxLjE0ODYgNDIuOTEyNyA1OS4wNTI3VjUwLjc2NjVMNTAuMjYyMyA1NC45MDk2QzUyLjA5OTcgNTUuOTU3NSA1NC40ODM0IDU1LjM0ODMgNTUuNTUxIDUzLjU0NDhDNTYuNjE4NyA1MS43NDEzIDU1Ljk5OCA0OS40MjYxIDU0LjEzNTcgNDguMzc4MUg1NC4xMTA5Wk0zOC45NjQ4IDMzLjkwMTdMMzMuNTAyMiAzOS4yMzlDMzMuMzUzMiAzOS4zODUyIDMzLjA1NTMgMzkuNTMxNCAzMi44MDcgMzkuNTMxNEgzMS4xOTNDMzAuOTY5NiAzOS41MzE0IDMwLjY3MTYgMzkuNDA5NiAzMC40OTc4IDM5LjIzOUwyNS4wMzUzIDMzLjkwMTdDMjQuODg2MyAzMy43NTU1IDI0Ljc2MjEgMzMuNDM4NyAyNC43NjIxIDMzLjI0MzdWMzEuNjg0QzI0Ljc2MjEgMzEuNDY0NiAyNC44ODYzIDMxLjE3MjIgMjUuMDM1MyAzMS4wMDE2TDMwLjQ5NzggMjUuNjY0M0MzMC42NDY4IDI1LjUxODEgMzAuOTY5NiAyNS4zOTYyIDMxLjE5MyAyNS4zOTYySDMyLjgwN0MzMy4wMzA0IDI1LjM5NjIgMzMuMzI4NCAyNS41MTgxIDMzLjUwMjIgMjUuNjY0M0wzOC45NjQ4IDMxLjAwMTZDMzkuMTEzNyAzMS4xNDc4IDM5LjIzNzkgMzEuNDY0NiAzOS4yMzc5IDMxLjY4NFYzMy4yNDM3QzM5LjIzNzkgMzMuNDYzMSAzOS4xMTM3IDMzLjc1NTUgMzguOTY0OCAzMy45MDE3Wk0zNC41OTQ3IDMyLjQxNTFDMzQuNTk0NyAzMi4xOTU4IDM0LjQ3MDYgMzEuOTAzMyAzNC4yOTY4IDMxLjczMjdMMzIuNzA3NiAzMC4xOTczQzMyLjU1ODcgMzAuMDUxMSAzMi4yMzU5IDI5LjkyOTIgMzIuMDEyNCAyOS45MjkySDMxLjkzNzlDMzEuNzE0NSAyOS45MjkyIDMxLjQxNjUgMzAuMDUxMSAzMS4yNjc1IDMwLjE5NzNMMjkuNjc4NCAzMS43MzI3QzI5LjUyOTQgMzEuOTAzMyAyOS40MDUzIDMyLjE5NTggMjkuNDA1MyAzMi40MTUxVjMyLjQ2MzhDMjkuNDA1MyAzMi42ODMyIDI5LjUyOTQgMzIuOTc1NiAyOS42Nzg0IDMzLjEyMTlMMzEuMjY3NSAzNC42NTcyQzMxLjQxNjUgMzQuODAzNSAzMS43MzkzIDM0LjkyNTMgMzEuOTM3OSAzNC45MjUzSDMyLjAxMjRDMzIuMjM1OSAzNC45MjUzIDMyLjUzMzggMzQuODAzNSAzMi43MDc2IDM0LjY1NzJMMzQuMjk2OCAzMy4xMjE5QzM0LjQ0NTcgMzIuOTc1NiAzNC41OTQ3IDMyLjY1ODggMzQuNTk0NyAzMi40NjM4VjMyLjQxNTFaTTkuODg5MDkgMTYuNDc2NEwyMy4wMjQgMjMuODg1MkMyMy43MTkzIDI0LjI3NTIgMjQuNTEzOCAyNC40NDU4IDI1LjI1ODcgMjQuMzcyNkMyNy4yNjk5IDI0LjIyNjQgMjguODM0MiAyMi41OTM2IDI4LjgzNDIgMjAuNTk1MVY1Ljc3NzUxQzI4LjgzNDIgMy43MDU5NyAyNy4wOTYxIDIgMjQuOTYwOCAyQzIyLjgyNTQgMiAyMS4wODczIDMuNjgxNiAyMS4wODczIDUuNzc3NTFWMTQuMDYzN0wxMy43Mzc3IDkuOTIwNkMxMS45MDAzIDguODcyNjQgOS41NDE0NyA5LjUwNjI5IDguNDQ4OTcgMTEuMzA5N0M3LjM4MTI4IDEzLjExMzIgOC4wMDIwMyAxNS40Mjg1IDkuODY0MjYgMTYuNDc2NEg5Ljg4OTA5Wk0zOC43NDEzIDI0LjM5N0MzOS40ODYyIDI0LjQ0NTggNDAuMjgwNyAyNC4yOTk1IDQwLjk3NiAyMy45MDk2TDU0LjExMDkgMTYuNTAwOEM1NS45NzMxIDE1LjQ1MjggNTYuNTkzOSAxMy4xMzc2IDU1LjUyNjIgMTEuMzM0MUM1NC40NTg1IDkuNTMwNjYgNTIuMDk5NyA4LjkyMTM4IDUwLjIzNzUgOS45NDQ5N0w0Mi44ODc5IDE0LjA4OFY1LjgwMTg5QzQyLjg4NzkgMy43MzAzNCA0MS4xNDk4IDIuMDI0MzcgMzkuMDE0NCAyLjAyNDM3QzM2Ljg3OTEgMi4wMjQzNyAzNS4xNDEgMy43MDU5NyAzNS4xNDEgNS44MDE4OVYyMC42MTk1QzM1LjE0MSAyMi42MTc5IDM2LjcwNTIgMjQuMjUwOCAzOC43MTY1IDI0LjM5N0gzOC43NDEzWk0yNS4yODM2IDQwLjQ4MTlDMjQuNTM4NyA0MC40MDg4IDIzLjc0NDEgNDAuNTc5NCAyMy4wNDg5IDQwLjk2OTNMOS45MTM5MiA0OC4zNzgxQzguMDc2NTIgNDkuNDI2MSA3LjQzMDk1IDUxLjc0MTMgOC40OTg2MyA1My41NDQ4QzkuNTY2MzEgNTUuMzQ4MyAxMS45MjUxIDU1Ljk1NzUgMTMuNzg3NCA1NC45MDk2TDIxLjEzNyA1MC43NjY1VjU5LjA1MjdDMjEuMTM3IDYxLjE0ODYgMjIuODc1MSA2Mi44MzAyIDI1LjAxMDQgNjIuODMwMkMyNy4xNDU4IDYyLjgzMDIgMjguODgzOSA2MS4xNDg2IDI4Ljg4MzkgNTkuMDUyN1Y0NC4yMzUxQzI4Ljg4MzkgNDIuMjM2NiAyNy4yOTQ4IDQwLjYwMzggMjUuMzA4NCA0MC40ODE5SDI1LjI4MzZaTTIxLjcwODEgMzMuNTYwNUMyMS44MzIyIDMzLjE0NjIgMjEuODgxOSAzMi43MzE5IDIxLjg4MTkgMzIuMzQyQzIxLjg4MTkgMzIuMDQ5NSAyMS44MzIyIDMxLjc1NzEgMjEuNzMyOSAzMS40NDAzQzIxLjQ4NDYgMzAuNTE0MSAyMC44NjM4IDI5LjY4NTUgMTkuOTQ1MSAyOS4xNzM3TDYuODEwMiAyMS43NjQ5QzQuOTQ3OTcgMjAuNzE3IDIuNTg5MTQgMjEuMzUwNiAxLjUyMTQ2IDIzLjE1NDFDMC40NTM3NzcgMjQuOTU3NSAxLjA3NDUzIDI3LjI3MjggMi45MzY3NiAyOC4zMjA4TDEwLjI2MTUgMzIuNDYzOEwyLjkzNjc2IDM2LjYwNjlDMS4wNzQ1MyAzNy42NTQ5IDAuNDUzNzc3IDM5Ljk3MDEgMS41MjE0NiA0MS43NzM2QzIuNTg5MTQgNDMuNTc3IDQuOTQ3OTcgNDQuMTg2MyA2LjgxMDIgNDMuMTYyN0wxOS45NDUxIDM1Ljc1MzlDMjAuODM5IDM1LjI2NjUgMjEuNDM0OSAzNC40ODY2IDIxLjcwODEgMzMuNjA5M1YzMy41NjA1WiIgZmlsbD0iIzI5QjVFOCIvPgo8L3N2Zz4K"
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT CURRENT_ACCOUNT()")
+            self.host = cursor.fetchone()[0]
+        except Exception:
+            self.host = "<unknown>"
+
+        self.display_name = f"Snowflake ({self.host})"
+        self.type = "Snowflake"
+        self.code = self._make_code()
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            res = self.conn.cursor().execute("SHOW DATABASES;")
+            return [
+                ConnectionObject({"name": row[1], "kind": "database"}) for row in res.fetchall()
+            ]
+
+        if len(path) == 1:
+            database = path[0]
+            res = self.conn.cursor().execute(f"SHOW SCHEMAS in DATABASE {database.name}")
+            return [ConnectionObject({"name": row[1], "kind": "schema"}) for row in res.fetchall()]
+
+        if len(path) == 2:
+            database, schema = path
+            tables = self.conn.cursor().execute(
+                f"SHOW TABLES in SCHEMA {database.name}.{schema.name}"
+            )
+            views = self.conn.cursor().execute(
+                f"SHOW VIEWS in SCHEMA {database.name}.{schema.name}"
+            )
+            return [
+                ConnectionObject({"name": row[1], "kind": "table"}) for row in tables.fetchall()
+            ] + [ConnectionObject({"name": row[1], "kind": "view"}) for row in views.fetchall()]
+
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+
+        res = self.conn.cursor().execute(
+            f"SHOW COLUMNS IN {database.name}.{schema.name}.{table.name}"
+        )
+        return [
+            ConnectionObjectFields({"name": row[2], "dtype": json.loads(row[3])["type"]})
+            for row in res.fetchall()
+        ]
+
+    def preview_object(self, path, var_name: str | None = None):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        database, schema, table = path
+
+        query = f'SELECT * FROM "{database.name}"."{schema.name}"."{table.name}" LIMIT 1000;'
+        var_name = var_name or "conn"
+        preview = self.conn.cursor().execute(query).fetch_pandas_all()
+        sql = (
+            f"# {table.name} = {var_name}.execute({query!r}).df() # where {var_name} is your connection variable",
+        )
+        return preview, sql
+
+    def list_object_types(self):
+        return {
+            "database": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+        }
+
+    def disconnect(self):
+        self.conn.close()  # type: ignore
+
+    def _make_code(self):
+        args = ["account", "authenticator", "host", "user", "password", "port"]
+        code = "import snowflake.connector\ncon = snowflake.connector.connect(\n"
+        for arg in args:
+            val = getattr(self.conn, f"_{arg}")
+            if val is not None:
+                val = repr(val)
+                code += f"    {arg}={val},\n"
+        code += ")\n"
+        return code

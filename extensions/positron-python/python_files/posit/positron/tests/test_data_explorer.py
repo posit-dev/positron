@@ -961,12 +961,12 @@ def test_search_schema(dxf: DataExplorerFixture):
         expected_all_indices = list(range(len(column_names)))
         assert result["matches"] == expected_all_indices
 
-        result = dxf.search_schema(name, [], "ascending")
+        result = dxf.search_schema(name, [], "ascending_name")
         # Should be sorted by column name alphabetically
         expected_sorted = sorted(range(len(column_names)), key=lambda i: column_names[i])
         assert result["matches"] == expected_sorted
 
-        result = dxf.search_schema(name, [], "descending")
+        result = dxf.search_schema(name, [], "descending_name")
         # Should be sorted by column name reverse alphabetically
         expected_reverse_sorted = sorted(
             range(len(column_names)), key=lambda i: column_names[i], reverse=True
@@ -993,31 +993,82 @@ def test_search_schema_sort_by_name(dxf: DataExplorerFixture):
         expected_original = list(range(len(column_names)))
         assert result["matches"] == expected_original
 
-        # Test ascending sort (case-sensitive alphabetical)
-        result = dxf.search_schema(name, [], "ascending")
-        expected_ascending = sorted(range(len(column_names)), key=lambda i: column_names[i])
+        # Test ascending sort (case-insensitive alphabetical)
+        result = dxf.search_schema(name, [], "ascending_name")
+        expected_ascending = sorted(range(len(column_names)), key=lambda i: column_names[i].lower())
         assert result["matches"] == expected_ascending
 
-        # Test descending sort
-        result = dxf.search_schema(name, [], "descending")
+        # Test descending sort (case-insensitive alphabetical)
+        result = dxf.search_schema(name, [], "descending_name")
         expected_descending = sorted(
-            range(len(column_names)), key=lambda i: column_names[i], reverse=True
+            range(len(column_names)), key=lambda i: column_names[i].lower(), reverse=True
         )
         assert result["matches"] == expected_descending
 
         # Test that sorting works with filters too
         filter_with_a = _text_search_filter("a")  # Should match "Zebra", "apple", "BANANA"
 
-        result = dxf.search_schema(name, [filter_with_a], "ascending")
+        result = dxf.search_schema(name, [filter_with_a], "ascending_name")
         filtered_indices = [i for i, col in enumerate(column_names) if "a" in col.lower()]
-        expected_filtered_ascending = sorted(filtered_indices, key=lambda i: column_names[i])
+        expected_filtered_ascending = sorted(
+            filtered_indices, key=lambda i: column_names[i].lower()
+        )
         assert result["matches"] == expected_filtered_ascending
 
-        result = dxf.search_schema(name, [filter_with_a], "descending")
+        result = dxf.search_schema(name, [filter_with_a], "descending_name")
         expected_filtered_descending = sorted(
-            filtered_indices, key=lambda i: column_names[i], reverse=True
+            filtered_indices, key=lambda i: column_names[i].lower(), reverse=True
         )
         assert result["matches"] == expected_filtered_descending
+
+
+def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
+    # Test type-based sorting functionality
+
+    data = {
+        "id": [1, 2, 3],
+        "user_id": [101, 102, 103],
+        "name": ["Alice", "Bob", "Charlie"],
+        "full_name": ["Alice Smith", "Bob Jones", "Charlie Brown"],
+        "age": [25, 30, 35],
+        "created_at": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+        "is_active": [True, False, True],
+        "birth_date": pd.to_datetime(["1999-01-01", "1994-01-01", "1989-01-01"])
+        .to_series()
+        .dt.date,
+        "salary": [50000.0, 60000.0, 70000.0],
+    }
+
+    test_df = pd.DataFrame(data)
+    dxf.register_table("type_sort_test_df", test_df)
+
+    # Test ascending type sort
+    result = dxf.search_schema("type_sort_test_df", [], "ascending_type")
+    # is_active(6), birth_date(7), created_at(5), id(0), user_id(1), age(4), salary(8), name(2), full_name(3)
+    expected_ascending_type = [6, 7, 5, 0, 1, 4, 8, 2, 3]  # boolean, date, datetime, number, string
+    assert result["matches"] == expected_ascending_type
+
+    # Test descending type sort
+    result = dxf.search_schema("type_sort_test_df", [], "descending_type")
+    # name(2), full_name(3), id(0), user_id(1), age(4), salary(8), created_at(5), birth_date(7), is_active(6)
+    expected_descending_type = [
+        2,
+        3,
+        0,
+        1,
+        4,
+        8,
+        5,
+        7,
+        6,
+    ]  # string, number, datetime, date, boolean
+    assert result["matches"] == expected_descending_type
+
+    # Test type sort with filters
+    number_filter = _match_types_filter([ColumnDisplayType.Number])
+    result = dxf.search_schema("type_sort_test_df", [number_filter], "ascending_type")
+    expected_number_columns = [0, 1, 4, 8]
+    assert result["matches"] == expected_number_columns
 
 
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
@@ -2232,6 +2283,16 @@ def _select_cell_range(
     }
 
 
+def _select_cell_indices(row_indices: List[int], column_indices: List[int]):
+    return {
+        "kind": "cell_indices",
+        "selection": {
+            "row_indices": row_indices,
+            "column_indices": column_indices,
+        },
+    }
+
+
 def _select_range(first_index: int, last_index: int, kind: str):
     return {
         "kind": kind,
@@ -2260,6 +2321,25 @@ def _select_column_indices(indices: List[int]):
 
 def _select_row_indices(indices: List[int]):
     return _select_indices(indices, "row_indices")
+
+
+def _strip_newline(x):
+    """Helper to strip only the final newline character for cross-platform compatibility."""
+    if x[-1] == "\n":
+        x = x[:-1]
+    return x
+
+
+def _pandas_export_table(x, fmt):
+    """Helper to export pandas DataFrame to various formats with proper line ending handling."""
+    buf = StringIO()
+    if fmt == "csv":
+        x.to_csv(buf, index=False)
+    elif fmt == "tsv":
+        x.to_csv(buf, sep="\t", index=False)
+    elif fmt == "html":
+        x.to_html(buf, index=False)
+    return _strip_newline(buf.getvalue())
 
 
 def test_export_data_selection(dxf: DataExplorerFixture):
@@ -2294,22 +2374,15 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         (_select_row_range(1, 5), (slice(1, 6), slice(None))),
         (_select_row_indices([0, 3, 5, 7]), ([0, 3, 5, 7], slice(None))),
         (_select_column_indices([0, 3, 5, 7]), (slice(None), [0, 3, 5, 7])),
+        # Test cell_indices selections - Cartesian product of specified rows/columns
+        (_select_cell_indices([1, 3, 5], [10, 15, 19]), ([1, 3, 5], [10, 15, 19])),
+        (_select_cell_indices([0, 2, 4], [0, 1, 2]), ([0, 2, 4], [0, 1, 2])),
+        (_select_cell_indices([10], [5, 10, 15]), ([10], [5, 10, 15])),
+        (_select_cell_indices([1, 3], [7]), ([1, 3], [7])),
+        # Test cell_indices with non-strictly-increasing indices (order preservation)
+        (_select_cell_indices([5, 1, 3], [15, 10, 19]), ([5, 1, 3], [15, 10, 19])),
+        (_select_cell_indices([4, 0, 2], [2, 0, 1]), ([4, 0, 2], [2, 0, 1])),
     ]
-
-    def strip_newline(x):
-        if x[-1] == "\n":
-            x = x[:-1]
-        return x
-
-    def pandas_export_table(x, fmt):
-        buf = StringIO()
-        if fmt == "csv":
-            x.to_csv(buf, index=False)
-        elif fmt == "tsv":
-            x.to_csv(buf, sep="\t", index=False)
-        elif fmt == "html":
-            x.to_html(buf, index=False)
-        return strip_newline(buf.getvalue())
 
     def pandas_export_cell(x, i, j):
         return str(x.iloc[i, j])
@@ -2332,7 +2405,7 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         return str(x[i, j])
 
     data_cases = {
-        ("test_df", pandas_export_cell, pandas_export_table, pandas_iloc),
+        ("test_df", pandas_export_cell, _pandas_export_table, pandas_iloc),
         ("dfp", polars_export_cell, polars_export_table, polars_iloc),
     }
 
@@ -3200,50 +3273,37 @@ def test_histogram_single_value_special_case():
 
 
 POLARS_TYPE_EXAMPLES = [
-    (pl.Null, [None, None, None, None], "Null", "unknown"),
-    (pl.Boolean, [False, None, True, False], "Boolean", "boolean"),
-    (pl.Int8, [-1, 2, 3, None], "Int8", "number"),
-    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number"),
-    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number"),
-    (
-        pl.Int64,
-        [-10000000000, 20000000000, 30000000000, None],
-        "Int64",
-        "number",
-    ),
-    (pl.UInt8, [0, 2, 3, None], "UInt8", "number"),
-    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number"),
-    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number"),
-    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number"),
-    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number"),
-    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number"),
-    (
-        pl.Binary,
-        [b"testing", b"some", b"strings", None],
-        "Binary",
-        "string",
-    ),
-    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string"),
-    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time"),
+    (pl.Null, [None, None, None, None], "Null", "unknown", None),
+    (pl.Boolean, [False, None, True, False], "Boolean", "boolean", None),
+    (pl.Int8, [-1, 2, 3, None], "Int8", "number", None),
+    (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number", None),
+    (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number", None),
+    (pl.Int64, [-10000000000, 20000000000, 30000000000, None], "Int64", "number", None),
+    (pl.UInt8, [0, 2, 3, None], "UInt8", "number", None),
+    (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number", None),
+    (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number", None),
+    (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number", None),
+    (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number", None),
+    (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number", None),
+    (pl.Binary, [b"testing", b"some", b"strings", None], "Binary", "string", None),
+    (pl.String, ["tésting", "söme", "strîngs", None], "String", "string", None),
+    (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time", None),
     (
         pl.Datetime("ms"),
         [1704394167126, 946730085000, 0, None],
         "Datetime(time_unit='ms', time_zone=None)",
         "datetime",
+        None,
     ),
     (
         pl.Datetime("us", "America/New_York"),
         [1704394167126123, 946730085000123, 0, None],
         "Datetime(time_unit='us', time_zone='America/New_York')",
         "datetime",
+        "America/New_York",
     ),
-    (pl.Date, [130120, 0, -1, None], "Date", "date"),
-    (
-        pl.Duration("ms"),
-        [0, 1000, 2000, None],
-        "Duration(time_unit='ms')",
-        "interval",
-    ),
+    (pl.Date, [130120, 0, -1, None], "Date", "date", None),
+    (pl.Duration("ms"), [0, 1000, 2000, None], "Duration(time_unit='ms')", "interval", None),
     (
         pl.Decimal(12, 4),
         [
@@ -3254,8 +3314,9 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Decimal(precision=12, scale=4)",
         "number",
+        None,
     ),
-    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array"),
+    (pl.List(pl.Int32), [[], [1, None, 3], [0], None], "List(Int32)", "array", None),
     (
         pl.Struct({"a": pl.Int64, "b": pl.List(pl.String)}),
         [
@@ -3266,16 +3327,17 @@ POLARS_TYPE_EXAMPLES = [
         ],
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
+        None,
     ),
-    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
-    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string", None),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object", None),
 ]
 
 
 def example_polars_df():
     full_schema = []
     full_data = []
-    for i, (dtype, data, type_name, type_display) in enumerate(POLARS_TYPE_EXAMPLES):
+    for i, (dtype, data, type_name, type_display, timezone) in enumerate(POLARS_TYPE_EXAMPLES):
         name = f"f{i}"
         s = pl.Series(name=name, values=data, dtype=dtype)
         full_data.append(s)
@@ -3292,6 +3354,7 @@ def example_polars_df():
                 "column_index": i,
                 "type_name": type_name,
                 "type_display": type_display,
+                "timezone": timezone,
             }
         )
 

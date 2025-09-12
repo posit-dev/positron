@@ -4,6 +4,7 @@
   "description": "%description%",
   "version": "0.0.1",
   "publisher": "positron",
+  "private": true,
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -140,6 +141,9 @@
       ]
     }
   },
+  "extensionDependencies": [
+    "positron.positron-supervisor"
+  ],
   "devDependencies": {
     "@types/glob": "^7.2.0",
     "@types/mocha": "^9.1.0",

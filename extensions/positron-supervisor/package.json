@@ -4,6 +4,7 @@
   "description": "%description%",
   "publisher": "positron",
   "version": "0.0.1",
+  "private": true,
   "engines": {
     "vscode": "^1.61.0"
   },
@@ -168,7 +169,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.51"
+      "kallichore": "0.1.52"
     }
   },
   "extensionDependencies": [

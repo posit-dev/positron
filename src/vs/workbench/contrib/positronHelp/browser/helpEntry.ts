@@ -467,7 +467,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 			});
 
 			// Add the onMessage event handler to the help overlay webview.
-			this._helpOverlayWebview.onMessage(async e => {
+			this._register(this._helpOverlayWebview.onMessage(async e => {
 				const message = e.message as PositronHelpMessage;
 				switch (message.id) {
 					// positron-help-interactive message.
@@ -574,7 +574,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						break;
 					}
 				}
-			});
+			}));
 
 			// Set the HTML of the help overlay webview.
 			this._helpOverlayWebview.setHtml(
@@ -646,13 +646,13 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
 		helpOverlayWebview.layoutWebviewOverElement(element);
 
-		helpOverlayWebview.onDidFocus(() => {
+		this._register(helpOverlayWebview.onDidFocus(() => {
 			this.helpFocusedContextKey.set(true);
-		});
+		}));
 
-		helpOverlayWebview.onDidBlur(() => {
+		this._register(helpOverlayWebview.onDidBlur(() => {
 			this.helpFocusedContextKey.set(false);
-		});
+		}));
 
 		// Run logic for animating cases.
 		ensureWebviewSizeCorrectWhenAnimating();

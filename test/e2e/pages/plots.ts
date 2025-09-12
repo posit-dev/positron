@@ -160,7 +160,6 @@ export class Plots {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
 	}
 
-
 	async setThePlotZoom(zoomLevel: ZoomLevels) {
 		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({

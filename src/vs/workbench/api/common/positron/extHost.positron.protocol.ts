@@ -10,7 +10,7 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
-import { EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -18,6 +18,7 @@ import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -46,17 +47,23 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$executeCode(languageId: string, extensionId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
-	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
-	$getForegroundSession(): Promise<string | undefined>;
-	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
-	$restartSession(handle: number): Promise<void>;
-	$interruptSession(handle: number): Promise<void>;
-	$focusSession(handle: number): void;
-	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
-	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
-	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
-	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
+	$getActiveSessions(): Promise<ActiveRuntimeSessionMetadata[]>;
+	$getSession(sessionId: string): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getForegroundSession(): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$getNotebookSession(notebookUri: URI): Promise<ActiveRuntimeSessionMetadata | undefined>;
+	$restartSession(sessionId: string): Promise<void>;
+	$interruptSession(sessionId: string): Promise<void>;
+	$focusSession(sessionId: string): void;
+	$deleteSession(sessionId: string): Promise<boolean>;
+	$shutdownSession(sessionId: string, exitReason: RuntimeExitReason): Promise<void>;
+	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void>;
+	$getSessionDynState(sessionId: string): Promise<LanguageRuntimeDynState>;
+	$getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
+	$querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
+	$callMethod(sessionId: string, method: string, args: any[]): Thenable<any>;
+	$emitLanguageRuntimeMessage(sessionId: string, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
+	$emitLanguageRuntimeState(sessionId: string, clock: number, state: RuntimeState): void;
+	$emitLanguageRuntimeExit(sessionId: string, exit: ILanguageRuntimeExit): void;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -79,6 +86,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$setWorkingDirectory(handle: number, directory: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
 	$restartSession(handle: number, workingDirectory?: string): Promise<void>;
+	$callMethod(handle: number, method: string, args: any[]): Thenable<any>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
@@ -158,11 +166,17 @@ export interface MainThreadAiFeaturesShape {
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
+	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	$getProviders(): Thenable<IPositronChatProvider[]>;
+	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface ExtHostAiFeaturesShape {
 	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
+	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	getProviders(): Thenable<IPositronChatProvider[]>;
+	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface MainThreadPlotsServiceShape {

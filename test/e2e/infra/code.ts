@@ -8,6 +8,7 @@ import * as os from 'os';
 import { IElement, ILocaleInfo, ILocalizedStrings, ILogFile } from './driver';
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
+import { launch as launchPlaywrightExternalServer } from './playwrightExternalServer';
 import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
@@ -32,6 +33,10 @@ export interface LaunchOptions {
 	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
 	readonly quality: Quality;
 	version: { major: number; minor: number; patch: number };
+	/** When true, connects to an external server instead of launching one */
+	readonly useExternalServer?: boolean;
+	/** The URL of an external server to connect to */
+	readonly externalServerUrl?: string;
 }
 
 interface ICodeInstance {
@@ -86,8 +91,20 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		throw new Error('Smoke test process has terminated, refusing to spawn Code');
 	}
 
-	// Browser smoke tests
-	if (options.web) {
+	// External server mode (browser tests against external server)
+	if (options.web && options.useExternalServer) {
+		if (!options.externalServerUrl) {
+			throw new Error('External server URL must be provided when useExternalServer is true');
+		}
+
+		const { driver } = await measureAndLog(() => launchPlaywrightExternalServer(options, options.externalServerUrl!), 'launch playwright (external server)', options.logger);
+
+		// No server process to register since we're connecting to an external one
+		return new Code(driver, options.logger, null as any, undefined, options.quality, options.version);
+	}
+
+	// Browser smoke tests (managed server)
+	else if (options.web) {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
 
@@ -110,7 +127,7 @@ export class Code {
 	constructor(
 		driver: PlaywrightDriver,
 		readonly logger: Logger,
-		private readonly mainProcess: cp.ChildProcess,
+		private readonly mainProcess: cp.ChildProcess | null,
 		private readonly safeToKill: Promise<void> | undefined,
 		readonly quality: Quality,
 		readonly version: { major: number; minor: number; patch: number },
@@ -152,7 +169,20 @@ export class Code {
 	}
 	// --- End Positron ---
 
-	async sendKeybinding(keybinding: string, accept?: () => Promise<void> | void): Promise<void> {
+	/**
+	 * Dispatch a keybinding to the application.
+	 * @param keybinding The keybinding to dispatch, e.g. 'ctrl+shift+p'.
+	 * @param accept The acceptance function to await before returning. Wherever
+	 * possible this should verify that the keybinding did what was expected,
+	 * otherwise it will likely be a cause of difficult to investigate race
+	 * conditions. This is particularly insidious when used in the automation
+	 * library as it can surface across many test suites.
+	 *
+	 * This requires an async function even when there's no implementation to
+	 * force the author to think about the accept callback and prevent mistakes
+	 * like not making it async.
+	 */
+	async dispatchKeybinding(keybinding: string, accept: () => Promise<void>): Promise<void> {
 		await this.driver.sendKeybinding(keybinding, accept);
 	}
 
@@ -162,6 +192,13 @@ export class Code {
 
 	async exit(): Promise<void> {
 		return measureAndLog(() => new Promise<void>(resolve => {
+			// If no main process (external server mode), just close the driver
+			if (!this.mainProcess) {
+				this.driver.close();
+				resolve();
+				return;
+			}
+
 			const pid = this.mainProcess.pid!;
 
 			let done = false;

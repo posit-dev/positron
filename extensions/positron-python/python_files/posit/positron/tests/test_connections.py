@@ -3,11 +3,31 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import os
 import sqlite3
 from typing import Tuple
 
 import pytest
 import sqlalchemy
+
+try:
+    import duckdb
+
+    HAS_DUCKDB = True
+except ImportError:
+    HAS_DUCKDB = False
+
+
+try:
+    if "SNOWFLAKE_ACCOUNT" in os.environ:
+        import snowflake.connector
+
+        HAS_SNOWFLAKE = True
+    else:
+        HAS_SNOWFLAKE = False
+except ImportError:
+    HAS_SNOWFLAKE = False
+
 
 from positron.access_keys import encode_access_key
 from positron.connections import ConnectionsService
@@ -35,6 +55,26 @@ def get_sqlite3_sqlite_connection():
     con = sqlite3.connect(":memory:")
     add_default_data(lambda sql: con.cursor().execute(sql))
     return con
+
+
+def get_duckdb_connection():
+    if not HAS_DUCKDB:
+        pytest.skip("DuckDB not available")
+    con = duckdb.connect(":memory:")
+    add_default_data(lambda sql: con.execute(sql))
+    return con
+
+
+def get_snowflake_connection():
+    if not HAS_SNOWFLAKE:
+        pytest.skip("Snowflake not available")
+
+    return snowflake.connector.connect(
+        account=os.getenv("SNOWFLAKE_ACCOUNT"),
+        user=os.getenv("SNOWFLAKE_USER"),
+        password=os.getenv("SNOWFLAKE_PASSWORD"),
+        warehouse="DEFAULT_WH",
+    )
 
 
 def get_sqlite_connections():
@@ -142,6 +182,276 @@ class TestSQLiteConnectionsService:
         assert result is None
 
 
+@pytest.mark.skipif(not HAS_DUCKDB, reason="DuckDB not available")
+class TestDuckDBConnectionsService:
+    def test_register_connection(self, connections_service: ConnectionsService):
+        con = get_duckdb_connection()
+        comm_id = connections_service.register_connection(con)
+        assert comm_id in connections_service.comms
+
+    @pytest.mark.parametrize("path", [[], [{"kind": "schema", "name": "main"}]])
+    def test_contains_data(self, connections_service: ConnectionsService, path):
+        con = get_duckdb_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is False
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ([], "data:image"),
+            ([{"kind": "schema", "name": "main"}], ""),
+        ],
+    )
+    def test_get_icon(self, connections_service: ConnectionsService, path, expected):
+        con = get_duckdb_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        if expected == "":
+            assert result == expected
+        else:
+            assert expected in result
+
+    @pytest.mark.parametrize(
+        ("path", "expected_contains"),
+        [
+            ([], "memory"),  # DuckDB has been connected to memory
+            ([{"kind": "catalog", "name": "memory"}], "main"),
+            (
+                [{"kind": "catalog", "name": "memory"}, {"kind": "schema", "name": "main"}],
+                "movie",
+            ),  # Should contain our test table
+        ],
+    )
+    def test_list_objects(self, connections_service: ConnectionsService, path, expected_contains):
+        con = get_duckdb_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+
+        # Check that expected item is in the results
+        names = [item["name"] for item in result]
+        assert expected_contains in names
+
+    def test_list_fields(self, connections_service: ConnectionsService):
+        con = get_duckdb_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(
+            params={
+                "path": [
+                    {"kind": "catalog", "name": "memory"},
+                    {"kind": "schema", "name": "main"},
+                    {"kind": "table", "name": "movie"},
+                ]
+            },
+            method="list_fields",
+            comm_id=comm_id,
+        )
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert len(result) == 3
+        # DuckDB uses different type names than SQLite
+        assert result[0]["name"] == "title"
+        assert result[1]["name"] == "year"
+        assert result[2]["name"] == "score"
+
+    def test_preview_object(self, connections_service: ConnectionsService):
+        con = get_duckdb_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(
+            params={
+                "path": [
+                    {"kind": "catalog", "name": "memory"},
+                    {"kind": "schema", "name": "main"},
+                    {"kind": "table", "name": "movie"},
+                ]
+            },
+            method="preview_object",
+            comm_id=comm_id,
+        )
+        dummy_comm.handle_msg(msg)
+        # cleanup the data_explorer state, so we don't break its own tests
+        connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is None
+
+
+@pytest.mark.skipif(not HAS_SNOWFLAKE, reason="Snowflake not available")
+class TestSnowflakeConnectionsService:
+    DATABASE_NAME = "POSITRON_CONNECTIONS_PANE_TESTS"
+    SCHEMA_NAME = "PUBLIC"
+    TABLE_NAME = "FLIGHTS"
+
+    def test_register_connection(self, connections_service: ConnectionsService):
+        con = get_snowflake_connection()
+        comm_id = connections_service.register_connection(con)
+        assert comm_id in connections_service.comms
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            [],
+            [{"kind": "database", "name": DATABASE_NAME}],
+            [
+                {"kind": "database", "name": DATABASE_NAME},
+                {"kind": "schema", "name": SCHEMA_NAME},
+            ],
+        ],
+    )
+    def test_contains_data(self, connections_service: ConnectionsService, path):
+        con = get_snowflake_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is False
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ([], "data:image"),
+            ([{"kind": "database", "name": DATABASE_NAME}], ""),
+            (
+                [
+                    {"kind": "database", "name": DATABASE_NAME},
+                    {"kind": "schema", "name": SCHEMA_NAME},
+                ],
+                "",
+            ),
+        ],
+    )
+    def test_get_icon(self, connections_service: ConnectionsService, path, expected):
+        con = get_snowflake_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        if expected == "":
+            assert result == expected
+        else:
+            assert expected in result
+
+    @pytest.mark.parametrize(
+        ("path", "expected_contains"),
+        [
+            ([], DATABASE_NAME),
+            ([{"kind": "database", "name": DATABASE_NAME}], SCHEMA_NAME),
+            (
+                [
+                    {"kind": "database", "name": DATABASE_NAME},
+                    {"kind": "schema", "name": SCHEMA_NAME},
+                ],
+                TABLE_NAME,
+            ),
+        ],
+    )
+    def test_list_objects(self, connections_service: ConnectionsService, path, expected_contains):
+        con = get_snowflake_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+
+        # Check that expected item is in the results
+        names = [item["name"] for item in result]
+        assert expected_contains in names
+
+    def test_list_fields(self, connections_service: ConnectionsService):
+        con = get_snowflake_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(
+            params={
+                "path": [
+                    {"kind": "database", "name": self.DATABASE_NAME},
+                    {"kind": "schema", "name": self.SCHEMA_NAME},
+                    {"kind": "table", "name": self.TABLE_NAME},
+                ]
+            },
+            method="list_fields",
+            comm_id=comm_id,
+        )
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert len(result) == 19
+        nms = [field["name"] for field in result]
+        assert "AIR_TIME" in nms
+
+    def test_preview_object(self, connections_service: ConnectionsService):
+        con = get_snowflake_connection()
+        comm_id = connections_service.register_connection(con)
+
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+
+        msg = _make_msg(
+            params={
+                "path": [
+                    {"kind": "database", "name": self.DATABASE_NAME},
+                    {"kind": "schema", "name": self.SCHEMA_NAME},
+                    {"kind": "table", "name": self.TABLE_NAME},
+                ]
+            },
+            method="preview_object",
+            comm_id=comm_id,
+        )
+        dummy_comm.handle_msg(msg)
+        # cleanup the data_explorer state, so we don't break its own tests
+        connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is None
+
+
 class TestVariablePaneIntegration:
     @pytest.mark.parametrize("con", get_sqlite_connections())
     def test_open_then_delete(
@@ -207,6 +517,24 @@ class TestVariablePaneIntegration:
         connections_service.comms[comm_id].comm.handle_close({})
 
         assert connections_service.comms.get(comm_id) is None
+        assert connections_service.path_to_comm_ids.get(path) is None
+
+    @pytest.mark.skipif(not HAS_DUCKDB, reason="DuckDB not available")
+    def test_duckdb_integration(
+        self,
+        shell: PositronShell,
+        connections_service: ConnectionsService,
+        variables_comm: DummyComm,
+    ):
+        con = get_duckdb_connection()
+        self._assign_variables(shell, variables_comm, duck_con=con)
+        path = self._view_in_connections_pane(variables_comm, ["duck_con"])
+
+        assert connections_service.path_to_comm_ids[path] is not None
+        assert connections_service.variable_has_active_connection("duck_con")
+
+        # Test deleting DuckDB connection
+        self._delete_variables(shell, variables_comm, ["duck_con"])
         assert connections_service.path_to_comm_ids.get(path) is None
 
     # TODO: reuse code from test_data_explorer.py

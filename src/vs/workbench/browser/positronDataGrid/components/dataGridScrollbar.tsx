@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,6 +11,7 @@ import React, { CSSProperties, MouseEvent, useLayoutEffect, useState } from 'rea
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { isSafari } from '../../../../base/common/platform.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
 
 /**
@@ -250,8 +251,12 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 			target.removeEventListener('pointermove', pointerMoveHandler);
 			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
-			// Adjust the slider.
-			updateSliderPosition(e);
+			// Adjust the slider for the final pointer event. Do not do this on Safari because the
+			// clientX and clientY will be 0 which causes the scrollbar to snap back to the top
+			// or the left. See https://github.com/posit-dev/positron/issues/8930.
+			if (!isSafari) {
+				updateSliderPosition(e);
+			}
 		};
 
 		/**

@@ -11,15 +11,20 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridRowCell } from './dataGridRowCell.js';
+import { ColumnDescriptors } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * DataGridRowProps interface.
  */
 interface DataGridRowProps {
-	width: number;
+	columnDescriptors: ColumnDescriptors;
+	height: number;
+	pinned: boolean;
 	rowIndex: number;
 	top: number;
+	width: number;
 }
 
 /**
@@ -31,18 +36,33 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Create the data grid column headers.
+	// Render the pinned data grid row cells.
 	const dataGridRowCells: JSX.Element[] = [];
-	for (let columnDescriptor = context.instance.firstColumn;
-		columnDescriptor && columnDescriptor.left < context.instance.layoutRight;
-		columnDescriptor = context.instance.getColumn(columnDescriptor.columnIndex + 1)
-	) {
+	for (const pinnedColumnDescriptor of props.columnDescriptors.pinnedColumnDescriptors) {
 		dataGridRowCells.push(
 			<DataGridRowCell
-				key={`row-cell-${props.rowIndex}-${columnDescriptor.columnIndex}`}
-				columnIndex={columnDescriptor.columnIndex}
-				left={columnDescriptor.left - context.instance.horizontalScrollOffset}
+				key={`pinned-row-cell-${props.rowIndex}-${pinnedColumnDescriptor.columnIndex}`}
+				columnIndex={pinnedColumnDescriptor.columnIndex}
+				height={props.height}
+				left={pinnedColumnDescriptor.left}
+				pinned={true}
 				rowIndex={props.rowIndex}
+				width={pinnedColumnDescriptor.width}
+			/>
+		);
+	}
+
+	// Create the unpinned data grid column header elements.
+	for (const unpinnedColumnDescriptor of props.columnDescriptors.unpinnedColumnDescriptors) {
+		dataGridRowCells.push(
+			<DataGridRowCell
+				key={`row-cell-${props.rowIndex}-${unpinnedColumnDescriptor.columnIndex}`}
+				columnIndex={unpinnedColumnDescriptor.columnIndex}
+				height={props.height}
+				left={unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset}
+				pinned={false}
+				rowIndex={props.rowIndex}
+				width={unpinnedColumnDescriptor.width}
 			/>
 		);
 	}
@@ -50,10 +70,13 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Render.
 	return (
 		<div
-			className='data-grid-row'
+			className={positronClassNames(
+				'data-grid-row',
+				{ pinned: props.pinned },
+			)}
 			style={{
 				top: props.top,
-				height: context.instance.getRowHeight(props.rowIndex)
+				height: props.height,
 			}}
 		>
 			{dataGridRowCells}

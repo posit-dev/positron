@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { isContiguous } from './utils.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
-import { arrayFromIndexRange } from './utils.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
@@ -16,7 +16,6 @@ import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, Da
 const MAX_AUTO_SIZE_COLUMNS = 1_000;
 const AUTO_SIZE_COLUMNS_PAGE_SIZE = 250;
 const TRIM_CACHE_TIMEOUT = 3_000;
-const OVERSCAN_FACTOR = 3;
 const CHUNK_SIZE = 4_096;
 
 /**
@@ -42,10 +41,8 @@ export enum InvalidateCacheFlags {
  */
 interface UpdateDescriptor {
 	invalidateCache: InvalidateCacheFlags;
-	firstColumnIndex: number;
-	screenColumns: number;
-	firstRowIndex: number;
-	screenRows: number;
+	columnIndices: number[];
+	rowIndices: number[];
 }
 
 /**
@@ -242,12 +239,12 @@ export class TableDataCache extends Disposable {
 	}
 
 	/**
-	 * Calculates the column layout entries.
+	 * Calculates the column widths.
 	 * @param minimumColumnWidth The minimum column width.
 	 * @param maximumColumnWidth The maximum column width.
-	 * @returns An array of column layout layout entries, if successful; otherwise, undefined.
+	 * @returns An array of column widths, if successful; otherwise, undefined.
 	 */
-	async calculateColumnLayoutEntries(
+	async calculateColumnWidths(
 		minimumColumnWidth: number,
 		maximumColumnWidth: number
 	): Promise<number[] | undefined> {
@@ -362,58 +359,45 @@ export class TableDataCache extends Disposable {
 		// Set the updating flag.
 		this._updating = true;
 
-		// Destructure the update descriptor.
-		const {
-			invalidateCache,
-			firstColumnIndex,
-			screenColumns,
-			firstRowIndex,
-			screenRows
-		} = updateDescriptor;
-
-		// Set the invalidate cache flags.
-		const invalidateColumnSchemaCache = (invalidateCache & InvalidateCacheFlags.ColumnSchema)
-			=== InvalidateCacheFlags.ColumnSchema;
-		const invalidateDataCache = (invalidateCache & InvalidateCacheFlags.Data)
-			=== InvalidateCacheFlags.Data;
-
-		// Get the size of the data.
+		// Get the size of the data and whether it has row labels.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 		this._hasRowLabels = tableState.has_row_labels;
 
-		// If there are no rows (e.g., due to filtering), immediately fire an update and return
-		if (this._rows === 0) {
-			// Clear existing caches for a clean display
+		// If there are no rows or no columns (e.g., due to filtering), immediately fire an update and return.
+		if (this._rows === 0 || this._columns === 0) {
+			// Clear existing caches for a clean display.
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
-			// Fire the update event before returning to ensure UI updates even with zero rows
+
+			// Fire the update event before returning to ensure UI updates even with zero rows.
 			this._onDidUpdateEmitter.fire();
+
+			// Clear the updating flag.
 			this._updating = false;
+
+			// Return.
 			return;
 		}
 
-		// Set the start column index and the end column index of the columns to cache.
-		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
-		const startColumnIndex = Math.max(
-			0,
-			firstColumnIndex - overscanColumns
-		);
-		const endColumnIndex = Math.min(
-			this._columns - 1,
-			firstColumnIndex + screenColumns + overscanColumns,
-		);
+		// Set the invalidate cache flags.
+		const invalidateColumnSchemaCache = (updateDescriptor.invalidateCache & InvalidateCacheFlags.ColumnSchema) === InvalidateCacheFlags.ColumnSchema;
+		const invalidateDataCache = (updateDescriptor.invalidateCache & InvalidateCacheFlags.Data) === InvalidateCacheFlags.Data;
 
-		// Set the column indices of the column schema we need to load.
+		// Sort the column and row indices in the update descriptor.
+		updateDescriptor.columnIndices.sort((a, b) => a - b);
+		updateDescriptor.rowIndices.sort((a, b) => a - b);
+
+		// Set the column indices of the table schema we need to load.
 		let columnIndices: number[];
 		if (invalidateColumnSchemaCache) {
-			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+			columnIndices = updateDescriptor.columnIndices;
 		} else {
 			columnIndices = [];
-			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-				if (!this._columnSchemaCache.has(columnIndex)) {
-					columnIndices.push(columnIndex);
+			for (const index of updateDescriptor.columnIndices) {
+				if (!this._columnSchemaCache.has(index)) {
+					columnIndices.push(index);
 				}
 			}
 		}
@@ -423,93 +407,84 @@ export class TableDataCache extends Disposable {
 			this._columnSchemaCache.clear();
 		}
 
-		// Load the column schemas we need to load.
+		// Load the table schema we need to load.
 		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
 		// Cache the column schemas that were returned.
-		for (let i = 0; i < tableSchema.columns.length; i++) {
-			// Get the column schema and compute the column index.
-			const columnIndex = columnIndices[i];
-			const columnSchema = tableSchema.columns[i];
-
-			// Cache the column schema.
-			this._columnSchemaCache.set(columnIndex, columnSchema);
+		for (const columnSchema of tableSchema.columns) {
+			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
 		}
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
-		// Set the start row index and the end row index of the rows to cache.
-		const overscanRows = screenRows * OVERSCAN_FACTOR;
-		const startRowIndex = Math.max(
-			0,
-			firstRowIndex - overscanRows
-		);
-		const endRowIndex = Math.min(
-			this._rows - 1,
-			firstRowIndex + screenRows + overscanRows
-		);
+		// Determine whether the row indices are contiguous.
+		const rowIndicesAreContiguous = isContiguous(updateDescriptor.rowIndices);
+
+		// Create the array selection spec.
+		let spec: ArraySelection;
+		if (rowIndicesAreContiguous) {
+			spec = {
+				first_index: updateDescriptor.rowIndices[0],
+				last_index: updateDescriptor.rowIndices[updateDescriptor.rowIndices.length - 1],
+			};
+		} else {
+			spec = {
+				indices: updateDescriptor.rowIndices,
+			};
+		}
 
 		// Build an array of the column selections to load.
 		const columnSelections: ColumnSelection[] = [];
 		if (invalidateDataCache) {
 			// The data cache is being invalidated. Load everything.
-			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+			for (const columnIndex of updateDescriptor.columnIndices) {
 				columnSelections.push({
 					column_index: columnIndex,
-					spec: {
-						first_index: startRowIndex,
-						last_index: endRowIndex
-					}
+					spec
 				});
 			}
 		} else {
-			// The cache is not being invalidated. Load only the cells that we don't have cached.
-			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+			// The data cache is not being invalidated. Load everything we don't have cached.
+			for (const columnIndex of updateDescriptor.columnIndices) {
 				const dataColumn = this._dataColumnCache.get(columnIndex);
 				if (!dataColumn) {
 					// The data column isn't cached. Load it.
 					columnSelections.push({
 						column_index: columnIndex,
-						spec: {
-							first_index: startRowIndex,
-							last_index: endRowIndex
-						}
+						spec
 					});
 				} else {
 					// The data column is cached. Load any cells that are not cached.
 					let contiguous = true;
-					const indices: number[] = [];
-					for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
+					const rowIndices: number[] = [];
+					for (const rowIndex of updateDescriptor.rowIndices) {
 						if (!dataColumn.has(rowIndex)) {
 							// Add the index.
-							indices.push(rowIndex);
+							rowIndices.push(rowIndex);
 
 							// Check whether the indices are contiguous.
-							if (contiguous &&
-								indices.length > 1 &&
-								indices[indices.length - 2] + 1 !== indices[indices.length - 1]
-							) {
+							if (contiguous && rowIndices.length > 1 && rowIndices[rowIndices.length - 2] + 1 !== rowIndices[rowIndices.length - 1]) {
 								contiguous = false;
 							}
 						}
 					}
 
 					// If there are cells that are not cached, add the column and its spec.
-					if (indices.length) {
-						if (!contiguous) {
+					if (rowIndices.length) {
+						if (contiguous) {
 							columnSelections.push({
 								column_index: columnIndex,
 								spec: {
-									indices: indices
+									first_index: rowIndices[0],
+									last_index: rowIndices[rowIndices.length - 1]
 								}
 							});
 						} else {
 							columnSelections.push({
 								column_index: columnIndex,
 								spec: {
-									first_index: indices[0],
-									last_index: indices[indices.length - 1]
+									indices: rowIndices
 								}
 							});
 						}
@@ -524,45 +499,50 @@ export class TableDataCache extends Disposable {
 			rowLabels = undefined;
 		} else {
 			if (invalidateDataCache) {
-				rowLabels = { first_index: startRowIndex, last_index: endRowIndex };
+				if (rowIndicesAreContiguous) {
+					rowLabels = {
+						first_index: updateDescriptor.rowIndices[0],
+						last_index: updateDescriptor.rowIndices[updateDescriptor.rowIndices.length - 1],
+					};
+				} else {
+					rowLabels = {
+						indices: updateDescriptor.rowIndices
+					};
+				}
 			} else {
 				let contiguous = true;
-				const indices: number[] = [];
-				for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
+				const rowIndices: number[] = [];
+				for (const rowIndex of updateDescriptor.rowIndices) {
 					if (!this._rowLabelCache.has(rowIndex)) {
 						// Add the index.
-						indices.push(rowIndex);
+						rowIndices.push(rowIndex);
 
 						// Check whether the indices are contiguous.
-						if (contiguous &&
-							indices.length > 1 &&
-							indices[indices.length - 2] + 1 !== indices[indices.length - 1]
-						) {
+						if (contiguous && rowIndices.length > 1 && rowIndices[rowIndices.length - 2] + 1 !== rowIndices[rowIndices.length - 1]) {
 							contiguous = false;
 						}
 					}
 				}
 
 				// If there are labels that are not cached,
-				if (!indices.length) {
+				if (!rowIndices.length) {
 					rowLabels = undefined;
 				} else {
-					if (!contiguous) {
-						rowLabels = { indices };
-					} else {
+					if (contiguous) {
 						rowLabels = {
-							first_index: indices[0],
-							last_index: indices[indices.length - 1]
+							first_index: rowIndices[0],
+							last_index: rowIndices[rowIndices.length - 1]
 						};
+					} else {
+						rowLabels = { indices: rowIndices };
 					}
 				}
 			}
+
 		}
 
 		// Get the table row labels.
-		const tableRowLabels = !rowLabels ?
-			undefined :
-			await this._dataExplorerClientInstance.getRowLabels(rowLabels);
+		const tableRowLabels = !rowLabels ? undefined : await this._dataExplorerClientInstance.getRowLabels(rowLabels);
 
 		// Clear the data cache, if we're supposed to.
 		if (invalidateDataCache) {
@@ -651,25 +631,21 @@ export class TableDataCache extends Disposable {
 		}
 
 		// Schedule trimming the cache.
-		if (invalidateCache !== InvalidateCacheFlags.All) {
+		if (updateDescriptor.invalidateCache !== InvalidateCacheFlags.All) {
 			// Set the trim cache timeout.
 			this._trimCacheTimeout = setTimeout(() => {
 				// Release the trim cache timeout.
 				this._trimCacheTimeout = undefined;
 
 				// Trim the column schema cache, if it wasn't invalidated.
+				const columnIndices = new Set(updateDescriptor.columnIndices);
 				if (!invalidateColumnSchemaCache) {
-					this.trimColumnSchemaCache(startColumnIndex, endColumnIndex);
+					this.trimColumnSchemaCache(columnIndices);
 				}
 
 				// Trim the data cache, if it wasn't invalidated.
 				if (!invalidateDataCache) {
-					this.trimDataCache(
-						startColumnIndex,
-						endColumnIndex,
-						startRowIndex,
-						endRowIndex
-					);
+					this.trimDataCache(columnIndices, new Set(updateDescriptor.rowIndices));
 				}
 			}, TRIM_CACHE_TIMEOUT);
 		}
@@ -826,13 +802,12 @@ export class TableDataCache extends Disposable {
 
 	/**
 	 * Trims the column schema cache.
-	 * @param startColumnIndex The start column index.
-	 * @param endColumnIndex The end column index.
+	 * @param columnIndices The column indicies to keep cached.
 	 */
-	private trimColumnSchemaCache(startColumnIndex: number, endColumnIndex: number) {
+	private trimColumnSchemaCache(columnIndices: Set<number>) {
 		// Trim the column schema cache.
 		for (const columnIndex of this._columnSchemaCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!columnIndices.has(columnIndex)) {
 				this._columnSchemaCache.delete(columnIndex);
 			}
 		}
@@ -840,33 +815,29 @@ export class TableDataCache extends Disposable {
 
 	/**
 	 * Trims the data cache.
-	 * @param startColumnIndex The start column index.
-	 * @param endColumnIndex The end column index.
-	 * @param startRowIndex The start row index.
-	 * @param endRowIndex The end row index.
+	 * @param columnIndices The column indicies to keep cached.
+	 * @param rowIndices The row indicies to keep cached.
 	 */
 	private trimDataCache(
-		startColumnIndex: number,
-		endColumnIndex: number,
-		startRowIndex: number,
-		endRowIndex: number
+		columnIndices: Set<number>,
+		rowIndices: Set<number>
 	) {
 		// Trim the row label cache.
 		for (const rowIndex of this._rowLabelCache.keys()) {
-			if (rowIndex < startRowIndex || rowIndex > endRowIndex) {
+			if (!rowIndices.has(rowIndex)) {
 				this._rowLabelCache.delete(rowIndex);
 			}
 		}
 
 		// Trim the data column cache.
 		for (const columnIndex of this._dataColumnCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!columnIndices.has(columnIndex)) {
 				this._dataColumnCache.delete(columnIndex);
 			} else {
 				const dataColumn = this._dataColumnCache.get(columnIndex);
 				if (dataColumn) {
 					for (const rowIndex of dataColumn.keys()) {
-						if (rowIndex < startRowIndex || rowIndex > endRowIndex) {
+						if (!rowIndices.has(rowIndex)) {
 							dataColumn.delete(rowIndex);
 						}
 					}

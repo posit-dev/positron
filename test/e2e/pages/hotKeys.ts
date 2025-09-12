@@ -16,32 +16,36 @@ export class HotKeys {
 		return process.platform === 'darwin' ? 'Meta' : 'Control';
 	}
 
+	private isExternalBrowser(): boolean {
+		return this.code.driver.page.url().includes('8080');
+	}
+
 	// ----------------------
 	// --- Editing Actions ---
 	// ----------------------
 
 	public async copy() {
-		await this.pressHotKeys('Cmd+C');
+		await this.pressHotKeys('Cmd+C', 'Copy');
 	}
 
 	public async cut() {
-		await this.pressHotKeys('Cmd+X');
+		await this.pressHotKeys('Cmd+X', 'Cut');
 	}
 
 	public async paste() {
-		await this.pressHotKeys('Cmd+V');
+		await this.pressHotKeys('Cmd+V', 'Paste');
 	}
 
 	public async redo() {
-		await this.pressHotKeys('Cmd+Shift+Z');
+		await this.pressHotKeys('Cmd+Shift+Z', 'Redo');
 	}
 
 	public async selectAll() {
-		await this.pressHotKeys('Cmd+A');
+		await this.pressHotKeys('Cmd+A', 'Select All');
 	}
 
 	public async undo() {
-		await this.pressHotKeys('Cmd+Z');
+		await this.pressHotKeys('Cmd+Z', 'Undo');
 	}
 
 	// ------------------------
@@ -52,16 +56,20 @@ export class HotKeys {
 		await this.pressHotKeys('Shift+Enter', 'Execute notebook cell');
 	}
 
+	public async runFileInConsole() {
+		await this.pressHotKeys('Cmd+Shift+Enter', 'Run file in console');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------
 
 	public async openFile() {
-		await this.pressHotKeys('Cmd+O');
+		await this.pressHotKeys('Cmd+O', 'Open File');
 	}
 
 	public async save() {
-		await this.pressHotKeys('Cmd+S');
+		await this.pressHotKeys('Cmd+S', 'Save');
 	}
 
 	// -------------------------
@@ -70,6 +78,12 @@ export class HotKeys {
 
 	public async closeAllEditors() {
 		await this.pressHotKeys('Cmd+K Cmd+W', 'Close all editors');
+		if (this.isExternalBrowser()) {
+			const dontSaveButton = this.code.driver.page.getByRole('button', { name: 'Don\'t Save' });
+			if (await dontSaveButton.isVisible()) {
+				await dontSaveButton.click();
+			}
+		}
 	}
 
 	public async closeTab() {
@@ -154,12 +168,12 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
 	}
 
-	// ----------------------
+	// -------------------------
 	// --- Workspace Actions ---
-	// ----------------------
+	// -------------------------
 
 	public async closeWorkspace() {
-		await this.pressHotKeys('Cmd+J W');
+		await this.pressHotKeys('Cmd+J W', 'Close workspace');
 		await expect(this.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible();
 	}
 
@@ -180,7 +194,7 @@ export class HotKeys {
 	}
 
 	public async openWorkspaceSettingsJSON() {
-		await this.pressHotKeys('Cmd+J K', 'Open workspace settings JSON');
+		await this.pressHotKeys('Cmd+J K', 'Open workspace settings JSON', true);
 	}
 
 	public async reloadWindow() {
@@ -199,12 +213,24 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
 	}
 
+	// -----------------------
+	// ---  Data Explorer  ---
+	// -----------------------
+
+	public async showDataExplorerSummaryPanel() {
+		await this.pressHotKeys('Cmd+J Y', 'Show the DE Summary Panel');
+	}
+
+	public async hideDataExplorerSummaryPanel() {
+		await this.pressHotKeys('Cmd+J Z', 'Hide the DE Summary Panel');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.
 	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
 	 */
-	private async pressHotKeys(keyCombo: string, description?: string): Promise<void> {
+	private async pressHotKeys(keyCombo: string, description?: string, needsFocusFirst = false): Promise<void> {
 		const stepWrapper = (label: string, fn: () => Promise<void>) => {
 			try {
 				// Check if running in a test context
@@ -223,6 +249,14 @@ export class HotKeys {
 			: `Press hotkeys: ${keyCombo}`;
 
 		await stepWrapper(stepDescription, async () => {
+			// For external browser testing, first click on the titlebar to ensure focus
+			if (this.isExternalBrowser() && needsFocusFirst) {
+				const titlebarDragRegion = this.code.driver.page.locator('.titlebar-drag-region');
+				if (await titlebarDragRegion.isVisible()) {
+					await titlebarDragRegion.click();
+				}
+			}
+
 			// Replace "Cmd" with the platform-appropriate modifier key
 			// and (for Windows and Ubuntu) replace "Option" with "Alt"
 			const keySequences = keyCombo.split(' ').map(keys => {

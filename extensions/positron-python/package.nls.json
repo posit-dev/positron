@@ -45,6 +45,7 @@
     "python.command.python.analysis.restartLanguageServer.title": "Restart Language Server",
     "python.command.python.launchTensorBoard.title": "Launch TensorBoard",
     "python.command.python.refreshTensorBoard.title": "Refresh TensorBoard",
+    "python.command.python.testing.copyTestId.title": "Copy Test Id",
     "python.command.python.interpreterDebugInfo.title": "Print interpreter debug information to Output",
     "python.createEnvironment.contentButton.description": "Show or hide Create Environment button in the editor for `requirements.txt` or other dependency files.",
     "python.createEnvironment.trigger.description": "Detect if environment creation is required for the current project",
@@ -61,6 +62,7 @@
     "python.interpreters.exclude.markdownDescription": "List of absolute paths to Python executables or folders containing Python installations to exclude from the available Python interpreters. These interpreters will not be displayed in the Positron UI.\n\nIf an interpreter is both included via `#python.interpreters.include#` and excluded via `#python.interpreters.exclude#`, it will not be displayed in the Positron UI. See also `#python.interpreters.override#`.\n\nExample: Add `/usr/bin/python3` to exclude the specific executable, or `/opt/homebrew` to exclude all brew-installed Python installations on macOS.\n\nRequires a restart to take effect.",
     "python.interpreters.override.markdownDescription": "List of absolute paths to Python executables or folders containing Python installations to override the list of available Python interpreters. Only the interpreters found at the specified paths will be displayed in the Positron UI.\n\nThis setting takes precedence over the `#python.interpreters.include#` and `#python.interpreters.exclude#` settings.\n\nExample: On Linux or Mac, add `/custom/pythons/3.10.4/bin/python` to include only this specific executable, or `/custom/pythons` to include only Python installations found within the directory.\n\nRequires a restart to take effect.",
     "python.envFile.description": "Absolute path to a file containing environment variable definitions.",
+    "python.useEnvironmentsExtension.description": "Enables the Python Environments extension. Requires window reload on change.",
     "python.experiments.enabled.description": "Enables A/B tests experiments in the Python extension. If enabled, you may get included in proposed enhancements and/or features.",
     "python.experiments.optInto.description": "List of experiments to opt into. If empty, user is assigned the default experiment groups. See [here](https://github.com/microsoft/vscode-python/wiki/AB-Experiments) for more details.",
     "python.experiments.optOutFrom.description": "List of experiments to opt out of. If empty, user is assigned the default experiment groups. See [here](https://github.com/microsoft/vscode-python/wiki/AB-Experiments) for more details.",
@@ -86,7 +88,7 @@
     "python.logging.level.description": "The logging level the extension logs at, defaults to 'error'",
     "python.logging.level.deprecation": "This setting is deprecated. Please use command `Developer: Set Log Level...` to set logging level.",
     "python.missingPackage.severity.description": "Set severity of missing packages in requirements.txt or pyproject.toml",
-    "python.locator.description": "[Experimental] Select implementation of environment locators. This is an experimental setting while we test native environment location.",
+    "python.locator.description": "Choose how to discover Python interpreters. Native uses [Python Environment Tools](https://github.com/microsoft/python-environment-tools) a faster, Rust-based locator, while JS uses a JavaScript implementation.",
     "python.pipenvPath.description": "Path to the pipenv executable to use for activation.",
     "python.poetryPath.description": "Path to the poetry executable.",
     "python.quietMode.description": "Start Positron's IPython shell in quiet mode, to suppress initial version and help messages (restart Positron to apply).",
@@ -94,7 +96,7 @@
     "python.tensorBoard.logDirectory.description": "Set this setting to your preferred TensorBoard log directory to skip log directory prompt when starting TensorBoard.",
     "python.tensorBoard.logDirectory.markdownDeprecationMessage": "Tensorboard support has been moved to the extension [Tensorboard extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.tensorboard). Instead use the setting `tensorBoard.logDirectory`.",
     "python.tensorBoard.logDirectory.deprecationMessage": "Tensorboard support has been moved to the extension Tensorboard extension. Instead use the setting `tensorBoard.logDirectory`.",
-    "python.terminal.shellIntegration.enabled.description": "Enable [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration) for the terminals running python. Shell integration enhances the terminal experience by enabling command decorations, run recent command, improving accessibility among other things.",
+    "python.terminal.shellIntegration.enabled.description": "Enable [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration) for the terminals running python. Shell integration enhances the terminal experience by enabling command decorations, run recent command, improving accessibility among other things. Note: PyREPL (available in Python 3.13+) is automatically disabled when shell integration is enabled to avoid cursor indentation issues.",
     "python.terminal.activateEnvInCurrentTerminal.description": "Activate Python Environment in the current Terminal on load of the Extension.",
     "python.terminal.activateEnvironment.description": "Activate Python Environment in all Terminals created.",
     "python.terminal.executeInFileDir.description": "When executing a file in the terminal, whether to use execute in the file's directory, instead of the current open folder.",
@@ -129,7 +131,7 @@
     "walkthrough.positron.step.migrateFromVSCode.panes.description": "Find your way around the panes and layout of Positron\n[Customize your layout](command:workbench.action.customizeLayout)",
     "walkthrough.pythonWelcome.title": "Get Started with Python Development",
     "walkthrough.pythonWelcome.description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
-     "walkthrough.step.python.createPythonFile.title": "Create a Python file",
+    "walkthrough.step.python.createPythonFile.title": "Create a Python file",
     "walkthrough.step.python.createPythonFolder.title": "Open a Python project folder",
     "walkthrough.step.python.createPythonFile.description": {
         "message": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D) a Python file - make sure to save it as \".py\".\n[Create Python File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22python%22%7D)",
@@ -141,7 +143,7 @@
     },
     "walkthrough.step.python.createPythonFolder.description": {
         "message": "[Open](command:workbench.action.files.openFolder) or create a project folder.\n[Open Project Folder](command:workbench.action.files.openFolder)",
-        "comment":  [
+        "comment": [
             "{Locked='](command:workbench.action.files.openFolder'}",
             "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
             "Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
@@ -171,7 +173,7 @@
     "walkthrough.step.python.createEnvironment.title": "Select or create a Python environment",
     "walkthrough.step.python.createEnvironment.description": {
         "message": "Create an environment for your Python project or use [Select Python Interpreter](command:python.setInterpreter) to select an existing one.\n[Create Environment](command:python.createEnvironment)\n**Tip**: Run the ``Python: Create Environment`` command in the [Command Palette](command:workbench.action.showCommands).",
-        "comment":  [
+        "comment": [
             "{Locked='](command:python.createEnvironment'}",
             "{Locked='](command:workbench.action.showCommands'}",
             "{Locked='](command:python.setInterpreter'}",
@@ -183,8 +185,8 @@
     "walkthrough.step.python.runAndDebug.description": "Open your Python file  and click on the play button on the top right of the editor, or press F5 when on the file and select \"Python File\" to run with the debugger. \n  \n[Learn more](https://code.visualstudio.com/docs/python/python-tutorial#_run-hello-world)",
     "walkthrough.step.python.learnMoreWithDS.title": "Keep exploring!",
     "walkthrough.step.python.learnMoreWithDS.description": {
-        "message":"🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Follow along with the Python Tutorial](https://aka.ms/AA8dqti)",
-        "comment":[
+        "message": "🎨 Explore all the features the Python extension has to offer by looking for \"Python\" in the [Command Palette](command:workbench.action.showCommands). \n 📈 Learn more about getting started with [data science](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D) in Python. \n ✨ Take a look at our [Release Notes](https://aka.ms/AA8dxtb) to learn more about the latest features. \n \n[Follow along with the Python Tutorial](https://aka.ms/AA8dqti)",
+        "comment": [
             "{Locked='](command:workbench.action.showCommands'}",
             "{Locked='](command:workbench.action.openWalkthrough?%7B%22category%22%3A%22ms-python.python%23pythonDataScienceWelcome%22%2C%22step%22%3A%22ms-python.python%23python.createNewNotebook%22%7D'}",
             "Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",

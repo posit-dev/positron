@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { IntrinsicSize, PositronPlotComm } from './positronPlotComm.js';
+import { IntrinsicSize, PositronPlotComm, UpdateEvent } from './positronPlotComm.js';
 import { DeferredRender, PositronPlotRenderQueue } from './positronPlotRenderQueue.js';
 
 
@@ -46,10 +46,10 @@ export class PositronPlotCommProxy extends Disposable {
 	/**
 	 * Event that fires when the plot has been updated by the runtime and
 	 * re-rendered. Notifies clients so they can request a render update with their own
-	 * render parameters.
+	 * render parameters. May include a pre-rendering for immediate display.
 	 */
-	onDidRenderUpdate: Event<void>;
-	private readonly _renderUpdateEmitter = new Emitter<void>();
+	onDidRenderUpdate: Event<UpdateEvent>;
+	private readonly _renderUpdateEmitter = new Emitter<UpdateEvent>();
 
 	/**
 	 * Event that fires when the plot wants to display itself.
@@ -105,8 +105,8 @@ export class PositronPlotCommProxy extends Disposable {
 			this._didShowPlotEmitter.fire();
 		}));
 
-		this._register(this._comm.onDidUpdate((_evt) => {
-			this._renderUpdateEmitter.fire();
+		this._register(this._comm.onDidUpdate((evt) => {
+			this._renderUpdateEmitter.fire(evt);
 		}));
 
 		this._register(this._comm);

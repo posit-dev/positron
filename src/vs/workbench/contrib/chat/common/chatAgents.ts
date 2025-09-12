@@ -29,6 +29,9 @@ import { IChatAgentEditedFileEvent, IChatProgressHistoryResponseContent, IChatRe
 import { IRawChatCommandContribution } from './chatParticipantContribTypes.js';
 import { IChatFollowup, IChatLocationData, IChatProgress, IChatResponseErrorDetails, IChatTaskDto } from './chatService.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from './constants.js';
+// --- Start Positron ---
+import { ILanguageModelsService } from './languageModels.js';
+// --- End Positron ---
 
 //#region agent service, commands etc
 
@@ -56,9 +59,11 @@ export interface IChatAgentData {
 	isDynamic?: boolean;
 	/** This agent is contributed from core and not from an extension */
 	isCore?: boolean;
+	isCodingAgent?: boolean;
 	metadata: IChatAgentMetadata;
 	slashCommands: IChatAgentCommand[];
 	locations: ChatAgentLocation[];
+	/** This is only relevant for isDefault agents. Others should have all modes available. */
 	modes: ChatModeKind[];
 	disambiguation: { category: string; description: string; examples: string[] }[];
 }
@@ -71,6 +76,7 @@ export interface IChatWelcomeMessageContent {
 
 export interface IChatAgentImplementation {
 	invoke(request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult>;
+	setRequestTools?(requestId: string, tools: Pick<IChatAgentRequest, 'userSelectedTools'>): void;
 	setRequestPaused?(requestId: string, isPaused: boolean): void;
 	provideFollowups?(request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatFollowup[]>;
 	provideChatTitle?: (history: IChatAgentHistoryEntry[], token: CancellationToken) => Promise<string | undefined>;
@@ -159,6 +165,7 @@ export interface IChatAgentResult {
 	timings?: IChatAgentResultTimings;
 	/** Extra properties that the agent can use to identify a result */
 	readonly metadata?: { readonly [key: string]: any };
+	readonly details?: string;
 	nextQuestion?: IChatQuestion;
 }
 
@@ -190,10 +197,15 @@ export interface IChatAgentService {
 	registerDynamicAgent(data: IChatAgentData, agentImpl: IChatAgentImplementation): IDisposable;
 	registerAgentCompletionProvider(id: string, provider: (query: string, token: CancellationToken) => Promise<IChatAgentCompletionItem[]>): IDisposable;
 	getAgentCompletionItems(id: string, query: string, token: CancellationToken): Promise<IChatAgentCompletionItem[]>;
-	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider): IDisposable;
+	// --- Start Positron ---
+	// Added extensionId to the parameters, since we need to track which
+	// extension the detection provider belongs to
+	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider, extensionId?: ExtensionIdentifier): IDisposable;
+	// --- End Positron ---
 	detectAgentOrCommand(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation }, token: CancellationToken): Promise<{ agent: IChatAgentData; command?: IChatAgentCommand } | undefined>;
 	hasChatParticipantDetectionProviders(): boolean;
 	invokeAgent(agent: string, request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult>;
+	setRequestTools(agent: string, requestId: string, tools: Pick<IChatAgentRequest, 'userSelectedTools'>): void;
 	setRequestPaused(agent: string, requestId: string, isPaused: boolean): void;
 	getFollowups(id: string, request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatFollowup[]>;
 	getChatTitle(id: string, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<string | undefined>;
@@ -232,20 +244,28 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	private readonly _hasDefaultAgent: IContextKey<boolean>;
 	private readonly _extensionAgentRegistered: IContextKey<boolean>;
 	private readonly _defaultAgentRegistered: IContextKey<boolean>;
-	private readonly _editingAgentRegistered: IContextKey<boolean>;
 	private _hasToolsAgent = false;
 
 	private _chatParticipantDetectionProviders = new Map<number, IChatParticipantDetectionProvider>();
 
+	// --- Start Positron ---
+	// Map of participant detection providers to the extension IDs that
+	// registered them
+	private _chatParticipantDetectionProviderExtensions = new Map<number, ExtensionIdentifier>();
+	// --- End Positron ---
+
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- Start Positron ---
+		@ILogService private readonly logService: ILogService,
+		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		// --- End Positron ---
 	) {
 		super();
 		this._hasDefaultAgent = ChatContextKeys.enabled.bindTo(this.contextKeyService);
 		this._extensionAgentRegistered = ChatContextKeys.extensionParticipantRegistered.bindTo(this.contextKeyService);
 		this._defaultAgentRegistered = ChatContextKeys.panelParticipantRegistered.bindTo(this.contextKeyService);
-		this._editingAgentRegistered = ChatContextKeys.editingParticipantRegistered.bindTo(this.contextKeyService);
 		this._register(contextKeyService.onDidChangeContext((e) => {
 			if (e.affectsSome(this._agentsContextKeys)) {
 				this._updateContextKeys();
@@ -295,7 +315,6 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	private _updateContextKeys(): void {
-		let editingAgentRegistered = false;
 		let extensionAgentRegistered = false;
 		let defaultAgentRegistered = false;
 		let toolsAgentRegistered = false;
@@ -315,16 +334,14 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 				if (!agent.isCore) {
 					extensionAgentRegistered = true;
 				}
-				if (agent.modes.includes(ChatModeKind.Agent)) {
+				if (agent.id === 'chat.setup' || agent.id === 'github.copilot.editsAgent') {
+					// TODO@roblourens firing the event below probably isn't necessary but leave it alone for now
 					toolsAgentRegistered = true;
-				} else if (agent.modes.includes(ChatModeKind.Edit)) {
-					editingAgentRegistered = true;
 				} else {
 					defaultAgentRegistered = true;
 				}
 			}
 		}
-		this._editingAgentRegistered.set(editingAgentRegistered);
 		// --- Start Positron ---
 		// Do not register default agents when Assistant is disabled, except for
 		// the API test agent from upstream.
@@ -402,13 +419,48 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	getDefaultAgent(location: ChatAgentLocation, mode: ChatModeKind = ChatModeKind.Ask): IChatAgent | undefined {
-		return this._preferExtensionAgent(this.getActivatedAgents().filter(a => {
+		// --- Start Positron ---
+		// Filter agents by mode and location first
+		const candidateAgents = this.getActivatedAgents().filter(a => {
 			if (mode && !a.modes.includes(mode)) {
 				return false;
 			}
-
 			return !!a.isDefault && a.locations.includes(location);
-		}));
+		});
+
+		if (candidateAgents.length === 0) {
+			return undefined;
+		}
+
+		// Get the current language model provider to help select the best agent
+		const currentProvider = this.languageModelsService?.currentProvider;
+		if (currentProvider) {
+			// Get the extension identifier for the current provider
+			const extensionId = this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id);
+
+			if (extensionId) {
+				// Find an agent from the same extension as the current provider
+				const providerMatchedAgent = candidateAgents.find(agent => {
+					if (agent.extensionId.value === extensionId.value) {
+						this.logService.trace(`ChatService#getDefaultAgent: Found provider-matched agent ${agent.id} for provider ${currentProvider.id} via extension tracking`);
+						return true;
+					}
+					return false;
+				});
+
+				if (providerMatchedAgent) {
+					return providerMatchedAgent;
+				}
+			}
+		}
+
+		// Fallback to the original behavior: prefer extension agents
+		const selectedAgent = this._preferExtensionAgent(candidateAgents);
+		if (selectedAgent) {
+			this.logService.trace(`ChatService#getDefaultAgent: Found default agent ${selectedAgent.id} for location ${location} (fallback)`);
+		}
+		return selectedAgent;
+		// --- End Positron ---
 	}
 
 	public get hasToolsAgent(): boolean {
@@ -498,6 +550,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		return await data.impl.invoke(request, progress, history, token);
 	}
 
+	setRequestTools(id: string, requestId: string, tools: Pick<IChatAgentRequest, 'userSelectedTools'>): void {
+		const data = this._agents.get(id);
+		if (!data?.impl) {
+			throw new Error(`No activated agent with id "${id}"`);
+		}
+
+		data.impl.setRequestTools?.(requestId, tools);
+	}
+
 	setRequestPaused(id: string, requestId: string, isPaused: boolean) {
 		const data = this._agents.get(id);
 		if (!data?.impl) {
@@ -534,20 +595,59 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		return data.impl.provideChatSummary(history, token);
 	}
 
-	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider) {
+	// --- Start Positron ---
+	// Remember which extension the detection provider belongs to
+	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider, extensionId?: ExtensionIdentifier) {
 		this._chatParticipantDetectionProviders.set(handle, provider);
+
+		if (extensionId) {
+			this._chatParticipantDetectionProviderExtensions.set(handle, extensionId);
+		}
+
 		return toDisposable(() => {
 			this._chatParticipantDetectionProviders.delete(handle);
+
+			// Clean up the extension ID tracking as well
+			this._chatParticipantDetectionProviderExtensions.delete(handle);
 		});
 	}
+	// --- End Positron ---
 
 	hasChatParticipantDetectionProviders() {
 		return this._chatParticipantDetectionProviders.size > 0;
 	}
 
 	async detectAgentOrCommand(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation }, token: CancellationToken): Promise<{ agent: IChatAgentData; command?: IChatAgentCommand } | undefined> {
+
 		// TODO@joyceerhl should we have a selector to be able to narrow down which provider to use
-		const provider = Iterable.first(this._chatParticipantDetectionProviders.values());
+		// --- Start Positron ---
+		// const provider = Iterable.first(this._chatParticipantDetectionProviders.values());
+
+		// Instead of taking the first provider, match the provider with the
+		// current extension provider. This effectively implements the TODO
+		// above using Positron's provider selector.
+		let provider: IChatParticipantDetectionProvider | undefined;
+
+		// Get the current language model provider to help select the best detection provider
+		const currentProvider = this.languageModelsService.currentProvider;
+		if (currentProvider) {
+			// Get the extension identifier for the current provider
+			const extensionId = this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id);
+
+			if (extensionId) {
+				// Try to find a detection provider from the same extension as the current language model provider
+				for (const [handle, detectionProvider] of this._chatParticipantDetectionProviders) {
+					const providerExtensionId = this._chatParticipantDetectionProviderExtensions.get(handle);
+					if (providerExtensionId && ExtensionIdentifier.equals(providerExtensionId, extensionId)) {
+						provider = detectionProvider;
+						this.logService.debug(`ChatAgentService#detectAgentOrCommand: Found provider-matched detection provider for provider ${currentProvider.id} via extension tracking`);
+						break;
+					}
+				}
+			}
+		}
+		// --- End Positron ---
+
 		if (!provider) {
 			return;
 		}
@@ -616,10 +716,12 @@ export class MergedChatAgent implements IChatAgent {
 		return this.impl.invoke(request, progress, history, token);
 	}
 
+	setRequestTools(requestId: string, tools: Pick<IChatAgentRequest, 'userSelectedTools'>): void {
+		this.impl.setRequestTools?.(requestId, tools);
+	}
+
 	setRequestPaused(requestId: string, isPaused: boolean): void {
-		if (this.impl.setRequestPaused) {
-			this.impl.setRequestPaused(requestId, isPaused);
-		}
+		this.impl.setRequestPaused?.(requestId, isPaused);
 	}
 
 	async provideFollowups(request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatFollowup[]> {

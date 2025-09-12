@@ -11,7 +11,7 @@ import { IInstantiationService } from '../../../../../../platform/instantiation/
 import { IChatToolInvocation, IChatToolInvocationSerialized } from '../../../common/chatService.js';
 import { IChatRendererContent } from '../../../common/chatViewModel.js';
 import { CodeBlockModelCollection } from '../../../common/codeBlockModelCollection.js';
-import { isToolResultInputOutputDetails } from '../../../common/languageModelToolsService.js';
+import { isToolResultInputOutputDetails, isToolResultOutputDetails } from '../../../common/languageModelToolsService.js';
 import { ChatTreeItem, IChatCodeBlockInfo } from '../../chat.js';
 import { IChatContentPart, IChatContentPartRenderContext } from '../chatContentParts.js';
 import { EditorPool } from '../chatMarkdownContentPart.js';
@@ -23,7 +23,11 @@ import { ChatTerminalMarkdownProgressPart } from './chatTerminalMarkdownProgress
 import { TerminalConfirmationWidgetSubPart } from './chatTerminalToolSubPart.js';
 import { ToolConfirmationSubPart } from './chatToolConfirmationSubPart.js';
 import { BaseChatToolInvocationSubPart } from './chatToolInvocationSubPart.js';
+import { ChatToolOutputSubPart } from './chatToolOutputPart.js';
 import { ChatToolProgressSubPart } from './chatToolProgressPart.js';
+// --- Start Positron ---
+import { ChatToolMarkdownProgressPart } from './chatToolMarkdownProgressPart.js';
+// --- End Positron ---
 
 export class ChatToolInvocationPart extends Disposable implements IChatContentPart {
 	public readonly domNode: HTMLElement;
@@ -100,6 +104,10 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 			return this.instantiationService.createInstance(ChatResultListSubPart, this.toolInvocation, this.context, this.toolInvocation.pastTenseMessage ?? this.toolInvocation.invocationMessage, this.toolInvocation.resultDetails, this.listPool);
 		}
 
+		if (isToolResultOutputDetails(this.toolInvocation.resultDetails)) {
+			return this.instantiationService.createInstance(ChatToolOutputSubPart, this.toolInvocation, this.context);
+		}
+
 		if (isToolResultInputOutputDetails(this.toolInvocation.resultDetails)) {
 			return this.instantiationService.createInstance(
 				ChatInputOutputMarkdownProgressPart,
@@ -131,6 +139,14 @@ export class ChatToolInvocationPart extends Disposable implements IChatContentPa
 				this.currentWidthDelegate
 			);
 		}
+		// --- Start Positron ---
+		// Custom rendering for code block of executeCode tool
+		// This is after it is executed or canceled
+		// Before execution is handled by the first if-block in this method
+		if (this.toolInvocation.toolId === 'executeCode') {
+			return this.instantiationService.createInstance(ChatToolMarkdownProgressPart, this.toolInvocation, this.context, this.renderer, this.editorPool, this.currentWidthDelegate, this.codeBlockStartIndex, this.codeBlockModelCollection);
+		}
+		// --- End Positron ---
 
 		return this.instantiationService.createInstance(ChatToolProgressSubPart, this.toolInvocation, this.context, this.renderer);
 	}

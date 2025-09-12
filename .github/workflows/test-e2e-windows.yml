@@ -71,7 +71,7 @@ jobs:
     name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
-    timeout-minutes: 100
+    timeout-minutes: 120
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -80,7 +80,19 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      # - name: Load secret
+      #   uses: 1password/load-secrets-action@v3
+      #   with:
+      #     # Export loaded secrets as environment variables
+      #     export-env: true
+      #   env:
+      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      #     ANTHROPIC: "op://Positron/Anthropic/credential"
 
       - name: Set screen resolution
         shell: pwsh
@@ -88,7 +100,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
@@ -101,12 +113,18 @@ jobs:
         with:
           python-version: "3.10.10"
 
+      # Pinning UV due to https://github.com/rstudio/reticulate/issues/1811
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.7.22"
+
       - name: Install node dependencies
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
         #
@@ -185,13 +203,22 @@ jobs:
           tinytex: true
 
       - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+
+      - name: Run Extensions Test
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test-extension -- -l positron-r
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Run Bootstrap Extensions Test
         id: bootstrap
@@ -218,6 +245,7 @@ jobs:
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
@@ -281,3 +309,9 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
+      - name: Fail workflow if extension tests failed
+        if: |
+          steps.extensions.outputs.exit_code != '0'
+        run: |
+          echo "Extension tests failed."
+          exit 1

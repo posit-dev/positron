@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,9 +22,14 @@ import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExpl
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
-import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+
+/**
+ * Constants.
+ */
+const OVERSCAN_FACTOR = 3;
 
 /**
  * Localized strings.
@@ -48,9 +53,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
 
 	/**
-	 * The cell hover manager with longer delay for data cell tooltips.
+	 * The hover manager for data cell tooltips and corner reset button.
 	 */
-	private readonly _cellHoverManager: PositronActionBarHoverManager;
+	private readonly _hoverManager: PositronActionBarHoverManager;
 
 	//#endregion Private Properties
 
@@ -78,6 +83,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			minimumColumnWidth: 80,
 			maximumColumnWidth: 800,
 			rowResize: false,
+			columnPinning: true,
+			maximumPinnedColumns: 10,
+			rowPinning: true,
+			maximumPinnedRows: 10,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -90,8 +99,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
-		this._cellHoverManager.setCustomHoverDelay(500);
+		this._hoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
+		this._hoverManager.setCustomHoverDelay(500);
 
 		/**
 		 * Updates the layout entries.
@@ -103,19 +112,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				state = await this._dataExplorerClientInstance.getBackendState();
 			}
 
-			// Calculate the layout entries.
-			const layoutEntries = await this._tableDataCache.calculateColumnLayoutEntries(
+			// Calculate column widths.
+			const columnWidths = await this._tableDataCache.calculateColumnWidths(
 				this.minimumColumnWidth,
 				this.maximumColumnWidth
 			);
 
 			// Set the layout entries.
-			this._columnLayoutManager.setLayoutEntries(
-				layoutEntries ?? state.table_shape.num_columns
-			);
-			this._rowLayoutManager.setLayoutEntries(
-				state.table_shape.num_rows
-			);
+			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
+			this._rowLayoutManager.setEntries(state.table_shape.num_rows);
 
 			// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
 			if (state.table_shape.num_rows === 0) {
@@ -123,7 +128,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this._horizontalScrollOffset = 0;
 				// Force a layout recomputation and repaint
 				this.softReset();
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			} else {
 				// Adjust the vertical scroll offset, if needed.
 				if (!this.firstRow) {
@@ -185,7 +190,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Add the table data cache onDidUpdate event handler.
 		this._register(this._tableDataCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 	}
 
@@ -240,10 +245,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
 		}
 	}
@@ -257,12 +260,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
 		if (columnDescriptor && rowDescriptor) {
+			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
 		}
 	}
@@ -301,11 +303,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	/**
-	 * Gets the cell hover manager.
-	 * @returns The cell hover manager.
+	 * Override base class to provide hover manager.
 	 */
-	get cellHoverManager(): PositronActionBarHoverManager {
-		return this._cellHoverManager;
+	override get hoverManager(): PositronActionBarHoverManager {
+		return this._hoverManager;
 	}
 
 	/**
@@ -332,7 +333,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			<TableDataCell
 				column={column}
 				dataCell={dataCell}
-				hoverManager={this._cellHoverManager}
+				hoverManager={this._hoverManager}
 			/>
 		);
 	}
@@ -348,15 +349,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint?: AnchorPoint
 	): Promise<void> {
-		/**
-		 * Get the column sort key for the column.
-		 */
-		const columnSortKey = this.columnSortKey(columnIndex);
-
+		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
 		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
 		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
+
+		// Get the column sort key for the column.
+		const columnSortKey = sortSupported ? this.columnSortKey(columnIndex) : undefined;
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -376,6 +376,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 			onSelected: () => this.selectColumn(columnIndex)
 		}));
+		if (this.columnPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isColumnPinned(columnIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
+					onSelected: () => this.pinColumn(columnIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
+					onSelected: () => this.unpinColumn(columnIndex)
+				}));
+			}
+		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
@@ -464,6 +483,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
 		}));
+		if (this.rowPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isRowPinned(rowIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
+					onSelected: () => this.pinRow(rowIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
+					onSelected: () => this.unpinRow(rowIndex)
+				}));
+			}
+		}
 
 		// Show the context menu.
 		await showCustomContextMenu({
@@ -524,6 +562,45 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
 		}));
+		if (this.columnPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isColumnPinned(columnIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
+					onSelected: () => this.pinColumn(columnIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
+					onSelected: () => this.unpinColumn(columnIndex)
+				}));
+			}
+		}
+		if (this.rowPinning) {
+			if (!this.columnPinning) {
+				entries.push(new CustomContextMenuSeparator());
+			}
+			if (!this.isRowPinned(rowIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
+					onSelected: () => this.pinRow(rowIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
+					onSelected: () => this.unpinRow(rowIndex)
+				}));
+			}
+		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
@@ -615,24 +692,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				kind: TableSelectionKind.SingleCell,
 				selection
 			};
-		} else if (clipboardData instanceof ClipboardCellRange) {
-			const selection: DataSelectionCellRange = {
-				first_column_index: clipboardData.firstColumnIndex,
-				first_row_index: clipboardData.firstRowIndex,
-				last_column_index: clipboardData.lastColumnIndex,
-				last_row_index: clipboardData.lastRowIndex,
+		} else if (clipboardData instanceof ClipboardCellIndexes) {
+			const selection: DataSelectionCellIndices = {
+				column_indices: clipboardData.columnIndexes,
+				row_indices: clipboardData.rowIndexes
 			};
 			dataSelection = {
-				kind: TableSelectionKind.CellRange,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardColumnRange) {
-			const selection: DataSelectionRange = {
-				first_index: clipboardData.firstColumnIndex,
-				last_index: clipboardData.lastColumnIndex
-			};
-			dataSelection = {
-				kind: TableSelectionKind.ColumnRange,
+				kind: TableSelectionKind.CellIndices,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
@@ -641,15 +707,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			};
 			dataSelection = {
 				kind: TableSelectionKind.ColumnIndices,
-				selection
-			};
-		} else if (clipboardData instanceof ClipboardRowRange) {
-			const selection: DataSelectionRange = {
-				first_index: clipboardData.firstRowIndex,
-				last_index: clipboardData.lastRowIndex
-			};
-			dataSelection = {
-				kind: TableSelectionKind.RowRange,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
@@ -695,10 +752,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: columnDescriptor.columnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: rowDescriptor.rowIndex,
-				screenRows: this.screenRows
+				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
+				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
 			});
 		}
 	}

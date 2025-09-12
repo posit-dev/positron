@@ -70,7 +70,12 @@ export class ToolConfirmationSubPart extends BaseChatToolInvocationSubPart {
 			throw new Error('Confirmation messages are missing');
 		}
 		const { title, message, allowAutoConfirm, disclaimer } = toolInvocation.confirmationMessages;
-		const continueLabel = localize('continue', "Continue");
+		// --- Start Positron ---
+		// Use "Run Code" label for tools that are clearly about code execution
+		const continueLabel = toolInvocation.toolId === 'executeCode'
+			? localize('runCode', "Run Code")
+			: localize('continue', "Continue");
+		// --- End Positron ---
 		const continueKeybinding = keybindingService.lookupKeybinding(AcceptToolConfirmationActionId)?.getLabel();
 		const continueTooltip = continueKeybinding ? `${continueLabel} (${continueKeybinding})` : continueLabel;
 		const cancelLabel = localize('cancel', "Cancel");
@@ -114,7 +119,12 @@ export class ToolConfirmationSubPart extends BaseChatToolInvocationSubPart {
 			));
 		} else {
 			const codeBlockRenderOptions: ICodeBlockRenderOptions = {
-				hideToolbar: true,
+				// --- Start Positron ---
+				// Show the toolbar for code execution tool confirmations to allow copy/apply in editor
+
+				// hideToolbar: true,
+				hideToolbar: toolInvocation.toolId !== 'executeCode',
+				// --- End Positron ---
 				reserveWidth: 19,
 				verticalPadding: 5,
 				editorOptions: {
@@ -251,11 +261,15 @@ export class ToolConfirmationSubPart extends BaseChatToolInvocationSubPart {
 			const messageSeeMoreObserver = this._register(new ElementSizeObserver(elements.message, undefined));
 			const updateSeeMoreDisplayed = () => {
 				const show = messageSeeMoreObserver.getHeight() > SHOW_MORE_MESSAGE_HEIGHT_TRIGGER;
-				elements.messageContainer.classList.toggle('can-see-more', show);
+				if (elements.messageContainer.classList.contains('can-see-more') !== show) {
+					elements.messageContainer.classList.toggle('can-see-more', show);
+					this._onDidChangeHeight.fire();
+				}
 			};
 
 			this._register(dom.addDisposableListener(elements.showMore, 'click', () => {
 				elements.messageContainer.classList.toggle('can-see-more', false);
+				this._onDidChangeHeight.fire();
 				messageSeeMoreObserver.dispose();
 			}));
 

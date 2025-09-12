@@ -206,7 +206,7 @@ async function downloadAndReplaceKallichore(version: string,
 
 				console.log(`Successfully downloaded Kallichore ${version} (${binaryData.length} bytes).`);
 				const zipFileDest = path.join(kallichoreDir, 'kallichore.zip');
-				await writeFileAsync(zipFileDest, binaryData);
+				await writeFileAsync(zipFileDest, new Uint8Array(binaryData));
 
 				await decompress(zipFileDest, kallichoreDir).then(_files => {
 					console.log(`Successfully unzipped Kallichore ${version}.`);
@@ -274,7 +274,7 @@ async function main() {
 	// ways to set it. We try the following in order:
 
 	// (1) The GITHUB_PAT environment variable.
-	// (2) The POSITRON_GITHUB_PAT environment variable.
+	// (2) The POSITRON_GITHUB_RO_PAT environment variable.
 	// (3) The git config setting 'credential.https://api.github.com.token'.
 
 	// (1) Get the GITHUB_PAT from the environment.
@@ -282,10 +282,10 @@ async function main() {
 	if (githubPat) {
 		console.log('Using Github PAT from environment variable GITHUB_PAT.');
 	} else {
-		// (2) Try POSITRON_GITHUB_PAT (it's what the build script sets)
-		githubPat = process.env.POSITRON_GITHUB_PAT;
+		// (2) Try POSITRON_GITHUB_RO_PAT (it's what the build script sets)
+		githubPat = process.env.POSITRON_GITHUB_RO_PAT;
 		if (githubPat) {
-			console.log('Using Github PAT from environment variable POSITRON_GITHUB_PAT.');
+			console.log('Using Github PAT from environment variable POSITRON_GITHUB_RO_PAT.');
 		}
 	}
 

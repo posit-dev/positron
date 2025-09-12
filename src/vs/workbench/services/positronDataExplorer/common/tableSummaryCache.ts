@@ -6,7 +6,6 @@
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { arrayFromIndexRange } from './utils.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { dataExplorerExperimentalFeatureEnabled } from './positronDataExplorerExperimentalConfig.js';
 import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from '../../languageRuntime/common/positronDataExplorerComm.js';
@@ -15,20 +14,18 @@ import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, C
  * Constants.
  */
 const TRIM_CACHE_TIMEOUT = 3000;
-const OVERSCAN_FACTOR = 3;
 const SMALL_HISTOGRAM_NUM_BINS = 80;
 const LARGE_HISTOGRAM_NUM_BINS = 200;
 const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
+const UPDATE_EVENT_DEBOUNCE_DELAY = 50;
 
 /**
  * UpdateDescriptor interface.
  */
 interface UpdateDescriptor {
 	invalidateCache: boolean;
-	searchText?: string;
-	firstColumnIndex: number;
-	screenColumns: number;
+	columnIndices: number[];
 }
 
 /**
@@ -53,11 +50,9 @@ export class TableSummaryCache extends Disposable {
 	private _trimCacheTimeout?: Timeout;
 
 	/**
-	 * The search text used to filter the dataset in the column schema
-	 * and column profile caches. The last search text value is maintained
-	 * to avoid unnecessary cache updates when the search text has not changed.
+	 * Gets or sets the debounced update event timeout.
 	 */
-	private _searchText?: string;
+	private _debouncedUpdateTimeout?: Timeout;
 
 	/**
 	 * Gets or sets the columns.
@@ -126,6 +121,9 @@ export class TableSummaryCache extends Disposable {
 		// Clear the trim cache timeout.
 		this.clearTrimCacheTimeout();
 
+		// Clear the debounced update timeout.
+		this.clearDebouncedUpdateTimeout();
+
 		// Call the base class's dispose method.
 		super.dispose();
 	}
@@ -163,32 +161,29 @@ export class TableSummaryCache extends Disposable {
 
 	/**
 	 * Returns a value which indicates whether the specified column index is expanded.
-	 * @param columnIndex The columm index.
+	 * @param columnIndex The column index.
 	 * @returns A value which indicates whether the specified column index is expanded.
 	 */
 	isColumnExpanded(columnIndex: number) {
+		// With the layout manager integration, columnIndex should be the original column index
 		return this._expandedColumns.has(columnIndex);
 	}
 
 	/**
 	 * Toggles the expanded state of the specified column index.
-	 * @param columnIndex The columm index.
+	 * @param columnIndex The column index.
 	 */
 	async toggleExpandColumn(columnIndex: number) {
-		// If the column is expanded, collpase it, fire the onDidUpdate event, and return.
+		// If the column is expanded, collapse it, fire the onDidUpdate event, and return.
 		if (this._expandedColumns.has(columnIndex)) {
 			this._expandedColumns.delete(columnIndex);
 			this._onDidUpdateEmitter.fire();
 			return;
 		}
 
-		// Expand the column.
+		// Otherewise, expand it, fire the onDidUpdate event, and fetch the column profile data.
 		this._expandedColumns.add(columnIndex);
-
-		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
-
-		// Update the column profile cache.
 		await this.updateColumnProfileCache([columnIndex]);
 	}
 
@@ -199,6 +194,12 @@ export class TableSummaryCache extends Disposable {
 	async update(updateDescriptor: UpdateDescriptor): Promise<void> {
 		// Clear the trim cache timeout.
 		this.clearTrimCacheTimeout();
+
+		// If we have empty column indices and we're not invalidating the cache, skip the update.
+		// This can happen during UI state transitions (like resizing) when layoutHeight is 0.
+		if (updateDescriptor.columnIndices.length === 0 && !updateDescriptor.invalidateCache) {
+			return;
+		}
 
 		// If a cache update is already in progress, set the pending update descriptor and return.
 		// This allows cache updates that are happening in rapid succession to overwrite one another
@@ -212,69 +213,36 @@ export class TableSummaryCache extends Disposable {
 		// Set the updating flag.
 		this._updating = true;
 
-		// Destructure the update descriptor.
-		const {
-			invalidateCache,
-			searchText,
-			firstColumnIndex,
-			screenColumns
-		} = updateDescriptor;
-
-		const searchTextChanged = searchText !== this._searchText;
-		this._searchText = searchText;
-
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
-		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
-		// Determine the first column index to start caching from.
-		const startColumnIndex = Math.max(
-			0,
-			firstColumnIndex - overscanColumns
-		);
-		// Determines the minimum number of columns we need to cache
-		// to fill the screen (including overscan).
-		const endColumnIndex = Math.min(
-			tableState.table_shape.num_columns - 1,
-			firstColumnIndex + screenColumns + overscanColumns
-		);
-
-		let columnIndices: number[] = [];
-		// If the cache is invalidated or the search text has changed,
-		// we will need to load all the columns in view into the cache again
-		if (invalidateCache || searchTextChanged) {
-			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+		// Set the column indices of the column schema we need to load.
+		let columnIndices: number[];
+		if (updateDescriptor.invalidateCache) {
+			columnIndices = updateDescriptor.columnIndices;
 		} else {
-			// If the cache is not invalidated and the search text has not changed,
-			// we will only load the columns in view that are not already cached
-			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-				if (!this._columnSchemaCache.has(columnIndex)) {
-					columnIndices.push(columnIndex);
+			columnIndices = [];
+			for (const index of updateDescriptor.columnIndices) {
+				if (!this._columnSchemaCache.has(index)) {
+					columnIndices.push(index);
 				}
 			}
 		}
 
-		// When search text is present, use `searchSchema` to get the columns into the schema cache
-		// When there is no search text, use `getSchema` to get the default order of columns into the cache
-		const tableSchema = this._searchText
-			? await this._dataExplorerClientInstance.searchSchema({
-				searchText: this._searchText,
-				startIndex: columnIndices[0],
-				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
-			})
-			: await this._dataExplorerClientInstance.getSchema(columnIndices);
+		// Load the column schema.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-		// Clear caches when search changes to force reloading new search results.
-		if (invalidateCache || searchTextChanged) {
+		// Invalidate the cache, if we're supposed to.
+		if (updateDescriptor.invalidateCache) {
 			this._columnSchemaCache.clear();
 			this._columnProfileCache.clear();
 		}
 
-		// Cache the column schema that was returned
-		for (let i = 0; i < tableSchema.columns.length; i++) {
-			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+		// Cache the column schema that was returned.
+		for (const columnSchema of tableSchema.columns) {
+			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
 		}
 
 		// Fire the onDidUpdate event.
@@ -296,15 +264,16 @@ export class TableSummaryCache extends Disposable {
 			return this.update(pendingUpdateDescriptor);
 		}
 
-		// Schedule trimming the cache.
-		if (!invalidateCache) {
+		// Schedule trimming the cache if we have actual column indices to preserve.
+		// This prevents accidentally clearing all cached data when columnIndices is an empty array
+		// which happens during UI state transitions (e.g. during resizing when layoutHeight is 0).
+		if (!updateDescriptor.invalidateCache && columnIndices.length) {
 			// Set the trim cache timeout.
 			this._trimCacheTimeout = setTimeout(() => {
 				// Release the trim cache timeout.
 				this._trimCacheTimeout = undefined;
-
 				// Trim the cache.
-				this.trimCache(startColumnIndex, endColumnIndex);
+				this.trimCache(new Set(columnIndices));
 			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
@@ -450,27 +419,36 @@ export class TableSummaryCache extends Disposable {
 
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 
-		// For more than 10 million rows, we request profiles one by one rather than as a batch for
+		// For more than 1 million rows, we request profiles one by one rather than as a batch for
 		// better responsiveness
-		const BATCHING_THRESHOLD = 5_000_000;
+		const BATCHING_THRESHOLD = 1_000_000;
 		if (tableState.table_shape.num_rows > BATCHING_THRESHOLD) {
-			const BATCH_SIZE = 4;
-			for (let i = 0; i < columnIndices.length; i += BATCH_SIZE) {
-				// Get the next batch of up to 4 requests
-				const batchColumnRequests = columnRequests.slice(i, i + BATCH_SIZE);
-				const batchColumnIndices = columnIndices.slice(i, i + BATCH_SIZE);
+			// Start all requests and store promises
+			const profilePromises = columnRequests.map((columnRequest, index) => {
+				const columnIndex = columnIndices[index];
 
-				// Send the batch of requests to getColumnProfiles
-				const results = await this._dataExplorerClientInstance.getColumnProfiles(batchColumnRequests);
+				// Start the request and handle result immediately when it completes
+				const promise = this._dataExplorerClientInstance.getColumnProfiles([columnRequest])
+					.then(results => {
+						// Cache the result as soon as it's available
+						if (results.length > 0) {
+							this._columnProfileCache.set(columnIndex, results[0]);
+						}
+						// Fire the onDidUpdate event with debouncing for smoother updates
+						this.fireOnDidUpdateDebounced();
+						return results;
+					})
+					.catch(error => {
+						// Handle errors gracefully
+						console.error(`Failed to get column profile for index ${columnIndex}:`, error);
+						throw error;
+					});
 
-				// Cache the returned column profiles for each index in the batch
-				for (let j = 0; j < results.length; j++) {
-					this._columnProfileCache.set(batchColumnIndices[j], results[j]);
-				}
+				return promise;
+			});
 
-				// Fire the onDidUpdate event so things update as soon as they are returned
-				this._onDidUpdateEmitter.fire();
-			}
+			// Wait for all requests to complete
+			await Promise.allSettled(profilePromises);
 		} else {
 			// Load the column profiles as a batch
 			const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
@@ -539,21 +517,45 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Trims the data in the cache that is not contained between start and end column index.
-	 * @param startColumnIndex The start column index.
-	 * @param endColumnIndex The end column index.
+	 * Clears the debounced update timeout.
 	 */
-	private trimCache(startColumnIndex: number, endColumnIndex: number) {
+	private clearDebouncedUpdateTimeout() {
+		// If there is a debounced update timeout scheduled, clear it.
+		if (this._debouncedUpdateTimeout) {
+			clearTimeout(this._debouncedUpdateTimeout);
+			this._debouncedUpdateTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Fires the onDidUpdate event with debouncing to smooth incremental updates.
+	 */
+	private fireOnDidUpdateDebounced() {
+		// Clear any existing debounced update timeout.
+		this.clearDebouncedUpdateTimeout();
+
+		// Set a new debounced update timeout.
+		this._debouncedUpdateTimeout = setTimeout(() => {
+			this._debouncedUpdateTimeout = undefined;
+			this._onDidUpdateEmitter.fire();
+		}, UPDATE_EVENT_DEBOUNCE_DELAY);
+	}
+
+	/**
+	 * Trims the data in the cache if the key is not in the provided list.
+	 * @param columnIndicesToKeep The array of column indices to keep in the cache.
+	 */
+	private trimCache(columnIndices: Set<number>) {
 		// Trim the column schema cache.
 		for (const columnIndex of this._columnSchemaCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!columnIndices.has(columnIndex)) {
 				this._columnSchemaCache.delete(columnIndex);
 			}
 		}
 
 		// Trim the column profile cache.
 		for (const columnIndex of this._columnProfileCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!columnIndices.has(columnIndex)) {
 				this._columnProfileCache.delete(columnIndex);
 			}
 		}

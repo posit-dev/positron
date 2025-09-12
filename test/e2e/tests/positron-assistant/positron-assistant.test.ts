@@ -35,7 +35,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	test('Anthropic: Verify Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
-		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.enterApiKey('1234');
 		await app.workbench.assistant.clickSignInButton();
 		await expect(app.workbench.assistant.verifySignOutButtonVisible(5000)).rejects.toThrow();
@@ -91,7 +91,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('Copilot');
 		await app.workbench.assistant.verifyAuthMethod('oauth');
-		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.selectModelProvider('anthropic-api');
 		await app.workbench.assistant.verifyAuthMethod('apiKey');
 		await app.workbench.assistant.clickCloseButton();
 	});
@@ -216,6 +216,7 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.verifyTokenUsageVisible();
 	});
 
+	// Only reports tokens used by first message.
 	test('Total token usage is displayed in chat header', async function ({ app }) {
 		const message1 = 'What is the meaning of life?';
 		const message2 = 'Forty-two';
@@ -225,7 +226,6 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage(message2);
 
 		await app.workbench.assistant.waitForReadyToSend();
-		await app.workbench.assistant.verifyNumberOfVisibleResponses(2, true);
 
 		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
 		expect(totalTokens).toBeDefined();

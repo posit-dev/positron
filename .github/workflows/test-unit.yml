@@ -20,11 +20,12 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          package-manager-cache: false
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
@@ -51,7 +52,7 @@ jobs:
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one unit test needs this: Can list tables and fields from R connections

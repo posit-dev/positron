@@ -23,21 +23,12 @@ interface LanguageModelConfigComponentProps {
 type IProvider = IPositronLanguageModelSource['provider'];
 
 const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit EULA');
-const completionsOnlyEmphasizedText = localize('positron.languageModelConfig.completionsOnly', 'code completions only');
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
 const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
-
-function getProviderCompletionsOnlyNoticeText(providerDisplayName: string) {
-	return localize(
-		'positron.languageModelConfig.completionsOnlyNotice',
-		'{0} functions for {code-completions-only} in Positron at this time.',
-		providerDisplayName,
-	);
-}
 
 function getProviderTermsOfServiceText(providerDisplayName: string) {
 	return localize(
@@ -79,19 +70,6 @@ function getProviderPrivacyPolicyLink(providerId: string) {
 		default:
 			return undefined;
 	}
-}
-
-function getProviderCompletionsOnlyNotice(provider: IProvider) {
-	if (provider.id === 'copilot') {
-		const text = getProviderCompletionsOnlyNoticeText(provider.displayName);
-		return interpolate(
-			text,
-			(key) => key === 'code-completions-only' ?
-				<strong>{completionsOnlyEmphasizedText}</strong> :
-				undefined
-		);
-	}
-	return undefined;
 }
 
 /**
@@ -140,8 +118,9 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
 	const { apiKey } = config;
-	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN;
-	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN;
+	const hasEnvApiKey = !!source.defaults.apiKeyEnvVar && source.defaults.apiKeyEnvVar.signedIn;
+	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasEnvApiKey;
+	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasEnvApiKey;
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
@@ -150,7 +129,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	};
 
 	return <>
-		<div className='language-model-container input'>
+		{!hasEnvApiKey && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
 			{showCancelButton &&
@@ -158,7 +137,8 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 					{localize('positron.languageModelConfig.cancel', "Cancel")}
 				</Button>
 			}
-		</div>
+		</div>}
+		<ExternalAPIKey envKeyName={source.defaults.apiKeyEnvVar} provider={source.provider.id} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
@@ -190,8 +170,6 @@ const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, o
 }
 
 const ProviderNotice = (props: { provider: IProvider }) => {
-	const completionsOnlyNotice = getProviderCompletionsOnlyNotice(props.provider);
-
 	const termsOfServiceText = getProviderTermsOfServiceText(props.provider.displayName);
 	const termsOfService = interpolate(
 		termsOfServiceText,
@@ -220,7 +198,6 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 	const disclaimerText = getProviderUsageDisclaimerText(props.provider.displayName);
 
 	return <div className='language-model-dialog-tos' id='model-tos'>
-		{completionsOnlyNotice ? <p>{completionsOnlyNotice}</p> : null}
 		<p>{termsOfService}</p>
 		<p>{disclaimerText}</p>
 	</div>;
@@ -230,4 +207,19 @@ const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
 	return <a href={props.href} rel='noreferrer' target='_blank'>
 		{props.children}
 	</a>;
+}
+
+const ExternalAPIKey = (props: { provider: string, envKeyName?: { key: string; signedIn: boolean } }) => {
+
+	return (
+		props.envKeyName ?
+			<div className='language-model-external-api-key'>
+				{
+					props.envKeyName && props.envKeyName.signedIn ?
+						<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use", props.envKeyName?.key)}</p>
+						:
+						<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron", props.envKeyName.key)}</p>
+				}
+			</div> : null
+	);
 }

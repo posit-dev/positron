@@ -24,6 +24,8 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 
 	private _env?: JavaScriptVariables;
 
+	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
+
 	/**
 	 * A stack of pending RPCs.
 	 */
@@ -50,6 +52,14 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 
 	readonly onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>
 		= this._onDidEndSession.event;
+
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
+	async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		throw new Error('Method not implemented.');
+	}
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		// Echo the input code
@@ -99,6 +109,10 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		// Treat all code as complete; without the aid of third-party libraries, it's difficult to
 		// test code for completeness in JavaScript without actually executing it.
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
+	}
+
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
 	}
 
 	createClient(id: string, type: positron.RuntimeClientType, params: any): Thenable<void> {
@@ -160,13 +174,13 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
 
-		const runtimeInfo: positron.LanguageRuntimeInfo = {
+		this._runtimeInfo = {
 			banner: `Welcome to Node.js ${process.version}.`,
 			implementation_version: this.runtimeMetadata.runtimeVersion,
 			language_version: this.runtimeMetadata.languageVersion,
 		};
 
-		return runtimeInfo;
+		return this._runtimeInfo;
 	}
 
 	interrupt(): Thenable<void> {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,6 +15,7 @@
 
 .column-selector .column-selector-search {
 	height: 34px;
+	box-sizing: border-box;
 	grid-row: column-selector-search / column-selector-data-grid;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }

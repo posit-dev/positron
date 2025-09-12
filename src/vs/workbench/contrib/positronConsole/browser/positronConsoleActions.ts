@@ -89,7 +89,7 @@ export function registerPositronConsoleActions() {
 				f1: true,
 				category,
 				keybinding: {
-					when: PositronConsoleFocused,
+					when: ContextKeyExpr.or(EditorContextKeys.focus, PositronConsoleFocused),
 					weight: KeybindingWeight.WorkbenchContrib,
 					primary: KeyMod.CtrlCmd | KeyCode.KeyL,
 					mac: {

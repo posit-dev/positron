@@ -28,10 +28,10 @@ export const testDataExplorer = async (
 	await app.workbench.editors.verifyTab(dataFrameName, { isVisible: true });
 
 	// Maximize the data explorer.
-	await app.workbench.dataExplorer.maximizeDataExplorer();
+	await app.workbench.dataExplorer.maximize();
 
 	// Drive focus into the data explorer.
-	await app.workbench.dataExplorer.clickUpperLeftCorner();
+	await app.workbench.dataExplorer.grid.clickUpperLeftCorner();
 
 	// Load the TSV file that is used to verify the data and split it into lines.
 	const tsvFile = fs.readFileSync(tsvFilePath, { encoding: 'utf8' });
@@ -53,12 +53,13 @@ export const testDataExplorer = async (
 	 * @param rowIndex The row index of the row under test.
 	 */
 	const testRow = async (rowIndex: number) => {
+		const keyboard = app.code.driver.page.keyboard
 		// Scroll to home and put the cursor there.
-		await app.workbench.dataExplorer.cmdCtrlHome();
+		await app.workbench.dataExplorer.grid.jumpToStart();
 
 		// Navigate to the row under test.
 		for (let i = 0; i < rowIndex; i++) {
-			await app.workbench.dataExplorer.arrowDown();
+			await keyboard.press('ArrowDown')
 		}
 
 		// Test each cell in the row under test.
@@ -84,7 +85,7 @@ export const testDataExplorer = async (
 			}
 
 			// Move to the next cell.
-			await app.workbench.dataExplorer.arrowRight();
+			await keyboard.press('ArrowRight')
 		}
 
 	};

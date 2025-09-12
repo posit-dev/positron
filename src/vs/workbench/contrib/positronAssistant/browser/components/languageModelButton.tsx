@@ -47,12 +47,13 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 export const LanguageModelIcon = (props: { provider: string }) => {
 	function getIcon() {
 		switch (props.provider) {
-			case 'anthropic':
+			case 'anthropic-api':
 				return <Claude className='language-model icon' />;
 			case 'google':
 				return <Gemini className='language-model icon' />;
 			case 'copilot':
 				return <GithubCopilot className='language-model icon' />;
+			case 'amazon-bedrock': // Vercel API uses this as an id
 			case 'bedrock':
 				return <Bedrock className='language-model icon' />;
 			case 'error':

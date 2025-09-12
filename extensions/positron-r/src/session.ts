@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 
 import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './positron-supervisor';
-import { ArkLsp, LspState } from './lsp';
+import { ArkLsp, ArkLspState } from './lsp';
 import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
@@ -142,6 +142,17 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Information about the runtime that is only available after starting
+	 */
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._kernel?.runtimeInfo;
+	}
+
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
+	}
+
+	/**
 	 * Opens a resource in the runtime.
 	 * @param resource The resource to open.
 	 * @returns true if the resource was opened; otherwise, false.
@@ -173,6 +184,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			default:
 				return Promise.resolve(false);
 		}
+	}
+
+	async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		throw new Error(`Debugging is not supported in R sessions`);
 	}
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
@@ -719,7 +734,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				vscode.LogLevel.Debug,
 			);
 
-			if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+			if (this._lsp.state !== ArkLspState.Stopped && this._lsp.state !== ArkLspState.Uninitialized) {
 				this._kernel.emitJupyterLog('LSP already active', vscode.LogLevel.Debug);
 				return;
 			}
@@ -775,7 +790,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				`pending: ${this._lspQueue.pending}`,
 				vscode.LogLevel.Debug,
 			);
-			if (this._lsp.state !== LspState.running) {
+			if (this._lsp.state !== ArkLspState.Running) {
 				this._kernel?.emitJupyterLog('LSP already deactivated', vscode.LogLevel.Debug);
 				return;
 			}
@@ -792,11 +807,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/**
 	 * Wait for the LSP to be connected.
 	 *
-	 * Resolves to `true` once the LSP is connected. Resolves to `false` if the
-	 * LSP has been stopped. Rejects if the LSP fails to start.
+	 * Resolves to `ArkLsp` if the LSP is connected, or once the LSP is connected
+	 * if it's starting up. Resolves to `undefined` if the LSP has been stopped. Rejects
+	 * if the LSP fails to start.
 	 */
-	async waitLsp(): Promise<boolean> {
-		return await this._lsp.wait();
+	async waitLsp(): Promise<ArkLsp | undefined> {
+		if (await this._lsp.wait()) {
+			return this._lsp;
+		} else {
+			return undefined;
+		}
 	}
 
 	/**

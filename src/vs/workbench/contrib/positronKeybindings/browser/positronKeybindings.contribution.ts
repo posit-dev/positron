@@ -173,6 +173,10 @@ class PositronKeybindingsContribution extends Disposable {
 				ContextKeyExpr.not('findInputFocussed'),
 				ContextKeyExpr.not('replaceInputFocussed')
 			),
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyCode.Enter,
+				secondary: [KeyMod.WinCtrl | KeyCode.Enter]
+			},
 			primary: KeyMod.CtrlCmd | KeyCode.Enter
 		}));
 
@@ -186,6 +190,10 @@ class PositronKeybindingsContribution extends Disposable {
 				ContextKeyExpr.not('findInputFocussed'),
 				ContextKeyExpr.not('replaceInputFocussed')
 			),
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter,
+				secondary: [KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Enter]
+			},
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 		}));
 

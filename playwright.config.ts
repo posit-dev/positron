@@ -91,6 +91,17 @@ export default defineConfig<ExtendedTestOptions>({
 			grep: /@:web/
 		},
 		{
+			name: 'e2e-browser-external',
+			use: {
+				web: true,
+				artifactDir: 'e2e-browser-external',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8080/?tkn=dev-token'
+			},
+			grep: /@:web|@:external/
+		},
+		{
 			name: 'e2e-windows',
 			use: {
 				web: false,

@@ -200,6 +200,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 */
 	private _workingDirectory: string = '';
 
+	/**
+	 * Information about the runtime that is only available after starting.
+	 */
+	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -257,6 +262,16 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * An object that emits exit events.
 	 */
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
+
+	/** Information about the runtime that is only available after starting */
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
+	async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		// Not implemented.
+		return Promise.resolve({});
+	}
 
 	/**
 	 * Execute code in the runtime.
@@ -1134,12 +1149,15 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 					this.simulateIdleState(parentId);
 				}, 100);
 
-				// Resolve.
-				resolve({
+				// Create the runtime info
+				this._runtimeInfo = {
 					banner: `${makeSGR(SGR.ForegroundBlue)}Zed ${this.runtimeMetadata.languageVersion}${makeSGR(SGR.Reset)}\nThis is the ${makeSGR(SGR.ForegroundGreen)}Zed${makeSGR(SGR.Reset)} test language.\n\nEnter 'help' for help.\n`,
 					implementation_version: this.runtimeMetadata.runtimeVersion,
 					language_version: this.runtimeMetadata.languageVersion,
-				} as positron.LanguageRuntimeInfo);
+				};
+
+				// Resolve.
+				resolve(this._runtimeInfo);
 			}, 1000);
 		});
 	}
@@ -1172,6 +1190,10 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		} else {
 			throw new Error(`Can't interrupt; not busy or already interrupting`);
 		}
+	}
+
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
 	}
 
 	/**

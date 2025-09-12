@@ -237,7 +237,7 @@ export const DataExplorer = () => {
 		return () => disposableStore.dispose();
 	}, [columnsCollapsed, services.accessibilityService, context.instance]);
 
-	// Automatic layout useEffect.
+	// Automatic layout useLayoutEffect.
 	useLayoutEffect(() => {
 		// Set the initial width.
 		const initialWidth = dataExplorerRef.current.offsetWidth;
@@ -360,6 +360,7 @@ export const DataExplorer = () => {
 			}
 			<div ref={splitterRef} className='splitter'>
 				<VerticalSplitter
+					alwaysShowExpandCollapseButton={true}
 					collapsible={true}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
 					isCollapsed={columnsCollapsed}

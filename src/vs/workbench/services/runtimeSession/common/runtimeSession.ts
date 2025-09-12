@@ -31,7 +31,6 @@ import { IConfigurationResolverService } from '../../configurationResolver/commo
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { dirname } from '../../../../base/common/path.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -396,22 +395,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Validates that a path is an existing directory.
+	 * Validates that a URI is an existing directory.
 	 *
-	 * @param path The path to validate
-	 * @returns A promise that resolves to true if the path is a directory and exists,
+	 * @param uri The URI to validate
+	 * @returns A promise that resolves to true if the URI is a directory and exists,
 	 * false otherwise.
 	 */
-	private async isValidDirectory(path: string): Promise<boolean> {
+	private async isValidDirectory(uri: URI): Promise<boolean> {
 		try {
-			const stat = await this._fileService.stat(URI.file(path));
+			const stat = await this._fileService.stat(uri);
 			if (!stat.isDirectory) {
-				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${path}' exists but is not a directory`);
+				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri}' exists but is not a directory`);
 				return false;
 			}
 			return true;
 		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${path}' does not exist or is not accessible:`, error);
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri}' does not exist or is not accessible:`, error);
 			return false;
 		}
 	}
@@ -427,15 +426,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private async resolveNotebookWorkingDirectory(notebookUri: URI): Promise<string | undefined> {
 		// The default value is the notebook's parent directory, if it exists.
 		let defaultValue: string | undefined;
-		const notebookParent = dirname(notebookUri.fsPath);
+		const notebookParent = URI.joinPath(notebookUri, '..');
 		if (await this.isValidDirectory(notebookParent)) {
-			defaultValue = notebookParent;
+			defaultValue = notebookParent.fsPath;
 		}
 
 		const configValue = this._configurationService.getValue<string>(
 			NotebookSetting.workingDirectory, { resource: notebookUri }
 		);
 		if (!configValue || configValue.trim() === '') {
+			this._logService.info(`${NotebookSetting.workingDirectory}: Setting is unset. Using default: '${defaultValue}'`);
 			return defaultValue;
 		}
 		const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(notebookUri);
@@ -447,14 +447,23 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				workspaceFolder || undefined, configValue
 			);
 		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Failed to resolve variables in '${configValue}':`, error);
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Failed to resolve variables in '${configValue}'. Using default: '${defaultValue}'`, error);
 			return defaultValue;
 		}
 
 		// Check if the result is a directory that exists
-		if (await this.isValidDirectory(resolvedValue)) {
+		let resolvedValueUri: URI;
+		try {
+			resolvedValueUri = notebookUri.with({ path: resolvedValue });
+		} catch (error) {
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Invalid path '${resolvedValue}'. Using default: '${defaultValue}'`, error);
+			return defaultValue;
+		}
+		if (await this.isValidDirectory(resolvedValueUri)) {
+			this._logService.info(`${NotebookSetting.workingDirectory}: Resolved '${configValue}' to '${resolvedValue}'`);
 			return resolvedValue;
 		} else {
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Using default value '${defaultValue}'`);
 			return defaultValue;
 		}
 	}
@@ -1202,9 +1211,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	/**
 	 * Shutdown a runtime session if active, and delete it.
 	 * Cleans up the session and removes it from the active sessions list.
+	 *
+	 * The user can cancel the deletion if the runtime is busy. The returned
+	 * boolean indicates wether the session was deleted.
 	 * @param sessionId The session ID of the runtime to delete.
 	 */
-	async deleteSession(sessionId: string): Promise<void> {
+	async deleteSession(sessionId: string): Promise<boolean> {
 		// If the session is disconnected, we preserve the console session
 		// in the case that the extension host comes back online.
 		if (this._disconnectedSessions.has(sessionId)) {
@@ -1226,7 +1238,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// The session was not interrupted, so we can't delete it.
 				if (!interrupted) {
-					return;
+					this._logService.debug(`Attempt to delete session ${sessionId} was cancelled by user`);
+					return false;
 				}
 			}
 
@@ -1250,7 +1263,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
 			this._onDidDeleteRuntimeSessionEmitter.fire(sessionId);
+
 		}
+
+		this._logService.debug(`Session ${sessionId} has been deleted`);
+		return true;
 	}
 
 	/**

@@ -12,7 +12,6 @@ import React, { useRef, useEffect } from 'react';
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
 import { ColumnProfileDate } from './columnProfileDate.js';
 import { ColumnProfileNumber } from './columnProfileNumber.js';
@@ -49,9 +48,6 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
-	// Context hooks.
-	const context = usePositronDataGridContext();
-
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
 
@@ -216,23 +212,60 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	 * @returns The rendered component.
 	 */
 	const ColumnNullPercent = () => {
-		// Set the null percent and graph null percent.
-		let nullPercent = props.instance.getColumnProfileNullPercent(props.columnIndex);
+		// Get the null percent value for this column
+		const nullPercent = props.instance.getColumnProfileNullPercent(props.columnIndex);
+
+		/**
+		 * The graph null percent value is used to determine how much of the
+		 * "progress bar" for missing values is filled in the UI. This value is
+		 * not always the same as the null percent value.
+		 *
+		 * The null percent value is the percentage of null values in the column.
+		 * The graph null percent value may be higher or lower than the null percent
+		 * value to ensure the "progress bar" is visually readable by the user.
+		 * This is relevant when the percentage of null values is very small or very large.
+		 *
+		 * In the very small case, we want to ensure that the bar does not look empty.
+		 * In the very large case, we want to ensure that the bar does not look completely full.
+		 */
 		let graphNullPercent = nullPercent;
+
 		if (nullPercent !== undefined) {
 			if (nullPercent <= 0) {
-				nullPercent = graphNullPercent = 0;
+				graphNullPercent = 0;
 			} else if (nullPercent >= 100) {
-				nullPercent = graphNullPercent = 100;
+				graphNullPercent = 100;
 			} else {
-				// Pin the graph null percent such that anything above 0% and below 5% reads as 5% and
-				// anything below 100% above 95% reads as 95%.
+				// Pin the graph null percent such that anything above 0% and below 5% reads as 5%
+				// and anything below 100% above 95% reads as 95%. This ensures that the missing values
+				// "progress bar" is visually readable by the user and does not appear incorrectly empty
+				// or full. This is especially important for columns with very few rows.
 				graphNullPercent = Math.min(Math.max(nullPercent, 5), 95);
 			}
 		}
 
 		// Create a reference to the container div
 		const containerRef = useRef<HTMLDivElement>(null);
+
+		// Helper function to format the null percentage we display in the UI.
+		const getDisplayNullPercent = () => {
+			if (nullPercent === undefined) {
+				return undefined;
+			} else if (nullPercent <= 0) {
+				return '0%';
+			} else if (nullPercent >= 100) {
+				return '100%';
+			} else if (nullPercent > 0 && nullPercent < 1) {
+				return '<1%';
+			} else {
+				/**
+				 * We round the percentage to the nearest integer
+				 * when displaying it in the UI to avoid cluttering
+				 * the UI with too many decimal places.
+				 */
+				return `${Math.floor(nullPercent)}%`;
+			}
+		};
 
 		// Create tooltip text based on nullPercent
 		const getTooltipText = () => {
@@ -242,23 +275,24 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			if (nullPercent === undefined || nullCount === undefined) {
 				return nls.localize(
 					'positron.missingValues.calculating',
-					'Missing Values\nCalculating...'
+					'Calculating...'
 				);
 			} else if (nullPercent === 0) {
 				return nls.localize(
 					'positron.missingValues.none',
-					'Missing Values\nNo missing values'
+					'No missing values'
 				);
 			} else if (nullPercent === 100) {
 				return nls.localize(
 					'positron.missingValues.all',
-					'Missing Values\nAll values are missing ({0} values)', nullCount.toLocaleString()
+					'All values are missing ({0} values)', nullCount.toLocaleString()
 				);
 			} else {
+				// Format percentage for tooltip
 				return nls.localize(
 					'positron.missingValues.some',
-					'Missing Values\n{0}% of values are missing ({1} values)',
-					nullPercent,
+					'{0} of values are missing ({1} values)',
+					getDisplayNullPercent(),
 					nullCount.toLocaleString()
 				);
 			}
@@ -296,7 +330,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			>
 				{nullPercent !== undefined &&
 					<div className={positronClassNames('text-percent', { 'zero': nullPercent === 0 })}>
-						{nullPercent}%
+						{getDisplayNullPercent()}
 					</div>
 				}
 				<div className='graph-percent'>
@@ -493,7 +527,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				className={positronClassNames(
 					'cursor-indicator',
 					{ 'cursor': cursor },
-					{ 'focused': cursor && context.instance.focused }
+					{ 'focused': cursor && props.instance.focused }
 				)}
 			/>
 			<div className='basic-info'>

@@ -39,6 +39,7 @@ import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
+import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 
 /**
@@ -164,6 +165,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * are not supported.
 	 */
 	private _activeBackendRequestHeader: JupyterMessageHeader | null = null;
+
+	/** Information about the runtime that is only available after starting */
+	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
 
 	/**
 	 * Constructor for the Kallichore session wrapper.
@@ -661,6 +665,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
+
+	/**
+	 * Sends a Debug Adapter Protocol request to the runtime's debugger.
+	 *
+	 * @param request The Debug Adapter Protocol request.
+	 * @returns The Debug Adapter Protocol response.
+	 */
+	async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		const debug = new DebugRequest(request);
+		return await this.sendRequest(debug);
+	}
 
 	/**
 	 * Requests that the kernel execute a code fragment.
@@ -1444,6 +1459,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * been sent. Note that the kernel may not be interrupted immediately.
 	 */
 	async interrupt(): Promise<void> {
+		// Mark the session as interrupting
+		this.onStateChange(positron.RuntimeState.Interrupting, 'interrupting kernel');
+
 		// Clear current input request if any
 		this._activeBackendRequestHeader = null;
 
@@ -1455,6 +1473,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 			throw err;
 		}
+	}
+
+	getDynState(): Thenable<positron.LanguageRuntimeDynState> {
+		return Promise.resolve(this.dynState);
 	}
 
 	/**
@@ -1650,6 +1672,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Gets the runtime information for the kernel, if available.
+	 */
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
+	/**
 	 * Processs and emit a state change.
 	 *
 	 * @param newState The new kernel state
@@ -1796,15 +1825,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Translate the kernel info into a runtime info object
-		const info: positron.LanguageRuntimeInfo = {
+		this._runtimeInfo = {
 			banner: reply.banner,
 			implementation_version: reply.implementation_version,
 			language_version: reply.language_info.version,
+			supported_features: reply.supported_features,
 			input_prompt,
 			continuation_prompt,
 		};
 
-		return info;
+		return this._runtimeInfo;
 	}
 
 	/**

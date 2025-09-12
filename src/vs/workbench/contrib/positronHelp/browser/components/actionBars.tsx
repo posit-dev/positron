@@ -130,10 +130,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeTitle event handler.
-		currentHelpEntry.onDidChangeTitle(() => {
+		disposableStore.add(currentHelpEntry.onDidChangeTitle(() => {
 			// Set the current help title.
 			setCurrentHelpTitle(currentHelpEntry.title);
-		});
+		}));
 
 		// Return the cleanup function.
 		return () => disposableStore.dispose();

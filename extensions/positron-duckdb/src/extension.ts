@@ -6,8 +6,10 @@
 import * as vscode from 'vscode';
 import {
 	BackendState,
+	CodeSyntaxName,
 	ColumnDisplayType,
 	ColumnFilter,
+	ColumnFilterType,
 	ColumnFrequencyTable,
 	ColumnFrequencyTableParams,
 	ColumnHistogram,
@@ -20,12 +22,15 @@ import {
 	ColumnSortKey,
 	ColumnSummaryStats,
 	ColumnValue,
+	ConvertedCode,
+	ConvertToCodeParams,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataExplorerResponse,
 	DataExplorerRpc,
 	DataExplorerUiEvent,
 	DataSelectionCellRange,
+	DataSelectionCellIndices,
 	DataSelectionIndices,
 	DataSelectionRange,
 	DataSelectionSingleCell,
@@ -35,6 +40,7 @@ import {
 	FilterBetween,
 	FilterComparison,
 	FilterComparisonOp,
+	FilterMatchDataTypes,
 	FilterResult,
 	FilterSetMembership,
 	FilterTextSearch,
@@ -47,6 +53,9 @@ import {
 	ReturnColumnProfilesEvent,
 	RowFilter,
 	RowFilterType,
+	SearchSchemaParams,
+	SearchSchemaResult,
+	SearchSchemaSortOrder,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
 	SupportStatus,
@@ -813,7 +822,134 @@ export class DuckDBTableView {
 					type_name: entry.column_type,
 					type_display
 				};
-			})
+			}),
+		};
+	}
+
+	async searchSchema(
+		params: SearchSchemaParams,
+	): RpcResponse<SearchSchemaResult> {
+		// Get all column indices
+		const allIndices: number[] = [];
+		for (let i = 0; i < this.fullSchema.length; i++) {
+			allIndices.push(i);
+		}
+
+		// Apply filters if any
+		let filteredIndices = allIndices;
+		if (params.filters && params.filters.length > 0) {
+			filteredIndices = allIndices.filter((index) => {
+				const entry = this.fullSchema[index];
+				const columnName = entry.column_name;
+				const columnType = entry.column_type;
+
+				// Get display type for this column
+				let displayType = SCHEMA_TYPE_MAPPING.get(columnType);
+				if (displayType === undefined) {
+					displayType = ColumnDisplayType.Unknown;
+				}
+				if (columnType.startsWith('DECIMAL')) {
+					displayType = ColumnDisplayType.Number;
+				}
+
+				// Apply each filter
+				return params.filters.every((filter) => {
+					switch (filter.filter_type) {
+						case ColumnFilterType.TextSearch: {
+							const textFilter =
+								filter.params as FilterTextSearch;
+							const searchTerm = textFilter.case_sensitive
+								? textFilter.term
+								: textFilter.term.toLowerCase();
+							const columnNameToMatch = textFilter.case_sensitive
+								? columnName
+								: columnName.toLowerCase();
+
+							switch (textFilter.search_type) {
+								case TextSearchType.Contains:
+									return columnNameToMatch.includes(
+										searchTerm,
+									);
+								case TextSearchType.NotContains:
+									return !columnNameToMatch.includes(
+										searchTerm,
+									);
+								case TextSearchType.StartsWith:
+									return columnNameToMatch.startsWith(
+										searchTerm,
+									);
+								case TextSearchType.EndsWith:
+									return columnNameToMatch.endsWith(
+										searchTerm,
+									);
+								case TextSearchType.RegexMatch:
+									try {
+										const regex = new RegExp(
+											textFilter.term,
+											textFilter.case_sensitive
+												? ''
+												: 'i',
+										);
+										return regex.test(columnName);
+									} catch {
+										return false;
+									}
+								default:
+									return false;
+							}
+						}
+						case ColumnFilterType.MatchDataTypes: {
+							const typeFilter =
+								filter.params as FilterMatchDataTypes;
+							return typeFilter.display_types.includes(
+								displayType,
+							);
+						}
+						default:
+							return false;
+					}
+				});
+			});
+		}
+
+		// Sort the filtered indices
+		switch (params.sort_order) {
+			case SearchSchemaSortOrder.AscendingName:
+				filteredIndices.sort((a, b) => {
+					const nameA = this.fullSchema[a].column_name.toLowerCase();
+					const nameB = this.fullSchema[b].column_name.toLowerCase();
+					return nameA.localeCompare(nameB);
+				});
+				break;
+			case SearchSchemaSortOrder.DescendingName:
+				filteredIndices.sort((a, b) => {
+					const nameA = this.fullSchema[a].column_name.toLowerCase();
+					const nameB = this.fullSchema[b].column_name.toLowerCase();
+					return nameB.localeCompare(nameA);
+				});
+				break;
+			case SearchSchemaSortOrder.AscendingType:
+				filteredIndices.sort((a, b) => {
+					const typeA = this.fullSchema[a].column_type.toLowerCase();
+					const typeB = this.fullSchema[b].column_type.toLowerCase();
+					return typeA.localeCompare(typeB);
+				});
+				break;
+			case SearchSchemaSortOrder.DescendingType:
+				filteredIndices.sort((a, b) => {
+					const typeA = this.fullSchema[a].column_type.toLowerCase();
+					const typeB = this.fullSchema[b].column_type.toLowerCase();
+					return typeB.localeCompare(typeA);
+				});
+				break;
+			case SearchSchemaSortOrder.Original:
+			default:
+				// Keep original order
+				break;
+		}
+
+		return {
+			matches: filteredIndices,
 		};
 	}
 
@@ -1117,8 +1253,17 @@ END`;
 					]
 				},
 				search_schema: {
-					support_status: SupportStatus.Unsupported,
-					supported_types: []
+					support_status: SupportStatus.Supported,
+					supported_types: [
+						{
+							column_filter_type: ColumnFilterType.TextSearch,
+							support_status: SupportStatus.Supported,
+						},
+						{
+							column_filter_type: ColumnFilterType.MatchDataTypes,
+							support_status: SupportStatus.Supported,
+						}
+					],
 				},
 				set_column_filters: {
 					support_status: SupportStatus.Unsupported,
@@ -1184,7 +1329,8 @@ END`;
 					]
 				},
 				convert_to_code: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{ code_syntax_name: 'SQL' }]
 				}
 			}
 		};
@@ -1272,11 +1418,12 @@ END`;
 								other_count: 0
 							};
 							break;
-						case ColumnProfileType.SummaryStats:
+						case ColumnProfileType.SummaryStats: {
 							// Create null summary stats appropriate for the column type
 							const columnSchema = this.fullSchema[request.column_index];
 							result.summary_stats = this.createEmptySummaryStats(columnSchema);
 							break;
+						}
 					}
 				}
 				return result;
@@ -1484,6 +1631,20 @@ END`;
 				FROM ${this.tableName}`;
 				return await exportQueryOutput(query, columns);
 			}
+			case TableSelectionKind.CellIndices: {
+				const selection = params.selection.selection as DataSelectionCellIndices;
+				const rowIndices = selection.row_indices;
+				const columnIndices = selection.column_indices;
+				const columns = columnIndices.map(i => this.fullSchema[i]);
+
+				// Create a VALUES clause to preserve the order of row indices
+				const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
+				FROM ${this.tableName}
+				JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
+				ORDER BY row_order.sort_order`;
+				return await exportQueryOutput(query, columns);
+			}
 		}
 	}
 	private async _getShape(whereClause: string = ''): Promise<[number, number]> {
@@ -1496,6 +1657,35 @@ END`;
 		// The count comes back as BigInt
 		const numRows = Number(result.toArray()[0].num_rows);
 		return [numRows, numColumns];
+	}
+
+	async suggestCodeSyntaxes(): RpcResponse<CodeSyntaxName> {
+		return {
+			code_syntax_name: 'SQL'
+		};
+	}
+
+	async convertToCode(params: ConvertToCodeParams, uri: string): RpcResponse<ConvertedCode> {
+		const parsedUri = vscode.Uri.parse(uri);
+		const filename = path.basename(parsedUri.path, path.extname(parsedUri.path));
+
+		// Escape any quotes in the filename to prevent SQL injection
+		const escapedFilename = filename.replace(/"/g, '""');
+		const result = ["SELECT * ", `FROM "${escapedFilename}"`];
+
+		if (this._whereClause) {
+			const whereClause = this._whereClause.replace(/\n/g, ' ').trim();
+			result.push(whereClause);
+		}
+
+		if (this._sortClause) {
+			const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
+			result.push(sortClause);
+		}
+
+		return {
+			converted_code: result
+		};
 	}
 }
 
@@ -1664,8 +1854,13 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				return table.setRowFilters(rpc.params as SetRowFiltersParams);
 			case DataExplorerBackendRequest.SetSortColumns:
 				return table.setSortColumns(rpc.params as SetSortColumnsParams);
-			case DataExplorerBackendRequest.SetColumnFilters:
 			case DataExplorerBackendRequest.SearchSchema:
+				return table.searchSchema(rpc.params as SearchSchemaParams);
+			case DataExplorerBackendRequest.SuggestCodeSyntax:
+				return table.suggestCodeSyntaxes();
+			case DataExplorerBackendRequest.ConvertToCode:
+				return table.convertToCode(rpc.params as ConvertToCodeParams, rpc.uri!);
+			case DataExplorerBackendRequest.SetColumnFilters:
 				return `${rpc.method} not yet implemented`;
 			default:
 				return `unrecognized data explorer method: ${rpc.method} `;

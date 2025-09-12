@@ -73,5 +73,13 @@
 	{
         "key": "cmd+j q",
         "command": "workbench.action.files.openFolder" // Open Folder
+    },
+    {
+        "key": "cmd+j z",
+        "command": "workbench.action.positronDataExplorer.collapseSummary" // Collapse/hide the summary Panel in DE
+    },
+    {
+        "key": "cmd+j y",
+        "command": "workbench.action.positronDataExplorer.expandSummary" // Expand/show the summary Panel in DE
     }
 ]

@@ -21,19 +21,25 @@
 	padding: 4px 0;
 }
 
-.activity-error-message .traceback .toggle-traceback {
+.activity-error-message .traceback .actions {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.activity-error-message .traceback .actions .toggle-traceback {
 	display: grid;
 	cursor: pointer;
 	grid-template-columns: 2ch 1fr;
 }
 
-.activity-error-message .traceback .toggle-traceback .expansion-indicator {
+.activity-error-message .traceback .actions .toggle-traceback .expansion-indicator {
 	display: flex;
 	margin-left: 0px;
 	align-items: center;
 }
 
-.activity-error-message .traceback .toggle-traceback .link-text {
+.activity-error-message .traceback .actions .toggle-traceback .link-text {
 	text-decoration: underline;
 	color: var(--vscode-textLink-foreground);
 }

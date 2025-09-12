@@ -9,6 +9,8 @@ import * as vscode from 'vscode';
 import {
 	BackendState,
 	ColumnDisplayType,
+	ColumnFilter,
+	ColumnFilterType,
 	ColumnProfileType,
 	ColumnSchema,
 	ColumnSortKey,
@@ -18,6 +20,8 @@ import {
 	DataExplorerRpc,
 	ExportFormat,
 	FilterComparisonOp,
+	FilterMatchDataTypes,
+	FilterTextSearch,
 	FormatOptions,
 	GetDataValuesParams,
 	GetSchemaParams,
@@ -25,6 +29,9 @@ import {
 	RowFilterCondition,
 	RowFilterParams,
 	RowFilterType,
+	SearchSchemaParams,
+	SearchSchemaResult,
+	SearchSchemaSortOrder,
 	Selection,
 	SetRowFiltersParams,
 	SupportStatus,
@@ -215,8 +222,17 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			sort_keys: [],
 			supported_features: {
 				search_schema: {
-					support_status: SupportStatus.Unsupported,
-					supported_types: []
+					support_status: SupportStatus.Supported,
+					supported_types: [
+						{
+							column_filter_type: ColumnFilterType.TextSearch,
+							support_status: SupportStatus.Supported
+						},
+						{
+							column_filter_type: ColumnFilterType.MatchDataTypes,
+							support_status: SupportStatus.Supported
+						}
+					]
 				},
 				set_column_filters: {
 					support_status: SupportStatus.Unsupported,
@@ -244,7 +260,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						ExportFormat.Html
 					]
 				},
-				convert_to_code: { support_status: SupportStatus.Unsupported }
+				convert_to_code: {
+					support_status: SupportStatus.Supported,
+					code_syntaxes: [{
+						code_syntax_name: "SQL"
+					}]
+				}
 			}
 		} satisfies BackendState);
 
@@ -720,6 +741,23 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			await testSelection(TableSelectionKind.ColumnIndices, { indices }, expected);
 		};
 		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
+
+		// Test CellIndices selection
+		const testCellIndices = async (rowIndices: number[], columnIndices: number[], expected: string) => {
+			await testSelection(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected);
+		};
+		await testCellIndices([0, 2], [0, 2], 'int_col,float_col\n1,1.1\n3,3.3');
+		await testCellIndices([1, 3], [1, 2], 'str_col,float_col\nb,2.2\nNULL,NULL');
+		await testCellIndices([0, 1, 4], [0], 'int_col\n1\n2\nNULL');
+		// Test non-strictly-increasing row indices (order should be preserved)
+		await testCellIndices([4, 0, 2], [0], 'int_col\nNULL\n1\n3');
+		await testCellIndices([3, 1, 0], [1, 2], 'str_col,float_col\nNULL,NULL\nb,2.2\na,1.1');
+		await testCellIndices([2, 4, 1], [0, 1], `int_col,str_col\n3,c\nNULL,${longString}\n2,b`);
+		// Test non-strictly-increasing column indices (order should be preserved)
+		await testCellIndices([0, 1], [2, 0, 1], 'float_col,int_col,str_col\n1.1,1,a\n2.2,2,b');
+		await testCellIndices([1, 2], [1, 2, 0], 'str_col,float_col,int_col\nb,2.2,2\nc,3.3,3');
+		// Test both row and column indices out of order
+		await testCellIndices([2, 0], [2, 0], 'float_col,int_col\n3.3,3\n1.1,1');
 
 		// Test TSV format
 		await testSelection(TableSelectionKind.CellRange,
@@ -1747,6 +1785,314 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(numberStats.stdev, '0', 'Stdev should be 0 for all null column');
 	});
 
+	test('searchSchema functionality', async () => {
+		// Create test table with overlapping column names and mixed types
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				display_type: ColumnDisplayType.Number,
+				values: ['1', '2', '3'],
+			},
+			{
+				name: 'user_id',
+				type: 'INTEGER',
+				display_type: ColumnDisplayType.Number,
+				values: ['101', '102', '103'],
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ["'Alice'", "'Bob'", "'Charlie'"],
+			},
+			{
+				name: 'full_name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ["'Alice Smith'", "'Bob Jones'", "'Charlie Brown'"],
+			},
+			{
+				name: 'first_name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ["'Alice'", "'Bob'", "'Charlie'"],
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				display_type: ColumnDisplayType.Number,
+				values: ['25', '30', '35'],
+			},
+			{
+				name: 'created_at',
+				type: 'TIMESTAMP',
+				display_type: ColumnDisplayType.Datetime,
+				values: [
+					"'2024-01-01 00:00:00'",
+					"'2024-01-02 00:00:00'",
+					"'2024-01-03 00:00:00'",
+				],
+			},
+			{
+				name: 'updated_at',
+				type: 'TIMESTAMP',
+				display_type: ColumnDisplayType.Datetime,
+				values: [
+					"'2024-02-01 00:00:00'",
+					"'2024-02-02 00:00:00'",
+					"'2024-02-03 00:00:00'",
+				],
+			},
+			{
+				name: 'is_active',
+				type: 'BOOLEAN',
+				display_type: ColumnDisplayType.Boolean,
+				values: ['true', 'false', 'true'],
+			},
+			{
+				name: 'is_deleted',
+				type: 'BOOLEAN',
+				display_type: ColumnDisplayType.Boolean,
+				values: ['false', 'false', 'true'],
+			},
+			{
+				name: 'birth_date',
+				type: 'DATE',
+				display_type: ColumnDisplayType.Date,
+				values: ["'1999-01-01'", "'1994-01-01'", "'1989-01-01'"],
+			},
+			{
+				name: 'start_date',
+				type: 'DATE',
+				display_type: ColumnDisplayType.Date,
+				values: ["'2020-01-01'", "'2019-01-01'", "'2018-01-01'"],
+			},
+			{
+				name: 'salary',
+				type: 'DOUBLE',
+				display_type: ColumnDisplayType.Number,
+				values: ['50000.0', '60000.0', '70000.0'],
+			},
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Helper function to test searchSchema
+		const testSearchSchema = async (
+			filters: ColumnFilter[],
+			sortOrder: SearchSchemaSortOrder,
+			expectedIndices: number[],
+			description: string,
+		) => {
+			const result = (await dxExec({
+				method: DataExplorerBackendRequest.SearchSchema,
+				uri: uri.toString(),
+				params: {
+					filters,
+					sort_order: sortOrder,
+				} satisfies SearchSchemaParams,
+			})) as SearchSchemaResult;
+
+			assert.deepStrictEqual(
+				result.matches,
+				expectedIndices,
+				description,
+			);
+		};
+
+		// Helper to create text search filter
+		const textFilter = (
+			searchType: TextSearchType,
+			term: string,
+			caseSensitive = false,
+		): ColumnFilter => ({
+			filter_type: ColumnFilterType.TextSearch,
+			params: {
+				search_type: searchType,
+				term,
+				case_sensitive: caseSensitive,
+			} satisfies FilterTextSearch,
+		});
+
+		// Helper to create data type filter
+		const typeFilter = (
+			...displayTypes: ColumnDisplayType[]
+		): ColumnFilter => ({
+			filter_type: ColumnFilterType.MatchDataTypes,
+			params: {
+				display_types: displayTypes,
+			} satisfies FilterMatchDataTypes,
+		});
+
+		// Test cases defined as data
+		const testCases: Array<{
+			filters: ColumnFilter[];
+			sortOrder: SearchSchemaSortOrder;
+			expected: number[];
+			description: string;
+		}> = [
+				// Basic tests
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+					description: 'No filters, original order',
+				},
+
+				// Text search tests
+				{
+					filters: [textFilter(TextSearchType.Contains, 'date')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [7, 10, 11],
+					description: 'Contains "date"',
+				},
+				{
+					filters: [textFilter(TextSearchType.Contains, 'name')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [2, 3, 4],
+					description: 'Contains "name"',
+				},
+				{
+					filters: [textFilter(TextSearchType.Contains, 'id')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 1],
+					description: 'Contains "id"',
+				},
+				{
+					filters: [textFilter(TextSearchType.StartsWith, 'is')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [8, 9],
+					description: 'Starts with "is"',
+				},
+				{
+					filters: [textFilter(TextSearchType.EndsWith, 'at')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [6, 7],
+					description: 'Ends with "at"',
+				},
+				{
+					filters: [textFilter(TextSearchType.NotContains, '_')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 2, 5, 12],
+					description: 'Not contains "_"',
+				},
+				{
+					filters: [textFilter(TextSearchType.RegexMatch, '^[a-z]+$')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 2, 5, 12],
+					description: 'Regex match ^[a-z]+$',
+				},
+
+				// Type filter tests
+				{
+					filters: [typeFilter(ColumnDisplayType.Number)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 1, 5, 12],
+					description: 'Number columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.String)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [2, 3, 4],
+					description: 'String columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Boolean)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [8, 9],
+					description: 'Boolean columns',
+				},
+				{
+					filters: [
+						typeFilter(
+							ColumnDisplayType.Date,
+							ColumnDisplayType.Datetime,
+						),
+					],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [6, 7, 10, 11],
+					description: 'Date/Datetime columns',
+				},
+
+				// Multiple filters (AND logic)
+				{
+					filters: [
+						textFilter(TextSearchType.Contains, 'a'),
+						typeFilter(ColumnDisplayType.Number),
+					],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [5, 12],
+					description: 'Contains "a" AND Number type',
+				},
+
+				// Sort order tests - by name
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.AscendingName,
+					expected: [5, 10, 6, 4, 3, 0, 8, 9, 2, 12, 11, 7, 1],
+					description: 'Ascending by name',
+				},
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.DescendingName,
+					expected: [1, 7, 11, 12, 2, 9, 8, 0, 3, 4, 6, 10, 5],
+					description: 'Descending by name',
+				},
+				{
+					filters: [textFilter(TextSearchType.Contains, 'a')],
+					sortOrder: SearchSchemaSortOrder.AscendingName,
+					expected: [5, 10, 6, 4, 3, 8, 2, 12, 11, 7],
+					description: 'Filtered and sorted by name',
+				},
+
+				// Sort order tests - by type
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.AscendingType,
+					expected: [8, 9, 10, 11, 12, 0, 1, 5, 6, 7, 2, 3, 4],
+					description: 'Ascending by type',
+				},
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.DescendingType,
+					expected: [2, 3, 4, 6, 7, 0, 1, 5, 12, 10, 11, 8, 9],
+					description: 'Descending by type',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Number)],
+					sortOrder: SearchSchemaSortOrder.AscendingType,
+					expected: [12, 0, 1, 5],
+					description: 'Number columns by type',
+				},
+
+				// Case sensitivity tests
+				{
+					filters: [textFilter(TextSearchType.Contains, 'AGE', true)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [],
+					description: 'Case-sensitive "AGE"',
+				},
+				{
+					filters: [textFilter(TextSearchType.Contains, 'age', true)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [5],
+					description: 'Case-sensitive "age"',
+				},
+			];
+
+		// Run all test cases
+		for (const testCase of testCases) {
+			await testSearchSchema(
+				testCase.filters,
+				testCase.sortOrder,
+				testCase.expected,
+				testCase.description,
+			);
+		}
+	});
+
 	test('ColumnProfileEvaluator.computeSummaryStats - Edge case: single value', async () => {
 		// Create a test table with a single value repeated, using quoted field name to test escaping
 		const tableName = await createSummaryStatsTestTable(
@@ -1775,5 +2121,256 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(numberStats.mean, '42', 'Mean should be 42');
 		assert.strictEqual(numberStats.median, '42', 'Median should be 42');
 		assert.strictEqual(numberStats.stdev, '0', 'Standard deviation should be 0 for single value');
+	});
+
+	test('convertToCode - with row filters', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with more diverse data for filtering
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Get full schema to build row filter
+		const fullSchema = await getSchema(tableName);
+
+		// Create filter: age > 30
+		const rowFilter: RowFilter = {
+			filter_id: 'test-filter',
+			condition: RowFilterCondition.And,
+			column_schema: fullSchema.columns[2], // age column
+			filter_type: RowFilterType.Compare,
+			params: {
+				op: FilterComparisonOp.Gt,
+				value: '30'
+			}
+		};
+
+		// Apply the filter first so it's reflected in the SQL generation
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: {
+				filters: [rowFilter]
+			}
+		});
+
+		// Test convert to code with row filter applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [rowFilter],
+				sort_keys: [],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 3, 'Should have 3 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'WHERE "age" > 30', 'Third line should have the WHERE clause');
+	});
+
+	test('convertToCode - with sort columns', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with more diverse data for sorting
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Create sort key: sort by name descending
+		const sortKey: ColumnSortKey = {
+			column_index: 1, // name column
+			ascending: false
+		};
+
+		// Apply the sort key first so it's reflected in the SQL generation
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: {
+				sort_keys: [sortKey]
+			}
+		});
+
+		// Test convert to code with sort key applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [sortKey],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 3, 'Should have 3 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'ORDER BY "name" DESC', 'Third line should have the ORDER BY clause');
+	});
+
+	test('convertToCode - with both row filters and sort columns', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with data for filtering and sorting
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'", "'David'", "'Eve'"]
+			},
+			{
+				name: 'age',
+				type: 'INTEGER',
+				values: ['25', '30', '35', '40', '45']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Get full schema to build row filter
+		const fullSchema = await getSchema(tableName);
+
+		// Create filter: age > 30
+		const rowFilter: RowFilter = {
+			filter_id: 'test-filter',
+			condition: RowFilterCondition.And,
+			column_schema: fullSchema.columns[2], // age column
+			filter_type: RowFilterType.Compare,
+			params: {
+				op: FilterComparisonOp.Gt,
+				value: '30'
+			}
+		};
+
+		// Create sort key: sort by name ascending
+		const sortKey: ColumnSortKey = {
+			column_index: 1, // name column
+			ascending: true
+		};
+
+		// Apply the filter and sort key
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: {
+				filters: [rowFilter]
+			}
+		});
+
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: {
+				sort_keys: [sortKey]
+			}
+		});
+
+		// Test convert to code with both row filter and sort key applied
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [rowFilter],
+				sort_keys: [sortKey],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 4, 'Should have 4 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+		assert.strictEqual(result.converted_code[1], `FROM "${tableName}"`, `Second line should reference the table name`);
+		assert.strictEqual(result.converted_code[2], 'WHERE "age" > 30', 'Third line should have the WHERE clause');
+		assert.strictEqual(result.converted_code[3], 'ORDER BY "name"', 'Fourth line should have the ORDER BY clause');
+	});
+
+	test('convertToCode - with long/complex filename/URI', async () => {
+		// Use a long filename that needs to be quoted in SQL
+		const specialTableName = makeTempTableName() + '_complex_tablename_with_underscores';
+
+		// Create a simple test table
+		await createTempTable(specialTableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3']
+			},
+			{
+				name: 'data',
+				type: 'VARCHAR',
+				values: ["'A'", "'B'", "'C'"]
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: specialTableName });
+
+		// Test convert to code with a complex filename
+		const result = await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: {
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [],
+				code_syntax_name: { code_syntax_name: 'SQL' }
+			}
+		});
+
+		assert.ok(result, 'Convert to code result should be returned');
+		assert.ok(result.converted_code, 'Converted code should be present');
+		assert.strictEqual(result.converted_code.length, 2, 'Should have 2 lines of code');
+		assert.strictEqual(result.converted_code[0], 'SELECT * ', 'First line should be SELECT * ');
+
+		// Verify that the table name is properly quoted in SQL
+		assert.strictEqual(result.converted_code[1], `FROM "${specialTableName}"`, 'Second line should properly quote the table name');
 	});
 });

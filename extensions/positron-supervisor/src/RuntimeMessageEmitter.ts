@@ -28,6 +28,8 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 
 	private readonly _emitter = new vscode.EventEmitter<positron.LanguageRuntimeCommMessage
 		| positron.LanguageRuntimeCommOpen
+		| positron.LanguageRuntimeDebugEvent
+		| positron.LanguageRuntimeDebugReply
 		| positron.LanguageRuntimeResult
 		| positron.LanguageRuntimeOutput
 		| positron.LanguageRuntimeInput
@@ -56,6 +58,12 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 				break;
 			case JupyterMessageType.CommOpen:
 				this.onCommOpen(msg, msg.content as JupyterCommOpen);
+				break;
+			case JupyterMessageType.DebugEvent:
+				this.onDebugEvent(msg, msg.content as positron.DebugProtocolEvent);
+				break;
+			case JupyterMessageType.DebugReply:
+				this.onDebugReply(msg, msg.content as positron.DebugProtocolResponse);
 				break;
 			case JupyterMessageType.DisplayData:
 				this.onDisplayData(msg, msg.content as JupyterDisplayData);
@@ -203,6 +211,42 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 			metadata: message.metadata,
 			buffers: message.buffers,
 		} satisfies positron.LanguageRuntimeCommOpen);
+	}
+
+	/**
+	 * Converts a Jupyter debug event message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The debug event message
+	 */
+	private onDebugEvent(message: JupyterMessage, data: positron.DebugProtocolEvent): void {
+		this._emitter.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.DebugEvent,
+			content: data,
+			metadata: message.metadata,
+		} satisfies positron.LanguageRuntimeDebugEvent);
+	}
+
+	/**
+	 * Converts a Jupyter debug reply message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The debug reply message
+	 */
+	private onDebugReply(message: JupyterMessage, data: positron.DebugProtocolResponse): void {
+		this._emitter.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.DebugReply,
+			content: data,
+			metadata: message.metadata,
+		} satisfies positron.LanguageRuntimeDebugReply);
 	}
 
 	/**

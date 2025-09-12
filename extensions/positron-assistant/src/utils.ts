@@ -6,16 +6,22 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import * as positron from 'positron';
+import { JSONTree } from '@vscode/prompt-tsx';
 import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
 import { log } from './extension.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
+ *
+ * @param messages The messages to convert.
+ * @param toolResultExperimentalContent Whether to use experimental content for tool results.
+ * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
-	toolResultExperimentalContent: boolean = false
+	toolResultExperimentalContent: boolean = false,
+	bedrockCacheBreakpoint: boolean = false
 ): ai.CoreMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -38,20 +44,31 @@ export function toAIMessage(
 
 			// Add the user messages.
 			const userContent: ai.UserContent = [];
+			let cacheBreakpoint = false;
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelTextPart) {
 					userContent.push({ type: 'text', text: part.value });
 				} else if (part instanceof vscode.LanguageModelDataPart) {
 					if (isChatImagePart(part)) {
 						userContent.push({ type: 'image', image: part.data, mimeType: part.mimeType });
+					} else if (part.mimeType === LanguageModelDataPartMimeType.CacheControl) {
+						cacheBreakpoint = true;
 					}
 				}
 			}
 			if (userContent.length > 0) {
-				aiMessages.push({
+				const messageContent: ai.CoreUserMessage = {
 					role: 'user',
 					content: userContent
-				});
+				};
+
+				// If this is a cache breakpoint, note it in the message
+				// content. This is only used by the Bedrock provider.
+				if (cacheBreakpoint && bedrockCacheBreakpoint) {
+					cacheBreakpoint = false;
+					markBedrockCacheBreakpoint(messageContent);
+				}
+				aiMessages.push(messageContent);
 			}
 
 			// Add the tool messages.
@@ -59,10 +76,16 @@ export function toAIMessage(
 				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
 					if (toolResultExperimentalContent) {
 						const toolCall = toolCalls[part.callId];
-						aiMessages.push(
-							convertToolResultToAiMessageExperimentalContent(part, toolCall)
-						);
+						const toolMessage = convertToolResultToAiMessageExperimentalContent(part, toolCall);
+						if (cacheBreakpoint && bedrockCacheBreakpoint) {
+							cacheBreakpoint = false;
+							markBedrockCacheBreakpoint(toolMessage);
+						}
+						aiMessages.push(toolMessage);
 					} else {
+						// Note that we don't need to check for cache
+						// breakpoints here since Anthropic models that support
+						// caching use the experimental content format above.
 						const toolCall = toolCalls[part.callId];
 						if (toolCall.name === PositronAssistantToolName.GetPlot) {
 							aiMessages.push(getPlotToolResultToAiMessage(part));
@@ -86,9 +109,14 @@ export function toAIMessage(
 
 		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
 			const content: ai.AssistantContent = [];
+			let cacheBreakpoint = false;
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelTextPart) {
 					content.push({ type: 'text', text: part.value });
+				} else if (part instanceof vscode.LanguageModelDataPart) {
+					if (isCacheBreakpointPart(part)) {
+						cacheBreakpoint = true;
+					}
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
 					if (
 						!toolResultExperimentalContent &&
@@ -109,15 +137,27 @@ export function toAIMessage(
 						toolName: part.name,
 						args: part.input,
 					});
+				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+					// Convert PromptTSX parts to text
+					const text = promptTsxPartToString(part);
+					content.push({ type: 'text', text });
 				} else {
 					// Skip unknown parts.
 					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
 				}
 			}
-			aiMessages.push({
+			const aiMessage: ai.CoreAssistantMessage = {
 				role: 'assistant',
 				content,
-			});
+			};
+
+			// If this is a cache breakpoint, note it in the message
+			// content. This is only used by the Bedrock provider.
+			if (cacheBreakpoint && bedrockCacheBreakpoint) {
+				cacheBreakpoint = false;
+				markBedrockCacheBreakpoint(aiMessage);
+			}
+			aiMessages.push(aiMessage);
 		}
 	}
 
@@ -125,6 +165,17 @@ export function toAIMessage(
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
+export function markBedrockCacheBreakpoint(message: ai.CoreMessage): ai.CoreMessage {
+	log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+	message.providerOptions = {
+		bedrock: {
+			cachePoint: {
+				type: 'default',
+			}
+		}
+	};
+	return message;
+}
 
 /**
  * Convert a tool result into a Vercel AI message with experimental content.
@@ -174,9 +225,14 @@ function convertToolResultToAiMessageExperimentalContent(
 						data: content.value.base64,
 						mimeType: content.value.mimeType,
 					};
+				} else if (content instanceof vscode.LanguageModelPromptTsxPart) {
+					return {
+						type: 'text',
+						text: promptTsxPartToString(content),
+					};
 				} else {
 					throw new Error(
-						`Unsupported part type on tool result message`
+						`Unsupported part type on tool result message: ${(content as any).constructor?.name ?? typeof content}`
 					);
 				}
 			}
@@ -357,6 +413,88 @@ export function processMessages(messages: vscode.LanguageModelChatMessage2[]) {
 		.map(removeEmptyTextParts)
 		// Process empty tool results, replacing them with a placeholder
 		.map(processEmptyToolResults);
+}
+
+/**
+ * Convert a LanguageModelPromptTsxPart to a string representation.
+ *
+ * This is used to render the result of some Copilot tools (which return Prompt
+ * TSX) parts into strings we can pass to other providers
+ *
+ * @param part The PromptTSX part to convert
+ * @returns A string representation of the PromptTSX part
+ */
+export function promptTsxPartToString(part: vscode.LanguageModelPromptTsxPart): string {
+	let text: string;
+	try {
+		// Try to convert the PromptElementJSON to a string
+		if (part.value && typeof part.value === 'object' && 'node' in part.value) {
+			// This is a PromptElementJSON structure
+			const element = part.value as JSONTree.PromptElementJSON;
+			text = stringifyPromptElementJSON(element);
+		} else {
+			// Fallback to JSON stringify for other structures
+			text = JSON.stringify(part.value, null, 2);
+		}
+	} catch (error) {
+		log.warn(`Failed to convert PromptTsxPart to string: ${error}`);
+		text = '[PromptTsxPart could not be rendered]';
+	}
+
+	log.trace(`Converted PromptTsxPart to string: ${text}`);
+	return text;
+}
+
+/**
+ * Simple implementation of stringifyPromptElementJSON for converting PromptTSX
+ * to text.
+ *
+ * @param element The PromptElementJSON to stringify
+ * @returns A string representation of the element
+ */
+function stringifyPromptElementJSON(element: JSONTree.PromptElementJSON): string {
+	const strs: string[] = [];
+	stringifyPromptNodeJSON(element.node, strs);
+	return strs.join('');
+}
+
+/**
+ * Recursively stringify a PromptNodeJSON into an array of strings.
+ *
+ * @param node The PromptNodeJSON to stringify
+ * @param strs The array to append strings to
+ */
+function stringifyPromptNodeJSON(node: JSONTree.PromptNodeJSON, strs: string[]): void {
+	if (node.type === JSONTree.PromptNodeType.Text) {
+		if (node.lineBreakBefore) {
+			strs.push('\n');
+		}
+		if (typeof node.text === 'string') {
+			strs.push(node.text);
+		}
+	} else if (node.type === JSONTree.PromptNodeType.Piece) {
+		if (node.ctor === JSONTree.PieceCtorKind.ImageChatMessage) {
+			strs.push('<image>');
+		} else if (node.ctor === JSONTree.PieceCtorKind.BaseChatMessage || node.ctor === JSONTree.PieceCtorKind.Other) {
+			for (const child of node.children) {
+				stringifyPromptNodeJSON(child, strs);
+			}
+		}
+	} else if (node.type === JSONTree.PromptNodeType.Opaque) {
+		// For opaque nodes, try to convert the value to string
+		const opaqueNode = node as JSONTree.OpaqueJSON;
+		if (typeof opaqueNode.value === 'string') {
+			strs.push(opaqueNode.value);
+		} else if (opaqueNode.value) {
+			strs.push(JSON.stringify(opaqueNode.value));
+		}
+	} else {
+		// Should not happen since all node types are handled, but as a fallback
+		// just stringify the whole node and shove it in the array
+		const content = JSON.stringify(node);
+		log.warn(`Unexpected node in Prompt TSX; using raw content: ${content}`);
+		strs.push(content);
+	}
 }
 
 // This type definition is from Vercel AI, but the type is not exported.

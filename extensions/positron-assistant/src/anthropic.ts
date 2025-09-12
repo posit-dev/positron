@@ -8,9 +8,11 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
+import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
+import { availableModels } from './models.js';
+import { TokenUsage } from './tokens.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -28,10 +30,13 @@ type CacheControllableBlockParam = Anthropic.TextBlockParam |
 	Anthropic.ToolUseBlockParam |
 	Anthropic.ToolResultBlockParam;
 
-export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
+export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	name: string;
 	provider: string;
-	identifier: string;
+	family: string;
+	id: string;
+	version: string;
+	maxInputTokens: number;
 	maxOutputTokens: number;
 	tokenCount: number = 0;
 
@@ -46,14 +51,18 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'anthropic',
+			// Note: The 'anthropic' provider name is taken by Copilot Chat; we
+			// use 'anthropic-api' instead to make it possible to differentiate
+			// the two.
+			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
-		supportedOptions: ['apiKey'],
+		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
 		defaults: {
 			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
+			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
 
@@ -63,18 +72,53 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		client?: Anthropic,
 	) {
 		this.name = _config.name;
-		this.provider = _config.provider;
-		this.identifier = _config.id;
+		this.family = this.provider = _config.provider;
+		this.id = _config.id;
 		this._client = client ?? new Anthropic({
 			apiKey: _config.apiKey,
 		});
+		this.version = '';
+		this.maxInputTokens = 0;
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
-	async provideLanguageModelResponse(
+	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		const models = availableModels.get(this.provider);
+
+		if (!models || models.length === 0) {
+			return [
+				{
+					id: this.id,
+					name: this.name,
+					family: this.provider,
+					version: this._context?.extension.packageJSON.version ?? '',
+					maxInputTokens: 0,
+					maxOutputTokens: this.maxOutputTokens,
+					capabilities: this.capabilities,
+
+				}
+			];
+		}
+
+		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
+			id: model.identifier,
+			name: model.name,
+			family: this._config.provider,
+			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
+			maxInputTokens: this.maxInputTokens,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
+			isDefault: model === models[0],
+			isUserSelectable: true,
+		}));
+
+		return languageModels;
+	}
+
+	async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.LanguageModelChatRequestOptions,
-		extensionId: string,
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
@@ -88,7 +132,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		const anthropicMessages = toAnthropicMessages(messages);
 
 		const body: Anthropic.MessageStreamParams = {
-			model: this._config.model,
+			model: model.id,
 			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
 			tools,
 			tool_choice,
@@ -100,6 +144,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
+			log.info(`[anthropic] Start request ${stream.request_id} to ${model.id}: ${anthropicMessages.length} messages`);
 			if (log.logLevel <= vscode.LogLevel.Trace) {
 				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
 			} else {
@@ -132,10 +177,23 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			this.onText(textDelta, progress);
 		});
 
+		// Report token usage information as part of the output stream.
+		stream.on('streamEvent', (event) => {
+			if (event.type === 'message_start' || event.type === 'message_delta') {
+				const usage = event.type === 'message_start' ? event.message.usage : event.usage;
+				const part: any = vscode.LanguageModelDataPart.json({
+					type: 'usage',
+					data: toTokenUsage(usage)
+				});
+				progress.report({ index: 0, part: part });
+			}
+		});
+
 		try {
 			await stream.done();
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
+				log.warn(`[anthropic] Error in messages.stream [${stream.request_id}]: ${error.message}`);
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
@@ -146,6 +204,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					throw new Error(`Anthropic's API is temporarily overloaded.`);
 				}
 			} else if (error instanceof Anthropic.AnthropicError) {
+				log.warn(`[anthropic] Error in messages.stream [${stream.request_id}]: ${error.message}`);
 				// This can happen if the API key was not persisted correctly.
 				if (error.message.startsWith('Could not resolve authentication method')) {
 					throw new Error('Something went wrong when storing the Anthropic API key. ' +
@@ -161,31 +220,21 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			log.trace(`[anthropic] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message, null, 2)}`);
 		} else {
 			log.debug(
-				`[anthropic] RECV messages.stream [${stream.request_id}]: ` +
-				`usage: ${JSON.stringify(message.usage)}`
-			);
+				`[anthropic] RECV messages.stream [${stream.request_id}]`);
+			log.info(`[anthropic] Finished request ${stream.request_id}; usage: ${JSON.stringify(message.usage)}`);
 		}
 
 		// Record token usage
 		if (message.usage && this._context) {
-			const inputTokens = message.usage.input_tokens || 0;
-			const outputTokens = message.usage.output_tokens || 0;
-			recordTokenUsage(this._context, this.provider, inputTokens, outputTokens);
+			const tokens = toTokenUsage(message.usage);
+			recordTokenUsage(this._context, this.provider, tokens);
 
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, inputTokens, outputTokens);
+				recordRequestTokenUsage(requestId, this.provider, tokens);
 			}
 		}
-
-		// Return token usage information for display in the chat UI
-		return message.usage ? {
-			tokenUsage: {
-				inputTokens: message.usage.input_tokens || 0,
-				outputTokens: message.usage.output_tokens || 0
-			}
-		} : undefined;
 	}
 
 	get providerName(): string {
@@ -213,7 +262,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		});
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
+	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
 		const messages: Anthropic.MessageParam[] = [];
 		if (typeof text === 'string') {
 			// For empty string, return 0 tokens
@@ -238,7 +287,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 		}
 		const result = await this._client.messages.countTokens({
-			model: this._config.model,
+			model: model.id,
 			messages,
 		});
 		return result.input_tokens;
@@ -251,6 +300,22 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			return error as Error;
 		}
 	}
+}
+
+function toTokenUsage(usage: Anthropic.MessageDeltaUsage): TokenUsage {
+	const input = usage.input_tokens || 0;
+	const output = usage.output_tokens || 0;
+	const cache_creation = usage.cache_creation_input_tokens || 0;
+	const cache_read = usage.cache_read_input_tokens || 0;
+
+	return {
+		inputTokens: input + cache_creation,
+		outputTokens: output,
+		cachedTokens: cache_read,
+		providerMetadata: {
+			anthropic: usage,
+		}
+	};
 }
 
 function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
@@ -371,8 +436,10 @@ function toAnthropicToolResultBlock(
 			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
 			// Skip data parts.
+		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
+			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
 		} else {
-			throw new Error('Unsupported part type on tool result part content');
+			throw new Error(`Unsupported part type on tool result part content: ${JSON.stringify(resultPart)}`);
 		}
 	}
 	return withCacheControl(
@@ -426,6 +493,24 @@ function languageModelImagePartToAnthropicImageBlock(
 	);
 }
 
+function languageModelPromptTsxPartToAnthropicBlock(
+	part: vscode.LanguageModelPromptTsxPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.TextBlockParam {
+	// Convert the prompt TSX part to a string representation using the shared utility
+	const text = promptTsxPartToString(part);
+
+	return withCacheControl(
+		{
+			type: 'text',
+			text,
+		},
+		source,
+		dataPart,
+	);
+}
+
 function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
 	if (tools.length === 0) {
 		return [];
@@ -443,6 +528,11 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		type: 'object',
 		properties: {},
 	};
+	// Anthropic requires a type for all tools; default to 'object' if not provided.
+	if (!input_schema.type) {
+		log.warn(`[anthropic] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+		input_schema.type = 'object';
+	}
 	return {
 		name: tool.name,
 		description: tool.description,

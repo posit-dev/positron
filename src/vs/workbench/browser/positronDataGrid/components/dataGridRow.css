@@ -9,3 +9,11 @@
 	width: 100%;
 	position: absolute;
 }
+
+.data-grid-row:not(.pinned) {
+	z-index: 0;
+}
+
+.data-grid-row.pinned {
+	z-index: 1;
+}

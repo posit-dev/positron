@@ -44,7 +44,7 @@ export class Modals {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
 			await this.expectToBeVisible();
-			await this.clickOk();
+			await this.clickButton('Install');
 			this.code.logger.log('Installing ipykernel');
 			await this.toasts.expectToBeVisible();
 			await this.toasts.expectNotToBeVisible();

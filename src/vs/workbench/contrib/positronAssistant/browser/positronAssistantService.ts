@@ -17,6 +17,7 @@ import { URI } from '../../../../base/common/uri.js';
 import * as glob from '../../../../base/common/glob.js';
 import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
 
 /**
  * PositronAssistantService class.
@@ -37,6 +38,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IChatService private readonly _chatService: IChatService,
 		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILanguageService private readonly _languageService: ILanguageService,
 		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
 		@IProductService protected readonly _productService: IProductService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
@@ -103,20 +105,39 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	areCompletionsEnabled(uri: URI): boolean {
-		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+		// First, check the language-specific enable setting
+		const enableSettings = this._configurationService.getValue<Record<string, boolean>>('positron.assistant.inlineCompletions.enable');
 
-		if (!globPattern || globPattern.length === 0) {
-			return false; // No glob patterns configured, so no files are excluded
-		}
+		if (enableSettings && typeof enableSettings === 'object') {
+			// Get the language ID from the URI
+			const languageId = this._languageService.guessLanguageIdByFilepathOrFirstLine(uri);
 
-		// Check all of the glob patterns and return true if any match
-		for (const pattern of globPattern) {
-			if (glob.match(pattern, uri.path)) {
-				return true; // File matches an exclusion pattern
+			// Check if the specific language is disabled
+			if (languageId && enableSettings.hasOwnProperty(languageId) && !enableSettings[languageId]) {
+				return false; // Language is explicitly disabled
+			}
+
+			// Check if all languages are disabled via the "*" key
+			if (enableSettings.hasOwnProperty('*') && !enableSettings['*']) {
+				return false; // All languages are disabled
 			}
 		}
 
-		return false; // No patterns matched, so the file is not excluded
+		// Then, check the exclusion patterns
+		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+
+		if (!globPattern || globPattern.length === 0) {
+			return true; // No glob patterns configured, so completions are enabled
+		}
+
+		// Check all of the glob patterns and return false if any match
+		for (const pattern of globPattern) {
+			if (glob.match(pattern, uri.path)) {
+				return false; // File matches an exclusion pattern, so it is excluded from completions
+			}
+		}
+
+		return true; // No patterns matched, so completions are enabled
 	}
 
 	//#endregion
@@ -135,11 +156,11 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	getSupportedProviders(): string[] {
-		const providers = ['anthropic', 'copilot'];
+		const providers = ['anthropic-api', 'copilot'];
 		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
 
 		if (useTestModels) {
-			providers.push('bedrock', 'error', 'echo', 'google');
+			providers.push('amazon-bedrock', 'error', 'echo', 'google');
 		}
 		return providers;
 	}

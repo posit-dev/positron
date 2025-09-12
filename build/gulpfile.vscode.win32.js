@@ -116,10 +116,16 @@ function buildWin32Setup(arch, target) {
 			Quality: quality
 		};
 
-		if (quality === 'insider') {
-			definitions['AppxPackage'] = `code_insiders_explorer_${arch}.appx`;
-			definitions['AppxPackageFullname'] = `Microsoft.${product.win32RegValueName}_1.0.0.0_neutral__8wekyb3d8bbwe`;
+		// --- Start Positron ---
+		// Positron doesn't build for the Windows store
+		/*
+		if (quality !== 'exploration') {
+			definitions['AppxPackage'] = `${quality === 'stable' ? 'code' : 'code_insider'}_${arch}.appx`;
+			definitions['AppxPackageDll'] = `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`;
+			definitions['AppxPackageName'] = `${product.win32AppUserModelId}`;
 		}
+		*/
+		// --- End Positron ---
 
 		packageInnoSetup(issPath, { definitions }, cb);
 	};

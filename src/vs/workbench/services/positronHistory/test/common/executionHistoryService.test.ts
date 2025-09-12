@@ -15,7 +15,7 @@ import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEv
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ExecutionHistoryService } from '../../common/executionHistory.js';
 import { IWorkspace, IWorkspaceContextService, IWorkspaceFoldersWillChangeEvent } from '../../../../../platform/workspace/common/workspace.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -187,7 +187,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	deleteSession(_sessionId: string): Promise<void> {
+	deleteSession(_sessionId: string): Promise<boolean> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -476,6 +476,10 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	}
 
 	getRuntimeState(): any {
+		throw new Error('Method not implemented.');
+	}
+
+	get runtimeInfo(): ILanguageRuntimeInfo | undefined {
 		throw new Error('Method not implemented.');
 	}
 

@@ -10,33 +10,17 @@ import './NotebookCodeCell.css';
 import React from 'react';
 
 // Other dependencies.
-import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
-import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { CellTextOutput } from './CellTextOutput.js';
-import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
+import { CellExecutionInfoIcon } from './CellExecutionInfoIcon.js';
 
-interface CellExecutionControlsProps {
-	isRunning: boolean;
-	onRun: () => void;
-}
-
-function CellExecutionControls({ isRunning, onRun }: CellExecutionControlsProps) {
-	return (
-		<ActionButton
-			ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
-			onPressed={onRun}
-		>
-			<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-		</ActionButton>
-	);
-}
 
 interface CellOutputsSectionProps {
 	outputs: NotebookCellOutputs[] | undefined;
@@ -44,7 +28,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
 	return (
-		<div className='positron-notebook-code-cell-outputs'>
+		<div className={`positron-notebook-code-cell-outputs positron-notebook-cell-outputs ${outputs.length > 0 ? 'has-outputs' : 'no-outputs'}`} data-testid='cell-output'>
 			{outputs?.map((output) => (
 				<CellOutput key={output.outputId} {...output} />
 			))}
@@ -54,18 +38,18 @@ function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
-	const executionStatus = useObservedValue(cell.executionStatus);
-	const isRunning = executionStatus === 'running';
 
 	return (
-		<NotebookCellWrapper cell={cell}>
-			<NotebookCellActionBar cell={cell}>
-				<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />
-			</NotebookCellActionBar>
+		<NotebookCellWrapper
+			cell={cell}
+		>
 			<div className='positron-notebook-code-cell-contents'>
-				<CellEditorMonacoWidget cell={cell} />
+				<div className='positron-notebook-editor-container'>
+					<CellEditorMonacoWidget cell={cell} />
+				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>
+			<CellExecutionInfoIcon cell={cell} />
 		</NotebookCellWrapper>
 	);
 }

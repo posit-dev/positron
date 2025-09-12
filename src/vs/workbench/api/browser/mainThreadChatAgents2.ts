@@ -174,6 +174,9 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 					this._pendingProgress.delete(request.requestId);
 				}
 			},
+			setRequestTools: (requestId, tools) => {
+				this._proxy.$setRequestTools(requestId, tools);
+			},
 			setRequestPaused: (requestId, isPaused) => {
 				this._proxy.$setRequestPaused(handle, requestId, isPaused);
 			},
@@ -208,8 +211,8 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 					metadata: revive(metadata),
 					slashCommands: [],
 					disambiguation: [],
-					locations: [ChatAgentLocation.Panel], // TODO all dynamic participants are panel only?
-					modes: [ChatModeKind.Ask]
+					locations: [ChatAgentLocation.Panel],
+					modes: [ChatModeKind.Ask, ChatModeKind.Agent, ChatModeKind.Edit],
 				},
 				impl);
 		} else {
@@ -243,7 +246,7 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			const [progress, responsePartHandle] = Array.isArray(item) ? item : [item];
 
 			const revivedProgress = progress.kind === 'notebookEdit'
-				? ChatNotebookEdit.fromChatEdit(revive(progress))
+				? ChatNotebookEdit.fromChatEdit(progress)
 				: revive(progress) as IChatProgress;
 
 			if (revivedProgress.kind === 'notebookEdit'
@@ -372,15 +375,19 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 		this._agentIdsToCompletionProviders.deleteAndDispose(id);
 	}
 
-	$registerChatParticipantDetectionProvider(handle: number): void {
+	// --- Start Positron ---
+	// Added extensionId to the chat participant detection provider
+	$registerChatParticipantDetectionProvider(handle: number, extensionId?: ExtensionIdentifier): void {
 		this._chatParticipantDetectionProviders.set(handle, this._chatAgentService.registerChatParticipantDetectionProvider(handle,
 			{
 				provideParticipantDetection: async (request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation; participants: IChatParticipantMetadata[] }, token: CancellationToken) => {
 					return await this._proxy.$detectChatParticipant(handle, request, { history }, options, token);
 				}
-			}
+			},
+			extensionId
 		));
 	}
+	// --- End Positron ---
 
 	$unregisterChatParticipantDetectionProvider(handle: number): void {
 		this._chatParticipantDetectionProviders.deleteAndDispose(handle);
@@ -424,7 +431,7 @@ namespace ChatNotebookEdit {
 	export function fromChatEdit(part: IChatNotebookEditDto): IChatNotebookEdit {
 		return {
 			kind: 'notebookEdit',
-			uri: part.uri,
+			uri: URI.revive(part.uri),
 			done: part.done,
 			edits: part.edits.map(NotebookDto.fromCellEditOperationDto)
 		};

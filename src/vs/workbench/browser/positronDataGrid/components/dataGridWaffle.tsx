@@ -7,14 +7,15 @@
 import './dataGridWaffle.css';
 
 // React.
-import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react';
+import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
 import { DataGridRow } from './dataGridRow.js';
+import * as DOM from '../../../../base/browser/dom.js';
 import { DataGridScrollbar } from './dataGridScrollbar.js';
 import { DataGridRowHeaders } from './dataGridRowHeaders.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { isMacintosh } from '../../../../base/common/platform.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { DataGridCornerTopLeft } from './dataGridCornerTopLeft.js';
 import { DataGridColumnHeaders } from './dataGridColumnHeaders.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -22,9 +23,9 @@ import { DataGridScrollbarCorner } from './dataGridScrollbarCorner.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { FontConfigurationManager } from '../../fontConfigurationManager.js';
+import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-
 /**
  * DataGridWaffle component.
  * @param ref The foreard ref.
@@ -71,25 +72,32 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		return () => disposableStore.dispose();
 	}, [services.configurationService, context.instance]);
 
-	// Layout useEffect.
-	useEffect(() => {
-		// Set the initial width and height.
-		setWidth(dataGridWaffleRef.current.offsetWidth);
-		setHeight(dataGridWaffleRef.current.offsetHeight);
+	// Automatic layout useLayoutEffect.
+	useLayoutEffect(() => {
+		// Wait for the data grid waffle to be mounted.
+		if (!dataGridWaffleRef.current) {
+			return;
+		}
 
 		/**
-		 * Sets the screen size.
+		 * Sets the size.
 		 * @returns A Promise<void> that resolves when the operation is complete.
 		 */
-		const setScreenSize = async (width: number, height: number) => {
-			// Set the screen size.
+		const setSize = async (width: number, height: number) => {
+			// Set the width and height in this component.
+			setWidth(width);
+			setHeight(height);
+
+			// Set the size in the data grid instance.
 			await context.instance.setSize(width, height);
 		};
 
-		// Set the initial screen size.
-		setScreenSize(
-			dataGridWaffleRef.current.offsetWidth,
-			dataGridWaffleRef.current.offsetHeight
+		// ResizeObserver does not work well on elements inside secondary Electron windows. This causes issues
+		// with the data grid's automatic layout feature, which relies on knowing when the size of the data grid
+		// waffle changes. See https://github.com/posit-dev/positron/issues/8695. Using `requestAnimationFrame`
+		// ensures that the initial size of the data grid waffle is set when the component is mounted.
+		DOM.getWindow(dataGridWaffleRef.current).requestAnimationFrame(async () =>
+			await setSize(dataGridWaffleRef.current.offsetWidth, dataGridWaffleRef.current.offsetHeight)
 		);
 
 		// If automatic layout isn't enabled, return.
@@ -97,24 +105,45 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			return;
 		}
 
-		// Allocate and initialize the waffle resize observer.
-		const resizeObserver = new ResizeObserver(async entries => {
-			// Set the width and height.
-			setWidth(entries[0].contentRect.width);
-			setHeight(entries[0].contentRect.height);
+		// If we're not in Electron, or the data grid waffle is in the main window, allocate and
+		// initialize the data grid waffle resize observer. Otherwise, poll the size of the data
+		// grid waffle every 250 milliseconds. This is a workaround for ResizeObserver not working
+		// in secondary Electron windows.
+		if (!isElectron || DOM.getWindow(dataGridWaffleRef.current) === mainWindow) {
+			// Allocate and initialize the data grid waffle resize observer.
+			const dataGridWaffleResizeObserver = new ResizeObserver(async entries => {
+				await setSize(
+					entries[0].contentRect.width,
+					entries[0].contentRect.height
+				);
+			});
 
-			// Set the screen size.
-			await setScreenSize(
-				entries[0].contentRect.width,
-				entries[0].contentRect.height
-			);
-		});
+			// Start observing the size of the data grid waffle.
+			dataGridWaffleResizeObserver.observe(dataGridWaffleRef.current);
 
-		// Start observing the size of the waffle.
-		resizeObserver.observe(dataGridWaffleRef.current);
+			// Return the cleanup function that will disconnect the resize observers.
+			return () => dataGridWaffleResizeObserver.disconnect();
+		} else {
+			// Get the window of the data grid waffle.
+			const window = DOM.getWindow(dataGridWaffleRef.current);
 
-		// Return the cleanup function that will disconnect the resize observer.
-		return () => resizeObserver.disconnect();
+			// Set the last width and height.
+			let lastWidth = dataGridWaffleRef.current.offsetWidth;
+			let lastHeight = dataGridWaffleRef.current.offsetHeight;
+
+			// Poll the size of the data grid waffle every 250 milliseconds.
+			const interval = window.setInterval(async () => {
+				// If the size of the data grid waffle has changed, update the last width and height and set the screen size.
+				if (lastWidth !== dataGridWaffleRef.current.offsetWidth || lastHeight !== dataGridWaffleRef.current.offsetHeight) {
+					lastWidth = dataGridWaffleRef.current.offsetWidth;
+					lastHeight = dataGridWaffleRef.current.offsetHeight;
+					await setSize(lastWidth, lastHeight);
+				}
+			}, 250);
+
+			// Return the cleanup function that will clear the interval.
+			return () => window.clearInterval(interval);
+		}
 	}, [context.instance, dataGridWaffleRef]);
 
 	/**
@@ -137,7 +166,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		switch (e.code) {
 			// Space key.
 			case 'Space': {
-
 				// Make sure the cursor is showing.
 				if (context.instance.showCursor()) {
 					return;
@@ -152,7 +180,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						context.instance.selectColumn(context.instance.cursorColumnIndex);
 					} else if (e.shiftKey && !e.ctrlKey) {
 						context.instance.selectRow(context.instance.cursorRowIndex);
-					} if (isMacintosh ? e.metaKey : e.ctrlKey && e.shiftKey) {
+					} else if (e.ctrlKey && e.shiftKey) {
 						context.instance.selectAll();
 					}
 				}
@@ -190,14 +218,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
 					await context.instance.setScrollOffsets(0, 0);
-					context.instance.setCursorPosition(0, 0);
+					context.instance.setCursorPosition(
+						context.instance.firstColumnIndex,
+						context.instance.firstRowIndex
+					);
 					return;
 				}
 
 				// Home clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
 				await context.instance.setHorizontalScrollOffset(0);
-				context.instance.setCursorColumn(0);
+				context.instance.setCursorColumn(context.instance.firstColumnIndex);
 				break;
 			}
 
@@ -231,8 +262,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						context.instance.maximumVerticalScrollOffset
 					);
 					context.instance.setCursorPosition(
-						context.instance.columns - 1,
-						context.instance.rows - 1
+						context.instance.lastColummIndex,
+						context.instance.lastRowIndex
 					);
 					return;
 				}
@@ -240,7 +271,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// End clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
 				await context.instance.setHorizontalScrollOffset(context.instance.maximumHorizontalScrollOffset);
-				context.instance.setCursorColumn(context.instance.columns - 1);
+				context.instance.setCursorColumn(context.instance.lastColummIndex);
 				break;
 			}
 
@@ -332,10 +363,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Move the cursor up.
-				if (context.instance.cursorRowIndex > 0) {
-					context.instance.setCursorRow(context.instance.cursorRowIndex - 1);
-					context.instance.scrollToCursor();
-				}
+				context.instance.moveCursorUp();
 				break;
 			}
 
@@ -367,10 +395,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Move the cursor down.
-				if (context.instance.cursorRowIndex < context.instance.rows - 1) {
-					context.instance.setCursorRow(context.instance.cursorRowIndex + 1);
-					context.instance.scrollToCursor();
-				}
+				context.instance.moveCursorDown();
 				break;
 			}
 
@@ -402,10 +427,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// Moves the cursor left.
-				if (context.instance.cursorColumnIndex > 0) {
-					context.instance.setCursorColumn(context.instance.cursorColumnIndex - 1);
-					context.instance.scrollToCursor();
-				}
+				context.instance.moveCursorLeft();
 				break;
 			}
 
@@ -436,12 +458,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					context.instance.clearSelection();
 				}
 
-				// Move the cursor right.
-				context.instance.clearSelection();
-				if (context.instance.cursorColumnIndex < context.instance.columns - 1) {
-					context.instance.setCursorColumn(context.instance.cursorColumnIndex + 1);
-					context.instance.scrollToCursor();
-				}
+				// Moves the cursor right.
+				context.instance.moveCursorRight();
 				break;
 			}
 		}
@@ -459,6 +477,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		// Get the delta X and delta Y.
 		let deltaX = e.deltaX;
 		let deltaY = e.deltaY;
+
+		// Suppress jitter on the non-dominant wheel axis.
+		{
+			// This bias factor prevents minor input noise from falsely flipping axis dominance.
+			const bias = 1.1;
+
+			// Zero out the non-dominant axis.
+			const absDeltaX = Math.abs(deltaX);
+			const absDeltaY = Math.abs(deltaY);
+			if (absDeltaX > absDeltaY * bias) {
+				deltaY = 0;
+			} else if (absDeltaY > absDeltaX * bias) {
+				deltaX = 0;
+			}
+		}
 
 		// When the user is holding the shift key, invert delta X and delta Y.
 		if (e.shiftKey) {
@@ -488,17 +521,42 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	};
 
-	// Create the data grid rows.
+	// Get the column descriptors and row descriptors.
+	const columnDescriptors = context.instance.getColumnDescriptors(
+		context.instance.horizontalScrollOffset,
+		width
+	);
+	const rowDescriptors = context.instance.getRowDescriptors(
+		context.instance.verticalScrollOffset,
+		height
+	);
+
+	// Create the pinned data grid row elements.
 	const dataGridRows: JSX.Element[] = [];
-	for (let rowLayoutEntry = context.instance.firstRow;
-		rowLayoutEntry && rowLayoutEntry.top < context.instance.layoutBottom;
-		rowLayoutEntry = context.instance.getRow(rowLayoutEntry.rowIndex + 1)
-	) {
+	for (const pinnedRowDescriptor of rowDescriptors.pinnedRowDescriptors) {
 		dataGridRows.push(
 			<DataGridRow
-				key={`row-${rowLayoutEntry.rowIndex}`}
-				rowIndex={rowLayoutEntry.rowIndex}
-				top={rowLayoutEntry.top - context.instance.verticalScrollOffset}
+				key={`pinned-row-${pinnedRowDescriptor.rowIndex}`}
+				columnDescriptors={columnDescriptors}
+				height={pinnedRowDescriptor.height}
+				pinned={true}
+				rowIndex={pinnedRowDescriptor.rowIndex}
+				top={pinnedRowDescriptor.top}
+				width={width}
+			/>
+		);
+	}
+
+	// Create the unpinned data grid row elements.
+	for (const unpinnedRowDescriptor of rowDescriptors.unpinnedRowDescriptors) {
+		dataGridRows.push(
+			<DataGridRow
+				key={`unpinned-row-${unpinnedRowDescriptor.rowIndex}`}
+				columnDescriptors={columnDescriptors}
+				height={unpinnedRowDescriptor.height}
+				pinned={false}
+				rowIndex={unpinnedRowDescriptor.rowIndex}
+				top={unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
 				width={width}
 			/>
 		);
@@ -515,7 +573,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
 		>
-			{context.instance.columnHeaders && context.instance.rowHeaders &&
+			{context.instance.columnHeaders && context.instance.rowHeaders && context.instance.columns !== 0 &&
 				<DataGridCornerTopLeft
 					onClick={async () => {
 						await context.instance.setScrollOffsets(0, 0);
@@ -524,6 +582,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 			{context.instance.columnHeaders &&
 				<DataGridColumnHeaders
+					columnDescriptors={columnDescriptors}
 					height={context.instance.columnHeadersHeight}
 					width={width - context.instance.rowHeadersWidth}
 				/>
@@ -531,6 +590,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			{context.instance.rowHeaders &&
 				<DataGridRowHeaders
 					height={height - context.instance.columnHeadersHeight}
+					rowDescriptors={rowDescriptors}
 				/>
 			}
 			{context.instance.horizontalScrollbar &&
@@ -583,17 +643,18 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 			<div
 				ref={dataGridRowsRef}
-				className='data-grid-rows'
+				className='data-grid-rows-container'
 				style={{
 					width: width - context.instance.rowHeadersWidth,
 					height: height - context.instance.columnHeadersHeight,
-					overflow: 'hidden'
 				}}
 			>
-				<div style={{
-					position: 'relative',
-					margin: context.instance.rowsMargin
-				}}>
+				<div
+					className='data-grid-rows'
+					style={{
+						margin: context.instance.rowsMargin
+					}}
+				>
 					{dataGridRows}
 				</div>
 			</div>

@@ -1,0 +1,83 @@
+name: 'Nightly: Bootstrap Extensions Check'
+
+# Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
+on:
+  schedule:
+    - cron: "0 2 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  extensions-linux:
+    name: 'extensions-linux'
+    timeout-minutes: 60
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:35
+      options: --user 0:0
+      # Static PAT is needed because the bot can't pass a token to the job for security reasons
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Attempt 1 - Setup Build and Compile
+        id: attempt1
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
+
+      - name: Attempt 2 - Setup Build and Compile
+        if: ${{ steps.attempt1.outcome == 'failure' }}
+        id: attempt2
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
+
+      - name: Attempt 3 - Setup Build and Compile
+        id: attempt3
+        if: ${{ steps.attempt2.outcome == 'failure' }}
+        uses: ./.github/actions/setup-build-env
+
+      - name: Fail if Retries Exhausted
+        if: ${{ steps.attempt3.outcome == 'failure' }}
+        run: exit 1
+
+      - name: Setup Xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Run Playwright Tests (Electron)
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          EXTENSIONS_FAIL_ON_MISMATCH: true
+        run: |
+          echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
+  slack-notify:
+    if: failure()
+    needs: [extensions-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: "failure"

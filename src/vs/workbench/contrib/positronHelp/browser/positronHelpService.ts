@@ -754,9 +754,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		);
 
 		// Add the onDidNavigate event handler.
-		helpEntry.onDidNavigate(url => {
+		this._register(helpEntry.onDidNavigate(url => {
 			this.navigate(helpEntry.sourceUrl, url);
-		});
+		}));
 
 		// Add the help entry.
 		this.addHelpEntry(helpEntry);

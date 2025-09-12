@@ -332,6 +332,11 @@
                 "command": "python.createNewFile"
             },
             {
+                "category": "Python",
+                "command": "python.copyTestId",
+                "title": "%python.command.python.testing.copyTestId.title%"
+            },
+            {
                 "title": "%python.command.python.createPyprojectToml.title%",
                 "category": "Python",
                 "command": "python.createPyprojectToml"
@@ -806,14 +811,10 @@
                 },
                 "python.locator": {
                     "default": "js",
-                    "description": "%python.locator.description%",
+                    "markdownDescription": "%python.locator.description%",
                     "enum": [
                         "js",
                         "native"
-                    ],
-                    "tags": [
-                        "onExP",
-                        "preview"
                     ],
                     "scope": "machine-overridable",
                     "type": "string"
@@ -1495,6 +1496,13 @@
                     "command": "python.reportIssue"
                 }
             ],
+            "testing/item/context": [
+                {
+                    "command": "python.copyTestId",
+                    "group": "navigation",
+                    "when": "controllerId == 'python-tests'"
+                }
+            ],
             "commandPalette": [
                 {
                     "category": "Python",
@@ -1580,6 +1588,18 @@
                     "category": "Python",
                     "command": "python.execSelectionInTerminal",
                     "title": "%python.command.python.execSelectionInTerminal.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.copyTestId",
+                    "title": "%python.command.python.testing.copyTestId.title%",
+                    "when": "false"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.copyTestId",
+                    "title": "%python.command.python.testing.copyTestId.title%",
                     "when": "false"
                 },
                 {
@@ -1909,7 +1929,10 @@
                         }
                     }
                 },
-                "tags": ["positron-assistant", "requires-session:python"]
+                "tags": [
+                    "positron-assistant",
+                    "requires-session:python"
+                ]
             },
             {
                 "name": "getInstalledPythonPackageVersion",
@@ -1925,11 +1948,15 @@
                         }
                     }
                 },
-                "tags": ["positron-assistant", "requires-session:python"]
+                "tags": [
+                    "positron-assistant",
+                    "requires-session:python"
+                ]
             },
             {
                 "name": "get_python_environment_details",
                 "displayName": "Get Python Environment Info",
+                "when": "false",
                 "userDescription": "%python.languageModelTools.get_python_environment_details.userDescription%",
                 "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. The details returned include the 1. Type of Environment (conda, venv, etec), 2. Version of Python, 3. List of all installed packages with their versions. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "getPythonEnvironmentInfo",
@@ -1955,6 +1982,7 @@
             {
                 "name": "get_python_executable_details",
                 "displayName": "Get Python Executable",
+                "when": "false",
                 "userDescription": "%python.languageModelTools.get_python_executable_details.userDescription%",
                 "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. ALWAYS use this tool before executing any Python command in the terminal. This tool returns the details of how to construct the fully qualified path and or command including details such as arguments required to run Python in a terminal. Note: Instead of executing `python --version` or `python -c 'import sys; print(sys.executable)'`, use this tool to get the Python executable path to replace the `python` command. E.g. instead of using `python -c 'import sys; print(sys.executable)'`, use this tool to build the command `conda run -n <env_name> -c 'import sys; print(sys.executable)'`. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "getPythonExecutableCommand",
@@ -1980,6 +2008,7 @@
             {
                 "name": "install_python_packages",
                 "displayName": "Install Python Package",
+                "when": "false",
                 "userDescription": "%python.languageModelTools.install_python_packages.userDescription%",
                 "modelDescription": "Installs Python packages in the given workspace. Use this tool to install packages in the user's chosen environment. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "installPythonPackage",
@@ -2015,7 +2044,8 @@
             {
                 "name": "configure_python_environment",
                 "displayName": "Configure Python Environment",
-                "modelDescription": "This tool configures a Python environment in the given workspace. ALWAYS Use this tool to set up the user's chosen environment and ALWAYS call this tool before using any other Python related tools.",
+                "when": "false",
+                "modelDescription": "This tool configures a Python environment in the given workspace. ALWAYS Use this tool to set up the user's chosen environment and ALWAYS call this tool before using any other Python related tools or running any Python command in the terminal.",
                 "userDescription": "%python.languageModelTools.configure_python_environment.userDescription%",
                 "toolReferenceName": "configurePythonEnvironment",
                 "tags": [
@@ -2239,7 +2269,7 @@
     },
     "positron": {
         "externalDependencies": {
-          "pet": "v2024.16.0"
+            "pet": "2025.12"
         }
-      }
+    }
 }

@@ -7,13 +7,8 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
-// --- Start Positron ---
-// Import is not used because the vscode_editFile_internal tool is not used in Positron.
-/*
 import { EditTool, EditToolData } from './editFileTool.js';
-*/
-// --- End Positron ---
-
+import { ManageTodoListTool, ManageTodoListToolData } from './manageTodoListTool.js';
 // --- Start Positron ---
 /**
  * src/vs/workbench/contrib/chat/browser/tools/tools.ts is derived from this file.
@@ -31,15 +26,13 @@ export class BuiltinToolsContribution extends Disposable implements IWorkbenchCo
 	) {
 		super();
 
-		// --- Start Positron ---
-		// Don't register the vscode_editFile_internal in Positron, as it is not used: src/vs/workbench/contrib/chat/common/tools/editFileTool.ts
-		// Instead, the positron_editFile_internal tool is used: src/vs/workbench/contrib/chat/browser/tools/editFileTool.ts
-		/*
 		const editTool = instantiationService.createInstance(EditTool);
 		this._register(toolsService.registerToolData(EditToolData));
 		this._register(toolsService.registerToolImplementation(EditToolData.id, editTool));
-		*/
-		// --- End Positron ---
+
+		const manageTodoListTool = instantiationService.createInstance(ManageTodoListTool);
+		this._register(toolsService.registerToolData(ManageTodoListToolData));
+		this._register(toolsService.registerToolImplementation(ManageTodoListToolData.id, manageTodoListTool));
 	}
 }
 

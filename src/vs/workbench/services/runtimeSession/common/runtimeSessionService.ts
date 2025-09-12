@@ -109,6 +109,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** The language runtime's static metadata */
 	readonly runtimeMetadata: ILanguageRuntimeMetadata;
 
+	/** Information about the runtime that is only available after starting. */
+	readonly runtimeInfo: ILanguageRuntimeInfo | undefined;
+
 	/** The session's static metadata */
 	readonly metadata: IRuntimeSessionMetadata;
 
@@ -472,7 +475,7 @@ export interface IRuntimeSessionService {
 	 */
 	selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void>;
 
-	deleteSession(sessionId: string): Promise<void>;
+	deleteSession(sessionId: string): Promise<boolean>;
 
 	/**
 	 * Focus the runtime session by making it the foreground session if it's

@@ -16,7 +16,7 @@ const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
-const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-provider-button)';
+const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-api-provider-button)';
 const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#bedrock-provider-button)';
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
@@ -94,7 +94,7 @@ export class Assistant {
 
 	async selectModelProvider(provider: string) {
 		switch (provider.toLowerCase()) {
-			case 'anthropic':
+			case 'anthropic-api':
 				await this.code.driver.page.locator(ANTHROPIC_BUTTON).click();
 				break;
 			case 'aws':
@@ -162,11 +162,15 @@ export class Assistant {
 		}
 	}
 
-	async enterChatMessage(message: string) {
+	async enterChatMessage(message: string, waitForResponse: boolean = true) {
 		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
 		await chatInput.waitFor({ state: 'visible' });
 		await chatInput.fill(message);
 		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+		// Optionally wait for any loading state on the most recent response to finish
+		if (waitForResponse) {
+			await this.code.driver.page.locator('.chat-most-recent-response.chat-response-loading').waitFor({ state: 'hidden' });
+		}
 	}
 
 	async clickChatCodeRunButton(codeblock: string) {
@@ -227,7 +231,7 @@ export class Assistant {
 		};
 	}
 
-	async waitForReadyToSend(timeout: number = 5000) {
+	async waitForReadyToSend(timeout: number = 25000) {
 		await this.code.driver.page.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
 		await this.code.driver.page.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
 	}

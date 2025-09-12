@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
+
 declare module 'positron' {
 
 	import * as vscode from 'vscode';
@@ -55,6 +58,12 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
+
+		/** A message representing a debug event to the frontend */
+		DebugEvent = 'debug_event',
+
+		/** A message representing a debug reply to the frontend */
+		DebugReply = 'debug_reply',
 
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
@@ -384,6 +393,9 @@ declare module 'positron' {
 		/** The language version number */
 		language_version: string;
 
+		/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+		supported_features?: string[];
+
 		/** Initial prompt string in case user customized it */
 		input_prompt?: string;
 
@@ -456,6 +468,39 @@ declare module 'positron' {
 
 		/** The data from the back-end */
 		data: object;
+	}
+
+	/** A DebugProtocolRequest is an opaque stand-in type for the [Request](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolRequest {
+		// Properties: see [Request details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request).
+	}
+
+	/** A DebugProtocolResponse is an opaque stand-in type for the [Response](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolResponse {
+		// Properties: see [Response details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response).
+	}
+
+	/**
+	 * A DebugProtocolEvent is an opaque stand-in type for the [Event](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolEvent {
+		// Properties: see [Event details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event).
+	}
+
+	/**
+	 * LanguageRuntimeDebugReply is a LanguageRuntimeMessage that represents a reply to a runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugReply extends LanguageRuntimeMessage {
+		/** The debug adapter protocol response.  */
+		content: DebugProtocolResponse;
+	}
+
+	/**
+	 * LanguageRuntimeDebugEvent is a LanguageRuntimeMessage that represents an event from the runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugEvent extends LanguageRuntimeMessage {
+		/** The debug adapter protocol event. */
+		content: DebugProtocolEvent;
 	}
 
 	/**
@@ -836,6 +881,9 @@ declare module 'positron' {
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
+		/** The ID of the code execution. */
+		executionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
@@ -988,12 +1036,11 @@ declare module 'positron' {
 	}
 
 	/**
-	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
-	 * set of common tools for interacting with a language runtime, such as code
-	 * execution, LSP implementation, and plotting.
+	 * Basic metadata about an active language runtime session, including
+	 * immutable metadata about the session itself and metadata about the
+	 * runtime with which it is associated.
 	 */
-	export interface LanguageRuntimeSession extends vscode.Disposable {
-
+	export interface ActiveRuntimeSessionMetadata {
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
 
@@ -1002,9 +1049,61 @@ declare module 'positron' {
 		 * session is associated.
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
+	}
+
+	/**
+	 * Base interface for a language runtime session.
+	 *
+	 * This is the version of a language runtime session that is returned by
+	 * Positron's API methods; it provides basic access to the session for use
+	 * by extensions other that the one that created the session.
+	 */
+	export interface BaseLanguageRuntimeSession extends ActiveRuntimeSessionMetadata {
 
 		/** The state of the runtime that changes during a user session */
-		dynState: LanguageRuntimeDynState;
+		getDynState(): Thenable<LanguageRuntimeDynState>;
+
+		/**
+		 * Calls a method in the runtime and returns the result.
+		 *
+		 * Throws a RuntimeMethodError if the method call fails.
+		 *
+		 * @param method The name of the method to call
+		 * @param args Arguments to pass to the method
+		 */
+		callMethod?(method: string, ...args: any[]): Thenable<any>;
+
+		/**
+		 * Execute code in the runtime
+		 *
+		 * @param code The code to execute
+		 * @param id The ID of the code
+		 * @param mode The code execution mode
+		 * @param errorBehavior The code execution error behavior
+		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 */
+		execute(code: string,
+			id: string,
+			mode: RuntimeCodeExecutionMode,
+			errorBehavior: RuntimeErrorBehavior): void;
+
+		/**
+		 * Shut down the runtime; returns a Thenable that resolves when the
+		 * runtime shutdown sequence has been successfully started (not
+		 * necessarily when it has completed).
+		 */
+		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
+	}
+
+	/**
+	 * LanguageRuntimeSession is the full interface implemented by extensions
+	 * that provide a set of common tools for interacting with a language
+	 * runtime, such as code execution, LSP implementation, and plotting.
+	 */
+	export interface LanguageRuntimeSession extends BaseLanguageRuntimeSession, vscode.Disposable {
+
+		/** Information about the runtime that is only available after starting. */
+		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
 
 		/** An object that emits language runtime events */
 		onDidReceiveRuntimeMessage: vscode.Event<LanguageRuntimeMessage>;
@@ -1023,28 +1122,12 @@ declare module 'positron' {
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
 
 		/**
-		 * Execute code in the runtime
+		 * Sends a Debug Adapter Protocol request to the runtime's debugger.
 		 *
-		 * @param code The code to execute
-		 * @param id The ID of the code
-		 * @param mode The code execution mode
-		 * @param errorBehavior The code execution error behavior
-		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 * @param request The Debug Adapter Protocol request.
+		 * @returns The Debug Adapter Protocol response.
 		 */
-		execute(code: string,
-			id: string,
-			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
-
-		/**
-		 * Calls a method in the runtime and returns the result.
-		 *
-		 * Throws a RuntimeMethodError if the method call fails.
-		 *
-		 * @param method The name of the method to call
-		 * @param args Arguments to pass to the method
-		 */
-		callMethod?(method: string, ...args: any[]): Thenable<any>;
+		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
 
 		/** Test a code fragment for completeness */
 		isCodeFragmentComplete(code: string): Thenable<RuntimeCodeFragmentStatus>;
@@ -1113,13 +1196,6 @@ declare module 'positron' {
 		 * working directory.
 		 */
 		restart(workingDirectory?: string): Thenable<void>;
-
-		/**
-		 * Shut down the runtime; returns a Thenable that resolves when the
-		 * runtime shutdown sequence has been successfully started (not
-		 * necessarily when it has completed).
-		 */
-		shutdown(exitReason: RuntimeExitReason): Thenable<void>;
 
 		/**
 		 * Forcibly quits the runtime; returns a Thenable that resolves when the
@@ -1753,19 +1829,24 @@ declare module 'positron' {
 		/**
 		 * List all active sessions.
 		 */
-		export function getActiveSessions(): Thenable<LanguageRuntimeSession[]>;
+		export function getActiveSessions(): Thenable<BaseLanguageRuntimeSession[]>;
+
+		/**
+		 * Get a specific session by its ID.
+		 */
+		export function getSession(sessionId: string): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the active foreground session, if any.
 		 */
-		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+		export function getForegroundSession(): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Get the session corresponding to a notebook, if any.
 		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
-		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<LanguageRuntimeSession | undefined>;
+		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<BaseLanguageRuntimeSession | undefined>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
@@ -1797,9 +1878,17 @@ declare module 'positron' {
 		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
-		 * Focus a running session
+		 * Focus a running session.
 		 */
 		export function focusSession(sessionId: string): void;
+
+		/**
+		 * Delete a running session.
+		 * If the session is busy, the user is asked whether it should be interrupted.
+		 * The promise resolves with `false` if the user declines to interrupt, or `true`
+		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 */
+		export function deleteSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Get the runtime variables for a session.
@@ -1966,6 +2055,34 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
+		 * A language model provider, extends vscode.LanguageModelChatProvider2.
+		 */
+		export interface LanguageModelChatProvider2<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
+			name: string;
+			provider: string;
+			id: string;
+
+			providerName: string;
+
+			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
+			onDidChange?: vscode.Event<void>;
+
+			// NOT cacheable (between reloads)
+			prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
+
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2>, options: vscode.LanguageModelChatRequestHandleOptions, progress: vscode.Progress<vscode.ChatResponseFragment2>, token: vscode.CancellationToken): Thenable<any>;
+
+			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
+
+			/**
+			 * Tests the connection to the language model provider.
+			 *
+			 * Returns an error if the connection fails.
+			 */
+			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+		}
+
+		/**
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
 		export interface LanguageModelChatProvider {
@@ -2080,6 +2197,7 @@ declare module 'positron' {
 			numCtx?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
 		}
 
 		/**
@@ -2152,10 +2270,33 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Checks the file for exclusion from AI completion.
-		 * @param file The file to check for exclusion.
-		 * @returns A Thenable that resolves to true if the file should be excluded, false otherwise.
+		 * A chat language model provider.
 		 */
-		export function areCompletionsEnabled(file: vscode.Uri): Thenable<boolean>;
+		export interface ChatProvider {
+			readonly id: string;
+			readonly displayName: string;
+		}
+
+		/**
+		 * Get the current langauge model provider.
+		 */
+		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Get all the available langauge model providers.
+		 */
+		export function getProviders(): Thenable<ChatProvider[]>;
+
+		/**
+		 * Set the current language chat provider.
+		 */
+		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Checks if completions are enabled for the given file.
+		 * @param uri The file URI to check if completions are enabled.
+		 * @returns A Thenable that resolves to true if completions should be enabled for the file, false otherwise.
+		 */
+		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
 	}
 }

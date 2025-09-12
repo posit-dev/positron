@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       pull_request:
-        description: 'Is this a pull request run?'
+        description: "Is this a pull request run?"
         required: false
         default: false
         type: boolean
@@ -22,13 +22,7 @@ jobs:
   integration-tests:
     name: integration
     runs-on: ubuntu-latest-4x
-    container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:21
-      options: --user 0:0
-      credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -36,29 +30,30 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          package-manager-cache: false
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
@@ -67,13 +62,14 @@ jobs:
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup XVFB
-        uses: ./.github/actions/setup-xvfb
+      # one integration test needs this: Connections pane works for R
+      - name: Setup R
+        uses: ./.github/actions/install-r
         with:
-            version: "4.4.0"
+          version: "4.4.0"
 
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile

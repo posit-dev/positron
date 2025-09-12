@@ -9,6 +9,11 @@ on:
           required: false
           default: true
           type: boolean
+        run_e2e_rhel:
+          description: "E2E Tests / Electron (RHEL)"
+          required: false
+          default: false
+          type: boolean
         run_e2e_windows:
           description: "E2E Tests / Electron (Windows)"
           required: false
@@ -18,6 +23,11 @@ on:
           description: "E2E Tests / Chromium (Ubuntu)"
           required: false
           default: true
+          type: boolean
+        run_e2e_browser_rhel:
+          description: "E2E Tests / Chromium (RHEL)"
+          required: false
+          default: false
           type: boolean
         run_unit_tests:
           description: "Unit Tests"
@@ -81,6 +91,36 @@ jobs:
       project: "e2e-browser"
       display_name: "browser (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
+      report_testrail: false
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: true
+
+  e2e-rhel:
+    name: e2e
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_rhel  }}
+    uses: ./.github/workflows/test-e2e-rhel.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-electron"
+      display_name: "electron (rhel)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/rhel' || 'electron/rhel' }}
+      report_testrail: false
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: false
+
+  e2e-browser-rhel:
+    name: e2e
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser_rhel }}
+    uses: ./.github/workflows/test-e2e-rhel.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-browser"
+      display_name: "browser (rhel)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/rhel' || 'browser/rhel' }}
       report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true

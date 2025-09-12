@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as fs from 'fs';
+import * as path from 'path';
 
-import { GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
-import { EXTENSION_ROOT_DIR } from './constants';
+import { ParticipantService } from './participants.js';
+import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
+import { MD_DIR } from './constants';
 
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
 export enum GitRepoChangeKind {
@@ -17,6 +19,7 @@ export enum GitRepoChangeKind {
 	Unstaged = 'unstaged',
 	Merge = 'merge',
 	Untracked = 'untracked',
+	Commit = 'commit',
 	All = 'all',
 }
 
@@ -30,18 +33,21 @@ export interface GitRepoChange {
 	changes: GitRepoChangeSummary[];
 }
 
-/** Get the list of active repositories */
-function currentGitRepositories(): Repository[] {
+function getAPI(): GitAPI {
 	// Obtain a handle to git extension API
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')?.exports;
 	if (!gitExtension) {
 		throw new Error('Git extension not found');
 	}
-	const git = gitExtension.getAPI(1);
+	return gitExtension.getAPI(1);
+}
+
+/** Get the list of active repositories */
+function currentGitRepositories(): Repository[] {
+	const git = getAPI();
 	if (git.repositories.length === 0) {
 		throw new Error('No Git repositories found');
 	}
-
 	return git.repositories;
 }
 
@@ -75,6 +81,17 @@ async function gitChangeSummary(repo: Repository, change: Change, kind: GitRepoC
 			}
 		}
 	}
+}
+
+/** Get changes for a specific git repository and hash as text summaries */
+export async function getCommitChanges(repoUri: vscode.Uri, hash: string, parentHash: string) {
+	const git = getAPI();
+	const repo = git.getRepository(repoUri);
+	if (!repo) {
+		throw new Error('Repository not found');
+	}
+	const repoPath = repoUri.fsPath + path.sep + '.';
+	return repo.diffBetween(parentHash, hash, repoPath);
 }
 
 /** Get current workspace git repository changes as text summaries */
@@ -116,17 +133,15 @@ export async function getWorkspaceGitChanges(kind: GitRepoChangeKind): Promise<G
 }
 
 /** Generate a commit message for git repositories with staged changes */
-export async function generateCommitMessage(context: vscode.ExtensionContext) {
+export async function generateCommitMessage(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
 	await vscode.commands.executeCommand('setContext', generatingGitCommitKey, true);
 
-	const models = (await vscode.lm.selectChatModels()).filter((model) => {
-		return model.family !== 'echo' && model.family !== 'error';
-	});
-	if (models.length === 0) {
-		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
-		throw new Error('No language models available for commit message generation.');
-	}
-	const model = models[0];
+	const model = await getModel(participantService);
+	log.info(`[git] Generating commit message. Selected model (${model.vendor}) ${model.id} for commit message generation.`);
 
 	const tokenSource: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
 	const cancelDisposable = vscode.commands.registerCommand('positron-assistant.cancelGenerateCommitMessage', () => {
@@ -138,8 +153,9 @@ export async function generateCommitMessage(context: vscode.ExtensionContext) {
 	const allChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
 	const stagedChanges = await getWorkspaceGitChanges(GitRepoChangeKind.Staged);
 	const gitChanges = stagedChanges.length > 0 ? stagedChanges : allChanges;
+	log.trace(`[git] Sending changes ${JSON.stringify(gitChanges)} to model provider.`);
 
-	const system: string = await fs.promises.readFile(`${mdDir}/prompts/git/commit.md`, 'utf8');
+	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/git/commit.md`, 'utf8');
 	try {
 		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
 			if (changes.length > 0) {
@@ -156,8 +172,38 @@ export async function generateCommitMessage(context: vscode.ExtensionContext) {
 				}
 			}
 		}));
+	} catch (e) {
+		const error = e as Error;
+		log.error(`[git] Error generating commit message: ${error.message}`);
+		void vscode.window.showErrorMessage(`Error generating commit message: ${error.message}`);
+		throw e;
 	} finally {
 		cancelDisposable.dispose();
 		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
 	}
+}
+
+async function getModel(participantService: ParticipantService): Promise<vscode.LanguageModelChat> {
+	// Check for the latest chat session and use its model.
+	const sessionModelId = participantService.getCurrentSessionModel();
+	if (sessionModelId) {
+		const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
+		if (models && models.length > 0) {
+			return models[0];
+		}
+	}
+
+	// Fall back to the first model for the currently selected provider.
+	const currentProvider = await positron.ai.getCurrentProvider();
+	if (currentProvider) {
+		const models = await vscode.lm.selectChatModels({ vendor: currentProvider.id });
+		return models[0];
+	}
+
+	// Fall back to the first available model from any provider.
+	const models = await vscode.lm.selectChatModels();
+	if (models.length === 0) {
+		throw new Error('No language models available for git commit message generation');
+	}
+	return models.filter((model) => model.family !== 'echo' && model.family !== 'error')[0];
 }

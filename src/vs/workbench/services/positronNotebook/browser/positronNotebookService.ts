@@ -8,8 +8,9 @@ import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookUtils.js';
+import { isEqual } from '../../../../base/common/resources.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -25,8 +26,9 @@ export interface IPositronNotebookService {
 
 	/**
 	 * Get all notebook instances currently running.
+	 * @param uri The optional notebook URI to filter instances by.
 	 */
-	getInstances(): Set<IPositronNotebookInstance>;
+	listInstances(uri?: URI): Array<IPositronNotebookInstance>;
 
 	/**
 	 * Get the currently active notebook instance, if it exists.
@@ -46,11 +48,6 @@ export interface IPositronNotebookService {
 	unregisterInstance(instance: IPositronNotebookInstance): void;
 
 	/**
-	 * Get instance by resource if it exists.
-	 */
-	getInstance(resource: URI): IPositronNotebookInstance | undefined;
-
-	/**
 	 * Check if Positron notebooks are configured as the default editor for .ipynb files
 	 * @returns true if Positron notebooks are the default editor, false otherwise
 	 */
@@ -63,7 +60,7 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	_serviceBrand: undefined;
 
 	//#region Private Properties
-	private _instances = new Set<IPositronNotebookInstance>();
+	private _instanceById = new Map<string, IPositronNotebookInstance>();
 	private _activeInstance: IPositronNotebookInstance | null = null;
 	//#endregion Private Properties
 
@@ -85,8 +82,12 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 		// Placeholder.
 	}
 
-	public getInstances(): Set<IPositronNotebookInstance> {
-		return this._instances;
+	public listInstances(uri?: URI): Array<IPositronNotebookInstance> {
+		let instances = Array.from(this._instanceById.values());
+		if (uri) {
+			instances = instances.filter(instance => isEqual(instance.uri, uri));
+		}
+		return instances;
 	}
 
 	public getActiveInstance(): IPositronNotebookInstance | null {
@@ -94,26 +95,17 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {
-		if (!this._instances.has(instance)) {
-			this._instances.add(instance);
+		if (!this._instanceById.has(instance.id)) {
+			this._instanceById.set(instance.id, instance);
 		}
 		this._activeInstance = instance;
 	}
 
 	public unregisterInstance(instance: IPositronNotebookInstance): void {
-		this._instances.delete(instance);
+		this._instanceById.delete(instance.id);
 		if (this._activeInstance === instance) {
 			this._activeInstance = null;
 		}
-	}
-
-	public getInstance(resource: URI): IPositronNotebookInstance | undefined {
-		for (const instance of this._instances) {
-			if (instance.uri.toString() === resource.toString()) {
-				return instance;
-			}
-		}
-		return undefined;
 	}
 
 	public usingPositronNotebooks(): boolean {

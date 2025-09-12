@@ -78,6 +78,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
+	private _runtimeInfo?: ILanguageRuntimeInfo;
+
 	constructor(
 		readonly metadata: IRuntimeSessionMetadata,
 		readonly runtimeMetadata: ILanguageRuntimeMetadata,
@@ -149,6 +151,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
+	getDynState(): Promise<ILanguageRuntimeSessionState> {
+		return Promise.resolve(this.dynState);
+	}
+
 	async createClient(
 		type: RuntimeClientType, params: any, metadata?: any, id?: string, buffers?: VSBuffer[]
 	): Promise<TestRuntimeClientInstance> {
@@ -215,6 +221,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		return this._workingDirectory;
 	}
 
+	get runtimeInfo(): ILanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
 	async start(): Promise<ILanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(RuntimeState.Starting);
 
@@ -223,11 +233,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			this._onDidChangeRuntimeState.fire(RuntimeState.Ready);
 		}, 0);
 
-		return {
+		this._runtimeInfo = {
 			banner: 'Test runtime started',
 			implementation_version: this.runtimeMetadata.runtimeVersion,
 			language_version: this.runtimeMetadata.languageVersion,
 		};
+		return this._runtimeInfo;
 	}
 
 	async interrupt(): Promise<void> {

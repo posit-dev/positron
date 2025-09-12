@@ -60,7 +60,12 @@ export enum TestTags {
 	WELCOME = '@:welcome',
 	VSCODE_SETTINGS = '@:vscode-settings',
 
+	// performance tags
+	PERFORMANCE = '@:performance',
+
 	// platform  tags
+	RHEL_ELECTRON = '@:rhel-electron',
+	RHEL_WEB = '@:rhel-web',
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',

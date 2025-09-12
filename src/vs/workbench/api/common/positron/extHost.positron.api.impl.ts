@@ -103,13 +103,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata | undefined> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);
 			},
-			getActiveSessions(): Thenable<positron.LanguageRuntimeSession[]> {
+			getActiveSessions(): Thenable<positron.BaseLanguageRuntimeSession[]> {
 				return extHostLanguageRuntime.getActiveSessions();
 			},
-			getForegroundSession(): Thenable<positron.LanguageRuntimeSession | undefined> {
+			getSession(sessionId: string): Thenable<positron.BaseLanguageRuntimeSession | undefined> {
+				return extHostLanguageRuntime.getSession(sessionId);
+			},
+			getForegroundSession(): Thenable<positron.BaseLanguageRuntimeSession | undefined> {
 				return extHostLanguageRuntime.getForegroundSession();
 			},
-			getNotebookSession(notebookUri: vscode.Uri): Thenable<positron.LanguageRuntimeSession | undefined> {
+			getNotebookSession(notebookUri: vscode.Uri): Thenable<positron.BaseLanguageRuntimeSession | undefined> {
 				return extHostLanguageRuntime.getNotebookSession(notebookUri);
 			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
@@ -135,6 +138,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			focusSession(sessionId: string): void {
 				return extHostLanguageRuntime.focusSession(sessionId);
+			},
+			deleteSession(sessionId: string): Thenable<boolean> {
+				return extHostLanguageRuntime.deleteSession(sessionId);
 			},
 			getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>):
 				Thenable<Array<Array<positron.RuntimeVariable>>> {
@@ -286,6 +292,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);
+			},
+			getCurrentProvider(): Promise<positron.ai.ChatProvider | undefined> {
+				return extHostAiFeatures.getCurrentProvider();
+			},
+			getProviders(): Promise<positron.ai.ChatProvider[]> {
+				return extHostAiFeatures.getProviders();
+			},
+			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
+				return extHostAiFeatures.setCurrentProvider(id);
 			},
 		};
 
