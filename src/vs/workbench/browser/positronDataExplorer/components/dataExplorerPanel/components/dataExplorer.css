@@ -38,8 +38,14 @@
 	min-width: 0;
 	min-height: 0;
 	display: grid;
+	grid-template-columns: 100%;
 	grid-row: main-row / end-rows;
 	grid-column: left-column / collapsed-left-spacer;
+	grid-template-rows: [summary-row-action-bar] 36px [data-grid] 1fr [end-rows];
+}
+
+.data-explorer-panel .data-explorer .left-column .data-grid-container {
+	grid-row: data-grid / end-rows;
 }
 
 .data-explorer-panel .data-explorer .collapsed-left-spacer {
