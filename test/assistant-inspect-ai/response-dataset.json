@@ -4,7 +4,7 @@
 		"description": "Check context include Positron version and interpreter version.",
 		"mode": "Ask",
 		"question": "What version is this?",
-		"model_response": "Looking at the session information, you have:\n\n- **Python**: version 3.10.10\n- **Positron**: version 2025.10.0-78\n\nIs there a specific package or component you'd like to check the version for?",
+		"model_response": "",
 		"target": "The answer should return at least the version of Positron being used and either a Python or R version."
 	},
 	{
