@@ -25,6 +25,9 @@ export class KallichoreApiInstance {
 	/** The API instance itself */
 	private _api: DefaultApi | undefined;
 
+	/** The current server state, if any */
+	private _serverState: KallichoreServerState | undefined;
+
 	/** The transport mechanism used by the API */
 	private _transport: KallichoreTransport;
 
@@ -52,16 +55,24 @@ export class KallichoreApiInstance {
 	}
 
 	/**
+	 * Get the current server state, if any.
+	 */
+	get state(): KallichoreServerState | undefined {
+		return this._serverState;
+	}
+
+	/**
 	 * Creates the API from the given server state.
 	 *
 	 * @param state The server state
 	 */
 	public loadState(state: KallichoreServerState) {
 
-		// Load the transport state
+		// Load the server state
 		if (state.transport) {
 			this._transport = state.transport;
 		}
+		this._serverState = state;
 
 		// Common base options used for all connections
 		const baseOptions = {

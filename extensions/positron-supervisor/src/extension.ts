@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 	}
 
 	// Create the singleton instance of the Kallichore API wrapper
-	API_INSTANCE = new KCApi(context, log, transport);
+	API_INSTANCE = new KCApi(context, log, transport, true);
 
 	// Register the supervisor commands
 	API_INSTANCE.registerCommands();

@@ -65,7 +65,7 @@ suite('Server Transport Types', () => {
 		const log = vscode.window.createOutputChannel('Test TCP Transport');
 
 		// Create a KCApi instance with forced TCP transport
-		const tcpApiInstance = new KCApi(context, log, KallichoreTransport.TCP);
+		const tcpApiInstance = new KCApi(context, log, KallichoreTransport.TCP, false);
 
 		try {
 			// Start the server with TCP transport
@@ -110,7 +110,7 @@ suite('Server Transport Types', () => {
 		const log = vscode.window.createOutputChannel('Test Unix Socket Transport');
 
 		// Create a KCApi instance with forced Unix socket transport
-		const socketApiInstance = new KCApi(context, log, KallichoreTransport.UnixSocket);
+		const socketApiInstance = new KCApi(context, log, KallichoreTransport.UnixSocket, false);
 
 		try {
 			// Start the server with Unix socket transport
@@ -156,7 +156,7 @@ suite('Server Transport Types', () => {
 		const log = vscode.window.createOutputChannel('Test Named Pipe Transport');
 
 		// Create a KCApi instance with forced named pipe transport
-		const pipeApiInstance = new KCApi(context, log, KallichoreTransport.NamedPipe);
+		const pipeApiInstance = new KCApi(context, log, KallichoreTransport.NamedPipe, false);
 
 		try {
 			// Start the server with named pipe transport
