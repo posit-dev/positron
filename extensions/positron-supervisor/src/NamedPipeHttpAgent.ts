@@ -100,34 +100,3 @@ export function createHttpAgent(basePath: string): http.Agent | undefined {
 	// Return undefined for TCP and Unix socket connections to use default behavior
 	return undefined;
 }
-
-/**
- * Request interceptor that configures custom agents for named pipe connections
- * @param requestOptions The request options to modify
- */
-export function namedPipeInterceptor(requestOptions: any): Promise<void> {
-	return new Promise((resolve) => {
-		// Check if this is a named pipe request
-		const uri = (requestOptions as any).uri;
-		if (uri && typeof uri === 'string' && uri.includes('npipe:')) {
-			// Extract pipe name from URI like http://npipe:pipename:/path
-			const match = uri.match(/npipe:([^:]+):/);
-			if (match) {
-				const pipeName = match[1];
-
-				// Create custom agent for named pipes
-				const agent = new NamedPipeHttpAgent(pipeName);
-
-				// Replace the URI to use localhost (since the agent handles the actual connection)
-				// but keep the path part
-				const pathMatch = uri.match(/npipe:[^:]+:(\/.*)/);
-				const path = pathMatch ? pathMatch[1] : '/';
-				(requestOptions as any).uri = `http://localhost${path}`;
-
-				// Set the custom agent
-				(requestOptions as any).agent = agent;
-			}
-		}
-		resolve();
-	});
-}
