@@ -298,27 +298,9 @@ export class KCApi implements PositronSupervisorApi {
 		let wrapperPath = path.join(this._context.extensionPath, 'resources', wrapperName);
 
 		// The first argument to the wrapper script is the path to the log file
-		const shellArgs = [
+		let shellArgs = [
 			outFile
 		];
-
-		// Check to see if session persistence is enabled; if it is, we want to run the
-		// server with nohup so it doesn't die when the terminal is closed.
-		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
-		if (shutdownTimeout !== 'immediately') {
-			const kernelWrapper = wrapperPath;
-			if (os.platform() === 'win32') {
-				// Use start /b on Windows to run the server in the background
-				this.log(`Running Kallichore server with 'start /b' to persist sessions`);
-				wrapperPath = 'cmd.exe';
-				shellArgs.unshift('/c', 'start', '/b', kernelWrapper);
-			} else {
-				// Use nohup as the wrapper on Unix-like systems; this becomes
-				// the first argument to the wrapper script.
-				this.log(`Running Kallichore server with nohup to persist sessions`);
-				shellArgs.unshift('nohup');
-			}
-		}
 
 		// Get the log level from the configuration
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
@@ -355,6 +337,31 @@ export class KCApi implements PositronSupervisorApi {
 		const idleShutdownHours = this.getShutdownHours();
 		if (idleShutdownHours >= 0) {
 			shellArgs.push('--idle-shutdown-hours', idleShutdownHours.toString());
+		}
+
+		// Check to see if session persistence is enabled; if it is, we want to run the
+		// server with a detached process so it doesn't die when the terminal is closed.
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		if (shutdownTimeout !== 'immediately') {
+			const kernelWrapper = wrapperPath;
+			if (os.platform() === 'win32') {
+				// Use PowerShell with Start-Process to create a truly detached process
+				this.log(`Running Kallichore server with PowerShell detached process to persist sessions`);
+				wrapperPath = 'powershell.exe';
+				// Build the arguments for the wrapper script
+				const escapedWrapper = kernelWrapper.replace(/'/g, "''");
+				const escapedArgs = shellArgs.map(arg => `'${arg.replace(/'/g, "''")}'`).join(', ');
+				shellArgs = [
+					'-WindowStyle', 'Hidden',
+					'-Command',
+					`Start-Process -FilePath '${escapedWrapper}' -ArgumentList @(${escapedArgs}) -WindowStyle Hidden`
+				];
+			} else {
+				// Use nohup as the wrapper on Unix-like systems; this becomes
+				// the first argument to the wrapper script.
+				this.log(`Running Kallichore server with nohup to persist sessions`);
+				shellArgs.unshift('nohup');
+			}
 		}
 
 		// Start the server in a new terminal
