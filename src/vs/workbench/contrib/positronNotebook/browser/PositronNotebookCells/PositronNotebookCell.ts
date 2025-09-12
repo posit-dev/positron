@@ -34,7 +34,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	constructor(
 		public readonly cellModel: NotebookCellTextModel,
-		public readonly _instance: PositronNotebookInstance,
+		protected readonly _instance: PositronNotebookInstance,
 		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
