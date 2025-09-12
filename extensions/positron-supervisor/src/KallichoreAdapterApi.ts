@@ -419,7 +419,11 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Ensure the output file is cleaned up when the API is disposed
 		this._disposables.push(new vscode.Disposable(() => {
-			fs.unlinkSync(outFile);
+			try {
+				fs.unlinkSync(outFile);
+			} catch (err) {
+				this.log(`Error cleaning up output file ${outFile}: ${err}`);
+			}
 		}));
 
 		// Wait for the terminal to start and get the PID
