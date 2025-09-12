@@ -378,8 +378,9 @@ registerCellCommand({
 	handler: (cell) => cell.run(),
 	cellCondition: CellConditions.and(
 		CellConditions.isCode,
-		CellConditions.not(CellConditions.isRunning)
-	),  // Only show on code cells that are not running
+		CellConditions.not(CellConditions.isRunning),
+		CellConditions.not(CellConditions.isPending),
+	),  // Only show on code cells that are not running or pending
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
@@ -399,8 +400,11 @@ registerCellCommand({
 	handler: (cell) => cell.run(), // Run called when cell is executing is stop
 	cellCondition: CellConditions.and(
 		CellConditions.isCode,
-		CellConditions.isRunning
-	),  // Only show on code cells that are running
+		CellConditions.or(
+			CellConditions.isRunning,
+			CellConditions.isPending,
+		)
+	),  // Only show on code cells that are running or pending
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},

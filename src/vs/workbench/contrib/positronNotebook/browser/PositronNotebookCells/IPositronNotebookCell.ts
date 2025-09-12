@@ -13,7 +13,7 @@ import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browse
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
 
-export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
+export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
 export enum CellSelectionStatus {
 	Unselected = 'unselected',

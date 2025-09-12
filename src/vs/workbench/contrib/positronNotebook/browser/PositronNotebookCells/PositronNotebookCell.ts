@@ -9,7 +9,7 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus } from './IPositronNotebookCell.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
@@ -27,6 +27,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private _container: HTMLElement | undefined;
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	private readonly _execution;
+	private readonly _internalMetadata;
 
 	public readonly executionStatus;
 	public readonly selectionStatus;
@@ -49,25 +50,28 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 					}
 				}));
 			}) satisfies Event<ICellExecutionStateChangedEvent>,
+			// TODO: Do we need the getCellExecution part?
 			(e) => /** @description execution */ e?.changed ?? this._executionStateService.getCellExecution(this.uri)
+		);
+		this._internalMetadata = observableFromEvent(
+			this,
+			this.cellModel.onDidChangeInternalMetadata,
+			() => /** @description internalMetadata */ this.cellModel.internalMetadata,
 		);
 
 		// Derive the execution status from the current execution
 		this.executionStatus = derived(
 			this,
-			(reader) => {
+			(reader): ExecutionStatus => {
 				/** @description executionStatus */
-				const execution = this._execution.read(reader);
-				const state = execution?.state;
-				const { lastRunSuccess } = this.cellModel.internalMetadata;
+				const state = this._execution.read(reader)?.state;
+				const { lastRunSuccess } = this._internalMetadata.read(reader);
 				if (!state) {
 					// TODO: Should we have separate "success" and "error" states?
 					return lastRunSuccess ? 'idle' : 'idle';
 				}
-				if (state === NotebookCellExecutionState.Pending) {
+				if (state === NotebookCellExecutionState.Pending || state === NotebookCellExecutionState.Unconfirmed) {
 					return 'pending';
-				} else if (state === NotebookCellExecutionState.Unconfirmed) {
-					return 'unconfirmed';
 				} else if (state === NotebookCellExecutionState.Executing) {
 					return 'running';
 				} else {
