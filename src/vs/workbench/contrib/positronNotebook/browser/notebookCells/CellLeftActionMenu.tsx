@@ -100,7 +100,12 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 				onMouseEnter={handleMouseEnter}
 				onMouseLeave={handleMouseLeave}
 			>
-				<div className='cell-execution-status-animation'></div>
+				<div
+					aria-label={isRunning ? 'Cell is executing' : 'Cell execution status indicator'}
+					aria-live={isRunning ? 'polite' : 'off'}
+					className='cell-execution-status-animation'
+					role='status'
+				/>
 				<ExecutionStatusBadge
 					cellSelected={isSelected}
 					executionOrder={executionOrder}
