@@ -5,8 +5,7 @@
 
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
-import { Emitter, Event } from '../../../../../../base/common/event.js';
-import { ISettableObservable, observableValue } from '../../../../../../base/common/observable.js';
+import { ObservableMap } from '../../../../../../base/common/observable.js';
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 import { CellConditionPredicate } from './cellConditions.js';
 
@@ -44,15 +43,33 @@ const DEFAULT_ORDER = 50;
  */
 export class NotebookCellActionBarRegistry {
 	private static instance: NotebookCellActionBarRegistry;
-	private items = new Map<string, INotebookCellActionBarItem>();
+	private items = new ObservableMap<string, INotebookCellActionBarItem>();
 
-	// Observable arrays for reactive UI updates
-	private _mainActions = observableValue<INotebookCellActionBarItem[]>('mainActions', []);
-	private _menuActions = observableValue<INotebookCellActionBarItem[]>('menuActions', []);
+	/**
+	 * The observable array of main action bar actions.
+	 */
+	public readonly mainActions;
 
-	// Event emitter for changes
-	private _onDidChange = new Emitter<void>();
-	readonly onDidChange: Event<void> = this._onDidChange.event;
+	/**
+	 * The observable array of dropdown menu actions.
+	 */
+	public readonly menuActions;
+
+	constructor() {
+		this.mainActions = this.items.observable.map(this, items =>
+			/** @description mainActions */
+			Array.from(items.values())
+				.filter(item => item.position === 'main')
+				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER))
+		);
+
+		this.menuActions = this.items.observable.map(this, items =>
+			/** @description menuActions */
+			Array.from(items.values())
+				.filter(item => item.position === 'menu')
+				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER))
+		);
+	}
 
 	/**
 	 * Gets the singleton instance of the registry.
@@ -71,46 +88,10 @@ export class NotebookCellActionBarRegistry {
 	 */
 	register(item: INotebookCellActionBarItem): IDisposable {
 		this.items.set(item.commandId, item);
-		this.updateObservables();
-		this._onDidChange.fire();
-
 		return {
 			dispose: () => {
 				this.items.delete(item.commandId);
-				this.updateObservables();
-				this._onDidChange.fire();
 			}
 		};
-	}
-
-	/**
-	 * Updates the observable arrays based on the current items.
-	 */
-	private updateObservables(): void {
-		// Update main actions
-		const mainActions = Array.from(this.items.values())
-			.filter(item => item.position === 'main')
-			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
-		this._mainActions.set(mainActions, undefined);
-
-		// Update menu actions
-		const menuActions = Array.from(this.items.values())
-			.filter(item => item.position === 'menu')
-			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
-		this._menuActions.set(menuActions, undefined);
-	}
-
-	/**
-	 * Gets the observable array of main action bar actions.
-	 */
-	get mainActions(): ISettableObservable<INotebookCellActionBarItem[]> {
-		return this._mainActions;
-	}
-
-	/**
-	 * Gets the observable array of dropdown menu actions.
-	 */
-	get menuActions(): ISettableObservable<INotebookCellActionBarItem[]> {
-		return this._menuActions;
 	}
 }

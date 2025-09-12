@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable, observableValue, waitForState } from '../../../../../base/common/observable.js';
+import { observableFromEvent, observableValue, waitForState } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -11,30 +11,28 @@ import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
+import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
-	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
-	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
+	readonly markdownString;
+	readonly editorShown = observableValue('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
 	constructor(
 		cellModel: NotebookCellTextModel,
 		instance: PositronNotebookInstance,
-		textModelResolverService: ITextModelService
+		executionStateService: INotebookExecutionStateService,
+		textModelResolverService: ITextModelService,
 	) {
-		super(cellModel, instance, textModelResolverService);
+		super(cellModel, instance, executionStateService, textModelResolverService);
 
-		// Render the markdown content and update the observable when the cell content changes
-		this._register(this.cellModel.onDidChangeContent(() => {
-			this.markdownString.set(this.getContent(), undefined);
-		}));
-
-		this._updateContent();
-	}
-
-	private _updateContent(): void {
-		this.markdownString.set(this.getContent(), undefined);
+		// Create the markdown string observable
+		this.markdownString = observableFromEvent(
+			this,
+			this.cellModel.onDidChangeContent,
+			() => /** @description markdownString */ this.getContent()
+		);
 	}
 
 	toggleEditor(): void {

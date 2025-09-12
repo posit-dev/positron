@@ -8,31 +8,89 @@ import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
-import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
+import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { observableValue } from '../../../../../base/common/observable.js';
+import { observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
 import { ScrollType } from '../../../../../editor/common/editorCommon.js';
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
+import { ICellExecutionStateChangedEvent, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
+import { Event } from '../../../../../base/common/event.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
-	kind!: CellKind;
+	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
-	protected _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
+	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	protected readonly _internalMetadata;
+	private readonly _execution;
 
-	executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+	public readonly executionStatus;
+	public readonly selectionStatus;
 
 	constructor(
-		public cellModel: NotebookCellTextModel,
-		public _instance: PositronNotebookInstance,
+		public readonly cellModel: NotebookCellTextModel,
+		protected readonly _instance: PositronNotebookInstance,
+		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
 		@ITextModelService private readonly textModelResolverService: ITextModelService,
 	) {
 		super();
+
+		// Track this cell's current execution
+		this._execution = observableFromEvent(
+			this,
+			// Create an event that only fires when *this* cell's execution changes
+			((listener) => this._executionStateService.onDidChangeExecution(e => {
+				if (e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {
+					listener(e);
+				}
+			})) satisfies Event<ICellExecutionStateChangedEvent>,
+			// TODO: Do we need the getCellExecution part?
+			(e) => /** @description execution */ e?.changed ?? this._executionStateService.getCellExecution(this.uri)
+		);
+
+		this._internalMetadata = observableFromEvent(
+			this,
+			this.cellModel.onDidChangeInternalMetadata,
+			() => /** @description internalMetadata */ this.cellModel.internalMetadata,
+		);
+
+		// Derive the execution status from the current execution
+		this.executionStatus = this._execution.map(this, (execution, reader): ExecutionStatus => {
+			/** @description executionStatus */
+			const { lastRunSuccess } = this._internalMetadata.read(reader);
+			const state = execution?.state;
+			if (!state) {
+				// TODO: Should we have separate "success" and "error" states?
+				return lastRunSuccess ? 'idle' : 'idle';
+			}
+			if (state === NotebookCellExecutionState.Pending || state === NotebookCellExecutionState.Unconfirmed) {
+				return 'pending';
+			} else if (state === NotebookCellExecutionState.Executing) {
+				return 'running';
+			} else {
+				throw new Error(`Unknown execution state: ${state}`);
+			}
+		});
+
+		this.selectionStatus = this._instance.selectionStateMachine.state.map(this, (state): CellSelectionStatus => {
+			/** @description selectionStatus */
+			if (state.type === SelectionState.EditingSelection) {
+				return state.selectedCell === this ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected;
+			} else if (state.type === SelectionState.NoSelection) {
+				return CellSelectionStatus.Unselected;
+			} else {
+				return state.selected.includes(this) ? CellSelectionStatus.Selected : CellSelectionStatus.Unselected;
+			}
+		});
+	}
+
+	get index(): number {
+		return this._instance.cells.get().indexOf(this);
 	}
 
 	get editor(): ICodeEditor | undefined {

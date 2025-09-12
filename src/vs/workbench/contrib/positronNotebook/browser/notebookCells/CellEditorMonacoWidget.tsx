@@ -11,7 +11,6 @@ import React from 'react';
 
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
-import { Event } from '../../../../../base/common/event.js';
 
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
@@ -22,6 +21,7 @@ import { useEnvironment } from '../EnvironmentProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { autorun } from '../../../../../base/common/observable.js';
 
 /**
  *
@@ -103,7 +103,8 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		}));
 
 		// Resize the editor as the window resizes.
-		disposables.add(Event.fromObservable(environment.size)(() => {
+		disposables.add(autorun(reader => {
+			environment.size.read(reader);
 			resizeEditor();
 		}));
 

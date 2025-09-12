@@ -33,7 +33,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 					cell.toggleEditor();
 				}}>
 					{
-						markdownString ?
+						markdownString.length > 0 ?
 							<Markdown content={markdownString} />
 							: <div className='empty-output-msg'>
 								Empty markup cell. {editorShown ? '' : 'Double click to edit'}
