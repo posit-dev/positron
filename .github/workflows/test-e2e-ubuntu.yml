@@ -13,6 +13,11 @@ on:
         description: "The name of the Playwright project to run tests for."
         default: "e2e-electron"
         type: string
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -124,6 +129,7 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
+
     steps:
       - uses: actions/checkout@v5
         with:
@@ -247,8 +253,8 @@ jobs:
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
 
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
