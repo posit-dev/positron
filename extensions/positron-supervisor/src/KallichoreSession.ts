@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -37,10 +37,12 @@ import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
-import { createUniqueId, summarizeError, summarizeHttpError } from './util';
+import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
+import { isAxiosError } from 'axios';
+import { KallichoreTransport } from './KallichoreApiInstance.js';
 
 /**
  * The reason for a disconnection event.
@@ -176,6 +178,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param runtimeMetadata The runtime metadata
 	 * @param dynState The initial dynamic state of the runtime
 	 * @param _api The API instance to use for communication
+	 * @param _transport The transport mechanism to use for communication
 	 * @param _new Set to `true` when the session is created for the first time,
 	 * and `false` when it is restored (reconnected).
 	 * @param _extra Extra functionality to enable for this session
@@ -184,6 +187,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
 		private readonly _api: DefaultApi,
+		private readonly _transport: KallichoreTransport,
 		private readonly _new: boolean,
 		private readonly _extra?: JupyterKernelExtra | undefined) {
 
@@ -369,7 +373,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}) as Array<string>;
 
 		// Default to message-based interrupts
-		let interruptMode = InterruptMode.Message;
+		let interruptMode: 'signal' | 'message' = InterruptMode.Message;
 
 		// If the kernel spec specifies an interrupt mode, use it
 		if (kernelSpec.interrupt_mode) {
@@ -405,18 +409,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create the session in the underlying API
 		const session: NewSession = {
 			argv: args,
-			sessionId: this.metadata.sessionId,
+			session_id: this.metadata.sessionId,
 			language: kernelSpec.language,
-			displayName: this.dynState.sessionName,
-			inputPrompt: '',
-			continuationPrompt: '',
+			display_name: this.dynState.sessionName,
+			input_prompt: '',
+			continuation_prompt: '',
 			env: varActions,
-			workingDirectory: workingDir,
-			runInShell,
+			working_directory: workingDir,
+			run_in_shell: runInShell,
 			username: os.userInfo().username,
-			interruptMode,
-			connectionTimeout,
-			protocolVersion: kernelSpec.kernel_protocol_version
+			interrupt_mode: interruptMode,
+			connection_timeout: connectionTimeout,
+			protocol_version: kernelSpec.kernel_protocol_version
 		};
 		await this._api.newSession(session);
 		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
@@ -954,25 +958,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async tryStartAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
 
 		// Get the connection info for the session
-		const connectionFileContents = {};
 		let connectionInfo: ConnectionInfo;
 		try {
 			// Read the connection info from the API. This arrives to us in the
 			// form of a `ConnectionInfo` object.
 			const result = await this._api.connectionInfo(this.metadata.sessionId);
-			connectionInfo = result.body;
-
-			// The serialized form of the connection info is a JSON object with
-			// snake_case names, but ConnectionInfo uses camelCase. Use the map
-			// in ConnectionInfo to convert the names to snake_case for
-			// serialization.
-			for (const [inKey, val] of Object.entries(connectionInfo)) {
-				for (const outKey of ConnectionInfo.attributeTypeMap) {
-					if (inKey === outKey.name) {
-						connectionFileContents[outKey.baseName] = val;
-					}
-				}
-			}
+			connectionInfo = result.data;
 		} catch (err) {
 			throw new Error(`Failed to aquire connection info for session ${this.metadata.sessionId}: ${summarizeError(err)}`);
 		}
@@ -988,7 +979,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Write the connection file to disk
 		const connectionFile = path.join(os.tmpdir(), `connection-${this.metadata.sessionId}.json`);
-		fs.writeFileSync(connectionFile, JSON.stringify(connectionFileContents));
+		fs.writeFileSync(connectionFile, JSON.stringify(connectionInfo));
 		const session: JupyterSession = {
 			state: {
 				sessionId: this.metadata.sessionId,
@@ -1042,11 +1033,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const info = await this.tryStart();
 			return info;
 		} catch (err) {
-			if (err instanceof HttpError && err.statusCode === 500) {
+			if (isAxiosError(err) && err.status === 500) {
 				// When the server returns a 500 error, it means the startup
 				// failed. In this case the API returns a structured startup
 				// error we can use to report the problem with more detail.
-				const startupErr = err.body;
+				const startupErr = err.response?.data;
 				let message = startupErr.error.message;
 				if (startupErr.output) {
 					message += `\n${startupErr.output}`;
@@ -1103,8 +1094,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// starting a new session, but the server doesn't validate the
 			// result returned by the kernel, so check for a `status` field
 			// before assuming it's a Jupyter message.
-			if (result.body.status === 'ok') {
-				runtimeInfo = this.runtimeInfoFromKernelInfo(result.body);
+			if (result.data.status === 'ok') {
+				runtimeInfo = this.runtimeInfoFromKernelInfo(result.data);
 			}
 		}
 
@@ -1285,16 +1276,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The websocket URI for the session.
 	 */
 	async getWebsocketUri(): Promise<string> {
+		// @ts-ignore
 		const basePath = this._api.basePath;
 		let wsUri: string;
 
-		if (basePath && basePath.includes('unix:')) {
+		if (this._transport === KallichoreTransport.UnixSocket) {
 			// Unix domain socket transport - get socket path from channelsUpgrade API
 			this.log(
 				`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`,
 				vscode.LogLevel.Debug);
 			const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
-			const socketPath = channelsResponse.body;
+			const socketPath = channelsResponse.data;
 
 			// The socket path might be returned with or without the ws+unix:// prefix
 			if (socketPath.startsWith('ws+unix://')) {
@@ -1313,14 +1305,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					throw new Error(`Cannot extract socket path from base path: ${basePath}`);
 				}
 			}
-		} else if (basePath && basePath.includes('npipe:')) {
+		} else if (this._transport === KallichoreTransport.NamedPipe) {
 			// Named pipe transport - get pipe name from channelsUpgrade API
 			this.log(
 				`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`,
 				vscode.LogLevel.Debug
 			);
 			const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
-			const pipeName = channelsResponse.body;
+			const pipeName = channelsResponse.data;
 
 			// The pipe name might be returned with or without the ws+npipe:// prefix
 			if (pipeName.startsWith('ws+npipe://')) {
@@ -1383,14 +1375,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			this.log(`Connecting to session WebSocket via ${wsUri}`, vscode.LogLevel.Info);
 
-			// Get the Bearer token from the API for WebSocket authentication
-			const defaultAuth = (this._api as any).authentications?.default;
-			let accessToken: string | undefined;
-			const headers: { [key: string]: string } = {};
-			if (defaultAuth && typeof defaultAuth.accessToken !== 'undefined') {
-				accessToken = typeof defaultAuth.accessToken === 'function' ? defaultAuth.accessToken() : defaultAuth.accessToken;
-				headers['Authorization'] = `Bearer ${accessToken}`;
-			} else {
+			// Get the bearer token from the API for WebSocket authentication
+			// @ts-ignore
+			const headers = this._api.configuration?.baseOptions?.headers;
+			if (!headers) {
 				this.log(`Warning: No Bearer token found for WebSocket authentication`, vscode.LogLevel.Warning);
 			}
 
@@ -1468,8 +1456,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		try {
 			await this._api.interruptSession(this.metadata.sessionId);
 		} catch (err) {
-			if (err instanceof HttpError) {
-				throw new Error(summarizeHttpError(err));
+			if (isAxiosError(err)) {
+				throw new Error(summarizeAxiosError(err));
 			}
 			throw err;
 		}
@@ -1495,7 +1483,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// Create the restart request
 			const restart: RestartSession = {
 				// Supply working directory if provided
-				workingDirectory,
+				working_directory: workingDirectory,
 
 				// Build the set of environment variables to pass to the kernel.
 				// This is done on every restart so that changes to extension
@@ -1507,8 +1495,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// Mark ready after a successful restart
 			this.markReady('restart complete');
 		} catch (err) {
-			if (err instanceof HttpError) {
-				throw new Error(summarizeHttpError(err));
+			if (isAxiosError(err)) {
+				throw new Error(summarizeAxiosError(err));
 			} else {
 				throw err;
 			}
@@ -1536,11 +1524,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			await this._api.killSession(this.metadata.sessionId);
 		} catch (err) {
 			this._exitReason = positron.RuntimeExitReason.Unknown;
-			if (err instanceof HttpError) {
-				throw new Error(summarizeHttpError(err));
-			} else {
-				throw err;
-			}
+			throw err;
 		}
 	}
 
