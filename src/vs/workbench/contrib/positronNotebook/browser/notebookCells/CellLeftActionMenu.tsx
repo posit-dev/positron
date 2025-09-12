@@ -82,18 +82,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	}, []);
 
 
-	// Determine status for test attribute
-	let dataExecutionStatus = 'idle';
-	if (showPending) {
-		dataExecutionStatus = 'pending';
-	} else if (isRunning) {
-		dataExecutionStatus = 'running';
-	} else if (lastRunSuccess === false) {
-		dataExecutionStatus = 'failed';
-	} else if (lastRunSuccess === true) {
-		dataExecutionStatus = 'success';
-	}
-
+	const dataExecutionStatus = executionStatus || 'idle';
 
 	const actionMenu = isSelected || isHovered ? (
 		<div className={`action-button-wrapper ${isRunning ? 'running' : ''}`}>
