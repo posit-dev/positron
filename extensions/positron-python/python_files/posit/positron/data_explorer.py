@@ -2932,8 +2932,8 @@ def _ibis_summarize_object(col, _options: FormatOptions, type_display=ColumnDisp
         return _box_other_stats(0, type_display=type_display)
 
 
-class IbisView(DataExplorerTableView):
-    """DataExplorer view implementation for Ibis tables."""
+class IbisView(PandasView):
+    """DataExplorer view implementation for Ibis tables, subclassed from PandasView."""
 
     def __init__(
         self,
@@ -2943,336 +2943,89 @@ class IbisView(DataExplorerTableView):
         job_queue: BackgroundJobQueue,
         sql_string: str | None = None,
     ):
+        self._ibis_table = table  # Store the original ibis table
         self._pd_cache = None  # Cache for pandas conversion
-        super().__init__(table, comm, state, job_queue, sql_string)
 
-    def get_state(self, _unused):
-        self._recompute_if_needed()
+        # Initially convert first 1000 rows to pandas for preview
+        pandas_df = table.head(1000).execute()
 
-        num_rows, num_columns = self.table.count().execute(), len(self.table.columns)
+        # Call parent's constructor with the pandas dataframe
+        super().__init__(pandas_df, comm, state, job_queue, sql_string)
 
-        # Account for filters
-        if self.row_view_indices is not None:
-            filtered_num_rows = len(self.row_view_indices)
-        else:
-            filtered_num_rows = num_rows
+    def get_state(self, unused):
+        # Call parent method to get basic state
+        state = super().get_state(unused)
 
-        if self.column_view_indices is not None:
-            filtered_num_columns = len(self.column_view_indices)
-        else:
-            filtered_num_columns = num_columns
+        # Modify the display name to include "(preview)"
+        state.display_name = self.state.name + " (preview)"
 
-        return BackendState(
-            display_name=self.state.name,
-            table_shape=TableShape(
-                num_rows=filtered_num_rows,
-                num_columns=filtered_num_columns,
-            ),
-            table_unfiltered_shape=TableShape(num_rows=num_rows, num_columns=num_columns),
-            has_row_labels=self._has_row_labels,
-            column_filters=self.state.column_filters,
-            row_filters=self.state.row_filters,
-            sort_keys=self.state.sort_keys,
-            supported_features=self.FEATURES,
-        )
-
-    def _update_schema_cache(self):
+        # Update the unfiltered shape with the actual full table size
         try:
-            if self._should_cache_schema(self.table) and self.state.schema_cache is None:
-                self.state.schema_cache = [
-                    self._get_single_column_schema(i) for i in range(len(self.table.columns))
-                ]
-        except Exception as err:
-            print(err)
+            num_rows = self._ibis_table.count().execute()
+            num_columns = len(self._ibis_table.columns)
+            state.table_unfiltered_shape = TableShape(num_rows=num_rows, num_columns=num_columns)
+        except Exception:
+            # If counting fails, keep using the pandas preview count
+            pass
 
-    @classmethod
-    def _should_cache_schema(cls, table):
-        return len(table.columns) < SCHEMA_CACHE_THRESHOLD
+        return state
 
-    def _to_pandas(self, force_refresh=False):
-        """Convert the Ibis expression to pandas DataFrame."""
-        if self._pd_cache is None or force_refresh:
-            self._pd_cache = self.table.execute()
-        return self._pd_cache
-
-    def get_updated_state(self, new_table) -> tuple[bool, DataExplorerState]:
-        """Update the state when the table changes."""
-        # Create a new state with the current name
-        new_state = DataExplorerState(self.state.name)
-
-        # Assume schema has updated - for simplicity
-        schema_updated = True
-
-        # Reuse existing row filters and sort keys
-        new_state.row_filters = self.state.row_filters
-        new_state.sort_keys = self.state.sort_keys
-
-        # Return that schema is updated and the new state
-        return schema_updated, new_state
-
-    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
-        """Returns the supported code types for exporting data."""
-        return CodeSyntaxName(code_syntax_name=None).dict()
-
-    def _get_single_column_schema(self, column_index: int):
-        """Get schema information for a single column."""
-        if self.state.schema_cache:
-            return self.state.schema_cache[column_index]
-        elif column_index in self.schema_memo:
-            return self.schema_memo[column_index]
-        else:
-            column_name = self.table.columns[column_index]
-
-            # Get Ibis type information
-            col = self.table[column_name]
-            ibis_dtype = col.type()
-            type_name = str(ibis_dtype)
-
-            # Map Ibis types to display types
-            type_display = self._get_type_display(ibis_dtype)
-
-            col_schema = ColumnSchema(
-                column_name=column_name,
-                column_index=column_index,
-                type_name=type_name,
-                type_display=type_display,
-                timezone=None,  # Timezone handling could be added if needed
-            )
-
-            self.schema_memo[column_index] = col_schema
-            return col_schema
-
-    def _get_column_name(self, index: int) -> str:
-        """Get the name of a column by index."""
-        return self.table.columns[index]
-
-    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
-        """Get the display type for a column."""
-        column_name = self.table.columns[column_index]
-        col = self.table[column_name]
-        ibis_dtype = col.type()
-        return self._get_type_display(ibis_dtype)
-
-    @classmethod
-    def _get_type_display(cls, dtype) -> ColumnDisplayType:
-        """Map Ibis types to display types."""
-        # Convert dtype to string for easier matching
-        dtype_str = str(dtype).lower()
-
-        if (
-            "int" in dtype_str
-            or "float" in dtype_str
-            or "double" in dtype_str
-            or "decimal" in dtype_str
-        ):
-            return ColumnDisplayType.Number
-        elif "bool" in dtype_str:
-            return ColumnDisplayType.Boolean
-        elif "string" in dtype_str or "varchar" in dtype_str or "char" in dtype_str:
-            return ColumnDisplayType.String
-        elif "date" in dtype_str and "time" not in dtype_str:
-            return ColumnDisplayType.Date
-        elif "time" in dtype_str or "timestamp" in dtype_str:
-            return ColumnDisplayType.Datetime
-        else:
-            return ColumnDisplayType.Object
-
-    def _query_with_row_selection(self, col_expr, indices):
-        """Helper method to select specific rows from an Ibis column expression."""
-        # Create a table with just the rows we need
-        # This works by first getting a row_number and then filtering
-        # to only the rows in our indices list
-        table_expr = self.table
-
-        # Convert indices to a list to ensure we have a concrete sequence
-        if not isinstance(indices, list):
-            indices = list(indices)
-
-        if not indices:  # Handle empty indices case
-            # Return an empty result
-            return col_expr.filter(False)
-
-        # Create a computed column with row numbers
-        row_idx_col = "row_idx"
-        try:
-            # Try using ibis row_number window function
-            ibis_table = table_expr.mutate(
-                row_idx=lambda t: t.count().over(
-                    ibis.window(preceding=None, following=None, order_by=None)
-                )
-            )
-            # Filter to only the rows in our indices
-            filtered = ibis_table.filter(ibis_table[row_idx_col].isin(indices))
-            return filtered[col_expr.get_name()]
-        except (AttributeError, NotImplementedError):
-            # Fallback: Row filtering not properly supported in this Ibis backend
-            # This will force execution to use a pandas approach when needed
-            raise NotImplementedError("This Ibis backend doesn't support row selection by index")
-
-    def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
-        """Format values for display."""
-        float_format = _get_float_formatter(options)
-        max_length = options.max_value_length
-
-        def _format_value(x):
-            import numpy as np
-            import pandas as pd
-
-            # Handle Ibis scalar values if they come through
-            # Ibis scalars are automatically evaluated when accessed in Python
-            if pd.isna(x):
-                return _VALUE_NULL
-            elif isinstance(x, float):
-                if np.isnan(x):
-                    return _VALUE_NAN
-                elif np.isinf(x):
-                    return _VALUE_INF if x > 0 else _VALUE_NEGINF
-                else:
-                    return float_format(x)
-            elif x is None:
-                return _VALUE_NONE
-            elif x is pd.NaT:
-                return _VALUE_NAT
-            elif x is pd.NA:
-                return _VALUE_NA
-            else:
-                return _safe_stringify(x, max_length)
-
-        return [_format_value(x) for x in values]
+    def _lazy_execute_column(self, column_index: int):
+        """Lazily execute a single column from the ibis table."""
+        col_name = self._ibis_table.columns[column_index]
+        return self._ibis_table.select(col_name).execute()
 
     def _prof_null_count(self, column_index: int) -> int:
         """Count null values in a column using Ibis methods."""
-        # Get the column expression
-        col_name = self.table.columns[column_index]
-        col = self.table[col_name]
-
-        # Count nulls using Ibis methods
-        if self.filtered_indices is not None:
-            # For filtered data, we need pandas
-            result_df = self._to_pandas()
-            return result_df[col_name].iloc[self.filtered_indices].isna().sum()
-        else:
-            # For full table, we can use Ibis directly
+        try:
+            # Try to use Ibis directly for better performance
+            col_name = self._ibis_table.columns[column_index]
+            col = self._ibis_table[col_name]
             return col.isnull().sum().execute()
+        except Exception:
+            # Fall back to pandas implementation if ibis method fails
+            return super()._prof_null_count(column_index)
 
-    def _get_column(self, column_index: int):
-        """Get a column by index."""
-        col_name = self.table.columns[column_index]
-        return self.table[col_name]
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
+        """Get summary stats for a column."""
+        col_schema = self._get_single_column_schema(column_index)
+        ui_type = col_schema.type_display
 
-    def _get_data_values(
-        self,
-        selections: list[ColumnSelection],
-        format_options: FormatOptions,
-    ) -> dict:
-        formatted_columns = []
-        for selection in selections:
-            col_name = self.table.columns[selection.column_index]
-            col = self.table[col_name].execute()
-            spec = selection.spec
-            if isinstance(spec, DataSelectionRange):
-                if self.row_view_indices is not None:
-                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
-                    values = col.gather(view_slice)
-                else:
-                    # No filtering or sorting, just slice
-                    values = col[spec.first_index : spec.last_index + 1]
-            else:
-                if self.row_view_indices is not None:
-                    values = col.gather(self.row_view_indices.gather(spec.indices))
-                else:
-                    values = col.gather(spec.indices)
-            formatted_columns.append(self._format_values(values, format_options))
+        try:
+            # Try to use specialized ibis summarizers when possible
+            col = self._ibis_table[self._ibis_table.columns[column_index]]
 
-        # Bypass pydantic model for speed
-        return {"columns": formatted_columns}
+            if ui_type == ColumnDisplayType.Number:
+                return _ibis_summarize_number(col, options)
+            elif ui_type == ColumnDisplayType.String:
+                return _ibis_summarize_string(col, options)
+            elif ui_type == ColumnDisplayType.Boolean:
+                return _ibis_summarize_boolean(col, options)
+            elif ui_type == ColumnDisplayType.Date:
+                return _ibis_summarize_date(col, options)
+            elif ui_type == ColumnDisplayType.Datetime:
+                return _ibis_summarize_datetime(col, options)
+        except Exception:
+            # Fall back to pandas implementation if ibis methods fail
+            pass
 
-    # Define which filters are supported
-    SUPPORTED_FILTERS = frozenset(
-        {
-            RowFilterType.Between,
-            RowFilterType.Compare,
-            RowFilterType.IsEmpty,
-            RowFilterType.IsFalse,
-            RowFilterType.IsNull,
-            RowFilterType.IsTrue,
-            RowFilterType.NotBetween,
-            RowFilterType.NotEmpty,
-            RowFilterType.NotNull,
-            RowFilterType.Search,
-            RowFilterType.SetMembership,
-        }
-    )
+        return super()._prof_summary_stats(column_index, options)
 
-    # Define which summarizers are supported for different column types
-    _SUMMARIZERS = MappingProxyType(
-        {
-            ColumnDisplayType.Boolean: _ibis_summarize_boolean,
-            ColumnDisplayType.Number: _ibis_summarize_number,
-            ColumnDisplayType.String: _ibis_summarize_string,
-            ColumnDisplayType.Date: _ibis_summarize_date,
-            ColumnDisplayType.Datetime: _ibis_summarize_datetime,
-            ColumnDisplayType.Object: _ibis_summarize_object,
-        }
-    )
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
+        """Returns the supported code types for exporting data."""
+        return CodeSyntaxName(code_syntax_name="ibis").dict()
 
-    # Define feature support
+    # Use PandasView's feature set but override the code syntax
     FEATURES = SupportedFeatures(
-        search_schema=SearchSchemaFeatures(
-            support_status=SupportStatus.Supported,
-            supported_types=[
-                ColumnFilterTypeSupportStatus(
-                    column_filter_type=ColumnFilterType.TextSearch,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnFilterTypeSupportStatus(
-                    column_filter_type=ColumnFilterType.MatchDataTypes,
-                    support_status=SupportStatus.Supported,
-                ),
-            ],
-        ),
-        set_column_filters=SetColumnFiltersFeatures(
-            support_status=SupportStatus.Unsupported, supported_types=[]
-        ),
-        set_row_filters=SetRowFiltersFeatures(
-            support_status=SupportStatus.Supported,
-            supports_conditions=SupportStatus.Unsupported,
-            supported_types=[
-                RowFilterTypeSupportStatus(
-                    row_filter_type=x, support_status=SupportStatus.Supported
-                )
-                for x in SUPPORTED_FILTERS
-            ],
-        ),
-        get_column_profiles=GetColumnProfilesFeatures(
-            support_status=SupportStatus.Supported,
-            supported_types=[
-                ColumnProfileTypeSupportStatus(
-                    profile_type=profile_type,
-                    support_status=SupportStatus.Supported,
-                )
-                for profile_type in [
-                    "null_count",
-                    "summary_stats",
-                    "small_frequency_table",
-                    "large_frequency_table",
-                    "small_histogram",
-                    "large_histogram",
-                ]
-            ],
-        ),
-        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
-        export_data_selection=ExportDataSelectionFeatures(
-            support_status=SupportStatus.Unsupported,
-            supported_formats=[
-                ExportFormat.Csv,
-                ExportFormat.Tsv,
-                ExportFormat.Html,
-            ],
-        ),
+        search_schema=PandasView.FEATURES.search_schema,
+        set_column_filters=PandasView.FEATURES.set_column_filters,
+        set_row_filters=PandasView.FEATURES.set_row_filters,
+        get_column_profiles=PandasView.FEATURES.get_column_profiles,
+        set_sort_columns=PandasView.FEATURES.set_sort_columns,
+        export_data_selection=PandasView.FEATURES.export_data_selection,
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Unsupported,
-            code_syntaxes=[],
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[CodeSyntaxName(code_syntax_name="ibis")],
         ),
     )
 
