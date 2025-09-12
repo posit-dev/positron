@@ -39,9 +39,7 @@ export function buildMoreActionsMenuItems(
 				onSelected: () => {
 					// IMPORTANT: Ensure the cell from this menu is selected before executing
 					// Otherwise the command would operate on whatever cell is currently selected
-					if (action.needsCellContext) {
-						instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-					}
+					instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 
 					// Execute command - it will now operate on the correct cell
 					commandService.executeCommand(action.commandId);
