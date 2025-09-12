@@ -26,8 +26,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	protected readonly _internalMetadata;
 	private readonly _execution;
-	private readonly _internalMetadata;
 
 	public readonly executionStatus;
 	public readonly selectionStatus;
