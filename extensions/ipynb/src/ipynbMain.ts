@@ -97,7 +97,16 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 			nbformat_minor: defaultNotebookFormat.minor,
 		};
 		const doc = await vscode.workspace.openNotebookDocument('jupyter-notebook', data);
-		await vscode.window.showNotebookDocument(doc);
+
+		// Check if Positron notebooks are configured as the default editor for .ipynb files
+		const editorAssociations = vscode.workspace.getConfiguration('workbench').get<Record<string, string>>('editorAssociations') || {};
+		const usingPositronNotebooks = editorAssociations['*.ipynb'] === 'workbench.editor.positronNotebook';
+
+		// Only call showNotebookDocument if Positron is not the default editor,
+		// since openNotebookDocument already opens the editor when Positron is default
+		if (!usingPositronNotebooks) {
+			await vscode.window.showNotebookDocument(doc);
+		}
 	}));
 	// --- End Positron ---
 
