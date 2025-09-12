@@ -26,8 +26,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
-
-	private readonly execution;
+	private readonly _execution;
 
 	public readonly executionStatus;
 	public readonly selectionStatus;
@@ -41,7 +40,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		super();
 
 		// Track this cell's current execution
-		this.execution = observableFromEvent(
+		this._execution = observableFromEvent(
 			this,
 			((listener) => {
 				return this._register(this._executionStateService.onDidChangeExecution(e => {
@@ -58,7 +57,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			this,
 			(reader) => {
 				/** @description executionStatus */
-				const execution = this.execution.read(reader);
+				const execution = this._execution.read(reader);
 				const state = execution?.state;
 				const { lastRunSuccess } = this.cellModel.internalMetadata;
 				if (!state) {
