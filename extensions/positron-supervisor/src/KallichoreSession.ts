@@ -42,6 +42,7 @@ import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { isAxiosError } from 'axios';
+import { KallichoreTransport } from './KallichoreApiInstance.js';
 
 /**
  * The reason for a disconnection event.
@@ -177,6 +178,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param runtimeMetadata The runtime metadata
 	 * @param dynState The initial dynamic state of the runtime
 	 * @param _api The API instance to use for communication
+	 * @param _transport The transport mechanism to use for communication
 	 * @param _new Set to `true` when the session is created for the first time,
 	 * and `false` when it is restored (reconnected).
 	 * @param _extra Extra functionality to enable for this session
@@ -185,6 +187,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
 		private readonly _api: DefaultApi,
+		private readonly _transport: KallichoreTransport,
 		private readonly _new: boolean,
 		private readonly _extra?: JupyterKernelExtra | undefined) {
 
@@ -1277,7 +1280,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const basePath = this._api.basePath;
 		let wsUri: string;
 
-		if (basePath && basePath.includes('unix:')) {
+		if (this._transport === KallichoreTransport.UnixSocket) {
 			// Unix domain socket transport - get socket path from channelsUpgrade API
 			this.log(
 				`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`,
@@ -1302,7 +1305,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					throw new Error(`Cannot extract socket path from base path: ${basePath}`);
 				}
 			}
-		} else if (basePath && basePath.includes('npipe:')) {
+		} else if (this._transport === KallichoreTransport.NamedPipe) {
 			// Named pipe transport - get pipe name from channelsUpgrade API
 			this.log(
 				`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`,
@@ -1372,14 +1375,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			this.log(`Connecting to session WebSocket via ${wsUri}`, vscode.LogLevel.Info);
 
-			// Get the Bearer token from the API for WebSocket authentication
-			const defaultAuth = (this._api as any).authentications?.default;
-			let accessToken: string | undefined;
-			const headers: { [key: string]: string } = {};
-			if (defaultAuth && typeof defaultAuth.accessToken !== 'undefined') {
-				accessToken = typeof defaultAuth.accessToken === 'function' ? defaultAuth.accessToken() : defaultAuth.accessToken;
-				headers['Authorization'] = `Bearer ${accessToken}`;
-			} else {
+			// Get the bearer token from the API for WebSocket authentication
+			// @ts-ignore
+			const headers = this._api.configuration?.baseOptions?.headers;
+			if (!headers) {
 				this.log(`Warning: No Bearer token found for WebSocket authentication`, vscode.LogLevel.Warning);
 			}
 
