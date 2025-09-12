@@ -43,6 +43,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// Track this cell's current execution
 		this._execution = observableFromEvent(
 			this,
+			// Create an event that only fires when *this* cell's execution changes
 			((listener) => {
 				return this._register(this._executionStateService.onDidChangeExecution(e => {
 					if (e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {

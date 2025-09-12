@@ -16,7 +16,7 @@ import { INotebookExecutionStateService } from '../../../notebook/common/noteboo
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
 	readonly markdownString;
-	readonly editorShown = observableValue<boolean>('editorShown', false);
+	readonly editorShown = observableValue('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
 
 	constructor(
@@ -28,10 +28,11 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 		super(cellModel, instance, executionStateService, textModelResolverService);
 
 		// Create the markdown string observable
-		this.markdownString = observableFromEvent(this, this.cellModel.onDidChangeContent, () => {
-			/** @description markdownString */
-			return this.getContent();
-		});
+		this.markdownString = observableFromEvent(
+			this,
+			this.cellModel.onDidChangeContent,
+			() => /** @description markdownString */ this.getContent()
+		);
 	}
 
 	toggleEditor(): void {
