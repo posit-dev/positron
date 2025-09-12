@@ -29,8 +29,8 @@
 	z-index: 10;
 }
 
-/* When the cell execution order badge is present and the cell isn't running, hide the circle outline by setting the width to 0 */
-.left-hand-action-container:has(.execution-order-badge):not([data-execution-status='running']) {
+/* Hide the circle outline when the cell isn't running and not selected/hovered */
+.left-hand-action-container:not([data-execution-status='running']):not(:has(.action-button-wrapper)) {
 	--_circle-border-width: 0;
 }
 
