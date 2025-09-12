@@ -11,8 +11,22 @@ export class Clipboard {
 
 	constructor(private code: Code, private hotKeys: HotKeys) { }
 
-	async copy(): Promise<void> {
+	async copy(timeoutMs = 5000): Promise<void> {
+		const seed = '__SEED__';
+		// Seed the clipboard
+		await this.setClipboardText(seed);
+
+		// Invoke the copy hotkey
 		await this.hotKeys.copy();
+
+		// Wait until clipboard value differs from the seed
+		await expect
+			.poll(async () => (await this.getClipboardText()) ?? '', {
+				message: 'clipboard should change after copy',
+				timeout: timeoutMs,
+				intervals: [100, 150, 200, 300, 500, 800],
+			})
+			.not.toBe(seed);
 	}
 
 	async paste(): Promise<void> {
@@ -35,12 +49,25 @@ export class Clipboard {
 		return clipboardText;
 	}
 
-	async expectClipboardTextToBe(expectedText: string): Promise<void> {
+	async expectClipboardTextToBe(expectedText: string, stripTrailingChar?: string): Promise<void> {
 		await expect(async () => {
-			const clipboardText = await this.getClipboardText();
+			let clipboardText = await this.getClipboardText();
+
+			if (clipboardText) {
+				// Normalize line endings (Windows uses \r\n, but expected data uses \n)
+				clipboardText = clipboardText.replace(/\r\n/g, '\n');
+			}
+
+			if (stripTrailingChar && clipboardText) {
+				// Strip all trailing occurrences of the character, not just one
+				while (clipboardText.endsWith(stripTrailingChar)) {
+					clipboardText = clipboardText.slice(0, -stripTrailingChar.length);
+				}
+			}
+
 			expect(clipboardText).toBe(expectedText);
 		}, { message: 'clipboard text to be...' }).toPass({ timeout: 20000 });
-	};
+	}
 
 	async setClipboardText(text: string): Promise<void> {
 		// Grant permissions to write to clipboard

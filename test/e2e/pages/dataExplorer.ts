@@ -280,7 +280,7 @@ export class DataGrid {
 	 * @param colIndex (Index is 1-based)
 	 * @param action menu action to select
 	 */
-	private async selectColumnAction(colIndex: number, action: ColumnRightMenuOption) {
+	async selectColumnAction(colIndex: number, action: ColumnRightMenuOption) {
 		await test.step(`Select column action: ${action}`, async () => {
 			await this.code.driver.page.locator(`div:nth-child(${colIndex}) > .content > .positron-button`).click();
 			await this.code.driver.page.getByRole('button', { name: action }).click();
@@ -313,11 +313,11 @@ export class DataGrid {
 	 * Pin a row by its visual index
 	 * @param rowIndex (Index is 0-based)
 	 */
-	async pinRow(rowIndex: number, indexOffset = 0) {
+	async pinRow(rowIndex: number) {
 		await test.step(`Pin row at index ${rowIndex}`, async () => {
 			await this.code.driver.page
 				// rowIndex is 0-based, nth-child is 1-based
-				.locator(`.data-grid-row-headers > div:nth-child(${rowIndex + 1 + indexOffset})`)
+				.locator(`.data-grid-row-headers > div:nth-child(${rowIndex + 1})`)
 				.click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
 		});
