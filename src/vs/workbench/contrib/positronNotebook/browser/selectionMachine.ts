@@ -121,17 +121,8 @@ export class SelectionStateMachine extends Disposable {
 				return;
 			}
 
-			if (state.type === SelectionState.SingleSelection) {
+			if (state.type === SelectionState.SingleSelection || state.type === SelectionState.MultiSelection) {
 				// Check if cell is already selected
-				if (state.selected.includes(cell)) {
-					return;
-				}
-				this._setState({ type: SelectionState.MultiSelection, selected: [...state.selected, cell] });
-				return;
-			}
-
-			if (state.type === SelectionState.MultiSelection) {
-				// Check if cell is already in the selection
 				if (state.selected.includes(cell)) {
 					return;
 				}
