@@ -8,7 +8,7 @@ import './NotebookCellWrapper.css';
 import './NotebookCellSelection.css';
 
 // React.
-import React, { useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -16,7 +16,6 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useSelectionStatus } from './useSelectionStatus.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 
@@ -27,9 +26,8 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
-	const selectionStatus = useSelectionStatus(cell);
+	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
-	const [isHovered, setIsHovered] = useState(false);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -79,10 +77,8 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
-		onMouseEnter={() => setIsHovered(true)}
-		onMouseLeave={() => setIsHovered(false)}
 	>
-		<NotebookCellActionBar cell={cell} isHovered={isHovered}>
+		<NotebookCellActionBar cell={cell}>
 			{actionBarChildren}
 		</NotebookCellActionBar>
 		{children}

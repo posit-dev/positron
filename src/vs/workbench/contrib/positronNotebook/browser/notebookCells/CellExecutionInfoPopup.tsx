@@ -11,11 +11,13 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { useObservedValue } from '../useObservedValue.js';
-import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 
 interface CellExecutionInfoPopupProps {
-	cell: PositronNotebookCodeCell;
+	executionOrder: number | undefined;
+	duration: number | undefined;
+	lastRunEndTime: number | undefined;
+	lastRunSuccess: boolean | undefined;
+	executionStatus: string | undefined;
 }
 
 /**
@@ -95,13 +97,13 @@ function getRelativeTime(timestamp: number): string {
 	}
 }
 
-export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
-	// Use reactive hooks to observe cell state changes
-	const executionOrder = useObservedValue(cell.lastExecutionOrder);
-	const duration = useObservedValue(cell.lastExecutionDuration);
-	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
-	const lastRunSuccess = useObservedValue(cell.lastRunSuccess);
-	const executionStatus = useObservedValue(cell.executionStatus);
+export function CellExecutionInfoPopup({
+	executionOrder,
+	duration,
+	lastRunEndTime,
+	lastRunSuccess,
+	executionStatus
+}: CellExecutionInfoPopupProps) {
 
 	// Determine the data availability for various sections
 	const hasExecutionOrder = executionOrder !== undefined;
@@ -145,7 +147,6 @@ export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
 			{hasExecutionOrder && (
 				<div aria-label='Execution order' className='popup-row'>
 					{/* Execution order row: shows the cell's execution sequence number when available */}
-					<span className='popup-icon codicon codicon-play'></span>
 					<span className='popup-label-text'>
 						{localize('cellExecution.order.label', 'Execution order:')}
 					</span>
@@ -154,15 +155,7 @@ export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
 			)}
 			{hasExecutionResult && (
 				<div aria-label='Execution status' className='popup-row'>
-					{/* Execution result row: success/failure indicator with icon and label */}
-					<span
-						aria-label={
-							lastRunSuccess ? 'Execution succeeded' : 'Execution failed'
-						}
-						className={`popup-icon codicon ${lastRunSuccess ? 'codicon-pass' : 'codicon-error'
-							}`}
-						role='img'
-					></span>
+					{/* Execution result row: success/failure indicator with label */}
 					<span className='popup-label-text'>
 						{localize('cellExecution.status.label', 'Status:')}
 					</span>
@@ -181,12 +174,7 @@ export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
 			)}
 			{isCurrentlyRunning && (
 				<div className='popup-row'>
-					{/* Running row: spinner and text shown only while a cell is currently executing */}
-					<span
-						aria-label='Cell is executing'
-						className='popup-icon codicon codicon-sync codicon-modifier-spin'
-						role='img'
-					></span>
+					{/* Running row: text shown only while a cell is currently executing */}
 					<span className='popup-label'>
 						{localize('cellExecution.running', 'Currently running...')}
 					</span>
@@ -204,7 +192,6 @@ export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
 			{hasDuration && (
 				<div aria-label='Execution duration' className='popup-row'>
 					{/* Duration row: displays formatted run time (e.g., 2.3s or 850ms) */}
-					<span className='popup-icon codicon codicon-clock'></span>
 					<span className='popup-label-text'>
 						{localize('cellExecution.duration.label', 'Duration:')}
 					</span>
@@ -216,7 +203,6 @@ export function CellExecutionInfoPopup({ cell }: CellExecutionInfoPopupProps) {
 			{hasCompletionTime && (
 				<div className='popup-row'>
 					{/* Completion time row: shows relative time; if >1 hour ago, also shows absolute local time */}
-					<span className='popup-icon codicon codicon-calendar'></span>
 					<span className='popup-label-text'>
 						{localize('cellExecution.endTime.label', 'Completed:')}
 					</span>
