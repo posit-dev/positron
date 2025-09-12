@@ -1076,10 +1076,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (this.options.renderStyle === 'compact') {
 			elements = dom.h('.interactive-input-part', [
 				dom.h('.interactive-input-and-edit-session', [
-					dom.h('.chat-editing-session@chatEditingSessionWidgetContainer'),
 					// --- Start Positron ---
 					dom.h('.chat-token-usage-status@tokenUsageContainer'),
 					// --- End Positron ---
+					dom.h('.chat-editing-session@chatEditingSessionWidgetContainer'),
 					dom.h('.interactive-input-and-side-toolbar@inputAndSideToolbar', [
 						dom.h('.chat-input-container@inputContainer', [
 							dom.h('.chat-editor-container@editorContainer'),
@@ -1097,10 +1097,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		} else {
 			elements = dom.h('.interactive-input-part', [
 				dom.h('.interactive-input-followups@followupsContainer'),
-				dom.h('.chat-editing-session@chatEditingSessionWidgetContainer'),
 				// --- Start Positron ---
 				dom.h('.chat-token-usage-status@tokenUsageContainer'),
 				// --- End Positron ---
+				dom.h('.chat-editing-session@chatEditingSessionWidgetContainer'),
 				dom.h('.interactive-input-and-side-toolbar@inputAndSideToolbar', [
 					dom.h('.chat-input-container@inputContainer', [
 						dom.h('.chat-attachments-container@attachmentsContainer', [
