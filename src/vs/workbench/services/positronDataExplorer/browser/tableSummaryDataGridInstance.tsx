@@ -508,6 +508,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			await this.updateLayoutEntries();
 			// Invalidate the cache when pinned columns change with active search/sort
 			await this.fetchData(true);
+		} else {
+			this.fetchData(false);
 		}
 
 		// Force a re-render when the pinned columns change

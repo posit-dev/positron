@@ -222,14 +222,7 @@ export class LayoutManager {
 		}
 
 		// Calculate the default unpinned layout entries size. This accounts for all entries.
-		let size = this._entryCount * this._defaultSize;
-
-		// Account for pinned indexes by subtracting the default size for each one.
-		for (const pinnedIndex of this._pinnedIndexes) {
-			if (pinnedIndex < this._entryCount) {
-				size -= this._defaultSize;
-			}
-		}
+		let size = (this._entryCount - this._pinnedIndexes.size) * this._defaultSize;
 
 		// Account for custom entry sizes by subtracting the default size and adding the custom entry size for each one.
 		for (const [customEntrySizeIndex, customEntrySize] of this._customEntrySizes) {
