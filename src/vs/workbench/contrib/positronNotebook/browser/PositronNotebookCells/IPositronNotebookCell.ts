@@ -48,6 +48,11 @@ export interface IPositronNotebookCell extends Disposable {
 	executionStatus: ISettableObservable<ExecutionStatus, void>;
 
 	/**
+	 * Current selection status for this cell
+	 */
+	selectionStatus: ISettableObservable<CellSelectionStatus, void>;
+
+	/**
 	 * The content of the cell. This is the raw text of the cell.
 	 */
 	getContent(): string;

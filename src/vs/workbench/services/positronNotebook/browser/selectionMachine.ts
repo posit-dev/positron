@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
-import { IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { Event } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -293,9 +293,73 @@ export class SelectionStateMachine extends Disposable {
 
 	//#region Private Methods
 	private _setState(state: SelectionStates) {
+		// Collect currently selected/editing cells before state change
+		const previouslySelected = this.getSelectedCells();
+		const previouslyEditing = this.getEditingCell();
+
+		// Update state
 		this._state = state;
+
+		// Collect newly selected/editing cells after state change
+		const newlySelected = this.getSelectedCells();
+		const newlyEditing = this.getEditingCell();
+
+		// Update selection status for all affected cells
+		this._updateCellSelectionStatus(previouslySelected, previouslyEditing, newlySelected, newlyEditing);
+
 		// Alert the observable that the state has changed.
 		this.state.set(this._state, undefined);
+	}
+
+	/**
+	 * Surgically updates the selection status of cells that have changed state.
+	 * @param previouslySelected Cells that were selected before state change
+	 * @param previouslyEditing Cell that was being edited before state change
+	 * @param newlySelected Cells that are selected after state change
+	 * @param newlyEditing Cell that is being edited after state change
+	 */
+	private _updateCellSelectionStatus(
+		previouslySelected: IPositronNotebookCell[],
+		previouslyEditing: IPositronNotebookCell | null,
+		newlySelected: IPositronNotebookCell[],
+		newlyEditing: IPositronNotebookCell | null
+	): void {
+		// Create sets for efficient lookups
+		const previousSelectedSet = new Set(previouslySelected);
+		const newSelectedSet = new Set(newlySelected);
+
+		// Find cells that need status updates
+		const cellsToUnselect = previouslySelected.filter(cell => !newSelectedSet.has(cell));
+		const cellsToSelect = newlySelected.filter(cell => !previousSelectedSet.has(cell));
+
+		// Update cells that are no longer selected
+		cellsToUnselect.forEach(cell => {
+			if (cell !== newlyEditing) {
+				cell.selectionStatus.set(CellSelectionStatus.Unselected, undefined);
+			}
+		});
+
+		// Update cells that are newly selected
+		cellsToSelect.forEach(cell => {
+			if (cell !== newlyEditing) {
+				cell.selectionStatus.set(CellSelectionStatus.Selected, undefined);
+			}
+		});
+
+		// Handle editing state transitions
+		if (previouslyEditing && previouslyEditing !== newlyEditing) {
+			// Previous editing cell is no longer being edited
+			if (newSelectedSet.has(previouslyEditing)) {
+				previouslyEditing.selectionStatus.set(CellSelectionStatus.Selected, undefined);
+			} else {
+				previouslyEditing.selectionStatus.set(CellSelectionStatus.Unselected, undefined);
+			}
+		}
+
+		if (newlyEditing) {
+			// New cell is being edited
+			newlyEditing.selectionStatus.set(CellSelectionStatus.Editing, undefined);
+		}
 	}
 
 
