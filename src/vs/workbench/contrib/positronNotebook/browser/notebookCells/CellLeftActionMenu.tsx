@@ -115,6 +115,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 				<ExecutionStatusBadge
 					cellSelected={isSelected}
 					executionOrder={executionOrder}
+					executionStatus={dataExecutionStatus}
 					isHovered={isHovered}
 					showPending={showPending}
 				/>
