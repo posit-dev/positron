@@ -111,12 +111,14 @@ export class KCApi implements PositronSupervisorApi {
 	 *
 	 * @param _context The extension context
 	 * @param _log A log output channel for the extension
+	 * @param _transport The transport type to use
 	 */
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _log: vscode.OutputChannel) {
+		private readonly _log: vscode.OutputChannel,
+		private readonly _transport: KallichoreTransport) {
 
-		this._api = new KallichoreApiInstance();
+		this._api = new KallichoreApiInstance(_transport);
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -127,12 +129,17 @@ export class KCApi implements PositronSupervisorApi {
 		}).catch((err) => {
 			this.log(`Failed to start Kallichore server: ${err}`);
 		});
+	}
 
-		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
+	/**
+	 * Register commands for the supervisor.
+	 */
+	public registerCommands(): void {
+		this._context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
 			this.reconnectActiveSession();
 		}));
 
-		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
+		this._context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
 			this.restartSupervisor();
 		}));
 
@@ -149,7 +156,7 @@ export class KCApi implements PositronSupervisorApi {
 					}
 				}
 			});
-			_context.subscriptions.push(configListener);
+			this._context.subscriptions.push(configListener);
 		}
 	}
 
@@ -320,25 +327,22 @@ export class KCApi implements PositronSupervisorApi {
 			'--connection-file', connectionFile,
 		]);
 
-		// Add transport option based on configuration
-		const transport = config.get<string>('transport', 'ipc');
-		if (transport === 'ipc') {
-			// Use native IPC: named pipes on Windows, unix sockets on other platforms
-			if (os.platform() === 'win32') {
-				shellArgs.push('--transport', 'named-pipe');
-				this.log(`Using native IPC transport: named pipes`);
-			} else {
-				shellArgs.push('--transport', 'socket');
-				this.log(`Using native IPC transport: unix sockets`);
-			}
-		} else if (transport === 'tcp') {
+		// Add transport option
+		if (this._transport === KallichoreTransport.TCP) {
 			// Use TCP transport
 			shellArgs.push('--transport', 'tcp');
 			this.log(`Using TCP transport`);
+		} else if (this._transport === KallichoreTransport.UnixSocket) {
+			// Use Unix socket transport
+			shellArgs.push('--transport', 'socket');
+			this.log(`Using Unix socket transport`);
+		} else if (this._transport === KallichoreTransport.NamedPipe) {
+			// Use named pipe transport
+			shellArgs.push('--transport', 'named-pipe');
+			this.log(`Using named pipe transport`);
 		} else {
-			// Fallback for unknown values; don't pass --transport option at all
-			// and let Kallichore decide
-			this.log(`Unknown transport option '${transport}', using default`);
+			// Fallback - this shouldn't happen with the current enum values
+			this.log(`Unknown transport type '${this._transport}', using default`);
 		}
 
 		// Set the idle shutdown hours from the configuration. This is used to

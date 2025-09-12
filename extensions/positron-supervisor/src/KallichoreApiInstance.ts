@@ -28,9 +28,8 @@ export class KallichoreApiInstance {
 	/** The transport mechanism used by the API */
 	private _transport: KallichoreTransport;
 
-	constructor() {
-		// Default to cross-platform TCP transport
-		this._transport = KallichoreTransport.TCP;
+	constructor(transport: KallichoreTransport) {
+		this._transport = transport;
 	}
 
 	/**
@@ -60,7 +59,9 @@ export class KallichoreApiInstance {
 	public loadState(state: KallichoreServerState) {
 
 		// Load the transport state
-		this._transport = state.transport || KallichoreTransport.TCP;
+		if (state.transport) {
+			this._transport = state.transport;
+		}
 
 		// Common base options used for all connections
 		const baseOptions = {
