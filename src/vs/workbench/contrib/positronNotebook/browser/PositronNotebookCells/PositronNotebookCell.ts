@@ -13,7 +13,7 @@ import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMark
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
+import { observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -52,6 +52,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 			// TODO: Do we need the getCellExecution part?
 			(e) => /** @description execution */ e?.changed ?? this._executionStateService.getCellExecution(this.uri)
 		);
+
 		this._internalMetadata = observableFromEvent(
 			this,
 			this.cellModel.onDidChangeInternalMetadata,
@@ -59,28 +60,25 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		);
 
 		// Derive the execution status from the current execution
-		this.executionStatus = derived(
-			this,
-			(reader): ExecutionStatus => {
-				/** @description executionStatus */
-				const state = this._execution.read(reader)?.state;
-				const { lastRunSuccess } = this._internalMetadata.read(reader);
-				if (!state) {
-					// TODO: Should we have separate "success" and "error" states?
-					return lastRunSuccess ? 'idle' : 'idle';
-				}
-				if (state === NotebookCellExecutionState.Pending || state === NotebookCellExecutionState.Unconfirmed) {
-					return 'pending';
-				} else if (state === NotebookCellExecutionState.Executing) {
-					return 'running';
-				} else {
-					throw new Error(`Unknown execution state: ${state}`);
-				}
-			});
+		this.executionStatus = this._execution.map(this, (execution, reader): ExecutionStatus => {
+			/** @description executionStatus */
+			const { lastRunSuccess } = this._internalMetadata.read(reader);
+			const state = execution?.state;
+			if (!state) {
+				// TODO: Should we have separate "success" and "error" states?
+				return lastRunSuccess ? 'idle' : 'idle';
+			}
+			if (state === NotebookCellExecutionState.Pending || state === NotebookCellExecutionState.Unconfirmed) {
+				return 'pending';
+			} else if (state === NotebookCellExecutionState.Executing) {
+				return 'running';
+			} else {
+				throw new Error(`Unknown execution state: ${state}`);
+			}
+		});
 
-		const selectionMachine = _instance.selectionStateMachine;
-		this.selectionStatus = derived(this, (reader): CellSelectionStatus => {
-			const state = selectionMachine.state.read(reader);
+		this.selectionStatus = this._instance.selectionStateMachine.state.map(this, (state): CellSelectionStatus => {
+			/** @description selectionStatus */
 			if (state.type === SelectionState.EditingSelection) {
 				return state.selectedCell === this ? CellSelectionStatus.Editing : CellSelectionStatus.Unselected;
 			} else if (state.type === SelectionState.NoSelection) {

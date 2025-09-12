@@ -5,7 +5,7 @@
 
 import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
-import { derived, ObservableMap } from '../../../../../../base/common/observable.js';
+import { ObservableMap } from '../../../../../../base/common/observable.js';
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 import { CellConditionPredicate } from './cellConditions.js';
 
@@ -56,19 +56,19 @@ export class NotebookCellActionBarRegistry {
 	public readonly menuActions;
 
 	constructor() {
-		this.mainActions = derived(this, reader => {
+		this.mainActions = this.items.observable.map(this, items =>
 			/** @description mainActions */
-			return Array.from(this.items.observable.read(reader).values())
+			Array.from(items.values())
 				.filter(item => item.position === 'main')
-				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
-		});
+				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER))
+		);
 
-		this.menuActions = derived(this, reader => {
+		this.menuActions = this.items.observable.map(this, items =>
 			/** @description menuActions */
-			return Array.from(this.items.observable.read(reader).values())
+			Array.from(items.values())
 				.filter(item => item.position === 'menu')
-				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
-		});
+				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER))
+		);
 	}
 
 	/**
