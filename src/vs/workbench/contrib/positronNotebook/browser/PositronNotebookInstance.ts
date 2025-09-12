@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -34,7 +34,7 @@ import { INotebookKernelService } from '../../notebook/common/notebookKernelServ
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorun, observableValue } from '../../../../base/common/observable.js';
+import { autorun, observableFromEvent, observableValue } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
@@ -384,7 +384,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 		this.kernelStatus = observableValue('positronNotebookKernelStatus', KernelStatus.Uninitialized);
-		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
+
+		// Track the current runtime for this notebook
+		this.currentRuntime = observableFromEvent(
+			this,
+			(listener => this.runtimeSessionService.onDidStartRuntime((session) => {
+				if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
+					listener(session);
+					const d = session.onDidEndSession(() => {
+						d.dispose();
+						listener(undefined);
+					});
+				}
+			})) satisfies Event<ILanguageRuntimeSession | undefined>,
+			(session) => /** @description positronNotebookCurrentRuntime */ session,
+		);
 
 		// Update the kernel status based on the current runtime.
 		this._register(autorun(reader => {
@@ -418,19 +432,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 				this._logService.info(this.id, `Selecting kernel ${kernel.id} for notebook`);
 				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
-			})
-		);
-
-		// Listen for a runtime session to be started up that's attached to this notebook
-		this._register(
-			this.runtimeSessionService.onDidStartRuntime((session) => {
-				if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
-					this.currentRuntime.set(session, undefined);
-
-					session.onDidEndSession(() => {
-						this.currentRuntime.set(undefined, undefined);
-					});
-				}
 			})
 		);
 
