@@ -9,6 +9,11 @@ import { URI } from '../../../../base/common/uri.js';
 import { TextEdit } from '../../../../editor/common/languages.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ICellEditOperation } from '../../notebook/common/notebookCommon.js';
+// --- Start Positron ---
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { ILanguageModelsService } from './languageModels.js';
+import { IChatService } from './chatService.js';
+// --- End Positron ---
 
 export interface ICodeMapperResponse {
 	textEdit: (resource: URI, textEdit: TextEdit[]) => void;
@@ -34,6 +39,9 @@ export interface ICodeMapperResult {
 }
 
 export interface ICodeMapperProvider {
+	// --- Start Positron ---
+	readonly extension: ExtensionIdentifier;
+	// --- End Positron ---
 	readonly displayName: string;
 	mapCode(request: ICodeMapperRequest, response: ICodeMapperResponse, token: CancellationToken): Promise<ICodeMapperResult | undefined>;
 }
@@ -51,6 +59,12 @@ export class CodeMapperService implements ICodeMapperService {
 	_serviceBrand: undefined;
 
 	public readonly providers: ICodeMapperProvider[] = [];
+	// --- Start Positron ---
+	constructor(
+		@IChatService private readonly _chatService: IChatService,
+		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
+	) { }
+	// --- End Positron ---
 
 	registerCodeMapperProvider(handle: number, provider: ICodeMapperProvider): IDisposable {
 		this.providers.push(provider);
@@ -65,6 +79,28 @@ export class CodeMapperService implements ICodeMapperService {
 	}
 
 	async mapCode(request: ICodeMapperRequest, response: ICodeMapperResponse, token: CancellationToken) {
+		// --- Start Positron ---
+		// If we can determine the extension that provided the model currently in use,
+		// prefer the code mapper provider from that same extension.
+		// This allows, for example, Copilot to use its own code mapper provider
+		// when Copilot is the current chat model.
+
+		if (request.chatSessionId) {
+			const modelId = this._chatService.getSession(request.chatSessionId)?.getRequests().at(0)?.modelId;
+			if (modelId) {
+				const model = this._languageModelsService.lookupLanguageModel(modelId);
+				const extension = model?.extension;
+				if (extension) {
+					const provider = this.providers.find(p => p.extension.value === extension.value);
+					if (provider) {
+						console.info(`Using code mapper provider from extension ${extension.value} for model ${modelId}`);
+						return await provider.mapCode(request, response, token);
+					}
+				}
+			}
+		}
+		// Otherwise, fall back to the first registered provider.
+		// --- End Positron ---
 		for (const provider of this.providers) {
 			const result = await provider.mapCode(request, response, token);
 			if (token.isCancellationRequested) {

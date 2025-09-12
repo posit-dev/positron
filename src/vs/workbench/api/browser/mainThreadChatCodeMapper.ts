@@ -10,6 +10,9 @@ import { ICodeMapperProvider, ICodeMapperRequest, ICodeMapperResponse, ICodeMapp
 import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { ExtHostCodeMapperShape, ExtHostContext, ICodeMapperProgressDto, ICodeMapperRequestDto, MainContext, MainThreadCodeMapperShape } from '../common/extHost.protocol.js';
 import { NotebookDto } from './mainThreadNotebookDto.js';
+// --- Start Positron ---
+import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';
+// --- End Positron ---
 
 @extHostNamedCustomer(MainContext.MainThreadCodeMapper)
 export class MainThreadChatCodemapper extends Disposable implements MainThreadCodeMapperShape {
@@ -27,9 +30,18 @@ export class MainThreadChatCodemapper extends Disposable implements MainThreadCo
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostCodeMapper);
 	}
 
-	$registerCodeMapperProvider(handle: number, displayName: string): void {
+	// --- Start Positron ---
+	// Pass extensionId when registering code mapper providers
+	// to allow selection based on current chat provider
+
+	// $registerCodeMapperProvider(handle: number, displayName: string): void {
+	$registerCodeMapperProvider(handle: number, extensionId: ExtensionIdentifier, displayName: string): void {
+		// --- End Positron ---
 		const impl: ICodeMapperProvider = {
 			displayName,
+			// --- Start Positron ---
+			extension: extensionId,
+			// --- End Positron ---
 			mapCode: async (uiRequest: ICodeMapperRequest, response: ICodeMapperResponse, token: CancellationToken) => {
 				const requestId = String(MainThreadChatCodemapper._requestHandlePool++);
 				this._responseMap.set(requestId, response);

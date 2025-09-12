@@ -1348,7 +1348,14 @@ export interface ICodeMapperNotebookEditDto {
 export type ICodeMapperProgressDto = Dto<ICodeMapperTextEdit> | Dto<ICodeMapperNotebookEditDto>;
 
 export interface MainThreadCodeMapperShape extends IDisposable {
-	$registerCodeMapperProvider(handle: number, displayName: string): void;
+	// --- Start Positron ---
+	// Assistant & Copilot contribute providers
+	// Include extensionId when registering code mapper providers
+	// to allow selection based on current chat provider
+
+	// $registerCodeMapperProvider(handle: number, displayName: string): void;
+	$registerCodeMapperProvider(handle: number, extensionId: ExtensionIdentifier, displayName: string): void;
+	// --- End Positron ---
 	$unregisterCodeMapperProvider(handle: number): void;
 	$handleProgress(requestId: string, data: ICodeMapperProgressDto): Promise<void>;
 }
