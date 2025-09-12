@@ -367,11 +367,11 @@ export class PositronNotebooks extends Notebooks {
 			// Get the specific cell
 			const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
 
-			// Hover over the cell to make the action bar visible
-			await cell.hover();
+			// Click on the cell to make the action bar visible
+			await cell.click();
 
 			// Find and click the delete button in the action bar
-			const deleteButton = cell.getByLabel(PositronNotebooks.DELETE_CELL_LABEL);
+			const deleteButton = cell.getByRole('button', { name: PositronNotebooks.DELETE_CELL_LABEL });
 
 			// Wait for the delete button to be visible
 			await expect(deleteButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
