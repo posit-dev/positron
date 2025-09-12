@@ -93,6 +93,7 @@ export class CodeMapperService implements ICodeMapperService {
 				if (extension) {
 					const provider = this.providers.find(p => p.extension.value === extension.value);
 					if (provider) {
+						console.info(`Using code mapper provider from extension ${extension.value} for model ${modelId}`);
 						return await provider.mapCode(request, response, token);
 					}
 				}
