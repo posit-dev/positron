@@ -10,6 +10,11 @@ import { ISettableObservable, observableValue } from '../../../../../../base/com
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
 import { CellConditionPredicate } from './cellConditions.js';
 
+
+/**
+ * The position of a cell action bar item.
+ */
+export type CellActionPosition = 'main' | 'menu' | 'left';
 /**
  * Interface for notebook cell action bar items that define how commands appear in the UI.
  */
@@ -21,13 +26,11 @@ export interface INotebookCellActionBarItem {
 	/** Codicon class for the button icon (optional) */
 	icon?: string;
 	/** Location in UI - either main action bar or dropdown menu */
-	position: 'main' | 'menu';
+	position: CellActionPosition;
 	/** Sort order within position (lower numbers appear first) */
 	order?: number;
 	/** Visibility condition using VS Code context keys (optional) */
 	when?: ContextKeyExpression;
-	/** If true, the cell will be selected before executing the command */
-	needsCellContext?: boolean;
 	/** Cell-specific condition that determines if this command applies to a given cell */
 	cellCondition?: CellConditionPredicate;
 	/** Category of the action bar item. Items that share the same category will be grouped together. */
@@ -49,6 +52,7 @@ export class NotebookCellActionBarRegistry {
 	// Observable arrays for reactive UI updates
 	private _mainActions = observableValue<INotebookCellActionBarItem[]>('mainActions', []);
 	private _menuActions = observableValue<INotebookCellActionBarItem[]>('menuActions', []);
+	private _leftActions = observableValue<INotebookCellActionBarItem[]>('leftActions', []);
 
 	// Event emitter for changes
 	private _onDidChange = new Emitter<void>();
@@ -98,6 +102,12 @@ export class NotebookCellActionBarRegistry {
 			.filter(item => item.position === 'menu')
 			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
 		this._menuActions.set(menuActions, undefined);
+
+		// Update left actions
+		const leftActions = Array.from(this.items.values())
+			.filter(item => item.position === 'left')
+			.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER));
+		this._leftActions.set(leftActions, undefined);
 	}
 
 	/**
@@ -112,5 +122,12 @@ export class NotebookCellActionBarRegistry {
 	 */
 	get menuActions(): ISettableObservable<INotebookCellActionBarItem[]> {
 		return this._menuActions;
+	}
+
+	/**
+	 * Gets the observable array of left-positioned actions.
+	 */
+	get leftActions(): ISettableObservable<INotebookCellActionBarItem[]> {
+		return this._leftActions;
 	}
 }
