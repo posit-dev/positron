@@ -25,7 +25,7 @@ export function CellActionButton({ action, cell }: { action: INotebookCellAction
 	const instance = useNotebookInstance();
 
 	const handleActionClick = (action: INotebookCellActionBarItem) => {
-		// If action needs cell context, ensure cell is selected first
+		// Actions assume cell is selected, so ensure this is the case
 		instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 
 		// Execute the command (without passing cell as argument)
