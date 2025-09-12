@@ -84,20 +84,24 @@ def json_model_graded_eval():
 		# Use identity solver to pass through existing responses without generating new ones
 		solver=identity(),
 		scorer=model_graded_qa(
-			# Example of Custom instructions for the grader model
-			# instructions="""
-			# Please evaluate whether the provided answer adequately addresses the question based on the given criterion.
-			# Consider:
-			# - Factual accuracy of the information
-			# - Completeness of the answer
-			# - Relevance to the question asked
-			# Provide your reasoning step by step, then conclude with either:
-			# GRADE: C (if the answer meets the criterion)
-			# GRADE: I (if the answer does not meet the criterion)
-			# """,
-			# Enable partial credit for answers that are partially correct
+			instructions="""
+You are an expert evaluator for checking how well LLMs respond and use tools in Positron Assistant. Your task is to evaluate test code quality based ONLY on the provided app code and specific criteria.
+
+CRITICAL INSTRUCTIONS:
+1. The question asked does not matter as much as the criteria provided in the target. Focus ENTIRELY on whether the response meets the criteria.
+2. When the criteria mentions specific tools called, they should be included in the response in a section denoted by "Tools Called:".
+
+GRADING SCALE:
+- C (Complete): ALL criteria are met
+- P (Partial): MOST criteria are met
+- I (Incomplete): MAJOR criteria are missing or incorrectly implemented
+
+Provide your evaluation in the following format:
+GRADE: [C/P/I]
+Explanation: [Brief explanation focusing ONLY on how well the specified criteria were met]
+			""",
+			grade_pattern=r"GRADE:\s*([CPI])",
 			partial_credit=True,
-			# You can specify a different model for grading if desired
 			model="anthropic/claude-3-5-sonnet-20241022"
 		),
 	)

@@ -66,18 +66,24 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 					await app.workbench.quickaccess.runCommand('python.execInConsole');
 				}).toPass({ timeout: 5000 });
-			}
-			// Easy to add more cases here as needed
+			},
+			'sample_3': async (app: any) => {
+				await expect(async () => {
+					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+				}).toPass({ timeout: 5000 });
+			},
 		} as const;
 		// Define cleanup actions in a separate object (could even be moved to its own file later)
 		const cleanupActions = {
-			'sample_3': async (app: any) => {
+			'sample_2': async (app: any) => {
 
 				await hotKeys.closeAllEditors();
 				await sessions.restart(pySession.id);
 
-			}
-			// Easy to add more cases here as needed
+			},
+			'sample_3': async (app: any) => {
+				await hotKeys.closeAllEditors();
+			},
 		} as const;
 
 		// Loop through each question in the dataset
@@ -116,7 +122,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		// Write updated dataset back to file if any items were updated
 		if (updatedItems) {
-			const updatedDatasetContent = JSON.stringify(dataset, null, 2);
+			const updatedDatasetContent = JSON.stringify(dataset, null, '\t');
 			writeFileSync(datasetPath, updatedDatasetContent, 'utf-8');
 			console.log(`Updated model responses in dataset file: ${datasetPath}`);
 		}
