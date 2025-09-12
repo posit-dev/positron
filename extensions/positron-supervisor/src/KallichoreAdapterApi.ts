@@ -14,10 +14,9 @@ import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './Kallic
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
-import { namedPipeInterceptor } from './NamedPipeHttpAgent';
 import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
-import { KallichoreApiInstance } from './KallichoreApiInstance.js';
+import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
@@ -57,35 +56,6 @@ function extractSocketPath(basePath: string): string | null {
 function extractPipeName(basePath: string): string | null {
 	const match = basePath.match(/npipe:([^:]+)/);
 	return match ? match[1] : null;
-}
-
-/**
- * Constructs the appropriate WebSocket URI based on the API base path
- * @param apiBasePath The HTTP API base path
- * @param sessionId The session ID for the WebSocket connection
- * @returns The WebSocket URI to connect to
- */
-function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
-	const uri = vscode.Uri.parse(apiBasePath);
-
-	if (isDomainSocketPath(apiBasePath)) {
-		// For domain sockets, we need to use ws+unix format
-		const socketPath = extractSocketPath(apiBasePath);
-		if (socketPath) {
-			return `ws+unix://${socketPath}:/sessions/${sessionId}/channels`;
-		}
-	}
-
-	if (isNamedPipePath(apiBasePath)) {
-		// For named pipes, we need to use ws+npipe format
-		const pipeName = extractPipeName(apiBasePath);
-		if (pipeName) {
-			return `ws+npipe://${pipeName}:/sessions/${sessionId}/channels`;
-		}
-	}
-
-	// For TCP connections, use the standard ws:// format
-	return `ws://${uri.authority}/sessions/${sessionId}/channels`;
 }
 
 export class KCApi implements PositronSupervisorApi {
@@ -538,16 +508,6 @@ export class KCApi implements PositronSupervisorApi {
 			throw new Error(message);
 		}
 
-		// If an HTTP proxy is set, exempt the supervisor from it; since this
-		// is a local server, we generally don't want to route it through a
-		// proxy (only applicable for TCP connections)
-		if (process.env.http_proxy && serverPort > 0) {
-			// Add the server's port to the no_proxy list, amending it if it
-			// already exists
-			process.env.no_proxy = (process.env.no_proxy ? process.env.no_proxy + ',' : '') + `localhost:${serverPort}`;
-			this.log(`HTTP proxy set to ${process.env.http_proxy}; setting no_proxy to ${process.env.no_proxy} to exempt supervisor`);
-		}
-
 		// Create a bearer auth object with the token
 		const bearerToken = connectionData.bearer_token;
 		this._api.loadState(connectionData);
@@ -655,16 +615,6 @@ export class KCApi implements PositronSupervisorApi {
 		// Open the started barrier and save the server state since we're online
 		this._started.open();
 
-		// Determine transport type based on configuration and actual usage
-		const configTransport = config.get<string>('transport', 'ipc');
-		let actualTransport: string;
-		if (configTransport === 'tcp') {
-			actualTransport = 'tcp';
-		} else {
-			// For IPC, determine actual transport based on platform and connection type
-			actualTransport = isDomainSocketPath(basePath) ? 'socket' :
-				(isNamedPipePath(basePath) ? 'named-pipe' : 'tcp');
-		}
 
 		const state: KallichoreServerState = {
 			// Save the constructed basePath for API usage
@@ -675,7 +625,7 @@ export class KCApi implements PositronSupervisorApi {
 			server_pid: processId || 0,
 			bearer_token: bearerToken,
 			log_path: logFile,
-			transport: actualTransport,
+			transport: this._api.transport,
 			// For domain sockets, also save the original socket_path from connection data
 			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined),
 			// For named pipes, also save the original named_pipe from connection data

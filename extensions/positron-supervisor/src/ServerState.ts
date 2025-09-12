@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { KallichoreTransport } from './KallichoreApiInstance.js';
+
 /**
  * The persisted state of the Kallichore server. This metadata is saved in
  * workspace state storage and used to re-establish a connection to the server
@@ -28,7 +30,7 @@ export interface KallichoreServerState {
 	log_path: string;
 
 	/** The transport protocol used */
-	transport?: string;
+	transport?: KallichoreTransport;
 
 	/** The path to the unix domain socket (when using socket transport) */
 	socket_path?: string;

@@ -12,8 +12,8 @@ import * as os from 'os';
 
 export enum KallichoreTransport {
 	TCP = 'tcp',
-	UnixSocket = 'unix',
-	NamedPipe = 'npipe',
+	UnixSocket = 'socket',
+	NamedPipe = 'named-pipe',
 }
 
 export class KallichoreApiInstance {
@@ -62,6 +62,12 @@ export class KallichoreApiInstance {
 					// For domain socket connections, we need to specify the
 					// socket path in the HTTP client options
 					socketPath: state.socket_path,
+
+					// Disable proxy processing entirely. Today it's only
+					// possible to run Kallichore locally, so we always want to
+					// skip proxies when connecting. This may need to be
+					// revisited in the future if we support remote connections.
+					proxy: false,
 
 					// Include the bearer token auth on each request
 					headers: {
