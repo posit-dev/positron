@@ -125,11 +125,19 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Add the onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Update the layout entries.
-			await this.updateLayoutEntries(state);
+			// If search/sort is in progress, we need to be more careful about cache invalidation
+			if (!this.hasNoSearchOrSort()) {
+				// During search operations, update layout but preserve cache when possible
+				// This prevents search results from being wiped out by backend updates
+				await this.updateLayoutEntries(state);
+				// Only invalidate cache if we have no visible search/sort state
+				await this.fetchData(false);
 
-			// Invalidate cache and fetch data, profiles
-			await this.fetchData(true);
+			} else {
+				// No active search/sort, safe to do full update
+				await this.updateLayoutEntries(state);
+				await this.fetchData(true);
+			}
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
