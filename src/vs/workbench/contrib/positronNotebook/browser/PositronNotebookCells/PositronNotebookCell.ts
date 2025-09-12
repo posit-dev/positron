@@ -8,8 +8,8 @@ import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
-import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus } from './IPositronNotebookCell.js';
+import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
+import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
@@ -19,15 +19,17 @@ import { ITextEditorOptions } from '../../../../../platform/editor/common/editor
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
 import { ScrollType } from '../../../../../editor/common/editorCommon.js';
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
-import { INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
+import { ICellExecutionStateChangedEvent, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
+import { Event } from '../../../../../base/common/event.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
-	protected readonly _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
+	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+
+	private readonly execution;
 
 	public readonly executionStatus;
-
 	public readonly selectionStatus;
 
 	constructor(
@@ -38,14 +40,41 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	) {
 		super();
 
-		// Track this cell's execution status
-		this.executionStatus = observableFromEvent(this, this._executionStateService.onDidChangeExecution, (e): ExecutionStatus => {
-			/** @description executionStatus */
-			if (e && e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {
-				return e.changed ? 'running' : 'idle';
-			}
-			return 'idle';
-		});
+		// Track this cell's current execution
+		this.execution = observableFromEvent(
+			this,
+			((listener) => {
+				return this._register(this._executionStateService.onDidChangeExecution(e => {
+					if (e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {
+						listener(e);
+					}
+				}));
+			}) satisfies Event<ICellExecutionStateChangedEvent>,
+			(e) => /** @description execution */ e?.changed ?? this._executionStateService.getCellExecution(this.uri)
+		);
+
+		// Derive the execution status from the current execution
+		this.executionStatus = derived(
+			this,
+			(reader) => {
+				/** @description executionStatus */
+				const execution = this.execution.read(reader);
+				const state = execution?.state;
+				const { lastRunSuccess } = this.cellModel.internalMetadata;
+				if (!state) {
+					// TODO: Should we have separate "success" and "error" states?
+					return lastRunSuccess ? 'idle' : 'idle';
+				}
+				if (state === NotebookCellExecutionState.Pending) {
+					return 'pending';
+				} else if (state === NotebookCellExecutionState.Unconfirmed) {
+					return 'unconfirmed';
+				} else if (state === NotebookCellExecutionState.Executing) {
+					return 'running';
+				} else {
+					throw new Error(`Unknown execution state: ${state}`);
+				}
+			});
 
 		const selectionMachine = _instance.selectionStateMachine;
 		this.selectionStatus = derived(this, (reader): CellSelectionStatus => {
