@@ -3,14 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-notebook-markdown-cell {
-
-	&.editor-hidden:not(:hover)
-		.positron-notebooks-cell-action-bar {
-		display: none;
-	}
-}
-
 .positron-notebook-markup-rendered {
 	padding-inline: 1rem;
 	padding-block: 0.5rem;
