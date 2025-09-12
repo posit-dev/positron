@@ -348,12 +348,14 @@ export const DataExplorer = () => {
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
 				}
-				<PositronDataGrid
-					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
-						context.instance.tableSchemaDataGridInstance :
-						context.instance.tableDataDataGridInstance
-					}
-				/>
+				<div className='data-grid-container'>
+					<PositronDataGrid
+						instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
+							context.instance.tableSchemaDataGridInstance :
+							context.instance.tableDataDataGridInstance
+						}
+					/>
+				</div>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
 				<div className='collapsed-left-spacer' />

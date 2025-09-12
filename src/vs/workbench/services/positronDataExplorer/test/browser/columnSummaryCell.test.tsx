@@ -76,6 +76,8 @@ function createMockTableSummaryDataGridInstance(overrides: Partial<TableSummaryD
 		getColumnProfileSmallHistogram: () => undefined,
 		getColumnProfileSmallFrequencyTable: () => undefined,
 		isColumnExpanded: () => false,
+		canToggleColumnExpansion: () => true,
+		isSummaryStatsSupported: () => true,
 		scrollToRow: async () => { },
 		setCursorRow: () => { },
 		toggleExpandColumn: async () => { },

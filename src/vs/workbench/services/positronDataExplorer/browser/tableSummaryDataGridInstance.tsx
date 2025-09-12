@@ -21,7 +21,8 @@ import { DataGridInstance } from '../../../browser/positronDataGrid/classes/data
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
-import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
 
 /**
  * Constants.
@@ -52,7 +53,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * If no sort option is set, the summary rows
 	 * are displayed in their original order.
 	 */
-	private _sortOption?: SearchSchemaSortOrder;
+	private _sortOption: SearchSchemaSortOrder = SearchSchemaSortOrder.Original;
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -83,7 +84,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			columnResize: false,
 			rowResize: false,
 			columnPinning: false,
-			rowPinning: false,
+			// We need to enable row pinning so the layout height is properly calculated
+			// when there are pinned rows in the TableSummaryDataGridInstance.
+			// In TableSummaryDataGridInstance, pinned rows are actually pinned columns
+			// There is no UI in the table summary panel to pin/unpin rows. Instead, rows
+			// are pinned/unpinned programatically when a user pin/unpins a column in the main
+			// data grid.
+			rowPinning: true,
+			maximumPinnedRows: 10,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -124,11 +132,19 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Add the onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Update the layout entries.
-			await this.updateLayoutEntries(state);
+			// If search/sort is in progress, we need to be more careful about cache invalidation
+			if (!this.hasNoSearchOrSort()) {
+				// During search operations, update layout but preserve cache when possible
+				// This prevents search results from being wiped out by backend updates
+				await this.updateLayoutEntries(state);
+				// Only invalidate cache if we have no visible search/sort state
+				await this.fetchData(false);
 
-			// Invalidate cache and fetch data, profiles
-			await this.fetchData(true);
+			} else {
+				// No active search/sort, safe to do full update
+				await this.updateLayoutEntries(state);
+				await this.fetchData(true);
+			}
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
@@ -313,6 +329,68 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Determines whether summary stats is supported.
+	 * @returns true, if summary stats is supported; otherwise, false.
+	 */
+	isSummaryStatsSupported(): boolean {
+		// Check if summary stats feature is enabled globally
+		const columnProfilesFeatures = this.getSupportedFeatures().get_column_profiles;
+		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
+			status.profile_type === ColumnProfileType.SummaryStats
+		);
+
+		// If the summary status support status is undefined, return false.
+		if (!summaryStatsSupportStatus) {
+			return false;
+		}
+
+		// Return the summary stats support status.
+		return dataExplorerExperimentalFeatureEnabled(
+			summaryStatsSupportStatus.support_status,
+			this.configurationService
+		);
+	}
+
+	/**
+	 * Determines whether the specified column index can be expanded or collapsed.
+	 * @param columnIndex The columm index.
+	 * @returns true if the column can be expanded or collapsed; otherwise, false.
+	 */
+	canToggleColumnExpansion(columnIndex: number): boolean {
+		// Get the column schema. If it hasn't been loaded yet, return false.
+		const columnSchema = this._tableSummaryCache.getColumnSchema(columnIndex);
+		if (!columnSchema) {
+			return false;
+		}
+
+		let summaryStatsSupported;
+		switch (columnSchema.type_display) {
+			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Boolean:
+			case ColumnDisplayType.String:
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Object:
+				summaryStatsSupported = this.isSummaryStatsSupported();
+				break;
+			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+			case ColumnDisplayType.Unknown:
+				summaryStatsSupported = false;
+				break;
+
+			// This shouldn't ever happen.
+			default:
+				summaryStatsSupported = false;
+				break;
+		}
+
+		return summaryStatsSupported;
+	}
+
+	/**
 	 * Toggles the expanded state of the specified column index.
 	 * @param columnIndex The columm index.
 	 */
@@ -403,6 +481,42 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Updates the pinned rows in the summary panel.
+	 *
+	 * Note: The summary panel pins column indices as rows.
+	 * This is because the summary panel is a single column data grid
+	 * where each row represents a column from the main data grid.
+	 *
+	 * @param pinnedColumnIndices An array of column indices to pin as rows in the summary panel.
+	 */
+	async updatePinnedRows(pinnedColumnIndices: number[]): Promise<void> {
+
+		// Temporarily reset the layout to allow pinning any column index
+		// This is needed for the case where we have an active search/sort
+		// because the layout manager checks against the current entry map
+		// of filtered columns, but we want to be able to pin columns that
+		// are not in the current entry map.
+		const state = await this._dataExplorerClientInstance.getBackendState();
+		this._rowLayoutManager.setEntries(state.table_shape.num_columns);
+
+		// Now update the pinned indexes in the row layout manager.
+		this._rowLayoutManager.setPinnedIndexes(pinnedColumnIndices);
+
+		// If there's an active search or sort, we need to refresh the layout entries
+		// to ensure the new pinned columns are included in the combined entry map
+		if (!this.hasNoSearchOrSort()) {
+			await this.updateLayoutEntries();
+			// Invalidate the cache when pinned columns change with active search/sort
+			await this.fetchData(true);
+		} else {
+			this.fetchData(false);
+		}
+
+		// Force a re-render when the pinned columns change
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
 	 * Sets the column name search filter.
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
@@ -456,13 +570,27 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			}
 			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
 		} else {
+			// Get current pinned indexes from the layout manager BEFORE doing anything else
+			// This is important because setEntries() can clear the pinned indexes if they're not
+			// in the new entry map
+			const pinnedColumns = this._rowLayoutManager.pinnedIndexes;
+
 			// When there is a search or sort option, we need to tell the layout manager
-			// to use the filtered table shape and render only the matching data.
+			// to use the filtered table shape and render both pinned columns and search results.
 			const searchResults = await this._dataExplorerClientInstance.searchSchema2({
 				searchText: this._searchText,
 				sortOption: this._sortOption,
 			});
-			this._rowLayoutManager.setEntries(searchResults.matches.length, undefined, searchResults.matches)
+
+			// Create a combined entry map that includes both pinned columns and search results
+			// Pinned columns should appear first, followed by search results that aren't already pinned
+			const pinnedSet = new Set(pinnedColumns);
+			const combinedEntries: number[] = [
+				...pinnedColumns,
+				...searchResults.matches.filter(matchedColumn => !pinnedSet.has(matchedColumn))
+			];
+
+			this._rowLayoutManager.setEntries(combinedEntries.length, undefined, combinedEntries);
 		}
 
 		// Ensures the user is not scrolled off the screen

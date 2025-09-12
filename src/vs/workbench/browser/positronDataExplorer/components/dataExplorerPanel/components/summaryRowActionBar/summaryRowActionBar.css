@@ -7,8 +7,11 @@
 	height: 36px;
 	min-width: 0;
 	min-height: 0;
-	overflow: hidden;
 	display: flex;
+	overflow: hidden;
 	align-items: center;
+	box-sizing: border-box;
 	justify-content: space-between;
+	grid-row: summary-row-action-bar / data-grid;
+	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
 }

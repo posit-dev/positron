@@ -21,8 +21,7 @@ import { VectorFrequencyTable } from './vectorFrequencyTable.js';
 import { ColumnProfileBoolean } from './columnProfileBoolean.js';
 import { ColumnProfileDatetime } from './columnProfileDatetime.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
-import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
+import { ColumnDisplayType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { renderLeadingTrailingWhitespace } from './tableDataCell.js';
 
 /**
@@ -51,29 +50,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
 	const columnNameRef = useRef<HTMLDivElement>(undefined!);
-
-	/**
-	 * Determines whether summary stats is supported.
-	 * @returns true, if summary stats is supported; otherwise, false.
-	 */
-	const isSummaryStatsSupported = () => {
-		// Determine the summary stats support status.
-		const columnProfilesFeatures = props.instance.getSupportedFeatures().get_column_profiles;
-		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.SummaryStats
-		);
-
-		// If the summary status support status is undefined, return false.
-		if (!summaryStatsSupportStatus) {
-			return false;
-		}
-
-		// Return the summary stats support status.
-		return dataExplorerExperimentalFeatureEnabled(
-			summaryStatsSupportStatus.support_status,
-			props.instance.configurationService
-		);
-	};
 
 	/**
 	 * ColumnSparkline component.
@@ -485,29 +461,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
 	// Set the summary stats supported flag.
-	let summaryStatsSupported;
-	switch (props.columnSchema.type_display) {
-		case ColumnDisplayType.Number:
-		case ColumnDisplayType.Boolean:
-		case ColumnDisplayType.String:
-		case ColumnDisplayType.Date:
-		case ColumnDisplayType.Datetime:
-		case ColumnDisplayType.Object:
-			summaryStatsSupported = isSummaryStatsSupported();
-			break;
-		case ColumnDisplayType.Time:
-		case ColumnDisplayType.Interval:
-		case ColumnDisplayType.Array:
-		case ColumnDisplayType.Struct:
-		case ColumnDisplayType.Unknown:
-			summaryStatsSupported = false;
-			break;
-
-		// This shouldn't ever happen.
-		default:
-			summaryStatsSupported = false;
-			break;
-	}
+	const summaryStatsSupported = props.instance.canToggleColumnExpansion(props.columnIndex);
 
 	const renderedColumn = renderLeadingTrailingWhitespace(props.columnSchema.column_name);
 

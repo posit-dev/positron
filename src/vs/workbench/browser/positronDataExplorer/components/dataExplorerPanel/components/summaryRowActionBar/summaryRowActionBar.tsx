@@ -33,6 +33,19 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	const [sortOption, setSortOption] = useState<SearchSchemaSortOrder>(instance.sortOption || SearchSchemaSortOrder.Original);
 
 	/**
+	 * Initialize the search text input when the instance changes.
+	 * This ensures the search text is displayed correctly when switching between tabs.
+	 */
+	useEffect(() => {
+		const instanceSearchText = instance.searchText || '';
+		setSearchText(instanceSearchText);
+		// Update the filter input field
+		if (filterRef.current) {
+			filterRef.current.setFilterText(instanceSearchText);
+		}
+	}, [instance]);
+
+	/**
 	 * Update the debounced search text after a delay.
 	 * This is to prevent excessive search requests while the user is typing.
 	 */

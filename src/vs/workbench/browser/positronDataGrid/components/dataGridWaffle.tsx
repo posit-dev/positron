@@ -26,6 +26,8 @@ import { FontConfigurationManager } from '../../fontConfigurationManager.js';
 import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { TableSummaryDataGridInstance } from '../../../services/positronDataExplorer/browser/tableSummaryDataGridInstance.js';
+
 /**
  * DataGridWaffle component.
  * @param ref The foreard ref.
@@ -164,6 +166,32 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// Process the code.
 		switch (e.code) {
+			// Tab key - for summary panel navigation
+			case 'Tab': {
+				// Check if this is a summary panel instance
+				const isSummaryPanel = context.instance instanceof TableSummaryDataGridInstance;
+
+				if (isSummaryPanel) {
+					// Consume the event.
+					consumeEvent();
+
+					// Make sure the cursor is showing.
+					if (context.instance.showCursor()) {
+						return;
+					}
+
+					// Move the cursor to the next/previous row.
+					if (e.shiftKey) {
+						// Shift+Tab moves to previous row
+						context.instance.moveCursorUp();
+					} else {
+						// Tab moves to the next row
+						context.instance.moveCursorDown();
+					}
+				}
+				break;
+			}
+
 			// Space key.
 			case 'Space': {
 				// Make sure the cursor is showing.
@@ -189,6 +217,26 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 			// Enter key.
 			case 'Enter': {
+				// Check if this is a summary panel instance
+				const isSummaryPanel = context.instance instanceof TableSummaryDataGridInstance;
+
+				if (isSummaryPanel) {
+					// Consume the event.
+					consumeEvent();
+
+					// Make sure the cursor is showing.
+					if (context.instance.showCursor()) {
+						return;
+					}
+
+					// Expand or collapse the row in the summary panel.
+					const summaryInstance = context.instance as TableSummaryDataGridInstance;
+
+					// Only allow toggle if summary stats are supported for this column
+					if (summaryInstance.canToggleColumnExpansion(summaryInstance.cursorRowIndex)) {
+						await summaryInstance.toggleExpandColumn(summaryInstance.cursorRowIndex);
+					}
+				}
 				break;
 			}
 
