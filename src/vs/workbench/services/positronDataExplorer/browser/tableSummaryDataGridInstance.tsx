@@ -84,9 +84,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			columnResize: false,
 			rowResize: false,
 			columnPinning: false,
-			// Enable row pinning so that trhe layout height is properly calculated. Note that in
-			// TableSummaryDataGridInstance, pinned rows are actually pinned columns, and there is
-			// not UI in the table summary panel to pin/unpin rows.
+			// We need to enable row pinning so the layout height is properly calculated
+			// when there are pinned rows in the TableSummaryDataGridInstance.
+			// In TableSummaryDataGridInstance, pinned rows are actually pinned columns
+			// There is no UI in the table summary panel to pin/unpin rows. Instead, rows
+			// are pinned/unpinned programatically when a user pin/unpins a column in the main
+			// data grid.
 			rowPinning: true,
 			maximumPinnedRows: 10,
 			horizontalScrollbar: false,
