@@ -9,6 +9,7 @@ import { KernelInfoReply } from './jupyter/KernelInfoRequest';
 import { ConnectionInfo, DefaultApi } from './kcclient/api';
 import { summarizeAxiosError } from './util';
 import { Barrier } from './async';
+import { isAxiosError } from 'axios';
 
 /**
  * Represents a Jupyter kernel that has been adopted by a supervisor. These
@@ -48,7 +49,7 @@ export class AdoptedSession implements JupyterKernel {
 			// Adopt the session via the API, using the connection information
 			this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, this._connectionInfo)).data;
 		} catch (err) {
-			const message = err.message;
+			const message = isAxiosError(err) ? summarizeAxiosError(err) : err.message;
 			throw new Error(`Failed to adopt session: ${message}`);
 		} finally {
 			// Open the connected barrier to indicate we've finished connecting

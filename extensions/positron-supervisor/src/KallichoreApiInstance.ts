@@ -17,20 +17,37 @@ export enum KallichoreTransport {
 	NamedPipe = 'named-pipe',
 }
 
+/**
+ * Wraps an instance of the code-generated `DefaultApi` object.
+ */
 export class KallichoreApiInstance {
 
+	/** The API instance itself */
 	private _api: DefaultApi | undefined;
 
+	/** The transport mechanism used by the API */
 	private _transport: KallichoreTransport;
 
 	constructor() {
+		// Default to cross-platform TCP transport
 		this._transport = KallichoreTransport.TCP;
 	}
 
+	/**
+	 * Gets the API instance.
+	 *
+	 * Must not be called until the API has been created; throws if this happens.
+	 */
 	get api(): DefaultApi {
-		return this._api!;
+		if (!this._api) {
+			throw new Error('API has not been created.');
+		}
+		return this._api;
 	}
 
+	/**
+	 * Get the transport mechanism used by the API.
+	 */
 	get transport(): KallichoreTransport {
 		return this._transport;
 	}
@@ -42,16 +59,8 @@ export class KallichoreApiInstance {
 	 */
 	public loadState(state: KallichoreServerState) {
 
-		// Determine the transport
-		if (state.base_path) {
-			this._transport = KallichoreTransport.TCP;
-		} else if (state.socket_path) {
-			this._transport = KallichoreTransport.UnixSocket;
-		} else if (state.named_pipe) {
-			this._transport = KallichoreTransport.NamedPipe;
-		} else {
-			throw new Error('Server state missing base_path, socket_path, and named_pipe');
-		}
+		// Load the transport state
+		this._transport = state.transport || KallichoreTransport.TCP;
 
 		// Common base options used for all connections
 		const baseOptions = {
