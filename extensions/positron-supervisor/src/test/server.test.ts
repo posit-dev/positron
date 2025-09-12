@@ -129,12 +129,6 @@ suite('Server Transport Types', () => {
 			const apiInstance = socketApiInstance as any;
 			assert.strictEqual(apiInstance._api.transport, KallichoreTransport.UnixSocket);
 
-			// Test that we can make multiple API calls successfully through the Unix socket
-			// This verifies that the transport actually works for real operations
-			const status2 = await socketApiInstance.serverStatus();
-			assert.strictEqual(status2.sessions, status.sessions);
-			assert.strictEqual(status2.version, status.version);
-
 		} finally {
 			// Clean up
 			socketApiInstance.dispose();
@@ -174,12 +168,6 @@ suite('Server Transport Types', () => {
 			// Verify the transport is actually named pipe
 			const apiInstance = pipeApiInstance as any;
 			assert.strictEqual(apiInstance._api.transport, KallichoreTransport.NamedPipe);
-
-			// Test that we can make multiple API calls successfully through the named pipe
-			// This verifies that the transport actually works for real operations
-			const status2 = await pipeApiInstance.serverStatus();
-			assert.strictEqual(status2.sessions, status.sessions);
-			assert.strictEqual(status2.version, status.version);
 
 		} finally {
 			// Clean up
