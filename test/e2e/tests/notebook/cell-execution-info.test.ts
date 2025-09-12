@@ -43,12 +43,18 @@ test.describe('Cell Execution Info Popup', {
 	test('Comprehensive cell execution info test - all scenarios in one notebook', async function ({ app }) {
 		// Setup: Create notebook and select kernel once
 		await app.workbench.notebooks.createNewNotebook();
+
+		// Wait for the first cell to be created and visible
+		// This is important on CI where timing differences can cause race conditions
+		const firstCell = app.code.driver.page.locator('[data-testid="notebook-cell"]').first();
+		await expect(firstCell).toBeVisible({ timeout: 5000 });
+
 		await app.workbench.notebooksPositron.selectAndWaitForKernel('Python');
 
 		// ========================================
 		// Cell 0: Basic popup display with successful execution
 		// ========================================
-		const popup0 = await executeCodeAndWaitForCompletion(app, 'print("hello world")', 0)
+		const popup0 = await executeCodeAndWaitForCompletion(app, 'print("hello world")', 0);
 
 		// Verify popup content shows execution info
 		await expect(popup0.getByLabel('Execution order')).toBeVisible();
