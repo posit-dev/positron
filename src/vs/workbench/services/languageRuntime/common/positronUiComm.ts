@@ -307,8 +307,8 @@ export interface ShowPromptParams {
 	message: string;
 
 	/**
-	 * The value to return if the user does not enter one, such as 'African
-	 * or European?'
+	 * The default value with which to pre-populate the text input box, such
+	 * as 'African or European?'
 	 */
 	default: string;
 
@@ -745,8 +745,8 @@ export interface ShowPromptRequest {
 	message: string;
 
 	/**
-	 * The value to return if the user does not enter one, such as 'African
-	 * or European?'
+	 * The default value with which to pre-populate the text input box, such
+	 * as 'African or European?'
 	 */
 	default: string;
 
