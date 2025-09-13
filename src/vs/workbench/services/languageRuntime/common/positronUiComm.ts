@@ -302,7 +302,7 @@ export interface ShowPromptParams {
 
 	/**
 	 * The message prompting the user for text, such as 'What is the airspeed
-	 * velocity of an unladen swallow?
+	 * velocity of an unladen swallow?'
 	 */
 	message: string;
 
@@ -740,7 +740,7 @@ export interface ShowPromptRequest {
 
 	/**
 	 * The message prompting the user for text, such as 'What is the airspeed
-	 * velocity of an unladen swallow?
+	 * velocity of an unladen swallow?'
 	 */
 	message: string;
 

@@ -24,8 +24,8 @@ export class ExtHostModalDialogs implements extHostProtocol.ExtHostModalDialogsS
 		return this._proxy.$showSimpleModalDialogMessage(title, message, okButtonTitle);
 	}
 
-	public showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
-		return this._proxy.$showSimpleModalDialogInput(title, message, defaultValue, placeholder);
+	public showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string, timeout?: number): Promise<string | null> {
+		return this._proxy.$showSimpleModalDialogInput(title, message, defaultValue, placeholder, timeout);
 	}
 
 }

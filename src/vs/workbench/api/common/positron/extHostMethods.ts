@@ -145,7 +145,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					result = await this.showPrompt(params.title as string,
 						params.message as string,
 						params.default as string | undefined,
-						params.placeholder as string | undefined);
+						params.placeholder as string | undefined,
+						params.timeout as number | undefined);
 					break;
 				}
 				case UiFrontendRequest.AskForPassword: {
@@ -292,8 +293,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return this.dialogs.showSimpleModalDialogMessage(title, message);
 	}
 
-	async showPrompt(title: string, message: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
-		return this.dialogs.showSimpleModalDialogInput(title, message, defaultValue, placeholder);
+	async showPrompt(title: string, message: string, defaultValue?: string, placeholder?: string, timeout?: number): Promise<string | null> {
+		return this.dialogs.showSimpleModalDialogInput(title, message, defaultValue, placeholder, timeout);
 	}
 
 	async createDocument(contents: string, languageId: string): Promise<null> {

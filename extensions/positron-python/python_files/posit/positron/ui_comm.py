@@ -381,7 +381,7 @@ class ShowPromptParams(BaseModel):
     )
 
     message: StrictStr = Field(
-        description="The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?",
+        description="The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?'",
     )
 
     default: StrictStr = Field(

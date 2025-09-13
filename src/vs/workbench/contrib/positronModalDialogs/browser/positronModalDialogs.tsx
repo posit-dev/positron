@@ -252,6 +252,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param defaultValue The default value to show in the input field (optional)
 	 * @param placeholder The placeholder text for the input field (optional)
+	 * @param timeout The maximum time to wait for user input, in seconds (optional)
 	 *
 	 * @returns A promise that resolves to the text entered by the user, or null if cancelled.
 	 */
@@ -259,23 +260,52 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		title: string,
 		message: string,
 		defaultValue?: string,
-		placeholder?: string
+		placeholder?: string,
+		timeout?: number
 	): Promise<string | null> {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer();
+
+		// Track if dialog is resolved to prevent multiple resolutions
+		let isResolved = false;
+
+		// Promise to handle the user's input
+		let resolve: (value: string | null) => void;
+		const promise = new Promise<string | null>((res) => {
+			resolve = res;
+		});
+
+		// Helper function to resolve once and cleanup
+		const resolveOnce = (value: string | null) => {
+			if (!isResolved) {
+				isResolved = true;
+				if (timeoutId !== undefined) {
+					clearTimeout(timeoutId);
+				}
+				renderer.dispose();
+				resolve(value);
+			}
+		};
+
+		// Set up timeout if specified
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		if (timeout !== undefined && timeout > 0) {
+			timeoutId = setTimeout(() => {
+				// Timeout occurred - treat as cancellation
+				resolveOnce(null);
+			}, timeout * 1000); // Convert seconds to milliseconds
+		}
 
 		// Component to handle the input dialog
 		const InputDialogComponent = () => {
 			const [inputValue, setInputValue] = useState(defaultValue || '');
 
 			const acceptHandler = () => {
-				renderer.dispose();
-				resolve(inputValue);
+				resolveOnce(inputValue);
 			};
 
 			const cancelHandler = () => {
-				renderer.dispose();
-				resolve(null);
+				resolveOnce(null);
 			};
 
 			return (
@@ -310,12 +340,6 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				</PositronModalDialog>
 			);
 		};
-
-		// Promise to handle the user's input
-		let resolve: (value: string | null) => void;
-		const promise = new Promise<string | null>((res) => {
-			resolve = res;
-		});
 
 		renderer.render(<InputDialogComponent />);
 
