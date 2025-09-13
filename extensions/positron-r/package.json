@@ -10,7 +10,8 @@
   },
   "categories": [
     "Programming Languages",
-    "Data Science"
+    "Data Science",
+    "Debuggers"
   ],
   "main": "./out/extension.js",
   "capabilities": {
