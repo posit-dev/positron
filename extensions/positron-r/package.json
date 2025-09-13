@@ -9,7 +9,8 @@
     "vscode": "^1.65.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Data Science"
   ],
   "main": "./out/extension.js",
   "capabilities": {
