@@ -103,4 +103,23 @@ export interface IPositronModalDialogsService {
 		message: string,
 		okButtonTitle?: string
 	): Promise<null>;
+
+	/**
+	 * Shows a modal dialog with a text input field.
+	 *
+	 * @param title The title of the dialog
+	 * @param message The message to display in the dialog
+	 * @param defaultValue The default value to show in the input field (optional)
+	 * @param placeholder The placeholder text for the input field (optional)
+	 * @param timeout The maximum time to wait for user input, in seconds (optional)
+	 *
+	 * @returns A promise that resolves to the text entered by the user, or null if cancelled.
+	 */
+	showSimpleModalDialogInput(
+		title: string,
+		message: string,
+		defaultValue?: string,
+		placeholder?: string,
+		timeout?: number
+	): Promise<string | null>;
 }

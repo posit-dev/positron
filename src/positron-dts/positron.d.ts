@@ -1644,6 +1644,19 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
+		 * Create and show a simple modal dialog input prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param placeholder The placeholder text for the input field
+		 *
+		 * @returns A Thenable that resolves to the user's input, or undefined if the user cancelled.
+		 */
+		export function showSimpleModalDialogInputPrompt(title: string,
+			message: string,
+			placeholder?: string): Thenable<string | undefined>;
+
+		/**
 		 * Create and show a different simple modal dialog prompt.
 		 *
 		 * @param title The title of the dialog

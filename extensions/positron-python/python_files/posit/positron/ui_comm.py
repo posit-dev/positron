@@ -371,6 +371,28 @@ class ShowDialogParams(BaseModel):
     )
 
 
+class ShowPromptParams(BaseModel):
+    """
+    Show a prompt
+    """
+
+    title: StrictStr = Field(
+        description="The title of the prompt dialog, such as 'Enter Swallow Velocity'",
+    )
+
+    message: StrictStr = Field(
+        description="The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?'",
+    )
+
+    default: StrictStr = Field(
+        description="The default value with which to pre-populate the text input box, such as 'African or European?'",
+    )
+
+    timeout: StrictInt = Field(
+        description="The number of seconds to wait for the user to reply before giving up.",
+    )
+
+
 class AskForPasswordParams(BaseModel):
     """
     Ask the user for a password
@@ -566,6 +588,8 @@ ShowMessageParams.update_forward_refs()
 ShowQuestionParams.update_forward_refs()
 
 ShowDialogParams.update_forward_refs()
+
+ShowPromptParams.update_forward_refs()
 
 AskForPasswordParams.update_forward_refs()
 

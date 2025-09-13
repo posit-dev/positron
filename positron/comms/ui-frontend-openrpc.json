@@ -57,7 +57,10 @@
 					"required": false,
 					"schema": {
 						"type": "string",
-						"enum": ["path", "uri"]
+						"enum": [
+							"path",
+							"uri"
+						]
 					}
 				}
 			]
@@ -160,6 +163,48 @@
 				}
 			],
 			"result": {}
+		},
+		{
+			"name": "show_prompt",
+			"summary": "Show a prompt",
+			"description": "Use this for an input box where user can input any string",
+			"params": [
+				{
+					"name": "title",
+					"description": "The title of the prompt dialog, such as 'Enter Swallow Velocity'",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "message",
+					"description": "The message prompting the user for text, such as 'What is the airspeed velocity of an unladen swallow?'",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "default",
+					"description": "The default value with which to pre-populate the text input box, such as 'African or European?'",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "timeout",
+					"description": "The number of seconds to wait for the user to reply before giving up.",
+					"schema": {
+						"type": "integer"
+					}
+				}
+			],
+			"result": {
+				"required": false,
+				"schema": {
+					"type": "string",
+					"description": "The input from the user"
+				}
+			}
 		},
 		{
 			"name": "ask_for_password",

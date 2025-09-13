@@ -119,6 +119,9 @@ export class TestPositronModalDialogService implements IPositronModalDialogsServ
 	showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {
 		throw new Error('Method not implemented.');
 	}
+	showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
+		throw new Error('Method not implemented.');
+	}
 }
 
 export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager {
