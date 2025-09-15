@@ -14,6 +14,7 @@ import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positr
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
+import { getSelectedCells } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
 
 /**
  * Options for registering a cell command.
@@ -91,7 +92,7 @@ export function registerCellCommand({
 
 			if (multiSelect) {
 				// Handle multiple selected cells
-				const selectedCells = activeNotebook.selectionStateMachine.getSelectedCells();
+				const selectedCells = getSelectedCells(activeNotebook.selectionStateMachine.state.get());
 
 				// Filter cells based on cell condition and execute handler
 				for (const cell of selectedCells) {

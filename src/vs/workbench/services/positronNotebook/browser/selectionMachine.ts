@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { autorunDelta, ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { Event } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -39,6 +39,36 @@ export enum CellSelectionType {
 	Normal = 'Normal'
 }
 
+/**
+ * Get all selected cells based on the current selection state.
+ * @param state The selection state to extract cells from
+ * @returns An array of selected cells, empty if no selection.
+ */
+export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[] {
+	switch (state.type) {
+		case SelectionState.SingleSelection:
+		case SelectionState.MultiSelection:
+			return state.selected;
+		case SelectionState.EditingSelection:
+			return [state.selectedCell];
+		case SelectionState.NoSelection:
+		default:
+			return [];
+	}
+}
+
+/**
+ * Get the cell that is currently being edited.
+ * @param state The selection state to check
+ * @returns The cell that is currently being edited. Null if no cell is being edited.
+ */
+export function getEditingCell(state: SelectionStates): IPositronNotebookCell | null {
+	if (state.type !== SelectionState.EditingSelection) {
+		return null;
+	}
+	return state.selectedCell;
+}
+
 export class SelectionStateMachine extends Disposable {
 
 	//#region Private Properties
@@ -61,6 +91,12 @@ export class SelectionStateMachine extends Disposable {
 		super();
 		this.state = observableValue('selectionState', this._state);
 		this.onNewState = Event.fromObservable(this.state);
+
+		this._register(autorunDelta(this.state, ({ lastValue, newValue }) => {
+			if (newValue !== undefined) {
+				this._updateCellSelectionStatus(lastValue ?? this._state, newValue);
+			}
+		}));
 	}
 	//#endregion Constructor & Dispose
 
@@ -243,34 +279,6 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Get the cell that is currently being edited.
-	 * @returns The cell that is currently being edited. Null if no cell is being edited.
-	 */
-	getEditingCell(): IPositronNotebookCell | null {
-		if (this._state.type !== SelectionState.EditingSelection) {
-			return null;
-		}
-		return this._state.selectedCell;
-	}
-
-	/**
-	 * Get all selected cells based on the current selection state.
-	 * @returns An array of selected cells, empty if no selection.
-	 */
-	getSelectedCells(): IPositronNotebookCell[] {
-		switch (this._state.type) {
-			case SelectionState.SingleSelection:
-			case SelectionState.MultiSelection:
-				return this._state.selected;
-			case SelectionState.EditingSelection:
-				return [this._state.selectedCell];
-			case SelectionState.NoSelection:
-			default:
-				return [];
-		}
-	}
-
-	/**
 	 * Check if a specific cell is currently selected.
 	 * @param cell The cell to check
 	 * @returns True if the cell is selected, false otherwise
@@ -293,19 +301,11 @@ export class SelectionStateMachine extends Disposable {
 
 	//#region Private Methods
 	private _setState(state: SelectionStates) {
-		// Collect currently selected/editing cells before state change
-		const previouslySelected = this.getSelectedCells();
-		const previouslyEditing = this.getEditingCell();
-
 		// Update state
 		this._state = state;
 
-		// Collect newly selected/editing cells after state change
-		const newlySelected = this.getSelectedCells();
-		const newlyEditing = this.getEditingCell();
-
 		// Update selection status for all affected cells
-		this._updateCellSelectionStatus(previouslySelected, previouslyEditing, newlySelected, newlyEditing);
+		this._updateCellSelectionStatus(this._state, state);
 
 		// Alert the observable that the state has changed.
 		this.state.set(this._state, undefined);
@@ -313,17 +313,19 @@ export class SelectionStateMachine extends Disposable {
 
 	/**
 	 * Surgically updates the selection status of cells that have changed state.
-	 * @param previouslySelected Cells that were selected before state change
-	 * @param previouslyEditing Cell that was being edited before state change
-	 * @param newlySelected Cells that are selected after state change
-	 * @param newlyEditing Cell that is being edited after state change
+	 * @param startState The selection state before the change
+	 * @param endState The selection state after the change
 	 */
 	private _updateCellSelectionStatus(
-		previouslySelected: IPositronNotebookCell[],
-		previouslyEditing: IPositronNotebookCell | null,
-		newlySelected: IPositronNotebookCell[],
-		newlyEditing: IPositronNotebookCell | null
+		startState: SelectionStates,
+		endState: SelectionStates
 	): void {
+		// Extract selected and editing cells from start and end states
+		const previouslySelected = getSelectedCells(startState);
+		const previouslyEditing = getEditingCell(startState);
+		const newlySelected = getSelectedCells(endState);
+		const newlyEditing = getEditingCell(endState);
+
 		// Create sets for efficient lookups
 		const previousSelectedSet = new Set(previouslySelected);
 		const newSelectedSet = new Set(newlySelected);
