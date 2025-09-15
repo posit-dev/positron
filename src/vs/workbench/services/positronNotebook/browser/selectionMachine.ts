@@ -334,6 +334,11 @@ export class SelectionStateMachine extends Disposable {
 		const cellsToUnselect = previouslySelected.filter(cell => !newSelectedSet.has(cell));
 		const cellsToSelect = newlySelected.filter(cell => !previousSelectedSet.has(cell));
 
+		//#region Update cell selection status
+		// We do this here instead of letting each cell update itself in an attempt to be more efficient.
+		// There's no actual structural reason so if in the future you find yourself here because of a bug,
+		// feel free to move this logic into the cells themselves..
+
 		// Update cells that are no longer selected
 		cellsToUnselect.forEach(cell => {
 			if (cell !== newlyEditing) {
@@ -347,6 +352,7 @@ export class SelectionStateMachine extends Disposable {
 				cell.selectionStatus.set(CellSelectionStatus.Selected, undefined);
 			}
 		});
+		//#endregion Update cell selection status
 
 		// Handle editing state transitions
 		if (previouslyEditing && previouslyEditing !== newlyEditing) {
