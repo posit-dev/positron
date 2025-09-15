@@ -20,6 +20,8 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { basename } from '../../../../../base/common/path.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -35,6 +37,13 @@ interface ConsoleTabProps {
 }
 
 const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
+	// Compute session display name
+	const isNotebookSession =
+		positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+	const sessionDisplayName = isNotebookSession ?
+		basename(positronConsoleInstance.sessionMetadata.notebookUri!.path) :
+		positronConsoleInstance.sessionName;
+
 	// Context
 	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
@@ -42,7 +51,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
-	const [sessionName, setSessionName] = useState(positronConsoleInstance.sessionName);
+	const [sessionName, setSessionName] = useState(sessionDisplayName);
 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
@@ -328,10 +337,16 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onMouseDown={handleMouseDown}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			<img
-				className='icon'
-				src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
-			/>
+			{
+				!isNotebookSession &&
+				<img
+					className='icon'
+					src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
+				/>
+			}
+			{isNotebookSession &&
+				<span className='codicon codicon-notebook'></span>
+			}
 			{isRenamingSession ? (
 				<input
 					ref={inputRef}
