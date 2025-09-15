@@ -48,9 +48,6 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@IEditorGroupsService private readonly _editorGroupService: IEditorGroupsService,
-		// --- Start Positron ---
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebookEditors);
@@ -105,24 +102,6 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 	}
 
 	async $tryShowNotebookDocument(resource: UriComponents, viewType: string, options: INotebookDocumentShowOptions): Promise<string> {
-		// --- Start Positron ---
-		// Check if a Positron notebook is already open for this resource
-		const uri = URI.revive(resource);
-		for (const positronInstance of this._positronNotebookService.listInstances(uri)) {
-			if (positronInstance.connectedToEditor) {
-				// Find the editor pane containing this Positron notebook
-				for (const editorPane of this._editorService.visibleEditorPanes) {
-					const input = editorPane.input;
-					if (input instanceof PositronNotebookEditorInput && isEqual(input.resource, uri)) {
-						// Positron notebook is already open, just return a synthetic ID
-						// We can't return the actual notebook editor ID because Positron notebooks
-						// don't implement INotebookEditor interface
-						return `positron-notebook-${uri.toString()}`;
-					}
-				}
-			}
-		}
-		// --- End Positron ---
 		const editorOptions: INotebookEditorOptions = {
 			cellSelections: options.selections,
 			preserveFocus: options.preserveFocus,
