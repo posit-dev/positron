@@ -45,6 +45,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurati
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/editorOptions.js';
+import { RuntimeSessionMetadata } from 'positron';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -244,6 +245,12 @@ configurationRegistry.registerConfiguration({
 			'maximum': 5000,
 			'default': 1000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
+		},
+		// Whether to show notebook consoles
+		'console.showNotebookConsoles': {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize('console.showNotebookConsoles', "Whether to show consoles for open notebooks."),
 		}
 	}
 });
@@ -315,6 +322,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IViewsService private readonly _viewsService: IViewsService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		// Call the disposable constructor.
 		super();
@@ -331,7 +339,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Activate the first restored console session, if no session
 				// is active.
 				const activate = first && !hasActiveSession;
-				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				if (this.shouldShowSession(session.metadata)) {
 					first = false;
 					try {
 						this.restorePositronConsole(session, activate);
@@ -350,7 +358,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// activate the first one.
 		let first = true;
 		this._runtimeSessionService.activeSessions.forEach(session => {
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			if (this.shouldShowSession(session.metadata)) {
 				// The instance should be activated if it is the foreground
 				// session.
 				let activate = false;
@@ -374,7 +382,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Positron console instance before a runtime starts up.
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			// Ignore non-console sessions
-			if (e.session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+			if (!this.shouldShowSession(e.session.metadata)) {
 				return;
 			}
 
@@ -579,6 +587,24 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Replay all the execution entries for the session.
 		const entries = this._executionHistoryService.getExecutionEntries(sessionId);
 		console.replayExecutions(entries);
+	}
+
+	/**
+	 * Indicates whether a session should be shown by the console service
+	 *
+	 * @param metadata The session's metadata
+	 * @returns Whether the session should be shown
+	 */
+	private shouldShowSession(metadata: RuntimeSessionMetadata): boolean {
+		// Console sessions are always shown
+		if (metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			return true;
+		}
+		if (metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			return this._configurationService.getValue<boolean>("console.showNotebookConsoles");
+		}
+		// Other session types are not shown by the console service
+		return false;
 	}
 
 	/**
