@@ -35,7 +35,7 @@ export function useActionsForCell(cell: IPositronNotebookCell): Record<CellActio
 	return {
 		left: leftActions,
 		main: mainActions,
-		'main-right': mainRightActions,
+		mainRight: mainRightActions,
 		menu: menuActions
 	};
 }

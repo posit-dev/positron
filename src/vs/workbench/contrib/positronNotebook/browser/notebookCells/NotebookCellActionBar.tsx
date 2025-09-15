@@ -27,7 +27,7 @@ export function NotebookCellActionBar({ cell, children }: NotebookCellActionBarP
 	const actionsForCell = useActionsForCell(cell);
 	const instance = useNotebookInstance();
 	const mainActions = actionsForCell.main;
-	const mainRightActions = actionsForCell['main-right'];
+	const mainRightActions = actionsForCell['mainRight'];
 	const menuActions = actionsForCell.menu;
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const selectionStatus = useObservedValue(cell.selectionStatus);
@@ -65,7 +65,7 @@ export function NotebookCellActionBar({ cell, children }: NotebookCellActionBarP
 			/>
 		) : null}
 
-		{/* Render contributed main-right actions - will auto-update when registry changes */}
+		{/* Render contributed mainRight actions - will auto-update when registry changes */}
 		{mainRightActions.map(action => (
 			<CellActionButton
 				key={action.commandId}
