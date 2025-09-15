@@ -35,7 +35,7 @@ import { registerCellCommand } from './notebookCells/actionBar/registerCellComma
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
 import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 
 
 /**
@@ -255,7 +255,7 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 }
 
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(
-	PositronNotebookEditorInput.ID,
+	POSITRON_NOTEBOOK_EDITOR_INPUT_ID,
 	PositronNotebookEditorSerializer
 );
 
