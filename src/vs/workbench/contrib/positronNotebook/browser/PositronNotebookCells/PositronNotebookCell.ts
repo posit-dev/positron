@@ -39,6 +39,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	) {
 		super();
 
+		// Observable of internal metadata to derive execution status and timing info
+		// e.g. as used in PositronNotebookCodeCell
 		this._internalMetadata = observableFromEvent(
 			this,
 			this.cellModel.onDidChangeInternalMetadata,
