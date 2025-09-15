@@ -28,7 +28,7 @@ import { TokenUsage } from './tokens.js';
  */
 
 //#region Test Models
-class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
 	readonly provider = 'error';
 	readonly id = 'error-language-model';
@@ -68,6 +68,10 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		throw new Error(this._message);
 	}
 
+	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+		throw new Error(this._message);
+	}
+
 	provideTokenCount(): Promise<number> {
 		throw new Error(this._message);
 	}
@@ -77,7 +81,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	}
 }
 
-class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
 	readonly provider = 'echo';
 	readonly id = 'echo-language-model';
@@ -134,7 +138,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage[],
 		options: { [name: string]: any },
-		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
@@ -181,13 +185,19 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		// Output the response character by character
 		for await (const i of response.split('')) {
 			await new Promise(resolve => setTimeout(resolve, 10));
-			progress.report({ index: 0, part: new vscode.LanguageModelTextPart(i) });
+			progress.report({
+				value: i,
+			});
 			if (token.isCancellationRequested) {
 				return;
 			}
 		}
 
 		return { tokenUsage };
+	}
+
+	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+		return this.prepareLanguageModelChat({ silent: options.silent }, token);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
@@ -207,7 +217,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 //#endregion
 //#region Language Models
 
-abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	public readonly name;
 	public readonly provider;
 	public readonly id;
@@ -335,8 +345,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
-		options: vscode.LanguageModelChatRequestHandleOptions,
-		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
 		const aiModel = this.aiProvider(model.id);
@@ -442,16 +452,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				flushAccumulatedTextDeltas();
 				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
 				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelTextPart(part.textDelta)
+					value: part.textDelta,
 				});
 			}
 
 			if (part.type === 'text-delta') {
 				accumulatedTextDeltas.push(part.textDelta);
 				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelTextPart(part.textDelta)
+					value: part.textDelta,
 				});
 			}
 
@@ -459,8 +467,9 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				flushAccumulatedTextDeltas();
 				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
 				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
+					callId: part.toolCallId,
+					name: part.toolName,
+					input: part.args,
 				});
 			}
 
@@ -514,7 +523,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 			// Report token usage information as part of the output stream.
 			const part: any = vscode.LanguageModelDataPart.json({ type: 'usage', data: tokens });
-			progress.report({ index: 0, part: part });
+			progress.report(part);
 
 			// Log the Bedrock usage
 			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
@@ -529,6 +538,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		}
 
 		log.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
+	}
+
+	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+		return this.prepareLanguageModelChat({ silent: true }, token);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
@@ -560,7 +573,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	}
 }
 
-class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AnthropicProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -591,7 +604,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 	}
 }
 
-class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: OpenAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -623,7 +636,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
-class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: MistralProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -655,7 +668,7 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 	}
 }
 
-class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: OpenRouterProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -686,7 +699,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 	}
 }
 
-class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: OllamaProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -718,7 +731,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
-class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AzureOpenAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -749,7 +762,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 	}
 }
 
-class VertexLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class VertexLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: GoogleVertexProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -781,7 +794,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
-export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AmazonBedrockProvider;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -904,7 +917,7 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 }
 
 // export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
-export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider2 {
+export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
@@ -912,7 +925,7 @@ export function newLanguageModelChatProvider(config: ModelConfig, context: vscod
 	return new providerClass(config, context);
 }
 
-class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: GoogleGenerativeAIProvider;
 
 	static source: positron.ai.LanguageModelSource = {

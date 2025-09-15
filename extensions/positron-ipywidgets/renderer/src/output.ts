@@ -23,7 +23,7 @@ export interface ISetOutputOptions {
 export class OutputModel extends outputBase.OutputModel {
 	// Properties assigned on `super.initialize`.
 	private _outputAreaModel!: OutputAreaModel;
-	public override widget_manager!: PositronWidgetManager;
+	public override widget_manager: PositronWidgetManager = undefined!;
 
 	/** The current message handler's disposable, if any. */
 	private _messageHandler?: Disposable;
@@ -146,9 +146,9 @@ export class OutputModel extends outputBase.OutputModel {
  */
 export class OutputView extends outputBase.OutputView {
 	// Properties assigned on parent class initialization.
-	override model!: OutputModel;
+	override model: OutputModel = undefined!;
 	private _outputView!: OutputArea;
-	override luminoWidget!: JupyterLuminoPanelWidget;
+	override luminoWidget: JupyterLuminoPanelWidget = undefined!;
 
 	override _createElement(_tagName: string): HTMLElement {
 		this.luminoWidget = new JupyterLuminoPanelWidget({ view: this });

@@ -6,7 +6,7 @@
   "publisher": "positron",
   "private": true,
   "engines": {
-    "vscode": "^1.103.0"
+    "vscode": "^1.104.0"
   },
   "categories": [
     "Other"

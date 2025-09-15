@@ -10,6 +10,7 @@ import { Iterable } from '../../../../base/common/iterator.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { isFalsyOrWhitespace } from '../../../../base/common/strings.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -17,7 +18,7 @@ import { ExtensionIdentifier } from '../../../../platform/extensions/common/exte
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { IExtensionService, isProposedApiEnabled } from '../../../services/extensions/common/extensions.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
 import { ChatContextKeys } from './chatContextKeys.js';
 
@@ -27,15 +28,16 @@ export const enum ChatMessageRole {
 	Assistant,
 }
 
-export enum ToolResultAudience {
+export enum LanguageModelPartAudience {
 	Assistant = 0,
 	User = 1,
+	Extension = 2,
 }
 
 export interface IChatMessageTextPart {
 	type: 'text';
 	value: string;
-	audience?: ToolResultAudience[];
+	audience?: LanguageModelPartAudience[];
 }
 
 export interface IChatMessageImagePart {
@@ -43,11 +45,18 @@ export interface IChatMessageImagePart {
 	value: IChatImageURLPart;
 }
 
+export interface IChatMessageThinkingPart {
+	type: 'thinking';
+	value: string | string[];
+	id?: string;
+	metadata?: { readonly [key: string]: any };
+}
+
 export interface IChatMessageDataPart {
 	type: 'data';
 	mimeType: string;
 	data: VSBuffer;
-	audience?: ToolResultAudience[];
+	audience?: LanguageModelPartAudience[];
 }
 
 export interface IChatImageURLPart {
@@ -89,7 +98,7 @@ export interface IChatMessageToolResultPart {
 	isError?: boolean;
 }
 
-export type IChatMessagePart = IChatMessageTextPart | IChatMessageToolResultPart | IChatResponseToolUsePart | IChatMessageImagePart | IChatMessageDataPart;
+export type IChatMessagePart = IChatMessageTextPart | IChatMessageToolResultPart | IChatResponseToolUsePart | IChatMessageImagePart | IChatMessageDataPart | IChatMessageThinkingPart;
 
 export interface IChatMessage {
 	readonly name?: string | undefined;
@@ -100,7 +109,7 @@ export interface IChatMessage {
 export interface IChatResponseTextPart {
 	type: 'text';
 	value: string;
-	audience?: ToolResultAudience[];
+	audience?: LanguageModelPartAudience[];
 }
 
 export interface IChatResponsePromptTsxPart {
@@ -110,8 +119,9 @@ export interface IChatResponsePromptTsxPart {
 
 export interface IChatResponseDataPart {
 	type: 'data';
-	value: IChatImageURLPart;
-	audience?: ToolResultAudience[];
+	mimeType: string;
+	data: VSBuffer;
+	audience?: LanguageModelPartAudience[];
 }
 
 export interface IChatResponseToolUsePart {
@@ -119,6 +129,13 @@ export interface IChatResponseToolUsePart {
 	name: string;
 	toolCallId: string;
 	parameters: any;
+}
+
+export interface IChatResponseThinkingPart {
+	type: 'thinking';
+	value: string | string[];
+	id?: string;
+	metadata?: { readonly [key: string]: any };
 }
 
 export interface IChatResponsePullRequestPart {
@@ -130,14 +147,9 @@ export interface IChatResponsePullRequestPart {
 	linkTag: string;
 }
 
+export type IChatResponsePart = IChatResponseTextPart | IChatResponseToolUsePart | IChatResponseDataPart | IChatResponseThinkingPart;
+
 export type IExtendedChatResponsePart = IChatResponsePullRequestPart;
-
-export type IChatResponsePart = IChatResponseTextPart | IChatResponseToolUsePart | IChatResponseDataPart;
-
-export interface IChatResponseFragment {
-	index: number;
-	part: IChatResponsePart;
-}
 
 // --- Start Positron ---
 export interface IPositronChatProvider {
@@ -159,8 +171,8 @@ export interface ILanguageModelChatMetadata {
 	readonly id: string;
 	readonly vendor: string;
 	readonly version: string;
-	readonly description?: string;
-	readonly cost?: string;
+	readonly tooltip?: string;
+	readonly detail?: string;
 	readonly family: string;
 	// --- Start Positron ---
 	readonly providerName?: string;
@@ -170,6 +182,7 @@ export interface ILanguageModelChatMetadata {
 
 	readonly isDefault?: boolean;
 	readonly isUserSelectable?: boolean;
+	readonly statusIcon?: ThemeIcon;
 	readonly modelPickerCategory: { label: string; order: number } | undefined;
 	readonly auth?: {
 		readonly providerLabel: string;
@@ -189,22 +202,25 @@ export namespace ILanguageModelChatMetadata {
 	}
 
 	export function asQualifiedName(metadata: ILanguageModelChatMetadata): string {
-		if (metadata.modelPickerCategory === undefined) {
-			// in the others category
-			return `${metadata.name} (${metadata.family})`;
+		return `${metadata.name} (${metadata.vendor})`;
+	}
+
+	export function matchesQualifiedName(name: string, metadata: ILanguageModelChatMetadata): boolean {
+		if (metadata.vendor === 'copilot' && name === metadata.name) {
+			return true;
 		}
-		return metadata.name;
+		return name === asQualifiedName(metadata);
 	}
 }
 
 export interface ILanguageModelChatResponse {
-	stream: AsyncIterable<IChatResponseFragment | IChatResponseFragment[]>;
+	stream: AsyncIterable<IChatResponsePart | IChatResponsePart[]>;
 	result: Promise<any>;
 }
 
 export interface ILanguageModelChatProvider {
 	onDidChange: Event<void>;
-	prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]>;
+	provideLanguageModelChatInfo(options: { silent: boolean }, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]>;
 	sendChatRequest(modelId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
 	provideTokenCount(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
 }
@@ -287,20 +303,20 @@ export interface ILanguageModelsService {
 	computeTokenLength(modelId: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
 }
 
-const languageModelType: IJSONSchema = {
+const languageModelChatProviderType: IJSONSchema = {
 	type: 'object',
 	properties: {
 		vendor: {
 			type: 'string',
-			description: localize('vscode.extension.contributes.languageModels.vendor', "A globally unique vendor of language models.")
+			description: localize('vscode.extension.contributes.languageModels.vendor', "A globally unique vendor of language model chat provider.")
 		},
 		displayName: {
 			type: 'string',
-			description: localize('vscode.extension.contributes.languageModels.displayName', "The display name of the language model vendor.")
+			description: localize('vscode.extension.contributes.languageModels.displayName', "The display name of the language model chat provider.")
 		},
 		managementCommand: {
 			type: 'string',
-			description: localize('vscode.extension.contributes.languageModels.managementCommand', "A command to manage the language model vendor, e.g. 'Manage Copilot models'. This is used in the chat model picker. If not provided, a gear icon is not rendered during vendor selection.")
+			description: localize('vscode.extension.contributes.languageModels.managementCommand', "A command to manage the language model chat provider, e.g. 'Manage Copilot models'. This is used in the chat model picker. If not provided, a gear icon is not rendered during vendor selection.")
 		}
 	}
 };
@@ -311,21 +327,21 @@ export interface IUserFriendlyLanguageModel {
 	managementCommand?: string;
 }
 
-export const languageModelExtensionPoint = ExtensionsRegistry.registerExtensionPoint<IUserFriendlyLanguageModel | IUserFriendlyLanguageModel[]>({
-	extensionPoint: 'languageModels',
+export const languageModelChatProviderExtensionPoint = ExtensionsRegistry.registerExtensionPoint<IUserFriendlyLanguageModel | IUserFriendlyLanguageModel[]>({
+	extensionPoint: 'languageModelChatProviders',
 	jsonSchema: {
-		description: localize('vscode.extension.contributes.languageModels', "Contribute language models of a specific vendor."),
+		description: localize('vscode.extension.contributes.languageModelChatProviders', "Contribute language model chat providers of a specific vendor."),
 		oneOf: [
-			languageModelType,
+			languageModelChatProviderType,
 			{
 				type: 'array',
-				items: languageModelType
+				items: languageModelChatProviderType
 			}
 		]
 	},
 	activationEventsGenerator: (contribs: IUserFriendlyLanguageModel[], result: { push(item: string): void }) => {
 		for (const contrib of contribs) {
-			result.push(`onLanguageModelChat:${contrib.vendor}`);
+			result.push(`onLanguageModelChatProvider:${contrib.vendor}`);
 		}
 	}
 });
@@ -377,6 +393,8 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(_contextKeyService);
 		this._modelPickerUserPreferences = this._storageService.getObject<Record<string, boolean>>('chatModelPickerPreferences', StorageScope.PROFILE, this._modelPickerUserPreferences);
 
+
+
 		this._store.add(this.onDidChangeLanguageModels(() => {
 			this._hasUserSelectableModels.set(this._modelCache.size > 0 && Array.from(this._modelCache.values()).some(model => model.isUserSelectable));
 
@@ -394,17 +412,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 			// --- End Positron ---
 		}));
 
-		this._store.add(languageModelExtensionPoint.setHandler((extensions) => {
+		this._store.add(languageModelChatProviderExtensionPoint.setHandler((extensions) => {
 
 			this._vendors.clear();
 
 			for (const extension of extensions) {
-
-				if (!isProposedApiEnabled(extension.description, 'chatProvider')) {
-					extension.collector.error(localize('vscode.extension.contributes.languageModels.chatProviderRequired', "This contribution point requires the 'chatProvider' proposal."));
-					continue;
-				}
-
 				for (const item of Iterable.wrap(extension.value)) {
 					if (this._vendors.has(item.vendor)) {
 						extension.collector.error(localize('vscode.extension.contributes.languageModels.vendorAlreadyRegistered', "The vendor '{0}' is already registered and cannot be registered twice", item.vendor));
@@ -419,6 +431,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 						continue;
 					}
 					this._vendors.set(item.vendor, item);
+					// Have some models we want from this vendor, so activate the extension
+					if (this._hasStoredModelForvendor(item.vendor)) {
+						this._extensionService.activateByEvent(`onLanguageModelChatProvider:${item.vendor}`);
+					}
 				}
 			}
 			// --- Start Positron ---
@@ -490,6 +506,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._isInitialSetup = false;
 		}
 		// --- End Positron ---
+	}
+
+	private _hasStoredModelForvendor(vendor: string): boolean {
+		return Object.keys(this._modelPickerUserPreferences).some(modelId => {
+			return modelId.startsWith(vendor);
+		});
 	}
 
 	dispose() {
@@ -607,6 +629,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 		if (typeof vendors === 'string') {
 			vendors = [vendors];
 		}
+		// Activate extensions before requesting to resolve the models
+		const all = vendors.map(vendor => this._extensionService.activateByEvent(`onLanguageModelChatProvider:${vendor}`));
+		await Promise.all(all);
 		this._clearModelCache(vendors);
 		for (const vendor of vendors) {
 			const provider = this._providers.get(vendor);
@@ -615,7 +640,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 				continue;
 			}
 			try {
-				const modelsAndIdentifiers = await provider.prepareLanguageModelChat({ silent }, CancellationToken.None);
+				let modelsAndIdentifiers = await provider.provideLanguageModelChatInfo({ silent }, CancellationToken.None);
+				// This is a bit of a hack, when prompting user if the provider returns any models that are user selectable then we only want to show those and not the entire model list
+				if (!silent && modelsAndIdentifiers.some(m => m.metadata.isUserSelectable)) {
+					modelsAndIdentifiers = modelsAndIdentifiers.filter(m => m.metadata.isUserSelectable || this._modelPickerUserPreferences[m.identifier] === true);
+				}
 				for (const modelAndIdentifier of modelsAndIdentifiers) {
 					if (this._modelCache.has(modelAndIdentifier.identifier)) {
 						this._logService.warn(`[LM] Model ${modelAndIdentifier.identifier} is already registered. Skipping.`);
@@ -634,14 +663,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	async selectLanguageModels(selector: ILanguageModelChatSelector, allowPromptingUser?: boolean): Promise<string[]> {
 
 		if (selector.vendor) {
-			// selective activation
-			await this._extensionService.activateByEvent(`onLanguageModelChat:${selector.vendor}}`);
 			await this.resolveLanguageModels([selector.vendor], !allowPromptingUser);
 		} else {
-			// activate all extensions that do language models
 			const allVendors = Array.from(this._vendors.keys());
-			const all = allVendors.map(vendor => this._extensionService.activateByEvent(`onLanguageModelChat:${vendor}`));
-			await Promise.all(all);
 			await this.resolveLanguageModels(allVendors, !allowPromptingUser);
 		}
 
@@ -681,7 +705,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._providerExtensions.set(vendor, extensionId);
 		// --- End Positron ---
 
-		// TODO @lramos15 - Smarter restore logic. Don't activate all providers, but only those which were known to need restoring
+		// TODO @lramos15 - Smarter restore logic. Don't resolve models for all providers, but only those which were known to need restoring
 		this.resolveLanguageModels(vendor, true).then(() => {
 			// --- Start Positron ---
 			// Fire the provider change event after models are resolved so UI knows usable providers are available

@@ -132,13 +132,13 @@ export function parseLocalFileData(text: string) {
 }
 
 export interface ICodeBlockActionContext {
-	code: string;
-	codemapperUri?: URI;
-	languageId?: string;
-	codeBlockIndex: number;
-	element: unknown;
+	readonly code: string;
+	readonly codemapperUri?: URI;
+	readonly languageId?: string;
+	readonly codeBlockIndex: number;
+	readonly element: unknown;
 
-	chatSessionId: string | undefined;
+	readonly chatSessionId: string | undefined;
 }
 
 export interface ICodeBlockRenderOptions {
@@ -290,6 +290,14 @@ export class CodeBlockPart extends Disposable {
 			this.element.classList.add('focused');
 			WordHighlighterContribution.get(this.editor)?.restoreViewState(true);
 		}));
+		this._register(Event.any(
+			this.editor.onDidChangeModel,
+			this.editor.onDidChangeModelContent
+		)(() => {
+			if (this.currentCodeBlockData) {
+				this.updateContexts(this.currentCodeBlockData);
+			}
+		}));
 
 		// Parent list scrolled
 		if (delegate.onDidScroll) {
@@ -423,8 +431,8 @@ export class CodeBlockPart extends Disposable {
 			this.layout(width);
 		}
 
-		await this.updateEditor(data);
-		if (this.isDisposed) {
+		const didUpdate = await this.updateEditor(data);
+		if (!didUpdate || this.isDisposed || this.currentCodeBlockData !== data) {
 			return;
 		}
 
@@ -458,6 +466,7 @@ export class CodeBlockPart extends Disposable {
 
 	reset() {
 		this.clearWidgets();
+		this.currentCodeBlockData = undefined;
 	}
 
 	private clearWidgets() {
@@ -465,51 +474,29 @@ export class CodeBlockPart extends Disposable {
 		GlyphHoverController.get(this.editor)?.hideGlyphHover();
 	}
 
-	private async updateEditor(data: ICodeBlockData): Promise<void> {
+	private async updateEditor(data: ICodeBlockData): Promise<boolean> {
 		const textModel = await data.textModel;
+		if (this.isDisposed || this.currentCodeBlockData !== data || textModel.isDisposed()) {
+			return false;
+		}
+
 		this.editor.setModel(textModel);
 		if (data.range) {
 			this.editor.setSelection(data.range);
 			this.editor.revealRangeInCenter(data.range, ScrollType.Immediate);
 		}
 
+		this.updateContexts(data);
+
 		// --- Start Positron ---
-		// The context needs to update. Possible bug introducted in 1.103.0.
-		// Sending the code to console sometimes truncated the code block.
-		// This adds an event listener to ensure the code block is up to date with the toolbar context
-		// when the Run in Console action executes.
-		/*
-		this.toolbar.context = {
-			code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
-			codeBlockIndex: data.codeBlockIndex,
-			element: data.element,
-			languageId: textModel.getLanguageId(),
-			codemapperUri: data.codemapperUri,
-			chatSessionId: data.chatSessionId
-		} satisfies ICodeBlockActionContext;
-		 */
-
-		const updateToolbarContext = () => {
-			this.toolbar.context = {
-				code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
-				codeBlockIndex: data.codeBlockIndex,
-				element: data.element,
-				languageId: textModel.getLanguageId(),
-				codemapperUri: data.codemapperUri,
-				chatSessionId: data.chatSessionId
-			} satisfies ICodeBlockActionContext;
-		};
-
-		// Set initial context
-		updateToolbarContext();
-
+		// TODO 1.104.0 Possibly needed if the upstream change to update contexts if the editor model content update contexts isn't enough
 		// Update context whenever the model content changes
-		this._register(textModel.onDidChangeContent(() => {
-			updateToolbarContext();
-		}));
+		// this._register(textModel.onDidChangeContent(() => {
+		// 	this.updateContexts(data);
+		// }));
 		// --- End Positron ---
 
-		this.resourceContextKey.set(textModel.uri);
+		return true;
 	}
 
 	private getVulnerabilitiesLabel(): string {
@@ -522,6 +509,23 @@ export class CodeBlockPart extends Disposable {
 			localize('vulnerabilitiesSingular', "{0} vulnerability", 1);
 		const icon = (element: IChatResponseViewModel) => element.vulnerabilitiesListExpanded ? Codicon.chevronDown : Codicon.chevronRight;
 		return `${referencesLabel} $(${icon(this.currentCodeBlockData.element as IChatResponseViewModel).id})`;
+	}
+
+	private updateContexts(data: ICodeBlockData) {
+		const textModel = this.editor.getModel();
+		if (!textModel) {
+			return;
+		}
+
+		this.toolbar.context = {
+			code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
+			codeBlockIndex: data.codeBlockIndex,
+			element: data.element,
+			languageId: textModel.getLanguageId(),
+			codemapperUri: data.codemapperUri,
+			chatSessionId: data.chatSessionId
+		} satisfies ICodeBlockActionContext;
+		this.resourceContextKey.set(textModel.uri);
 	}
 }
 

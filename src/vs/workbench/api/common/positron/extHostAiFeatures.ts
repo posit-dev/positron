@@ -37,6 +37,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			...agentData,
 			modes: agentData.modes as any as ChatModeKind[],
 			extensionId: extension.identifier,
+			extensionVersion: extension.version,
 			extensionPublisherId: extension.publisher,
 			extensionDisplayName: extension.displayName ?? extension.publisher,
 			locations: agentData.locations.map((v) => ChatAgentLocation.fromRaw(v)),

@@ -38,13 +38,19 @@ const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(Vi
 	id: CHAT_SIDEBAR_PANEL_ID,
 	title: localize2('chat.viewContainer.label', "Chat"),
 	// --- Start Positron ---
+	/*
+	icon: Codicon.chatSparkle,
+	*/
 	icon: Codicon.positronAssistant,
 	// --- End Positron ---
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [CHAT_SIDEBAR_PANEL_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: CHAT_SIDEBAR_PANEL_ID,
 	hideIfEmpty: true,
-	order: 100,
+	order: 1,
 	// --- Start Positron ---
+	/* TODO 1.104.0 - does order change to 1 (upstream) or keep 100 (previous Positron value)?
+}, ViewContainerLocation.AuxiliaryBar, { isDefault: true, doNotRegisterOpenCommand: true });
+	*/
 	// In VS Code the location is set to `ViewContainerLocation.AuxiliaryBar`,
 	// but that's where all Positron's views are too (plots, variables,
 	// etc.) Put the Chat view in the Sidebar instead so that it doesn't
@@ -283,6 +289,7 @@ export class ChatExtensionPointHandler implements IWorkbenchContribution {
 							providerDescriptor.id,
 							{
 								extensionId: extension.description.identifier,
+								extensionVersion: extension.description.version,
 								publisherDisplayName: extension.description.publisherDisplayName ?? extension.description.publisher, // May not be present in OSS
 								extensionPublisherId: extension.description.publisher,
 								extensionDisplayName: extension.description.displayName ?? extension.description.name,

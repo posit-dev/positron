@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../../../base/common/codicons.js';
@@ -20,7 +20,8 @@ import { BaseChatToolInvocationSubPart } from './chatToolInvocationSubPart.js';
 
 /**
  * A chat content part for rendering a tool invocation with Markdown content with rich code blocks.
- * Logic adapted from the ChatTerminalMarkdownProgressPart, removing terminal-specific logic.
+ * Logic adapted from the ChatTerminalMarkdownProgressPart, removing terminal-specific logic. That
+ * class was later renamed to ChatTerminalToolProgressPart.
  */
 export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart {
 	public readonly domNode: HTMLElement;
@@ -56,7 +57,7 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 				wordWrap: 'on'
 			}
 		};
-		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, currentWidthDelegate(), codeBlockModelCollection, { codeBlockRenderOptions }));
+		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate(), codeBlockModelCollection, { codeBlockRenderOptions }));
 		this._register(this.markdownPart.onDidChangeHeight(() => this._onDidChangeHeight.fire()));
 		const icon = !toolInvocation.isConfirmed ?
 			Codicon.error :

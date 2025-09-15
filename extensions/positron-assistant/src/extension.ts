@@ -165,7 +165,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		}
 
 		const vendor = modelConfig.provider; // as defined in package.json in "languageModels"
-		const modelDisp = vscode.lm.registerChatModelProvider(vendor, languageModel);
+		const modelDisp = vscode.lm.registerLanguageModelChatProvider(vendor, languageModel);
 		modelDisposables.push(new ModelDisposable(modelDisp, modelConfig));
 		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
 	}

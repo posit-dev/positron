@@ -5,6 +5,7 @@
 
 import * as cp from 'child_process';
 import * as os from 'os';
+import * as playwright from 'playwright';
 import { IElement, ILocaleInfo, ILocalizedStrings, ILogFile } from './driver';
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
@@ -16,14 +17,17 @@ import { Quality } from './application';
 import { ElectronApplication } from '@playwright/test';
 
 export interface LaunchOptions {
+	// Allows you to override the Playwright instance
+	playwright?: typeof playwright;
 	codePath?: string;
 	readonly workspacePath: string;
-	userDataDir: string;
-	readonly extensionsPath: string;
+	userDataDir?: string;
+	readonly extensionsPath?: string;
 	readonly logger: Logger;
 	logsPath: string;
 	crashesPath: string;
 	verbose?: boolean;
+	useInMemorySecretStorage?: boolean;
 	readonly extraArgs?: string[];
 	readonly remote?: boolean;
 	readonly web?: boolean;

@@ -5,6 +5,7 @@
 
 /// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
 
 declare module 'positron' {
 
@@ -2055,9 +2056,9 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * A language model provider, extends vscode.LanguageModelChatProvider2.
+		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
-		export interface LanguageModelChatProvider2<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
+		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
 			name: string;
 			provider: string;
 			id: string;
@@ -2070,7 +2071,9 @@ declare module 'positron' {
 			// NOT cacheable (between reloads)
 			prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
 
-			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2>, options: vscode.LanguageModelChatRequestHandleOptions, progress: vscode.Progress<vscode.ChatResponseFragment2>, token: vscode.CancellationToken): Thenable<any>;
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
+
+			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
 
 			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
 
@@ -2085,46 +2088,46 @@ declare module 'positron' {
 		/**
 		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
-		export interface LanguageModelChatProvider {
-			name: string;
-			provider: string;
-			identifier: string;
+		// export interface LanguageModelChatProvider {
+		// 	name: string;
+		// 	provider: string;
+		// 	identifier: string;
 
-			providerName: string;
-			maxOutputTokens: number;
+		// 	providerName: string;
+		// 	maxOutputTokens: number;
 
-			readonly capabilities?: {
-				readonly vision?: boolean;
-				readonly toolCalling?: boolean;
-				readonly agentMode?: boolean;
-			};
+		// 	readonly capabilities?: {
+		// 		readonly vision?: boolean;
+		// 		readonly toolCalling?: boolean;
+		// 		readonly agentMode?: boolean;
+		// 	};
 
-			/**
-			 * Handle a language model request with tool calls and streaming chat responses.
-			 */
-			provideLanguageModelResponse(
-				messages: Array<vscode.LanguageModelChatMessage>,
-				options: vscode.LanguageModelChatRequestOptions,
-				extensionId: string,
-				progress: vscode.Progress<{
-					index: number;
-					part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart;
-				}>,
-				token: vscode.CancellationToken,
-			): Thenable<any>;
+		// 	/**
+		// 	 * Handle a language model request with tool calls and streaming chat responses.
+		// 	 */
+		// 	provideLanguageModelResponse(
+		// 		messages: Array<vscode.LanguageModelChatMessage>,
+		// 		options: vscode.LanguageModelChatRequestOptions,
+		// 		extensionId: string,
+		// 		progress: vscode.Progress<{
+		// 			index: number;
+		// 			part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart;
+		// 		}>,
+		// 		token: vscode.CancellationToken,
+		// 	): Thenable<any>;
 
-			/**
-			 * Calculate the token count for a given string.
-			 */
-			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
+		// 	/**
+		// 	 * Calculate the token count for a given string.
+		// 	 */
+		// 	provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
 
-			/**
-			 * Tests the connection to the language model provider.
-			 *
-			 * Returns an error if the connection fails.
-			 */
-			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
-		}
+		// 	/**
+		// 	 * Tests the connection to the language model provider.
+		// 	 *
+		// 	 * Returns an error if the connection fails.
+		// 	 */
+		// 	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+		// }
 
 		/**
 		 * Dynamically defined chat agent properties and metadata.
