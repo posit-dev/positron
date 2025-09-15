@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCells, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -556,7 +556,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			const cellIndex = referenceCell.index;
 			index = cellIndex >= 0 ? cellIndex : undefined;
 		} else {
-			index = this.selectionStateMachine.getSelectedCell()?.index;
+			index = getSelectedCell(this.selectionStateMachine.state.get())?.index;
 		}
 
 		if (index === undefined) {
@@ -571,7 +571,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellToDelete The cell to delete. If not provided, deletes the currently selected cell
 	 */
 	deleteCell(cellToDelete?: IPositronNotebookCell): void {
-		const cell = cellToDelete ?? this.selectionStateMachine.getSelectedCell();
+		const cell = cellToDelete ?? getSelectedCell(this.selectionStateMachine.state.get());
 
 		if (!cell) {
 			return;
@@ -949,7 +949,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
 		this._assertTextModel();
 
-		const targetCell = cell ?? this.selectionStateMachine.getSelectedCell();
+		const targetCell = cell ?? getSelectedCell(this.selectionStateMachine.state.get());
 		if (!targetCell) {
 			return;
 		}
