@@ -13,7 +13,7 @@ import { CellConditionPredicate } from './cellConditions.js';
 /**
  * The position of a cell action bar item.
  */
-export type CellActionPosition = 'main' | 'menu' | 'left';
+export type CellActionPosition = 'main' | 'main-right' | 'menu' | 'left';
 /**
  * Interface for notebook cell action bar items that define how commands appear in the UI.
  */
@@ -24,7 +24,7 @@ export interface INotebookCellActionBarItem {
 	label?: ILocalizedString | string;
 	/** Codicon class for the button icon (optional) */
 	icon?: string;
-	/** Location in UI - either main action bar or dropdown menu */
+	/** Location in UI - main action bar, main-right action bar, dropdown menu, or left action bar */
 	position: CellActionPosition;
 	/** Sort order within position (lower numbers appear first) */
 	order?: number;
@@ -54,6 +54,11 @@ export class NotebookCellActionBarRegistry {
 	public readonly mainActions;
 
 	/**
+	 * The observable array of main-right action bar actions.
+	 */
+	public readonly mainRightActions;
+
+	/**
 	 * The observable array of dropdown menu actions.
 	 */
 	public readonly menuActions;
@@ -68,6 +73,13 @@ export class NotebookCellActionBarRegistry {
 			/** @description mainActions */
 			Array.from(items.values())
 				.filter(item => item.position === 'main')
+				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER))
+		);
+
+		this.mainRightActions = this.items.observable.map(this, items =>
+			/** @description mainRightActions */
+			Array.from(items.values())
+				.filter(item => item.position === 'main-right')
 				.sort((a, b) => (a.order ?? DEFAULT_ORDER) - (b.order ?? DEFAULT_ORDER))
 		);
 
