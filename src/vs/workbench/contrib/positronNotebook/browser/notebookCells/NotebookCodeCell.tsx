@@ -19,7 +19,7 @@ import { CellTextOutput } from './CellTextOutput.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
-import { CellExecutionInfoIcon } from './CellExecutionInfoIcon.js';
+import { CellLeftActionMenu } from './CellLeftActionMenu.js';
 
 
 interface CellOutputsSectionProps {
@@ -49,7 +49,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>
-			<CellExecutionInfoIcon cell={cell} />
+			<CellLeftActionMenu cell={cell} />
 		</NotebookCellWrapper>
 	);
 }

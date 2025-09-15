@@ -3,50 +3,42 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
 import React from 'react';
-
-// Other dependencies.
-import { Button } from '../../../../../../base/browser/ui/positronComponents/button/button.js';
-
-interface CellActionButtonProps {
-	ariaLabel: string;
-	onPressed: () => void;
-	children: React.ReactNode;
-	buttonRef?: React.RefObject<HTMLButtonElement>;
-	ariaHasPopup?: boolean | 'menu' | 'listbox' | 'tree' | 'grid' | 'dialog';
-	ariaExpanded?: boolean;
-}
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { CellSelectionType } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
+import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
+import { ActionButton } from '../../utilityComponents/ActionButton.js';
+import { INotebookCellActionBarItem } from './actionBarRegistry.js';
+import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 
 /**
- * Standardized action button component for notebook cell actions.
- * Provides consistent styling and behavior across all cell action buttons.
+ * Standardized action button component for notebook cell actions. Handles cell selection and command execution.
+ * @param action The action to execute
+ * @param cell The cell to execute the action on
+ * @returns A button that executes the action when clicked.
  */
-export function CellActionButton({ ariaLabel, onPressed, children, buttonRef, ariaHasPopup, ariaExpanded }: CellActionButtonProps) {
-	// We need to wrap the Button in a div to add additional ARIA attributes
-	// since the Button component doesn't pass through extra props
-	const button = (
-		<Button
-			ref={buttonRef}
-			ariaLabel={ariaLabel}
-			className='action action-button'
-			onPressed={onPressed}
+export function CellActionButton({ action, cell }: { action: INotebookCellActionBarItem; cell: IPositronNotebookCell; }) {
+
+	// Import command service
+	const { commandService } = usePositronReactServicesContext();
+
+	const instance = useNotebookInstance();
+
+	const handleActionClick = (action: INotebookCellActionBarItem) => {
+		// Actions assume cell is selected, so ensure this is the case
+		instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
+
+		// Execute the command (without passing cell as argument)
+		commandService.executeCommand(action.commandId);
+	};
+
+	return (
+		<ActionButton
+			key={action.commandId}
+			ariaLabel={String(action.label ?? action.commandId)}
+			onPressed={() => handleActionClick(action)}
 		>
-			{children}
-		</Button>
+			<div className={`button-icon codicon ${action.icon}`} />
+		</ActionButton>
 	);
-
-	// If we have additional ARIA attributes, wrap in a div
-	if (ariaHasPopup !== undefined || ariaExpanded !== undefined) {
-		return (
-			<div
-				aria-expanded={ariaExpanded}
-				aria-haspopup={ariaHasPopup}
-			>
-				{button}
-			</div>
-		);
-	}
-
-	return button;
 }

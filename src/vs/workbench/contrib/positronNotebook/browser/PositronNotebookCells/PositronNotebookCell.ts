@@ -9,7 +9,7 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
+import { CellSelectionStatus, ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
@@ -26,6 +26,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	protected _editor = observableValue<ICodeEditor | undefined, void>('cellEditor', undefined);
 
 	executionStatus = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
+	selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
