@@ -18,8 +18,7 @@ export function useActionsForCell(cell: IPositronNotebookCell): Record<CellActio
 	const registry = NotebookCellActionBarRegistry.getInstance();
 	const instance = useNotebookInstance();
 	const cells = instance.cells.get();
-	const cellIndex = cells.indexOf(cell);
-	const cellInfo = createCellInfo(cell, cellIndex, cells.length);
+	const cellInfo = createCellInfo(cell, cells.length);
 
 	const forCellFilter = (action: INotebookCellActionBarItem) => {
 		return !action.cellCondition || action.cellCondition(cellInfo);

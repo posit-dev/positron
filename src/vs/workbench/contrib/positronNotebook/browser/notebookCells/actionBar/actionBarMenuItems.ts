@@ -8,7 +8,7 @@ import { CustomContextMenuItem } from '../../../../../../workbench/browser/posit
 import { CustomContextMenuEntry } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../../selectionMachine.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { CustomContextMenuSeparator } from '../../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 

@@ -14,7 +14,7 @@ import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positr
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-import { getSelectedCells } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
+import { getSelectedCell, getSelectedCells } from '../../selectionMachine.js';
 
 /**
  * Options for registering a cell command.
@@ -65,18 +65,17 @@ export function registerCellCommand({
 	const disposables = new DisposableStore();
 
 	// Helper to check if a cell passes the cell condition
-	const cellPassesCondition = (cell: IPositronNotebookCell, activeNotebook: any) => {
+	const cellPassesCondition = (cell: IPositronNotebookCell, activeNotebook: IPositronNotebookInstance) => {
 		if (!cellCondition) {
 			return true;
 		}
 
-		const cells = activeNotebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
-		if (cellIndex === -1) {
+		if (cell.index === -1) {
 			return false;
 		}
 
-		const cellInfo = createCellInfo(cell, cellIndex, cells.length);
+		const cells = activeNotebook.cells.get();
+		const cellInfo = createCellInfo(cell, cells.length);
 		return cellCondition(cellInfo);
 	};
 
@@ -102,7 +101,7 @@ export function registerCellCommand({
 				}
 			} else {
 				// Handle single cell
-				const cell = activeNotebook.selectionStateMachine.getSelectedCell();
+				const cell = getSelectedCell(activeNotebook.selectionStateMachine.state.get());
 				if (cell && cellPassesCondition(cell, activeNotebook)) {
 					handler(cell, activeNotebook, accessor);
 				}

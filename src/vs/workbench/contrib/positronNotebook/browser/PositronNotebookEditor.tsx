@@ -207,7 +207,7 @@ export class PositronNotebookEditor extends EditorPane {
 	/**
 	 * Size as an observable so it can be lazily passed into the React component.
 	 */
-	private _size = observableValue<ISize>('size', { width: 0, height: 0 });
+	private readonly _size = observableValue<ISize>('size', { width: 0, height: 0 });
 
 	/**
 	 * Observable tracking if the editor is currently visible

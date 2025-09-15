@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import { CellSelectionType } from '../../../../../services/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType } from '../../selectionMachine.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { INotebookCellActionBarItem } from './actionBarRegistry.js';
