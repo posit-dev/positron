@@ -28,11 +28,14 @@ export function useActionsForCell(cell: IPositronNotebookCell): Record<CellActio
 	const leftActions = allLeftActions.filter(forCellFilter);
 	const allMainActions = useObservedValue(registry.mainActions) ?? [];
 	const mainActions = allMainActions.filter(forCellFilter);
+	const allMainRightActions = useObservedValue(registry.mainRightActions) ?? [];
+	const mainRightActions = allMainRightActions.filter(forCellFilter);
 	const allMenuActions = useObservedValue(registry.menuActions) ?? [];
 	const menuActions = allMenuActions.filter(forCellFilter);
 	return {
 		left: leftActions,
 		main: mainActions,
+		mainRight: mainRightActions,
 		menu: menuActions
 	};
 }

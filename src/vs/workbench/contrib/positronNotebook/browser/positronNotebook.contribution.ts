@@ -357,7 +357,7 @@ registerCellCommand(
 		multiSelect: true,  // Delete all selected cells
 		actionBar: {
 			icon: 'codicon-trash',
-			position: 'main',
+			position: 'mainRight',
 			order: 100,
 			category: 'Cell'
 		},
@@ -455,7 +455,7 @@ registerCellCommand({
 	),
 	actionBar: {
 		icon: 'codicon-run-above',
-		position: 'menu',
+		position: 'main',
 		order: 20,
 		category: 'Execution'
 	},
@@ -485,7 +485,7 @@ registerCellCommand({
 	),
 	actionBar: {
 		icon: 'codicon-run-below',
-		position: 'menu',
+		position: 'main',
 		order: 21,
 		category: 'Execution'
 	},
