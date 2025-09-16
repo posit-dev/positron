@@ -10,7 +10,7 @@ import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNote
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
@@ -134,7 +134,7 @@ export function registerCellCommand({
 		const keybindingDisposable = KeybindingsRegistry.registerKeybindingRule({
 			id: commandId,
 			weight: keybinding.weight ?? KeybindingWeight.EditorContrib,
-			when: keybinding.when ?? POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			when: keybinding.when ?? POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 			primary: keybinding.primary,
 			secondary: keybinding.secondary,
 			mac: keybinding.mac,
