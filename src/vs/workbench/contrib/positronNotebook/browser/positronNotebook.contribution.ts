@@ -36,6 +36,7 @@ import { registerNotebookCommand } from './notebookCells/actionBar/registerNoteb
 import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
+import { SelectionState } from './selectionMachine.js';
 
 
 /**
@@ -434,13 +435,28 @@ registerCellCommand({
 	}
 });
 
+
+// Execute cell and select below
 registerCellCommand({
 	commandId: 'positronNotebook.cell.executeAndSelectBelow',
 	handler: (cell, notebook) => {
-		cell.run();
+		// Check if we're in edit mode and exit if so
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type === SelectionState.EditingSelection) {
+			notebook.selectionStateMachine.exitEditor();
+		}
+
+		// Execute the cell only if it's a code cell. Otherwise the user would
+		// have to double call for markdown cells to open and then close the
+		// editor.
+		if (cell.isCodeCell()) {
+			cell.run();
+		}
+
+		// Move to the next cell
 		notebook.selectionStateMachine.moveDown(false);
 	},
-	cellCondition: CellConditions.isCode,  // Only show on code cells
+	editMode: true,  // Allow execution from edit mode
 	keybinding: {
 		primary: KeyMod.Shift | KeyCode.Enter
 	},
