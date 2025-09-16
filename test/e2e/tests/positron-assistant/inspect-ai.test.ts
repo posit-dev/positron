@@ -50,7 +50,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		if (process.env.USE_KEY) {
 			await app.workbench.assistant.clickAddModelButton();
 			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_API_KEY}`);
+			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
 			await app.workbench.assistant.clickSignInButton();
 			await app.workbench.assistant.verifySignOutButtonVisible();
 			await app.workbench.assistant.clickCloseButton();
