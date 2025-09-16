@@ -77,7 +77,20 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
-				createEditorInput: async ({ resource, options }) => {
+				createUntitledEditorInput: async ({ resource, options }) => {
+					// We should handle undefined resource as in notebookEditorServiceImpl.ts,
+					// but resource seems to always be defined so we throw for now to simplify
+					if (!resource) {
+						throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
+					}
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						resource,
+						undefined,
+					);
+					return { editor: notebookEditorInput, options };
+				},
+				createEditorInput: ({ resource, options }) => {
 					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
 						resource,
@@ -102,7 +115,7 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
-				createEditorInput: async (editorInput) => {
+				createEditorInput: (editorInput) => {
 					const parsed = CellUri.parse(editorInput.resource);
 					if (!parsed) {
 						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
