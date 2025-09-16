@@ -357,7 +357,7 @@ registerCellCommand(
 		multiSelect: true,  // Delete all selected cells
 		actionBar: {
 			icon: 'codicon-trash',
-			position: 'main',
+			position: 'mainRight',
 			order: 100,
 			category: 'Cell'
 		},
@@ -374,18 +374,19 @@ registerCellCommand(
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
 registerCellCommand({
-	commandId: 'positronNotebook.cell.executeAndFocusContainer',
+	commandId: 'positronNotebook.cell.execute',
 	handler: (cell) => cell.run(),
 	cellCondition: CellConditions.and(
 		CellConditions.isCode,
-		CellConditions.not(CellConditions.isRunning)
-	),  // Only show on code cells that are not running
+		CellConditions.not(CellConditions.isRunning),
+		CellConditions.not(CellConditions.isPending),
+	),  // Only show on code cells that are not running or pending
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	actionBar: {
 		icon: 'codicon-play',
-		position: 'main',
+		position: 'left',
 		order: CELL_EXECUTION_POSITION,
 		category: 'Execution'
 	},
@@ -399,14 +400,17 @@ registerCellCommand({
 	handler: (cell) => cell.run(), // Run called when cell is executing is stop
 	cellCondition: CellConditions.and(
 		CellConditions.isCode,
-		CellConditions.isRunning
-	),  // Only show on code cells that are running
+		CellConditions.or(
+			CellConditions.isRunning,
+			CellConditions.isPending,
+		)
+	),  // Only show on code cells that are running or pending
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	actionBar: {
-		icon: 'codicon-stop',
-		position: 'main',
+		icon: 'codicon-primitive-square',
+		position: 'left',
 		order: CELL_EXECUTION_POSITION,
 		category: 'Execution'
 	},
@@ -435,9 +439,9 @@ registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllAbove',
 	handler: (cell, notebook) => {
 		const cells = notebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
 
 		// Run all code cells above the current cell
+		const cellIndex = cell.index;
 		for (let i = 0; i < cellIndex; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
@@ -451,7 +455,7 @@ registerCellCommand({
 	),
 	actionBar: {
 		icon: 'codicon-run-above',
-		position: 'menu',
+		position: 'main',
 		order: 20,
 		category: 'Execution'
 	},
@@ -466,10 +470,9 @@ registerCellCommand({
 		if (!notebook) { return; }
 
 		const cells = notebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
 
 		// Run all code cells below the current cell
-		for (let i = cellIndex + 1; i < cells.length; i++) {
+		for (let i = cell.index + 1; i < cells.length; i++) {
 			const targetCell = cells[i];
 			if (targetCell.isCodeCell()) {
 				targetCell.run();
@@ -482,7 +485,7 @@ registerCellCommand({
 	),
 	actionBar: {
 		icon: 'codicon-run-below',
-		position: 'menu',
+		position: 'main',
 		order: 21,
 		category: 'Execution'
 	},

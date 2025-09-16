@@ -3,22 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+
+// CSS.
+import '../../../../../../base/browser/ui/positronComponents/button/button.css';
+
 // React.
 import React, { useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
-import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { showCustomContextMenu } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellActionButton } from './CellActionButton.js';
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { INotebookCellActionBarItem } from './actionBarRegistry.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 interface NotebookCellMoreActionsMenuProps {
 	instance: IPositronNotebookInstance;
-	commandService: ICommandService;
 	cell: IPositronNotebookCell;
 	menuActions: INotebookCellActionBarItem[];
 	onMenuStateChange: (isOpen: boolean) => void;
@@ -30,14 +32,13 @@ interface NotebookCellMoreActionsMenuProps {
  */
 export function NotebookCellMoreActionsMenu({
 	instance,
-	commandService,
 	cell,
 	menuActions,
 	onMenuStateChange
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-
+	const commandService = usePositronReactServicesContext().commandService;
 	const showMoreActionsMenu = () => {
 		if (!buttonRef.current) {
 			return;
@@ -69,14 +70,15 @@ export function NotebookCellMoreActionsMenu({
 	};
 
 	return (
-		<CellActionButton
-			ariaExpanded={isMenuOpen}
-			ariaHasPopup='menu'
-			ariaLabel={localize('moreActions', 'More actions')}
-			buttonRef={buttonRef}
-			onPressed={showMoreActionsMenu}
+		<button
+			ref={buttonRef}
+			aria-expanded={isMenuOpen}
+			aria-haspopup='menu'
+			aria-label={localize('moreActions', 'More actions')}
+			className='positron-button'
+			onClick={showMoreActionsMenu}
 		>
 			<div className='button-icon codicon codicon-ellipsis' />
-		</CellActionButton>
+		</button>
 	);
 }

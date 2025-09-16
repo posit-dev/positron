@@ -105,7 +105,7 @@ def test_histogram_polars_integer_data():
     """Test histogram with integer data."""
     # Small integer range
     data_values = [1, 1, 2, 2, 2, 3, 3, 3, 3]
-    bin_counts, bin_edges = _get_test_histogram(data_values, dtype=pl.Int32)
+    bin_counts, _bin_edges = _get_test_histogram(data_values, dtype=pl.Int32)
 
     # Should not create more bins than the integer range
     assert len(bin_counts) <= 3
@@ -238,7 +238,7 @@ def test_histogram_polars_decimal_data():
     decimal_values = [Decimal("1.1"), Decimal("2.2"), Decimal("3.3")]
     data = pl.Series(decimal_values).cast(pl.Float64)  # Cast as would be done in practice
 
-    bin_counts, bin_edges = _get_histogram_polars(data, num_bins=3, method="fixed")
+    bin_counts, _bin_edges = _get_histogram_polars(data, num_bins=3, method="fixed")
     assert sum(bin_counts) == 3
 
 
@@ -250,7 +250,7 @@ def test_histogram_polars_performance():
     large_data = list(range(1000000))
 
     start = time.time()
-    bin_counts, bin_edges = _get_test_histogram(large_data, num_bins=100)
+    bin_counts, _bin_edges = _get_test_histogram(large_data, num_bins=100)
     elapsed = time.time() - start
 
     # Should complete in reasonable time (< 1 second for 1M values)
@@ -262,7 +262,7 @@ def test_histogram_sparse_bins():
     """Test histogram with data that doesn't fill all bins (zero-filling test)."""
     # Data that will leave gaps in the histogram
     sparse_data = [1, 1, 1, 9, 9, 9]  # Only uses first and last bins
-    bin_counts, bin_edges = _get_test_histogram(sparse_data, num_bins=5)
+    bin_counts, _bin_edges = _get_test_histogram(sparse_data, num_bins=5)
 
     # Should have 5 bins with zeros in the middle
     assert len(bin_counts) == 5
