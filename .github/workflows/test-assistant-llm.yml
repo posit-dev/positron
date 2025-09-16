@@ -78,6 +78,7 @@ jobs:
 
 
   inspect-ai-test:
+    needs: [e2e-electron]
     name: inspect-ai-test
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
@@ -107,6 +108,7 @@ jobs:
           path: positron/
 
       - name: Run Inspect AI JSON Evaluation
+
         run: |
           cd positron/test/assistant-inspect-ai
           python3 -m venv venv
