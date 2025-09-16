@@ -115,6 +115,15 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 		};
 
 		const editorPane = await this._editorService.openEditor({ resource: URI.revive(resource), options: editorOptions }, columnToEditorGroup(this._editorGroupService, this._configurationService, options.position));
+		// --- Start Positron ---
+		if (editorPane?.getId() === POSITRON_NOTEBOOK_EDITOR_ID) {
+			// Positron notebook is already open, just return a synthetic ID
+			// We can't return the actual notebook editor ID because Positron notebooks
+			// don't implement INotebookEditor interface yet
+			const uri = URI.revive(resource);
+			return `positron-notebook-${uri.toString()}`;
+		}
+		// --- End Positron ---
 		const notebookEditor = getNotebookEditorFromEditorPane(editorPane);
 
 		if (notebookEditor) {
