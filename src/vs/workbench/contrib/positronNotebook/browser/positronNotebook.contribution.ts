@@ -525,7 +525,7 @@ registerCellCommand({
 	}
 });
 
-// Markdown cell toggle editor command
+// Open markdown editor (For action bar)
 registerCellCommand({
 	commandId: 'positronNotebook.cell.openMarkdownEditor',
 	handler: (cell) => {
@@ -533,16 +533,11 @@ registerCellCommand({
 			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
 		}
-		// Make sure cell stays focused
 	},
 	cellCondition: CellConditions.and(
 		CellConditions.isMarkdown,
 		CellConditions.not(CellConditions.markdownEditorOpen)
 	),  // Only on markdown cells with the editor closed
-	editMode: true,  // Allow command to work when focus is in the cell editor
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
-	},
 	actionBar: {
 		icon: 'codicon-chevron-down',
 		position: 'main',
@@ -555,7 +550,7 @@ registerCellCommand({
 });
 
 
-// Markdown cell toggle editor command
+// Collapse markdown editor (For action bar)
 registerCellCommand({
 	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
 	handler: (cell) => {
@@ -568,10 +563,6 @@ registerCellCommand({
 		CellConditions.isMarkdown,
 		CellConditions.markdownEditorOpen
 	),  // Only on markdown cells with the editor open
-	editMode: true,  // Allow command to work when focus is in the cell editor
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
-	},
 	actionBar: {
 		icon: 'codicon-chevron-up',
 		position: 'main',
@@ -580,6 +571,25 @@ registerCellCommand({
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor")
+	}
+});
+
+// Toggle markdown editor (For keyboard shortcuts)
+registerCellCommand({
+	commandId: 'positronNotebook.cell.toggleMarkdownEditor',
+	handler: (cell) => {
+		if (cell.isMarkdownCell()) {
+			// This test is just to appease typescript, we know it's a markdown cell
+			cell.toggleEditor();
+		}
+	},
+	cellCondition: CellConditions.isMarkdown,
+	editMode: true,  // Allow command to work when focus is in the cell editor
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor")
 	}
 });
 
