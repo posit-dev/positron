@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from '../../../../base/common/event.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -31,10 +31,10 @@ import { disposableTimeout } from '../../../../base/common/async.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorun, observableFromEvent, observableValue } from '../../../../base/common/observable.js';
+import { autorun, observableValue } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
@@ -90,28 +90,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		PositronNotebookInstance._instanceMap.set(input.resource, instance);
 		return instance;
 	}
-
-	/**
-	 * Updates the instance map when a notebook's URI changes (e.g., during save of untitled notebook).
-	 * This preserves the existing instance while updating the map key.
-	 * @param oldUri The previous URI of the notebook
-	 * @param newUri The new URI of the notebook
-	 */
-	static updateInstanceUri(oldUri: URI, newUri: URI): void {
-		if (isEqual(oldUri, newUri)) {
-			return; // No change needed
-		}
-
-		const instance = PositronNotebookInstance._instanceMap.get(oldUri);
-		if (instance) {
-			// Remove from old key
-			PositronNotebookInstance._instanceMap.delete(oldUri);
-
-			// Add to new key - the instance will be updated when getOrCreate is called with the new URI
-			PositronNotebookInstance._instanceMap.set(newUri, instance);
-		}
-	}
-
 
 	// #endregion
 
@@ -275,7 +253,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Current runtime for the notebook.
 	 */
-	currentRuntime;
+	runtimeSession;
 
 	/**
 	 * Language for the notebook.
@@ -385,25 +363,29 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 		this.kernelStatus = observableValue('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
-		// Track the current runtime for this notebook
-		this.currentRuntime = observableFromEvent(
-			this,
-			(listener => this.runtimeSessionService.onDidStartRuntime((session) => {
-				if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
-					listener(session);
-					const d = session.onDidEndSession(() => {
-						d.dispose();
-						listener(undefined);
-					});
-				}
-			})) satisfies Event<ILanguageRuntimeSession | undefined>,
-			(session) => /** @description positronNotebookCurrentRuntime */ session,
-		);
+		// Track the current runtime session for this notebook
+		this.runtimeSession = observableValue('positronNotebookRuntimeSession', this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri));
+		this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
+			if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
+				this.runtimeSession.set(session, undefined);
+			}
+		}));
 
-		// Update the kernel status based on the current runtime.
+		// Clear the runtime session observable when the session ends
 		this._register(autorun(reader => {
-			const runtime = this.currentRuntime.read(reader);
-			this.kernelStatus.set(runtime ? KernelStatus.Connected : KernelStatus.Disconnected, undefined);
+			const session = this.runtimeSession.read(reader);
+			if (session) {
+				const d = this._register(session.onDidEndSession(() => {
+					d.dispose();
+					this.runtimeSession.set(undefined, undefined);
+				}));
+			}
+		}));
+
+		// Update the kernel status based on the current runtime session.
+		this._register(autorun(reader => {
+			const session = this.runtimeSession.read(reader);
+			this.kernelStatus.set(session ? KernelStatus.Connected : KernelStatus.Disconnected, undefined);
 		}));
 
 		this.contextManager = this._register(
