@@ -18,7 +18,7 @@ test.use({
  * the dataset for use in the inspect-ai tests. It also does some basic validation that there are valid responses
  * from the assistant.
  */
-test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB, tags.NIGHTLY_ONLY] }, () => {
+test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB, tags.NIGHTLY_ONLY] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		// Only sign out if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
@@ -33,8 +33,10 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 	 * @param app - Application fixture providing access to UI elements
 	 */
 	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
-		// Load dataset from file
+		// Load dataset from file - use custom filename if specified via OUTPUT_FILENAME env var
+		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
+		const outputPath = join(__dirname, '../../../assistant-inspect-ai', outputFilename);
 		const datasetContent = readFileSync(datasetPath, 'utf-8');
 		const dataset = JSON.parse(datasetContent);
 
@@ -123,8 +125,8 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 		// Write updated dataset back to file if any items were updated
 		if (updatedItems) {
 			const updatedDatasetContent = JSON.stringify(dataset, null, '\t');
-			writeFileSync(datasetPath, updatedDatasetContent, 'utf-8');
-			console.log(`Updated model responses in dataset file: ${datasetPath}`);
+			writeFileSync(outputPath, updatedDatasetContent, 'utf-8');
+			console.log(`Updated model responses in dataset file: ${outputPath}`);
 		}
 	});
 

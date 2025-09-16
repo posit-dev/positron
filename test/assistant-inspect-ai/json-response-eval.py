@@ -15,11 +15,15 @@ The JSON dataset contains:
 
 Usage:
 	inspect eval json_model_graded_eval.py
+
+	# Use custom input file:
+	INPUT_FILENAME=custom-responses.json inspect eval json_model_graded_eval.py
 """
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 import json
+import os
 from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import Solver, solver
 
@@ -70,9 +74,9 @@ def json_model_graded_eval():
 	2. Uses model_graded_qa to evaluate the quality of those responses
 	3. Returns accuracy and standard error metrics
 	"""
-	# Load the dataset from JSON file
-	# Load JSON file and convert to samples
-	with open("response-dataset.json", "r") as f:
+	# Load the dataset from JSON file - use custom filename if specified via INPUT_FILENAME env var
+	input_filename = os.getenv("INPUT_FILENAME", "response-dataset.json")
+	with open(input_filename, "r") as f:
 		data = json.load(f)
 	# Create samples from the loaded JSON data
 	samples = [record_to_sample(record) for record in data]
