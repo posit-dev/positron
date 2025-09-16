@@ -366,40 +366,38 @@ registerCellCommand({
 	}
 });
 
-registerCellCommand(
-	{
-		commandId: 'positronNotebook.cell.delete',
-		handler: (cell) => cell.delete(),
-		multiSelect: true,  // Delete all selected cells
-		actionBar: {
-			icon: 'codicon-trash',
-			position: 'mainRight',
-			order: 100,
-			category: 'Cell'
-		},
-		keybinding: {
-			primary: KeyCode.Backspace,
-			secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
-		},
-		metadata: {
-			description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
-		}
+registerCellCommand({
+	commandId: 'positronNotebook.cell.delete',
+	handler: (cell) => cell.delete(),
+	multiSelect: true,  // Delete all selected cells
+	actionBar: {
+		icon: 'codicon-trash',
+		position: 'mainRight',
+		order: 100,
+		category: 'Cell'
+	},
+	keybinding: {
+		primary: KeyCode.Backspace,
+		secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
 	}
+}
 );
 
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
 registerCellCommand({
 	commandId: 'positronNotebook.cell.execute',
-	handler: (cell) => cell.run(),
+	handler: (cell) => {
+		cell.run();
+	},
 	cellCondition: CellConditions.and(
 		CellConditions.isCode,
 		CellConditions.not(CellConditions.isRunning),
 		CellConditions.not(CellConditions.isPending),
-	),  // Only show on code cells that are not running or pending
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
-	},
+	),
 	actionBar: {
 		icon: 'codicon-play',
 		position: 'left',
@@ -420,10 +418,7 @@ registerCellCommand({
 			CellConditions.isRunning,
 			CellConditions.isPending,
 		)
-	),  // Only show on code cells that are running or pending
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
-	},
+	),
 	actionBar: {
 		icon: 'codicon-primitive-square',
 		position: 'left',
@@ -435,37 +430,7 @@ registerCellCommand({
 	}
 });
 
-
-// Execute cell and select below
-registerCellCommand({
-	commandId: 'positronNotebook.cell.executeAndSelectBelow',
-	handler: (cell, notebook) => {
-		// Check if we're in edit mode and exit if so
-		const state = notebook.selectionStateMachine.state.get();
-		if (state.type === SelectionState.EditingSelection) {
-			notebook.selectionStateMachine.exitEditor();
-		}
-
-		// Execute the cell only if it's a code cell. Otherwise the user would
-		// have to double call for markdown cells to open and then close the
-		// editor.
-		if (cell.isCodeCell()) {
-			cell.run();
-		}
-
-		// Move to the next cell
-		notebook.selectionStateMachine.moveDown(false);
-	},
-	editMode: true,  // Allow execution from edit mode
-	keybinding: {
-		primary: KeyMod.Shift | KeyCode.Enter
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
-	}
-});
-
-// Example of position-based conditions
+// Run all code cells above the current cell
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllAbove',
 	handler: (cell, notebook) => {
@@ -495,6 +460,7 @@ registerCellCommand({
 	}
 });
 
+// Run all code cells below the current cell
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllBelow',
 	handler: (cell, notebook) => {
@@ -574,25 +540,59 @@ registerCellCommand({
 	}
 });
 
-// Toggle markdown editor (For keyboard shortcuts)
+
+// Keyboard shortcut commands. These are not shown in the action bar.
+// TODO: Improve the context key support so we don't need to have a single command per
+// the keyboard shortcut and can reuse the action bar commands. Cell agnostic
+// "Execute in place" command.
 registerCellCommand({
-	commandId: 'positronNotebook.cell.toggleMarkdownEditor',
+	commandId: 'positronNotebook.cell.executeOrToggleEditor',
 	handler: (cell) => {
 		if (cell.isMarkdownCell()) {
-			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
+		} else {
+			// This also stops if the cell is running.
+			cell.run();
 		}
 	},
-	cellCondition: CellConditions.isMarkdown,
 	editMode: true,  // Allow command to work when focus is in the cell editor
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	metadata: {
-		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor")
+		description: localize('positronNotebook.cell.executeOrToggleEditor', "Execute cell or toggle editor")
 	}
 });
 
+
+// Execute cell and select below
+registerCellCommand({
+	commandId: 'positronNotebook.cell.executeAndSelectBelow',
+	handler: (cell, notebook) => {
+		// Check if we're in edit mode and exit if so
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type === SelectionState.EditingSelection) {
+			notebook.selectionStateMachine.exitEditor();
+		}
+
+		// Execute the cell only if it's a code cell. Otherwise the user would
+		// have to double call for markdown cells to open and then close the
+		// editor.
+		if (cell.isCodeCell()) {
+			cell.run();
+		}
+
+		// Move to the next cell
+		notebook.selectionStateMachine.moveDown(false);
+	},
+	editMode: true,  // Allow execution from edit mode
+	keybinding: {
+		primary: KeyMod.Shift | KeyCode.Enter
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
+	}
+});
 
 // Copy cells command - Cmd/Ctrl+C
 registerCellCommand({
