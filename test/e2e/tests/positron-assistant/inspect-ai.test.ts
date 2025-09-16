@@ -18,7 +18,7 @@ test.use({
  * the dataset for use in the inspect-ai tests. It also does some basic validation that there are valid responses
  * from the assistant.
  */
-test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB, tags.NIGHTLY_ONLY] }, () => {
+test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		// Only sign out if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
