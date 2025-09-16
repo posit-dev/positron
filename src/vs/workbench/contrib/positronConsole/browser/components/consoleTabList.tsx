@@ -345,7 +345,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				/>
 			}
 			{isNotebookSession &&
-				<span className='codicon codicon-notebook'></span>
+				<span className='codicon codicon-notebook icon'></span>
 			}
 			{isRenamingSession ? (
 				<input
