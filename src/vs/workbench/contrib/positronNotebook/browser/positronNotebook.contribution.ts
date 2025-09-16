@@ -530,10 +530,16 @@ registerCellCommand({
 	commandId: 'positronNotebook.cell.toggleMarkdownEditor',
 	handler: (cell) => {
 		if (cell.isMarkdownCell()) {
+			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
 		}
+		// Make sure cell stays focused
 	},
 	cellCondition: CellConditions.isMarkdown,  // Only on markdown cells
+	editMode: true,  // Allow command to work when focus is in the cell editor
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	},
 	actionBar: {
 		icon: 'codicon-primitive-square',  // Will need to be dynamic based on editor state
 		position: 'main',
