@@ -137,7 +137,7 @@ jobs:
           submodules: recursive
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v4
+        uses: 1password/load-secrets-action@v3
         with:
           # Export loaded secrets as environment variables
           export-env: true
