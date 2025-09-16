@@ -512,37 +512,87 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				break;
 			}
 
-			// F10 key (with Shift for context menu)
+			// F10 key (with modifiers for different context menus)
 			case 'F10': {
-				// Only handle Shift+F10 for context menu in TableDataDataGridInstance
-				if (e.shiftKey && context.instance instanceof TableDataDataGridInstance) {
-					// Consume the event.
-					consumeEvent();
-
-					// Make sure the cursor is showing.
+				// We only show context menu for the TableDataDataGridInstance
+				// and not for other types of data grids, like the summary panel
+				if (context.instance instanceof TableDataDataGridInstance) {
+					// Make sure the cursor is showing in the data grid
 					if (context.instance.showCursor()) {
 						return;
 					}
 
-					// Find the cursor cell element to position the context menu
-					const cursorCellElement = dataGridWaffleRef.current.querySelector(
-						`#data-grid-row-cell-content-${context.instance.cursorColumnIndex}-${context.instance.cursorRowIndex}`
-					) as HTMLElement;
+					// Get the location of the cursor
+					const cursorColumnIndex = context.instance.cursorColumnIndex;
+					const cursorRowIndex = context.instance.cursorRowIndex;
 
-					if (cursorCellElement) {
-						// Get the cell bounding rectangle to position the context menu
-						const cellRect = cursorCellElement.getBoundingClientRect();
+					// Consume the default events
+					consumeEvent();
 
-						// Position the context menu at the center of the cell
-						await context.instance.showCellContextMenu(
-							context.instance.cursorColumnIndex,
-							context.instance.cursorRowIndex,
-							cursorCellElement,
-							{
-								clientX: cellRect.left + cellRect.width / 2,
-								clientY: cellRect.top + cellRect.height / 2
-							}
-						);
+					// Ctrl+Shift+F10 to show the column header context menu
+					if (e.ctrlKey && e.shiftKey) {
+						// Find the column header element
+						const columnHeaderElement = dataGridWaffleRef.current.querySelector(
+							`.data-grid-column-header[data-column-index="${cursorColumnIndex}"]`
+						) as HTMLElement;
+
+						if (columnHeaderElement) {
+							const headerRect = columnHeaderElement.getBoundingClientRect();
+							await context.instance.showColumnContextMenu(
+								cursorColumnIndex,
+								columnHeaderElement,
+								{
+									clientX: headerRect.left + headerRect.width / 2,
+									clientY: headerRect.top + headerRect.height / 2
+								}
+							);
+						}
+						return;
+					}
+
+					// Alt+Shift+F10 to show the row header context menu
+					if (e.altKey && e.shiftKey) {
+						// Find the row header element
+						const rowHeaderElement = dataGridWaffleRef.current.querySelector(
+							`.data-grid-row-header[data-row-index="${cursorRowIndex}"]`
+						) as HTMLElement;
+
+						if (rowHeaderElement) {
+							const headerRect = rowHeaderElement.getBoundingClientRect();
+							await context.instance.showRowContextMenu(
+								cursorRowIndex,
+								rowHeaderElement,
+								{
+									clientX: headerRect.left + headerRect.width / 2,
+									clientY: headerRect.top + headerRect.height / 2
+								}
+							);
+						}
+						return;
+					}
+
+					// Shift+F10 to show the cell context menu
+					if (e.shiftKey && !e.ctrlKey && !e.altKey) {
+						// Find the cell element
+						const cursorCellElement = dataGridWaffleRef.current.querySelector(
+							`#data-grid-row-cell-content-${cursorColumnIndex}-${cursorRowIndex}`
+						) as HTMLElement;
+
+						if (cursorCellElement) {
+							// Get the cell bounding rectangle to position the context menu
+							const cellRect = cursorCellElement.getBoundingClientRect();
+
+							// Position the context menu at the center of the cell
+							await context.instance.showCellContextMenu(
+								cursorColumnIndex,
+								cursorRowIndex,
+								cursorCellElement,
+								{
+									clientX: cellRect.left + cellRect.width / 2,
+									clientY: cellRect.top + cellRect.height / 2
+								}
+							);
+						}
 					}
 				}
 				break;
