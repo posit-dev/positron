@@ -527,7 +527,7 @@ registerCellCommand({
 
 // Markdown cell toggle editor command
 registerCellCommand({
-	commandId: 'positronNotebook.cell.toggleMarkdownEditor',
+	commandId: 'positronNotebook.cell.openMarkdownEditor',
 	handler: (cell) => {
 		if (cell.isMarkdownCell()) {
 			// This test is just to appease typescript, we know it's a markdown cell
@@ -535,19 +535,51 @@ registerCellCommand({
 		}
 		// Make sure cell stays focused
 	},
-	cellCondition: CellConditions.isMarkdown,  // Only on markdown cells
+	cellCondition: CellConditions.and(
+		CellConditions.isMarkdown,
+		CellConditions.not(CellConditions.markdownEditorOpen)
+	),  // Only on markdown cells with the editor closed
 	editMode: true,  // Allow command to work when focus is in the cell editor
 	keybinding: {
 		primary: KeyMod.CtrlCmd | KeyCode.Enter
 	},
 	actionBar: {
-		icon: 'codicon-primitive-square',  // Will need to be dynamic based on editor state
+		icon: 'codicon-chevron-down',
 		position: 'main',
 		order: 10,
 		category: 'Markdown'
 	},
 	metadata: {
-		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor visibility")
+		description: localize('positronNotebook.cell.openMarkdownEditor', "Open markdown editor")
+	}
+});
+
+
+// Markdown cell toggle editor command
+registerCellCommand({
+	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
+	handler: (cell) => {
+		if (cell.isMarkdownCell()) {
+			// This test is just to appease typescript, we know it's a markdown cell
+			cell.toggleEditor();
+		}
+	},
+	cellCondition: CellConditions.and(
+		CellConditions.isMarkdown,
+		CellConditions.markdownEditorOpen
+	),  // Only on markdown cells with the editor open
+	editMode: true,  // Allow command to work when focus is in the cell editor
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	},
+	actionBar: {
+		icon: 'codicon-chevron-up',
+		position: 'main',
+		order: 10,
+		category: 'Markdown'
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor")
 	}
 });
 
