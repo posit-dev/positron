@@ -62,9 +62,6 @@ import { IEditorGroupsService } from '../../../services/editor/common/editorGrou
 import { NotebookRendererMessagingService } from './services/notebookRendererMessagingServiceImpl.js';
 import { INotebookRendererMessagingService } from '../common/notebookRendererMessagingService.js';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from './viewModel/notebookOutlineDataSourceFactory.js';
-// --- Start Positron ---
-import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
-// --- End Positron ---
 
 // Editor Controller
 import './controller/coreActions.js';
@@ -772,6 +769,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	private readonly _disposables = new DisposableStore();
 
 	constructor(
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
 		@IEditorGroupsService editorGroups: IEditorGroupsService
