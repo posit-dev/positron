@@ -27,6 +27,7 @@ import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { TableSummaryDataGridInstance } from '../../../services/positronDataExplorer/browser/tableSummaryDataGridInstance.js';
+import { TableDataDataGridInstance } from '../../../services/positronDataExplorer/browser/tableDataDataGridInstance.js';
 
 /**
  * DataGridWaffle component.
@@ -508,6 +509,42 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// Moves the cursor right.
 				context.instance.moveCursorRight();
+				break;
+			}
+
+			// F10 key (with Shift for context menu)
+			case 'F10': {
+				// Only handle Shift+F10 for context menu in TableDataDataGridInstance
+				if (e.shiftKey && context.instance instanceof TableDataDataGridInstance) {
+					// Consume the event.
+					consumeEvent();
+
+					// Make sure the cursor is showing.
+					if (context.instance.showCursor()) {
+						return;
+					}
+
+					// Find the cursor cell element to position the context menu
+					const cursorCellElement = dataGridWaffleRef.current.querySelector(
+						`#data-grid-row-cell-content-${context.instance.cursorColumnIndex}-${context.instance.cursorRowIndex}`
+					) as HTMLElement;
+
+					if (cursorCellElement) {
+						// Get the cell bounding rectangle to position the context menu
+						const cellRect = cursorCellElement.getBoundingClientRect();
+
+						// Position the context menu at the center of the cell
+						await context.instance.showCellContextMenu(
+							context.instance.cursorColumnIndex,
+							context.instance.cursorRowIndex,
+							cursorCellElement,
+							{
+								clientX: cellRect.left + cellRect.width / 2,
+								clientY: cellRect.top + cellRect.height / 2
+							}
+						);
+					}
+				}
 				break;
 			}
 		}
