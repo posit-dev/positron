@@ -77,3 +77,39 @@ jobs:
   #         notify_on: "failure"
 
 
+  inspect-ai-test:
+    name: inspect-ai-test
+    timeout-minutes: 120
+    runs-on: ubuntu-latest-8x
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: positron/
+
+      - name: Run Inspect AI JSON Evaluation
+        run: |
+          cd positron/test/assistant-inspect-ai
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install -r test/assistant-inspect-ai/requirements.txt
+          inspect eval json-response-eval.py

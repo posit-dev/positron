@@ -273,7 +273,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload inspect-ai JSON Responses
-        if: ${{ always() && inputs.project == 'e2e-electron' && inputs.grep != '' && inputs.grep == '@:inspect-ai' }}
+        if: ${{ always() && inputs.grep != '' && inputs.grep == '@:inspect-ai' }}
         uses: actions/upload-artifact@v4
         with:
           name: inspect-ai-responses
