@@ -405,6 +405,18 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 	const numParams = filterNumParams(selectedFilterType);
 
+	/**
+	 * Handles key down events on the filter parameter input fields.
+	 * @param e The keyboard event.
+	 */
+	const handleParameterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		// If Enter is pressed, try to apply the filters
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			applyRowFilter();
+		}
+	};
+
 	// Set the first row filter parameter component.
 	const firstRowFilterParameterComponent = (() => {
 		let placeholderText: string | undefined = undefined;
@@ -438,6 +450,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				ref={firstRowFilterParameterRef}
 				placeholder={placeholderText}
 				value={firstRowFilterValue}
+				onKeyDown={handleParameterKeyDown}
 				onTextChanged={text => {
 					// Set the first row filter value.
 					setFirstRowFilterValue(text);
@@ -474,6 +487,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				ref={secondRowFilterParameterRef}
 				placeholder={placeholderText}
 				value={secondRowFilterValue}
+				onKeyDown={handleParameterKeyDown}
 				onTextChanged={text => {
 					// Set the second row filter value.
 					setSecondRowFilterValue(text);
