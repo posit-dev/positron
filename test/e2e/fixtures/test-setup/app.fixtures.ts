@@ -36,7 +36,7 @@ export interface AppFixtureOptions {
 }
 
 export function OptionsFixture() {
-	return async (logsPath: string, logger: MultiLogger, snapshots: boolean, project: CustomTestOptions) => {
+	return async (logsPath: string, logger: MultiLogger, snapshots: boolean, project: CustomTestOptions, workerInfo: playwright.WorkerInfo) => {
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
@@ -111,7 +111,7 @@ export function AppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
 		const { options, logsPath, logger, workerInfo } = fixtureOptions;
 
-		// For external server mode, use a different approach
+		// For external server modes: Positron (8080) or Posit Workbench (8787)
 		if (options.useExternalServer) {
 			return await ExternalServerAppFixture()(fixtureOptions, use);
 		}
@@ -156,7 +156,6 @@ export function ExternalServerAppFixture() {
 		const serverUserDataDir = join(os.homedir(), '.positron-e2e-test');
 		const userDir = join(serverUserDataDir, 'User');
 
-		console.log('External server user data dir:', serverUserDataDir);
 		await mkdir(userDir, { recursive: true });
 		await copyFixtureFile('keybindings.json', userDir, true);
 		await copyFixtureFile('settings.json', userDir);
@@ -165,14 +164,34 @@ export function ExternalServerAppFixture() {
 
 		try {
 			// For external server, we don't launch the app, just connect to it
+			await copyWorkbenchSettings(app);
 			await app.connectToExternalServer();
 
-			// workaround since we have rogue sessions at startup
-			await app.workbench.sessions.expectNoStartUpMessaging();
-			await app.workbench.hotKeys.closeAllEditors();
-			await app.workbench.sessions.deleteAll();
+			// Check if this is the Posit Workbench environment (port 8787)
+			if (options.useExternalServer && options.externalServerUrl?.includes(':8787')) {
+				// Workbench: Login to Posit Workbench
+				await app.positWorkbench.dashboard.signIn();
+				await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+				await app.positWorkbench.dashboard.openProject('qa-example-content');
 
-			await use(app);
+				// Wait for Positron to fully load, then setup configuration files manually
+				await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+				await app.workbench.sessions.deleteAll();
+				await app.workbench.hotKeys.closeAllEditors();
+
+				await use(app);
+
+				// Cleanup session so we don't leave a rogue session behind
+				await app.positWorkbench.dashboard.goTo();
+				await app.positWorkbench.dashboard.quitSession('qa-example-content');
+			} else {
+				// External Positron server: workaround since we have rogue sessions at startup
+				await app.workbench.sessions.expectNoStartUpMessaging();
+				await app.workbench.hotKeys.closeAllEditors();
+				await app.workbench.sessions.deleteAll();
+
+				await use(app);
+			}
 		} catch (error) {
 			// capture a screenshot on failure
 			const screenshotPath = path.join(logsPath, 'external-server-failure.png');
@@ -195,6 +214,64 @@ export function ExternalServerAppFixture() {
 			await moveAndOverwrite(logger, logsPath, specLogsPath);
 		}
 	};
+}
+
+async function copyWorkbenchSettings(app: Application) {
+	// Use Docker to copy configuration files and workspace to the container
+	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
+	const userSettingsFile = path.join(fixturesDir, 'settings.json');
+	const keybindingsFile = path.join(fixturesDir, 'keybindings.json');
+
+	try {
+		const { execSync } = require('child_process');
+
+		// 1. Copy workspace (qa-example-content) to container
+		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
+		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
+
+		// Copy workspace to container
+		const workspaceCommand = `docker cp ${WORKSPACE_PATH} test:/home/user1/qa-example-content`;
+		execSync(workspaceCommand, { stdio: 'inherit' });
+
+		// 2. Merge settings with Docker-specific settings
+		const mergedSettings = {
+			...JSON.parse(fs.readFileSync(userSettingsFile, 'utf8')),
+			...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
+		};
+
+		// Create a temporary merged settings file
+		const tempSettingsFile = path.join(fixturesDir, 'settings-merged.json');
+		fs.writeFileSync(tempSettingsFile, JSON.stringify(mergedSettings, null, 2));
+
+		// Copy merged settings.json to container
+		const settingsCommand = `docker cp ${tempSettingsFile} test:/home/user1/.positron-server/User/settings.json`;
+		execSync(settingsCommand, { stdio: 'inherit' });
+
+		// Clean up temporary file
+		fs.unlinkSync(tempSettingsFile);
+
+		// Copy keybindings.json to container
+		const keybindingsCommand = `docker cp ${keybindingsFile} test:/home/user1/.positron-server/User/keybindings.json`;
+		execSync(keybindingsCommand, { stdio: 'inherit' });
+
+		// 3. Fix file permissions so user1 can access everything
+		const chownSettingsCommand = 'docker exec test chown -R user1 /home/user1/.positron-server/User/';
+		execSync(chownSettingsCommand, { stdio: 'inherit' });
+
+		const chownWorkspaceCommand = 'docker exec test chown -R user1 /home/user1/qa-example-content/';
+		execSync(chownWorkspaceCommand, { stdio: 'inherit' });
+
+		// Also ensure the files are writable
+		const chmodSettingsCommand = 'docker exec test chmod -R 755 /home/user1/.positron-server/User/';
+		execSync(chmodSettingsCommand, { stdio: 'inherit' });
+
+		const chmodWorkspaceCommand = 'docker exec test chmod -R 755 /home/user1/qa-example-content/';
+		execSync(chmodWorkspaceCommand, { stdio: 'inherit' });
+
+	} catch (error) {
+		console.error('Error copying workspace and settings to Posit Workbench container:', error);
+		throw error;
+	}
 }
 
 async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {

@@ -9,6 +9,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
 import { join } from 'path';
+import * as os from 'os';
 
 // Local imports
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
@@ -19,6 +20,7 @@ import {
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName
 } from '../fixtures/test-setup';
+import { loadProjectEnvironmentVariables } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 
 // Currents fixtures
@@ -36,6 +38,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
 
+	// Environment variables fixture - loads project-specific env vars
+	envVars: [async ({ }, use, workerInfo) => {
+		const projectName = workerInfo.project.name;
+		loadProjectEnvironmentVariables(projectName);
+		await use(projectName);
+	}, { scope: 'worker', auto: true }],
+
 	snapshots: [true, { scope: 'worker', auto: true }],
 
 	logsPath: [async ({ }, use, workerInfo) => {
@@ -52,14 +61,21 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	options: [async ({ logsPath, logger, snapshots }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
 		const optionsFixture = OptionsFixture();
-		const options = await optionsFixture(logsPath, logger, snapshots, project);
+		const options = await optionsFixture(logsPath, logger, snapshots, project, workerInfo);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
 	userDataDir: [async ({ options }, use) => {
-		const userDataDirFixture = UserDataDirFixture();
-		const userDir = await userDataDirFixture(options);
+		let userDir: string;
+
+		if (options.useExternalServer && options.externalServerUrl?.includes(':8787')) {
+			const serverPath = join(process.env.HOME || os.homedir(), (process.env.POSIT_WORKBENCH_USERNAME || 'user1'), '.positron-server', 'User');
+			userDir = serverPath;
+		} else {
+			const userDataDirFixture = UserDataDirFixture();
+			userDir = await userDataDirFixture(options);
+		}
 
 		await use(userDir);
 	}, { scope: 'worker', auto: true }],
@@ -278,6 +294,7 @@ interface TestFixtures {
 
 interface WorkerFixtures {
 	suiteId: string;
+	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;
 	options: ApplicationOptions;

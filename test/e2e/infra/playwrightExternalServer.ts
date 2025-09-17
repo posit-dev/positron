@@ -80,8 +80,18 @@ async function launchBrowser(options: LaunchOptions, serverUrl: string) {
 	].join(',')}]`;
 
 	// Construct URL for external server
-	const workspaceParam = workspacePath.endsWith('.code-workspace') ? 'workspace' : 'folder';
-	const fullUrl = `${serverUrl}&${workspaceParam}=${URI.file(workspacePath!).path}&payload=${payloadParam}`;
+	let fullUrl: string;
+
+	if (serverUrl.includes(':8787')) {
+		// Port 8787 is used for RStudio Server or other R-based interfaces
+		// These don't use VS Code-specific parameters, so just connect to the base URL
+		fullUrl = serverUrl;
+	} else {
+		// Default VS Code server behavior (e.g., port 8080)
+		const workspaceParam = workspacePath.endsWith('.code-workspace') ? 'workspace' : 'folder';
+		const separator = serverUrl.includes('?') ? '&' : '?';
+		fullUrl = `${serverUrl}${separator}${workspaceParam}=${URI.file(workspacePath!).path}&payload=${payloadParam}`;
+	}
 
 	logger.log(`Connecting to external server: ${fullUrl}`);
 

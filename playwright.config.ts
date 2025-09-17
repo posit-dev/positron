@@ -72,6 +72,20 @@ export default defineConfig<ExtendedTestOptions>({
 		currentsFixturesEnabled: !!process.env.CI,
 	},
 
+	// Only start webServer when running the e2e-browser-server project
+	// Note: this automatic start only works for CLI runs. For IDE runs, please start the server manually with `npm run e2e-start-server`
+	webServer: process.argv.some(arg => arg.includes('e2e-browser-server')) ? [
+		{
+			command: 'npm run e2e-start-server',
+			url: 'http://localhost:8080',
+			name: 'Positron Server',
+			reuseExistingServer: !process.env.CI,
+			timeout: 30 * 1000, // timeout waiting for server to be ready
+			// stdout: 'pipe',
+			// stderr: 'pipe',
+		},
+	] : undefined,
+
 	projects: [
 		{
 			name: 'e2e-electron',
@@ -91,10 +105,21 @@ export default defineConfig<ExtendedTestOptions>({
 			grep: /@:web/
 		},
 		{
-			name: 'e2e-browser-external',
+			name: 'e2e-workbench',
 			use: {
 				web: true,
-				artifactDir: 'e2e-browser-external',
+				artifactDir: 'e2e-workbench',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8787'
+			},
+			grep: /@:web|@:external/
+		},
+		{
+			name: 'e2e-browser-server',
+			use: {
+				web: true,
+				artifactDir: 'e2e-browser-server',
 				headless: false,
 				useExternalServer: true,
 				externalServerUrl: 'http://localhost:8080/?tkn=dev-token'
