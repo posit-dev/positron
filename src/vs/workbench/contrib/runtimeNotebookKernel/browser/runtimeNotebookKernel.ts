@@ -116,6 +116,17 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		super();
+
+		// Get the initial set of notebook sessions from the service
+		const sessions = this._runtimeSessionService.getActiveSessions();
+		for (const s of sessions) {
+			const session = s.session;
+			if (session.runtimeMetadata.runtimeId === this.runtime.runtimeId &&
+				session.metadata.notebookUri
+			) {
+				this.attachSession(session);
+			}
+		}
 	}
 
 	/** The kernel's ID. */
@@ -317,10 +328,25 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * @returns A promise that resolves with the selected runtime session.
 	 */
 	public async selectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
+		// If we already have a session for the notebook, return it.
+		if (this._sessionsByNotebookUri.has(notebookUri)) {
+			return this._sessionsByNotebookUri.get(notebookUri)!;
+		}
+
 		// Select the runtime for the notebook.
 		const session = await this.doSelectRuntime(notebookUri, source);
+		this.attachSession(session);
+		return session;
+	}
 
+	/**
+	 * Attach a session to the notebook kernel.
+	 *
+	 * @param session The session to attach.
+	 */
+	private attachSession(session: ILanguageRuntimeSession): void {
 		// Add the session to the sessions map.
+		const notebookUri = session.metadata.notebookUri!;
 		this._sessionsByNotebookUri.set(notebookUri, session);
 
 		const disposables = this._register(new DisposableStore());
@@ -345,8 +371,6 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				dispose();
 			}
 		}));
-
-		return session;
 	}
 
 	/** Internal method to actually select a runtime for a notebook. */
