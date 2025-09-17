@@ -271,7 +271,7 @@ export interface NotebookCellOutputs {
 }
 
 /**
- * Lightweight copy of the vscode `NotebookCellTextModel` interface.
+ * Partial interface of the vscode `NotebookCellTextModel` class.
  */
 export interface PositronNotebookCellTextModel {
 	readonly uri: URI;
