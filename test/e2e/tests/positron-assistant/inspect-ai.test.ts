@@ -9,6 +9,80 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect } from '@playwright/test';
 
+/**
+ * Removes UTF-8 BOM (Byte Order Mark) from the beginning of a string
+ * @param content - The string content that may have a BOM
+ * @returns The content without BOM
+ */
+function removeBOM(content: string): string {
+	if (content.charCodeAt(0) === 0xFEFF) {
+		return content.slice(1);
+	}
+	return content;
+}
+
+/**
+ * Sanitizes response text to handle control characters and ensure valid UTF-8
+ * @param response - The response text to sanitize
+ * @returns Sanitized text safe for JSON serialization
+ */
+function sanitizeResponse(response: string): string {
+	if (!response) return '';
+
+	// Remove or replace problematic control characters (except newlines, tabs, carriage returns)
+	const sanitized = response
+		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except \t, \n, \r
+		.replace(/\uFEFF/g, '') // Remove BOM characters that might be in the response
+		.trim();
+
+	// Ensure the string is valid UTF-8 by attempting to encode/decode
+	try {
+		const buffer = Buffer.from(sanitized, 'utf8');
+		return buffer.toString('utf8');
+	} catch (error) {
+		console.warn('UTF-8 encoding issue detected, attempting to clean response');
+		// Fallback: replace invalid UTF-8 sequences
+		return Buffer.from(sanitized, 'utf8').toString('utf8');
+	}
+}
+
+/**
+ * Safely reads and parses a JSON file with UTF-8 BOM handling
+ * @param filePath - Path to the JSON file
+ * @returns Parsed JSON object
+ */
+function readJSONFile(filePath: string): any {
+	try {
+		const rawContent = readFileSync(filePath, 'utf-8');
+		const cleanContent = removeBOM(rawContent);
+		return JSON.parse(cleanContent);
+	} catch (error) {
+		throw new Error(`Failed to read or parse JSON file ${filePath}: ${error}`);
+	}
+}
+
+/**
+ * Safely writes JSON data to file with proper UTF-8 encoding and validation
+ * @param filePath - Path where to write the file
+ * @param data - Data to serialize and write
+ */
+function writeJSONFile(filePath: string, data: any): void {
+	try {
+		const jsonContent = JSON.stringify(data, null, '\t');
+
+		// Write without BOM to ensure cross-platform compatibility
+		writeFileSync(filePath, jsonContent, { encoding: 'utf8' });
+
+		// Validate the written file can be read back
+		const validation = readFileSync(filePath, 'utf-8');
+		JSON.parse(validation);
+
+		console.log(`Successfully wrote and validated JSON file: ${filePath}`);
+	} catch (error) {
+		throw new Error(`Failed to write JSON file ${filePath}: ${error}`);
+	}
+}
+
 test.use({
 	suiteId: __filename
 });
@@ -37,8 +111,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
 		const outputPath = join(__dirname, '../../../assistant-inspect-ai', outputFilename);
-		const datasetContent = readFileSync(datasetPath, 'utf-8');
-		const dataset = JSON.parse(datasetContent);
+		const dataset = readJSONFile(datasetPath);
 
 		// Start a Python Session
 		const [pySession] = await sessions.start(['python']);
@@ -109,7 +182,8 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			if (!response || response.trim() === '') {
 				fail(`No response received for question: ${item.question}`);
 			}
-			item.model_response = response;
+			// Sanitize the response to handle UTF-8 and control character issues
+			item.model_response = sanitizeResponse(response);
 			updatedItems = true;
 
 			await new Promise(resolve => setTimeout(resolve, 1000));
@@ -124,9 +198,12 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		// Write updated dataset back to file if any items were updated
 		if (updatedItems) {
-			const updatedDatasetContent = JSON.stringify(dataset, null, '\t');
-			writeFileSync(outputPath, updatedDatasetContent, 'utf-8');
-			console.log(`Updated model responses in dataset file: ${outputPath}`);
+			try {
+				writeJSONFile(outputPath, dataset);
+				console.log(`Updated model responses in dataset file: ${outputPath}`);
+			} catch (error) {
+				fail(`Failed to write updated dataset: ${error}`);
+			}
 		}
 	});
 

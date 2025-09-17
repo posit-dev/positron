@@ -51,14 +51,16 @@ def record_to_sample(record):
 
 @solver
 def identity() -> Solver:
-	"""Identity solver that simply returns the state without modification.
+	"""Identity solver that extracts the pre-existing response and sets it as the model output.
 
 	This allows us to evaluate pre-existing responses without generating new ones.
 	"""
 
 	async def solve(state, generate):
-		# No need to generate anything new - just return the state as-is
-		# The model_response is already included in the input field
+		# Extract the model response from metadata and set it as the output
+		if "model_response" in state.metadata:
+			# Set the pre-existing response as the completion for the scorer to evaluate
+			state.output.completion = state.metadata["model_response"]
 		return state
 
 	return solve
