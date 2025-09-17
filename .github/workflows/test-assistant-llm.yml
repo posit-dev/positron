@@ -109,9 +109,10 @@ jobs:
       - name: Run Inspect AI JSON Evaluation
 
         run: |
-          pwd
-          ls -la
           cd test/assistant-inspect-ai
+          echo "*** Checking JSON contents ***"
+          cat response-dataset.json
+          echo "*** Running evaluation ***"
           python3 -m venv venv
           source venv/bin/activate
           pip install -r requirements.txt
