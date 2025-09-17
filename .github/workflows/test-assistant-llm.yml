@@ -111,6 +111,7 @@ jobs:
 
         run: |
           pwd
+          ls -la
           cd test/assistant-inspect-ai
           python3 -m venv venv
           source venv/bin/activate
