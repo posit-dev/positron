@@ -7,34 +7,36 @@ on:
   workflow_dispatch:
 
 jobs:
-  e2e-electron:
+  # e2e-electron:
+  #   name: e2e
+  #   uses: ./.github/workflows/test-e2e-ubuntu.yml
+  #   with:
+  #     grep: "@:inspect-ai"
+  #     project: "e2e-electron"
+  #     display_name: "electron (ubuntu)"
+  #     currents_tags: "merge,electron/ubuntu"
+  #     report_testrail: false
+  #     install_undetectable_interpreters: false
+  #     install_license: false
+  #     skip_tags: "@:nightly-only"
+  #     upload_logs: false
+  #     report_currents: false
+  #     workers: 1
+  #   secrets: inherit
+
+  e2e-windows-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-windows.yml
     with:
       grep: "@:inspect-ai"
-      project: "e2e-electron"
-      display_name: "electron (ubuntu)"
-      currents_tags: "merge,electron/ubuntu"
+      display_name: "electron (windows)"
+      currents_tags: "merge,electron/windows"
       report_testrail: false
-      install_undetectable_interpreters: false
-      install_license: false
       skip_tags: "@:nightly-only"
       upload_logs: false
       report_currents: false
       workers: 1
     secrets: inherit
-
-  # e2e-windows-electron:
-  #   name: e2e
-  #   uses: ./.github/workflows/test-e2e-windows.yml
-  #   with:
-  #     grep: ""
-  #     display_name: "electron (windows)"
-  #     currents_tags: "merge,electron/windows"
-  #     report_testrail: false
-  #     skip_tags: "@:nightly-only"
-  #     upload_logs: false
-  #   secrets: inherit
 
   # e2e-linux-browser:
   #   name: e2e
@@ -78,7 +80,7 @@ jobs:
 
 
   inspect-ai-test:
-    needs: [e2e-electron]
+    needs: [e2e-windows-electron]
     name: inspect-ai-test
     timeout-minutes: 120
     runs-on: ubuntu-latest
