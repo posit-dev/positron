@@ -62,6 +62,9 @@ import { IEditorGroupsService } from '../../../services/editor/common/editorGrou
 import { NotebookRendererMessagingService } from './services/notebookRendererMessagingServiceImpl.js';
 import { INotebookRendererMessagingService } from '../common/notebookRendererMessagingService.js';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from './viewModel/notebookOutlineDataSourceFactory.js';
+// --- Start Positron ---
+import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+// --- End Positron ---
 
 // Editor Controller
 import './controller/coreActions.js';
@@ -769,11 +772,11 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	private readonly _disposables = new DisposableStore();
 
 	constructor(
+		@IEditorService private readonly _editorService: IEditorService,
+		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
 		// --- Start Positron ---
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		// --- End Positron ---
-		@IEditorService private readonly _editorService: IEditorService,
-		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -831,6 +834,9 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -838,6 +844,14 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
+		// --- Start Positron ---
+		// If this is a .ipynb file and Positron notebooks are enabled,
+		// let the Positron handler take care of it
+		if (workingCopy.resource.path.endsWith('.ipynb') &&
+			checkPositronNotebookEnabled(this._configurationService)) {
+			return false;
+		}
+		// --- End Positron ---
 		const viewType = this.handlesSync(workingCopy);
 		if (!viewType) {
 			return false;
