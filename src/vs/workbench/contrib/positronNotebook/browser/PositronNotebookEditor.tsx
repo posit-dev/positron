@@ -274,12 +274,6 @@ export class PositronNotebookEditor extends EditorPane {
 			);
 		}
 
-		if (input.notebookInstance === undefined) {
-			throw new Error(
-				'Notebook instance is undefined. This should have been created in the constructor.'
-			);
-		}
-
 		// We're setting the options on the input here so that the input can resolve the model
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;

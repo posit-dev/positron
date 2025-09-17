@@ -21,7 +21,7 @@ import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 
 /**
  * Options for Positron notebook editor input, including backup support.
@@ -58,10 +58,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 	private _identifier = `Positron Notebook | Input(${this.uniqueId}) |`;
 	//#region Static Properties
-	/**
-	 * Gets the type ID.
-	 */
-	static readonly ID: string = 'workbench.input.positronNotebook';
 
 	/**
 	 * Editor options. For use in resolving the editor model.
@@ -92,7 +88,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 	public readonly viewType = 'jupyter-notebook';
 
-	notebookInstance: PositronNotebookInstance | undefined;
+	notebookInstance: PositronNotebookInstance;
 
 	//#endregion Static Properties
 	//#region Constructor & Dispose
@@ -123,8 +119,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
-		// Dispose the notebook instance if it exists
-		this.notebookInstance?.dispose();
+		this.notebookInstance.dispose();
 
 		// Call the base class's dispose method
 		super.dispose();
@@ -136,7 +131,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * Gets the type identifier.
 	 */
 	override get typeId(): string {
-		return PositronNotebookEditorInput.ID;
+		return POSITRON_NOTEBOOK_EDITOR_INPUT_ID;
 	}
 
 	/**
