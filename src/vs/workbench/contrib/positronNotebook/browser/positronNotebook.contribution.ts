@@ -104,8 +104,10 @@ class PositronNotebookContribution extends Disposable {
 		// Register for cells in .ipynb files
 		this._register(this.editorResolverService.registerEditor(
 			`${Schemas.vscodeNotebookCell}:/**/*.ipynb`,
-			// We have to use exclusive priority because vscode.window.showTextDocument(cell.document)
-			// restricts to editors with exclusive priority.
+			// The cell handler is specifically for opening and focusing a cell by URI
+			// e.g. vscode.window.showTextDocument(cell.document).
+			// The editor resolver service expects a single handler with 'exclusive' priority.
+			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
 			{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
 			{

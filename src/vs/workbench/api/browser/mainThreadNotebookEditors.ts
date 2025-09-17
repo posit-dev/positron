@@ -5,6 +5,8 @@
 
 // --- Start Positron ---
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
+import { checkPositronNotebookEnabled } from '../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { usingPositronNotebooks } from '../../services/positronNotebook/common/positronNotebookUtils.js';
 // --- End Positron ---
 import { DisposableStore, dispose } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
@@ -111,13 +113,21 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 			label: options.label,
 			override: viewType
 		};
+		// --- Start Positron ---
+		// If Positron notebooks are enabled and set to default, use it.
+		// The editor resolver services uses the `override` to select the editor to open.
+		if (checkPositronNotebookEnabled(this._configurationService) &&
+			usingPositronNotebooks(this._configurationService)) {
+			editorOptions.override = POSITRON_NOTEBOOK_EDITOR_ID;
+		}
+		// --- End Positron ---
 
 		const editorPane = await this._editorService.openEditor({ resource: URI.revive(resource), options: editorOptions }, columnToEditorGroup(this._editorGroupService, this._configurationService, options.position));
 		// --- Start Positron ---
 		if (editorPane?.getId() === POSITRON_NOTEBOOK_EDITOR_ID) {
 			// Positron notebook is already open, just return a synthetic ID
 			// We can't return the actual notebook editor ID because Positron notebooks
-			// don't implement INotebookEditor interface yet
+			// don't implement INotebookEditor interface yet (https://github.com/posit-dev/positron/issues/9440)
 			const uri = URI.revive(resource);
 			return `positron-notebook-${uri.toString()}`;
 		}
