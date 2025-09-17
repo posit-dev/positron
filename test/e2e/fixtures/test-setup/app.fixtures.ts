@@ -170,9 +170,9 @@ export function ExternalServerAppFixture() {
 			// Check if this is the Posit Workbench environment (port 8787)
 			if (options.useExternalServer && options.externalServerUrl?.includes(':8787')) {
 				// Workbench: Login to Posit Workbench
-				await app.positWorkbench.dashboard.signIn();
+				await app.positWorkbench.auth.signIn();
 				await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-				await app.positWorkbench.dashboard.openProject('qa-example-content');
+				await app.positWorkbench.dashboard.openSession('qa-example-content');
 
 				// Wait for Positron to fully load, then setup configuration files manually
 				await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });

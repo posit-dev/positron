@@ -6,17 +6,20 @@
 import { Code } from './code';
 import { Workbench } from './workbench';
 import { DashboardPage } from '../pages/workbench/dashboard.page.js';
+import { AuthPage } from '../pages/workbench/auth.page.js';
 
-// Referred to as "Posit Workbench" (pwb) in the e2e tests
 export class PositWorkbench extends Workbench {
 
+	readonly auth: AuthPage
 	readonly dashboard: DashboardPage;
+
 
 	constructor(code: Code) {
 		// Initialize the base workbench with all standard Positron pages
 		super(code);
 
-		// Add external workbench specific pages
+		// Add workbench specific pages
+		this.auth = new AuthPage(code);
 		this.dashboard = new DashboardPage(code);
 	}
 }

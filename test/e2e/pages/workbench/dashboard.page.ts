@@ -7,44 +7,52 @@ import { expect } from '@playwright/test';
 import { Code } from '../../infra/code.js';
 
 export class DashboardPage {
-	heading = this.code.driver.page.getByRole('heading', { name: 'Posit Workbench' });
-	username = this.code.driver.page.getByRole('textbox', { name: 'Username' });
-	password = this.code.driver.page.getByRole('textbox', { name: 'Password' });
-	signInButton = this.code.driver.page.getByRole('button', { name: 'Sign In' });
+	title = this.code.driver.page.getByRole('link', { name: 'Workbench projects' });
 	launchButton = this.code.driver.page.getByRole('button', { name: 'Launch' });
 	quitButton = this.code.driver.page.getByRole('button', { name: 'Quit' });
+	newSessionButton = this.code.driver.page.getByRole('button', { name: 'New Session', exact: true });
+	positronProButton = this.code.driver.page.getByRole('tab', { name: 'Positron Pro' });
+	sessionNameInput = this.code.driver.page.getByRole('textbox', { name: 'Session Name' });
 	project = (projectName: string) => this.code.driver.page.getByRole('button', { name: projectName });
+	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').getByRole('button', { name: 'Create new session' });
 	projectCheckbox = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('button[role="checkbox"]');
 
 	constructor(private code: Code) { }
 
 	async goTo(): Promise<void> {
 		await this.code.driver.page.goto('http://localhost:8787');
+		await this.expectHeaderToBeVisible();
 	}
 
-	async signIn(username = 'user1', password = process.env.POSIT_WORKBENCH_PASSWORD || ''): Promise<void> {
-		await this.username.clear();
-		await this.username.fill(username);
-		await this.password.clear();
-		await this.password.fill(password);
-		await this.signInButton.click();
-	}
-
-	async openProject(projectName = 'qa-example-content'): Promise<void> {
-		const workbenchProject = this.project(projectName);
-		const newSession = workbenchProject.locator('..').locator('..').getByRole('button', { name: 'Create new session' });
+	async newSession(projectName = 'qa-example-content'): Promise<void> {
+		const newSession = this.project(projectName);
 
 		try {
 			await expect(newSession).toBeVisible({ timeout: 3000 });
 		} catch {
-			// Clean up existing sessions if new session button is not available
-			await workbenchProject.locator('..').locator('..').locator('button[role="checkbox"]').check();
-			await this.code.driver.page.getByRole('button', { name: 'Quit' }).click();
+			// if this project doesn't already exist, let's create it
+			await this.newSessionButton.click();
+			await this.positronProButton.click();
+			await this.sessionNameInput.fill(projectName);
+			await this.launchButton.click();
+		}
+	}
 
-			await expect(newSession).toBeVisible();
+	async openSession(projectName = 'qa-example-content'): Promise<void> {
+		// Ensure session exists before trying to open it
+		await this.newSession(projectName);
+
+		const projNewSession = this.projectNewSessionButton(projectName);
+
+		try {
+			await expect(projNewSession).toBeVisible({ timeout: 3000 });
+		} catch {
+			// Clean up existing sessions if new session button is not available
+			await this.quitSession(projectName);
+			await expect(projNewSession).toBeVisible();
 		}
 
-		await newSession.click();
+		await projNewSession.click();
 		await this.launchButton.click();
 	}
 
@@ -54,6 +62,6 @@ export class DashboardPage {
 	}
 
 	async expectHeaderToBeVisible() {
-		await expect(this.heading).toBeVisible();
+		await expect(this.title).toBeVisible();
 	}
 }
