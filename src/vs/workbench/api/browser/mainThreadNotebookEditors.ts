@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
+// --- End Positron ---
 import { DisposableStore, dispose } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { URI, UriComponents } from '../../../base/common/uri.js';
@@ -16,11 +19,6 @@ import { IEditorGroupsService } from '../../services/editor/common/editorGroupsS
 import { IEditorService } from '../../services/editor/common/editorService.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { ExtHostContext, ExtHostNotebookEditorsShape, INotebookDocumentShowOptions, INotebookEditorViewColumnInfo, MainThreadNotebookEditorsShape, NotebookEditorRevealType } from '../common/extHost.protocol.js';
-// --- Start Positron ---
-import { IPositronNotebookService } from '../../services/positronNotebook/browser/positronNotebookService.js';
-import { PositronNotebookEditorInput } from '../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
-import { isEqual } from '../../../base/common/resources.js';
-// --- End Positron ---
 
 class MainThreadNotebook {
 
