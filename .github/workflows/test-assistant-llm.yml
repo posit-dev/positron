@@ -35,7 +35,6 @@ jobs:
       skip_tags: "@:nightly-only"
       upload_logs: false
       report_currents: false
-      workers: 1
     secrets: inherit
 
   # e2e-linux-browser:
