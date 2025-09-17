@@ -105,10 +105,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: inspect-ai-responses
+          path: /home/runner/work/positron/positron
 
       - name: Run Inspect AI JSON Evaluation
 
         run: |
+          echo "Current directory:"
+          pwd
+          echo "Listing files:"
+          ls -la
+          echo "Changing to inspect-ai directory"
           cd test/assistant-inspect-ai
           echo "*** Checking JSON contents ***"
           cat response-dataset.json
