@@ -8,20 +8,14 @@ import React from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
-import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
-import { BareFontInfo, FontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -36,11 +30,6 @@ import {
 	INotebookEditorOptions,
 	INotebookEditorViewState
 } from '../../notebook/browser/notebookBrowser.js';
-import { NotebookLayoutChangedEvent, NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
-import { NotebookEventDispatcher } from '../../notebook/browser/viewModel/eventDispatcher.js';
-import { NotebookViewModel } from '../../notebook/browser/viewModel/notebookViewModelImpl.js';
-import { ViewContext } from '../../notebook/browser/viewModel/viewContext.js';
-import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
 import { EnvironentProvider } from './EnvironmentProvider.js';
@@ -101,9 +90,6 @@ export class PositronNotebookEditor extends EditorPane {
 	 */
 	private readonly _control = this._register(new MutableDisposable<PositronNotebookEditorControl>());
 
-	private _scopedContextKeyService?: IContextKeyService;
-	private _scopedInstantiationService?: IInstantiationService;
-
 	constructor(
 		readonly _group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -113,7 +99,6 @@ export class PositronNotebookEditor extends EditorPane {
 		@ITextResourceConfigurationService
 		configurationService: ITextResourceConfigurationService,
 		@IStorageService storageService: IStorageService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
@@ -231,15 +216,6 @@ export class PositronNotebookEditor extends EditorPane {
 		this._parentDiv = DOM.$('.positron-notebook-container');
 		parent.appendChild(this._parentDiv);
 		this._parentDiv.style.display = 'relative';
-
-		// Create a new context service that has the output overlay container as the root element.
-		this._scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
-
-		// Make sure that all things instantiated have a scoped context key service injected.
-		this._scopedInstantiationService = this._instantiationService.createChild(
-			new ServiceCollection([IContextKeyService, this._scopedContextKeyService])
-		);
-
 	}
 
 	override layout(
@@ -358,79 +334,8 @@ export class PositronNotebookEditor extends EditorPane {
 		return this._input as PositronNotebookEditorInput;
 	}
 
-	getViewModel(textModel: NotebookTextModel) {
-		this._logService.info(this._identifier, 'getViewModel');
-
-		if (!this.notebookInstance) {
-			throw new Error('Notebook instance is not set.');
-		}
-
-		if (!this._scopedInstantiationService) {
-			throw new Error('Scoped instantiation service is not set. Make sure the editor has been created.');
-		}
-
-		const notebookOptions = this.notebookInstance.notebookOptions;
-
-
-		const { notebookInstance } = this;
-		const viewContext = new ViewContext(
-			notebookOptions,
-			new NotebookEventDispatcher(),
-			language => notebookInstance.getBaseCellEditorOptions(language)
-		);
-
-		// Update model to new setting
-		const viewModel = this._scopedInstantiationService.createInstance(
-			NotebookViewModel,
-			textModel.viewType,
-			textModel,
-			viewContext,
-			this.getLayoutInfo(),
-			{ isReadOnly: this.notebookInstance.isReadOnly }
-		);
-
-		// Emit an event into the view context for layout change so things can get initialized
-		// properly.
-		viewContext.eventDispatcher.emit(
-			[new NotebookLayoutChangedEvent({ width: true, fontInfo: true }, this.getLayoutInfo())]
-		);
-
-		return viewModel;
-
-	}
-
 	override getControl() {
 		return this._control.value;
-	}
-
-	private _fontInfo: FontInfo | undefined;
-	private _dimension?: DOM.Dimension;
-	/**
-	 * Gather info about editor layout such as width, height, and scroll behavior.
-	 * @returns The current layout info for the editor.
-	 */
-	private getLayoutInfo(): NotebookLayoutInfo {
-
-
-		if (!this._fontInfo) {
-			const editorOptions = this._configurationService.getValue<IEditorOptions>('editor');
-			//TODO: Get this as the active window and get it from DOM
-			const activeWindow = DOM.getActiveWindow();
-			this._fontInfo = FontMeasurements.readFontInfo(activeWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(DOM.getActiveWindow()).value));
-		}
-
-		return {
-			width: this._dimension?.width ?? 0,
-			height: this._dimension?.height ?? 0,
-			scrollHeight: 0,
-			// TODO: Implement this
-			// scrollHeight: this._list?.getScrollHeight() ?? 0,
-			fontInfo: this._fontInfo!,
-			stickyHeight: 0,
-			// TODO: Implement this
-			// stickyHeight: this._notebookStickyScroll?.getCurrentStickyHeight() ?? 0
-			listViewOffsetTop: 0
-		};
 	}
 
 	/**
