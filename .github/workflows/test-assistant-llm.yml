@@ -111,7 +111,7 @@ jobs:
 
         run: |
           pwd
-          cd positron/test/assistant-inspect-ai
+          cd test/assistant-inspect-ai
           python3 -m venv venv
           source venv/bin/activate
           pip install -r test/assistant-inspect-ai/requirements.txt
