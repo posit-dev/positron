@@ -18,10 +18,8 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import {
 	EditorPaneSelectionChangeReason,
-	IEditorMemento,
 	IEditorOpenContext,
 	IEditorPaneSelectionChangeEvent
 } from '../../../common/editor.js';
@@ -39,27 +37,23 @@ import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 import { observableValue } from '../../../../base/common/observable.js';
 import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { AbstractEditorWithViewState } from '../../../browser/parts/editor/editorWithViewState.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { URI } from '../../../../base/common/uri.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
-
-/*
-interface NotebookLayoutInfo {
-	width: number;
-	height: number;
-	scrollHeight: number;
-	fontInfo: FontInfo;
-	stickyHeight: number;
-}
-	*/
 
 /**
  * Key for the memoized view state.
  */
 const POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY =
-	'NotebookEditorViewState';
+	'PositronNotebookEditorViewState';
 
 
 
-export class PositronNotebookEditor extends EditorPane {
+export class PositronNotebookEditor extends AbstractEditorWithViewState<INotebookEditorViewState> {
 	/**
 	 * Value to keep track of what instance of the editor this is.
 	 * Used for keeping track of the editor in the logs.
@@ -77,12 +71,7 @@ export class PositronNotebookEditor extends EditorPane {
 		new DisposableStore()
 	);
 
-	//#region Editor State
-	/**
-	 * Stores the viewstate of the notebook. Used to restore the editor when it is reopened or
-	 * moved do a different position in the editor.
-	 */
-	private readonly _editorMemento: IEditorMemento<INotebookEditorViewState>;
+	protected override _input: PositronNotebookEditorInput | undefined;
 
 	/**
 	 * The editor control, used by other features to access the code editor widget of the selected cell.
@@ -93,85 +82,81 @@ export class PositronNotebookEditor extends EditorPane {
 		readonly _group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
-		@IEditorGroupsService
-		private readonly _editorGroupService: IEditorGroupsService,
-		@ITextResourceConfigurationService
-		configurationService: ITextResourceConfigurationService,
+		@IEditorGroupsService editorGroupService: IEditorGroupsService,
 		@IStorageService storageService: IStorageService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
+		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
+		@IEditorService editorService: IEditorService,
+		@IInstantiationService instantiationService: IInstantiationService,
 	) {
 		// Call the base class's constructor.
 		super(
 			POSITRON_NOTEBOOK_EDITOR_ID,
 			_group,
+			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY,
 			telemetryService,
+			instantiationService,
+			storageService,
+			textResourceConfigurationService,
 			themeService,
-			storageService
-		);
-
-		this._editorMemento = this.getEditorMemento<INotebookEditorViewState>(
-			this._editorGroupService,
-			configurationService,
-			POSITRON_NOTEBOOK_EDITOR_VIEW_STATE_PREFERENCE_KEY
+			editorService,
+			editorGroupService,
 		);
 
 		this._logService.info('PositronNotebookEditor created.');
 
 	}
 
+	//#region AbstractEditorWithViewState implementation
 
-	private _saveEditorViewState(input?: PositronNotebookEditorInput) {
-		// Save view state into momento
-		if (input) {
-			if (!this.notebookInstance) {
-				throw new Error('Cant save state. Notebook instance is not set.');
-			}
-			const state = this.notebookInstance.getEditorViewState();
-			this._editorMemento.saveEditorState(this.group, input.resource, state);
+	/**
+	 * The actual method to provide for gathering the view state
+	 * object for the control.
+	 *
+	 * @param resource the expected `URI` for the view state. This
+	 * should be used as a way to ensure the view state in the
+	 * editor control is matching the resource expected, for example
+	 * by comparing with the underlying model (this was a fix for
+	 * https://github.com/microsoft/vscode/issues/40114).
+	 */
+	protected override computeEditorViewState(resource: URI): INotebookEditorViewState | undefined {
+		if (this.notebookInstance &&
+			this.notebookInstance.textModel &&
+			isEqual(this.notebookInstance.textModel.uri, resource)) {
+			return this.notebookInstance.getEditorViewState();
 		}
+		return undefined;
 	}
 
-	// private _loadNotebookEditorViewState(
-	// 	input: PositronNotebookEditorInput
-	// ): INotebookEditorViewState | undefined {
-	// 	let result: INotebookEditorViewState | undefined;
-	// 	if (this.group) {
-	// 		result = this._editorMemento.loadEditorState(this.group, input.resource);
-	// 	}
-	// 	if (result) {
-	// 		return result;
-	// 	}
-	// 	// when we don't have a view state for the group/input-tuple then we try to use an existing
-	// 	// editor for the same resource. (Comment copied from vs-notebooks implementation)
-	// 	for (const group of this._editorGroupService.getGroups(
-	// 		GroupsOrder.MOST_RECENTLY_ACTIVE
-	// 	)) {
-	// 		if (
-	// 			group.activeEditorPane !== this &&
-	// 			group.activeEditorPane instanceof PositronNotebookEditor &&
-	// 			group.activeEditor?.matches(input)
-	// 		) {
-	// 			return group.activeEditorPane.notebookInstance?.getEditorViewState();
-	// 		}
-	// 	}
-	// 	return;
-	// }
-
-	protected override saveState(): void {
-		this._saveEditorViewState();
-		super.saveState();
+	/**
+	 * Whether view state should be associated with the given input.
+	 * Subclasses need to ensure that the editor input is expected
+	 * for the editor.
+	 */
+	protected override tracksEditorViewState(input: EditorInput): boolean {
+		return input instanceof PositronNotebookEditorInput;
 	}
 
-	override getViewState(): INotebookEditorViewState | undefined {
-		if (!(this.input instanceof PositronNotebookEditorInput)) {
-			return undefined;
-		}
-		this._saveEditorViewState();
-		return this.notebookInstance?.getEditorViewState();
+	/**
+	 * Whether view state should be tracked even when the editor is
+	 * disposed.
+	 *
+	 * Subclasses should override this if the input can be restored
+	 * from the resource at a later point, e.g. if backed by files.
+	 */
+	protected override tracksDisposedEditorViewState(): boolean {
+		return true;
 	}
 
-	//#endregion Editor State
+	/**
+	 * Asks to return the `URI` to associate with the view state.
+	 */
+	protected override toEditorViewStateResource(input: EditorInput): URI | undefined {
+		return input.resource;
+	}
+
+	//#endregion AbstractEditorWithViewState implementation
 
 	/**
 	 * Event emitter for letting the IDE know that there has been a selection change in the
@@ -200,7 +185,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 	// Getter for notebook instance to avoid having to cast the input every time.
 	get notebookInstance() {
-		return this.input instanceof PositronNotebookEditorInput ? this.input.notebookInstance : undefined;
+		return this._input?.notebookInstance;
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
@@ -298,7 +283,6 @@ export class PositronNotebookEditor extends EditorPane {
 		}
 
 		if (this.notebookInstance) {
-			this._saveEditorViewState();
 			this.notebookInstance.detachView();
 		}
 
@@ -325,14 +309,6 @@ export class PositronNotebookEditor extends EditorPane {
 		if (this.notebookInstance) {
 			this.notebookInstance.setOptions(options);
 		}
-	}
-
-	getInput(): PositronNotebookEditorInput {
-		if (!this._input) {
-			throw new Error('Input is not set.');
-		}
-
-		return this._input as PositronNotebookEditorInput;
 	}
 
 	override getControl() {
