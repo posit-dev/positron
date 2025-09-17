@@ -258,7 +258,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			);
 		}
 
+		// Set the notebook instance model
 		notebookInstance.setModel(model.notebook);
+
+		// Apply any options to the notebook instance
+		if (options) {
+			notebookInstance.setOptions(options);
+		}
 
 		// Trigger the selection change event when the notebook was edited.
 		this._instanceDisposableStore.add(
