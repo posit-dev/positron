@@ -107,21 +107,17 @@ jobs:
           name: inspect-ai-responses
           path: /home/runner/work/positron/positron/test/assistant-inspect-ai
 
-      - name: Run Inspect AI JSON Evaluation
-
+      - name: Setup Python environment
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Listing files:"
-          ls -la
-          echo "Changing to inspect-ai directory"
           cd test/assistant-inspect-ai
-          echo "*** Checking JSON contents ***"
-          cat response-dataset.json
-          echo "*** Running evaluation ***"
           python3 -m venv venv
           source venv/bin/activate
           pip install -r requirements.txt
+
+      - name: Run Inspect AI JSON Evaluation
+        run: |
+          cd test/assistant-inspect-ai
+          source venv/bin/activate
           inspect eval json-response-eval.py
 
       - name: Upload inspect-ai eval logs
