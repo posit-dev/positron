@@ -432,7 +432,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * includes setting up listeners for changes to the model and
 	 * setting up the initial state of the notebook.
 	 */
-	setModel(model: NotebookTextModel): void {
+	setModel(model: NotebookTextModel, viewState?: INotebookEditorViewState): void {
 		this._textModel.set(model, undefined);
 
 		this._modelStore.clear();
@@ -453,6 +453,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._onDidChangeContent.fire();
 		}));
 
+		// Select the appropriate kernel for the notebook
+		this._selectKernelForNotebook(model, viewState);
+
 		this._onDidChangeContent.fire();
 	}
 
@@ -463,12 +466,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param options Editor options to set
 	 */
 	async setOptions(options: INotebookEditorOptions | undefined): Promise<void> {
-		// Restore the view state if provided
-		const viewState = options?.viewState;
-		if (viewState) {
-			this._restoreViewState(viewState);
-		}
-
 		// Apply cell options if provided
 		const cellUri = options?.cellOptions?.resource;
 		const cell = cellUri && this.cells.get().find(cell => isEqual(cell.uri, cellUri));
@@ -792,18 +789,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return isEqual(uri, this._input.resource);
 	}
 
-	/**
-	 * Restores this notebook to the given view state.
-	 * @param viewState View state to restore in the notebook.
-	 */
-	private _restoreViewState(viewState: INotebookEditorViewState): void {
-		// Select the view state kernel if needed
-		if (viewState.selectedKernelId && this.textModel) {
-			const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
+	private _selectKernelForNotebook(model: NotebookTextModel, viewState?: INotebookEditorViewState): void {
+		// If the view state specified a kernel, try to select it
+		const selectedKernelId = viewState?.selectedKernelId;
+		if (selectedKernelId) {
+			const matching = this.notebookKernelService.getMatchingKernel(model);
 			const kernel = matching.all.find(k => k.id === viewState.selectedKernelId);
 			if (kernel) {
-				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
+				this.notebookKernelService.selectKernelForNotebook(kernel, model);
+				return;
 			}
+		}
+
+		// If we still haven't selected a kernel, and there's a single suggested kernel, select it.
+		const matching = this.notebookKernelService.getMatchingKernel(model);
+		if (!matching.selected && matching.suggestions.length === 1) {
+			this.notebookKernelService.selectKernelForNotebook(matching.suggestions[0], model);
 		}
 	}
 
