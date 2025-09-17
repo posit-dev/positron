@@ -15,7 +15,6 @@ import { DisposableStore, MutableDisposable } from '../../../../base/common/life
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -99,7 +98,6 @@ export class PositronNotebookEditor extends EditorPane {
 		@ITextResourceConfigurationService
 		configurationService: ITextResourceConfigurationService,
 		@IStorageService storageService: IStorageService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 	) {
@@ -258,7 +256,8 @@ export class PositronNotebookEditor extends EditorPane {
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		this._control.value = new PositronNotebookEditorControl(input.notebookInstance);
+		const { notebookInstance } = input;
+		this._control.value = new PositronNotebookEditorControl(notebookInstance);
 
 		await super.setInput(input, options, context, token);
 
@@ -274,6 +273,8 @@ export class PositronNotebookEditor extends EditorPane {
 			);
 		}
 
+		notebookInstance.setModel(model.notebook);
+
 		// Trigger the selection change event when the notebook was edited.
 		this._instanceDisposableStore.add(
 			model.notebook.onDidChangeContent(() =>
@@ -285,7 +286,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 		this._renderReact();
 
-		input.notebookInstance.attachView(this._parentDiv);
+		notebookInstance.attachView(this._parentDiv);
 	}
 
 	override clearInput(): void {

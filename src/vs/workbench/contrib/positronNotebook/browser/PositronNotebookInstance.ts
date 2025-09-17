@@ -148,6 +148,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * NotebookViewModel.
 	 */
 	private readonly _onDidChangeModel = this._register(new Emitter<NotebookTextModel | undefined>());
+	readonly onDidChangeModel = this._onDidChangeModel.event;
 
 	/**
 	 * Options for how the notebook should be displayed. Currently not really used but will be as
@@ -357,8 +358,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	) {
 		super();
 
-		this._setupNotebookTextModel();
-
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 		this.kernelStatus = observableValue('positronNotebookKernelStatus', KernelStatus.Uninitialized);
@@ -442,6 +441,37 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// =============================================================================================
 	// #region Public Methods
+
+	/**
+	 * Handle logic associated with the text model for notebook. This
+	 * includes setting up listeners for changes to the model and
+	 * setting up the initial state of the notebook.
+	 */
+	setModel(model: NotebookTextModel): void {
+		this._textModel = model;
+
+		this._modelStore.clear();
+		this._modelStore.add(model.onDidChangeContent((e) => {
+			// Check if cells are in the same order by comparing references
+			const newCells = model.cells;
+
+			if (
+				// If there are the same number of cells...
+				newCells.length === this.cells.get().length &&
+				// ... and they are in the same order...
+				newCells.every((cell, i) => this.cells.get()[i].cellModel === cell)
+			) {
+				// ... then we don't need to sync the cells.
+				return;
+			}
+
+			this._onDidChangeContent.fire();
+		}));
+
+		this._onDidChangeModel.fire(model);
+		this._onDidChangeContent.fire();
+	}
+
 
 	/**
 	 * Sets editor options for the notebook or a specific cell.
@@ -687,12 +717,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._container = container;
 		this.contextManager.setContainer(container);
 
-		const notifyOfModelChange = true;
-
-		if (notifyOfModelChange) {
-			this._onDidChangeModel.fire(this._textModel);
-		}
-
 		this._setupKeyboardNavigation(container);
 		this._logService.info(this.id, 'attachView');
 	}
@@ -744,7 +768,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._clearKeyboardNavigation?.();
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
-		this._detachModel();
 	}
 
 	/**
@@ -776,49 +799,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _isThisNotebook(uri: URI): boolean {
 		return isEqual(uri, this._input.resource);
-	}
-
-
-	/**
-	 * Handle logic associated with the text model for notebook. This
-	 * includes setting up listeners for changes to the model and
-	 * setting up the initial state of the notebook.
-	 */
-	private async _setupNotebookTextModel() {
-		const model = await this._input.resolve();
-		if (model === null) {
-			throw new Error(
-				localize(
-					'fail.noModel',
-					'Failed to find a model for view type {0}.',
-					this._input.viewType
-				)
-			);
-		}
-
-		this._textModel = model.notebook;
-
-		this._modelStore.add(
-			this._textModel.onDidChangeContent((e) => {
-				// Check if cells are in the same order by comparing references
-				this._assertTextModel();
-				const newCells = this.textModel.cells;
-
-				if (
-					// If there are the same number of cells...
-					newCells.length === this.cells.get().length &&
-					// ... and they are in the same order...
-					newCells.every((cell, i) => this.cells.get()[i].cellModel === cell)
-				) {
-					// ... then we don't need to sync the cells.
-					return;
-				}
-
-				this._onDidChangeContent.fire();
-			})
-		);
-
-		this._onDidChangeContent.fire();
 	}
 
 	/**
@@ -913,14 +893,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._clearKeyboardNavigation = () => {
 			this._container?.removeEventListener('keydown', onKeyDown);
 		};
-	}
-
-	/**
-	 * Remove and cleanup the current model for notebook.
-	 */
-	private _detachModel() {
-		this._logService.info(this.id, 'detachModel');
-		this._modelStore.clear();
 	}
 
 	/**
