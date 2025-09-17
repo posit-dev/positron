@@ -105,7 +105,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: inspect-ai-responses
-          path: /home/runner/work/positron/positron
+          path: /home/runner/work/positron/positron/test/assistant-inspect-ai
 
       - name: Run Inspect AI JSON Evaluation
 
