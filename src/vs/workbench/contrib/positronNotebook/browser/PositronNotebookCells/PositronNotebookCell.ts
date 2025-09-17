@@ -35,7 +35,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		public readonly cellModel: NotebookCellTextModel,
 		protected readonly _instance: PositronNotebookInstance,
 		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
-		@ITextModelService private readonly textModelResolverService: ITextModelService,
+		@ITextModelService private readonly _textModelService: ITextModelService,
 	) {
 		super();
 
@@ -100,7 +100,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {
-		const modelRef = await this.textModelResolverService.createModelReference(this.uri);
+		const modelRef = await this._textModelService.createModelReference(this.uri);
 		return modelRef.object.textEditorModel;
 	}
 

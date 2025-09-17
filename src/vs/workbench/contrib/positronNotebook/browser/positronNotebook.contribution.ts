@@ -35,7 +35,7 @@ import { registerCellCommand } from './notebookCells/actionBar/registerCellComma
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
 import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 
 
 /**
@@ -77,7 +77,20 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
-				createEditorInput: async ({ resource, options }) => {
+				createUntitledEditorInput: async ({ resource, options }) => {
+					// We should handle undefined resource as in notebookEditorServiceImpl.ts,
+					// but resource seems to always be defined so we throw for now to simplify
+					if (!resource) {
+						throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
+					}
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						resource,
+						undefined,
+					);
+					return { editor: notebookEditorInput, options };
+				},
+				createEditorInput: ({ resource, options }) => {
 					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
 						resource,
@@ -91,8 +104,10 @@ class PositronNotebookContribution extends Disposable {
 		// Register for cells in .ipynb files
 		this._register(this.editorResolverService.registerEditor(
 			`${Schemas.vscodeNotebookCell}:/**/*.ipynb`,
-			// We have to use exclusive priority because vscode.window.showTextDocument(cell.document)
-			// restricts to editors with exclusive priority.
+			// The cell handler is specifically for opening and focusing a cell by URI
+			// e.g. vscode.window.showTextDocument(cell.document).
+			// The editor resolver service expects a single handler with 'exclusive' priority.
+			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
 			{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
 			{
@@ -102,7 +117,7 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
-				createEditorInput: async (editorInput) => {
+				createEditorInput: (editorInput) => {
 					const parsed = CellUri.parse(editorInput.resource);
 					if (!parsed) {
 						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
@@ -255,7 +270,7 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 }
 
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(
-	PositronNotebookEditorInput.ID,
+	POSITRON_NOTEBOOK_EDITOR_INPUT_ID,
 	PositronNotebookEditorSerializer
 );
 
