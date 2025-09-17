@@ -285,31 +285,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		}
 
 		// Use the model's saveAs method which handles the actual file saving
-		const result = await this._editorModelReference.object.saveAs(target);
-
-		if (result) {
-			// After 'saveAs', the original untitled working copy is left in a dirty state.
-			// This causes the editor framework to prompt the user to save the untitled file
-			// when it's eventually closed, which is not the desired behavior.
-			//
-			// The `revert` call is the correct, albeit semantically odd, way to resolve this.
-			// Internally, `revert` performs the two actions we need:
-			// 1. It discards the backup for the untitled resource via IWorkingCopyBackupService
-			// 2. It resets the model's in-memory dirty state
-			// This transitions the working copy to a clean state, allowing the framework to
-			// close the untitled editor gracefully without a user prompt.
-			//
-			// Note: This is working around a design limitation in VS Code's NotebookEditorModel.saveAs()
-			// which creates a new working copy but doesn't clean up the source untitled working copy.
-			// See the "hacky" comment in SimpleNotebookEditorModel.saveAs()'s implementation.
-			await this._editorModelReference.object.revert();
-
-			// Update the instance map to handle the URI change from untitled to saved file
-			// This ensures the same notebook instance continues to be used after save
-			PositronNotebookInstance.updateInstanceUri(this.resource, target);
-		}
-
-		return result;
+		return await this._editorModelReference.object.saveAs(target);
 	}
 
 	private async _suggestName(provider: any, suggestedFilename: string): Promise<URI> {
@@ -341,7 +317,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		return {
 			resource: this.resource,
 			options: {
-				override: POSITRON_NOTEBOOK_EDITOR_ID
+				override: this.editorId
 			}
 		};
 	}
@@ -363,7 +339,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 			const ref = await this._notebookModelResolverService.resolve(this.resource, this.viewType);
 
 			if (this._editorModelReference) {
-				// According to the existing notebook code it's possibel that the
+				// According to the existing notebook code it's possible that the
 				// editorModelReference was set while we were waiting here. In that case we can
 				// throw away the one we just resolved and return the one that was already set.
 				ref.dispose();
@@ -384,9 +360,11 @@ export class PositronNotebookEditorInput extends EditorInput {
 			this._register(this._editorModelReference.object.onDidChangeDirty(() => this._onDidChangeDirty.fire()));
 			this._register(this._editorModelReference.object.onDidChangeReadonly(() => this._onDidChangeCapabilities.fire()));
 
+			// When an untitled editor model is reverted (e.g. when it's saved and becomes a normal file)
+			// dispose this editor input to avoid prompting the user to save again.
+			this._register(this._editorModelReference.object.onDidRevertUntitled(() => this.dispose()));
 
-			// If the model is dirty we need to fire the dirty event.
-			// Not sure why this is not an event listner.
+			// Notify listeners if the model is already dirty
 			if (this._editorModelReference.object.isDirty()) {
 				this._onDidChangeDirty.fire();
 			}
