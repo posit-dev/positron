@@ -504,6 +504,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint: AnchorPoint
 	): Promise<void> {
+		// Ensure the row is selected (handles both right-click and keyboard shortcut cases)
+		await this.mouseSelectRow(rowIndex, MouseSelectionType.Single);
+
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
 
