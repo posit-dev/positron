@@ -270,7 +270,7 @@
         }
       }
     ],
-    "languageModels": [
+    "languageModelChatProviders": [
       {
         "vendor": "echo",
         "displayName": "Echo"
