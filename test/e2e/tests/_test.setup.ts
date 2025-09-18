@@ -38,7 +38,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
 
-	// Environment variables fixture - loads project-specific env vars
+	// Loads project-specific env vars
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 		loadProjectEnvironmentVariables(projectName);
