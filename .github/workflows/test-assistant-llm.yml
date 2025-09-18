@@ -69,7 +69,7 @@ jobs:
 
 
   inspect-ai-test:
-    needs: [e2e-windows-electron]
+    needs: [e2e-linux-browser]
     name: inspect-ai-test
     timeout-minutes: 120
     runs-on: ubuntu-latest
