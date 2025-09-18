@@ -3,13 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path from 'path';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
 import * as os from 'os';
 import { Application, createApp, copyFixtureFile } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { setFixtureScreenshot, moveAndOverwrite, copyUserSettings } from './shared-utils';
+import { moveAndOverwrite, copyUserSettings, captureScreenshotOnError } from './shared-utils';
 
 /**
  * External Positron server fixture (port 8080)
@@ -40,17 +39,7 @@ export function ExternalPositronServerFixture() {
 			await use(app);
 		} catch (error) {
 			// capture a screenshot on failure
-			const screenshotPath = path.join(logsPath, 'external-server-failure.png');
-			try {
-				const page = app.code?.driver?.page;
-				if (page) {
-					const screenshot = await page.screenshot({ path: screenshotPath });
-					setFixtureScreenshot(screenshot);
-				}
-			} catch {
-				// ignore
-			}
-
+			await captureScreenshotOnError(app, logsPath, error);
 			throw error; // re-throw the error to ensure test failure
 		} finally {
 			await app.stopExternalServer();

@@ -6,7 +6,7 @@
 import path from 'path';
 import * as fs from 'fs';
 import { constants, access, rm, mkdir, rename } from 'fs/promises';
-import { copyFixtureFile, MultiLogger } from '../../infra';
+import { copyFixtureFile, MultiLogger, Application } from '../../infra';
 import { SPEC_NAME, ROOT_PATH } from './constants';
 
 let fixtureScreenshot: Buffer | undefined;
@@ -17,6 +17,24 @@ export function setFixtureScreenshot(screenshot: Buffer) {
 
 export function getFixtureScreenshot(): Buffer | undefined {
 	return fixtureScreenshot;
+}
+
+/**
+ * Capture a screenshot when an error occurs in a fixture
+ */
+export async function captureScreenshotOnError(app: Application, logsPath: string, error: any): Promise<void> {
+	console.error('Error occurred in fixture:', error);
+
+	const screenshotPath = path.join(logsPath, 'fixture-failure.png');
+	try {
+		const page = app.code?.driver?.page;
+		if (page) {
+			const screenshot = await page.screenshot({ path: screenshotPath });
+			setFixtureScreenshot(screenshot);
+		}
+	} catch (screenshotError) {
+		console.warn('Failed to capture screenshot:', screenshotError);
+	}
 }
 
 /**

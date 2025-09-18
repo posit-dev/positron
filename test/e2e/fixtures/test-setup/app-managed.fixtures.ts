@@ -3,10 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path from 'path';
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { setFixtureScreenshot, moveAndOverwrite } from './shared-utils.js';
+import { moveAndOverwrite, captureScreenshotOnError } from './shared-utils.js';
 
 /**
  * App fixture for managed servers (both Electron and browser-based apps)
@@ -25,17 +24,7 @@ export function ManagedAppFixture() {
 			await use(app);
 		} catch (error) {
 			// capture a screenshot on failure
-			const screenshotPath = path.join(logsPath, 'app-start-failure.png');
-			try {
-				const page = app.code?.driver?.page;
-				if (page) {
-					const screenshot = await page.screenshot({ path: screenshotPath });
-					setFixtureScreenshot(screenshot);
-				}
-			} catch {
-				// ignore
-			}
-
+			await captureScreenshotOnError(app, logsPath, error);
 			throw error; // re-throw the error to ensure test failure
 		} finally {
 			await app.stop();
