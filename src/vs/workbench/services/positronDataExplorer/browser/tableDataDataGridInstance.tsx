@@ -407,8 +407,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
+			label: localize('positron.dataExplorer.copyColumn', "Copy Column"),
+			onSelected: () => console.log('Copy Column')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
@@ -517,8 +517,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
+			label: localize('positron.dataExplorer.copyRow', "Copy Row"),
+			onSelected: () => console.log('Copy Row')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
