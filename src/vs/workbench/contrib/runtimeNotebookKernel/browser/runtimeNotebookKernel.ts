@@ -178,7 +178,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						notebookUri.fsPath,
 					),
 				}, async () => {
-					return await this.ensureRuntimeStarted(
+					return await this.ensureSessionStarted(
 						notebookUri,
 						`Runtime kernel ${this.id} executed cells for notebook`,
 					);
@@ -307,7 +307,13 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		});
 	}
 
-	public async ensureRuntimeStarted(notebookUri: URI, source: string) {
+	/**
+	 * Ensure a session is running for the given notebook
+	 *
+	 * @param notebookUri The notebook URI
+	 * @param source The source of the request
+	 */
+	public async ensureSessionStarted(notebookUri: URI, source: string) {
 		// If we've already got a session going, no need to do anything
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
@@ -346,7 +352,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						this._languageRuntimeService.onDidChangeRuntimeStartupPhase(async (e) => {
 							if (e === RuntimeStartupPhase.Complete) {
 								disposable.dispose();
-								await this.ensureRuntimeStarted(notebookUri, source);
+								await this.ensureSessionStarted(notebookUri, source);
 								resolve();
 							}
 						});

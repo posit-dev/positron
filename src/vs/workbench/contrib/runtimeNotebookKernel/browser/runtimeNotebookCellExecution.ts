@@ -45,7 +45,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	/**
 	 * The execution ID. Only replies to this ID are handled.
 	 */
-	public readonly id = generateUuid();
+	public readonly id = this.generateExecutionId();
 
 	/**
 	 * Deferred promise that resolves when the runtime execution completes,
@@ -178,6 +178,10 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 		// Reply to the prompt.
 		this._session.replyToPrompt(message.id, reply ?? '');
+	}
+
+	private generateExecutionId() {
+		return `fragment-${generateUuid()}`;
 	}
 
 	private handleRuntimeMessageOutput(
