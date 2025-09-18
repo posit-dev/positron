@@ -60,15 +60,11 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return ErrorLanguageModel.source.provider.displayName;
 	}
 
-	prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+	provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
 		throw new Error(this._message);
 	}
 
 	provideLanguageModelChatResponse(): Promise<any> {
-		throw new Error(this._message);
-	}
-
-	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
 		throw new Error(this._message);
 	}
 
@@ -118,7 +114,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		return EchoLanguageModel.source.provider.displayName;
 	}
 
-	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<any[]> {
 		return [
 			{
 				id: this.id,
@@ -185,19 +181,13 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		// Output the response character by character
 		for await (const i of response.split('')) {
 			await new Promise(resolve => setTimeout(resolve, 10));
-			progress.report({
-				value: i,
-			});
+			progress.report(new vscode.LanguageModelTextPart(i));
 			if (token.isCancellationRequested) {
 				return;
 			}
 		}
 
 		return { tokenUsage };
-	}
-
-	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
-		return this.prepareLanguageModelChat({ silent: options.silent }, token);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
@@ -299,7 +289,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 	}
 
-	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		// Prepare the language model chat information
 		const providerId = this._config.provider;
 		const models = availableModels.get(providerId);
@@ -451,26 +441,18 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			if (part.type === 'reasoning') {
 				flushAccumulatedTextDeltas();
 				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report({
-					value: part.textDelta,
-				});
+				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
 			}
 
 			if (part.type === 'text-delta') {
 				accumulatedTextDeltas.push(part.textDelta);
-				progress.report({
-					value: part.textDelta,
-				});
+				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
 			}
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
 				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report({
-					callId: part.toolCallId,
-					name: part.toolName,
-					input: part.args,
-				});
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
 			}
 
 			if (part.type === 'error') {
@@ -538,10 +520,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		log.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
-	}
-
-	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
-		return this.prepareLanguageModelChat({ silent: true }, token);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {

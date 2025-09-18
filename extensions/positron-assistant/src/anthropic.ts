@@ -82,7 +82,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
-	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		const models = availableModels.get(this.provider);
 
 		if (!models || models.length === 0) {
@@ -238,10 +238,6 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		}
 	}
 
-	provideLanguageModelChatInformation(options: vscode.PrepareLanguageModelChatModelOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
-		return this.prepareLanguageModelChat({ silent: options.silent }, token);
-	}
-
 	get providerName(): string {
 		return AnthropicLanguageModel.source.provider.displayName;
 	}
@@ -254,17 +250,11 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	private onToolUseBlock(block: Anthropic.ToolUseBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
-		progress.report({
-			callId: block.id,
-			name: block.name,
-			input: block.input as any,
-		});
+		progress.report(new vscode.LanguageModelToolCallPart(block.id, block.name, block.input as any));
 	}
 
 	private onText(textDelta: string, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
-		progress.report({
-			value: textDelta,
-		});
+		progress.report(new vscode.LanguageModelTextPart(textDelta));
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
