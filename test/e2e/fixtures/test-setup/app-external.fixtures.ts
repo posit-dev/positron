@@ -9,7 +9,7 @@ import { mkdir } from 'fs/promises';
 import * as os from 'os';
 import { Application, createApp, copyFixtureFile } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { setFixtureScreenshot, moveAndOverwrite } from './shared-utils';
+import { setFixtureScreenshot, moveAndOverwrite, copyUserSettings } from './shared-utils';
 
 /**
  * External Positron server fixture (port 8080)
@@ -25,7 +25,7 @@ export function ExternalPositronServerFixture() {
 
 		await mkdir(userDir, { recursive: true });
 		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyFixtureFile('settings.json', userDir);
+		await copyUserSettings(userDir);
 
 		const app = createApp(options);
 

@@ -9,7 +9,6 @@ const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
 import { join } from 'path';
-import * as os from 'os';
 
 // Local imports
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
@@ -67,17 +66,18 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'worker', auto: true }],
 
 	userDataDir: [async ({ options }, use, workerInfo) => {
-		let userDir: string;
-
-		if (workerInfo.project.name === 'e2e-workbench') {
-			const serverPath = join(process.env.HOME || os.homedir(), (process.env.POSIT_WORKBENCH_USERNAME || 'user1'), '.positron-server', 'User');
-			userDir = serverPath;
+		// Only e2e-electron and e2e-browser use the standard UserDataDirFixture
+		// e2e-browser-server and e2e-workbench handle their own user directory setup
+		const projectName = workerInfo.project.name;
+		if (['e2e-browser-server', 'e2e-workbench'].includes(projectName)) {
+			// For external/workbench projects, this fixture isn't used
+			await use('');
 		} else {
+			// Default case for e2e-electron, e2e-browser, and other projects
 			const userDataDirFixture = UserDataDirFixture();
-			userDir = await userDataDirFixture(options);
+			const userDir = await userDataDirFixture(options);
+			await use(userDir);
 		}
-
-		await use(userDir);
 	}, { scope: 'worker', auto: true }],
 
 	restartApp: [async ({ app }, use) => {

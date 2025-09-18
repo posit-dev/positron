@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import path = require('path');
 import { join } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
 import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir } from '../../infra';
 import { ROOT_PATH, TEMP_DIR } from './constants';
+import { copyUserSettings } from './shared-utils.js';
 
 export interface CustomTestOptions {
 	web: boolean;
@@ -77,23 +77,7 @@ export function UserDataDirFixture() {
 
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
-
-		const settingsFileName = 'settings.json';
-		if (fs.existsSync('/.dockerenv')) {
-
-			const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
-			const settingsFile = path.join(fixturesDir, 'settings.json');
-
-			const mergedSettings = {
-				...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
-				...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
-			};
-
-			// Overwrite file
-			fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
-		}
-
-		await copyFixtureFile(settingsFileName, userDir);
+		await copyUserSettings(userDir);
 
 		return userDir;
 	};
