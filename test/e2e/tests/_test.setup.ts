@@ -69,7 +69,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	userDataDir: [async ({ options }, use, workerInfo) => {
 		let userDir: string;
 
-		if (workerInfo.project.name !== 'e2e-workbench') {
+		if (workerInfo.project.name === 'e2e-workbench') {
 			const serverPath = join(process.env.HOME || os.homedir(), (process.env.POSIT_WORKBENCH_USERNAME || 'user1'), '.positron-server', 'User');
 			userDir = serverPath;
 		} else {

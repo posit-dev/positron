@@ -38,7 +38,7 @@ export function WorkbenchAppFixture() {
 			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
 			await app.positWorkbench.dashboard.openSession('qa-example-content');
 
-			// Wait for Positron to fully load, then setup configuration files manually
+			// Wait for Positron to be ready
 			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 			await app.workbench.sessions.deleteAll();
 			await app.workbench.hotKeys.closeAllEditors();
