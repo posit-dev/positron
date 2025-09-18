@@ -1,7 +1,4 @@
 {
-    "security.workspace.trust.startupPrompt": "never",
-    "security.workspace.trust.enabled": false,
-    "security.workspace.trust.banner": "never",
     "python.locator": "native",
     "interpreters.startupBehavior": "manual",
     "positron.r.kernel.logLevel": "trace",
