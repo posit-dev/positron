@@ -25,26 +25,24 @@ export function getFixtureScreenshot(): Buffer | undefined {
  *
  * @param userDir The user data directory to copy settings into
  */
-export async function copyUserSettings(userDir: string): Promise<void> {
+export async function copyUserSettings(userDir: string): Promise<string> {
 	const settingsFileName = 'settings.json';
 
 	if (fs.existsSync('/.dockerenv')) {
 		const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 		const settingsFile = path.join(fixturesDir, 'settings.json');
-		const dockerSettingsFile = path.join(fixturesDir, 'settingsDocker.json');
 
 		const mergedSettings = {
 			...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
-			...JSON.parse(fs.readFileSync(dockerSettingsFile, 'utf8')),
+			...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
 		};
 
-		// Write merged settings directly to user directory
-		const userSettingsFile = path.join(userDir, 'settings.json');
-		fs.writeFileSync(userSettingsFile, JSON.stringify(mergedSettings, null, 2));
-	} else {
-		// For non-Docker environments, use the normal copyFixtureFile approach
-		await copyFixtureFile(settingsFileName, userDir);
+		// Overwrite file
+		fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
 	}
+
+	await copyFixtureFile(settingsFileName, userDir);
+	return userDir;
 }
 
 export async function moveAndOverwrite(logger: MultiLogger, logsPath: string, workerInfo: any) {
