@@ -20,6 +20,6 @@ export class PositWorkbench extends Workbench {
 
 		// Add workbench specific pages
 		this.auth = new AuthPage(code);
-		this.dashboard = new DashboardPage(code);
+		this.dashboard = new DashboardPage(code, this.quickInput);
 	}
 }

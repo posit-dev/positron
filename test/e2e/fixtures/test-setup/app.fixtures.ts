@@ -157,14 +157,22 @@ export function ExternalServerAppFixture() {
 		const userDir = join(serverUserDataDir, 'User');
 
 		await mkdir(userDir, { recursive: true });
-		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyFixtureFile('settings.json', userDir);
+
+		// Only copy to local directory if NOT using Posit Workbench (port 8787)
+		// For Workbench, we'll copy directly to the Docker container instead
+		if (!options.externalServerUrl?.includes(':8787')) {
+			await copyFixtureFile('keybindings.json', userDir, true);
+			await copyFixtureFile('settings.json', userDir);
+		}
 
 		const app = createApp(options);
 
 		try {
 			// For external server, we don't launch the app, just connect to it
-			await copyWorkbenchSettings(app);
+			// For Workbench, this will copy settings to the Docker container
+			if (options.externalServerUrl?.includes(':8787')) {
+				await copyWorkbenchSettings(app);
+			}
 			await app.connectToExternalServer();
 
 			// Check if this is the Posit Workbench environment (port 8787)
@@ -217,12 +225,14 @@ export function ExternalServerAppFixture() {
 }
 
 async function copyWorkbenchSettings(app: Application) {
+	// This function is specifically for Posit Workbench (port 8787) running in Docker
 	// Use Docker to copy configuration files and workspace to the container
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 	const userSettingsFile = path.join(fixturesDir, 'settings.json');
 	const keybindingsFile = path.join(fixturesDir, 'keybindings.json');
 
 	try {
+		console.log('✓ Copying settings to workbench...');
 		const { execSync } = require('child_process');
 
 		// 1. Copy workspace (qa-example-content) to container
@@ -230,8 +240,18 @@ async function copyWorkbenchSettings(app: Application) {
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 
 		// Copy workspace to container
-		const workspaceCommand = `docker cp ${WORKSPACE_PATH} test:/home/user1/qa-example-content`;
-		execSync(workspaceCommand, { stdio: 'inherit' });
+		try {
+			// First create the target directory
+			const createWorkspaceDirCommand = 'docker exec test mkdir -p /home/user1/qa-example-content';
+			execSync(createWorkspaceDirCommand, { stdio: 'inherit' });
+
+			// Copy the contents of qa-example-content (not the folder itself)
+			const workspaceCommand = `docker cp ${WORKSPACE_PATH}/. test:/home/user1/qa-example-content/`;
+			execSync(workspaceCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to copy workspace to container:', error);
+			throw error;
+		}
 
 		// 2. Merge settings with Docker-specific settings
 		const mergedSettings = {
@@ -239,34 +259,84 @@ async function copyWorkbenchSettings(app: Application) {
 			...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
 		};
 
+		// Create necessary directories in the container first
+		try {
+			const createDirCommand = 'docker exec test mkdir -p /home/user1/.positron-server/User/';
+			execSync(createDirCommand, { stdio: 'inherit' });
+
+			// Fix ownership of the entire directory hierarchy immediately after creation
+			// This ensures user1 can access the parent directory
+			const fixDirOwnershipCommand = 'docker exec test chown -R user1:user1g /home/user1/.positron-server/';
+			execSync(fixDirOwnershipCommand, { stdio: 'inherit' });
+
+			// Check permissions immediately after directory creation and ownership fix
+			// console.log('\n🔍 Checking directory permissions after creation and ownership fix:');
+			// const checkDirPermsCommand = 'docker exec test ls -ld /home/user1/.positron-server/ /home/user1/.positron-server/User/';
+			// execSync(checkDirPermsCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to create directories in container:', error);
+			throw error;
+		}
+
 		// Create a temporary merged settings file
 		const tempSettingsFile = path.join(fixturesDir, 'settings-merged.json');
 		fs.writeFileSync(tempSettingsFile, JSON.stringify(mergedSettings, null, 2));
 
 		// Copy merged settings.json to container
-		const settingsCommand = `docker cp ${tempSettingsFile} test:/home/user1/.positron-server/User/settings.json`;
-		execSync(settingsCommand, { stdio: 'inherit' });
+		try {
+			const settingsCommand = `docker cp ${tempSettingsFile} test:/home/user1/.positron-server/User/settings.json`;
+			execSync(settingsCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to copy settings.json to container:', error);
+			throw error;
+		}
 
 		// Clean up temporary file
 		fs.unlinkSync(tempSettingsFile);
 
 		// Copy keybindings.json to container
-		const keybindingsCommand = `docker cp ${keybindingsFile} test:/home/user1/.positron-server/User/keybindings.json`;
-		execSync(keybindingsCommand, { stdio: 'inherit' });
+		try {
+			const keybindingsCommand = `docker cp ${keybindingsFile} test:/home/user1/.positron-server/User/keybindings.json`;
+			execSync(keybindingsCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to copy keybindings.json to container:', error);
+			throw error;
+		}
 
 		// 3. Fix file permissions so user1 can access everything
-		const chownSettingsCommand = 'docker exec test chown -R user1 /home/user1/.positron-server/User/';
-		execSync(chownSettingsCommand, { stdio: 'inherit' });
+		try {
+			// Fix ownership of copied files (directory ownership was already fixed above)
+			const chownSettingsCommand = 'docker exec test chown -R user1:user1g /home/user1/.positron-server/User/';
+			execSync(chownSettingsCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to change ownership of settings directory:', error);
+			throw error;
+		}
 
-		const chownWorkspaceCommand = 'docker exec test chown -R user1 /home/user1/qa-example-content/';
-		execSync(chownWorkspaceCommand, { stdio: 'inherit' });
+		try {
+			const chownWorkspaceCommand = 'docker exec test chown -R user1 /home/user1/qa-example-content/';
+			execSync(chownWorkspaceCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to change ownership of workspace directory:', error);
+			throw error;
+		}
 
 		// Also ensure the files are writable
-		const chmodSettingsCommand = 'docker exec test chmod -R 755 /home/user1/.positron-server/User/';
-		execSync(chmodSettingsCommand, { stdio: 'inherit' });
+		try {
+			const chmodSettingsCommand = 'docker exec test chmod -R 755 /home/user1/.positron-server/User/';
+			execSync(chmodSettingsCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to change permissions of settings directory:', error);
+			throw error;
+		}
 
-		const chmodWorkspaceCommand = 'docker exec test chmod -R 755 /home/user1/qa-example-content/';
-		execSync(chmodWorkspaceCommand, { stdio: 'inherit' });
+		try {
+			const chmodWorkspaceCommand = 'docker exec test chmod -R 755 /home/user1/qa-example-content/';
+			execSync(chmodWorkspaceCommand, { stdio: 'inherit' });
+		} catch (error) {
+			console.error('Failed to change permissions of workspace directory:', error);
+			throw error;
+		}
 
 	} catch (error) {
 		console.error('Error copying workspace and settings to Posit Workbench container:', error);
