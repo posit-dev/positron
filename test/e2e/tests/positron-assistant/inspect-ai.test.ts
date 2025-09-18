@@ -27,7 +27,9 @@ function removeBOM(content: string): string {
  * @returns Sanitized text safe for JSON serialization
  */
 function sanitizeResponse(response: string): string {
-	if (!response) return '';
+	if (!response) {
+		return '';
+	}
 
 	// Remove or replace problematic control characters (except newlines, tabs, carriage returns)
 	const sanitized = response
@@ -94,6 +96,8 @@ test.use({
  */
 test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
+		// Change veiwport size for web tests
+		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
 		// Only sign out if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
 			await app.workbench.quickaccess.runCommand(`positron-assistant.configureModels`);
