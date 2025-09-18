@@ -107,6 +107,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
 
+	/**
+	 * Check if this cell is the last cell in the notebook
+	 */
+	isLastCell(): boolean;
+
 
 	/**
 	 * Set focus to this cell

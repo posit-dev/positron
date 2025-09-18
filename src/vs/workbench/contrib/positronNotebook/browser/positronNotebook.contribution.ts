@@ -588,9 +588,7 @@ registerCellCommand({
 		}
 
 		// If this is the last cell, insert a new cell below of the same type
-		const cells = notebook.cells.get();
-		const isLastCell = cell.index === cells.length - 1;
-		if (isLastCell) {
+		if (cell.isLastCell()) {
 			notebook.addCell(cell.kind, cell.index + 1);
 		}
 
