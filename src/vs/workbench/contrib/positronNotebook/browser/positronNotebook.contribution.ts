@@ -582,6 +582,11 @@ registerCellCommand({
 			cell.run();
 		}
 
+		// If the cell is a markdown cell and the editor is open, close it. Otherwise just pass over.
+		if (cell.isMarkdownCell() && cell.editorShown.get()) {
+			cell.toggleEditor();
+		}
+
 		// Move to the next cell
 		notebook.selectionStateMachine.moveDown(false);
 	},
