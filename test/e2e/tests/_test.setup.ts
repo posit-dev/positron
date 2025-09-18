@@ -37,11 +37,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
 
-	// Loads project-specific env vars
+	// Loads project-specific env vars for local runs only
 	envVars: [async ({ }, use, workerInfo) => {
-		const projectName = workerInfo.project.name;
-		loadProjectEnvironmentVariables(projectName);
-		await use(projectName);
+		if (!process.env.CI) {
+			const projectName = workerInfo.project.name;
+			loadProjectEnvironmentVariables(projectName);
+			await use(projectName);
+		}
 	}, { scope: 'worker', auto: true }],
 
 	snapshots: [true, { scope: 'worker', auto: true }],
