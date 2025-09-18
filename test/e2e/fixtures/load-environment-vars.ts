@@ -44,7 +44,7 @@ export function loadProjectEnvironmentVariables(projectName: string): void {
 		'e2e-workbench': ['.env.e2e-workbench'],
 		'e2e-electron': ['.env.e2e-local'],
 		'e2e-browser': ['.env.e2e-local'],
-		'e2e-browser-external': ['.env.e2e-local'],
+		'e2e-browser-server': ['.env.e2e-local'],
 	};
 
 	const envFiles = envFileMappings[projectName];

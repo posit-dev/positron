@@ -128,7 +128,8 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 2. Ensure the correct project is selected; otherwise, no tests will populate in the Test Explorer.
    - `e2e-electron`: Standard Electron app testing
    - `e2e-browser`: Browser testing with managed server
-   - `e2e-browser-external`: Browser testing with external server ⭐
+   - `e2e-browser-server`: Browser testing with external server ⭐
+   - `e2e-workbench`: Browser testing against workbench container
 3. Expand the file tree to locate the desired test.
 4. Use the action buttons next to each test to:
    - **Run Test**: Executes the selected test.
