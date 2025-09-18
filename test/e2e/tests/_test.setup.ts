@@ -39,11 +39,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// Loads project-specific env vars for local runs only
 	envVars: [async ({ }, use, workerInfo) => {
-		if (!process.env.CI) {
-			const projectName = workerInfo.project.name;
-			loadProjectEnvironmentVariables(projectName);
-			await use(projectName);
+		const projectName = workerInfo.project.name;
+		loadProjectEnvironmentVariables(projectName);
+		if (workerInfo.project.name === 'e2e-workbench' && process.env.POSIT_WORKBENCH_PASSWORD === undefined) {
+			throw new Error(`POSIT_WORKBENCH_PASSWORD must be set in .env.e2e-workbench`);
 		}
+		await use(projectName);
 	}, { scope: 'worker', auto: true }],
 
 	snapshots: [true, { scope: 'worker', auto: true }],
