@@ -66,10 +66,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
-	userDataDir: [async ({ options }, use) => {
+	userDataDir: [async ({ options }, use, workerInfo) => {
 		let userDir: string;
 
-		if (options.useExternalServer && options.externalServerUrl?.includes(':8787')) {
+		if (workerInfo.project.name !== 'e2e-workbench') {
 			const serverPath = join(process.env.HOME || os.homedir(), (process.env.POSIT_WORKBENCH_USERNAME || 'user1'), '.positron-server', 'User');
 			userDir = serverPath;
 		} else {

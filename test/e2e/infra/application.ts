@@ -26,11 +26,8 @@ export interface ApplicationOptions extends LaunchOptions {
  * Creates the appropriate workbench instance based on external server configuration
  */
 function createWorkbench(code: Code, options: ApplicationOptions): Workbench {
-	// If external server URL contains :8787, it's Posit Workbench
-	if (options.useExternalServer && options.externalServerUrl?.includes(':8787')) {
-		return new PositWorkbench(code);
-	}
-	return new Workbench(code);
+	const isWorkbench = options.useExternalServer && options.externalServerUrl?.includes(':8787');
+	return isWorkbench ? new PositWorkbench(code) : new Workbench(code);
 }
 
 export class Application {
@@ -48,20 +45,12 @@ export class Application {
 
 	/**
 	 * Get the Posit Workbench instance. Only available in e2e-workbench contexts.
-	 * Use this when you know you're in a workbench context for cleaner type-safe code.
 	 */
 	get positWorkbench(): PositWorkbench {
 		if (this._workbench instanceof PositWorkbench) {
 			return this._workbench;
 		}
 		throw new Error('positWorkbench is only available in e2e-workbench contexts');
-	}
-
-	/**
-	 * Type guard to check if this application has PositWorkbench functionality
-	 */
-	hasPositWorkbench(): this is Application & { positWorkbench: PositWorkbench } {
-		return this._workbench instanceof PositWorkbench;
 	}
 
 	get logger(): Logger {
@@ -203,24 +192,12 @@ export class Application {
 	}
 
 	private async checkExternalServerWorkbenchReady(code: Code): Promise<void> {
-		const serverType = this.getExternalServerType();
+		// Determine server type directly from URL
+		const isPositWorkbench = this.options.externalServerUrl?.includes(':8787');
 
-		switch (serverType) {
-			case 'posit-workbench':
-				await this.checkPositWorkbenchReady(code);
-				break;
-			case 'vscode-server':
-			default:
-				await this.checkVSCodeServerReady(code);
-				break;
-		}
-	}
-
-	private getExternalServerType(): 'posit-workbench' | 'vscode-server' {
-		if (this.options.externalServerUrl?.includes(':8787')) {
-			return 'posit-workbench';
-		}
-		return 'vscode-server';
+		isPositWorkbench
+			? await this.checkPositWorkbenchReady(code)
+			: await this.checkVSCodeServerReady(code);
 	}
 
 	private async checkPositWorkbenchReady(code: Code): Promise<void> {
