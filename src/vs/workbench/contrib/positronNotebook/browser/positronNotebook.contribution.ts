@@ -587,6 +587,13 @@ registerCellCommand({
 			cell.toggleEditor();
 		}
 
+		// If this is the last cell, insert a new cell below of the same type
+		const cells = notebook.cells.get();
+		const isLastCell = cell.index === cells.length - 1;
+		if (isLastCell) {
+			notebook.addCell(cell.kind, cell.index + 1);
+		}
+
 		// Move to the next cell
 		notebook.selectionStateMachine.moveDown(false);
 	},
