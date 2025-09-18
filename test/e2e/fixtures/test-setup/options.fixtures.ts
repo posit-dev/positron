@@ -78,19 +78,7 @@ export function UserDataDirFixture() {
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
 		await copyUserSettings(userDir);
-		console.log(`Using user data dir: ${userDir}`);
-		// Log the contents of settings.json
-		try {
-			const settingsPath = join(userDir, 'settings.json');
-			if (fs.existsSync(settingsPath)) {
-				const settingsContent = await fs.promises.readFile(settingsPath, 'utf-8');
-				console.log(`Settings.json contents:\n${settingsContent}`);
-			} else {
-				console.log(`Settings.json not found at: ${settingsPath}`);
-			}
-		} catch (error) {
-			console.error(`Error reading settings.json: ${error}`);
-		}
+
 		return userDir;
 	};
 }
