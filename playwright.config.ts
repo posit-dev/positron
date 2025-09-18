@@ -48,7 +48,7 @@ export default defineConfig<ExtendedTestOptions>({
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['list'], ['html'], ['blob'],
-			...(process.env.ENABLE_CURRENTS_REPORTER !== 'false'
+			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
 				? [currentsReporter({
 					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
 					recordKey: process.env.CURRENTS_RECORD_KEY || '',
