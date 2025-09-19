@@ -21,6 +21,7 @@ import {
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
+import { runDockerCommand } from '../fixtures/test-setup/app-workbench.fixtures.js';
 
 // Currents fixtures
 import {
@@ -164,6 +165,15 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		});
 	},
 
+	runDockerCommand: async ({ }, use, testInfo) => {
+		await use(async (command: string, description: string) => {
+			if (testInfo.project.name !== 'e2e-workbench') {
+				throw new Error('runDockerCommand is only available in the e2e-workbench project');
+			}
+			await runDockerCommand(command, description);
+		});
+	},
+
 	// ex: await executeCode('Python', 'print("Hello, world!")');
 	executeCode: async ({ app }, use) => {
 		await use(async (language: 'Python' | 'R', code: string, options?: {
@@ -295,6 +305,7 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
+	runDockerCommand: (command: string, description: string) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string, options?: {
 		timeout?: number;
 		waitForReady?: boolean;

@@ -85,7 +85,7 @@ async function setupWorkbenchEnvironment(): Promise<void> {
 /**
  * Run a Docker command with error handling and logging
  */
-async function runDockerCommand(command: string, description: string): Promise<void> {
+export async function runDockerCommand(command: string, description: string): Promise<void> {
 	try {
 		execSync(command, { stdio: 'inherit' });
 	} catch (error) {
