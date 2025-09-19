@@ -69,7 +69,7 @@ export enum TestTags {
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',
-	WORKBNECH = '@:workbench',
+	WORKBENCH = '@:workbench',
 
 	// exclude tags
 	NIGHTLY_ONLY = '@:nightly-only'

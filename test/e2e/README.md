@@ -46,7 +46,7 @@ export POSITRON_R_ALT_VER_SEL='4.4.2'
 
 Make sure you have the selected R and Python version installed that you are using for the environment variables.
 
-_Note: The environment variables with `ALT` in them are for the alternate interpreters which are used in fewer tests and might not be immediately needed. If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
+_Note: If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
 
 ## Dependencies
 

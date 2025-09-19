@@ -20,9 +20,6 @@ export default defineConfig<ExtendedTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
-	testIgnore: [
-		'example.test.ts'
-	],
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -89,6 +86,11 @@ export default defineConfig<ExtendedTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-electron'
@@ -97,6 +99,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-browser',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: true,
 				artifactDir: 'e2e-browser',
@@ -106,6 +113,10 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-workbench',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+			],
 			use: {
 				web: true,
 				artifactDir: 'e2e-workbench',
@@ -117,6 +128,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-browser-server',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: true,
 				artifactDir: 'e2e-browser-server',
@@ -128,6 +144,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-windows',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-windows',
@@ -137,6 +158,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-macOS-ci',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-macOS-ci',
