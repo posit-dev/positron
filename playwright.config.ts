@@ -89,7 +89,8 @@ export default defineConfig<ExtendedTestOptions>({
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
-				'**/workbench/**'
+				'**/workbench/**',
+				'**/inspect-ai/**'
 			],
 			use: {
 				web: false,
@@ -102,7 +103,8 @@ export default defineConfig<ExtendedTestOptions>({
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
-				'**/workbench/**'
+				'**/workbench/**',
+				'**/inspect-ai/**'
 			],
 			use: {
 				web: true,
@@ -116,6 +118,7 @@ export default defineConfig<ExtendedTestOptions>({
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
+				'**/inspect-ai/**'
 			],
 			use: {
 				web: true,
@@ -131,7 +134,8 @@ export default defineConfig<ExtendedTestOptions>({
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
-				'**/workbench/**'
+				'**/workbench/**',
+				'**/inspect-ai/**'
 			],
 			use: {
 				web: true,
@@ -147,7 +151,8 @@ export default defineConfig<ExtendedTestOptions>({
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
-				'**/workbench/**'
+				'**/workbench/**',
+				'**/inspect-ai/**'
 			],
 			use: {
 				web: false,
@@ -161,13 +166,27 @@ export default defineConfig<ExtendedTestOptions>({
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
-				'**/workbench/**'
+				'**/workbench/**',
+				'**/inspect-ai/**'
 			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-macOS-ci',
 			},
 			grepInvert: /@:web-only|@:interpreter/
+		},
+		{
+			name: 'inspect-ai',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+			],
+			use: {
+				web: false,
+				artifactDir: 'inspect-ai',
+			},
+			grep: /@:inspect-ai/
 		},
 	],
 });
