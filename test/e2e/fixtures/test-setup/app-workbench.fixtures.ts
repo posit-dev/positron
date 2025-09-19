@@ -7,11 +7,10 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { join } from 'path';
-import { mkdir } from 'fs/promises';
 import { execSync } from 'child_process';
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { moveAndOverwrite, captureScreenshotOnError } from './shared-utils';
+import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils';
 import { ROOT_PATH } from './constants';
 
 /**
@@ -21,11 +20,6 @@ import { ROOT_PATH } from './constants';
 export function WorkbenchAppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
 		const { options, logsPath, logger, workerInfo } = fixtureOptions;
-
-		// For workbench, we don't copy files locally - they go directly to Docker
-		const serverUserDataDir = join(os.homedir(), '.positron-e2e-test');
-		const userDir = join(serverUserDataDir, 'User');
-		await mkdir(userDir, { recursive: true });
 
 		const app = createApp(options);
 
@@ -47,7 +41,7 @@ export function WorkbenchAppFixture() {
 
 			await use(app);
 
-			// Cleanup session so we don't leave a rogue session behind
+			// Exit Posit Workbench session
 			try {
 				await app.positWorkbench.dashboard.goTo();
 				await app.positWorkbench.dashboard.quitSession('qa-example-content');
@@ -58,15 +52,8 @@ export function WorkbenchAppFixture() {
 			await captureScreenshotOnError(app, logsPath, error);
 			throw error;
 		} finally {
-			// Final cleanup
-			try {
-				await app.stopExternalServer();
-			} catch (error) {
-				console.warn('Failed to stop external server:', error);
-			}
-
-			// Rename the temp logs dir to the spec name (if available)
-			await moveAndOverwrite(logger, logsPath, workerInfo);
+			await app.stopExternalServer();
+			await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	};
 }
@@ -75,9 +62,9 @@ export function WorkbenchAppFixture() {
  * Setup the complete Workbench environment: Docker container, configuration, and permissions
  */
 async function setupWorkbenchEnvironment(): Promise<void> {
-	// Create directories and set up Docker environment
-	await runDockerCommand('docker exec test mkdir -p /home/user1/.positron-server/User/', 'Create settings directory');
+	// Create workspace and settings directories
 	await runDockerCommand('docker exec test mkdir -p /home/user1/qa-example-content/', 'Create workspace directory');
+	await runDockerCommand('docker exec test mkdir -p /home/user1/.positron-server/User/', 'Create settings directory');
 
 	// Copy workspace to container
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
@@ -100,7 +87,6 @@ async function setupWorkbenchEnvironment(): Promise<void> {
  */
 async function runDockerCommand(command: string, description: string): Promise<void> {
 	try {
-		// console.log(`✓ ${description}...`);
 		execSync(command, { stdio: 'inherit' });
 	} catch (error) {
 		console.error(`Failed to ${description.toLowerCase()}:`, error);

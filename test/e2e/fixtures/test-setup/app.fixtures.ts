@@ -21,12 +21,12 @@ export interface AppFixtureOptions {
  */
 export function AppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: any) => Promise<void>) => {
-		const { workerInfo } = fixtureOptions;
+		const project = fixtureOptions.workerInfo.project.name;
 
 		// Route to the appropriate fixture based on configuration
-		if (workerInfo.project.name === 'e2e-workbench') {
+		if (project === 'e2e-workbench') {
 			return await WorkbenchAppFixture()(fixtureOptions, use);
-		} else if (workerInfo.project.name === 'e2e-browser-server') {
+		} else if (project === 'e2e-browser-server') {
 			return await ExternalPositronServerFixture()(fixtureOptions, use);
 		} else {
 			return await ManagedAppFixture()(fixtureOptions, use);

@@ -5,7 +5,7 @@
 
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { moveAndOverwrite, captureScreenshotOnError } from './shared-utils.js';
+import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils.js';
 
 /**
  * App fixture for managed servers (both Electron and browser-based apps)
@@ -23,14 +23,11 @@ export function ManagedAppFixture() {
 
 			await use(app);
 		} catch (error) {
-			// capture a screenshot on failure
 			await captureScreenshotOnError(app, logsPath, error);
 			throw error; // re-throw the error to ensure test failure
 		} finally {
 			await app.stop();
-
-			// rename the temp logs dir to the spec name (if available)
-			await moveAndOverwrite(logger, logsPath, workerInfo);
+			await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	};
 }

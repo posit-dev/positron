@@ -63,7 +63,17 @@ export async function copyUserSettings(userDir: string): Promise<string> {
 	return userDir;
 }
 
-export async function moveAndOverwrite(logger: MultiLogger, logsPath: string, workerInfo: any) {
+/**
+ * Rename a temporary logs directory to a more descriptive name based on the test spec.
+ * If a directory with the target name already exists, it will be overwritten.
+ * If SPEC_NAME is not defined, uses a generic worker-based name.
+ *
+ * @param logger The logger instance to use for logging.
+ * @param logsPath The path to the logs directory.
+ * @param workerInfo Information about the worker process.
+ * @returns A promise that resolves when the operation is complete.
+ */
+export async function renameTempLogsDir(logger: MultiLogger, logsPath: string, workerInfo: any) {
 	const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
 
 	try {

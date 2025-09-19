@@ -19,7 +19,7 @@ import {
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName
 } from '../fixtures/test-setup';
-import { loadProjectEnvironmentVariables } from '../fixtures/load-environment-vars.js';
+import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 
 // Currents fixtures
@@ -40,10 +40,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	// Loads project-specific env vars for local runs only
 	envVars: [async ({ }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
-		loadProjectEnvironmentVariables(projectName);
-		if (workerInfo.project.name === 'e2e-workbench' && process.env.POSIT_WORKBENCH_PASSWORD === undefined) {
-			throw new Error(`POSIT_WORKBENCH_PASSWORD must be set in .env.e2e-workbench`);
+
+		loadEnvironmentVars(projectName);
+
+		validateEnvironmentVars([
+			'POSITRON_PY_VER_SEL',
+			'POSITRON_R_VER_SEL',
+			'POSITRON_PY_ALT_VER_SEL',
+			'POSITRON_R_ALT_VER_SEL',
+		], { allowEmpty: false });
+
+		if (projectName === 'e2e-workbench') {
+			validateEnvironmentVars([
+				'POSIT_WORKBENCH_PASSWORD'
+			], { allowEmpty: false });
 		}
+
 		await use(projectName);
 	}, { scope: 'worker', auto: true }],
 

@@ -10,71 +10,155 @@ interface ProjectEnvironmentVars {
 	[key: string]: string;
 }
 
+/**
+ * Parse a single line from an env file into key-value pair
+ */
+function parseEnvLine(line: string): [string, string] | null {
+	const trimmed = line.trim();
+
+	// Skip empty lines and comments
+	if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) {
+		return null;
+	}
+
+	const [key, ...valueParts] = trimmed.split('=');
+	if (!key || valueParts.length === 0) {
+		return null;
+	}
+
+	return [key, valueParts.join('=')];
+}
+
+/**
+ * Load environment variables from a single .env file
+ */
 function loadEnvFile(envFilePath: string): ProjectEnvironmentVars {
-	const vars: ProjectEnvironmentVars = {};
 	const fullPath = join(process.cwd(), envFilePath);
 
 	if (!fs.existsSync(fullPath)) {
-		return vars;
+		return {};
 	}
 
 	try {
 		const envContent = fs.readFileSync(fullPath, 'utf8');
-		const envLines = envContent.split('\n');
+		const vars: ProjectEnvironmentVars = {};
 
-		for (const line of envLines) {
-			const trimmed = line.trim();
-			if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
-				const [key, ...valueParts] = trimmed.split('=');
-				if (key && valueParts.length > 0) {
-					vars[key] = valueParts.join('=');
-				}
+		for (const line of envContent.split('\n')) {
+			const parsed = parseEnvLine(line);
+			if (parsed) {
+				const [key, value] = parsed;
+				vars[key] = value;
 			}
 		}
+
+		return vars;
 	} catch (error) {
 		console.warn(`⚠️ Failed to load ${envFilePath}:`, error);
+		return {};
 	}
-
-	return vars;
 }
 
-export function loadProjectEnvironmentVariables(projectName: string): void {
-	// Define environment file mappings per project
-	const envFileMappings: Record<string, string[]> = {
-		'e2e-workbench': ['.env.e2e-workbench'],
-		'e2e-electron': ['.env.e2e'],
-		'e2e-browser': ['.env.e2e'],
-		'e2e-browser-server': ['.env.e2e'],
-	};
+/**
+ * Environment file mappings per project type
+ */
+const PROJECT_ENV_FILES: Record<string, string[]> = {
+	'e2e-workbench': ['.env.e2e-workbench'],
+	'e2e-electron': ['.env.e2e'],
+	'e2e-browser': ['.env.e2e'],
+	'e2e-browser-server': ['.env.e2e'],
+} as const;
 
-	const envFiles = envFileMappings[projectName];
+/**
+ * Apply environment variables to process.env, with logging
+ */
+function applyEnvironmentVars(vars: ProjectEnvironmentVars, sourceFile: string): void {
+	Object.entries(vars).forEach(([key, value]) => {
+		if (!value.trim()) {
+			console.warn(`⚠️ ${sourceFile}: ${key} is empty, keeping existing value`);
+			return;
+		}
+
+		const previousValue = process.env[key];
+		process.env[key] = value;
+
+		// Optional: log changes for debugging
+		if (process.env.DEBUG_ENV_LOADING) {
+			console.log(`[${sourceFile}] ${key}: ${previousValue || '(unset)'} → ${value}`);
+		}
+	});
+}
+
+/**
+ * Load and apply environment variables for a specific project
+ */
+export function loadEnvironmentVars(projectName: string): void {
+	const envFiles = PROJECT_ENV_FILES[projectName];
+
 	if (!envFiles) {
-		return; // No specific env files for this project
+		// No specific env files for this project - that's fine
+		return;
 	}
 
-	const originalVars: Record<string, string | undefined> = {};
 	let totalVarsLoaded = 0;
 
 	for (const envFile of envFiles) {
 		const vars = loadEnvFile(envFile);
-		if (Object.keys(vars).length > 0) {
-			// Store original values so we can restore them if needed
-			Object.keys(vars).forEach(key => {
-				if (!(key in originalVars)) {
-					originalVars[key] = process.env[key];
-				}
-			});
+		const varCount = Object.keys(vars).length;
 
-			// Set environment variables (later files override earlier ones)
-			Object.entries(vars).forEach(([key, value]) => {
-				if (!value) {
-					console.log(`${envFile}: ${key} is empty, falling back to: ${originalVars[key]}`);
-				} else {
-					process.env[key] = value;
-					// console.log(`[${projectName}] Set environment variable: ${key} = ${value}`);
-				}
-			});
-			totalVarsLoaded += Object.keys(vars).length;
+		if (varCount > 0) {
+			applyEnvironmentVars(vars, envFile);
+			totalVarsLoaded += varCount;
 		}
 	}
+
+	if (totalVarsLoaded > 0 && process.env.DEBUG_ENV_LOADING) {
+		console.log(`✅ Loaded ${totalVarsLoaded} environment variables for ${projectName}`);
+	}
+}
+
+/**
+ * Validation result for environment variable checks
+ */
+interface EnvValidationResult {
+	isValid: boolean;
+	missing: string[];
+	empty: string[];
+}
+
+/**
+ * Check that required environment variables are set and have non-empty values
+ *
+ * @param requiredVars - Array of environment variable names that must be set
+ * @param options - Validation options
+ * @returns Validation result with details about missing or empty variables
+ */
+export function validateEnvironmentVars(
+	requiredVars: string[],
+	options: { allowEmpty?: boolean } = {}
+): EnvValidationResult {
+	const { allowEmpty = false } = options;
+	const missing: string[] = [];
+	const empty: string[] = [];
+
+	for (const varName of requiredVars) {
+		const value = process.env[varName];
+
+		if (value === undefined) {
+			missing.push(varName);
+		} else if (!allowEmpty && value.trim() === '') {
+			empty.push(varName);
+		}
+	}
+
+	const isValid = missing.length === 0 && (allowEmpty || empty.length === 0);
+
+	// Log issues for visibility
+	if (missing.length > 0) {
+		console.error(`❌ Missing env var(s): ${missing.join(', ')}`);
+	}
+	if (!allowEmpty && empty.length > 0) {
+		console.error(`❌ Empty env var(s): ${empty.join(', ')}`);
+	}
+
+	return { isValid, missing, empty };
 }

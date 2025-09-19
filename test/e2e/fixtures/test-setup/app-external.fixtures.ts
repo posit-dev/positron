@@ -8,7 +8,7 @@ import { mkdir } from 'fs/promises';
 import * as os from 'os';
 import { Application, createApp, copyFixtureFile } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { moveAndOverwrite, copyUserSettings, captureScreenshotOnError } from './shared-utils';
+import { renameTempLogsDir, copyUserSettings, captureScreenshotOnError } from './shared-utils';
 
 /**
  * External Positron server fixture (port 8080)
@@ -21,8 +21,9 @@ export function ExternalPositronServerFixture() {
 		// For external server mode, use the server's actual user data directory
 		const serverUserDataDir = join(os.homedir(), '.positron-e2e-test');
 		const userDir = join(serverUserDataDir, 'User');
-
 		await mkdir(userDir, { recursive: true });
+
+		// Copy custom keybindings and settings to the server user data dir
 		await copyFixtureFile('keybindings.json', userDir, true);
 		await copyUserSettings(userDir);
 
@@ -30,22 +31,17 @@ export function ExternalPositronServerFixture() {
 
 		try {
 			await app.connectToExternalServer();
-
-			// External Positron server: workaround since we have rogue sessions at startup
 			await app.workbench.sessions.expectNoStartUpMessaging();
 			await app.workbench.hotKeys.closeAllEditors();
 			await app.workbench.sessions.deleteAll();
 
 			await use(app);
 		} catch (error) {
-			// capture a screenshot on failure
 			await captureScreenshotOnError(app, logsPath, error);
 			throw error; // re-throw the error to ensure test failure
 		} finally {
 			await app.stopExternalServer();
-
-			// rename the temp logs dir to the spec name (if available)
-			await moveAndOverwrite(logger, logsPath, workerInfo);
+			await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	};
 }
