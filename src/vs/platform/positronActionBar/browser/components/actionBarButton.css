@@ -28,6 +28,10 @@
 	color: var(--vscode-positronActionBar-foreground);
 }
 
+.action-bar-button.disabled {
+	cursor: default;
+}
+
 .action-bar-button.checked {
 	background: var(--vscode-positronActionBar-hoverBackground);
 }
