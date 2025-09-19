@@ -40,7 +40,7 @@ jobs:
     secrets: inherit
 
   inspect-ai-test:
-    needs: [e2e-electron]
+    needs: [e2e-windows-electron]
     name: inspect-ai-test
     timeout-minutes: 120
     runs-on: ubuntu-latest
