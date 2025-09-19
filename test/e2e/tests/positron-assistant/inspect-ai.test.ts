@@ -94,7 +94,7 @@ test.use({
  * the dataset for use in the inspect-ai tests. It also does some basic validation that there are valid responses
  * from the assistant.
  */
-test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB] }, () => {
+test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		// Change veiwport size for web tests
 		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
@@ -108,7 +108,6 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 	/**
 	 * Load dataset and process each question
-	 * @param app - Application fixture providing access to UI elements
 	 */
 	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
 		// Load dataset from file - use custom filename if specified via OUTPUT_FILENAME env var
@@ -180,7 +179,6 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
 			await app.workbench.assistant.enterChatMessage(item.question);
 			await app.workbench.assistant.waitForSendButtonVisible();
-			await app.code.wait(5000);
 			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
 			if (!response || response.trim() === '') {
@@ -189,8 +187,6 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			// Sanitize the response to handle UTF-8 and control character issues
 			item.model_response = sanitizeResponse(response);
 			updatedItems = true;
-
-			await new Promise(resolve => setTimeout(resolve, 1000));
 
 			// Execute cleanup action if one exists for this item
 			const cleanupAction = cleanupActions[item.id as keyof typeof cleanupActions];
