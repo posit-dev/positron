@@ -20,6 +20,8 @@ export class DashboardPage {
 
 	constructor(private code: Code, private quickInput: QuickInput) { }
 
+	// #region Actions
+
 	async goTo(): Promise<void> {
 		await this.code.driver.page.goto('http://localhost:8787');
 		await this.expectHeaderToBeVisible();
@@ -57,12 +59,17 @@ export class DashboardPage {
 		await this.quickInput.clickOkButton();
 	}
 
+	/**
+	 * Opens a session for the specified project, creating it if necessary
+	 * @param projectName The project name to open
+	 */
 	async openSession(projectName = 'qa-example-content'): Promise<void> {
 		// Ensure the project exists before trying to open it
-		const wasNewProjectCreated = await this.ensureProjectExists(projectName);
+		// If a new project is created, it will auto-launch
+		const newProjectCreated = await this.ensureProjectExists(projectName);
 
-		if (!wasNewProjectCreated) {
-			// Project existed, so we need to start a new session for it
+		if (!newProjectCreated) {
+			// Project already existed, so we need to launch it
 			const startNewSessionButton = this.projectNewSessionButton(projectName);
 
 			try {
@@ -78,12 +85,22 @@ export class DashboardPage {
 		}
 	}
 
+	/**
+	 * Quits the specified project session
+	 * @param projectName The project name to quit
+	 */
 	async quitSession(projectName = 'qa-example-content'): Promise<void> {
 		await this.projectCheckbox(projectName).check();
 		await this.quitButton.click();
 	}
 
+	// #endregion
+
+	// #region Verifications
+
 	async expectHeaderToBeVisible() {
 		await expect(this.title).toBeVisible();
 	}
+
+	// #endregion
 }
