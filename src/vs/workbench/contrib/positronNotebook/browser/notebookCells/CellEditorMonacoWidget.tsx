@@ -22,6 +22,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun } from '../../../../../base/common/observable.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../../services/positronNotebook/browser/ContextKeysManager.js';
 
 /**
  *
@@ -76,12 +77,17 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			editor.setModel(model);
 		});
 
+		// Bind the cell editor focused context key
+		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
+
 		disposables.add(editor.onDidFocusEditorWidget(() => {
 			instance.setEditingCell(cell);
+			cellEditorFocusedKey.set(true);
 		}));
 
-		// disposables.add(editor.onDidBlurEditorWidget(() => {
-		// }));
+		disposables.add(editor.onDidBlurEditorWidget(() => {
+			cellEditorFocusedKey.set(false);
+		}));
 
 		/**
 		 * Resize the editor widget to fill the width of its container and the height of its

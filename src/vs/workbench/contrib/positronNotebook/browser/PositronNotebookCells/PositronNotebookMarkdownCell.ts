@@ -12,6 +12,7 @@ import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
+import { CellSelectionType } from '../selectionMachine.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
@@ -36,7 +37,12 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 	}
 
 	toggleEditor(): void {
-		this.editorShown.set(!this.editorShown.get(), undefined);
+		const editorStartingOpen = this.editorShown.get();
+		this.editorShown.set(!editorStartingOpen, undefined);
+		// Make sure cell stays selected if we're closing the editor
+		if (editorStartingOpen) {
+			this.select(CellSelectionType.Normal);
+		}
 	}
 
 	override async showEditor(focus = false): Promise<ICodeEditor | undefined> {
