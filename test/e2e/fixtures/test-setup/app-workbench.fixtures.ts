@@ -101,11 +101,13 @@ async function copyUserSettingsToContainer(): Promise<void> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 	const userSettingsFile = path.join(fixturesDir, 'settings.json');
 	const dockerSettingsFile = path.join(fixturesDir, 'settingsDocker.json');
+	const workbenchSettingsFile = path.join(fixturesDir, 'settingsWorkbench.json');
 
 	// Merge settings
 	const mergedSettings = {
 		...JSON.parse(fs.readFileSync(userSettingsFile, 'utf8')),
 		...JSON.parse(fs.readFileSync(dockerSettingsFile, 'utf8')),
+		...JSON.parse(fs.readFileSync(workbenchSettingsFile, 'utf8')),
 	};
 
 	// Create temporary merged settings file

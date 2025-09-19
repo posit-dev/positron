@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('New Folder Flow: Template visibility via Interpreter Settings', {
+test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 	tag: [tags.INTERPRETER, tags.WEB, tags.MODAL, tags.NEW_FOLDER_FLOW]
 }, () => {
 

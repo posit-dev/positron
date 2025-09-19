@@ -25,7 +25,7 @@ test.describe('Notebook Working Directory Configuration', {
 		await app.workbench.notebooks.closeNotebookWithoutSaving();
 	});
 
-	test.skip('Default working directory is the notebook parent', async function ({ app, settings }) {
+	test('Default working directory is the notebook parent', async function ({ app, settings }) {
 		await settings.clear();
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
