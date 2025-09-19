@@ -42,7 +42,7 @@ export class QuickAccess {
 		// Clear editor history to ensure Quick Access is not "polluted"
 		await this.runCommand('workbench.action.clearEditorHistory');
 
-		if (this.code.driver.page.url().includes('8080')) {
+		if (/(8080|8787)/.test(this.code.driver.page.url())) {
 			await this.code.driver.page.getByRole('button', { name: 'Clear', exact: true }).click();
 		}
 
