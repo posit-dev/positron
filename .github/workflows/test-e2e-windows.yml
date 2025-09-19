@@ -339,7 +339,7 @@ jobs:
           exit 1
 
       - name: Upload inspect-ai JSON Responses
-        if: ${{ always() && inputs.grep != '' && inputs.grep == '@:inspect-ai' }}
+        if: ${{ always() && inputs.project == 'inspect-ai' }}
         uses: actions/upload-artifact@v4
         with:
           name: inspect-ai-responses
