@@ -263,13 +263,15 @@ jobs:
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
             echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
             npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+            SKIP_CLONE_ARG="SKIP_CLONE=true"
           else
             echo "Skipping bootstrap extensions test (skip_extension_test=true)"
+            SKIP_CLONE_ARG=""
           fi
 
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
