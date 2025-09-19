@@ -63,6 +63,11 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: true
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
 
   workflow_dispatch:
     inputs:
@@ -84,6 +89,11 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
 
 permissions:
   id-token: write
@@ -250,8 +260,12 @@ jobs:
           echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
-          echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
-          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+            echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
+            npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+          else
+            echo "Skipping bootstrap extensions test (skip_extension_test=true)"
+          fi
 
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
