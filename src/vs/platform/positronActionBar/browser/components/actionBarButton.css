@@ -42,12 +42,12 @@
 	border: 1px solid var(--vscode-positronActionBar-selectBorder);
 }
 
-.action-bar-button:hover {
+.action-bar-button:hover:not(.disabled) {
 	background: var(--vscode-positronActionBar-hoverBackground);
 }
 
-.hc-black .action-bar-button:hover,
-.hc-light .action-bar-button:hover {
+.hc-black .action-bar-button:hover:not(.disabled),
+.hc-light .action-bar-button:hover:not(.disabled) {
 	border: 1px dashed var(--vscode-focusBorder);
 }
 
@@ -117,7 +117,7 @@
 	padding: 0 4px;
 }
 
-.action-bar-button-icon.enabled-split:hover {
+.action-bar-button-icon.enabled-split:hover:not(.disabled) {
 	padding: 0 4px;
 	border-radius: 4px;
 	filter: brightness(90%);
@@ -134,7 +134,7 @@
 	padding: 0 5px;
 }
 
-.action-bar-button-drop-down-button:hover {
+.action-bar-button-drop-down-button:hover:not(.disabled) {
 	border-radius: 4px;
 	filter: brightness(90%);
 	background: var(--vscode-positronActionBar-hoverBackground);

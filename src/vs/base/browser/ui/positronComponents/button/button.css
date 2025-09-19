@@ -22,8 +22,8 @@
 	border: 1px solid transparent;
 }
 
-.hc-black .positron-button:hover,
-.hc-light .positron-button:hover {
+.hc-black .positron-button:hover:not(.disabled),
+.hc-light .positron-button:hover:not(.disabled) {
 	border: 1px dashed var(--vscode-focusBorder);
 }
 
