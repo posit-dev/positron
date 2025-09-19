@@ -2,6 +2,11 @@ name: "Test: E2E (Windows)"
 on:
   workflow_call:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@:win)(?=.*@:feature)"
@@ -43,9 +48,19 @@ on:
         description: "Comma-separated list of tags to skip."
         type: string
         default: ""
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
 
   workflow_dispatch:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
       grep:
         required: false
         description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
@@ -61,6 +76,11 @@ on:
         description: "Comma-separated list of tags to skip."
         type: string
         default: "@:nightly-only"
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
 
 permissions:
   id-token: write
@@ -221,6 +241,7 @@ jobs:
           echo "exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Run Bootstrap Extensions Test
+        if: ${{ inputs.skip_extension_test != true }}
         id: bootstrap
         shell: bash
         env:
@@ -280,8 +301,8 @@ jobs:
           export SKIP_BOOTSTRAP=true
           export SKIP_CLONE=true
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
