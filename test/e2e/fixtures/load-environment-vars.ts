@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -71,7 +71,7 @@ export function loadProjectEnvironmentVariables(projectName: string): void {
 					console.log(`${envFile}: ${key} is empty, falling back to: ${originalVars[key]}`);
 				} else {
 					process.env[key] = value;
-					// console.log(`🔧 [${projectName}] Set environment variable: ${key} = ${value}`);
+					// console.log(`[${projectName}] Set environment variable: ${key} = ${value}`);
 				}
 			});
 			totalVarsLoaded += Object.keys(vars).length;

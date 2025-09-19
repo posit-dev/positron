@@ -113,7 +113,7 @@ export default defineConfig<ExtendedTestOptions>({
 				useExternalServer: true,
 				externalServerUrl: 'http://localhost:8787'
 			},
-			grep: /@:web|@:external/
+			grep: /@:web|@:workbench/
 		},
 		{
 			name: 'e2e-browser-server',
@@ -124,7 +124,7 @@ export default defineConfig<ExtendedTestOptions>({
 				useExternalServer: true,
 				externalServerUrl: 'http://localhost:8080/?tkn=dev-token'
 			},
-			grep: /@:web|@:external/
+			grep: /@:web/
 		},
 		{
 			name: 'e2e-windows',
@@ -141,7 +141,6 @@ export default defineConfig<ExtendedTestOptions>({
 				web: false,
 				artifactDir: 'e2e-macOS-ci',
 			},
-			grep: /@:win/,
 			grepInvert: /@:web-only|@:interpreter/
 		},
 	],

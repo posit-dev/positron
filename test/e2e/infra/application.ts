@@ -10,6 +10,15 @@ import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
 import { PositWorkbench } from './workbench-pwb.js';
 
+const READINESS_LOCATORS = {
+	monacoWorkbench: '.monaco-workbench',
+	explorerFoldersView: '.explorer-folders-view',
+	activityBar: '.activitybar',
+	statusBar: '.statusbar',
+	remoteHost: '.monaco-workbench .statusbar-item[id="status.host"]',
+	positWorkbenchSignIn: 'Sign in to Posit Workbench'
+} as const;
+
 export const enum Quality {
 	Dev,
 	Insiders,
@@ -170,54 +179,82 @@ export class Application {
 	}
 
 	private async checkWindowReady(code: Code): Promise<void> {
+		const isWorkbench = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8787');
+		const isPositronServer = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8080');
+
 		// We need a rendered workbench
 		await measureAndLog(() => code.didFinishLoad(), 'Application#checkWindowReady: wait for navigation to be committed', this.logger);
 
-		// For external servers, use specialized readiness checks
-		if (this.options.useExternalServer) {
-			await measureAndLog(() => this.checkExternalServerWorkbenchReady(code), 'Application#checkExternalServerWorkbenchReady', this.logger);
+		// Readiness checks differ based on the type of connection
+		if (isWorkbench) {
+			await measureAndLog(() => this.checkPositWorkbenchReady(code), 'Application#checkPositWorkbenchReady', this.logger);
+		} else if (isPositronServer) {
+			await measureAndLog(() => this.checkPositronServerReady(code), 'Application#checkPositronServerReady', this.logger);
 		} else {
-			// Standard VS Code workbench checks
-			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench')).toBeVisible({ timeout: 30000 }), 'Application#checkWindowReady: wait for .monaco-workbench element', this.logger);
-			await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkWorkbenchRestored', this.logger);
-
-			// Wait for the explorer to be visible
-			await measureAndLog(() => expect(code.driver.page.locator('.explorer-folders-view')).toBeVisible({ timeout: 60000 }), 'Application#checkWindowReady: wait for .explorer-folders-view element', this.logger);
+			await measureAndLog(() => this.checkPositronReady(code), 'Application#checkPositronReady', this.logger);
 		}
 
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
-			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench .statusbar-item[id="status.host"]')).not.toContainText('Opening Remote'), 'Application#checkWindowReady: wait for remote indicator', this.logger);
+			await measureAndLog(
+				() => expect(code.driver.page.locator(READINESS_LOCATORS.remoteHost)).not.toContainText('Opening Remote'),
+				'Application#checkWindowReady: wait for remote indicator',
+				this.logger
+			);
 		}
 	}
 
-	private async checkExternalServerWorkbenchReady(code: Code): Promise<void> {
-		// Determine server type directly from URL
-		const isPositWorkbench = this.options.externalServerUrl?.includes(':8787');
-
-		isPositWorkbench
-			? await this.checkPositWorkbenchReady(code)
-			: await this.checkVSCodeServerReady(code);
+	/**
+	 * Positron readiness checks
+	 */
+	private async checkPositronReady(code: Code): Promise<void> {
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronReady: wait for monaco workbench',
+			this.logger
+		);
+		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkPositronReady: wait for workbench restored', this.logger);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
+			'Application#checkPositronReady: wait for explorer view',
+			this.logger
+		);
 	}
 
+	/**
+	 * Posit Workbench readiness checks
+	 */
 	private async checkPositWorkbenchReady(code: Code): Promise<void> {
-		// For Posit Workbench, we expect to see a login screen
-		await expect(code.driver.page.getByText('Sign in to Posit Workbench')).toBeVisible({ timeout: 30000 });
+		await measureAndLog(
+			() => expect(code.driver.page.getByText(READINESS_LOCATORS.positWorkbenchSignIn)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositWorkbenchReady: wait for sign in prompt',
+			this.logger
+		);
 	}
 
-	private async checkVSCodeServerReady(code: Code): Promise<void> {
-		// Standard VS Code server readiness checks
-
-		// Wait for the monaco workbench to be visible
-		await expect(code.driver.page.locator('.monaco-workbench')).toBeVisible({ timeout: 30000 });
-
-		// Wait for the explorer to be visible (main workbench element)
-		await expect(code.driver.page.locator('.explorer-folders-view')).toBeVisible({ timeout: 60000 });
-
-		// Wait for the activity bar to be ready
-		await expect(code.driver.page.locator('.activitybar')).toBeVisible({ timeout: 30000 });
-
-		// Wait for the status bar to be ready
-		await expect(code.driver.page.locator('.statusbar')).toBeVisible({ timeout: 30000 });
+	/**
+	 * External Positron Server readiness checks
+	 */
+	private async checkPositronServerReady(code: Code): Promise<void> {
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronServerReady: wait for monaco workbench',
+			this.logger
+		);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
+			'Application#checkPositronServerReady: wait for explorer view',
+			this.logger
+		);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.activityBar)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronServerReady: wait for activity bar',
+			this.logger
+		);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.statusBar)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronServerReady: wait for status bar',
+			this.logger
+		);
 	}
 }
