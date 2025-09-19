@@ -34,6 +34,8 @@ export interface ICellInfo {
 	isRunning: boolean;
 	/** Cell is queued for execution */
 	isPending: boolean;
+	/** Cell is a markdown cell and the editor is open */
+	markdownEditorOpen: boolean;
 }
 
 /**
@@ -60,12 +62,13 @@ export function createCellInfo(
 		cellIndex,
 		totalCells,
 		isFirstCell: cellIndex === 0,
-		isLastCell: cellIndex === totalCells - 1,
+		isLastCell: cell.isLastCell(),
 		isOnlyCell: totalCells === 1,
 		// TODO: There is a tiny chance that the cell is running but the status is not yet updated.
 		// If this happens we will probably need to make the cell info an observable.
 		isRunning: cell.executionStatus.get() === 'running',
 		isPending: cell.executionStatus.get() === 'pending',
+		markdownEditorOpen: cell.isMarkdownCell() ? cell.editorShown.get() : false,
 	};
 }
 
@@ -87,6 +90,9 @@ export const CellConditions = {
 
 	/** Is pending */
 	isPending: (info: ICellInfo) => info.isPending,
+
+	/** Markdown cell with editor open */
+	markdownEditorOpen: (info: ICellInfo) => info.markdownEditorOpen,
 
 	/** Not the first cell (has cells above) */
 	notFirst: (info: ICellInfo) => !info.isFirstCell,
