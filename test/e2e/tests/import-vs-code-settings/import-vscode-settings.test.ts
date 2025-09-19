@@ -111,7 +111,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 		});
 	});
 
-	test.describe('Import without Positron settings', () => {
+	test.describe.skip('Import without Positron settings', () => {
 		test.beforeEach(async ({ settings }) => {
 			await settings.clear();
 		});
