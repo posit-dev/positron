@@ -41,6 +41,7 @@ export function WorkbenchAppFixture() {
 
 			// Wait for Positron to be ready
 			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+			await app.workbench.sessions.expectNoStartUpMessaging();
 			await app.workbench.sessions.deleteAll();
 			await app.workbench.hotKeys.closeAllEditors();
 
@@ -83,13 +84,9 @@ async function setupWorkbenchEnvironment(): Promise<void> {
 	const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 	await runDockerCommand(`docker cp ${WORKSPACE_PATH}/. test:/home/user1/qa-example-content/`, 'Copy workspace to container');
 
-	// Copy merged settings to container
-	await copySettingsToContainer();
-
-	// Copy keybindings to container
-	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
-	const keybindingsFile = path.join(fixturesDir, 'keybindings.json');
-	await runDockerCommand(`docker cp ${keybindingsFile} test:/home/user1/.positron-server/User/keybindings.json`, 'Copy keybindings to container');
+	// Copy settings to container
+	await copyUserSettingsToContainer();
+	await copyKeyBindingsToContainer();
 
 	// Fix permissions
 	await runDockerCommand('docker exec test chown -R user1:user1g /home/user1/.positron-server/', 'Set ownership of settings directory');
@@ -114,7 +111,7 @@ async function runDockerCommand(command: string, description: string): Promise<v
 /**
  * Copy merged settings (base + Docker overrides) to the container
  */
-async function copySettingsToContainer(): Promise<void> {
+async function copyUserSettingsToContainer(): Promise<void> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
 	const userSettingsFile = path.join(fixturesDir, 'settings.json');
 	const dockerSettingsFile = path.join(fixturesDir, 'settingsDocker.json');
@@ -136,4 +133,10 @@ async function copySettingsToContainer(): Promise<void> {
 		// Clean up temporary file
 		fs.unlinkSync(tempSettingsFile);
 	}
+}
+
+async function copyKeyBindingsToContainer(): Promise<void> {
+	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
+	const keybindingsFile = path.join(fixturesDir, 'keybindings.json');
+	await runDockerCommand(`docker cp ${keybindingsFile} test:/home/user1/.positron-server/User/keybindings.json`, 'Copy keybindings to container');
 }
