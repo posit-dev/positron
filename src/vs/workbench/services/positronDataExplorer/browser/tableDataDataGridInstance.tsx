@@ -23,7 +23,7 @@ import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../commo
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
 import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 
 /**
@@ -388,6 +388,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint?: AnchorPoint
 	): Promise<void> {
+		// Ensure the column is selected (handles both right-click and dropdown button cases)
+		await this.mouseSelectColumn(columnIndex, MouseSelectionType.Single);
+
 		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
@@ -404,8 +407,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
+			label: localize('positron.dataExplorer.copyColumn', "Copy Column"),
+			onSelected: () => console.log('Copy Column')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
@@ -501,6 +504,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint: AnchorPoint
 	): Promise<void> {
+		// Ensure the row is selected (handles both right-click and keyboard shortcut cases)
+		await this.mouseSelectRow(rowIndex, MouseSelectionType.Single);
+
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
 
@@ -511,8 +517,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			checked: false,
 			disabled: !copySupported,
 			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
+			label: localize('positron.dataExplorer.copyRow', "Copy Row"),
+			onSelected: () => console.log('Copy Row')
 		}));
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
