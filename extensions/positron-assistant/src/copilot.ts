@@ -158,6 +158,15 @@ export class CopilotService implements vscode.Disposable {
 				command,
 				args: ['--stdio'],
 				transport: TransportKind.stdio,
+				options: {
+					env: {
+						...process.env,
+						http_proxy: process.env.HTTP_PROXY,
+						https_proxy: process.env.HTTPS_PROXY,
+						all_proxy: process.env.ALL_PROXY,
+						no_proxy: process.env.NO_PROXY,
+					},
+				}
 			};
 			const packageJSON = this._context.extension.packageJSON;
 			const editorPluginInfo: EditorPluginInfo = {
