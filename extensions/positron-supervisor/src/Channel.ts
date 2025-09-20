@@ -66,7 +66,7 @@ export class Sender<T> implements vscode.Disposable {
  * Channel receiver (rx). Async-iterable to receive values from the channel.
  */
 export class Receiver<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.Disposable {
-	private i = 0;
+	private yieldCount = 0;
 	private disposables: vscode.Disposable[] = [];
 
 	constructor(private state: ChannelState<T>) { }
@@ -77,15 +77,15 @@ export class Receiver<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.D
 
 	async next(): Promise<IteratorResult<T>> {
 		if (this.state.queue.length > 0) {
-			++this.i;
+			++this.yieldCount;
 
 			// Get the value from queue first, before any potential await
 			const value = this.state.queue.shift()!;
 
 			// Yield regularly to event loop to avoid starvation. Sends are
 			// synchronous and handlers might be synchronous as well.
-			if (this.i > YIELD_THRESHOLD) {
-				this.i = 0;
+			if (this.yieldCount > YIELD_THRESHOLD) {
+				this.yieldCount = 0;
 				await delay(0);
 			}
 

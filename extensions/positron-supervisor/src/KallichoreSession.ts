@@ -831,7 +831,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				result[key] = target;
 				// If we don't have a comm object for this comm, create one
 				if (!this._clients.has(key)) {
-					// Should this be renamed to Client?
 					this._clients.set(key, new Client(key, target));
 				}
 

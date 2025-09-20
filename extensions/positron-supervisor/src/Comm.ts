@@ -125,6 +125,9 @@ export class CommImpl implements vscode.Disposable {
 		for (const disposable of this.disposables) {
 			disposable.dispose();
 		}
+
+		// Clear array to make method idempotent
+		this.disposables.length = 0;
 	}
 
 	register(disposable: vscode.Disposable) {
