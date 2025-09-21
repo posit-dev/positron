@@ -42,17 +42,11 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: false
-
-      skip_tags:
-        required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: ""
       skip_extension_test:
         required: false
         description: "Whether to skip the bootstrap extensions test."
         type: boolean
-        default: true
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -71,11 +65,6 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
-      skip_tags:
-        required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: "@:nightly-only"
       skip_extension_test:
         required: false
         description: "Whether to skip the bootstrap extensions test."
@@ -280,7 +269,7 @@ jobs:
           echo "Final --grep argument: $GREP_ARG"
 
           export SKIP_BOOTSTRAP=true
-          export SKIP_CLONE=true
+          export SKIP_CLONE=false
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
           eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
