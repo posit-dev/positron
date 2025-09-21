@@ -570,10 +570,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The result of the request
 	 */
 	performUiCommRequest(req: UICommRequest, uiCommId: string): Promise<any> {
-		// Create the request. This uses a JSON-RPC 2.0 format, with an
-		// additional `msg_type` field to indicate that this is a request type
-		// for the UI comm.
-		//
 		// NOTE: Currently using nested RPC messages for convenience but
 		// we'd like to do better
 		const request = {
@@ -583,6 +579,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				method: req.method,
 				params: req.args
 			},
+			id: createUniqueId(),
 		};
 
 		const commMsg: JupyterCommMsg = {
