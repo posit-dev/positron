@@ -53,11 +53,6 @@ on:
         description: "Whether or not to install positron-license"
         type: boolean
         default: false
-      skip_tags:
-        required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: ""
       upload_logs:
         required: false
         description: "Whether or not to upload e2e test logs."
@@ -222,26 +217,6 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
         run: |
-          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
-
-          # Convert comma-separated skip_tags input into a pipe-separated string
-          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
-
-          # Build a single lookahead regex pattern
-          if [ "${{ inputs.project }}" == "e2e-electron" ]; then
-            if [ -n "$SKIP_TAGS_PATTERN" ]; then
-              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
-            else
-              SKIP_TAGS_REGEX="(?=.*(@:web-only))"
-            fi
-          else
-            if [ -n "$SKIP_TAGS_PATTERN" ]; then
-              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN))"
-            else
-              SKIP_TAGS_REGEX=""
-            fi
-          fi
-
           # Build the --grep-invert argument if needed
           GREP_INVERT_ARG=""
           if [ -n "$SKIP_TAGS_REGEX" ]; then
@@ -257,7 +232,6 @@ jobs:
 
           # Log the arguments
           echo "Final --grep argument: $GREP_ARG"
-          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
@@ -271,7 +245,7 @@ jobs:
 
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}

@@ -6,41 +6,42 @@ on:
   #   - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
-jobs:
-  # e2e-electron:
-  #   name: e2e
-  #   uses: ./.github/workflows/test-e2e-ubuntu.yml
-  #   with:
-  #     grep: ""
-  #     project: "inspect-ai"
-  #     display_name: "electron (ubuntu)"
-  #     currents_tags: "merge,electron/ubuntu"
-  #     report_testrail: false
-  #     install_undetectable_interpreters: false
-  #     install_license: false
-  #     skip_tags: "@:nightly-only"
-  #     upload_logs: false
-  #     report_currents: false
-  #     skip_extension_test: true
-  #     workers: 1
-  #   secrets: inherit
+jobs:  # to input into inspect-ai-test job below
 
-  e2e-windows-electron:
+  e2e-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-windows.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ""
-      project: "inpsect-ai"
-      display_name: "electron (windows)"
-      currents_tags: "merge,electron/windows"
+      project: "inspect-ai"
+      display_name: "electron (ubuntu)"
+      currents_tags: "merge,electron/ubuntu"
       report_testrail: false
+      install_undetectable_interpreters: false
+      install_license: false
       upload_logs: false
       report_currents: false
       skip_extension_test: true
+      workers: 1
     secrets: inherit
 
+  # Windows works, but takes a long time and need to add processing of multiple artifacts
+  # e2e-windows-electron:
+    # name: e2e
+    # uses: ./.github/workflows/test-e2e-windows.yml
+    # with:
+    #   grep: ""
+    #   project: "inpsect-ai"
+    #   display_name: "electron (windows)"
+    #   currents_tags: "merge,electron/windows"
+    #   report_testrail: false
+    #   upload_logs: false
+    #   report_currents: false
+    #   skip_extension_test: true
+    # secrets: inherit
+
   inspect-ai-test:
-    needs: [e2e-windows-electron]
+    needs: [e2e-electron]
     name: inspect-ai-test
     timeout-minutes: 120
     runs-on: ubuntu-latest
