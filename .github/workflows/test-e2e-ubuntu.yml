@@ -217,12 +217,6 @@ jobs:
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
         run: |
-          # Build the --grep-invert argument if needed
-          GREP_INVERT_ARG=""
-          if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
-          fi
-
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then
             GREP_ARG=""
@@ -244,7 +238,7 @@ jobs:
           fi
 
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
           eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
