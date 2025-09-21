@@ -89,7 +89,12 @@ on:
         description: "Whether to skip the bootstrap extensions test."
         type: boolean
         default: true
-
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
+        
 permissions:
   id-token: write
   contents: read
