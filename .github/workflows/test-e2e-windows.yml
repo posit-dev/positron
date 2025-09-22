@@ -269,7 +269,13 @@ jobs:
           echo "Final --grep argument: $GREP_ARG"
 
           export SKIP_BOOTSTRAP=true
-          export SKIP_CLONE=false
+          # Skip close on qa-example-content if we already did the bootstrap test
+          if [ "${{ inputs.skip_extension_test }}" = "true" ]; then
+            export SKIP_CLONE=true
+          else
+            export SKIP_CLONE=false
+          fi
+
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
           eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
