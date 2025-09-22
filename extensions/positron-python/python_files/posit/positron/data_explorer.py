@@ -110,7 +110,6 @@ from .third_party import is_ibis, is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
-    import ibis.expr.types as ir
     import pandas as pd
     import polars as pl
 

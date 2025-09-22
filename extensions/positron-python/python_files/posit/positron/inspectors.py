@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
     # python >= 3.10
     with contextlib.suppress(ImportError):
-        import ibis  # noqa: F401
+        import ibis
 
 
 # General display settings
@@ -1016,8 +1016,8 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
 
 
 class IbisColumnInspector(BaseColumnInspector["ibis.Column"]):
-    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
-        return f"Ibis column {type(self.value)}"
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:  # noqa: ARG002
+        return f"{type(self.value)}"
 
     def has_children(self):
         return False
