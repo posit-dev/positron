@@ -555,7 +555,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			notebookUri,
 			source,
 			startMode,
-			true
+			// Activate this session if it's for a console (notebooks have their
+			// own activation logic)
+			sessionMode === LanguageRuntimeSessionMode.Console
 		);
 	}
 
