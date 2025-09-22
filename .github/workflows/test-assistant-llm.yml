@@ -2,8 +2,8 @@ name: "Test: Assistant LLM Testing"
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
-  # schedule:
-  #   - cron: "0 2 * * 1-5"
+  schedule:
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
 jobs:  # to input into inspect-ai-test job below
