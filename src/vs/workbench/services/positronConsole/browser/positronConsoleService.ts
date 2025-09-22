@@ -710,6 +710,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// We already have a console instance! Focus it
 		if (positronConsoleInstance) {
 			this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
+			this.setActivePositronConsoleInstance(positronConsoleInstance);
 			positronConsoleInstance.focusInput();
 			return;
 		}
