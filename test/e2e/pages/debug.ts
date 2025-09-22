@@ -43,7 +43,7 @@ export class Debug {
 	async setBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Set breakpoint on line ${lineNumber}`, async () => {
 			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
-			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 } });
+			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
 			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible();
 		});
 	}
