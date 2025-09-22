@@ -270,7 +270,7 @@ jobs:
 
           export SKIP_BOOTSTRAP=true
           # Skip close on qa-example-content if we already did the bootstrap test
-          if [ "${{ inputs.skip_extension_test }}" = "true" ]; then
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
             export SKIP_CLONE=true
           else
             export SKIP_CLONE=false
