@@ -37,4 +37,6 @@ product.overrides.json
 /playwright/.cache/
 /test-logs/
 .venv
+.env.e2e*
+!.env.e2e*.example
 # --- End Positron ---
