@@ -62,6 +62,11 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  */
 const TRACE_OUTPUT_MAX_LENGTH = 1000;
 
+/**
+ * The prefix for execution IDs affiliated with the Positron Console
+ */
+export const POSITRON_CONSOLE_EXEC_PREFIX = 'fragment-';
+
 //#region Helper Functions
 
 /**
@@ -2305,7 +2310,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						// messages, which begin with `fragment-`. However, if we
 						// are currently in the Offline state, the message that
 						// brings us back online may not be one of our own messages.
-						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+						if (languageRuntimeMessageState.parent_id.startsWith(POSITRON_CONSOLE_EXEC_PREFIX) ||
 							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
 							this.state === PositronConsoleState.Offline) {
 							this.setState(PositronConsoleState.Busy);
@@ -2316,7 +2321,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					}
 
 					case RuntimeOnlineState.Idle: {
-						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+						if (languageRuntimeMessageState.parent_id.startsWith(POSITRON_CONSOLE_EXEC_PREFIX) ||
 							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
 							this.state === PositronConsoleState.Offline) {
 							this.setState(PositronConsoleState.Ready);
@@ -2874,7 +2879,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return storedExecutionId;
 		}
 
-		return `fragment-${generateUuid()}`;
+		return `${POSITRON_CONSOLE_EXEC_PREFIX}-${generateUuid()}`;
 	}
 
 	/**
