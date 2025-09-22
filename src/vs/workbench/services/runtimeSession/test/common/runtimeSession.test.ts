@@ -183,7 +183,7 @@ suite('Positron - RuntimeSessionService', () => {
 	async function restoreSession(
 		sessionMetadata: IRuntimeSessionMetadata, runtime: ILanguageRuntimeMetadata,
 	) {
-		await runtimeSessionService.restoreRuntimeSession(runtime, sessionMetadata, sessionName, true);
+		await runtimeSessionService.restoreRuntimeSession(runtime, sessionMetadata, sessionName, true, true);
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);

@@ -1404,7 +1404,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Reconnect to the session; activate it if it is the first console
 				// session
 				await this._runtimeSessionService.restoreRuntimeSession(
-					session.runtimeMetadata, session.metadata, session.sessionName, activate);
+					session.runtimeMetadata, session.metadata, session.sessionName, session.hasConsole, activate);
 			} catch (err) {
 				// If an error occurs, fire an event to clean up provisional copies
 				const error: ISessionRestoreFailedEvent = {
@@ -1456,6 +1456,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					sessionState: session.getRuntimeState(),
 					runtimeMetadata: session.runtimeMetadata,
 					workingDirectory: activeSession?.workingDirectory || '',
+					hasConsole: activeSession?.hasConsole || false,
 					lastUsed: session.lastUsed,
 					localWindowId: this._localWindowId,
 				};

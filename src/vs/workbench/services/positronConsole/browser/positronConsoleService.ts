@@ -45,7 +45,6 @@ import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurati
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/editorOptions.js';
-import { RuntimeSessionMetadata } from 'positron';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -321,8 +320,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@ILogService private readonly _logService: ILogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
-		@IViewsService private readonly _viewsService: IViewsService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IViewsService private readonly _viewsService: IViewsService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -339,7 +337,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Activate the first restored console session, if no session
 				// is active.
 				const activate = first && !hasActiveSession;
-				if (this.shouldShowSession(session.metadata)) {
+				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console ||
+					session.hasConsole) {
 					first = false;
 					try {
 						this.restorePositronConsole(session, activate);
@@ -357,13 +356,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Start a Positron console instance for each running runtime. Only
 		// activate the first one.
 		let first = true;
-		this._runtimeSessionService.activeSessions.forEach(session => {
-			if (this.shouldShowSession(session.metadata)) {
+		this._runtimeSessionService.activeSessions.forEach(s => {
+			const session = this._runtimeSessionService.getActiveSession(s.sessionId);
+			if (!session) {
+				this._logService.warn(`No active session found for ${s.sessionId}`);
+				return;
+			}
+			if (session.hasConsole) {
 				// The instance should be activated if it is the foreground
 				// session.
 				let activate = false;
 				if (this._runtimeSessionService.foregroundSession &&
-					session.sessionId === this._runtimeSessionService.foregroundSession.sessionId) {
+					s.sessionId === this._runtimeSessionService.foregroundSession.sessionId) {
 					activate = true;
 				}
 
@@ -373,7 +377,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					activate = true;
 				}
 
-				this.startPositronConsoleInstance(session, SessionAttachMode.Connected, activate);
+				this.startPositronConsoleInstance(s, SessionAttachMode.Connected, activate);
 				first = false;
 			}
 		});
@@ -382,7 +386,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Positron console instance before a runtime starts up.
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			// Ignore non-console sessions
-			if (!this.shouldShowSession(e.session.metadata)) {
+			if (!e.hasConsole) {
 				return;
 			}
 
@@ -587,24 +591,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Replay all the execution entries for the session.
 		const entries = this._executionHistoryService.getExecutionEntries(sessionId);
 		console.replayExecutions(entries);
-	}
-
-	/**
-	 * Indicates whether a session should be shown by the console service
-	 *
-	 * @param metadata The session's metadata
-	 * @returns Whether the session should be shown
-	 */
-	private shouldShowSession(metadata: RuntimeSessionMetadata): boolean {
-		// Console sessions are always shown
-		if (metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-			return true;
-		}
-		if (metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			return this._configurationService.getValue<boolean>("console.showNotebookConsoles");
-		}
-		// Other session types are not shown by the console service
-		return false;
 	}
 
 	/**

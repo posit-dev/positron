@@ -50,6 +50,7 @@ export class ActiveRuntimeSession extends Disposable {
 	constructor(
 		public session: ILanguageRuntimeSession,
 		public manager: ILanguageRuntimeSessionManager,
+		public hasConsole: boolean,
 		private readonly _commandService: ICommandService,
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,

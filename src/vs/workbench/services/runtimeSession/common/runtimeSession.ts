@@ -119,7 +119,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// An map of sessions that have been disconnected from the extension host,
 	// from sessionId to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
-	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
+	private readonly _disconnectedSessions = new Map<string, ActiveRuntimeSession>();
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
@@ -221,7 +221,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// sessions owned by that extension. If we do, try to reconnect them.
 		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
 			for (const extensionId of e) {
-				for (const session of this._disconnectedSessions.values()) {
+				for (const s of this._disconnectedSessions.values()) {
+					const session = s.session;
 					if (session.runtimeMetadata.extensionId.value === extensionId.value) {
 						// Remove the session from the disconnected sessions so we don't
 						// try to reconnect it again (no matter the outcome below)
@@ -234,6 +235,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 							this.restoreRuntimeSession(session.runtimeMetadata,
 								session.metadata,
 								session.dynState.sessionName,
+								s.hasConsole,
 								false);
 							this._logService.debug(`Completed reconnection for session ${session.sessionId}`);
 						} catch (err) {
@@ -264,7 +266,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Clear map and fire deletion events to update
 				// console session service consumers.
 				this._disconnectedSessions.forEach(value => {
-					this._onDidDeleteRuntimeSessionEmitter.fire(value.sessionId);
+					this._onDidDeleteRuntimeSessionEmitter.fire(value.session.sessionId);
 				});
 				this._disconnectedSessions.clear();
 			}
@@ -688,11 +690,25 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
+		// Create a console for the session if it's a console session or the
+		// user has opted in to showing notebook consoles
+		const createConsole =
+			sessionMode === LanguageRuntimeSessionMode.Console || (
+				sessionMode === LanguageRuntimeSessionMode.Notebook &&
+				this._configurationService.getValue<boolean>("console.showNotebookConsoles"));
+
 		// Start the runtime.
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, activate, notebookUri);
+		return this.doCreateRuntimeSession(languageRuntime,
+			sessionName,
+			sessionMode,
+			source,
+			startMode,
+			createConsole,
+			activate,
+			notebookUri);
 	}
 
 	/**
@@ -734,6 +750,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string,
+		createConsole: boolean,
 		activate: boolean): Promise<void> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
@@ -781,7 +798,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		try {
 			const sessionId = await this.doRestoreRuntimeSession(
-				sessionMetadata, runtimeMetadata, sessionName, activate);
+				sessionMetadata, runtimeMetadata, sessionName, createConsole, activate);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -798,6 +815,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionMetadata: IRuntimeSessionMetadata,
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionName: string,
+		createConsole: boolean,
 		activate: boolean,
 	) {
 		// We should already have a session manager registered, since we can't
@@ -823,7 +841,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Actually reconnect the session.
-		await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
+		await this.doStartRuntimeSession(session,
+			sessionManager,
+			RuntimeStartMode.Reconnecting,
+			createConsole,
+			activate);
 
 		return sessionMetadata.sessionId;
 
@@ -1575,7 +1597,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		return this.doCreateRuntimeSession(metadata, metadata.runtimeName, sessionMode, source, RuntimeStartMode.Starting, activate, notebookUri);
+		return this.doCreateRuntimeSession(metadata,
+			metadata.runtimeName,
+			sessionMode,
+			source,
+			RuntimeStartMode.Starting,
+			true, // Create a console
+			activate,
+			notebookUri);
 	}
 
 	/**
@@ -1586,6 +1615,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionMode The mode for the new session.
 	 * @param source The source of the request to start the runtime.
 	 * @param startMode The mode in which to start the runtime.
+	 * @param createConsole Whether to create a console for the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param notebookDocument The notebook document to attach to the session, if any.
 	 *
@@ -1597,6 +1627,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionMode: LanguageRuntimeSessionMode,
 		source: string,
 		startMode: RuntimeStartMode,
+		createConsole: boolean,
 		activate: boolean,
 		notebookUri?: URI): Promise<string> {
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
@@ -1657,7 +1688,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually start the session.
 		try {
-			await this.doStartRuntimeSession(session, sessionManager, startMode, activate);
+			await this.doStartRuntimeSession(session, sessionManager, startMode, createConsole, activate);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -1672,23 +1703,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The session to start.
 	 * @param manager The session manager for the session.
 	 * @param startMode The mode in which the session is starting.
+	 * @param createConsole Whether to create a console for the new session.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 */
 	private async doStartRuntimeSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
 		startMode: RuntimeStartMode,
+		createConsole: boolean,
 		activate: boolean):
 		Promise<void> {
 		// Fire the onWillStartRuntime event.
 		const evt: IRuntimeSessionWillStartEvent = {
 			session,
 			startMode,
+			hasConsole: createConsole,
 			activate
 		};
 		this._onWillStartRuntimeEmitter.fire(evt);
 
 		// Attach event handlers to the newly provisioned session.
-		this.attachToSession(session, manager, activate);
+		this.attachToSession(session, manager, createConsole, activate);
 
 		try {
 			// Attempt to start, or reconnect to, the session.
@@ -1762,11 +1796,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param session The session to attach.
 	 * @param manager The session's manager.
+	 * @param hasConsole Whether the session has a console.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 */
 	private attachToSession(
 		session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
+		hasConsole: boolean,
 		activate: boolean): void {
 		// Clean up any previous active session info for this session.
 		const oldSession = this._activeSessionsBySessionId.get(session.sessionId);
@@ -1778,6 +1814,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const activeSession = new ActiveRuntimeSession(
 			session,
 			manager,
+			hasConsole,
 			this._commandService,
 			this._logService,
 			this._openerService,
@@ -1842,6 +1879,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this._onWillStartRuntimeEmitter.fire({
 							session,
 							startMode: RuntimeStartMode.Restarting,
+							hasConsole: activeSession.hasConsole,
 							activate: false
 						});
 					}
@@ -1889,7 +1927,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				if (exit.reason === RuntimeExitReason.ExtensionHost &&
 					session.runtimeMetadata.sessionLocation ===
 					LanguageRuntimeSessionLocation.Workspace) {
-					this._disconnectedSessions.set(session.sessionId, session);
+					this._disconnectedSessions.set(session.sessionId, sessionInfo);
 				}
 			}, 0);
 		}));
