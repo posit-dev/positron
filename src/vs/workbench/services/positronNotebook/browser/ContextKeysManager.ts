@@ -8,11 +8,15 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
- * Context key that is set when the Positron notebook editor is focused. Used for rerouting
- * actions meant for vscode notebooks.
+	 * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
  */
-export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorFocused', false);
+export const POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorContainerFocused', false);
 
+/**
+ * Context key that is set when a cell editor (Monaco editor within a notebook cell) is focused.
+ * This is more specific than EditorContextKeys.editorTextFocus which applies to ANY Monaco editor.
+ */
+export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>('positronNotebookCellEditorFocused', false);
 
 /**
  * Class to handle context keys for positron notebooks
@@ -44,7 +48,7 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		this._container = container;
 		this._scopedContextKeyService = this._contextKeyService.createScoped(this._container);
 
-		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_FOCUSED.bindTo(this._scopedContextKeyService);
+		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
 
 		const focusTracker = this._register(DOM.trackFocus(container));
 		this._register(focusTracker.onDidFocus(() => {

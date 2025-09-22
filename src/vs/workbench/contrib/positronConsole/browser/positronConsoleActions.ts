@@ -32,6 +32,7 @@ import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../serv
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 
 /**
  * Positron console command ID's.
@@ -216,7 +217,8 @@ export function registerPositronConsoleActions() {
 				category,
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
-					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,

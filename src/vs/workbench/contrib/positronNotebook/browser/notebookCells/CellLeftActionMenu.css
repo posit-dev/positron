@@ -1,0 +1,182 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Generic container for left-hand actions */
+.left-hand-action-container {
+	/* Private CSS variables for all dimensions */
+	--_container-size: 20px;  /* Match circle size exactly */
+	--_button-size: 14px;  /* Slightly smaller for padding inside circle */
+	--_circle-size: 20px;
+	--_circle-border-width: 1px;
+	--_icon-size: 11px;  /* Slightly larger for better visibility */
+	--_container-offset-left: -24px;  /* Fine-tune position */
+	--_container-offset-top: 12px;  /* Aligns with first line of code. May need to be made dynamic. */
+	--_badge-font-size: 10px;
+
+	/* Container positioning - easily adjustable via variables */
+	position: absolute;
+	top: var(--_container-offset-top);
+	left: var(--_container-offset-left);
+	width: var(--_container-size);
+	height: var(--_container-size);
+
+	/* Center children */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+}
+
+/* Hide the circle outline when the cell isn't running and not selected/hovered */
+.left-hand-action-container:not([data-execution-status='running']):not(:has(.action-button-wrapper)) {
+	--_circle-border-width: 0;
+}
+
+/* Status-specific styling for the container */
+.left-hand-action-container[data-execution-status='running'] {
+	color: var(--vscode-debugIcon-startForeground);
+}
+
+.left-hand-action-container[data-execution-status='success'] {
+	border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 70%, transparent);
+}
+
+.left-hand-action-container[data-execution-status='failed'] {
+	border-color: color-mix(in srgb, var(--vscode-testing-iconFailed) 70%, transparent);
+}
+
+.left-hand-action-container[data-execution-status='failed'] .execution-order-badge {
+	color: var(--vscode-testing-iconFailed);
+}
+
+.left-hand-action-container[data-execution-status='neutral'] {
+	border-color: var(--vscode-textLink-foreground);
+}
+
+.left-hand-action-container[data-execution-status='pending'] {
+	color: color-mix(in srgb, var(--vscode-widget-border) 70%, transparent);
+}
+
+.left-hand-action-container[data-execution-status='queued'] {
+	border-color: color-mix(in srgb, var(--vscode-widget-border) 60%, transparent);
+}
+
+.cell-execution-status-animation {
+	position:absolute;
+	width: 100%;
+	height: 100%;
+	background-color: transparent;
+	border-radius: 50%;
+	user-select: none;
+	border: var(--_circle-border-width, 1px) solid color-mix(in srgb, var(--vscode-descriptionForeground) 50%, transparent);
+}
+
+.left-hand-action-container[data-execution-status='running'] .cell-execution-status-animation {
+	border: var(--_circle-border-width, 1px) solid var(--vscode-debugIcon-startForeground);
+	border-top-color: transparent;
+	animation: spin 1.2s cubic-bezier(0.4, 0.3, 0.5, 0.7) infinite;
+	transform-origin: center;
+}
+
+.left-hand-action-container[data-execution-status='pending'] .cell-execution-status-animation {
+	border: 1px dashed color-mix(in srgb, var(--vscode-widget-border) 50%, transparent);
+}
+
+.execution-order-badge-container {
+	pointer-events: none;
+	width: var(--_circle-size);
+	height: var(--_circle-size);
+	font-size: 7px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	background-color: transparent;
+	user-select: none;
+	transition: border-color 0.15s ease;
+}
+
+.left-hand-action-container .codicon-play {
+	/* Move around play button a bit to make things line up properly. */
+	transform: translate(0.7px, 0) scaleY(0.8);
+}
+
+.execution-order-badge-container span.execution-order-badge {
+	cursor: default;
+	/* Move down a tiny bit to match alignment of design */
+	transform: translateY(1px);
+}
+
+.execution-order-badge-container span.execution-order-badge-bracket {
+	font-size: 14px;
+}
+
+/* Execution order badge styling */
+.execution-order-badge {
+	font-weight: 500;
+	font-size: var(--_badge-font-size, 10px);
+	line-height: 1;
+	color: inherit;
+	font-family: var(--monaco-monospace-font);
+}
+
+/* Animation for running state */
+@keyframes spin {
+	0% {
+		transform: rotate(0deg) scale(1);
+	}
+	25% {
+		transform: rotate(90deg) scale(1.01);
+	}
+	50% {
+		transform: rotate(180deg) scale(1);
+	}
+	75% {
+		transform: rotate(270deg) scale(0.99);
+	}
+	100% {
+		transform: rotate(360deg) scale(1);
+	}
+}
+
+/* Action button wrapper for circle outline and loading spinner */
+.action-button-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--_circle-size, 20px);
+	height: var(--_circle-size, 20px);
+}
+
+/* Hover effects for the button */
+.action-button-wrapper:hover .action-button {
+	background-color: color-mix(in srgb, var(--vscode-descriptionForeground) 8%, transparent);
+	border-radius: 50%;
+}
+
+/* Ensure button inside wrapper maintains proper size and clickability */
+.action-button-wrapper .action-button {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	padding: 0 !important; /* Override default padding for precise control */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: none;
+}
+
+/* Icon inside the button - precise centering */
+.action-button-wrapper .button-icon {
+	font-size: var(--_icon-size, 11px);
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* Adjust for play icon which tends to be off-center */
+	padding-left: 1px;
+}

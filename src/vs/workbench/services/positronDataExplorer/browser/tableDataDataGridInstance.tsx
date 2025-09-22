@@ -57,6 +57,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _hoverManager: PositronActionBarHoverManager;
 
+	/**
+	 * The onDidChangePinnedColumns event emitter.
+	 * This event is fired when the pinned columns change.
+	 * This event returns the array of pinned column indexes.
+	 */
+	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -222,6 +229,38 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
+
+	/**
+	 * Pins a column and fires the onDidPinnedColumnsChange event.
+	 *
+	 * This allows the summary panel to keep the pinned/unpinned
+	 * columns in sync with the data grid.
+	 *
+	 * @param columnIndex The index of the column to pin.
+	 */
+	override pinColumn(columnIndex: number) {
+		// Call the parent method
+		super.pinColumn(columnIndex);
+
+		// Fire the event with current pinned column indices
+		this._onDidChangePinnedColumns.fire(this._columnLayoutManager.pinnedIndexes);
+	}
+
+	/**
+	 * Unpins a column and fires the onDidPinnedColumnsChange event.
+	 *
+	 * This allows the summary panel to keep the pinned/unpinned
+	 * columns in sync with the data grid.
+	 *
+	 * @param columnIndex The index of the column to unpin.
+	 */
+	override unpinColumn(columnIndex: number) {
+		// Call the parent method
+		super.unpinColumn(columnIndex);
+
+		// Fire the event with current pinned column indices
+		this._onDidChangePinnedColumns.fire(this._columnLayoutManager.pinnedIndexes);
+	}
 
 	/**
 	 * Sorts the data.
@@ -664,6 +703,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * The onAddFilter event.
 	 */
 	readonly onAddFilter = this._onAddFilterEmitter.event;
+
+	/**
+	 * The onDidChangePinnedColumns event.
+	 */
+	readonly onDidChangePinnedColumns = this._onDidChangePinnedColumns.event;
 
 	//#region Public Methods
 

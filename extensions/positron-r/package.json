@@ -9,7 +9,9 @@
     "vscode": "^1.65.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Data Science",
+    "Debuggers"
   ],
   "main": "./out/extension.js",
   "capabilities": {
@@ -972,7 +974,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.208"
+      "ark": "0.1.210"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

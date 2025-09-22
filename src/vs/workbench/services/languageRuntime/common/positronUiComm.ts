@@ -292,6 +292,33 @@ export interface ShowDialogParams {
 }
 
 /**
+ * Parameters for the ShowPrompt method.
+ */
+export interface ShowPromptParams {
+	/**
+	 * The title of the prompt dialog, such as 'Enter Swallow Velocity'
+	 */
+	title: string;
+
+	/**
+	 * The message prompting the user for text, such as 'What is the airspeed
+	 * velocity of an unladen swallow?'
+	 */
+	message: string;
+
+	/**
+	 * The default value with which to pre-populate the text input box, such
+	 * as 'African or European?'
+	 */
+	default: string;
+
+	/**
+	 * The number of seconds to wait for the user to reply before giving up.
+	 */
+	timeout: number;
+}
+
+/**
  * Parameters for the AskForPassword method.
  */
 export interface AskForPasswordParams {
@@ -701,6 +728,36 @@ export interface ShowDialogRequest {
 }
 
 /**
+ * Request: Show a prompt
+ *
+ * Use this for an input box where user can input any string
+ */
+export interface ShowPromptRequest {
+	/**
+	 * The title of the prompt dialog, such as 'Enter Swallow Velocity'
+	 */
+	title: string;
+
+	/**
+	 * The message prompting the user for text, such as 'What is the airspeed
+	 * velocity of an unladen swallow?'
+	 */
+	message: string;
+
+	/**
+	 * The default value with which to pre-populate the text input box, such
+	 * as 'African or European?'
+	 */
+	default: string;
+
+	/**
+	 * The number of seconds to wait for the user to reply before giving up.
+	 */
+	timeout: number;
+
+}
+
+/**
  * Request: Ask the user for a password
  *
  * Use this for an input box where the user can input a password
@@ -836,6 +893,7 @@ export enum UiFrontendRequest {
 	NewDocument = 'new_document',
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
+	ShowPrompt = 'show_prompt',
 	AskForPassword = 'ask_for_password',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',

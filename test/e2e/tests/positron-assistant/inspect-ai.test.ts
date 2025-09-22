@@ -9,6 +9,82 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { expect } from '@playwright/test';
 
+/**
+ * Removes UTF-8 BOM (Byte Order Mark) from the beginning of a string
+ * @param content - The string content that may have a BOM
+ * @returns The content without BOM
+ */
+function removeBOM(content: string): string {
+	if (content.charCodeAt(0) === 0xFEFF) {
+		return content.slice(1);
+	}
+	return content;
+}
+
+/**
+ * Sanitizes response text to handle control characters and ensure valid UTF-8
+ * @param response - The response text to sanitize
+ * @returns Sanitized text safe for JSON serialization
+ */
+function sanitizeResponse(response: string): string {
+	if (!response) {
+		return '';
+	}
+
+	// Remove or replace problematic control characters (except newlines, tabs, carriage returns)
+	const sanitized = response
+		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except \t, \n, \r
+		.replace(/\uFEFF/g, '') // Remove BOM characters that might be in the response
+		.trim();
+
+	// Ensure the string is valid UTF-8 by attempting to encode/decode
+	try {
+		const buffer = Buffer.from(sanitized, 'utf8');
+		return buffer.toString('utf8');
+	} catch (error) {
+		console.warn('UTF-8 encoding issue detected, attempting to clean response');
+		// Fallback: replace invalid UTF-8 sequences
+		return Buffer.from(sanitized, 'utf8').toString('utf8');
+	}
+}
+
+/**
+ * Safely reads and parses a JSON file with UTF-8 BOM handling
+ * @param filePath - Path to the JSON file
+ * @returns Parsed JSON object
+ */
+function readJSONFile(filePath: string): any {
+	try {
+		const rawContent = readFileSync(filePath, 'utf-8');
+		const cleanContent = removeBOM(rawContent);
+		return JSON.parse(cleanContent);
+	} catch (error) {
+		throw new Error(`Failed to read or parse JSON file ${filePath}: ${error}`);
+	}
+}
+
+/**
+ * Safely writes JSON data to file with proper UTF-8 encoding and validation
+ * @param filePath - Path where to write the file
+ * @param data - Data to serialize and write
+ */
+function writeJSONFile(filePath: string, data: any): void {
+	try {
+		const jsonContent = JSON.stringify(data, null, '\t');
+
+		// Write without BOM to ensure cross-platform compatibility
+		writeFileSync(filePath, jsonContent, { encoding: 'utf8' });
+
+		// Validate the written file can be read back
+		const validation = readFileSync(filePath, 'utf-8');
+		JSON.parse(validation);
+
+		console.log(`Successfully wrote and validated JSON file: ${filePath}`);
+	} catch (error) {
+		throw new Error(`Failed to write JSON file ${filePath}: ${error}`);
+	}
+}
+
 test.use({
 	suiteId: __filename
 });
@@ -18,8 +94,10 @@ test.use({
  * the dataset for use in the inspect-ai tests. It also does some basic validation that there are valid responses
  * from the assistant.
  */
-test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB, tags.NIGHTLY_ONLY] }, () => {
+test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
+		// Change veiwport size for web tests
+		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
 		// Only sign out if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
 			await app.workbench.quickaccess.runCommand(`positron-assistant.configureModels`);
@@ -30,13 +108,13 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 
 	/**
 	 * Load dataset and process each question
-	 * @param app - Application fixture providing access to UI elements
 	 */
 	test('Process Dataset Questions', async function ({ app, sessions, hotKeys }) {
-		// Load dataset from file
+		// Load dataset from file - use custom filename if specified via OUTPUT_FILENAME env var
+		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
-		const datasetContent = readFileSync(datasetPath, 'utf-8');
-		const dataset = JSON.parse(datasetContent);
+		const outputPath = join(__dirname, '../../../assistant-inspect-ai', outputFilename);
+		const dataset = readJSONFile(datasetPath);
 
 		// Start a Python Session
 		const [pySession] = await sessions.start(['python']);
@@ -48,7 +126,7 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 		if (process.env.USE_KEY) {
 			await app.workbench.assistant.clickAddModelButton();
 			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_API_KEY}`);
+			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
 			await app.workbench.assistant.clickSignInButton();
 			await app.workbench.assistant.verifySignOutButtonVisible();
 			await app.workbench.assistant.clickCloseButton();
@@ -101,16 +179,14 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
 			await app.workbench.assistant.enterChatMessage(item.question);
 			await app.workbench.assistant.waitForSendButtonVisible();
-			await app.code.wait(5000);
 			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
 			if (!response || response.trim() === '') {
 				fail(`No response received for question: ${item.question}`);
 			}
-			item.model_response = response;
+			// Sanitize the response to handle UTF-8 and control character issues
+			item.model_response = sanitizeResponse(response);
 			updatedItems = true;
-
-			await new Promise(resolve => setTimeout(resolve, 1000));
 
 			// Execute cleanup action if one exists for this item
 			const cleanupAction = cleanupActions[item.id as keyof typeof cleanupActions];
@@ -122,9 +198,12 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 
 		// Write updated dataset back to file if any items were updated
 		if (updatedItems) {
-			const updatedDatasetContent = JSON.stringify(dataset, null, '\t');
-			writeFileSync(datasetPath, updatedDatasetContent, 'utf-8');
-			console.log(`Updated model responses in dataset file: ${datasetPath}`);
+			try {
+				writeJSONFile(outputPath, dataset);
+				console.log(`Updated model responses in dataset file: ${outputPath}`);
+			} catch (error) {
+				fail(`Failed to write updated dataset: ${error}`);
+			}
 		}
 	});
 
