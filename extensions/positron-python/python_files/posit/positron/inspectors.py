@@ -1016,8 +1016,11 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
 
 
 class IbisColumnInspector(BaseColumnInspector["ibis.Column"]):
+    def is_mutable(self) -> bool:
+        return False
+
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:  # noqa: ARG002
-        return f"{type(self.value)}"
+        return f"{type(self.value)}", False
 
     def has_children(self):
         return False

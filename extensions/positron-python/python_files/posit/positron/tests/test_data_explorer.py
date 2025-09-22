@@ -139,7 +139,13 @@ SIMPLE_DATA = {
 
 SIMPLE_PANDAS_DF = pd.DataFrame(SIMPLE_DATA)
 
-SIMPLE_IBIS_DF = ibis.memtable(SIMPLE_PANDAS_DF.drop(columns=["f"]))
+SIMPLE_IBIS_DF = ibis.memtable(
+    {
+        "a": [1, 2, 3, 4, 5],
+        "b": [True, False, True, None, True],
+        "c": ["foo", "bar", None, "bar", "None"],
+    }
+)
 
 
 def test_service_properties(de_service: DataExplorerService):
