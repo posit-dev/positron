@@ -486,7 +486,7 @@ else
 	get_extension_info "$PUBLISHER" "$NAME"
 	VERSION="$EXTENSION_VERSION"
 	TARGET_PLATFORM="$EXTENSION_TARGET_PLATFORM"
-	echo "Current version: $VERSION"
+	echo "Latest version: $VERSION"
 fi
 
 # Download VSIX
