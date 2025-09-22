@@ -17,7 +17,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { PositronConsoleFocused } from '../../../common/contextkeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -33,7 +33,6 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 
 /**
@@ -779,6 +778,14 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
+				menu: [
+					{
+						id: MenuId.NotebookToolbar,
+						group: 'notebookConsole',
+						when: ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+						order: 1
+					}
+				]
 			});
 		}
 
@@ -791,19 +798,13 @@ export function registerPositronConsoleActions() {
 			// separately or can we just route everything through the editor?
 
 			const positronConsoleService = accessor.get(IPositronConsoleService);
-			const notebookService = accessor.get(IPositronNotebookService);
-			const activeNotebook = notebookService.getActiveInstance();
 			const editorService = accessor.get(IEditorService);
 			const notificationService = accessor.get(INotificationService);
-			if (activeNotebook) {
-				positronConsoleService.showNotebookConsole(activeNotebook.uri);
+			const context = getContextFromActiveEditor(editorService);
+			if (context) {
+				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri);
 			} else {
-				const context = getContextFromActiveEditor(editorService);
-				if (context) {
-					positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri);
-				} else {
-					notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
-				}
+				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 			}
 		}
 	});
