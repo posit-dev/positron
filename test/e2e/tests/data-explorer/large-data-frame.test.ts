@@ -26,7 +26,7 @@ test.describe('Data Explorer - Large Data Frame', {
 	});
 
 	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, openFile, runCommand, python, metric }) {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors } = app.positron;
 		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await runCommand('python.execInConsole');
 
@@ -49,7 +49,7 @@ test.describe('Data Explorer - Large Data Frame', {
 	test('R - Verify data loads and basic filtering with large data frame', {
 		tag: [tags.WEB, tags.CRITICAL]
 	}, async function ({ app, openFile, runCommand, metric, r }) {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors } = app.positron;
 
 		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 		await runCommand('r.sourceCurrentFile');

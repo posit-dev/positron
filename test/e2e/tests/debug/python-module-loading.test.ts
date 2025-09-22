@@ -27,9 +27,9 @@ test.describe('Python Debugging', {
 
 			await openFile(join('workspaces', 'python_module_caching', 'app.py'));
 
-			await app.workbench.editor.pressPlay(true);
+			await app.positron.editor.pressPlay(true);
 
-			await app.workbench.console.waitForConsoleContents('Hello World');
+			await app.positron.console.waitForConsoleContents('Hello World');
 
 		});
 
@@ -39,7 +39,7 @@ test.describe('Python Debugging', {
 
 			await openFile(join('workspaces', 'python_module_caching', 'helper', helperFile));
 
-			await app.workbench.editor.replaceTerm(helperFile, '"Hello', 2, 'Goodbye');
+			await app.positron.editor.replaceTerm(helperFile, '"Hello', 2, 'Goodbye');
 
 			await hotKeys.save();
 		});
@@ -47,9 +47,9 @@ test.describe('Python Debugging', {
 		await test.step('Re-run with edited helper', async () => {
 			await openFile(join('workspaces', 'python_module_caching', 'app.py'));
 
-			await app.workbench.editor.pressPlay(true);
+			await app.positron.editor.pressPlay(true);
 
-			await app.workbench.console.waitForConsoleContents('Goodbye World');
+			await app.positron.console.waitForConsoleContents('Goodbye World');
 		});
 
 	});

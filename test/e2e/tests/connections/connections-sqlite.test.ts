@@ -14,46 +14,46 @@ test.describe('SQLite DB Connection', {
 	tag: [tags.WEB, tags.CRITICAL, tags.CONNECTIONS, tags.WIN]
 }, () => {
 	test.afterEach(async function ({ app }) {
-		await app.workbench.connections.disconnectButton.click();
-		await app.workbench.connections.connectionItems.first().click();
-		await app.workbench.connections.deleteConnection();
+		await app.positron.connections.disconnectButton.click();
+		await app.positron.connections.connectionItems.first().click();
+		await app.positron.connections.deleteConnection();
 	});
 
 	test('Python - Can establish a SQLite connection, disconnect & reconnect', async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-			await app.workbench.quickaccess.runCommand('python.execInConsole');
+			await app.positron.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+			await app.positron.quickaccess.runCommand('python.execInConsole');
 		});
 
 		await test.step('Open connections pane', async () => {
 			try {
-				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+				await app.positron.layouts.enterLayout('fullSizedAuxBar');
 				// there is a flake of the db connection not displaying in the connections pane after
 				// clicking the db icon. To work around, both a wait and a retry are added.
 				await app.code.driver.page.waitForTimeout(2000);
-				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
-				await app.workbench.connections.connectIcon.click();
+				await app.positron.variables.clickDatabaseIconForVariableRow('conn');
+				await app.positron.connections.connectIcon.click();
 			} catch (error) {
 				// For some reasonm, on the retry, the pane opens directly to this connection
 				// and the connectIcon.click() is not needed.
-				await app.workbench.sideBar.openSession();
+				await app.positron.sideBar.openSession();
 				await app.code.driver.page.waitForTimeout(2000);
-				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
+				await app.positron.variables.clickDatabaseIconForVariableRow('conn');
 			}
 		});
 
 		await test.step('Verify connection nodes', async () => {
-			await app.workbench.connections.openConnectionsNodes(['main']);
-			await app.workbench.connections.assertConnectionNodes(['albums']);
+			await app.positron.connections.openConnectionsNodes(['main']);
+			await app.positron.connections.assertConnectionNodes(['albums']);
 		});
 
 		await test.step('Disconnect, reconnect with dialog, & reverify', async () => {
-			await app.workbench.connections.disconnectButton.click();
-			await app.workbench.connections.connectIcon.click();
-			await app.workbench.connections.resumeConnectionButton.click();
+			await app.positron.connections.disconnectButton.click();
+			await app.positron.connections.connectIcon.click();
+			await app.positron.connections.resumeConnectionButton.click();
 
-			await app.workbench.connections.openConnectionsNodes(['main']);
-			await app.workbench.connections.assertConnectionNodes(['albums']);
+			await app.positron.connections.openConnectionsNodes(['main']);
+			await app.positron.connections.assertConnectionNodes(['albums']);
 		});
 	});
 
@@ -61,27 +61,27 @@ test.describe('SQLite DB Connection', {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
-			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+			await app.positron.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+			await app.positron.quickaccess.runCommand('r.sourceCurrentFile');
 		});
 
 		await test.step('Open connections pane', async () => {
-			await app.workbench.connections.openConnectionPane();
-			await app.workbench.connections.viewConnection('SQLiteConnection');
+			await app.positron.connections.openConnectionPane();
+			await app.positron.connections.viewConnection('SQLiteConnection');
 		});
 
 		await test.step('Verify connection nodes', async () => {
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
-			await app.workbench.connections.openConnectionsNodes(tables);
+			await app.positron.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.positron.connections.openConnectionsNodes(tables);
 		});
 
 		await test.step('Disconnect, reconnect with dialog, & reverify', async () => {
-			await app.workbench.connections.disconnectButton.click();
-			await app.workbench.connections.connectIcon.click();
-			await app.workbench.connections.resumeConnectionButton.click();
+			await app.positron.connections.disconnectButton.click();
+			await app.positron.connections.connectIcon.click();
+			await app.positron.connections.resumeConnectionButton.click();
 
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
-			await app.workbench.connections.openConnectionsNodes(tables);
+			await app.positron.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.positron.connections.openConnectionsNodes(tables);
 		});
 
 	});
@@ -90,16 +90,16 @@ test.describe('SQLite DB Connection', {
 		tag: [tags.ARK]
 	}, async function ({ app, page, r }) {
 		await test.step('Open an empty connection', async () => {
-			await app.workbench.console.executeCode(
+			await app.positron.console.executeCode(
 				'R',
 				`con <- connections::connection_open(RSQLite::SQLite(), tempfile())`,
 			);
 		});
 
 		await test.step('Open connections pane', async () => {
-			await app.workbench.connections.openConnectionPane();
-			await app.workbench.connections.viewConnection('SQLiteConnection');
-			await app.workbench.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.positron.connections.openConnectionPane();
+			await app.positron.connections.viewConnection('SQLiteConnection');
+			await app.positron.connections.openConnectionsNodes(['SQLiteConnection', 'Default']);
 
 			// mtcars node should not exist
 			await expect(
@@ -109,14 +109,14 @@ test.describe('SQLite DB Connection', {
 
 
 		await test.step('Add a dataframe to the connection', async () => {
-			await app.workbench.console.executeCode(
+			await app.positron.console.executeCode(
 				'R',
 				`DBI::dbWriteTable(con, 'mtcars', mtcars)`,
 			);
 
 			// refresh and mtcars should exist
 			await page.getByRole('button', { name: 'Refresh' }).click();
-			await app.workbench.connections.openConnectionsNodes(['mtcars']);
+			await app.positron.connections.openConnectionsNodes(['mtcars']);
 		});
 	});
 

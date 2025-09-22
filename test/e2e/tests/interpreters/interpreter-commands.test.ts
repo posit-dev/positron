@@ -28,42 +28,42 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 }, () => {
 
 	test.afterEach(async ({ app }) => {
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
+		await app.positron.console.clearButton.click();
+		await app.positron.sessions.deleteAll();
 	});
 
 	// Skip this test for tags.WIN (e2e-windows) due to Bug #4604
 	test('Verify Interrupt Interpreter command works (→ KeyboardInterrupt) - Python', async function ({ app, python }) {
-		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5)', { waitForReady: false });
-		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
-		await app.workbench.console.waitForConsoleContents('KeyboardInterrupt');
+		await app.positron.console.executeCode('Python', 'import time; time.sleep(5)', { waitForReady: false });
+		await app.positron.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
+		await app.positron.console.waitForConsoleContents('KeyboardInterrupt');
 	});
 
 	test('Verify Interrupt Interpreter command works (→ empty error line) - R', { tag: [tags.WIN] }, async function ({ app, page, r }) {
-		await app.workbench.console.executeCode('R', 'Sys.sleep(5)', { waitForReady: false });
-		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
+		await app.positron.console.executeCode('R', 'Sys.sleep(5)', { waitForReady: false });
+		await app.positron.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
 		await expect(page.locator('div.activity-error-stream')).toBeVisible();
 	});
 
 	test('Verify Clear Saved Interpreter command works (→ interpreter has been cleared) - Python', { tag: [tags.WIN] }, async function ({ app, python, page }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.clearAffiliatedRuntime', { keepOpen: true });
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		const anyPythonSession = app.workbench.quickInput.quickInputList.getByText(/Python:/);
+		await app.positron.quickaccess.runCommand('workbench.action.languageRuntime.clearAffiliatedRuntime', { keepOpen: true });
+		await app.positron.quickInput.waitForQuickInputOpened();
+		const anyPythonSession = app.positron.quickInput.quickInputList.getByText(/Python:/);
 		await anyPythonSession.waitFor({ state: 'visible' });
 		await page.keyboard.press('Enter');
-		await app.workbench.quickInput.waitForQuickInputClosed();
-		await app.workbench.toasts.expectToBeVisible(/Python .* interpreter has been cleared/);
+		await app.positron.quickInput.waitForQuickInputClosed();
+		await app.positron.toasts.expectToBeVisible(/Python .* interpreter has been cleared/);
 
 	});
 
 	test('Verify Clear Saved Interpreter command works (→ interpreter has been cleared) - R', { tag: [tags.WIN] }, async function ({ app, r, page }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.clearAffiliatedRuntime', { keepOpen: true });
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		const anyRSession = app.workbench.quickInput.quickInputList.getByText(/R:/);
+		await app.positron.quickaccess.runCommand('workbench.action.languageRuntime.clearAffiliatedRuntime', { keepOpen: true });
+		await app.positron.quickInput.waitForQuickInputOpened();
+		const anyRSession = app.positron.quickInput.quickInputList.getByText(/R:/);
 		await anyRSession.waitFor({ state: 'visible' });
 		await page.keyboard.press('Enter');
-		await app.workbench.quickInput.waitForQuickInputClosed();
-		await app.workbench.toasts.expectToBeVisible(/R .* interpreter has been cleared/);
+		await app.positron.quickInput.waitForQuickInputClosed();
+		await app.positron.toasts.expectToBeVisible(/R .* interpreter has been cleared/);
 	});
 
 });

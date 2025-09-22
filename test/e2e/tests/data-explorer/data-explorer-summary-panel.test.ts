@@ -31,7 +31,7 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 
 
 	test('Summary Panel: Search', async function ({ app, openDataFile }) {
-		const { dataExplorer } = app.workbench;
+		const { dataExplorer } = app.positron;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
 
@@ -68,7 +68,7 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 	});
 
 	test('Summary Panel: Sort', async function ({ app, openDataFile }) {
-		const { dataExplorer } = app.workbench;
+		const { dataExplorer } = app.positron;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
 

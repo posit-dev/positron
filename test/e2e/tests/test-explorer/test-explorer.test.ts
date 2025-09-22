@@ -30,22 +30,22 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		// Open R package embedded in qa-example-content
 		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 
-		await app.workbench.sessions.expectAllSessionsToBeReady();
+		await app.positron.sessions.expectAllSessionsToBeReady();
 
-		await app.workbench.sessions.start('r');
+		await app.positron.sessions.start('r');
 
 		await expect(async () => {
-			await app.workbench.testExplorer.openTestExplorer();
-			await app.workbench.sessions.expectAllSessionsToBeReady();
-			await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
+			await app.positron.testExplorer.openTestExplorer();
+			await app.positron.sessions.expectAllSessionsToBeReady();
+			await app.positron.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
 		}).toPass({ timeout: 60000 });
 
-		await app.workbench.testExplorer.runAllTests();
+		await app.positron.testExplorer.runAllTests();
 
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await app.positron.quickaccess.runCommand('workbench.action.closeAllEditors');
 
 		await expect(async () => {
-			const testResults = await app.workbench.testExplorer.getTestResults();
+			const testResults = await app.positron.testExplorer.getTestResults();
 
 			expect(testResults[0].caseText).toBe('nothing really');
 			expect(testResults[0].status).toBe('fail');

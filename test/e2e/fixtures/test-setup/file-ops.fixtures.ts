@@ -15,25 +15,25 @@ export function FileOperationsFixture(app: Application) {
 	return {
 		openFile: async (filePath: string, waitForFocus = true) => {
 			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
+				await app.positron.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
 			});
 		},
 
 		openDataFile: async (filePath: string) => {
 			await test.step(`Open data file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
+				await app.positron.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
 			});
 		},
 
 		openFolder: async (folderPath: string) => {
 			await test.step(`Open folder: ${folderPath}`, async () => {
-				await app.workbench.hotKeys.openFolder();
-				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
+				await app.positron.hotKeys.openFolder();
+				await playwright.expect(app.positron.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
 				const folderNames = folderPath.split('/');
 
 				for (const folderName of folderNames) {
-					const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
+					const quickInputOption = app.positron.quickInput.quickInputResult.getByText(folderName);
 
 					// Ensure we are ready to select the next folder
 					const timeoutMs = 30000;
@@ -56,13 +56,13 @@ export function FileOperationsFixture(app: Application) {
 						}
 					}
 
-					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
+					await app.positron.quickInput.quickInput.pressSequentially(folderName + '/');
 
 					// Ensure next folder is no longer visible
 					await playwright.expect(quickInputOption).not.toBeVisible();
 				}
 
-				await app.workbench.quickInput.clickOkButton();
+				await app.positron.quickInput.clickOkButton();
 			});
 		}
 	};

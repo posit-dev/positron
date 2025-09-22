@@ -27,7 +27,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 
 	test('Verify only Empty Project available when global interpreter startup is disabled',
 		async function ({ app, hotKeys, settings }) {
-			const { newFolderFlow } = app.workbench;
+			const { newFolderFlow } = app.positron;
 
 			// Disable startup behavior for all interpreters
 			await settings.set({
@@ -44,7 +44,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 
 	test('Verify Python and Jupyter templates hidden when Python startup is disabled',
 		async function ({ app, hotKeys, settings }) {
-			const { newFolderFlow } = app.workbench;
+			const { newFolderFlow } = app.positron;
 
 			// Disable startup behavior for Python
 			await settings.set({
@@ -64,7 +64,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 
 	test('Verify R folder template hidden when R startup is disabled',
 		async function ({ app, hotKeys, settings }) {
-			const { newFolderFlow } = app.workbench;
+			const { newFolderFlow } = app.positron;
 
 			// Disable startup behavior for R
 			await settings.set({

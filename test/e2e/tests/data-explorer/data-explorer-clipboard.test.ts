@@ -39,7 +39,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 
 
 		test.beforeEach(async function ({ app, openDataFile, hotKeys }) {
-			const { dataExplorer, console, sessions, variables } = app.workbench;
+			const { dataExplorer, console, sessions, variables } = app.positron;
 
 			if (env === 'DuckDB') {
 				await openDataFile(join(data));
@@ -60,7 +60,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 		});
 
 		test(`${env} - Copy and paste works on cells, rows, columns, and ranges of unsorted data`, async function ({ app }) {
-			const { dataExplorer, clipboard } = app.workbench;
+			const { dataExplorer, clipboard } = app.positron;
 
 			// verify copy and paste on columns
 			await dataExplorer.grid.clickColumnHeader('column3');
@@ -86,7 +86,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 		test.skip(`${env} - Copy and paste works on cells, rows, columns, and ranges of sorted data`, {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9344' }]
 		}, async function ({ app }) {
-			const { dataExplorer, clipboard } = app.workbench;
+			const { dataExplorer, clipboard } = app.positron;
 
 			// verify copy and paste on columns
 			await dataExplorer.grid.selectColumnAction(4, 'Sort Descending');
@@ -111,7 +111,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 		});
 
 		test(`${env} - Copy and paste of ranges works with pinned data`, async function ({ app }) {
-			const { dataExplorer, clipboard } = app.workbench;
+			const { dataExplorer, clipboard } = app.positron;
 
 			// pin column 4
 			await dataExplorer.grid.pinColumn(4);

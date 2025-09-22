@@ -29,22 +29,22 @@ export function WorkbenchAppFixture() {
 			await app.connectToExternalServer();
 
 			// Workbench: Login to Posit Workbench
-			await app.positWorkbench.auth.signIn();
-			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-			await app.positWorkbench.dashboard.openSession('qa-example-content');
+			await app.workbench.auth.signIn();
+			await app.workbench.dashboard.expectHeaderToBeVisible();
+			await app.workbench.dashboard.openSession('qa-example-content');
 
 			// Wait for Positron to be ready
 			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
-			await app.workbench.sessions.expectNoStartUpMessaging();
-			await app.workbench.sessions.deleteAll();
-			await app.workbench.hotKeys.closeAllEditors();
+			await app.positron.sessions.expectNoStartUpMessaging();
+			await app.positron.sessions.deleteAll();
+			await app.positron.hotKeys.closeAllEditors();
 
 			await use(app);
 
 			// Exit Posit Workbench session
 			try {
-				await app.positWorkbench.dashboard.goTo();
-				await app.positWorkbench.dashboard.quitSession('qa-example-content');
+				await app.workbench.dashboard.goTo();
+				await app.workbench.dashboard.quitSession('qa-example-content');
 			} catch (error) {
 				console.warn('Failed to quit workbench session:', error);
 			}

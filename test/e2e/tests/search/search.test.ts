@@ -12,34 +12,34 @@ test.describe('Search', {
 	tag: [tags.SEARCH, tags.WEB, tags.WIN]
 }, () => {
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.search.clearSearchResults();
+	test.afterEach(async function ({ positron }) {
+		await positron.search.clearSearchResults();
 	});
 
-	test('Verify Basic Search for Unique Strings', async function ({ app }) {
-		await app.workbench.search.openSearchViewlet();
-		await app.workbench.search.searchFor('unique-string');
-		await app.workbench.search.waitForResultText('8 results in 2 files');
+	test('Verify Basic Search for Unique Strings', async function ({ positron }) {
+		await positron.search.openSearchViewlet();
+		await positron.search.searchFor('unique-string');
+		await positron.search.waitForResultText('8 results in 2 files');
 	});
 
 
-	test('Verify Basic Search for Unique Strings with Extension Filter', async function ({ app }) {
-		await app.workbench.search.openSearchViewlet();
-		await app.workbench.search.showQueryDetails();
+	test('Verify Basic Search for Unique Strings with Extension Filter', async function ({ positron }) {
+		await positron.search.openSearchViewlet();
+		await positron.search.showQueryDetails();
 
-		await app.workbench.search.searchFor('unique-string');
-		await app.workbench.search.setFilesToIncludeText('*.js');
-		await app.workbench.search.waitForResultText('4 results in 1 file');
-		await app.workbench.search.setFilesToIncludeText('');
-		await app.workbench.search.hideQueryDetails();
+		await positron.search.searchFor('unique-string');
+		await positron.search.setFilesToIncludeText('*.js');
+		await positron.search.waitForResultText('4 results in 1 file');
+		await positron.search.setFilesToIncludeText('');
+		await positron.search.hideQueryDetails();
 	});
 
-	test('Verify Basic Search for Unique Strings with File Removal', async function ({ app }) {
-		await app.workbench.search.openSearchViewlet();
-		await app.workbench.search.searchFor('unique-string');
-		await app.workbench.search.waitForResultText('8 results in 2 files');
-		await app.workbench.search.removeFileMatch('search-matches.txt');
-		await app.workbench.search.waitForResultText('4 results in 1 file');
+	test('Verify Basic Search for Unique Strings with File Removal', async function ({ positron }) {
+		await positron.search.openSearchViewlet();
+		await positron.search.searchFor('unique-string');
+		await positron.search.waitForResultText('8 results in 2 files');
+		await positron.search.removeFileMatch('search-matches.txt');
+		await positron.search.waitForResultText('4 results in 1 file');
 	});
 
 });

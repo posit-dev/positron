@@ -22,7 +22,7 @@ test.describe('Data Explorer - Sparklines', {
 	});
 
 	test('Python Pandas - Verify downward trending graph', async ({ app, executeCode, hotKeys, python }) => {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors } = app.positron;
 
 		await executeCode('Python', pythonScript);
 
@@ -38,7 +38,7 @@ test.describe('Data Explorer - Sparklines', {
 
 
 	test('R - Verify downward trending graph', async ({ app, executeCode, hotKeys, r }) => {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors } = app.positron;
 
 		await executeCode('R', rScript);
 

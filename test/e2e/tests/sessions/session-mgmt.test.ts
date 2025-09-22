@@ -23,7 +23,7 @@ test.describe('Sessions: Management', {
 	});
 
 	test('Validate active session list in console matches active session list in session picker', async function ({ app, sessions }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		// Start sessions and verify active sessions: order matters!
 		const [pySession, rSession] = await sessions.start(['python', 'r']);
@@ -57,7 +57,7 @@ test.describe('Sessions: Management', {
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6843' } // <-- main issue for the test, session do not consistently restore
 			]
 		}, async function ({ app, sessions, runCommand }) {
-			const { console, plots, variables } = app.workbench;
+			const { console, plots, variables } = app.positron;
 
 			// Ensure sessions exist and are idle
 			const [pySession, rSession, pySession2] = await sessions.start(['python', 'r', 'python']);
@@ -116,7 +116,7 @@ test.describe('Sessions: Management', {
 
 async function runCodeInSession(app: Application, session: SessionMetaData, index: number) {
 	await test.step(`${session.name}: run code to generate plot and variable`, async () => {
-		const { sessions, console, variables } = app.workbench;
+		const { sessions, console, variables } = app.positron;
 		const isPython = session.name.includes('Python');
 		await sessions.select(session.id);
 

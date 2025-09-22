@@ -31,9 +31,9 @@ export function ExternalPositronServerFixture() {
 
 		try {
 			await app.connectToExternalServer();
-			await app.workbench.sessions.expectNoStartUpMessaging();
-			await app.workbench.hotKeys.closeAllEditors();
-			await app.workbench.sessions.deleteAll();
+			await app.positron.sessions.expectNoStartUpMessaging();
+			await app.positron.hotKeys.closeAllEditors();
+			await app.positron.sessions.deleteAll();
 
 			await use(app);
 		} catch (error) {

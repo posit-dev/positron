@@ -32,7 +32,7 @@ test.describe('Sessions: Delete', {
 	test('Validate session picker and variables after delete', {
 		tag: [tags.VARIABLES]
 	}, async function ({ app, sessions }) {
-		const { variables } = app.workbench;
+		const { variables } = app.positron;
 		await sessions.deleteAll();
 
 		// Ensure sessions exist and are idle

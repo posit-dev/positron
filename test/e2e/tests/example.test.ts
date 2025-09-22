@@ -78,9 +78,9 @@ test.describe('Examples of Concepts', () => {
 
 test.describe('Example Context Menu Tests', { tag: [tags.WEB] }, () => {
 	test("Context Menu Open Bash", async function ({ app, page }) {
-		await app.workbench.terminal.clickTerminalTab();
+		await app.positron.terminal.clickTerminalTab();
 
-		await app.workbench.contextMenu.triggerAndClick({
+		await app.positron.contextMenu.triggerAndClick({
 			menuTrigger: page.getByLabel('Launch Profile...'),
 			menuItemLabel: 'bash'
 		});
@@ -90,9 +90,9 @@ test.describe('Example Context Menu Tests', { tag: [tags.WEB] }, () => {
 
 
 	test("Context Menu Fail Open Bash", async function ({ app, page }) {
-		await app.workbench.terminal.clickTerminalTab();
+		await app.positron.terminal.clickTerminalTab();
 
-		await app.workbench.contextMenu.triggerAndClick({
+		await app.positron.contextMenu.triggerAndClick({
 			menuTrigger: page.getByLabel('Launch Profile...'),
 			menuItemLabel: 'zsh'
 		});

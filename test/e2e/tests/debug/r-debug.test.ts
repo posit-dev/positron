@@ -43,11 +43,11 @@ test.describe('R Debugging', {
 
 	test.afterEach('Reset for next test', async ({ hotKeys, app }) => {
 		await hotKeys.closeAllEditors();
-		await app.workbench.console.clearButton.click();
+		await app.positron.console.clearButton.click();
 	});
 
 	test('R - Verify call stack behavior and order', async ({ app, page }) => {
-		const { debug, console, editors } = app.workbench;
+		const { debug, console, editors } = app.positron;
 
 		// Trigger the breakpoint
 		await console.pasteCodeToConsole(`
@@ -89,7 +89,7 @@ test.describe('R Debugging', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 133 when fixed
 	},
 		async ({ app, page, openFile, runCommand }) => {
-			const { debug, console } = app.workbench;
+			const { debug, console } = app.positron;
 
 			await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
 			await runCommand('r.sourceCurrentFile');
@@ -126,7 +126,7 @@ test.describe('R Debugging', {
 		});
 
 	test('R - Verify debugging with `browser()` via console', async ({ app, page, openFile, runCommand, executeCode }) => {
-		const { debug, console } = app.workbench;
+		const { debug, console } = app.positron;
 
 		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
 		await runCommand('r.sourceCurrentFile');
@@ -158,7 +158,7 @@ test.describe('R Debugging', {
 	});
 
 	test('R - Verify debugging with `browser()` via debugging UI tools', async ({ app, page, openFile, runCommand, executeCode }) => {
-		const { debug, console } = app.workbench;
+		const { debug, console } = app.positron;
 
 		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
 		await runCommand('r.sourceCurrentFile');
@@ -187,7 +187,7 @@ test.describe('R Debugging', {
 	});
 
 	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
-		const { debug, console } = app.workbench;
+		const { debug, console } = app.positron;
 
 		await openFile('workspaces/r-debugging/fruit_avg.r');
 		await runCommand('r.sourceCurrentFile');
@@ -212,7 +212,7 @@ test.describe('R Debugging', {
 	});
 
 	test('R - Verify debugging with `options(error = recover)` interactive recovery mode', async ({ app, page, openFile, runCommand, executeCode }) => {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		await openFile('workspaces/r-debugging/fruit_avg.r');
 		await runCommand('r.sourceCurrentFile');
@@ -248,14 +248,14 @@ test.describe('R Debugging', {
 
 
 async function verifyDebugPane(app: Application) {
-	const { debug } = app.workbench;
+	const { debug } = app.positron;
 
 	await debug.expectDebugPaneToContain('pattern, value "berry"');
 	await debug.expectDebugPaneToContain('dat, value dat');
 }
 
 async function verifyCallStack(app: Application) {
-	const { debug } = app.workbench;
+	const { debug } = app.positron;
 
 	await debug.expectCallStackAtIndex(0, 'fruit_avg()fruit_avg()2:');
 	await debug.expectCallStackAtIndex(1, '<global>fruit_avg(dat, "berry")');
@@ -263,7 +263,7 @@ async function verifyCallStack(app: Application) {
 
 async function verifyVariableInConsole(app: Application, name: string, expectedText: string) {
 	await test.step(`Verify variable in console: ${name}`, async () => {
-		await app.workbench.console.focus();
+		await app.positron.console.focus();
 		await app.code.driver.page.keyboard.type(name);
 		await app.code.driver.page.keyboard.press('Enter');
 		await expect(app.code.driver.page.getByText(expectedText)).toBeVisible({ timeout: 30000 });

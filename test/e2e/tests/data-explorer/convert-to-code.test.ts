@@ -110,7 +110,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataFrameType, expectedGeneratedCode }) => {
 
 		test(`${environment} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
-			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
+			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.positron;
 
 			if (environment === 'DuckDB') {
 				// open a data file via DuckDB

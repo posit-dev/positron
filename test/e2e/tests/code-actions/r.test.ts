@@ -14,7 +14,7 @@ test.use({
 
 test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.ARK] }, () => {
 
-	test.afterEach(async function ({ app, hotKeys, cleanup }) {
+	test.afterEach(async function ({ hotKeys, cleanup }) {
 		await hotKeys.closeAllEditors();
 		await cleanup.discardAllChanges();
 	});
@@ -25,7 +25,7 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 		const fileName = 'supermarket-sales.r';
 		await openFile(join('workspaces/read-xlsx-r/', fileName));
 
-		const termLocator = await app.workbench.editor.clickOnTerm(fileName, 'get_data_from_excel', 7, true);
+		const termLocator = await app.positron.editor.clickOnTerm(fileName, 'get_data_from_excel', 7, true);
 
 		await termLocator.hover();
 
@@ -45,10 +45,10 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 			}
 		}).toPass({ timeout: 30000 });
 
-		const line7 = await app.workbench.editor.getLine(fileName, 7);
+		const line7 = await app.positron.editor.getLine(fileName, 7);
 		expect(line7).toBe('#\' Title');
 
-		const line12 = await app.workbench.editor.getLine(fileName, 12);
+		const line12 = await app.positron.editor.getLine(fileName, 12);
 		expect(line12).toBe('#\' @examples');
 
 	});
@@ -59,19 +59,19 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 		const fileName = 'folding.R';
 		await test.step('Create test file', async () => {
 
-			await app.workbench.quickaccess.runCommand('workbench.action.files.newUntitledFile', { keepOpen: false });
+			await app.positron.quickaccess.runCommand('workbench.action.files.newUntitledFile', { keepOpen: false });
 
 			await hotKeys.save();
 
-			await app.workbench.quickInput.waitForQuickInputOpened();
+			await app.positron.quickInput.waitForQuickInputOpened();
 
-			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, fileName));
+			await app.positron.quickInput.type(path.join(app.workspacePathOrFolder, fileName));
 
-			await app.workbench.quickInput.clickOkButton();
+			await app.positron.quickInput.clickOkButton();
 
-			await app.workbench.quickInput.waitForQuickInputClosed();
+			await app.positron.quickInput.waitForQuickInputClosed();
 
-			await app.workbench.editor.selectTabAndType(fileName, collapseText);
+			await app.positron.editor.selectTabAndType(fileName, collapseText);
 		});
 
 		await test.step('Single hash collpase', async () => {
@@ -80,7 +80,7 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);
 
 			try {
-				const line2 = await app.workbench.editor.getLine(fileName, 2);
+				const line2 = await app.positron.editor.getLine(fileName, 2);
 				fail(`Expected line 2 to be folded, but got: ${line2}`);
 			} catch { } // expected error when line is folded
 
@@ -96,11 +96,11 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);
 
 			try {
-				const line4 = await app.workbench.editor.getLine(fileName, 4);
+				const line4 = await app.positron.editor.getLine(fileName, 4);
 				fail(`Expected line 4 to be folded, but got: ${line4}`);
 			} catch { } // expected error when line is folded
 
-			const line9 = await app.workbench.editor.getLine(fileName, 9);
+			const line9 = await app.positron.editor.getLine(fileName, 9);
 			expect(line9).toBe('## Section 1.2 ----');
 
 			await app.code.driver.page.locator('.codicon-folding-collapsed').first().click();
@@ -114,7 +114,7 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 			await expect(app.code.driver.page.locator('.codicon-folding-collapsed')).toHaveCount(1);
 
 			try {
-				const line6 = await app.workbench.editor.getLine(fileName, 6);
+				const line6 = await app.positron.editor.getLine(fileName, 6);
 				fail(`Expected line 6 to be folded, but got: ${line6}`);
 			} catch { } // expected error when line is folded
 
@@ -122,7 +122,7 @@ test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.AR
 
 			await expect(app.code.driver.page.locator('.codicon-folding-expanded')).toHaveCount(4);
 
-			const line7 = await app.workbench.editor.getLine(fileName, 7);
+			const line7 = await app.positron.editor.getLine(fileName, 7);
 			expect(line7).toBe('#### Section 1.1.1.1 ----');
 		});
 

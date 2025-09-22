@@ -37,7 +37,7 @@ export class PackageManager {
 			const command = this.getCommand(packageInfo.type, packageName, action);
 			const expectedOutput = this.getExpectedOutput(packageName, action);
 
-			await this.app.workbench.console.executeCode(packageInfo.type, command);
+			await this.app.positron.console.executeCode(packageInfo.type, command);
 			await expect(this.app.code.driver.page.getByText(expectedOutput)).toBeVisible();
 		});
 	}

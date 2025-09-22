@@ -42,7 +42,7 @@ async function testConsoleClipboard(app: Application, testLine: string, port: st
 		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
 	}
 
-	const console = app.workbench.console;
+	const console = app.positron.console;
 	const page = console.activeConsole.page();
 
 	await toggleAuxiliaryBar(app);
@@ -54,10 +54,10 @@ async function testConsoleClipboard(app: Application, testLine: string, port: st
 
 async function testConsoleClipboardWithContextMenu(app: Application, prompt: string, regex: RegExp, port: string) {
 
-	await app.workbench.console.clearButton.click();
-	await app.workbench.console.restartButton.click();
+	await app.positron.console.clearButton.click();
+	await app.positron.console.restartButton.click();
 
-	await app.workbench.console.waitForReady(prompt);
+	await app.positron.console.waitForReady(prompt);
 
 	if (app.web) {
 
@@ -65,14 +65,14 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 	}
 
 	await expect(async () => {
-		await app.workbench.terminal.handleContextMenu(app.workbench.console.activeConsole, 'Select All');
+		await app.positron.terminal.handleContextMenu(app.positron.console.activeConsole, 'Select All');
 
 		// wait a little between selection and copy
 		await app.code.wait(1000);
 
-		await app.workbench.terminal.handleContextMenu(app.workbench.console.activeConsole, 'Copy');
+		await app.positron.terminal.handleContextMenu(app.positron.console.activeConsole, 'Copy');
 
-		const clipboardText = await app.workbench.clipboard.getClipboardText();
+		const clipboardText = await app.positron.clipboard.getClipboardText();
 
 		expect(clipboardText).toMatch(regex);
 	}).toPass({ timeout: 30000 });
@@ -81,7 +81,7 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 
 async function toggleAuxiliaryBar(app: Application) {
 	await test.step('Toggle auxiliary bar', async () => {
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.positron.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 }
 

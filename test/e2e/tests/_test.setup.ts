@@ -11,7 +11,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 
 // Local imports
-import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
+import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings, Positron } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
@@ -30,6 +30,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
+import { Workbench } from '../infra/workbench.js';
 
 
 // Test fixtures
@@ -96,7 +97,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
-		await app.workbench.sessions.expectNoStartUpMessaging();
+		await app.positron.sessions.expectNoStartUpMessaging();
 
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
@@ -106,9 +107,17 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await appFixture({ options, logsPath, logger, workerInfo }, use);
 	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
+	positron: [async ({ app }, use) => {
+		await use(app.positron);
+	}, { scope: 'test' }],
+
+	workbench: [async ({ app }, use) => {
+		await use(app.workbench);
+	}, { scope: 'test' }],
+
 	sessions: [
 		async ({ app }, use) => {
-			await use(app.workbench.sessions);
+			await use(app.positron.sessions);
 		},
 		{ scope: 'test' }
 	],
@@ -136,7 +145,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'test' }],
 
 	devTools: [async ({ app }, use) => {
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
+		await app.positron.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	}, { scope: 'test' }],
 
@@ -161,7 +170,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	// ex: await runCommand('workbench.action.files.save');
 	runCommand: async ({ app }, use) => {
 		await use(async (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => {
-			await app.workbench.quickaccess.runCommand(command, options);
+			await app.positron.quickaccess.runCommand(command, options);
 		});
 	},
 
@@ -181,14 +190,14 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			waitForReady?: boolean;
 			maximizeConsole?: boolean;
 		}) => {
-			await app.workbench.console.executeCode(language, code, options);
+			await app.positron.console.executeCode(language, code, options);
 		});
 	},
 
 
 	// ex: await hotKeys.copy();
 	hotKeys: async ({ app }, use) => {
-		const hotKeys = app.workbench.hotKeys;
+		const hotKeys = app.positron.hotKeys;
 		await use(hotKeys);
 	},
 
@@ -290,6 +299,8 @@ export { playwrightExpect as expect };
 export { TestTags as tags, WorkerFixtures };
 
 interface TestFixtures {
+	positron: Positron;
+	workbench: Workbench;
 	restartApp: Application;
 	tracing: any;
 	page: playwright.Page;

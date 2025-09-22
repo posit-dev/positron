@@ -100,9 +100,9 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
 		// Only sign out if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
-			await app.workbench.quickaccess.runCommand(`positron-assistant.configureModels`);
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.clickSignOutButton();
+			await app.positron.quickaccess.runCommand(`positron-assistant.configureModels`);
+			await app.positron.assistant.selectModelProvider('anthropic-api');
+			await app.positron.assistant.clickSignOutButton();
 		}
 	});
 
@@ -120,19 +120,19 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 		const [pySession] = await sessions.start(['python']);
 
 		// Sign in to the assistant
-		await app.workbench.assistant.openPositronAssistantChat();
+		await app.positron.assistant.openPositronAssistantChat();
 
 		// Only sign in if USE_KEY environment variable is set
 		if (process.env.USE_KEY) {
-			await app.workbench.assistant.clickAddModelButton();
-			await app.workbench.assistant.selectModelProvider('anthropic-api');
-			await app.workbench.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
-			await app.workbench.assistant.clickSignInButton();
-			await app.workbench.assistant.verifySignOutButtonVisible();
-			await app.workbench.assistant.clickCloseButton();
+			await app.positron.assistant.clickAddModelButton();
+			await app.positron.assistant.selectModelProvider('anthropic-api');
+			await app.positron.assistant.enterApiKey(`${process.env.ANTHROPIC_KEY}`);
+			await app.positron.assistant.clickSignInButton();
+			await app.positron.assistant.verifySignOutButtonVisible();
+			await app.positron.assistant.clickCloseButton();
 		}
 
-		await app.workbench.toasts.closeAll();
+		await app.positron.toasts.closeAll();
 
 		// Track if we've updated any items
 		let updatedItems = false;
@@ -141,13 +141,13 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 		const setupActions = {
 			'sample_2': async (app: any) => {
 				await expect(async () => {
-					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-					await app.workbench.quickaccess.runCommand('python.execInConsole');
+					await app.positron.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+					await app.positron.quickaccess.runCommand('python.execInConsole');
 				}).toPass({ timeout: 5000 });
 			},
 			'sample_3': async (app: any) => {
 				await expect(async () => {
-					await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+					await app.positron.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 				}).toPass({ timeout: 5000 });
 			},
 		} as const;
@@ -175,11 +175,11 @@ test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [ta
 				console.log(`Running setup for: ${item.id}`);
 				await setupAction(app);
 			}
-			await app.workbench.assistant.clickNewChatButton();
-			await app.workbench.assistant.selectChatMode(item.mode || 'Ask');
-			await app.workbench.assistant.enterChatMessage(item.question);
-			await app.workbench.assistant.waitForSendButtonVisible();
-			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
+			await app.positron.assistant.clickNewChatButton();
+			await app.positron.assistant.selectChatMode(item.mode || 'Ask');
+			await app.positron.assistant.enterChatMessage(item.question);
+			await app.positron.assistant.waitForSendButtonVisible();
+			const response = await app.positron.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
 			if (!response || response.trim() === '') {
 				fail(`No response received for question: ${item.question}`);

@@ -17,7 +17,7 @@ test.describe('Console: Add +', {
 	test('Validate can duplicate runtime via Console + button', {
 		tag: [tags.ARK]
 	}, async function ({ app, page }) {
-		const { sessions, console } = app.workbench;
+		const { sessions, console } = app.positron;
 		await sessions.start(['r']);
 
 		// Click the `+` button in the console to add a new session of the same type
@@ -29,7 +29,7 @@ test.describe('Console: Add +', {
 	test('Validate can start a different runtime via Console + button', {
 		tag: [tags.ARK]
 	}, async function ({ app, page }) {
-		const { sessions, console } = app.workbench;
+		const { sessions, console } = app.positron;
 		await sessions.start(['r', 'r']);
 
 		// Click the `+ v` button in the console to Start Another session
@@ -42,7 +42,7 @@ test.describe('Console: Add +', {
 	test('Validate Console + button menu shows both active and disconnected sessions', {
 		tag: [tags.ARK]
 	}, async function ({ app }) {
-		const { sessions, console } = app.workbench;
+		const { sessions, console } = app.positron;
 		const [pythonSession, rSession] = await sessions.start(['python', 'r', 'r', 'r', 'r', 'r', 'r',]);
 
 		// Verify the Python and R sessions are listed in the console `+` menu

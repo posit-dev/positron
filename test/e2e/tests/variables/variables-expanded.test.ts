@@ -12,11 +12,11 @@ test.use({
 test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, () => {
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.layouts.enterLayout('stacked');
+		await app.positron.layouts.enterLayout('stacked');
 	});
 
 	test('Python - Verify children values and types display when variable is expanded', async function ({ app, python }) {
-		const { variables, console, layouts } = app.workbench;
+		const { variables, console, layouts } = app.positron;
 
 		await console.executeCode('Python', script);
 		await layouts.enterLayout('fullSizedAuxBar');
@@ -31,7 +31,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 	test('R - Verify getting large dataframe children should not cause problems', {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
-		const { variables, toasts, console, layouts } = app.workbench;
+		const { variables, toasts, console, layouts } = app.positron;
 
 		// workaround for https://github.com/posit-dev/positron/issues/5718
 		await toasts.closeAll();

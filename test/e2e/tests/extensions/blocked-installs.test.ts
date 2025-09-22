@@ -19,7 +19,7 @@ test.describe('Extensions', {
 		tag: [tags.WEB_ONLY]
 	}, async function ({ app }) {
 
-		await app.workbench.extensions.installExtension('mikhail-arkhipov.r', false, true);
+		await app.positron.extensions.installExtension('mikhail-arkhipov.r', false, true);
 
 		await expect(app.code.driver.page.getByLabel('DialogService: refused to show dialog in tests. Contents: Cannot install the \'R Tools\' extension because it conflicts with Positron built-in features').first()).toBeVisible();
 

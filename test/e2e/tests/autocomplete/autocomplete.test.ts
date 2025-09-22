@@ -19,7 +19,7 @@ test.describe('Autocomplete', {
 	});
 
 	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions, hotKeys }) {
-		const { editors, console } = app.workbench;
+		const { editors, console } = app.positron;
 
 		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
 		await hotKeys.closeSecondarySidebar();
@@ -56,7 +56,7 @@ test.describe('Autocomplete', {
 	});
 
 	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, hotKeys, sessions }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);
 		await hotKeys.closeSecondarySidebar();
@@ -91,7 +91,7 @@ test.describe('Autocomplete', {
 	test('R - Verify autocomplete suggestions in Console and Editor', {
 		tag: [tags.ARK]
 	}, async function ({ app, runCommand, sessions, hotKeys }) {
-		const { editors, console } = app.workbench;
+		const { editors, console } = app.positron;
 
 		const [rSession1, rSession2, rSessionAlt] = await sessions.start(['r', 'r', 'rAlt']);
 		await hotKeys.closeSecondarySidebar();
@@ -130,7 +130,7 @@ test.describe('Autocomplete', {
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', {
 		tag: [tags.ARK]
 	}, async function ({ app, sessions, hotKeys }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);
 		await hotKeys.closeSecondarySidebar();
@@ -163,7 +163,7 @@ test.describe('Autocomplete', {
 // Helper functions
 
 async function triggerAutocompleteInConsole(app: Application, session: SessionMetaData) {
-	const { console, sessions } = app.workbench;
+	const { console, sessions } = app.positron;
 
 	if (session.name.includes('Python')) {
 		await console.typeToConsole('import pandas as pd', true, 0);
@@ -181,7 +181,7 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	session: SessionMetaData;
 	retrigger?: boolean;
 }) {
-	const { sessions, hotKeys } = app.workbench;
+	const { sessions, hotKeys } = app.positron;
 	const keyboard = app.code.driver.page.keyboard;
 
 	await sessions.select(session.id);

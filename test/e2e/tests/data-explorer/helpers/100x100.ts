@@ -17,21 +17,21 @@ export const testDataExplorer = async (
 ): Promise<void> => {
 	// Execute commands.
 	for (let i = 0; i < commands.length; i++) {
-		await app.workbench.console.executeCode(
+		await app.positron.console.executeCode(
 			language,
 			commands[i],
 		);
 	}
 
 	// Open the data frame.
-	await app.workbench.variables.doubleClickVariableRow(dataFrameName);
-	await app.workbench.editors.verifyTab(dataFrameName, { isVisible: true });
+	await app.positron.variables.doubleClickVariableRow(dataFrameName);
+	await app.positron.editors.verifyTab(dataFrameName, { isVisible: true });
 
 	// Maximize the data explorer.
-	await app.workbench.dataExplorer.maximize();
+	await app.positron.dataExplorer.maximize();
 
 	// Drive focus into the data explorer.
-	await app.workbench.dataExplorer.grid.clickUpperLeftCorner();
+	await app.positron.dataExplorer.grid.clickUpperLeftCorner();
 
 	// Load the TSV file that is used to verify the data and split it into lines.
 	const tsvFile = fs.readFileSync(tsvFilePath, { encoding: 'utf8' });
@@ -55,7 +55,7 @@ export const testDataExplorer = async (
 	const testRow = async (rowIndex: number) => {
 		const keyboard = app.code.driver.page.keyboard
 		// Scroll to home and put the cursor there.
-		await app.workbench.dataExplorer.grid.jumpToStart();
+		await app.positron.dataExplorer.grid.jumpToStart();
 
 		// Navigate to the row under test.
 		for (let i = 0; i < rowIndex; i++) {
@@ -96,7 +96,7 @@ export const testDataExplorer = async (
 	await testRow(tsvValues.length - 1);
 
 	// Return to Stacked layout
-	await app.workbench.layouts.enterLayout('stacked');
+	await app.positron.layouts.enterLayout('stacked');
 
 	// Check that "open as plaintext" button is not available
 	await expect(app.code.driver.page.getByLabel('Open as Plain Text File')).not.toBeVisible();

@@ -22,26 +22,26 @@ test.describe('Notebook Working Directory Configuration', {
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.notebooks.closeNotebookWithoutSaving();
+		await app.positron.notebooks.closeNotebookWithoutSaving();
 	});
 
 	test('Default working directory is the notebook parent', async function ({ app, settings }) {
 		await settings.clear();
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
+		await verifyWorkingDirectoryEndsWith(app.positron.notebooks, 'working-directory-notebook');
 	});
 
 	test('workspaceFolder works', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${workspaceFolder}'
 		}, { reload: 'web' });
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'qa-example-content');
+		await verifyWorkingDirectoryEndsWith(app.positron.notebooks, 'qa-example-content');
 	});
 
 	test('fileDirname works', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${fileDirname}'
 		}, { reload: 'web' });
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
+		await verifyWorkingDirectoryEndsWith(app.positron.notebooks, 'working-directory-notebook');
 	});
 
 	test('A hardcoded path works', async function ({ app, settings }) {
@@ -51,21 +51,21 @@ test.describe('Notebook Working Directory Configuration', {
 		await settings.set({
 			'notebook.workingDirectory': tempDir
 		}, { reload: 'web' });
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, path.basename(tempDir));
+		await verifyWorkingDirectoryEndsWith(app.positron.notebooks, path.basename(tempDir));
 	});
 
 	test('Paths that do not exist result in the default notebook parent', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '/does/not/exist'
 		}, { reload: 'web' });
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
+		await verifyWorkingDirectoryEndsWith(app.positron.notebooks, 'working-directory-notebook');
 	});
 
 	test('Bad variables result in the default notebook parent', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${asdasd}'
 		}, { reload: 'web' });
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
+		await verifyWorkingDirectoryEndsWith(app.positron.notebooks, 'working-directory-notebook');
 	});
 });
 

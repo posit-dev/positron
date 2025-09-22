@@ -14,10 +14,10 @@ import { Application, MultiLogger } from '../../infra/index.js';
 export function MetricsFixture(app: Application, logger: MultiLogger): RecordMetric {
 	const dataExplorerAutoContext: DataExplorerAutoContext = {
 		getRowCount: async () => {
-			return app.workbench.dataExplorer.grid.getRowCount();
+			return app.positron.dataExplorer.grid.getRowCount();
 		},
 		getColumnCount: async () => {
-			return app.workbench.dataExplorer.grid.getColumnCount();
+			return app.positron.dataExplorer.grid.getColumnCount();
 		}
 	};
 

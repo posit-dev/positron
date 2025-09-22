@@ -12,7 +12,7 @@ export function addRandomNumSuffix(name: string): string {
 
 export async function createNewFolder(app: Application, options: CreateFolderOptions) {
 	await test.step(`Create a new folder: ${options.folderName}`, async () => {
-		await app.workbench.newFolderFlow.createNewFolder(options);
+		await app.positron.newFolderFlow.createNewFolder(options);
 	});
 }
 
@@ -25,52 +25,52 @@ export async function verifyFolderCreation(app: Application, folderName: string)
 export async function verifyConsoleReady(app: Application, folderTemplate: FolderTemplate) {
 	await test.step(`Verify console is ready`, async () => {
 		const consoleSymbol = folderTemplate === FolderTemplate.R_PROJECT ? '>' : '>>>';
-		await app.workbench.console.waitForReadyAndStarted(consoleSymbol, 90000);
+		await app.positron.console.waitForReadyAndStarted(consoleSymbol, 90000);
 	});
 }
 
 export async function verifyGitFilesArePresent(app: Application) {
 	await test.step('Verify that the .git files are present', async () => {
-		await app.workbench.explorer.verifyExplorerFilesExist(['.git', '.gitignore']);
+		await app.positron.explorer.verifyExplorerFilesExist(['.git', '.gitignore']);
 	});
 }
 
 export async function verifyGitStatus(app: Application) {
 	await test.step('Verify git status', async () => {
 		// Git status should show that we're on the main branch
-		await app.workbench.terminal.createTerminal();
-		await app.workbench.terminal.runCommandInTerminal('git status');
-		await app.workbench.terminal.waitForTerminalText('On branch main');
+		await app.positron.terminal.createTerminal();
+		await app.positron.terminal.runCommandInTerminal('git status');
+		await app.positron.terminal.waitForTerminalText('On branch main');
 	});
 }
 
 export async function verifyRenvFilesArePresent(app: Application,) {
 	await test.step(`Verify renv files are present`, async () => {
-		await app.workbench.explorer.verifyExplorerFilesExist(['renv', '.Rprofile', 'renv.lock']);
+		await app.positron.explorer.verifyExplorerFilesExist(['renv', '.Rprofile', 'renv.lock']);
 	});
 }
 
 export async function handleRenvInstallModal(app: Application, action: 'install' | 'cancel') {
 	await test.step(`Handle Renv modal: ${action}`, async () => {
-		await app.workbench.modals.installRenvModal(action);
+		await app.positron.modals.installRenvModal(action);
 	});
 }
 
 export async function verifyCondaFilesArePresent(app: Application) {
 	await test.step('Verify .conda files are present', async () => {
-		await app.workbench.explorer.verifyExplorerFilesExist(['.conda']);
+		await app.positron.explorer.verifyExplorerFilesExist(['.conda']);
 	});
 }
 
 export async function verifyCondaEnvStarts(app: Application) {
 	await test.step('Verify conda environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents(/(Conda).*started/);
+		await app.positron.console.waitForConsoleContents(/(Conda).*started/);
 	});
 }
 
 export async function verifyVenvEnvStarts(app: Application) {
 	await test.step('Verify venv environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents('(Venv: .venv) started.');
+		await app.positron.console.waitForConsoleContents('(Venv: .venv) started.');
 	});
 }
 
@@ -79,7 +79,7 @@ export async function verifyUvEnvStarts(app: Application) {
 		if (/(8080)/.test(app.code.driver.page.url())) {
 			app.code.driver.page.getByRole('button', { name: 'Yes' }).click();
 		}
-		await app.workbench.console.waitForConsoleContents(/(Uv: .+) started./);
+		await app.positron.console.waitForConsoleContents(/(Uv: .+) started./);
 	});
 }
 

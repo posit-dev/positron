@@ -29,11 +29,11 @@ test.describe('Postgres DB Connection', {
 
 	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {
 
-		await app.workbench.connections.openConnectionPane();
+		await app.positron.connections.openConnectionPane();
 
-		await app.workbench.connections.initiateConnection('Python', 'PostgresSQL');
+		await app.positron.connections.initiateConnection('Python', 'PostgresSQL');
 
-		await app.workbench.connections.fillConnectionsInputs({
+		await app.positron.connections.fillConnectionsInputs({
 			'Database Name': dbName,
 			'Host': 'postgres',
 			'User': user,
@@ -45,7 +45,7 @@ test.describe('Postgres DB Connection', {
 		await expect(app.code.driver.page.locator(`${viewLine}:has-text("username=\\"${user}\\"")`)).toBeVisible();
 		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password=\\"${password}\\"")`)).toBeVisible();
 
-		await app.workbench.connections.connect();
+		await app.positron.connections.connect();
 
 		await test.step('Open periodic table connection', async () => {
 			const connectionName = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
@@ -54,17 +54,17 @@ test.describe('Postgres DB Connection', {
 
 			// hack to allow for different beahavior based on how db was imported
 			try {
-				await app.workbench.editors.verifyTab('Data: elements', { isVisible: true });
+				await app.positron.editors.verifyTab('Data: elements', { isVisible: true });
 			} catch {
-				await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
+				await app.positron.editors.verifyTab('Data: periodic_table', { isVisible: true });
 			}
 		});
 
 		await test.step('Verify connection data from periodic table', async () => {
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await app.positron.sideBar.closeSecondarySideBar();
 
 			await expect(async () => {
-				const tableData = await app.workbench.dataExplorer.grid.getData();
+				const tableData = await app.positron.dataExplorer.grid.getData();
 
 				// hack to allow for different beahavior based on how db was imported
 				try {
@@ -77,10 +77,10 @@ test.describe('Postgres DB Connection', {
 		});
 
 		await hotKeys.closeAllEditors();
-		await app.workbench.layouts.enterLayout('stacked');
+		await app.positron.layouts.enterLayout('stacked');
 
 		await test.step('Remove connection', async () => {
-			await app.workbench.connections.openConnectionPane();
+			await app.positron.connections.openConnectionPane();
 
 			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
 
@@ -96,11 +96,11 @@ test.describe('Postgres DB Connection', {
 		tag: [tags.ARK]
 	}, async function ({ app, hotKeys, r }) {
 
-		await app.workbench.connections.openConnectionPane();
+		await app.positron.connections.openConnectionPane();
 
-		await app.workbench.connections.initiateConnection('R', 'PostgresSQL');
+		await app.positron.connections.initiateConnection('R', 'PostgresSQL');
 
-		await app.workbench.connections.fillConnectionsInputs({
+		await app.positron.connections.fillConnectionsInputs({
 			'Database Name': dbName,
 			'Host': 'postgres',
 			'User': user,
@@ -112,7 +112,7 @@ test.describe('Postgres DB Connection', {
 		await expect(app.code.driver.page.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
 		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
 
-		await app.workbench.connections.connect();
+		await app.positron.connections.connect();
 
 		await test.step('Open periodic table connection', async () => {
 
@@ -128,17 +128,17 @@ test.describe('Postgres DB Connection', {
 
 			// hack to allow for different beahavior based on how db was imported
 			try {
-				await app.workbench.editors.verifyTab('Data: elements', { isVisible: true });
+				await app.positron.editors.verifyTab('Data: elements', { isVisible: true });
 			} catch {
-				await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
+				await app.positron.editors.verifyTab('Data: periodic_table', { isVisible: true });
 			}
 		});
 
 		await test.step('Verify connection data from periodic table', async () => {
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await app.positron.sideBar.closeSecondarySideBar();
 
 			await expect(async () => {
-				const tableData = await app.workbench.dataExplorer.grid.getData();
+				const tableData = await app.positron.dataExplorer.grid.getData();
 
 				// hack to allow for different beahavior based on how db was imported
 				try {
@@ -153,7 +153,7 @@ test.describe('Postgres DB Connection', {
 		await hotKeys.closeAllEditors();
 
 		await test.step('Remove connection', async () => {
-			await app.workbench.connections.openConnectionPane();
+			await app.positron.connections.openConnectionPane();
 
 			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
 

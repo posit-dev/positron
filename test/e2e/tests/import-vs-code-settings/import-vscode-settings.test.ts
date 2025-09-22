@@ -50,7 +50,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 
 	test.describe('Defer Import', () => {
 		test('Verify import prompt behavior on "Later"', async ({ app, hotKeys }) => {
-			const { toasts } = app.workbench;
+			const { toasts } = app.positron;
 
 			// select "Later" and verify that the prompt is no longer visible
 			await toasts.expectImportSettingsToastToBeVisible();
@@ -63,7 +63,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 		});
 
 		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, hotKeys, page }) => {
-			const { toasts } = app.workbench;
+			const { toasts } = app.positron;
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
 			await toasts.expectImportSettingsToastToBeVisible();
@@ -80,7 +80,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 
 	test.describe('Import with Positron settings', () => {
 		test('Verify diff displays and rejected settings are not saved', async ({ app, page, hotKeys }) => {
-			const { toasts } = app.workbench;
+			const { toasts } = app.positron;
 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
@@ -95,7 +95,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 		});
 
 		test('Verify diff displays and accepted settings are saved', async ({ app, page, hotKeys }) => {
-			const { toasts } = app.workbench;
+			const { toasts } = app.positron;
 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
@@ -117,7 +117,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 		});
 
 		test('Verify import import occurs and is clean without a diff', async ({ app, page, hotKeys }) => {
-			const { toasts } = app.workbench;
+			const { toasts } = app.positron;
 
 			// import settings
 			await hotKeys.importSettings();

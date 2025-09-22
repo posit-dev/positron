@@ -5,7 +5,7 @@
 
 import { Locator } from '@playwright/test';
 import { Code } from '../infra/code';
-import { Workbench } from '../infra/workbench';
+import { Positron } from '../infra/positron';
 
 const FULL_APP = 'body';
 const AUX_BAR = '.part.auxiliarybar';
@@ -82,7 +82,7 @@ export class Layouts {
 	 */
 	sidebar = this.code.driver.page.locator(SIDEBAR);
 
-	constructor(private code: Code, private workbench: Workbench) { }
+	constructor(private code: Code, private workbench: Positron) { }
 
 	/**
 	 * Enter a known positron layout.

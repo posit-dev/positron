@@ -15,13 +15,13 @@ test.describe('Data Explorer - Python Pandas', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.filters.clearAll();
+		await app.positron.dataExplorer.filters.clearAll();
 		await hotKeys.closeAllEditors();
 		await hotKeys.showSecondarySidebar();
 	});
 
 	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
-		const { dataExplorer, variables, editors, clipboard } = app.workbench;
+		const { dataExplorer, variables, editors, clipboard } = app.positron;
 
 		// execute code to create a DataFrame
 		await executeCode('Python', df);
@@ -51,7 +51,7 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
-		const { dataExplorer, console, variables, editors } = app.workbench;
+		const { dataExplorer, console, variables, editors } = app.positron;
 
 		// execute code to create a DataFrame with empty fields
 		await console.executeCode('Python', emptyFieldsScript);
@@ -90,7 +90,7 @@ test.describe('Data Explorer - Python Pandas', {
 
 
 	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, hotKeys, python }) {
-		const { dataExplorer, notebooks, variables, editors } = app.workbench;
+		const { dataExplorer, notebooks, variables, editors } = app.positron;
 
 		// open a notebook and execute a cell to create a DataFrame
 		const pythonNotebook = 'pandas-update-dataframe.ipynb';
@@ -123,7 +123,7 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
-		const { variables, console, editors } = app.workbench;
+		const { variables, console, editors } = app.positron;
 
 		// execute code to create a DataFrame
 		await console.executeCode('Python', mtcarsDf);
@@ -139,7 +139,7 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, hotKeys, python }) {
-		const { dataExplorer, console, variables, editors, modals } = app.workbench;
+		const { dataExplorer, console, variables, editors, modals } = app.positron;
 
 		// execute code to create a DataFrame with blank spaces
 		await console.executeCode('Python', blankSpacesScript);

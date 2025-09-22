@@ -33,21 +33,21 @@ test.describe('Reticulate', {
 
 		const rSessionMetaData = await sessions.start('r');
 
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
+		await app.positron.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		await app.workbench.console.waitForReadyAndStarted('>>>');
+		await app.positron.console.waitForReadyAndStarted('>>>');
 
-		await app.workbench.sessions.rename('reticulate', 'sessionOne');
+		await app.positron.sessions.rename('reticulate', 'sessionOne');
 
 		await verifyReticulateFunctionality(app, rSessionMetaData.id, 'sessionOne');
 
 		const rSessionMetaData2 = await sessions.start('r', { reuse: false });
 
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
+		await app.positron.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		await app.workbench.console.waitForReadyAndStarted('>>>');
+		await app.positron.console.waitForReadyAndStarted('>>>');
 
-		await app.workbench.sessions.rename('reticulate', 'sessionTwo');
+		await app.positron.sessions.rename('reticulate', 'sessionTwo');
 
 		await verifyReticulateFunctionality(app, rSessionMetaData2.id, 'sessionTwo', '300', '500', '7');
 

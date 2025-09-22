@@ -26,13 +26,13 @@ test.describe('Notebooks', {
 		});
 
 		test.beforeEach(async function ({ app, python }) {
-			await app.workbench.layouts.enterLayout('notebook');
-			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('Python');
+			await app.positron.layouts.enterLayout('notebook');
+			await app.positron.notebooks.createNewNotebook();
+			await app.positron.notebooks.selectInterpreter('Python');
 		});
 
 		test.afterEach(async function ({ app }) {
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
+			await app.positron.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test.afterAll(async function ({ cleanup }) {
@@ -40,22 +40,22 @@ test.describe('Notebooks', {
 		});
 
 		test('Python - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToCellAtIndex('eval("8**2")');
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('64');
+			await app.positron.notebooks.addCodeToCellAtIndex('eval("8**2")');
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.assertCellOutput('64');
 		});
 
 		test('Python - Verify markdown formatting in notebook', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
-			await app.workbench.notebooks.stopEditingCell();
-			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
+			await app.positron.notebooks.insertNotebookCell('markdown');
+			await app.positron.notebooks.typeInEditor(`## ${randomText} `);
+			await app.positron.notebooks.stopEditingCell();
+			await app.positron.notebooks.assertMarkdownText('h2', randomText);
 		});
 
 		test('Python - Save untitled notebook and preserve session', async function ({ app, runCommand }) {
-			const { notebooks, variables, layouts, quickInput } = app.workbench;
+			const { notebooks, variables, layouts, quickInput } = app.positron;
 
 			// Ensure auxiliary sidebar is open to see variables pane
 			await layouts.enterLayout('notebook');
@@ -112,17 +112,17 @@ test.describe('Notebooks', {
 
 		test('Python - Ensure LSP works across cells', async function ({ app }) {
 
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await app.positron.notebooks.insertNotebookCell('code');
 
-			await app.workbench.notebooks.addCodeToCellAtIndex('import torch');
+			await app.positron.notebooks.addCodeToCellAtIndex('import torch');
 
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await app.positron.notebooks.insertNotebookCell('code');
 
-			await app.workbench.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
+			await app.positron.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
 
 			// toPass block seems to be needed on Ubuntu
 			await expect(async () => {
-				await app.workbench.notebooks.hoverCellText(1, 'torch');
+				await app.positron.notebooks.hoverCellText(1, 'torch');
 
 				const hoverTooltip = app.code.driver.page.getByRole('tooltip', {
 					name: /module torch/,
@@ -138,28 +138,28 @@ test.describe('Notebooks', {
 		tag: [tags.ARK]
 	}, () => {
 		test.beforeEach(async function ({ app, r }) {
-			await app.workbench.layouts.enterLayout('notebook');
-			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('R');
+			await app.positron.layouts.enterLayout('notebook');
+			await app.positron.notebooks.createNewNotebook();
+			await app.positron.notebooks.selectInterpreter('R');
 		});
 
 		test.afterEach(async function ({ app }) {
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
+			await app.positron.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test('R - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToCellAtIndex('eval(parse(text="8**2"))');
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('[1] 64');
+			await app.positron.notebooks.addCodeToCellAtIndex('eval(parse(text="8**2"))');
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.assertCellOutput('[1] 64');
 		});
 
 		test('R - Verify markdown formatting in notebook', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
-			await app.workbench.notebooks.stopEditingCell();
-			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
+			await app.positron.notebooks.insertNotebookCell('markdown');
+			await app.positron.notebooks.typeInEditor(`## ${randomText} `);
+			await app.positron.notebooks.stopEditingCell();
+			await app.positron.notebooks.assertMarkdownText('h2', randomText);
 		});
 	});
 });

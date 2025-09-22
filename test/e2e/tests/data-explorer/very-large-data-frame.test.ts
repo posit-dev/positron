@@ -41,7 +41,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 	if (githubActions && process.platform !== 'win32') {
 
 		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, openFile, runCommand, python, metric }) {
-			const { dataExplorer, variables, editors } = app.workbench;
+			const { dataExplorer, variables, editors } = app.positron;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.py'));
 			await runCommand('python.execInConsole');
@@ -58,7 +58,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		});
 
 		test('R - Verify data loads with very large unique data dataframe', async function ({ app, openFile, runCommand, r, metric }) {
-			const { variables, editors, dataExplorer } = app.workbench;
+			const { variables, editors, dataExplorer } = app.positron;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.r'));
 			await runCommand('r.sourceCurrentFile');
@@ -77,7 +77,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 	} else {
 
 		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, python, metric }) {
-			const { dataExplorer, variables, editors } = app.workbench;
+			const { dataExplorer, variables, editors } = app.positron;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.py'));
 			await runCommand('python.execInConsole');
@@ -94,7 +94,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		});
 
 		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, r, metric }) {
-			const { variables, editors, dataExplorer } = app.workbench;
+			const { variables, editors, dataExplorer } = app.positron;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.r'));
 			await runCommand('r.sourceCurrentFile');

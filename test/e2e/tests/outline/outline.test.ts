@@ -23,7 +23,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 	test.describe('Outline: Sessions', { tag: [tags.SESSIONS, tags.ARK] }, () => {
 
 		test.beforeAll(async function ({ app, openFile, hotKeys }) {
-			const { outline } = app.workbench;
+			const { outline } = app.positron;
 
 			await openFile(`workspaces/outline/${PY_FILE}`);
 			await openFile(`workspaces/outline/${R_FILE}`);
@@ -33,7 +33,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 		});
 
 		test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
-			const { outline, console, editor } = app.workbench;
+			const { outline, console, editor } = app.positron;
 
 			// No active session - verify no outlines
 			await editor.selectTab(PY_FILE);
@@ -83,7 +83,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 		test.skip('Verify outline after reload with Python in foreground and R in background', {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
 		}, async function ({ app, runCommand, sessions }) {
-			const { outline, editor } = app.workbench;
+			const { outline, editor } = app.positron;
 
 			// Start sessions
 			await sessions.deleteAll();
@@ -112,7 +112,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 
 		test('Verify outline after reload with R in foreground and Python in background',
 			async function ({ app, runCommand, sessions }) {
-				const { outline, editor } = app.workbench;
+				const { outline, editor } = app.positron;
 
 				// Start sessions
 				await sessions.deleteAll();
@@ -141,7 +141,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 
 		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-			await app.workbench.outline.expectOutlineToContain([
+			await app.positron.outline.expectOutlineToContain([
 				'data_file_path',
 				'conn',
 				'cur',
@@ -154,7 +154,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			tag: [tags.ARK]
 		}, async function ({ app, r, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
-			await app.workbench.outline.expectOutlineToContain([
+			await app.positron.outline.expectOutlineToContain([
 				'con',
 				'albums',
 				'df',

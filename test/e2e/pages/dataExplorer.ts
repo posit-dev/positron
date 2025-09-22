@@ -5,7 +5,7 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
-import { Workbench } from '../infra/workbench';
+import { Positron } from '../infra/positron';
 
 const HEADER_TITLES = '.data-grid-column-header .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
@@ -32,7 +32,7 @@ export class DataExplorer {
 	private _convertToCodeModal: ConvertToCodeModal;
 	private _summaryPanel: SummaryPanel;
 
-	constructor(private code: Code, private workbench: Workbench) {
+	constructor(private code: Code, private workbench: Positron) {
 		this._filters = new Filters(this.code);
 		this._editorActionBar = new EditorActionBar(this.code, this.workbench);
 		this._dataGrid = new DataGrid(this.code, this);
@@ -95,7 +95,7 @@ export class DataExplorer {
 // -----------------------
 export class EditorActionBar {
 
-	constructor(private code: Code, private workbench: Workbench) { }
+	constructor(private code: Code, private workbench: Positron) { }
 
 	// --- Actions ---
 
@@ -641,7 +641,7 @@ export class SummaryPanel {
 	private columnSummaryName: Locator;
 	private verticalScrollbar: Locator;
 
-	constructor(private code: Code, private workbench: Workbench,) {
+	constructor(private code: Code, private workbench: Positron,) {
 		this.summaryPanel = this.code.driver.page.locator('.data-explorer .left-column');
 		this.summaryFilterBar = this.summaryPanel.locator('.summary-row-filter-bar');
 		this.searchFilter = this.summaryFilterBar.getByRole('textbox', { name: 'filter' });
@@ -893,7 +893,7 @@ export class SummaryPanel {
 export class ConvertToCodeModal {
 	codeBox: Locator;
 
-	constructor(private code: Code, private workbench: Workbench) {
+	constructor(private code: Code, private workbench: Positron) {
 		this.codeBox = this.code.driver.page.locator('.positron-modal-dialog-box .convert-to-code-editor');
 	}
 

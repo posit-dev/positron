@@ -17,14 +17,14 @@ test.use({
 
 test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }, () => {
 	test.beforeAll(async function ({ app, browserName }) {
-		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await app.positron.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		isWeb = browserName === 'chromium';
 	});
 
 	test.afterEach(async function ({ app }) {
 		// Clean up any terminals that may have been created during Quarto operations
 		try {
-			await app.workbench.quickaccess.runCommand('workbench.action.terminal.killAll');
+			await app.positron.quickaccess.runCommand('workbench.action.terminal.killAll');
 		} catch (error) {
 			// Ignore errors if no terminals exist
 		}
@@ -52,8 +52,8 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 	});
 
 	test('Verify Quarto can generate preview', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
-		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
+		await app.positron.quickaccess.runCommand('quarto.preview', { keepOpen: true });
+		const viewerFrame = app.positron.viewer.getViewerFrame().frameLocator('iframe');
 
 		// verify preview displays
 		await expect(viewerFrame.locator('h1')).toHaveText('Diamond sizes', { timeout: 30000 });
@@ -74,8 +74,8 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
 	await test.step(`render quarto document`, async () => {
-		await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-		await app.workbench.quickInput.selectQuickInputElementContaining(fileExtension);
+		await app.positron.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+		await app.positron.quickInput.selectQuickInputElementContaining(fileExtension);
 	});
 };
 

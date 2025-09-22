@@ -17,7 +17,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
 	test('Verify basic duckdb column summary functionality', async function ({ app, openDataFile, hotKeys }) {
-		const { summaryPanel } = app.workbench.dataExplorer;
+		const { summaryPanel } = app.positron.dataExplorer;
 
 		await openDataFile('data-files/100x100/100x100.parquet');
 		await hotKeys.notebookLayout();

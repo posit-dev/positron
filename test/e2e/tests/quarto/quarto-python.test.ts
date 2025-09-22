@@ -20,7 +20,7 @@ test.describe('Quarto - Python', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () 
 		await app.code.driver.page.locator('.positron-action-bar').getByRole('button', { name: 'Preview' }).click();
 
 		// Viewer tab is targeted by corresponding iframe. It is assumed that the report fully loads once title 'Example Report' appears
-		const title = app.workbench.viewer.getViewerFrame().frameLocator('iframe').getByText('Example Report');
+		const title = app.positron.viewer.getViewerFrame().frameLocator('iframe').getByText('Example Report');
 		await expect(title).toBeVisible({ timeout: 120000 });
 	});
 });

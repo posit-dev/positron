@@ -12,7 +12,7 @@ test.use({
 test.describe('Data Explorer: Column Names', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 
 	test('Verify data columns', async function ({ app, openDataFile }) {
-		const dataExplorer = app.workbench.dataExplorer;
+		const dataExplorer = app.positron.dataExplorer;
 		await openDataFile('data-files/data_explorer/data_columns.csv');
 		await dataExplorer.maximize();
 

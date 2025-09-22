@@ -35,23 +35,23 @@ test.describe('Reticulate', {
 
 		await sessions.start('pythonReticulate');
 
-		await app.workbench.modals.installIPyKernel();
+		await app.positron.modals.installIPyKernel();
 
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		await app.positron.console.waitForReadyAndStarted('>>>', 30000);
 
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`);
 
-		await app.workbench.sessions.delete(`R ${process.env.POSITRON_R_VER_SEL!}`);
+		await app.positron.sessions.delete(`R ${process.env.POSITRON_R_VER_SEL!}`);
 
 		// await app.workbench.sessions.delete('Python (reticulate)'); // doesn't seem to work on exited session
 
-		await app.workbench.console.waitForConsoleContents('exited');
+		await app.positron.console.waitForConsoleContents('exited');
 
 		await sessions.start('pythonReticulate');
 
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		await app.positron.console.waitForReadyAndStarted('>>>', 30000);
 
-		await app.workbench.sessions.rename('reticulate', 'reticulateNew');
+		await app.positron.sessions.rename('reticulate', 'reticulateNew');
 
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'reticulateNew');
 

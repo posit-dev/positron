@@ -45,7 +45,7 @@ test.describe('Headless Data Explorer', {
 
 	testCases.forEach(({ target, file, copyValue }) => {
 		test(`Verify can open and view data with large ${target} file`, { tag: [tags.PERFORMANCE] }, async function ({ app, openDataFile, metric }) {
-			const { editors, dataExplorer, clipboard } = app.workbench;
+			const { editors, dataExplorer, clipboard } = app.positron;
 			await openDataFile(file);
 
 			await metric.dataExplorer.loadData(async () => {
@@ -70,7 +70,7 @@ test.describe('Headless Data Explorer', {
 	plainTextTestCases.forEach(({ target, file, searchString }) => {
 		test(`Verify can open ${target} file as plaintext`,
 			{ tag: [TestTags.EDITOR_ACTION_BAR] }, async function ({ app, openDataFile }) {
-				const { dataExplorer, editors } = app.workbench;
+				const { dataExplorer, editors } = app.positron;
 
 				await openDataFile(join(`data-files/flights/${file}`));
 				await editors.verifyTab(file, { isVisible: true, isSelected: true });
@@ -81,7 +81,7 @@ test.describe('Headless Data Explorer', {
 	});
 
 	test(`Verify can open parquet decimal data`, async function ({ app, openDataFile }) {
-		const { editors, dataExplorer, clipboard } = app.workbench;
+		const { editors, dataExplorer, clipboard } = app.positron;
 
 		await openDataFile(`data-files/misc-parquet/decimal_types.parquet`);
 		await editors.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });

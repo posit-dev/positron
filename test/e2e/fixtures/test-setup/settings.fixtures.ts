@@ -7,7 +7,7 @@ import * as playwright from '@playwright/test';
 import { Application } from '../../infra';
 
 export function SettingsFixture(app: Application) {
-	const { settings } = app.workbench;
+	const { settings } = app.positron;
 
 	return {
 		set: async (
@@ -19,7 +19,7 @@ export function SettingsFixture(app: Application) {
 			await settings.set(newSettings, { keepOpen });
 
 			if (reload === true || (reload === 'web' && app.web === true)) {
-				await app.workbench.hotKeys.reloadWindow();
+				await app.positron.hotKeys.reloadWindow();
 				// wait for the reload to complete
 				await app.code.driver.page.waitForTimeout(3000);
 				await playwright.expect(app.code.driver.page.locator('.monaco-workbench')).toBeVisible();
@@ -29,7 +29,7 @@ export function SettingsFixture(app: Application) {
 			}
 
 			if (waitForReady) {
-				await app.workbench.sessions.expectNoStartUpMessaging();
+				await app.positron.sessions.expectNoStartUpMessaging();
 			}
 		},
 		clear: () => settings.clear(),

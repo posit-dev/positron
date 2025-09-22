@@ -28,7 +28,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 		const folderName = addRandomNumSuffix('python-notebook-runtime');
 
 		// Create a new Python notebook folder
-		await app.workbench.newFolderFlow.createNewFolder({
+		await app.positron.newFolderFlow.createNewFolder({
 			folderTemplate,
 			folderName
 		});

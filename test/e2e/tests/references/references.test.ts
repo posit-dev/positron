@@ -18,7 +18,7 @@ test.describe('References', {
 
 	test.afterEach(async ({ app, runCommand }) => {
 
-		await app.workbench.references.close();
+		await app.positron.references.close();
 		await runCommand('workbench.action.closeAllEditors');
 
 	});
@@ -33,7 +33,7 @@ test.describe('References', {
 		await openAndCommonValidations(app, helper);
 
 		await test.step('Verify reference files', async () => {
-			await app.workbench.references.waitForReferenceFiles(['main.py', 'another_script.py', helper]);
+			await app.positron.references.waitForReferenceFiles(['main.py', 'another_script.py', helper]);
 		});
 
 	});
@@ -49,7 +49,7 @@ test.describe('References', {
 		await openAndCommonValidations(app, helper);
 
 		await test.step('Verify reference files', async () => {
-			await app.workbench.references.waitForReferenceFiles(['main.R', 'another_script.R', helper]);
+			await app.positron.references.waitForReferenceFiles(['main.R', 'another_script.R', helper]);
 		});
 	});
 
@@ -58,29 +58,29 @@ test.describe('References', {
 async function openAndCommonValidations(app: Application, helper: string) {
 
 	await expect(async () => {
-		await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
+		await app.positron.editor.clickOnTerm(helper, 'add', 1, true);
 
 		await test.step('Open references view', async () => {
 			await app.code.driver.page.keyboard.press('Shift+F12');
 
-			await app.workbench.references.waitUntilOpen();
+			await app.positron.references.waitUntilOpen();
 		});
 	}).toPass({ timeout: 60000 });
 
 	await test.step('Verify title references count', async () => {
-		await app.workbench.sideBar.closeSecondarySideBar();
+		await app.positron.sideBar.closeSecondarySideBar();
 
-		await app.workbench.references.waitForReferencesCountInTitle(4);
+		await app.positron.references.waitForReferencesCountInTitle(4);
 
-		await app.workbench.layouts.enterLayout('stacked');
+		await app.positron.layouts.enterLayout('stacked');
 	});
 
 	await test.step('Verify references count', async () => {
-		await app.workbench.references.waitForReferencesCount(1);
+		await app.positron.references.waitForReferencesCount(1);
 	});
 
 	await test.step('Verify references file', async () => {
-		await app.workbench.references.waitForFile(helper);
+		await app.positron.references.waitForFile(helper);
 	});
 
 }

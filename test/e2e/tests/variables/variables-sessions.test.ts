@@ -22,7 +22,7 @@ test.describe('Variables: Sessions', {
 	});
 
 	test('Validate variables are isolated between sessions', async function ({ app, sessions }) {
-		const { console, variables } = app.workbench;
+		const { console, variables } = app.positron;
 
 		// Ensure sessions exist and are idle
 		const [pySession, pySessionAlt, rSession] = await sessions.start(['python', 'pythonAlt', 'r']);

@@ -15,7 +15,7 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 	const folderTemplate = FolderTemplate.EMPTY_PROJECT;
 
 	test('Verify empty folder defaults', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
-		const { newFolderFlow } = app.workbench;
+		const { newFolderFlow } = app.positron;
 		const folderName = addRandomNumSuffix('empty-project');
 
 		// Create a new empty project folder

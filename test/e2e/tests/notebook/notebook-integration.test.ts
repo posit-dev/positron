@@ -46,12 +46,12 @@ test.describe('Notebook Integration Features', {
 }, () => {
 	test.describe('Variable and Environment Integration', () => {
 		test.beforeEach(async function ({ app, python }) {
-			await app.workbench.layouts.enterLayout('notebook');
-			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('Python');
+			await app.positron.layouts.enterLayout('notebook');
+			await app.positron.notebooks.createNewNotebook();
+			await app.positron.notebooks.selectInterpreter('Python');
 		});
 		test.afterEach(async function ({ app }) {
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
+			await app.positron.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test('Python - Environment variables and system info', async function ({ app }) {
@@ -72,13 +72,13 @@ print(f"Current working directory: {os.getcwd()}")
 # Check some common environment variables
 env_vars = ['PATH', 'HOME', 'USER']
 for var in env_vars:
-    value = os.environ.get(var, 'Not set')
+value = os.environ.get(var, 'Not set')
 print(f"{var}: {value[:50]}..." if len(str(value)) > 50 else f"{var}: {value}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(envCode);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('Python version:');
-			await app.workbench.notebooks.assertCellOutput('Platform:');
-			await app.workbench.notebooks.assertCellOutput('Current working directory:');
+			await app.positron.notebooks.addCodeToCellAtIndex(envCode);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.assertCellOutput('Python version:');
+			await app.positron.notebooks.assertCellOutput('Platform:');
+			await app.positron.notebooks.assertCellOutput('Current working directory:');
 		});
 
 		test('Python - Variable persistence across cells', async function ({ app }) {
@@ -90,9 +90,9 @@ data_dict = {'name': 'test', 'value': 42}
 print(f"Global variable: {global_var}")
 print(f"Numbers list: {numbers}")
 print(f"Data dictionary: {data_dict}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(variableCode);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await app.positron.notebooks.addCodeToCellAtIndex(variableCode);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.insertNotebookCell('code');
 			const useVariableCode = `# Use variables from previous cell
 print(f"Accessing global_var: {global_var}")
 print(f"Sum of numbers: {sum(numbers)}")
@@ -104,23 +104,23 @@ data_dict['new_key'] = 'new_value'
 
 print(f"Modified numbers: {numbers}")
 print(f"Modified dictionary: {data_dict}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(useVariableCode, 1);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('Hello from first cell', 0);
-			await app.workbench.notebooks.assertCellOutput('Sum of numbers: 15');
-			await app.workbench.notebooks.assertCellOutput('Modified numbers: [1, 2, 3, 4, 5, 6]');
+			await app.positron.notebooks.addCodeToCellAtIndex(useVariableCode, 1);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.assertCellOutput('Hello from first cell', 0);
+			await app.positron.notebooks.assertCellOutput('Sum of numbers: 15');
+			await app.positron.notebooks.assertCellOutput('Modified numbers: [1, 2, 3, 4, 5, 6]');
 		});
 	});
 
 	test.describe('Data Processing and Analysis', () => {
 		test.beforeEach(async function ({ app, python }) {
-			await app.workbench.layouts.enterLayout('notebook');
-			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('Python');
+			await app.positron.layouts.enterLayout('notebook');
+			await app.positron.notebooks.createNewNotebook();
+			await app.positron.notebooks.selectInterpreter('Python');
 		});
 
 		test.afterEach(async function ({ app }) {
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
+			await app.positron.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test('Python - Mathematical computations', async function ({ app }) {
@@ -151,9 +151,9 @@ print(f"Trigonometry (45 degrees):")
 print(f"sin: {sin_val:.3f}")
 print(f"cos: {cos_val:.3f}")
 print(f"tan: {tan_val:.3f}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(mathCode);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await app.positron.notebooks.addCodeToCellAtIndex(mathCode);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.insertNotebookCell('code');
 			const advancedMathCode = `# Logarithms and exponentials
 base = 2
 value = 8
@@ -172,14 +172,14 @@ square_root = math.sqrt(16)
 cube_root = 27 ** (1/3)
 print(f"sqrt(16) = {square_root}")
 print(f"cbrt(27) = {cube_root:.1f}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(advancedMathCode, 1);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('Sum: 55');
-			await app.workbench.notebooks.assertCellOutput('Mean: 5.5');
-			await app.workbench.notebooks.assertCellOutput('Standard deviation: 2.87');
-			await app.workbench.notebooks.assertCellOutput('sin: 0.707');
-			await app.workbench.notebooks.assertCellOutput('log_2(8) = 3.0');
-			await app.workbench.notebooks.assertCellOutput('5! = 120');
+			await app.positron.notebooks.addCodeToCellAtIndex(advancedMathCode, 1);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.assertCellOutput('Sum: 55');
+			await app.positron.notebooks.assertCellOutput('Mean: 5.5');
+			await app.positron.notebooks.assertCellOutput('Standard deviation: 2.87');
+			await app.positron.notebooks.assertCellOutput('sin: 0.707');
+			await app.positron.notebooks.assertCellOutput('log_2(8) = 3.0');
+			await app.positron.notebooks.assertCellOutput('5! = 120');
 		});
 	});
 
@@ -187,46 +187,46 @@ print(f"cbrt(27) = {cube_root:.1f}")`;
 		tag: [tags.ARK]
 	}, () => {
 		test.beforeEach(async function ({ app, r }) {
-			await app.workbench.layouts.enterLayout('notebook');
-			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('R');
+			await app.positron.layouts.enterLayout('notebook');
+			await app.positron.notebooks.createNewNotebook();
+			await app.positron.notebooks.selectInterpreter('R');
 		});
 
 		test.afterEach(async function ({ app }) {
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
+			await app.positron.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test('R - Advanced data manipulation', async function ({ app }) {
 			const rDataCode = `# Create sample data
 set.seed(123)
 df <- data.frame(
-  id = 1:20,
-  group = rep(c("A", "B", "C", "D"), 5),
-  value1 = rnorm(20, mean = 50, sd = 10),
-  value2 = runif(20, min = 10, max = 100)
+id = 1:20,
+group = rep(c("A", "B", "C", "D"), 5),
+value1 = rnorm(20, mean = 50, sd = 10),
+value2 = runif(20, min = 10, max = 100)
 )
 
 # Basic summary
 cat("Dataset dimensions:", dim(df), "\n")
 cat("Column names:", names(df), "\n")
 print(head(df, 3))`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(rDataCode);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await app.positron.notebooks.addCodeToCellAtIndex(rDataCode);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.insertNotebookCell('code');
 			const aggregationCode = `# Group by operations
 agg_stats <- aggregate(cbind(value1, value2) ~ group, data = df,
-                      FUN = function(x) c(mean = mean(x), sd = sd(x)))
+FUN = function(x) c(mean = mean(x), sd = sd(x)))
 print(agg_stats)
 
 # Find max values per group
 max_values <- aggregate(cbind(value1, value2) ~ group, data = df, FUN = max)
 cat("\nMax values per group:\n")
 print(max_values)`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(aggregationCode, 1);
-			await app.workbench.notebooks.executeCodeInCell();
-			await app.workbench.notebooks.assertCellOutput('Dataset dimensions: 20 4');
-			await app.workbench.notebooks.assertCellOutput('Column names: id group value1 value2');
-			await app.workbench.notebooks.assertCellOutput('Max values per group:');
+			await app.positron.notebooks.addCodeToCellAtIndex(aggregationCode, 1);
+			await app.positron.notebooks.executeCodeInCell();
+			await app.positron.notebooks.assertCellOutput('Dataset dimensions: 20 4');
+			await app.positron.notebooks.assertCellOutput('Column names: id group value1 value2');
+			await app.positron.notebooks.assertCellOutput('Max values per group:');
 		});
 	});
 });

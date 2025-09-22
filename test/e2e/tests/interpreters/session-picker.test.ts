@@ -53,7 +53,7 @@ test.describe('Session Picker', {
 	});
 
 	test('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
-		const { sessions } = app.workbench;
+		const { sessions } = app.positron;
 		const [rSession, rAltSession] = await sessions.start(['r', 'rAlt']);
 
 		// run code in both sessions to mark them as recently used
@@ -83,7 +83,7 @@ test.describe('Session Picker', {
 });
 
 async function executeCodeInSession(app: Application, session: SessionMetaData) {
-	const { console, sessions } = app.workbench;
+	const { console, sessions } = app.positron;
 
 	await sessions.select(session.id);
 	await console.executeCode(session.name.includes('Python') ? 'Python' : 'R', '1+1', { maximizeConsole: false });

@@ -39,13 +39,13 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		try {
 			// to test that catch block works, add `throw new Error('Force fail');` by uncommenting line below.
 			// throw new Error('Force fail');
-			await app.workbench.positConnect.getUser();
+			await app.positron.positConnect.getUser();
 		} catch {
-			await app.workbench.quickaccess.runCommand('workbench.action.positronPreview.openUrl', { keepOpen: true });
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
+			await app.positron.quickaccess.runCommand('workbench.action.positronPreview.openUrl', { keepOpen: true });
+			await app.positron.quickInput.waitForQuickInputOpened();
+			await app.positron.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
 			await page.keyboard.press('Enter');
-			await app.workbench.quickInput.waitForQuickInputClosed();
+			await app.positron.quickInput.waitForQuickInputClosed();
 			await app.code.wait(5000);
 			const screenshot = await page.screenshot();
 			await testInfo.attach('API check failed screenshot', {
@@ -65,12 +65,12 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		});
 
 		await test.step('Click on Publish button', async () => {
-			await app.workbench.editorActionBar.clickButton('Deploy with Posit Publisher');
+			await app.positron.editorActionBar.clickButton('Deploy with Posit Publisher');
 		});
 
 		await test.step('Enter title for application through quick-input', async () => {
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type('shiny-py-example');
+			await app.positron.quickInput.waitForQuickInputOpened();
+			await app.positron.quickInput.type('shiny-py-example');
 			await page.keyboard.press('Enter');
 		});
 
@@ -81,7 +81,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
-		const existing = app.workbench.quickInput.quickInputList.getByText('shiny-py-example');
+		const existing = app.positron.quickInput.quickInputList.getByText('shiny-py-example');
 
 		let existingPresent = false;
 		try {
@@ -92,20 +92,20 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 
 		if (existingPresent) {
 			await test.step('Use saved credential', async () => {
-				await app.workbench.quickInput.selectQuickInputElement(0, false);
+				await app.positron.quickInput.selectQuickInputElement(0, false);
 			});
 		} else {
 			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
 			await test.step('Enter Connect server and API key', async () => {
-				await app.workbench.quickInput.selectQuickInputElement(1, true);
+				await app.positron.quickInput.selectQuickInputElement(1, true);
 				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
 				await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
-				await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
+				await app.positron.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
 				await page.keyboard.press('Enter');
 			});
 
 			await test.step('Unique name for credential (Connect Server and API key)', async () => {
-				await app.workbench.quickInput.type('shiny-py-example');
+				await app.positron.quickInput.type('shiny-py-example');
 				await page.keyboard.press('Enter');
 			});
 		}
@@ -114,7 +114,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 
 		await test.step('Add files to deployment file (after app.py) and save', async () => {
 			const files = ['shared.py', 'styles.css', 'tips.csv'];
-			await app.workbench.positConnect.selectFilesForDeploy(files);
+			await app.positron.positConnect.selectFilesForDeploy(files);
 		});
 
 		const outerFrame = page.frameLocator('iframe.webview.ready');

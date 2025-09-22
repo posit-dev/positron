@@ -20,7 +20,7 @@ test.describe('Sessions: State', {
 	});
 
 	test('Validate session states during start, restart, and shutdown', { tag: [tags.ARK] }, async function ({ app, sessions }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 		// using this session to trigger session tab list view below to verify session states
 		await sessions.start(['r']);
 
@@ -74,7 +74,7 @@ test.describe('Sessions: State', {
 	});
 
 	test('Validate state displays as active when executing code', async function ({ app, sessions }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		// Start Python and R sessions
 		const [pySession, rSession] = await sessions.start(['python', 'r',]);
@@ -96,7 +96,7 @@ test.describe('Sessions: State', {
 	});
 
 	test('Validate metadata between sessions', async function ({ app, sessions }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		// Ensure sessions exist and are idle
 		const [pySession, rSession, pySessionAlt] = await sessions.start(['python', 'r', 'pythonAlt']);

@@ -19,7 +19,7 @@ export function ManagedAppFixture() {
 
 		try {
 			await app.start();
-			await app.workbench.sessions.expectNoStartUpMessaging();
+			await app.positron.sessions.expectNoStartUpMessaging();
 
 			await use(app);
 		} catch (error) {

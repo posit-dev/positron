@@ -20,7 +20,7 @@ test.describe('Data Explorer - XLSX', {
 	});
 
 	test('Python - Verify data explorer functionality with XLSX input', async function ({ app, python, openFile, runCommand, hotKeys, metric }) {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors } = app.positron;
 
 		await openFile(join('workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
 		await runCommand('python.execInConsole');
@@ -39,7 +39,7 @@ test.describe('Data Explorer - XLSX', {
 	});
 
 	test('R - Verify data explorer functionality with XLSX input', async function ({ app, r, openFile, runCommand, hotKeys, metric }) {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors } = app.positron;
 
 		await openFile(join('workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
 		await runCommand('r.sourceCurrentFile');

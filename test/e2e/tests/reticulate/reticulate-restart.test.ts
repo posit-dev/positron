@@ -34,13 +34,13 @@ test.describe('Reticulate', {
 
 		await sessions.start('pythonReticulate');
 
-		await app.workbench.sessions.expectSessionPickerToBe('Python (reticulate)');
+		await app.positron.sessions.expectSessionPickerToBe('Python (reticulate)');
 
-		await app.workbench.sessions.restart('Python (reticulate)', { waitForIdle: false });
+		await app.positron.sessions.restart('Python (reticulate)', { waitForIdle: false });
 
 		await app.code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Yes' }).click();
 
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		await app.positron.console.waitForReadyAndStarted('>>>', 30000);
 
 	});
 });

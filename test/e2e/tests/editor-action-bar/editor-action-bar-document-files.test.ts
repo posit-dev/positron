@@ -32,7 +32,7 @@ test.describe('Editor Action Bar: Document Files', {
 }, () => {
 
 	test.beforeAll(async function ({ app }) {
-		editorActionBar = app.workbench.editorActionBar;
+		editorActionBar = app.positron.editorActionBar;
 	});
 
 	test.afterEach(async function ({ runCommand }) {
@@ -68,7 +68,7 @@ test.describe('Editor Action Bar: Document Files', {
 	test('Jupyter Notebook - Verify editor action bar is not visible', {
 		tag: [tags.NOTEBOOKS],
 	}, async function ({ app }) {
-		await app.workbench.editorActionBar.verifyIsVisible(false);
+		await app.positron.editorActionBar.verifyIsVisible(false);
 	});
 });
 

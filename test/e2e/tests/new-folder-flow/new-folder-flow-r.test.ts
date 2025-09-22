@@ -13,7 +13,7 @@ test.use({
 
 test.beforeEach(async function ({ app, sessions }) {
 	await sessions.expectAllSessionsToBeReady();
-	await app.workbench.layouts.enterLayout("stacked");
+	await app.positron.layouts.enterLayout("stacked");
 });
 
 test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB, tags.ARK] }, () => {
@@ -50,7 +50,7 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyRenvFilesArePresent(app);
-		await app.workbench.console.waitForConsoleContents('renv activated');
+		await app.positron.console.waitForConsoleContents('renv activated');
 	});
 
 	test('R - Renv already installed', { tag: [tags.WIN] }, async function ({ app }) {
@@ -65,7 +65,7 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyRenvFilesArePresent(app);
-		await app.workbench.console.waitForConsoleContents('renv activated');
+		await app.positron.console.waitForConsoleContents('renv activated');
 	});
 
 	test('R - Cancel Renv install', { tag: [tags.WIN] }, async function ({ app, packages }) {

@@ -14,9 +14,9 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN, tags.ARK] }, () =
 	test.describe.configure({ mode: 'serial' }); // 2nd test depends on 1st test
 
 	test('Verify can render R Markdown', async function ({ app, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
-		await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
-		await app.workbench.explorer.verifyExplorerFilesExist(['basicRmd.html']);
+		await app.positron.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+		await app.positron.quickaccess.runCommand('r.rmarkdownRender');
+		await app.positron.explorer.verifyExplorerFilesExist(['basicRmd.html']);
 	});
 
 	test('Verify can preview R Markdown', async function ({ app, r }) {
@@ -24,7 +24,7 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN, tags.ARK] }, () =
 
 		// inner most frame has no useful identifying features
 		// not factoring this locator because its not part of positron
-		const gettingStarted = app.workbench.viewer.viewerFrame.frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
+		const gettingStarted = app.positron.viewer.viewerFrame.frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
 
 		await expect(gettingStarted).toBeVisible({ timeout: 60000 });
 		await expect(gettingStarted).toHaveText('Getting started');

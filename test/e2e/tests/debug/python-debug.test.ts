@@ -21,9 +21,9 @@ test.describe('Python Debugging', {
 		await test.step('Open file, set breakpoint and start debugging', async () => {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 
-			await app.workbench.debug.setBreakpointOnLine(6);
+			await app.positron.debug.setBreakpointOnLine(6);
 
-			await app.workbench.debug.startDebugging();
+			await app.positron.debug.startDebugging();
 		});
 
 		const requiredStrings = ["conn", "data_file_path", "os", "pd", "sqlite3"];
@@ -34,13 +34,13 @@ test.describe('Python Debugging', {
 
 		requiredStrings.push("cur");
 		await test.step('Step over and validate variable set with new member', async () => {
-			await app.workbench.debug.stepOver();
+			await app.positron.debug.stepOver();
 
 			await validateExpectedVariables(app, requiredStrings);
 		});
 
 		await test.step('Validate current stack', async () => {
-			const stack = await app.workbench.debug.getStack();
+			const stack = await app.positron.debug.getStack();
 
 			expect(stack[0]).toMatchObject({
 				name: "chinook-sqlite.py",
@@ -50,15 +50,15 @@ test.describe('Python Debugging', {
 
 		const internalRequiredStrings = ["columns", "copy", "data", "dtype", "index", "self"];
 		await test.step('Step over twice, then into and validate internal variables', async () => {
-			await app.workbench.debug.stepOver();
-			await app.workbench.debug.stepOver();
-			await app.workbench.debug.stepInto();
+			await app.positron.debug.stepOver();
+			await app.positron.debug.stepOver();
+			await app.positron.debug.stepInto();
 
 			await validateExpectedVariables(app, internalRequiredStrings);
 		});
 
 		await test.step('Validate current internal stack', async () => {
-			const stack = await app.workbench.debug.getStack();
+			const stack = await app.positron.debug.getStack();
 
 			expect(stack[0]).toMatchObject({
 				name: "frame.py",
@@ -72,11 +72,11 @@ test.describe('Python Debugging', {
 		});
 
 		await test.step('Step out, continue and wait completion', async () => {
-			await app.workbench.debug.stepOut();
-			await app.workbench.debug.continue();
+			await app.positron.debug.stepOut();
+			await app.positron.debug.continue();
 
 			await expect(async () => {
-				const stack = await app.workbench.debug.getStack();
+				const stack = await app.positron.debug.getStack();
 				expect(stack.length).toBe(0);
 			}).toPass({ intervals: [1_000], timeout: 60000 });
 		});
@@ -85,7 +85,7 @@ test.describe('Python Debugging', {
 
 async function validateExpectedVariables(app: Application, expectedVariables: string[]): Promise<void> {
 	await expect(async () => {
-		const variables = await app.workbench.debug.getVariables();
+		const variables = await app.positron.debug.getVariables();
 		expectedVariables.forEach(prefix => {
 			expect(variables.some(line => line.startsWith(prefix))).toBeTruthy();
 		});

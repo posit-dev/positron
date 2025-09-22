@@ -15,53 +15,53 @@ export async function verifyReticulateFunctionality(
 	value3 = '6'): Promise<void> {
 	// Verify that reticulate is installed
 	// Create a variable in Python and expect to be able to access it from R
-	await app.workbench.sessions.select(pythonSessionId);
+	await app.positron.sessions.select(pythonSessionId);
 
-	await app.workbench.console.pasteCodeToConsole(`x=${value}`);
-	await app.workbench.console.sendEnterKey();
+	await app.positron.console.pasteCodeToConsole(`x=${value}`);
+	await app.positron.console.sendEnterKey();
 
-	await app.workbench.console.clearButton.click();
+	await app.positron.console.clearButton.click();
 
-	await app.workbench.sessions.select(rSessionId);
+	await app.positron.sessions.select(rSessionId);
 
-	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
-	await app.workbench.console.sendEnterKey();
+	await app.positron.console.pasteCodeToConsole('y<-reticulate::py$x');
+	await app.positron.console.sendEnterKey();
 
-	await app.workbench.console.clearButton.click();
+	await app.positron.console.clearButton.click();
 
-	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+	await app.positron.layouts.enterLayout('fullSizedAuxBar');
 
 	await expect(async () => {
-		const variablesMap = await app.workbench.variables.getFlatVariables();
+		const variablesMap = await app.positron.variables.getFlatVariables();
 		expect(variablesMap.get('y')).toStrictEqual({ value: value, type: 'int' });
 	}).toPass({ timeout: 10000 });
 
-	await app.workbench.layouts.enterLayout('stacked');
+	await app.positron.layouts.enterLayout('stacked');
 
 	// Create a variable in R and expect to be able to access it from Python
-	await app.workbench.console.pasteCodeToConsole(`y <- ${value2}L`);
-	await app.workbench.console.sendEnterKey();
+	await app.positron.console.pasteCodeToConsole(`y <- ${value2}L`);
+	await app.positron.console.sendEnterKey();
 
 	// Executing reticulate::repl_python() should not start a new interpreter
 	// but should move focus to the reticulate interpreter
-	await app.workbench.console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${value3}")`);
-	await app.workbench.console.sendEnterKey();
+	await app.positron.console.pasteCodeToConsole(`reticulate::repl_python(input = "z = ${value3}")`);
+	await app.positron.console.sendEnterKey();
 
 	// Expect that focus changed to the reticulate console
 	await expect(async () => {
 		try {
-			await app.workbench.sessions.expectSessionPickerToBe(pythonSessionId);
+			await app.positron.sessions.expectSessionPickerToBe(pythonSessionId);
 		} catch (e) {
 			await app.code.wait(1000); // a little time for session picker to be updated
 			throw e;
 		}
 	}).toPass({ timeout: 20000 });
 
-	await app.workbench.console.pasteCodeToConsole('print(r.y)');
-	await app.workbench.console.sendEnterKey();
-	await app.workbench.console.waitForConsoleContents(value2);
+	await app.positron.console.pasteCodeToConsole('print(r.y)');
+	await app.positron.console.sendEnterKey();
+	await app.positron.console.waitForConsoleContents(value2);
 
-	await app.workbench.console.pasteCodeToConsole('print(z)');
-	await app.workbench.console.sendEnterKey();
-	await app.workbench.console.waitForConsoleContents(value3);
+	await app.positron.console.pasteCodeToConsole('print(z)');
+	await app.positron.console.sendEnterKey();
+	await app.positron.console.waitForConsoleContents(value3);
 }

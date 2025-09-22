@@ -18,7 +18,7 @@ test.describe('Diagnostics', {
 	});
 
 	test('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
-		const { problems, editor, console } = app.workbench;
+		const { problems, editor, console } = app.positron;
 
 		// Start Python Session and install 'termcolor'
 		const pySession = await sessions.start('python');
@@ -59,7 +59,7 @@ test.describe('Diagnostics', {
 	test('R - Verify diagnostics isolation between sessions in the editor and problems view', {
 		tag: [tags.ARK]
 	}, async function ({ app, runCommand, sessions }) {
-		const { problems, editor, console } = app.workbench;
+		const { problems, editor, console } = app.positron;
 
 		// Start R Session and define variable
 		const rSession = await sessions.start('r');

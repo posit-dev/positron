@@ -23,11 +23,11 @@ test.describe('Extensions', {
 		// hotKeys approach fails on Ubuntu as key combination is
 		// overriden by Positron
 		await runCommand('command:editor.action.formatDocument', { keepOpen: true });
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.selectQuickInputElementContaining('Air');
-		await app.workbench.quickInput.waitForQuickInputClosed();
+		await app.positron.quickInput.waitForQuickInputOpened();
+		await app.positron.quickInput.selectQuickInputElementContaining('Air');
+		await app.positron.quickInput.waitForQuickInputClosed();
 
-		await app.workbench.editor.waitForEditorContents('bad-formatting.r', (contents: string) => {
+		await app.positron.editor.waitForEditorContents('bad-formatting.r', (contents: string) => {
 			return contents.includes(formattedFile);
 		});
 

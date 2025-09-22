@@ -15,7 +15,7 @@ test.describe('Data Explorer - Python Polars', {
 }, () => {
 
 	test.beforeEach(async function ({ app, openFile, runCommand, python }) {
-		const { variables, dataExplorer, editors } = app.workbench;
+		const { variables, dataExplorer, editors } = app.positron;
 
 		await openFile(join('workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 		await runCommand('python.execInConsole');
@@ -27,12 +27,12 @@ test.describe('Data Explorer - Python Polars', {
 	});
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.filters.clearAll();
+		await app.positron.dataExplorer.filters.clearAll();
 		await hotKeys.closeAllEditors();
 	});
 
 	test('Python Polars - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app }) {
-		const { dataExplorer, clipboard } = app.workbench;
+		const { dataExplorer, clipboard } = app.positron;
 
 		// verify table data
 		await dataExplorer.grid.verifyTableData([
@@ -56,7 +56,7 @@ test.describe('Data Explorer - Python Polars', {
 
 
 	test('Python Polars - Verify column info functionality: missing %s, profile data', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
+		const { dataExplorer } = app.positron;
 		await dataExplorer.summaryPanel.show();
 
 		// Verify all missing percentages
@@ -81,7 +81,7 @@ test.describe('Data Explorer - Python Polars', {
 	});
 
 	test('Python Polars - Verify can filter column', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
+		const { dataExplorer } = app.positron;
 
 		// filter table by: foo is not equal to 1
 		const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
@@ -93,7 +93,7 @@ test.describe('Data Explorer - Python Polars', {
 	});
 
 	test('Python Polars - Verify can sort column', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
+		const { dataExplorer } = app.positron;
 
 		// sort table by column 1 (foo): descending
 		await dataExplorer.summaryPanel.show();

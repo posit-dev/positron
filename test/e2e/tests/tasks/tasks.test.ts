@@ -20,12 +20,12 @@ test.describe('Tasks', {
 
 		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B');
 
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.selectQuickInputElementContaining('Run Python File');
-		await app.workbench.quickInput.waitForQuickInputClosed();
+		await app.positron.quickInput.waitForQuickInputOpened();
+		await app.positron.quickInput.selectQuickInputElementContaining('Run Python File');
+		await app.positron.quickInput.waitForQuickInputClosed();
 
-		await app.workbench.terminal.waitForTerminalText('336776');
-		await app.workbench.terminal.sendKeysToTerminal('Enter');
+		await app.positron.terminal.waitForTerminalText('336776');
+		await app.positron.terminal.sendKeysToTerminal('Enter');
 	});
 
 	test('R: Verify Basic Tasks Functionality', {
@@ -36,11 +36,11 @@ test.describe('Tasks', {
 
 		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B');
 
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.selectQuickInputElementContaining('Run R File');
-		await app.workbench.quickInput.waitForQuickInputClosed();
+		await app.positron.quickInput.waitForQuickInputOpened();
+		await app.positron.quickInput.selectQuickInputElementContaining('Run R File');
+		await app.positron.quickInput.waitForQuickInputClosed();
 
-		await app.workbench.terminal.waitForTerminalText('336776');
-		await app.workbench.terminal.sendKeysToTerminal('Enter');
+		await app.positron.terminal.waitForTerminalText('336776');
+		await app.positron.terminal.sendKeysToTerminal('Enter');
 	});
 });

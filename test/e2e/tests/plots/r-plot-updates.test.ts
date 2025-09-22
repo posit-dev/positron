@@ -22,8 +22,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			// await app.workbench.console.executeCode('R', 'plot(1)');
 			// await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.executeCode('R', 'plot(rexp(50000))');
-			await app.workbench.plots.waitForCurrentPlot();
+			await app.positron.console.executeCode('R', 'plot(rexp(50000))');
+			await app.positron.plots.waitForCurrentPlot();
 
 			try {
 				await waitForNoChangesAtLocator(app.code.driver.page, '.plot-instance img', 10000);

@@ -32,25 +32,25 @@ test.describe('New UV Environment', {
 	// This is skipped for windows because we can't get the text from the Terminal
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
 
-		await app.workbench.terminal.clickTerminalTab();
+		await app.positron.terminal.clickTerminalTab();
 
-		await app.workbench.terminal.runCommandInTerminal('uv init proj');
+		await app.positron.terminal.runCommandInTerminal('uv init proj');
 
-		await app.workbench.terminal.waitForTerminalText('Initialized project');
+		await app.positron.terminal.waitForTerminalText('Initialized project');
 
-		await app.workbench.terminal.runCommandInTerminal('cd proj');
+		await app.positron.terminal.runCommandInTerminal('cd proj');
 
-		await app.workbench.terminal.runCommandInTerminal('uv sync');
+		await app.positron.terminal.runCommandInTerminal('uv sync');
 
-		await app.workbench.terminal.waitForTerminalText('Creating virtual environment');
+		await app.positron.terminal.waitForTerminalText('Creating virtual environment');
 
 		await openFolder(path.join('qa-example-content/proj'));
 
-		await app.workbench.console.waitForReady('>>>', 30000);
+		await app.positron.console.waitForReady('>>>', 30000);
 
-		await app.workbench.sessions.expectAllSessionsToBeReady();
+		await app.positron.sessions.expectAllSessionsToBeReady();
 
-		const metadata = await app.workbench.sessions.getMetadata();
+		const metadata = await app.positron.sessions.getMetadata();
 
 		expect(metadata.source).toBe('Uv');
 		expect(metadata.path).toContain('qa-example-content/proj/.venv/bin/python');

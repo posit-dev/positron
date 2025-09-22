@@ -19,31 +19,31 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	test('Python - Verify Help landing page', { tag: [tags.WIN] }, async function ({ app }) {
 
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-		await app.workbench.help.openHelpPanel();
+		await app.positron.layouts.enterLayout('fullSizedAuxBar');
+		await app.positron.help.openHelpPanel();
 
-		const helpFrame = await app.workbench.help.getHelpWelcomePageFrame();
+		const helpFrame = await app.positron.help.getHelpWelcomePageFrame();
 		const docLink = helpFrame.getByRole('link', { name: 'Positron Documentation' });
 		await expect(docLink).toBeVisible();
 		await expect(docLink).toHaveAttribute('href', 'https://positron.posit.co/');
-		await app.workbench.layouts.enterLayout('stacked');
+		await app.positron.layouts.enterLayout('stacked');
 	});
 
 	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
-		await app.workbench.console.executeCode('Python', `?load`);
+		await app.positron.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(0);
+			const helpFrame = await app.positron.help.getHelpFrame(0);
 			await expect(helpFrame.locator('body')).toContainText('Load code into the current frontend.');
 		}).toPass();
 
 	});
 
 	test('R - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, r }) {
-		await app.workbench.console.executeCode('R', `?load()`);
+		await app.positron.console.executeCode('R', `?load()`);
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.help.getHelpFrame(1);
+			const helpFrame = await app.positron.help.getHelpFrame(1);
 			await expect(helpFrame.locator('body')).toContainText('Reload Saved Datasets');
 		}).toPass();
 
@@ -51,7 +51,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	test('Verify help panel opens when empty, can be resized smaller, and remembers size height', { tag: [tags.WIN] }, async function ({ app, logger }) {
 		// Not running on windows as the size calculation is off for the resolution in CI
-		const help = app.workbench.help;
+		const help = app.positron.help;
 		const helpContainerLocator = help.getHelpContainer();
 		const helpPanelHeaderLocator = help.getHelpHeader();
 		const getHelpHeight = async () => (await helpContainerLocator.boundingBox())?.height ?? -1;
@@ -62,7 +62,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		const sizePrecision = 5;
 
 		// Enter layout with help pane docked in session panel
-		await app.workbench.layouts.enterLayout('dockedHelp');
+		await app.positron.layouts.enterLayout('dockedHelp');
 
 		// Help panel starts collapsed thanks to the above command
 		await expect(helpContainerLocator).not.toBeVisible();

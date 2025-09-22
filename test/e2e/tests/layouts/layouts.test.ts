@@ -14,7 +14,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 	test.describe('Stacked Layout', () => {
 
 		test('Verify Stacked Layout displays Console, Terminal, and Auxiliary Sections in correct order', async function ({ app }) {
-			const layouts = app.workbench.layouts;
+			const layouts = app.positron.layouts;
 
 			await app.code.driver.page.setViewportSize({ width: 1400, height: 1000 });
 
@@ -60,7 +60,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 		test('Verify Side-by-Side Layout collapses Sidebar and Panel while arranging Console, Variables, and Plots', async function ({ app }) {
 
-			const layouts = app.workbench.layouts;
+			const layouts = app.positron.layouts;
 
 			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('side_by_side');
@@ -102,7 +102,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 		test('Verify Notebook Layout collapses Panel by default and expands correctly', async function ({ app }) {
 
-			const layouts = app.workbench.layouts;
+			const layouts = app.positron.layouts;
 
 			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('notebook');

@@ -20,11 +20,11 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 	}, async function ({ app, sessions }) {
 
 		const session1 = await sessions.start('r');
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-		await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
-		await app.workbench.console.pasteCodeToConsole('Sys.sleep(20)', true);
+		await app.positron.layouts.enterLayout('fullSizedAuxBar');
+		await app.positron.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
+		await app.positron.console.pasteCodeToConsole('Sys.sleep(20)', true);
 
-		const { variables, modals, console } = app.workbench;
+		const { variables, modals, console } = app.positron;
 
 		await expect(async () => {
 			expect(await variables.hasProgressBar()).toBe(false);

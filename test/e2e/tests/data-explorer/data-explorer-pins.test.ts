@@ -50,7 +50,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 	test.describe('Data Explorer: Pins', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, () => {
 
 		test.beforeEach(async function ({ app, openDataFile, hotKeys }) {
-			const { dataExplorer, console, sessions, variables } = app.workbench;
+			const { dataExplorer, console, sessions, variables } = app.positron;
 
 			if (env === 'DuckDB') {
 				await openDataFile(join(data));
@@ -69,7 +69,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 		});
 
 		test(`${env} - Rows and columns can be pinned, unpinned and persist with scrolling`, async function ({ app }) {
-			const { dataExplorer } = app.workbench;
+			const { dataExplorer } = app.positron;
 
 			// Initial state
 			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.default);
@@ -119,7 +119,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 		});
 
 		test(`${env} - Range selection respects pinned columns (excludes vs includes cases)`, async function ({ app }) {
-			const { dataExplorer } = app.workbench;
+			const { dataExplorer } = app.positron;
 
 			// pin column2
 			await dataExplorer.grid.pinColumn(2);
@@ -148,7 +148,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 		});
 
 		test(`${env} - Cell navigation works with pinned columns and rows`, async function ({ app }) {
-			const { dataExplorer } = app.workbench;
+			const { dataExplorer } = app.positron;
 			const { keyboard } = app.code.driver.page;
 
 			// pin column 2
@@ -178,7 +178,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			],
 		}, async function ({ app }) {
 			if (env !== 'DuckDB') { test.skip(); }  // Once issue 9344 is fixed, we can enable for R and Python
-			const { dataExplorer } = app.workbench;
+			const { dataExplorer } = app.positron;
 
 			// pin column 4
 			await dataExplorer.grid.pinColumn(4);

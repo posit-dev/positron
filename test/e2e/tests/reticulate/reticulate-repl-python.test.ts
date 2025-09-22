@@ -33,9 +33,9 @@ test.describe('Reticulate', {
 
 		const rSessionMetaData = await sessions.start('r');
 
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
+		await app.positron.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		await app.workbench.console.waitForReadyAndStarted('>>>');
+		await app.positron.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, rSessionMetaData.id);
 

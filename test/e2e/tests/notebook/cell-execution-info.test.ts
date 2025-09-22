@@ -15,7 +15,7 @@ test.use({
  * Helper function to execute code in a cell and wait for the execution info icon to appear
  */
 async function executeCodeAndWaitForCompletion(app: Application, code: string, cellIndex: number = 0, waitForPopup: boolean = true) {
-	const cell = await app.workbench.notebooksPositron.addCodeToCellAndRun(code, cellIndex);
+	const cell = await app.positron.notebooksPositron.addCodeToCellAndRun(code, cellIndex);
 	const infoPopup = cell.getByRole('tooltip', { name: /cell execution details/i });
 	// Wait for the popup to have the execution order field indicating the cell has run.
 	if (waitForPopup) {
@@ -35,21 +35,21 @@ test.describe('Cell Execution Info Popup', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+		await app.positron.notebooksPositron.enablePositronNotebooks(settings);
 		// Configure Positron as the notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
+		await app.positron.notebooksPositron.setNotebookEditor(settings, 'positron');
 	});
 
 	test('Comprehensive cell execution info test - all scenarios in one notebook', async function ({ app }) {
 		// Setup: Create notebook and select kernel once
-		await app.workbench.notebooks.createNewNotebook();
+		await app.positron.notebooks.createNewNotebook();
 
 		// Wait for the first cell to be created and visible
 		// This is important on CI where timing differences can cause race conditions
 		const firstCell = app.code.driver.page.locator('[data-testid="notebook-cell"]').first();
 		await expect(firstCell).toBeVisible({ timeout: 5000 });
 
-		await app.workbench.notebooksPositron.selectAndWaitForKernel('Python');
+		await app.positron.notebooksPositron.selectAndWaitForKernel('Python');
 
 		// ========================================
 		// Cell 0: Basic popup display with successful execution
@@ -149,6 +149,6 @@ test.describe('Cell Execution Info Popup', {
 		await expect(app.code.driver.page.getByRole('tooltip', { name: 'Cell execution details' })).toBeHidden();
 
 		// Close the notebook without saving
-		await app.workbench.notebooks.closeNotebookWithoutSaving();
+		await app.positron.notebooks.closeNotebookWithoutSaving();
 	});
 });

@@ -24,7 +24,7 @@ test.describe('Source Content Management', {
 		await test.step('Open file and add a new line to it', async () => {
 			await openFile(join('workspaces', 'chinook-db-py', file));
 
-			await app.workbench.editor.clickOnTerm(file, 'rows', 9, true);
+			await app.positron.editor.clickOnTerm(file, 'rows', 9, true);
 
 			await app.code.driver.page.keyboard.press('ArrowRight');
 			await app.code.driver.page.keyboard.press('ArrowRight');
@@ -37,27 +37,27 @@ test.describe('Source Content Management', {
 		});
 
 		await test.step('Open scm viewer and await change appearance', async () => {
-			await app.workbench.scm.openSCMViewlet();
+			await app.positron.scm.openSCMViewlet();
 
-			await app.workbench.scm.waitForChange(file, 'Modified');
+			await app.positron.scm.waitForChange(file, 'Modified');
 		});
 
 		await test.step('Open change and await tab appearance', async () => {
-			await app.workbench.scm.openChange(file);
+			await app.positron.scm.openChange(file);
 
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await app.positron.sideBar.closeSecondarySideBar();
 
-			await app.workbench.editors.waitForSCMTab(`${file} (Working Tree)`);
+			await app.positron.editors.waitForSCMTab(`${file} (Working Tree)`);
 
-			await app.workbench.layouts.enterLayout('stacked');
+			await app.positron.layouts.enterLayout('stacked');
 		});
 
 		await test.step('Stage, commit change, and verify history', async () => {
 			const message = 'Add print statement';
 
-			await app.workbench.scm.stage(file);
+			await app.positron.scm.stage(file);
 
-			await app.workbench.scm.commit(message);
+			await app.positron.scm.commit(message);
 
 			// This works locally but not in CI where we have no
 			// git user for a real commit to take place:

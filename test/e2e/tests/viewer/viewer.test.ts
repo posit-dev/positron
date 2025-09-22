@@ -12,29 +12,29 @@ test.use({
 test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.viewer.clearViewer();
+		await app.positron.viewer.clearViewer();
 	});
 
 	test('Python - Verify Viewer opens for WebBrowser calls', { tag: [tags.WEB] }, async function ({ app, logger, python }) {
 		logger.log('Sending code to console');
-		await app.workbench.console.pasteCodeToConsole(pythonScript);
-		await app.workbench.console.sendEnterKey();
-		const theDoc = app.workbench.viewer.getViewerLocator('head');
+		await app.positron.console.pasteCodeToConsole(pythonScript);
+		await app.positron.console.sendEnterKey();
+		const theDoc = app.positron.viewer.getViewerLocator('head');
 		await theDoc.waitFor({ state: 'attached' });
 	});
 
 	test('Python - Verify Viewer displays great-tables output and can be cleared', { tag: [tags.WEB] }, async function ({ app, logger, page, python }) {
 		// Clearing viewer output button has now been implemented. Hence, modifications herein ensure that the button functionality works.
 		// Locators
-		const apricot = app.workbench.viewer.getViewerLocator('td').filter({ hasText: 'apricot' });
+		const apricot = app.positron.viewer.getViewerLocator('td').filter({ hasText: 'apricot' });
 		const clearButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Clear the content' });
 
 		// TestStep1: Initial viewer content should be displayed once user runs GreatTablesScript in Console
 		await test.step('Display initial viewer content', async () => {
-			await app.workbench.console.clearButton.click();
+			await app.positron.console.clearButton.click();
 			logger.log('Sending code to console');
-			await app.workbench.console.pasteCodeToConsole(pythonGreatTablesScript);
-			await app.workbench.console.sendEnterKey();
+			await app.positron.console.pasteCodeToConsole(pythonGreatTablesScript);
+			await app.positron.console.sendEnterKey();
 			await expect(apricot).toBeVisible({ timeout: 30000 });
 		});
 
@@ -63,12 +63,12 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test('R - Verify Viewer displays modelsummary output', { tag: [tags.WEB, tags.ARK] }, async function ({ app, logger, r }) {
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', rModelSummaryScript);
+		await app.positron.console.executeCode('R', rModelSummaryScript);
 		let billDepthLocator;
 		if (!app.web) {
-			billDepthLocator = app.workbench.viewer.getViewerLocator('tr').filter({ hasText: 'bill_depth_mm' });
+			billDepthLocator = app.positron.viewer.getViewerLocator('tr').filter({ hasText: 'bill_depth_mm' });
 		} else {
-			billDepthLocator = app.workbench.viewer.viewerFrame.frameLocator('iframe').locator('tr').filter({ hasText: 'bill_depth_mm' });
+			billDepthLocator = app.positron.viewer.viewerFrame.frameLocator('iframe').locator('tr').filter({ hasText: 'bill_depth_mm' });
 		}
 		await billDepthLocator.waitFor({ state: 'attached' });
 
@@ -80,9 +80,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	}, async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', rReactableScript);
+		await app.positron.console.executeCode('R', rReactableScript);
 
-		const datsun710 = app.workbench.viewer.getViewerLocator('div.rt-td-inner').filter({ hasText: 'Datsun 710' });
+		const datsun710 = app.positron.viewer.getViewerLocator('div.rt-td-inner').filter({ hasText: 'Datsun 710' });
 
 		await datsun710.waitFor({ state: 'attached' });
 
@@ -94,9 +94,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	}, async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', rReprexScript);
+		await app.positron.console.executeCode('R', rReprexScript);
 
-		const rnorm = app.workbench.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'rbinom' });
+		const rnorm = app.positron.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'rbinom' });
 
 		await rnorm.waitFor({ state: 'attached' });
 

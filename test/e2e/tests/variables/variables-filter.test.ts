@@ -12,16 +12,16 @@ test.use({
 test.describe('Variables - Filters', { tag: [tags.WEB, tags.VARIABLES] }, () => {
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.layouts.enterLayout('stacked');
+		await app.positron.layouts.enterLayout('stacked');
 	});
 
 	test('Setting filter text is reflected in the variables pane', async function ({ app, sessions }) {
 
 		await sessions.start('r');
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-		await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
+		await app.positron.layouts.enterLayout('fullSizedAuxBar');
+		await app.positron.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
 
-		const variables = app.workbench.variables;
+		const variables = app.positron.variables;
 		await expect(async () => {
 			const vars = await variables.getFlatVariables();
 			expect(vars.has('hello')).toBe(true);
@@ -42,7 +42,7 @@ test.describe('Variables - Filters', { tag: [tags.WEB, tags.VARIABLES] }, () => 
 		}).toPass({ timeout: 40000 });
 
 		await sessions.start('python');
-		await app.workbench.console.pasteCodeToConsole('hello = 1; foo = 2', true);
+		await app.positron.console.pasteCodeToConsole('hello = 1; foo = 2', true);
 		await expect(async () => {
 			const vars = await variables.getFlatVariables();
 			expect(vars.has('hello')).toBe(true);

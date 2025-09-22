@@ -15,7 +15,7 @@ test.describe('Console Pane: R Hyperlinks', {
 }, () => {
 
 	test('R - Verify console link to help', async function ({ app, r }) {
-		const { console, help } = app.workbench;
+		const { console, help } = app.positron;
 
 		await console.pasteCodeToConsole("txt_formatted <- \"Help for a function: `\u001b]8;;x-r-help:utils::available.packages\\autils::available.packages\u001b]8;;\u0007()`\"", true);
 		await console.pasteCodeToConsole('cat(txt_formatted)', true);
@@ -27,7 +27,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 
 	test('R - Verify help with custom link text', async function ({ app, r }) {
-		const { console, help } = app.workbench;
+		const { console, help } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "Help for a function with custom text: {.help [CLICK HERE](utils::sessionInfo)}"', true);
@@ -39,7 +39,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify help for a topic that is not a function', async function ({ app, r }) {
-		const { console, help } = app.workbench;
+		const { console, help } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "Help for a non-function topic: {.topic utils::BATCH}"', true);
@@ -51,7 +51,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify help for a vignette', async function ({ app, r }) {
-		const { console, help } = app.workbench;
+		const { console, help } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "A vignette: {.vignette dplyr::dplyr}"', true);
@@ -63,7 +63,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify automatically runnable code link', async function ({ app, r }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "Is rlang installed? Run this to find out: {.run rlang::is_installed(\'rlang\')}"', true);
@@ -76,7 +76,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify manually runnable code link', async function ({ app, r }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "Is foofy alive? Run this to find out: {.run foofy::alive()}"', true);
@@ -90,7 +90,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify not runnable code link', async function ({ app, r }) {
-		const { console, toasts } = app.workbench;
+		const { console, toasts } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "You can\'t click to run {.run utils::sessionInfo()}"', true);
@@ -102,7 +102,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify runnable code link for stringr', async function ({ app, r }) {
-		const { console } = app.workbench;
+		const { console } = app.positron;
 
 		await console.pasteCodeToConsole('library(stringr)', true);
 		await console.pasteCodeToConsole('library(cli)', true);
@@ -115,7 +115,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify file hyperlink', async function ({ app, r }) {
-		const { console, editor } = app.workbench;
+		const { console, editor } = app.positron;
 
 		await console.pasteCodeToConsole('library(cli)', true);
 		await console.pasteCodeToConsole('txt <- "Let\'s open a file {.file DESCRIPTION}"', true);
@@ -130,7 +130,7 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 	test('R - Verify file hyperlink with line offset', async function ({ app, r, hotKeys }) {
-		const { console, editor } = app.workbench;
+		const { console, editor } = app.positron;
 		await hotKeys.closeAllEditors();
 
 		await console.clearButton.click();

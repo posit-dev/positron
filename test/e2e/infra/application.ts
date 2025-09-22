@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Workbench } from './workbench';
+import { Positron } from './positron';
 import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
-import { PositWorkbench } from './workbench-pwb.js';
+import { Workbench } from './workbench.js';
 
 const READINESS_LOCATORS = {
 	monacoWorkbench: '.monaco-workbench',
@@ -34,9 +34,9 @@ export interface ApplicationOptions extends LaunchOptions {
 /**
  * Creates the appropriate workbench instance based on external server configuration
  */
-function createWorkbench(code: Code, options: ApplicationOptions): Workbench {
+function createWorkbench(code: Code, options: ApplicationOptions): Positron {
 	const isWorkbench = options.useExternalServer && options.externalServerUrl?.includes(':8787');
-	return isWorkbench ? new PositWorkbench(code) : new Workbench(code);
+	return isWorkbench ? new Workbench(code) : new Positron(code);
 }
 
 export class Application {
@@ -49,17 +49,17 @@ export class Application {
 	private _code: Code | undefined;
 	get code(): Code { return this._code!; }
 
-	private _workbench: Workbench | undefined;
-	get workbench(): Workbench { return this._workbench!; }
+	private _positron: Positron | undefined;
+	get positron(): Positron { return this._positron!; }
 
 	/**
 	 * Get the Posit Workbench instance. Only available in e2e-workbench contexts.
 	 */
-	get positWorkbench(): PositWorkbench {
-		if (this._workbench instanceof PositWorkbench) {
-			return this._workbench;
+	get workbench(): Workbench {
+		if (this._positron instanceof Workbench) {
+			return this._positron;
 		}
-		throw new Error('positWorkbench is only available in e2e-workbench contexts');
+		throw new Error('workbench is only available in e2e-workbench contexts');
 	}
 
 	get logger(): Logger {
@@ -152,7 +152,7 @@ export class Application {
 			...this.options,
 		});
 
-		this._workbench = createWorkbench(this._code, this.options);
+		this._positron = createWorkbench(this._code, this.options);
 		this._profiler = new Profiler(this.code);
 
 		return code;
@@ -172,7 +172,7 @@ export class Application {
 			extraArgs: [...(this.options.extraArgs || []), ...extraArgs],
 		});
 
-		this._workbench = createWorkbench(this._code, this.options);
+		this._positron = createWorkbench(this._code, this.options);
 		this._profiler = new Profiler(this.code);
 
 		return code;

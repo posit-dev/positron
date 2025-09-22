@@ -14,20 +14,20 @@ test.describe('Console Input', {
 }, () => {
 
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.layouts.enterLayout('fullSizedPanel');
+		await app.positron.layouts.enterLayout('fullSizedPanel');
 	});
 
 
 	test('Python - Can get input string via console', async function ({ app, python }) {
 		const inputCode = `val = input("Enter your name: "); print(f'Hello {val}!');`;
 
-		await app.workbench.console.pasteCodeToConsole(inputCode);
-		await app.workbench.console.sendEnterKey();
-		await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
+		await app.positron.console.pasteCodeToConsole(inputCode);
+		await app.positron.console.sendEnterKey();
+		await expect(app.positron.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
-		await app.workbench.console.typeToConsole('John Doe');
-		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
+		await app.positron.console.typeToConsole('John Doe');
+		await app.positron.console.sendEnterKey();
+		await app.positron.console.waitForConsoleContents('Hello John Doe!');
 
 	});
 
@@ -37,15 +37,15 @@ test.describe('Console Input', {
 	}, async function ({ app, r }) {
 		const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
-		await app.workbench.console.pasteCodeToConsole(inputCode);
-		await app.workbench.console.sendEnterKey();
-		await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
+		await app.positron.console.pasteCodeToConsole(inputCode);
+		await app.positron.console.sendEnterKey();
+		await expect(app.positron.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
 		// slight wait before starting to type
 		await app.code.wait(200);
-		await app.workbench.console.typeToConsole('John Doe');
-		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
+		await app.positron.console.typeToConsole('John Doe');
+		await app.positron.console.sendEnterKey();
+		await app.positron.console.waitForConsoleContents('Hello John Doe!');
 	});
 
 	test('R - Can use `menu` to select alternatives', {
@@ -53,17 +53,17 @@ cat(sprintf('Hello %s!\n', val))`;
 	}, async function ({ app, r }) {
 		const inputCode = `x <- menu(letters)`;
 
-		await app.workbench.console.pasteCodeToConsole(inputCode);
-		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.waitForConsoleContents('Selection:');
+		await app.positron.console.pasteCodeToConsole(inputCode);
+		await app.positron.console.sendEnterKey();
+		await app.positron.console.waitForConsoleContents('Selection:');
 
-		await app.workbench.console.typeToConsole('1');
-		await app.workbench.console.sendEnterKey();
+		await app.positron.console.typeToConsole('1');
+		await app.positron.console.sendEnterKey();
 
-		await app.workbench.console.typeToConsole('x');
-		await app.workbench.console.sendEnterKey();
+		await app.positron.console.typeToConsole('x');
+		await app.positron.console.sendEnterKey();
 
-		await app.workbench.console.waitForConsoleContents('[1] 1');
+		await app.positron.console.waitForConsoleContents('[1] 1');
 	});
 
 	test("R - Verify ESC dismisses autocomplete without deleting typed text", {
@@ -73,9 +73,9 @@ cat(sprintf('Hello %s!\n', val))`;
 
 		const inputCode = `base::mea`;
 
-		await app.workbench.console.typeToConsole(inputCode);
+		await app.positron.console.typeToConsole(inputCode);
 
-		const activeConsole = app.workbench.console.activeConsole;
+		const activeConsole = app.positron.console.activeConsole;
 
 		// Makes sure the code suggestions are activated
 		const suggestion = activeConsole.locator('.suggest-widget');

@@ -10,8 +10,8 @@ test.use({
 });
 
 test.beforeEach(async function ({ app }) {
-	await app.workbench.layouts.enterLayout('stacked');
-	await app.workbench.variables.focusVariablesView();
+	await app.positron.layouts.enterLayout('stacked');
+	await app.positron.variables.focusVariablesView();
 });
 
 test.afterEach(async function ({ hotKeys }) {
@@ -22,7 +22,7 @@ test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile }) {
-		const { dataExplorer, editor, editors, variables, clipboard } = app.workbench;
+		const { dataExplorer, editor, editors, variables, clipboard } = app.positron;
 
 		// Execute code to generate data frames
 		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
@@ -67,7 +67,7 @@ test.describe('Data Explorer - R ', {
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' },
 			{ type: 'regression', description: 'https://github.com/posit-dev/positron/issues/4197' }]
 	}, async function ({ app, r, executeCode }) {
-		const { variables, editors } = app.workbench;
+		const { variables, editors } = app.positron;
 
 		// Execute code to generate data frames
 		await executeCode('R', `Data_Frame <- mtcars`);
@@ -86,7 +86,7 @@ test.describe('Data Explorer - R ', {
 	});
 
 	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode, hotKeys }) {
-		const { variables, editors, dataExplorer, console, modals } = app.workbench;
+		const { variables, editors, dataExplorer, console, modals } = app.positron;
 
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
