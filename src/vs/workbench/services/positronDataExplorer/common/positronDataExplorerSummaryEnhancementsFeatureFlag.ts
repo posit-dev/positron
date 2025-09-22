@@ -43,7 +43,7 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			markdownDescription: localize(
 				'positron.dataExplorer.summaryPanelEnhancements',
-				'**CAUTION**: Enable experimental Data Explorer "Summary Panel Enhancements" feature. This feature is experimental and may not work as expected. Use at your own risk.'
+				'Enable Data Explorer "Summary Panel Enhancements" feature.'
 			),
 		},
 	},
