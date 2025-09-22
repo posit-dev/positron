@@ -2813,7 +2813,7 @@ class PyArrowView(DataExplorerTableView):
 
 
 class IbisView(PandasView):
-    """DataExplorer view implementation for Ibis tables, subclassed from PandasView."""
+    """DataExplorer view implementation for Ibis tables."""
 
     def __init__(
         self,
@@ -2823,27 +2823,19 @@ class IbisView(PandasView):
         job_queue: BackgroundJobQueue,
         sql_string: str | None = None,
     ):
-        self._ibis_table = table  # Store the original ibis table
-        self._pd_cache = None  # Cache for pandas conversion
-
-        # Initially convert first 1000 rows to pandas for preview
+        self._ibis_table = table
+        # Convert to pandas dataframe (limit to 1000 rows for performance)
         pandas_df = table.head(1000).execute()
 
-        # Call parent's constructor with the pandas dataframe
         super().__init__(pandas_df, comm, state, job_queue, sql_string)
 
-    def get_state(self, unused):
-        state = super().get_state(unused)
-
-        # Modify the display name to include "(preview)"
+    def get_state(self, _unused):
+        state = super().get_state(_unused)
         state.display_name = self.state.name + " (preview)"
 
         return state
 
-    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
-        """Returns the supported code types for exporting data."""
-        return CodeSyntaxName(code_syntax_name="ibis").dict()
-
+    # Override convert_to_code to be unsupported for now, tracked in #9514
     FEATURES = SupportedFeatures(
         search_schema=PandasView.FEATURES.search_schema,
         set_column_filters=PandasView.FEATURES.set_column_filters,
@@ -2853,7 +2845,7 @@ class IbisView(PandasView):
         export_data_selection=PandasView.FEATURES.export_data_selection,
         convert_to_code=ConvertToCodeFeatures(
             support_status=SupportStatus.Unsupported,
-            code_syntaxes=[CodeSyntaxName(code_syntax_name="ibis")],
+            code_syntaxes=[],
         ),
     )
 
@@ -2873,7 +2865,6 @@ def _get_table_view(
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
     elif is_ibis(table):
-        # Import here to avoid circular imports
         return IbisView(table, comm, state, job_queue, sql_string)
     else:
         return UnsupportedView(table, comm, state, job_queue)
