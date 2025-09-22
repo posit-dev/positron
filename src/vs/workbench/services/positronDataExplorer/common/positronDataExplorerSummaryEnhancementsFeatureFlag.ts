@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { positronConfigurationNodeBase } from '../../languageRuntime/common/languageRuntime.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { localize } from '../../../../nls.js';
 
 // The key for the feature flag that controls the
 // data explorer summary panel enhancements feature work.
@@ -25,3 +29,22 @@ export function summaryPanelEnhancementsFeatureEnabled(
 		configurationService.getValue(USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY)
 	);
 }
+
+// Register the configuration setting to expose it in the settings UI
+const configurationRegistry = Registry.as<IConfigurationRegistry>(
+	Extensions.Configuration
+);
+configurationRegistry.registerConfiguration({
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY]: {
+			type: 'boolean',
+			default: true,
+			markdownDescription: localize(
+				'positron.dataExplorer.summaryPanelEnhancements',
+				'**CAUTION**: Enable experimental Data Explorer "Summary Panel Enhancements" feature. This feature is experimental and may not work as expected. Use at your own risk.'
+			),
+		},
+	},
+});
