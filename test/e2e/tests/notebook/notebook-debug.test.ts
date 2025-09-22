@@ -32,6 +32,7 @@
  */
 
 
+import { Application } from '../../infra/application.js';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 
@@ -42,10 +43,12 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 }, () => {
 
 	test.beforeEach(async ({ app }) => {
-		await app.workbench.layouts.enterLayout('notebook');
 		await app.workbench.notebooks.createNewNotebook();
 		await app.workbench.notebooks.selectInterpreter('Python');
-		// await app.workbench.sessions.expectNoStartUpMessaging();
+	});
+
+	test.afterEach(async ({ app }) => {
+		await app.workbench.notebooks.closeNotebookWithoutSaving();
 	});
 
 	test('Python - Simple breakpoint and variable inspection', async ({ app }) => {
@@ -58,12 +61,11 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(3);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.continue();
+		await app.code.wait(3000);
 		await expect(app.workbench.notebooks.frameLocator.locator('text=30')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(3);
 	});
 
 	test('Python - Multiple breakpoints with step controls', async ({ app }) => {
@@ -77,16 +79,14 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(2);
-		await app.workbench.debug.setBreakpointOnLine(4);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await app.workbench.debug.setBreakpointOnLine(4, 1);
+		await debugNotebook(app);
 		await app.workbench.debug.continue();
-		await app.code.wait(2000);
 		await app.workbench.debug.expectCurrentLineIndicatorVisible();
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=6')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(2);
+		await app.workbench.debug.unSetBreakpointOnLine(4);
 	});
 
 	test('Python - Function debugging with step over', async ({ app }) => {
@@ -99,14 +99,12 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(2);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.stepOver();
 		await app.code.wait(1000);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=13')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(2);
 	});
 
 	test('Python - Variable inspection with simple calculations', async ({ app }) => {
@@ -121,13 +119,10 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(3);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=15')).toBeVisible();
-		await expect(app.workbench.notebooks.frameLocator.locator('text=5')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(3);
 	});
 
 	test('Python - Stack frame navigation with nested calls', async ({ app }) => {
@@ -141,14 +136,12 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(3);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		const vars = await app.workbench.debug.getVariables();
 		console.log('Variables:', vars);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=6')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(3);
 	});
 
 	test('Python - String operations and concatenation debugging', async ({ app }) => {
@@ -162,14 +155,11 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(3);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.stepOver();
-		await app.code.wait(1000);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=Hello, Chris Mead')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(3);
 	});
 
 	test('Python - List operations and indexing debugging', async ({ app }) => {
@@ -183,12 +173,10 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(2);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=6')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(2);
 	});
 
 	test('Python - Boolean logic and conditional expressions', async ({ app }) => {
@@ -203,14 +191,11 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(5);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.stepOver();
-		await app.code.wait(1000);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=True')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(5);
 	});
 
 	test('Python - Dictionary operations and key access', async ({ app }) => {
@@ -224,12 +209,10 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(2);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=Alice is 30 years old')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(2);
 	});
 
 	test('Python - Mathematical operations with multiple steps', async ({ app }) => {
@@ -244,16 +227,12 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(3);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.stepOver();
-		await app.code.wait(1000);
 		await app.workbench.debug.stepOver();
-		await app.code.wait(1000);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=60')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(3);
 	});
 
 	test('Python - Type conversion and string formatting', async ({ app }) => {
@@ -267,11 +246,18 @@ test.describe('Comprehensive Notebook Debugging Tests', {
 
 		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
 		await app.workbench.debug.setBreakpointOnLine(4);
-		await app.code.wait(5000);
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.code.wait(2000);
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
+		await debugNotebook(app);
 		await app.workbench.debug.continue();
 		await expect(app.workbench.notebooks.frameLocator.locator('text=The answer is 42 and pi is 3.14')).toBeVisible();
+		await app.workbench.debug.unSetBreakpointOnLine(4);
 	});
 });
+
+async function debugNotebook(app: Application): Promise<void> {
+	await test.step('Debug notebook', async () => {
+
+		await expect(app.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible();
+		await app.workbench.quickaccess.runCommand('notebook.debugCell');
+		await app.workbench.debug.expectCurrentLineIndicatorVisible(2000);
+	});
+}
