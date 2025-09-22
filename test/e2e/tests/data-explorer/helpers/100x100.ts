@@ -53,13 +53,13 @@ export const testDataExplorer = async (
 	 * @param rowIndex The row index of the row under test.
 	 */
 	const testRow = async (rowIndex: number) => {
-		const keyboard = app.code.driver.page.keyboard
+		const keyboard = app.code.driver.page.keyboard;
 		// Scroll to home and put the cursor there.
 		await app.positron.dataExplorer.grid.jumpToStart();
 
 		// Navigate to the row under test.
 		for (let i = 0; i < rowIndex; i++) {
-			await keyboard.press('ArrowDown')
+			await keyboard.press('ArrowDown');
 		}
 
 		// Test each cell in the row under test.
@@ -85,7 +85,7 @@ export const testDataExplorer = async (
 			}
 
 			// Move to the next cell.
-			await keyboard.press('ArrowRight')
+			await keyboard.press('ArrowRight');
 		}
 
 	};
