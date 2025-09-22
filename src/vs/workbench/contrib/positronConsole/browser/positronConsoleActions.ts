@@ -796,15 +796,13 @@ export function registerPositronConsoleActions() {
 			const editorService = accessor.get(IEditorService);
 			const notificationService = accessor.get(INotificationService);
 			if (activeNotebook) {
-				notificationService.info(`Creating console for Positron notebook ${activeNotebook.uri.toString()}`);
 				positronConsoleService.showNotebookConsole(activeNotebook.uri);
 			} else {
 				const context = getContextFromActiveEditor(editorService);
 				if (context) {
-					notificationService.info(`Creating console for legacy notebook ${context.notebookEditor.textModel.uri}`);
 					positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri);
 				} else {
-					notificationService.info(`No active notebook`);
+					notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 				}
 			}
 		}
