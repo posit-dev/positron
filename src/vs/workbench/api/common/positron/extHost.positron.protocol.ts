@@ -18,6 +18,7 @@ import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { IPositronChatProvider } from '../../../contrib/chat/common/languageModels.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -102,6 +103,7 @@ export interface ExtHostLanguageRuntimeShape {
 export interface MainThreadModalDialogsShape extends IDisposable {
 	$showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean>;
 	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null>;
+	$showSimpleModalDialogInput(title: string, message: string, defaultValue?: string, placeholder?: string, timeout?: number): Promise<string | null>;
 }
 
 // The interface to the main thread exposed by the extension host
@@ -165,11 +167,17 @@ export interface MainThreadAiFeaturesShape {
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
+	$getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	$getProviders(): Thenable<IPositronChatProvider[]>;
+	$setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface ExtHostAiFeaturesShape {
 	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
 	$onCompleteLanguageModelConfig(id: string): void;
+	getCurrentProvider(): Thenable<IPositronChatProvider | undefined>;
+	getProviders(): Thenable<IPositronChatProvider[]>;
+	setCurrentProvider(id: string): Thenable<IPositronChatProvider | undefined>;
 }
 
 export interface MainThreadPlotsServiceShape {

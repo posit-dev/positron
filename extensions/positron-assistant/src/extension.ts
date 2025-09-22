@@ -8,10 +8,11 @@ import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
 import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
-import { registerParticipants } from './participants';
+import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
+import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
@@ -23,6 +24,8 @@ import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
+
+// (Authentication provider is registered via registerCopilotAuthProvider)
 
 let modelDisposables: ModelDisposable[] = [];
 let assistantEnabled = false;
@@ -133,8 +136,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 			await registerModelWithAPI(config, context);
 			registeredModels.push(config);
 		} catch (e) {
-			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
-			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
+			vscode.window.showErrorMessage(`${e}`);
 		}
 	}
 
@@ -188,10 +190,14 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 	);
 }
 
-function registerGenerateCommitMessageCommand(context: vscode.ExtensionContext) {
+function registerGenerateCommitMessageCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.generateCommitMessage', () => {
-			generateCommitMessage(context);
+			generateCommitMessage(context, participantService, log);
 		})
 	);
 }
@@ -209,6 +215,45 @@ function registerExportChatCommands(context: vscode.ExtensionContext) {
 	);
 }
 
+function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.toggleInlineCompletions', async () => {
+			await toggleInlineCompletions();
+		})
+	);
+}
+
+async function toggleInlineCompletions() {
+	// Get the current value of the setting
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const currentSettings = config.get<Record<string, boolean>>('inlineCompletions.enable') || {};
+
+	// Get the current file's language ID if there's an active text editor
+	const activeEditor = vscode.window.activeTextEditor;
+	const currentLanguageId = activeEditor?.document.languageId;
+
+	let keyToToggle: string;
+	let currentValue: boolean;
+
+	if (currentLanguageId && (currentLanguageId in currentSettings)) {
+		// If current file type has an explicit setting, toggle it
+		keyToToggle = currentLanguageId;
+		currentValue = currentSettings[currentLanguageId];
+	} else {
+		// Otherwise toggle the global setting (*)
+		keyToToggle = '*';
+		currentValue = currentSettings['*'] ?? true; // Default to true if not set
+	}
+
+	// Toggle the value
+	const newValue = !currentValue;
+	const updatedSettings = { ...currentSettings };
+	updatedSettings[keyToToggle] = newValue;
+
+	// Update the configuration
+	await config.update('inlineCompletions.enable', updatedSettings, vscode.ConfigurationTarget.Global);
+}
+
 function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize secret storage. In web mode, we currently need to use global
@@ -219,6 +264,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register Copilot service
 	registerCopilotService(context);
+
+	// Register authentication provider that delegates to CopilotService
+	registerCopilotAuthProvider(context);
 
 	// Register chat participants
 	const participantService = registerParticipants(context);
@@ -231,8 +279,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Commands
 	registerConfigureModelsCommand(context, storage);
-	registerGenerateCommitMessageCommand(context);
+	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
+	registerToggleInlineCompletionsCommand(context);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);
@@ -331,5 +380,5 @@ export function activate(context: vscode.ExtensionContext) {
 			}));
 	}
 
-	return new PositronAssistantApi();
+	return PositronAssistantApi.get();
 }

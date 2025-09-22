@@ -40,6 +40,8 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.waitForIdle();
 		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.expectColumnCountToBe(10);
+		await dataExplorer.summaryPanel.expectSortToBeBy('Original');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
 
 		// perform basic search
 		await dataExplorer.summaryPanel.search('column9');
@@ -48,23 +50,24 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		// verify collapse and expand retains in search
 		await dataExplorer.summaryPanel.expandColumnProfile();
 		await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0);
-		await dataExplorer.summaryPanel.hide()
+		await dataExplorer.summaryPanel.hide();
 		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0);
 		await dataExplorer.summaryPanel.expectColumnCountToBe(1);
 
 		// clear search and ensure col profile still expanded
-		await dataExplorer.summaryPanel.clearSearch()
+		await dataExplorer.summaryPanel.clearSearch();
 		await dataExplorer.summaryPanel.expectColumnCountToBe(10);
-		// await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0); // <--- BUG, being fixed in filter branch
+		await dataExplorer.summaryPanel.expectColumnProfileToBeCollapsed(0);
+		await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(9);
 
 		// search with no results
 		await dataExplorer.summaryPanel.search('snickerdoodle');
 		await dataExplorer.summaryPanel.expectColumnCountToBe(0);
-		// await dataExplorer.summaryPanel.expectEmptyState(); // <--- no empty state created in UI yet
+		//await dataExplorer.summaryPanel.expectEmptyState(); // <--- no empty state created in UI yet
 	});
 
-	test.skip('Summary Panel: Sort', async function ({ app, openDataFile }) {
+	test('Summary Panel: Sort', async function ({ app, openDataFile }) {
 		const { dataExplorer } = app.workbench;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
@@ -89,10 +92,10 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column9', 'column8', 'column7', 'column6', 'column5', 'column4', 'column3', 'column2', 'column1', 'column0']);
 
 		// verify changing sort retains expansion for correct column
-		// await dataExplorer.summaryPanel.clearSort();
-		// await dataExplorer.summaryPanel.expectSortToBeBy('Original');
-		// await dataExplorer.summaryPanel.expectColumnNamesOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
-		// await dataExplorer.summaryPanel.expectColumnToBe({ index: 0, name: 'column0', expanded: false });
-		// await dataExplorer.summaryPanel.expectColumnToBe({ index: 9, name: 'column9', expanded: true });
+		await dataExplorer.summaryPanel.clearSort();
+		await dataExplorer.summaryPanel.expectSortToBeBy('Original');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
+		await dataExplorer.summaryPanel.expectColumnToBe({ index: 0, name: 'column0', expanded: false });
+		await dataExplorer.summaryPanel.expectColumnToBe({ index: 9, name: 'column9', expanded: true });
 	});
 });

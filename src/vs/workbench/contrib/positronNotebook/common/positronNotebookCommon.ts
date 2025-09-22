@@ -4,3 +4,4 @@
  *--------------------------------------------------------------------------------------------*/
 
 export const POSITRON_NOTEBOOK_EDITOR_ID = 'workbench.editor.positronNotebook';
+export const POSITRON_NOTEBOOK_EDITOR_INPUT_ID = 'workbench.input.positronNotebook';

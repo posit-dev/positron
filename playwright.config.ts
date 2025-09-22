@@ -20,9 +20,6 @@ export default defineConfig<ExtendedTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
-	testIgnore: [
-		'example.test.ts'
-	],
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -48,7 +45,7 @@ export default defineConfig<ExtendedTestOptions>({
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['list'], ['html'], ['blob'],
-			...(process.env.ENABLE_CURRENTS_REPORTER !== 'false'
+			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
 				? [currentsReporter({
 					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
 					recordKey: process.env.CURRENTS_RECORD_KEY || '',
@@ -72,9 +69,28 @@ export default defineConfig<ExtendedTestOptions>({
 		currentsFixturesEnabled: !!process.env.CI,
 	},
 
+	// Only start webServer when running the e2e-browser-server project
+	// Note: this automatic start only works for CLI runs. For IDE runs, please start the server manually with `npm run e2e-start-server`
+	webServer: process.argv.some(arg => arg.includes('e2e-browser-server')) ? [
+		{
+			command: 'npm run e2e-start-server',
+			url: 'http://localhost:8080',
+			name: 'Positron Server',
+			reuseExistingServer: !process.env.CI,
+			timeout: 30 * 1000, // timeout waiting for server to be ready
+			// stdout: 'pipe',
+			// stderr: 'pipe',
+		},
+	] : undefined,
+
 	projects: [
 		{
 			name: 'e2e-electron',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-electron'
@@ -83,6 +99,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-browser',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: true,
 				artifactDir: 'e2e-browser',
@@ -91,7 +112,43 @@ export default defineConfig<ExtendedTestOptions>({
 			grep: /@:web/
 		},
 		{
+			name: 'e2e-workbench',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+			],
+			use: {
+				web: true,
+				artifactDir: 'e2e-workbench',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8787'
+			},
+			grep: /@:web|@:workbench/
+		},
+		{
+			name: 'e2e-browser-server',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
+			use: {
+				web: true,
+				artifactDir: 'e2e-browser-server',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8080/?tkn=dev-token'
+			},
+			grep: /@:web/
+		},
+		{
 			name: 'e2e-windows',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-windows',
@@ -101,6 +158,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'e2e-macOS-ci',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**'
+			],
 			use: {
 				web: false,
 				artifactDir: 'e2e-macOS-ci',

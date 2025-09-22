@@ -186,8 +186,8 @@ export class PlaywrightDriver {
 			// Ignore
 		}
 
-		// Web: Extract client logs
-		if (this.options.web) {
+		// Web: Extract client logs (skip for external servers since we don't manage them)
+		if (this.options.web && !this.options.useExternalServer) {
 			try {
 				await measureAndLog(() => this.saveWebClientLogs(), 'saveWebClientLogs()', this.options.logger);
 			} catch (error) {

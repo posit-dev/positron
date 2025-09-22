@@ -15,6 +15,8 @@ import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { namedPipeInterceptor } from './NamedPipeHttpAgent';
+import { DapComm } from './DapComm';
+
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
@@ -120,6 +122,8 @@ function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
 }
 
 export class KCApi implements PositronSupervisorApi {
+	/** The DAP comm class */
+	readonly DapComm = DapComm;
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */

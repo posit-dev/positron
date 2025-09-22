@@ -903,10 +903,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
 			const addLanguageModelMessage = hasAdditionalModels
 				? localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider")
-				: localize('positronAssistant.addLanguageModelMessageAnthropic', "Add Anthropic as a Chat Provider");
+				: localize('positronAssistant.addLanguageModelMessageAnthropic', "Add a Chat Provider");
 			welcomeText = hasAdditionalModels
 				? localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n")
-				: localize('positronAssistant.welcomeMessageAnthropic', "To use Positron Assistant Chat, you must first authenticate with Anthropic.\n");
+				: localize('positronAssistant.welcomeMessageAnthropic', "To use Positron Assistant Chat, you must first authenticate with Anthropic or Github.\n");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");

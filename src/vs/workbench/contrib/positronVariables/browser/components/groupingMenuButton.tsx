@@ -7,7 +7,7 @@
 import './groupingMenuButton.css';
 
 // React.
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -16,6 +16,7 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { PositronVariablesGrouping } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 /**
  * Localized strings.
@@ -30,15 +31,34 @@ export const GroupingMenuButton = () => {
 	// Context hooks.
 	const positronVariablesContext = usePositronVariablesContext();
 
+	// State for current grouping
+	const [currentGrouping, setCurrentGrouping] = useState<PositronVariablesGrouping | undefined>();
+
+	// Subscribe to changes in entries (which happen when grouping changes)
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+
+		if (positronVariablesContext.activePositronVariablesInstance) {
+			// Subscribe to entries changes
+			disposableStore.add(
+				positronVariablesContext.activePositronVariablesInstance.onDidChangeEntries(() => {
+					setCurrentGrouping(positronVariablesContext.activePositronVariablesInstance?.grouping);
+				})
+			);
+
+			// Set initial value
+			setCurrentGrouping(positronVariablesContext.activePositronVariablesInstance.grouping);
+		}
+
+		return () => disposableStore.dispose();
+	}, [positronVariablesContext.activePositronVariablesInstance]);
+
 	// Builds the actions.
 	const actions = () => {
 		// This can't happen.
 		if (positronVariablesContext.activePositronVariablesInstance === undefined) {
 			return [];
 		}
-
-		// Get the current grouping.
-		const grouping = positronVariablesContext.activePositronVariablesInstance.grouping;
 
 		// Build the actions.
 		const actions: IAction[] = [];
@@ -50,7 +70,7 @@ export const GroupingMenuButton = () => {
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			checked: grouping === PositronVariablesGrouping.None,
+			checked: currentGrouping === PositronVariablesGrouping.None,
 			run: () => {
 				if (!positronVariablesContext.activePositronVariablesInstance) {
 					return;
@@ -71,7 +91,7 @@ export const GroupingMenuButton = () => {
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			checked: grouping === PositronVariablesGrouping.Kind,
+			checked: currentGrouping === PositronVariablesGrouping.Kind,
 			run: () => {
 				if (!positronVariablesContext.activePositronVariablesInstance) {
 					return;
@@ -89,7 +109,7 @@ export const GroupingMenuButton = () => {
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			checked: grouping === PositronVariablesGrouping.Size,
+			checked: currentGrouping === PositronVariablesGrouping.Size,
 			run: () => {
 				if (!positronVariablesContext.activePositronVariablesInstance) {
 					return;

@@ -9,6 +9,7 @@ import { getLanguageModels } from './models';
 import { completionModels } from './completion';
 import { clearTokenUsage, disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
+import { PositronAssistantApi } from './api.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -239,6 +240,17 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
+		// Refresh CopilotService signed-in state if this is a copilot model
+		if (newConfig.provider === 'copilot') {
+			try {
+				CopilotService.instance().refreshSignedInState();
+			} catch (error) {
+				// CopilotService might not be initialized yet, which is fine
+			}
+		}
+
+		PositronAssistantApi.get().notifySignIn(name);
+
 		vscode.window.showInformationMessage(
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
@@ -273,6 +285,9 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 		}
 
 		await saveModel(userConfig, sources, storage, context);
+
+		PositronAssistantApi.get().notifySignIn(userConfig.provider);
+
 	} catch (error) {
 		if (error instanceof vscode.CancellationError) {
 			return;
@@ -348,6 +363,15 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	clearTokenUsage(context, targetConfig.provider);
 
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+
+	// Refresh CopilotService signed-in state if this was a copilot model
+	if (targetConfig.provider === 'copilot') {
+		try {
+			CopilotService.instance().refreshSignedInState();
+		} catch (error) {
+			// CopilotService might not be initialized yet, which is fine
+		}
+	}
 }
 
 export function logStoredModels(context: vscode.ExtensionContext): void {

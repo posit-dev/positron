@@ -1026,7 +1026,7 @@ class IbisColumnInspector(BaseColumnInspector["ibis.Column"]):
 Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame", "ibis.expr.types.relations.Table")
 
 
-class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
+class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):  # noqa: PYI059
     """Base inspector for tabular data."""
 
     def get_display_type(self) -> str:
@@ -1219,6 +1219,18 @@ class DuckDBConnectionInspector(BaseConnectionInspector):
         return True
 
 
+class SnowflakeConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("snowflake.connector.connection.SnowflakeConnection",)
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1258,6 +1270,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
     **dict.fromkeys(DuckDBConnectionInspector.CLASS_QNAME, DuckDBConnectionInspector),
     **dict.fromkeys(IbisDataFrameInspector.CLASS_QNAME, IbisDataFrameInspector),
+    **dict.fromkeys(SnowflakeConnectionInspector.CLASS_QNAME, SnowflakeConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,

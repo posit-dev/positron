@@ -34,49 +34,56 @@ const normalizeCodeForDisplay = (code: string): string => {
 };
 
 const testCases: {
-	language: 'Python' | 'R';
-	dataScript: string;
+	environment: 'Python' | 'R' | 'DuckDB';
+	data: string;
 	expectedCodeStyle: string;
 	dataFrameType: MetricTargetType;
 	expectedGeneratedCode: string;
 }[] = [
 		{
-			language: 'Python',
-			dataScript: pandasDataFrameScript,
+			environment: 'Python',
+			data: pandasDataFrameScript,
 			expectedCodeStyle: 'Pandas',
 			dataFrameType: 'py.pandas.DataFrame',
 			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)\ndf[filter_mask]'
 		},
 		{
-			language: 'Python',
-			dataScript: polarsDataFrameScript,
+			environment: 'Python',
+			data: polarsDataFrameScript,
 			expectedCodeStyle: 'Polars',
 			dataFrameType: 'py.polars.DataFrame',
 			expectedGeneratedCode: "filter_expr = (pl.col('status') == 'active') & (pl.col('score') >= 85) & (pl.col('is_student') == False)\ndf.filter(filter_expr)"
 		},
+		{
+			environment: 'DuckDB',
+			data: 'data-files/convert-to-code/simple-student-data.csv',
+			expectedCodeStyle: 'SQL',
+			dataFrameType: 'file.csv',
+			expectedGeneratedCode: 'SELECT * \nFROM "simple-student-data"\nWHERE "status" = \'active\' AND "score" >= 85 AND "is_student" = false'
+		},
 		// {
-		// 	language: 'R',
+		// 	environment: 'R',
 		// 	dataScript: rDataFrameScript,
 		// 	expectedCodeStyle: 'Tidyverse',
 		// 	dataFrameType: 'r.data.frame'
 		//   expectedGeneratedCode: 'tbd'
 		// },
 		// {
-		// 	language: 'R',
+		// 	environment: 'R',
 		// 	dataScript: tibbleScript,
 		// 	expectedCodeStyle: 'Tidyverse',
 		// 	dataFrameType: 'r.tibble',
 		// 	expectedGeneratedCode: 'tbd'
 		// },
 		// {
-		// 	language: 'R',
+		// 	environment: 'R',
 		// 	dataScript: dataTableScript,
 		// 	expectedCodeStyle: 'data.table',
 		// 	dataFrameType: 'r.data.table',
 		// 	expectedGeneratedCode: 'tbd'
 		// },
 		// {
-		// 	language: 'R',
+		// 	environment: 'R',
 		// 	dataScript: dplyrScript,
 		// 	expectedCodeStyle: 'dplyr',
 		// 	dataFrameType: 'r.dplyr',
@@ -100,15 +107,21 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 		await hotKeys.closeAllEditors();
 	});
 
-	testCases.forEach(({ language, dataScript, expectedCodeStyle, dataFrameType, expectedGeneratedCode }) => {
+	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataFrameType, expectedGeneratedCode }) => {
 
-		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric }) {
+		test(`${environment} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
 			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
-			await sessions.start(language === 'Python' ? 'python' : 'r');
 
-			// execute code to create a data construct
-			await console.pasteCodeToConsole(dataScript, true);
-			await variables.doubleClickVariableRow('df');
+			if (environment === 'DuckDB') {
+				// open a data file via DuckDB
+				await openDataFile(dataScript);
+			} else {
+				// execute code to create a data construct
+				await sessions.start(environment === 'Python' ? 'python' : 'r');
+				await console.pasteCodeToConsole(dataScript, true);
+				await variables.doubleClickVariableRow('df');
+			}
+
 			await hotKeys.closeSecondarySidebar();
 
 			// verify the data in the table
@@ -133,7 +146,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 				// verify the generated code is correct and has syntax highlights
 				// Use normalized code for UI text comparison (no newlines)
 				await expect(dataExplorer.convertToCodeModal.codeBox).toContainText(normalizeCodeForDisplay(expectedGeneratedCode));
-				await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
+				if (environment != 'DuckDB') await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
 
 				// verify copy to clipboard behavior
 				await dataExplorer.convertToCodeModal.clickOK();

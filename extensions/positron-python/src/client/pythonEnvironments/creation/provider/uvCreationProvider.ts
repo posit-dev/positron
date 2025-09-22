@@ -185,6 +185,34 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
             }
         }
 
+        const createEnvInternal = async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
+            progress.report({
+                message: CreateEnv.statusStarting,
+            });
+
+            let envPath: string | undefined;
+            try {
+                if (!workspace) {
+                    throw new Error('Failed to create uv environment. Workspace is undefined.');
+                }
+
+                if (!version) {
+                    throw new Error('Failed to create uv environment. Python version is undefined.');
+                }
+
+                envPath = await createUvVenv(workspace, version, progress, token);
+                if (envPath) {
+                    return { path: envPath, workspaceFolder: workspace };
+                }
+
+                throw new Error('Failed to create uv environment. See Output > Python for more info.');
+            } catch (ex) {
+                traceError(ex);
+                showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
+                return { error: ex as Error };
+            }
+        };
+
         return withProgress(
             {
                 location: ProgressLocation.Notification,
@@ -194,27 +222,7 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
             async (
                 progress: CreateEnvironmentProgress,
                 token: CancellationToken,
-            ): Promise<CreateEnvironmentResult | undefined> => {
-                progress.report({
-                    message: CreateEnv.statusStarting,
-                });
-
-                let envPath: string | undefined;
-                try {
-                    if (workspace && version) {
-                        envPath = await createUvVenv(workspace, version, progress, token);
-                        if (envPath) {
-                            return { path: envPath, workspaceFolder: workspace };
-                        }
-                        throw new Error('Failed to create uv environment. See Output > Python for more info.');
-                    }
-                    throw new Error('A workspace and Python version are needed to create a uv environment');
-                } catch (ex) {
-                    traceError(ex);
-                    showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
-                    return { error: ex as Error };
-                }
-            },
+            ): Promise<CreateEnvironmentResult | undefined> => createEnvInternal(progress, token),
         );
     }
 

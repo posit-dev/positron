@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.1",
+			"version": "1.6.11",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "9c2920c2284ebfb681ef46e9f3bd4b50d5c6404d00485f91649678ede0c61d7e",
+			"sha256": "a8fc546efec8541ebb675d36ceaa5d43ec17c416b6a7cc60f221b5911a32b53a",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -120,7 +120,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2025.24.0",
+			"version": "2025.26.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -214,7 +214,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.6.0",
+			"version": "2025.10.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.20.0",
+			"version": "1.23.5",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -306,6 +306,21 @@
 		"https://staging.connect.posit.cloud",
 		"https://posit.co"
 	],
+	"defaultChatAgent": {
+		"extensionId": "positron.positron-assistant",
+		"chatExtensionId": "positron.positron-assistant",
+		"completionsEnablementSetting": "positron.assistant.inlineCompletions.enable",
+		"provider": {
+			"default": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			},
+			"enterprise": {
+				"id": "positron.assistant",
+				"name": "Positron Assistant"
+			}
+		}
+	},
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
 	],

@@ -8,6 +8,16 @@ import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
+import { PositWorkbench } from './workbench-pwb.js';
+
+const READINESS_LOCATORS = {
+	monacoWorkbench: '.monaco-workbench',
+	explorerFoldersView: '.explorer-folders-view',
+	activityBar: '.activitybar',
+	statusBar: '.statusbar',
+	remoteHost: '.monaco-workbench .statusbar-item[id="status.host"]',
+	positWorkbenchSignIn: 'Sign in to Posit Workbench'
+} as const;
 
 export const enum Quality {
 	Dev,
@@ -19,6 +29,14 @@ export const enum Quality {
 
 export interface ApplicationOptions extends LaunchOptions {
 	readonly workspacePath: string;
+}
+
+/**
+ * Creates the appropriate workbench instance based on external server configuration
+ */
+function createWorkbench(code: Code, options: ApplicationOptions): Workbench {
+	const isWorkbench = options.useExternalServer && options.externalServerUrl?.includes(':8787');
+	return isWorkbench ? new PositWorkbench(code) : new Workbench(code);
 }
 
 export class Application {
@@ -33,6 +51,16 @@ export class Application {
 
 	private _workbench: Workbench | undefined;
 	get workbench(): Workbench { return this._workbench!; }
+
+	/**
+	 * Get the Posit Workbench instance. Only available in e2e-workbench contexts.
+	 */
+	get positWorkbench(): PositWorkbench {
+		if (this._workbench instanceof PositWorkbench) {
+			return this._workbench;
+		}
+		throw new Error('positWorkbench is only available in e2e-workbench contexts');
+	}
 
 	get logger(): Logger {
 		return this.options.logger;
@@ -66,7 +94,10 @@ export class Application {
 
 	async start(): Promise<void> {
 		await this._start();
-		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
+	}
+
+	async connectToExternalServer(): Promise<void> {
+		await this._connectToExternalServer();
 	}
 
 	async restart(options?: { workspaceOrFolder?: string; extraArgs?: string[] }): Promise<void> {
@@ -96,6 +127,37 @@ export class Application {
 		}
 	}
 
+	async stopExternalServer(): Promise<void> {
+		// For external servers, we only need to close the browser connection
+		// The external server keeps running
+		if (this._code) {
+			try {
+				await this._code.driver.close();
+			} finally {
+				this._code = undefined;
+			}
+		}
+	}
+
+	private async _connectToExternalServer(): Promise<void> {
+		// Connect to external server without launching
+		const code = await this.connectToExternalApplication();
+
+		// Make sure the window is ready to interact
+		await measureAndLog(() => this.checkWindowReady(code), 'Application#checkWindowReady() [external]', this.logger);
+	}
+
+	private async connectToExternalApplication(): Promise<Code> {
+		const code = this._code = await launch({
+			...this.options,
+		});
+
+		this._workbench = createWorkbench(this._code, this.options);
+		this._profiler = new Profiler(this.code);
+
+		return code;
+	}
+
 	async startTracing(name: string): Promise<void> {
 		await this._code?.startTracing(name);
 	}
@@ -110,22 +172,89 @@ export class Application {
 			extraArgs: [...(this.options.extraArgs || []), ...extraArgs],
 		});
 
-		this._workbench = new Workbench(this._code);
+		this._workbench = createWorkbench(this._code, this.options);
 		this._profiler = new Profiler(this.code);
 
 		return code;
 	}
 
 	private async checkWindowReady(code: Code): Promise<void> {
+		const isWorkbench = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8787');
+		const isPositronServer = this.options.useExternalServer && this.options.externalServerUrl?.includes(':8080');
 
 		// We need a rendered workbench
 		await measureAndLog(() => code.didFinishLoad(), 'Application#checkWindowReady: wait for navigation to be committed', this.logger);
-		await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench')).toBeVisible({ timeout: 30000 }), 'Application#checkWindowReady: wait for .monaco-workbench element', this.logger);
-		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkWorkbenchRestored', this.logger);
+
+		// Readiness checks differ based on the type of connection
+		if (isWorkbench) {
+			await measureAndLog(() => this.checkPositWorkbenchReady(code), 'Application#checkPositWorkbenchReady', this.logger);
+		} else if (isPositronServer) {
+			await measureAndLog(() => this.checkPositronServerReady(code), 'Application#checkPositronServerReady', this.logger);
+		} else {
+			await measureAndLog(() => this.checkPositronReady(code), 'Application#checkPositronReady', this.logger);
+		}
 
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
-			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench .statusbar-item[id="status.host"]')).not.toContainText('Opening Remote'), 'Application#checkWindowReady: wait for remote indicator', this.logger);
+			await measureAndLog(
+				() => expect(code.driver.page.locator(READINESS_LOCATORS.remoteHost)).not.toContainText('Opening Remote'),
+				'Application#checkWindowReady: wait for remote indicator',
+				this.logger
+			);
 		}
+	}
+
+	/**
+	 * Positron readiness checks
+	 */
+	private async checkPositronReady(code: Code): Promise<void> {
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronReady: wait for monaco workbench',
+			this.logger
+		);
+		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkPositronReady: wait for workbench restored', this.logger);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
+			'Application#checkPositronReady: wait for explorer view',
+			this.logger
+		);
+	}
+
+	/**
+	 * Posit Workbench readiness checks
+	 */
+	private async checkPositWorkbenchReady(code: Code): Promise<void> {
+		await measureAndLog(
+			() => expect(code.driver.page.getByText(READINESS_LOCATORS.positWorkbenchSignIn)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositWorkbenchReady: wait for sign in prompt',
+			this.logger
+		);
+	}
+
+	/**
+	 * External Positron Server readiness checks
+	 */
+	private async checkPositronServerReady(code: Code): Promise<void> {
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.monacoWorkbench)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronServerReady: wait for monaco workbench',
+			this.logger
+		);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.explorerFoldersView)).toBeVisible({ timeout: 60000 }),
+			'Application#checkPositronServerReady: wait for explorer view',
+			this.logger
+		);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.activityBar)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronServerReady: wait for activity bar',
+			this.logger
+		);
+		await measureAndLog(
+			() => expect(code.driver.page.locator(READINESS_LOCATORS.statusBar)).toBeVisible({ timeout: 30000 }),
+			'Application#checkPositronServerReady: wait for status bar',
+			this.logger
+		);
 	}
 }

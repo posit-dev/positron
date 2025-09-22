@@ -686,7 +686,6 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Variables = 'positron.variables',
 		Lsp = 'positron.lsp',
-		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataExplorer = 'positron.dataExplorer',
 		Ui = 'positron.ui',
@@ -1644,6 +1643,19 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
+		 * Create and show a simple modal dialog input prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param placeholder The placeholder text for the input field
+		 *
+		 * @returns A Thenable that resolves to the user's input, or undefined if the user cancelled.
+		 */
+		export function showSimpleModalDialogInputPrompt(title: string,
+			message: string,
+			placeholder?: string): Thenable<string | undefined>;
+
+		/**
 		 * Create and show a different simple modal dialog prompt.
 		 *
 		 * @param title The title of the dialog
@@ -2268,6 +2280,29 @@ declare module 'positron' {
 			};
 			shell?: string;
 		}
+
+		/**
+		 * A chat language model provider.
+		 */
+		export interface ChatProvider {
+			readonly id: string;
+			readonly displayName: string;
+		}
+
+		/**
+		 * Get the current langauge model provider.
+		 */
+		export function getCurrentProvider(): Thenable<ChatProvider | undefined>;
+
+		/**
+		 * Get all the available langauge model providers.
+		 */
+		export function getProviders(): Thenable<ChatProvider[]>;
+
+		/**
+		 * Set the current language chat provider.
+		 */
+		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
 
 		/**
 		 * Checks if completions are enabled for the given file.

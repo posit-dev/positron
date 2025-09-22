@@ -242,6 +242,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 */
 	set highlightRecent(highlighRecent: boolean) {
 		this._highlightRecent = highlighRecent;
+
+		// Update entries to trigger onDidChangeEntries event
+		this.updateEntries();
 	}
 
 	/**

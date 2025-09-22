@@ -32,6 +32,10 @@ export interface ICellInfo {
 	isOnlyCell: boolean;
 	/** Cell is actively executing/running */
 	isRunning: boolean;
+	/** Cell is queued for execution */
+	isPending: boolean;
+	/** Cell is a markdown cell and the editor is open */
+	markdownEditorOpen: boolean;
 }
 
 /**
@@ -44,26 +48,27 @@ export type CellConditionPredicate = (cellInfo: ICellInfo) => boolean;
 /**
  * Creates ICellInfo from a cell and its position in the notebook.
  * @param cell The notebook cell
- * @param cellIndex The cell's index in the notebook
  * @param totalCells Total number of cells in the notebook
  * @returns Cell information object
  */
 export function createCellInfo(
 	cell: IPositronNotebookCell,
-	cellIndex: number,
 	totalCells: number
 ): ICellInfo {
+	const cellIndex = cell.index;
 	return {
 		cellType: cell.kind === CellKind.Code ? NotebookCellType.Code :
 			cell.kind === CellKind.Markup ? NotebookCellType.Markdown : NotebookCellType.Raw,
 		cellIndex,
 		totalCells,
 		isFirstCell: cellIndex === 0,
-		isLastCell: cellIndex === totalCells - 1,
+		isLastCell: cell.isLastCell(),
 		isOnlyCell: totalCells === 1,
 		// TODO: There is a tiny chance that the cell is running but the status is not yet updated.
 		// If this happens we will probably need to make the cell info an observable.
-		isRunning: cell.executionStatus.get() === 'running'
+		isRunning: cell.executionStatus.get() === 'running',
+		isPending: cell.executionStatus.get() === 'pending',
+		markdownEditorOpen: cell.isMarkdownCell() ? cell.editorShown.get() : false,
 	};
 }
 
@@ -82,6 +87,12 @@ export const CellConditions = {
 
 	/** Is running */
 	isRunning: (info: ICellInfo) => info.isRunning,
+
+	/** Is pending */
+	isPending: (info: ICellInfo) => info.isPending,
+
+	/** Markdown cell with editor open */
+	markdownEditorOpen: (info: ICellInfo) => info.markdownEditorOpen,
 
 	/** Not the first cell (has cells above) */
 	notFirst: (info: ICellInfo) => !info.isFirstCell,

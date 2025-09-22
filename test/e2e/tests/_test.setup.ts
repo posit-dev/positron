@@ -19,7 +19,9 @@ import {
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
 	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName
 } from '../fixtures/test-setup';
+import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
+import { runDockerCommand } from '../fixtures/test-setup/app-workbench.fixtures.js';
 
 // Currents fixtures
 import {
@@ -35,6 +37,27 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	...currentsFixtures.baseFixtures,
 	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
+
+	envVars: [async ({ }, use, workerInfo) => {
+		const projectName = workerInfo.project.name;
+
+		loadEnvironmentVars(projectName);
+
+		validateEnvironmentVars([
+			'POSITRON_PY_VER_SEL',
+			'POSITRON_R_VER_SEL',
+			'POSITRON_PY_ALT_VER_SEL',
+			'POSITRON_R_ALT_VER_SEL',
+		], { allowEmpty: false });
+
+		if (projectName === 'e2e-workbench') {
+			validateEnvironmentVars([
+				'POSIT_WORKBENCH_PASSWORD'
+			], { allowEmpty: false });
+		}
+
+		await use(projectName);
+	}, { scope: 'worker', auto: true }],
 
 	snapshots: [true, { scope: 'worker', auto: true }],
 
@@ -52,16 +75,23 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	options: [async ({ logsPath, logger, snapshots }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
 		const optionsFixture = OptionsFixture();
-		const options = await optionsFixture(logsPath, logger, snapshots, project);
+		const options = await optionsFixture(logsPath, logger, snapshots, project, workerInfo);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
-	userDataDir: [async ({ options }, use) => {
-		const userDataDirFixture = UserDataDirFixture();
-		const userDir = await userDataDirFixture(options);
+	userDataDir: [async ({ options }, use, workerInfo) => {
+		const projectName = workerInfo.project.name;
 
-		await use(userDir);
+		if (['e2e-browser-server', 'e2e-workbench'].includes(projectName)) {
+			// For external/workbench projects, this fixture isn't used, they handle it separately
+			await use('');
+		} else {
+			// Default case for e2e-electron, e2e-browser, and other projects
+			const userDataDirFixture = UserDataDirFixture();
+			const userDir = await userDataDirFixture(options);
+			await use(userDir);
+		}
 	}, { scope: 'worker', auto: true }],
 
 	restartApp: [async ({ app }, use) => {
@@ -132,6 +162,15 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	runCommand: async ({ app }, use) => {
 		await use(async (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => {
 			await app.workbench.quickaccess.runCommand(command, options);
+		});
+	},
+
+	runDockerCommand: async ({ }, use, testInfo) => {
+		await use(async (command: string, description: string) => {
+			if (testInfo.project.name !== 'e2e-workbench') {
+				throw new Error('runDockerCommand is only available in the e2e-workbench project');
+			}
+			await runDockerCommand(command, description);
 		});
 	},
 
@@ -266,6 +305,7 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
+	runDockerCommand: (command: string, description: string) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string, options?: {
 		timeout?: number;
 		waitForReady?: boolean;
@@ -278,6 +318,7 @@ interface TestFixtures {
 
 interface WorkerFixtures {
 	suiteId: string;
+	envVars: string;
 	snapshots: boolean;
 	artifactDir: string;
 	options: ApplicationOptions;
@@ -292,3 +333,5 @@ interface WorkerFixtures {
 	};
 	vsCodeSettings: VscodeSettings;
 }
+
+export { CustomTestOptions };

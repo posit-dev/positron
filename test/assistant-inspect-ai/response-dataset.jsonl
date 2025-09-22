@@ -1,3 +1,0 @@
-{"id":"sample_1","question":"What e the capital of France?","model_response":"","target":"The answer should correctly identify Paris as the capital of France"}
-{"id":"sample_2","question":"What version is this?","model_response":"","target":"The answer should return at least the version of Positron being used."}
-{"id":"sample_3","question":"What is the current date?","model_response":"","target":"The answer should return the current date in a human-readable format."}

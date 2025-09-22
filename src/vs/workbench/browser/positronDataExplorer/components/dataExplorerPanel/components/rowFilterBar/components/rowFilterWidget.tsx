@@ -61,14 +61,14 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
-					{localize('positron.dataExplorer.rowFilterWidget.isNull', "is null")}
+					{localize('positron.dataExplorer.rowFilterWidget.isNull', "is missing")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotNull) {
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before'>
-					{localize('positron.dataExplorer.rowFilterWidget.isNotNull', "is not null")}
+					{localize('positron.dataExplorer.rowFilterWidget.isNotNull', "is not missing")}
 				</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsTrue) {

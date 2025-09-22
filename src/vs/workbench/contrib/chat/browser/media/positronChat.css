@@ -16,6 +16,14 @@
 	flex-shrink: 0;
 }
 
+/*
+Ensure proper spacing on chat-editing-session when chat-token-usage-status is hidden
+See https://github.com/posit-dev/positron/issues/9046
+*/
+.chat-token-usage-status[style*="display: none"] ~ .chat-editing-session {
+	margin-top: 4px; /* Compensate for the margin that chat-token-usage-status would have taken */
+}
+
 .chat-token-usage-status .token-usage-total {
 	display: inline-block;
 }

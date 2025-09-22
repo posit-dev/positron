@@ -13,6 +13,11 @@ on:
         description: "The name of the Playwright project to run tests for."
         default: "e2e-electron"
         type: string
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -124,17 +129,21 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
+
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-      # - name: Load secret
-      #   uses: 1password/load-secrets-action@v3
-      #   with:
-      #     # Export loaded secrets as environment variables
-      #     export-env: true
-      #   env:
-      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      #     ANTHROPIC: "op://Positron/Anthropic/credential"
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
@@ -201,6 +210,7 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
@@ -244,8 +254,8 @@ jobs:
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
 
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -261,3 +271,10 @@ jobs:
           name: ${{ inputs.project }}-logs
           path: test-logs
           if-no-files-found: ignore
+
+      - name: Upload inspect-ai JSON Responses
+        if: ${{ always() && inputs.grep != '' && inputs.grep == '@:inspect-ai' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: test/assistant-inspect-ai/*.json

@@ -192,6 +192,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Thenable<null> {
 				return extHostModalDialogs.showSimpleModalDialogMessage(title, message, okButtonTitle);
 			},
+			showSimpleModalDialogInputPrompt(title: string, message: string, placeholder?: string): Thenable<string | undefined> {
+				return extHostModalDialogs.showSimpleModalDialogInput(title, message, undefined, placeholder).then(result => result === null ? undefined : result);
+			},
 			getConsoleForLanguage(languageId: string) {
 				return extHostConsoleService.getConsoleForLanguage(languageId);
 			},
@@ -292,6 +295,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
 				return extHostAiFeatures.areCompletionsEnabled(file);
+			},
+			getCurrentProvider(): Promise<positron.ai.ChatProvider | undefined> {
+				return extHostAiFeatures.getCurrentProvider();
+			},
+			getProviders(): Promise<positron.ai.ChatProvider[]> {
+				return extHostAiFeatures.getProviders();
+			},
+			setCurrentProvider(id: string): Promise<positron.ai.ChatProvider | undefined> {
+				return extHostAiFeatures.setCurrentProvider(id);
 			},
 		};
 

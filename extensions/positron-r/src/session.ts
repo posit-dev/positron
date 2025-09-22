@@ -7,15 +7,16 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 
-import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './positron-supervisor';
+import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra, DapComm } from './positron-supervisor';
 import { ArkLsp, ArkLspState } from './lsp';
-import { delay, whenTimeout, timeout } from './util';
+import { delay, whenTimeout, timeout, PromiseHandles } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
-import { LOGGER } from './extension.js';
+import { LOGGER, supervisorApi } from './extension.js';
+import { ArkComm } from './ark-comm';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -42,9 +43,15 @@ interface Locale {
  * Protocol client.
  */
 export class RSession implements positron.LanguageRuntimeSession, vscode.Disposable {
-
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
+
+	/** The Ark Comm for direct communication with the kernel */
+	private _arkComm?: ArkComm;
+
+	get arkComm(): ArkComm | undefined {
+		return this._arkComm;
+	}
 
 	/** Queue for LSP events */
 	private _lspQueue: PQueue;
@@ -61,6 +68,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/** The Jupyter kernel-based session implementing the Language Runtime API */
 	private _kernel?: JupyterLanguageRuntimeSession;
+
+	/** The DAP communication channel */
+	private _dapComm?: DapComm;
 
 	/** The emitter for language runtime messages */
 	private _messageEmitter =
@@ -290,7 +300,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 					this.onConsoleWidthChange(newWidth);
 				});
 		}
-		return this._kernel.start();
+
+		return await this._kernel.start();
 	}
 
 	private async onConsoleWidthChange(newWidth: number): Promise<void> {
@@ -391,6 +402,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this._consoleWidthDisposable = undefined;
 
 		await this._lsp.dispose();
+		if (this._arkComm) {
+			await this._arkComm.dispose();
+		}
 		if (this._kernel) {
 			await this._kernel.dispose();
 		}
@@ -625,15 +639,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		// Get the Positron Supervisor extension and activate it if necessary
-		const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-		if (!ext) {
-			throw new Error('Positron Supervisor extension not found');
-		}
-		if (!ext.isActive) {
-			await ext.activate();
-		}
-		this.adapterApi = ext?.exports as PositronSupervisorApi;
+		this.adapterApi = await supervisorApi();
 
 		// Create the Jupyter session
 		const kernel = this.kernelSpec ?
@@ -830,23 +836,73 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * sessions by coming online.
 	 */
 	private async startDap(): Promise<void> {
-		if (this._kernel) {
-			try {
-				let clientId = this._kernel.createPositronDapClientId();
-				await this._kernel.startPositronDap(clientId, 'ark', 'Ark Positron R');
-			} catch (err) {
-				this._kernel.emitJupyterLog(`Error starting DAP: ${err}`, vscode.LogLevel.Error);
+		try {
+			if (!this._kernel) {
+				throw new Error('Kernel not started');
+			}
+
+			this._dapComm = await this._kernel.createDapComm('ark_dap', 'ark', 'Ark Positron R');
+
+			// Not awaited: we're spawning an infinite async loop
+			this.startDapMessageLoop();
+		} catch (err) {
+			LOGGER.error(`Error starting DAP: ${err}`);
+		}
+	}
+
+	// Only called from tests for now
+	async startArkComm(): Promise<void> {
+		try {
+			if (!this._kernel) {
+				throw new Error('Kernel not started');
+			}
+
+			this._arkComm = new ArkComm(this._kernel);
+			await this._arkComm!.createComm();
+		} catch (err) {
+			LOGGER.error(`Error starting DAP: ${err}`);
+		}
+	}
+
+	/**
+	 * Handle DAP messages in an infinite loop.
+	 * Should typically not be awaited.
+	 */
+	private async startDapMessageLoop(): Promise<void> {
+		LOGGER.info('Starting DAP loop');
+
+		if (!this._dapComm?.comm) {
+			throw new Error('Must create comm before use');
+		}
+
+		for await (const message of this._dapComm.comm.receiver) {
+			LOGGER.trace('Received DAP message:', JSON.stringify(message));
+
+			if (!await this._dapComm.handleMessage(message)) {
+				LOGGER.info(`Unknown DAP message: ${message.method}`);
+
+				if (message.kind === 'request') {
+					message.handle(() => { throw new Error(`Unknown request '${message.method}' for DAP comm`) });
+				}
 			}
 		}
+
+		LOGGER.info('Exiting DAP loop');
+		this._dapComm?.dispose();
 	}
 
 	private async onStateChange(state: positron.RuntimeState): Promise<void> {
 		this._state = state;
 		if (state === positron.RuntimeState.Ready) {
-			await this.startDap();
-			await this.setConsoleWidth();
+			await Promise.all([
+				this.startDap(),
+				this.setConsoleWidth()
+			]);
 		} else if (state === positron.RuntimeState.Exited) {
-			await this.deactivateLsp('session exited');
+			await Promise.all([
+				this._dapComm?.dispose(),
+				this.deactivateLsp('session exited'),
+			]);
 		}
 	}
 
