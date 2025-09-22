@@ -98,10 +98,16 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	};
 
 	/**
-	 * The mouse down handler for the parent element of the console tab instance.
-	 * This handler is used to show the context menu when the user right-clicks on a tab.
+	 * The mouse down handler for the parent element of the console tab
+	 * instance.  This handler is used to show the context menu when the user
+	 * right-clicks on a tab.
+	 *
+	 * Notebook consoles can't be renamed, so we currently do not show a context
+	 * menu for them.
 	 */
-	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+	const handleMouseDown = positronConsoleInstance.sessionMetadata.sessionMode ===
+		LanguageRuntimeSessionMode.Notebook ? undefined :
+		(e: MouseEvent<HTMLDivElement>) => {
 		// Prevent the default action and stop the event from propagating.
 		e.preventDefault();
 		e.stopPropagation();
