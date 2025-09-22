@@ -3,7 +3,7 @@
 	"compilerOptions": {
 		"outDir": "./out",
 		"lib": [
-			"ES2024",
+			"ES2020",
 			"WebWorker"
 		],
 		"module": "Node16",

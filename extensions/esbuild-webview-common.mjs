@@ -29,7 +29,7 @@ async function build(options, didBuild) {
 		sourcemap: false,
 		format: 'esm',
 		platform: 'browser',
-		target: ['es2024'],
+		target: ['es2020'],
 		...options,
 	});
 

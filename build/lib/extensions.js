@@ -141,6 +141,7 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
     const packageJsonConfig = require(path_1.default.join(extensionPath, 'package.json'));
     if (packageJsonConfig.dependencies) {
         const webpackRootConfig = require(path_1.default.join(extensionPath, webpackConfigFileName)).default;
+        (0, fancy_log_1.default)('Webpack config:', ansi_colors_1.default.yellow(path_1.default.join(path_1.default.basename(extensionPath), webpackConfigFileName)));
         for (const key in webpackRootConfig.externals) {
             if (key in packageJsonConfig.dependencies) {
                 packagedDependencies.push(key);

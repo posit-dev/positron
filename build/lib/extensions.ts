@@ -104,6 +104,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	const packageJsonConfig = require(path.join(extensionPath, 'package.json'));
 	if (packageJsonConfig.dependencies) {
 		const webpackRootConfig = require(path.join(extensionPath, webpackConfigFileName)).default;
+		fancyLog('Webpack config:', ansiColors.yellow(path.join(path.basename(extensionPath), webpackConfigFileName)));
 		for (const key in webpackRootConfig.externals) {
 			if (key in packageJsonConfig.dependencies) {
 				packagedDependencies.push(key);

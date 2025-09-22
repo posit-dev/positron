@@ -7,9 +7,9 @@
 
 'use strict';
 
-const withDefaults = require('../shared.webpack.config');
+const withDefaults = require('../shared.webpack.config.mjs').default;
 
-module.exports = withDefaults({
+module.exports.default = withDefaults({
 	context: __dirname,
 	entry: {
 		extension: './src/extension.ts',
