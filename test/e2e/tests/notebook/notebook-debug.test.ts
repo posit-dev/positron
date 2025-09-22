@@ -258,6 +258,6 @@ async function debugNotebook(app: Application): Promise<void> {
 
 		await expect(app.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible();
 		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.workbench.debug.expectCurrentLineIndicatorVisible(2000);
+		await app.workbench.debug.expectCurrentLineIndicatorVisible();
 	});
 }
