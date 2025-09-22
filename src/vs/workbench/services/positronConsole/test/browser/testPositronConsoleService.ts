@@ -12,6 +12,7 @@ import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavio
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../common/positronConsoleCodeExecution.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 /**
  * Implementation of IPositronConsoleService for use in tests.
@@ -199,6 +200,14 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 			this._consoleWidth = width;
 			this._onDidChangeConsoleWidthEmitter.fire(width);
 		}
+	}
+
+	/**
+	 * Shows a notebook console
+	 * @param notebookUri The URL to show
+	 */
+	showNotebookConsole(notebookUri: URI): void {
+		// Doesn't do anything
 	}
 
 	/**

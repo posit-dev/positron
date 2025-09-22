@@ -45,6 +45,7 @@ import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurati
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/editorOptions.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -320,7 +321,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@ILogService private readonly _logService: ILogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
-		@IViewsService private readonly _viewsService: IViewsService
+		@IViewsService private readonly _viewsService: IViewsService,
+		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -687,6 +689,36 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Enqueue the code in the Positron console instance.
 		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId);
 		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	/**
+	 * Show or create a notebook console
+	 *
+	 * @param notebookUri The URI of the notebook
+	 */
+	showNotebookConsole(notebookUri: URI): void {
+		const positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
+			.find(consoleInstance => {
+				return consoleInstance.sessionMetadata.notebookUri?.toString() === notebookUri.toString()
+			});
+
+		// We already have a console instance! Focus it
+		if (positronConsoleInstance) {
+			this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
+			positronConsoleInstance.focusInput();
+			return;
+		}
+
+		// We don't have a console instance. Check to see if we have a session to back one
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (!session) {
+			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()))
+			return;
+		}
+
+		// We found a session, start a console
+		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
+		this.startPositronConsoleInstance(session, SessionAttachMode.Connected, true);
 	}
 
 	//#endregion IPositronConsoleService Implementation

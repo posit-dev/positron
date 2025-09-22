@@ -34,7 +34,6 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../service
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { INotebookService } from '../../notebook/common/notebookService.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 
 /**
@@ -791,17 +790,19 @@ export function registerPositronConsoleActions() {
 			// TODO: Is it necessary to query the Positron notebook service
 			// separately or can we just route everything through the editor?
 
-			// const positronConsoleService = accessor.get(IPositronConsoleService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
 			const notebookService = accessor.get(IPositronNotebookService);
 			const activeNotebook = notebookService.getActiveInstance();
 			const editorService = accessor.get(IEditorService);
 			const notificationService = accessor.get(INotificationService);
 			if (activeNotebook) {
 				notificationService.info(`Creating console for Positron notebook ${activeNotebook.uri.toString()}`);
+				positronConsoleService.showNotebookConsole(activeNotebook.uri);
 			} else {
 				const context = getContextFromActiveEditor(editorService);
 				if (context) {
 					notificationService.info(`Creating console for legacy notebook ${context.notebookEditor.textModel.uri}`);
+					positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri);
 				} else {
 					notificationService.info(`No active notebook`);
 				}
