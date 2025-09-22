@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
+import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, Comm } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -31,9 +31,8 @@ import { JupyterChannel } from './jupyter/JupyterChannel';
 import { InputReplyCommand } from './jupyter/InputReplyCommand';
 import { RpcReplyCommand } from './jupyter/RpcReplyCommand';
 import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
-import { Comm } from './Comm';
+import { Client } from './Client';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
-import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
@@ -41,6 +40,10 @@ import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
+import { JupyterCommClose } from './jupyter/JupyterCommClose';
+import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
+import { channel, Sender } from './Channel';
+import { DapComm } from './DapComm';
 
 /**
  * The reason for a disconnection event.
@@ -123,9 +126,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** Whether it is possible to connect to the session's websocket */
 	private _canConnect = true;
 
-	/** The Debug Adapter Protocol client, if any */
-	private _dapClient: DapClient | undefined;
-
 	/** A map of pending comm startups */
 	private _startingComms: Map<string, PromiseHandles<number>> = new Map();
 
@@ -147,8 +147,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _profileChannel: vscode.OutputChannel | undefined;
 
-	/** A map of active comm channels */
-	private readonly _comms: Map<string, Comm> = new Map();
+	/** A map of active comms connected to Positron clients */
+	private readonly _clients: Map<string, Client> = new Map();
+
+	/** A map of active comms unmanaged by Positron */
+	private readonly _comms: Map<string, [CommImpl, Sender<CommBackendMessage>]> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -456,58 +459,39 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return startPromise.promise;
 	}
 
-	/**
-	 * Requests that the kernel start a Debug Adapter Protocol server, and
-	 * connect it to the client locally on the given TCP address.
-	 *
-	 * @param clientId The ID of the client comm, created with
-	 *  `createPositronDapClientId()`.
-	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
-	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
-	 */
-	async startPositronDap(clientId: string, debugType: string, debugName: string) {
-		// NOTE: Ideally we'd connect to any address but the
-		// `debugServer` property passed in the configuration below
-		// needs to be localhost.
-		const ipAddress = '127.0.0.1';
-
-		// TODO: Should we query the kernel to see if it can create a DAP
-		// (QueryInterface style) instead of just demanding it?
-		//
-		// The Jupyter kernel spec does not provide a way to query for
-		// supported comms; the only way to know is to try to create one.
-
-		this.log(`Starting DAP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Debug);
-
-		// Notify Positron that we're handling messages from this client
-		this._disposables.push(positron.runtime.registerClientInstance(clientId));
-
-		await this.createClient(
-			clientId,
-			positron.RuntimeClientType.Dap,
-			{ ip_address: ipAddress }
-		);
-
-		// Create a promise that will resolve when the DAP starts on the server
-		// side. When the promise resolves we obtain the port the client should
-		// connect on.
-		const startPromise = new PromiseHandles<number>();
-		this._startingComms.set(clientId, startPromise);
-
-		// Immediately await that promise because `startPositronDap()` handles the full
-		// DAP setup, unlike the LSP where the extension finishes the setup.
-		const port = await startPromise.promise;
-
-		// Create the DAP client message handler
-		this._dapClient = new DapClient(clientId, port, debugType, debugName, this);
-	}
-
 	createPositronLspClientId(): string {
 		return `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 	}
 
-	createPositronDapClientId(): string {
-		return `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+	/** Create a raw server comm. See `positron-supervisor.d.ts` for documentation. */
+	async createServerComm(target_name: string, ip_address: string): Promise<[Comm, number]> {
+		this.log(`Starting server comm '${target_name}' for ${ip_address}`);
+		const comm = await this.createComm(target_name, { ip_address });
+
+		const result = await comm.receiver.next();
+
+		if (result.done) {
+			comm.dispose();
+			throw new Error('Comm was closed before sending a `server_started` message');
+		}
+
+		const message = result.value;
+
+		if (message.method !== 'server_started') {
+			comm.dispose();
+			throw new Error('Comm was closed before sending a `server_started` message');
+		}
+
+		const serverStarted = message.params as any;
+		const port = serverStarted.port;
+
+		if (typeof port !== 'number') {
+			comm.dispose();
+			throw new Error('`server_started` message doesn\'t include a port');
+		}
+
+		this.log(`Started server comm '${target_name}' for ${ip_address} on port ${port}`);
+		return [comm, port];
 	}
 
 	/**
@@ -564,7 +548,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const request = new UICommRequest(method, args, promise);
 
 		// Find the UI comm
-		const uiComm = Array.from(this._comms.values())
+		const uiComm = Array.from(this._clients.values())
 			.find(c => c.target === positron.RuntimeClientType.Ui);
 
 		if (!uiComm) {
@@ -586,10 +570,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The result of the request
 	 */
 	performUiCommRequest(req: UICommRequest, uiCommId: string): Promise<any> {
-		// Create the request. This uses a JSON-RPC 2.0 format, with an
-		// additional `msg_type` field to indicate that this is a request type
-		// for the UI comm.
-		//
 		// NOTE: Currently using nested RPC messages for convenience but
 		// we'd like to do better
 		const request = {
@@ -599,6 +579,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				method: req.method,
 				params: req.args
 			},
+			id: createUniqueId(),
 		};
 
 		const commMsg: JupyterCommMsg = {
@@ -736,6 +717,50 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/** Create raw comm. See `positron-supervisor.d.ts` for documentation. */
+	async createComm(
+		target_name: string,
+		params: Record<string, unknown> = {},
+	): Promise<Comm> {
+		const id = `extension-comm-${target_name}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+
+		const [tx, rx] = channel<CommBackendMessage>();
+		const comm = new CommImpl(id, this, rx);
+		this._comms.set(id, [comm, tx]);
+
+		// Disposal handler that allows extension to initiate close comm
+		comm.register({
+			dispose: () => {
+				// If already deleted, it means a `comm_close` from the backend was
+				// received and we don't need to send one.
+				if (this._comms.delete(id)) {
+					comm.closeAndNotify();
+				}
+			}
+		});
+
+		const msg: JupyterCommOpen = {
+			target_name,
+			comm_id: id,
+			data: params,
+		};
+		const commOpen = new CommOpenCommand(msg);
+		await this.sendCommand(commOpen);
+
+		return comm as Comm;
+	}
+
+	/** Create DAP comm. See `positron-supervisor.d.ts` for documentation. */
+	async createDapComm(
+		targetName: string,
+		debugType: string,
+		debugName: string,
+	): Promise<DapComm> {
+		const comm = new DapComm(this, targetName, debugType, debugName);
+		await comm.createComm();
+		return comm;
+	}
+
 	/**
 	 * Create a new client comm.
 	 *
@@ -755,7 +780,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// client-initiated creation
 		if (type === positron.RuntimeClientType.Variables ||
 			type === positron.RuntimeClientType.Lsp ||
-			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.Ui ||
 			type === positron.RuntimeClientType.Help ||
 			type === positron.RuntimeClientType.IPyWidgetControl) {
@@ -767,7 +791,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 			const commOpen = new CommOpenCommand(msg, metadata);
 			await this.sendCommand(commOpen);
-			this._comms.set(id, new Comm(id, type));
+			this._clients.set(id, new Client(id, type));
 
 			// If we have any pending UI comm requests and we just created the
 			// UI comm, send them now
@@ -794,12 +818,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const comms = reply.comms;
 		// Unwrap the comm info and add it to the result
 		for (const key in comms) {
+			// Don't list as client if this is an unmanaged comm
+			if (this._comms.has(key)) {
+				continue;
+			}
+
 			if (comms.hasOwnProperty(key)) {
 				const target = comms[key].target_name;
 				result[key] = target;
 				// If we don't have a comm object for this comm, create one
-				if (!this._comms.has(key)) {
-					this._comms.set(key, new Comm(key, target));
+				if (!this._clients.has(key)) {
+					this._clients.set(key, new Client(key, target));
 				}
 
 				// If we just discovered a UI comm, send any pending UI comm
@@ -815,6 +844,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	removeClient(id: string): void {
+		this._clients.delete(id);
+
 		// Ignore this if the session is already exited; an exited session has
 		// no clients
 		if (this._runtimeState === positron.RuntimeState.Exited) {
@@ -1751,7 +1782,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._connected = new Barrier();
 		}
 
-		// All comms are now closed
+		// All clients are now closed
+		this._clients.clear();
+
+		// Close all raw comms
+		for (const [comm, tx] of this._comms.values()) {
+			// Don't dispose of comm, this resource is owned by caller of `createComm()`.
+			comm.close();
+			tx.dispose();
+		}
 		this._comms.clear();
 
 		// Clear any starting comms
@@ -1866,6 +1905,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				if (request.replyType === msg.header.msg_type) {
 					request.resolve(msg.content);
 					this._pendingRequests.delete(msg.parent_header.msg_id);
+
+					// If this is a reply for an unmanaged comm, return early.
+					// The comm socket gets the response via the now resolved request
+					// promise.
+					if (msg.header.msg_type === 'comm_msg') {
+						const commMsg = msg.content as JupyterCommMsg;
+						if (this._comms.has(commMsg.comm_id)) {
+							return;
+						}
+					}
 				}
 			}
 		}
@@ -1890,18 +1939,49 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
-		if (msg.header.msg_type === 'comm_msg') {
-			const commMsg = msg.content as JupyterCommMsg;
+		// Handle comms that are not managed by Positron first
+		switch (msg.header.msg_type) {
+			case 'comm_close': {
+				const closeMsg = msg.content as JupyterCommClose;
+				const commHandle = this._comms.get(closeMsg.comm_id);
 
-			// If we have a DAP client active and this is a comm message intended
-			// for that client, forward the message.
-			if (this._dapClient) {
-				const comm = this._comms.get(commMsg.comm_id);
-				if (comm && comm.id === this._dapClient.clientId) {
-					this._dapClient.handleDapMessage(commMsg.data);
+				if (commHandle) {
+					// Delete first, this prevents the channel disposable from sending a
+					// `comm_close` back
+					this._comms.delete(closeMsg.comm_id);
+
+					const [comm, _] = commHandle;
+					comm.close();
+					return;
 				}
+
+				break;
 			}
 
+			case 'comm_msg': {
+				const commMsg = msg.content as JupyterCommMsg;
+				const commHandle = this._comms.get(commMsg.comm_id);
+
+				if (commHandle) {
+					const [_, tx] = commHandle;
+					const rpcMsg = commMsg.data as CommRpcMessage;
+
+					if (rpcMsg.id) {
+						tx.send(new CommBackendRequest(this, commMsg.comm_id, rpcMsg));
+					} else {
+						tx.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
+					}
+
+					return;
+				}
+
+				break;
+			}
+		}
+
+		// TODO: Make LSP comms unmanaged and remove this branch
+		if (msg.header.msg_type === 'comm_msg') {
+			const commMsg = msg.content as JupyterCommMsg;
 			// If this is a `server_started` message, resolve the promise that
 			// was created when the comm was started.
 			if (commMsg.data.msg_type === 'server_started') {
