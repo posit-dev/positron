@@ -599,14 +599,9 @@ class VariablesService:
         # Use the leaf segment to get the title
         access_key = path[-1]
 
-        try:
-            title = str(decode_access_key(access_key))
-            comm_id = self.kernel.data_explorer_service.register_table(
-                value, title, variable_path=path
-            )
-            self._send_result(comm_id)
-        except Exception as err:
-            print(err)
+        title = str(decode_access_key(access_key))
+        comm_id = self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
+        self._send_result(comm_id)
 
     def _open_connections_pane(self, path: list[str], value: Any) -> None:
         """Opens a Connections comm for the variable at the requested path in the current user session."""

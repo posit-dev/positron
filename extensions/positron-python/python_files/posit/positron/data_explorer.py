@@ -23,7 +23,6 @@ from typing import (
 import comm
 
 from ._data_explorer_internal import (
-    _get_histogram_ibis,
     _get_histogram_method,
     _get_histogram_numpy,
     _get_histogram_polars,
@@ -2813,108 +2812,6 @@ class PyArrowView(DataExplorerTableView):
 # ibis Data Explorer RPC implementations
 
 
-def _ibis_summarize_number(col, options: FormatOptions):
-    """Summarize a numeric column."""
-    float_format = _get_float_formatter(options)
-    min_val = max_val = median_val = mean_val = std_val = None
-
-    try:
-        # Calculate basic stats using ibis methods directly
-        min_val = float_format(col.min().execute())
-        max_val = float_format(col.max().execute())
-        mean_val = float_format(col.mean().execute())
-        median_val = float_format(col.approx_median().execute())
-        std_val = float_format(col.std().execute())
-    except Exception:
-        # If we can't calculate some stats, return what we have
-        pass
-
-    return _box_number_stats(
-        min_val,
-        max_val,
-        mean_val,
-        median_val,
-        std_val,
-    )
-
-
-def _ibis_summarize_string(col, _options: FormatOptions):
-    """Summarize a string column."""
-    try:
-        num_empty = col.eq("").sum().execute()
-        num_unique = col.nunique().execute()
-        return _box_string_stats(num_empty, num_unique)
-    except Exception:
-        # Default values if we encounter errors
-        return _box_string_stats(0, 0)
-
-
-def _ibis_summarize_boolean(col, _options: FormatOptions):
-    """Summarize a boolean column."""
-    try:
-        null_count = col.isnull().sum().execute()
-        true_count = col.sum().execute()
-        # Count total rows in the column and subtract true and null counts
-        total_count = col.count().execute()
-        false_count = total_count - true_count - null_count
-        return _box_boolean_stats(true_count, false_count)
-    except Exception:
-        # Default values if we encounter errors
-        return _box_boolean_stats(0, 0)
-
-
-def _ibis_summarize_date(col, _options: FormatOptions):
-    """Summarize a date column."""
-    try:
-        # Get basic statistics using Ibis methods
-        num_unique = col.nunique().execute()
-        min_date = col.min().execute()
-        max_date = col.max().execute()
-
-        # return None for mean and median as Ibis does not have direct methods for these
-        return _box_date_stats(num_unique, min_date, None, None, max_date)
-    except Exception:
-        # Return None for all values if we encounter errors
-        return _box_date_stats(0, None, None, None, None)
-
-
-def _ibis_summarize_datetime(col, _options: FormatOptions):
-    """Summarize a datetime column."""
-    try:
-        # Get basic statistics using Ibis methods
-        num_unique = col.nunique().execute()
-        min_date = col.min().execute()
-        max_date = col.max().execute()
-
-        # Get timezone info from the pandas column
-        timezone = getattr(col.dtype, "tz", None)
-        timezone_str = str(timezone) if timezone else None
-
-        return _box_datetime_stats(
-            "ns",  # Time unit - assuming nanoseconds
-            num_unique,
-            min_date,
-            mean_date=None,  # Ibis does not have a direct mean for datetime
-            median_date=None,  # Ibis does not have a direct median for datetime
-            max_date=max_date,
-            timezone=timezone_str,
-        )
-    except Exception:
-        # Return None for all values if we encounter errors
-        return _box_datetime_stats("ns", 0, None, None, None, None, None)
-
-
-def _ibis_summarize_object(col, _options: FormatOptions, type_display=ColumnDisplayType.Object):
-    """Summarize an object column."""
-    try:
-        # Use Ibis nunique method directly
-        num_unique = col.nunique().execute()
-        return _box_other_stats(num_unique, type_display=type_display)
-    except Exception:
-        # Default values if we encounter errors
-        return _box_other_stats(0, type_display=type_display)
-
-
 class IbisView(PandasView):
     """DataExplorer view implementation for Ibis tables, subclassed from PandasView."""
 
@@ -2935,103 +2832,18 @@ class IbisView(PandasView):
         # Call parent's constructor with the pandas dataframe
         super().__init__(pandas_df, comm, state, job_queue, sql_string)
 
-    _SUMMARIZERS = MappingProxyType(
-        {
-            ColumnDisplayType.Boolean: _ibis_summarize_boolean,
-            ColumnDisplayType.Number: _ibis_summarize_number,
-            ColumnDisplayType.String: _ibis_summarize_string,
-            ColumnDisplayType.Object: _ibis_summarize_object,
-            ColumnDisplayType.Date: _ibis_summarize_date,
-            ColumnDisplayType.Datetime: _ibis_summarize_datetime,
-        }
-    )
-
     def get_state(self, unused):
-        # Call parent method to get basic state
         state = super().get_state(unused)
 
         # Modify the display name to include "(preview)"
         state.display_name = self.state.name + " (preview)"
 
-        # Update the unfiltered shape with the actual full table size
-        try:
-            num_rows = self._ibis_table.count().execute()
-            num_columns = len(self._ibis_table.columns)
-            state.table_unfiltered_shape = TableShape(num_rows=num_rows, num_columns=num_columns)
-        except Exception:
-            # If counting fails, keep using the pandas preview count
-            pass
-
         return state
-
-    def _get_column(self, column_index: int):
-        col_name = self._ibis_table.columns[column_index]
-        return self._ibis_table[col_name]
-
-    def _select_column(self, column_index: int):
-        col_name = self._ibis_table.columns[column_index]
-        return self._ibis_table.select(col_name)
-
-    def _prof_null_count(self, column_index: int) -> int:
-        """Count null values in a column using Ibis methods."""
-        col = self._get_column(column_index)
-        return col.isnull().sum().execute()
-
-    def _prof_histogram(
-        self,
-        column_index: int,
-        params: ColumnHistogramParams,
-        format_options: FormatOptions,
-    ) -> ColumnHistogram:
-        data = self._get_column(column_index)
-        # dtype = data.dtype
-        # is_datetime64 = data.dtype.is_temporal()
-
-        method = _get_histogram_method(params.method)
-
-        bin_counts, bin_edges = _get_histogram_ibis(data, params.num_bins, method=method)
-
-        # if is_datetime64:
-        #     # A bit hacky for now, but will replace this with
-        #     # something better soon
-        #     bin_edges = np.floor(bin_edges).astype(np.int64).view(dtype)
-        #     bin_edges = pd.Series(bin_edges)
-
-        formatted_edges = self._format_values(bin_edges, format_options)
-
-        return ColumnHistogram(
-            bin_edges=[str(x) for x in formatted_edges],
-            bin_counts=[int(x) for x in bin_counts],
-            quantiles=[],
-        )
-
-    def _prof_freq_table(
-        self,
-        column_index: int,
-        params: ColumnFrequencyTableParams,
-        format_options: FormatOptions,
-    ) -> ColumnFrequencyTable:
-        col = self._get_column(column_index)
-        value_counts = col.value_counts(name="count").execute()
-
-        counts_df = value_counts.sort_values("count", ascending=False)
-
-        # counts_df will be a pandas DataFrame
-        top_counts = counts_df.iloc[: params.limit]
-        other_group = counts_df.iloc[params.limit :]
-        formatted_groups = super()._format_values(top_counts.index, format_options)
-
-        return ColumnFrequencyTable(
-            values=formatted_groups,
-            counts=[int(x) for x in top_counts],
-            other_count=int(other_group.sum()),
-        )
 
     def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="ibis").dict()
 
-    # Use PandasView's feature set but override the code syntax
     FEATURES = SupportedFeatures(
         search_schema=PandasView.FEATURES.search_schema,
         set_column_filters=PandasView.FEATURES.set_column_filters,
