@@ -18,8 +18,7 @@ holoviews==1.20.2; python_version == '3.9'
 holoviews==1.21.0; python_version >= '3.10'
 hvplot==0.11.3; python_version == '3.9'
 hvplot==0.12.1; python_version >= '3.10'
-ibis-framework[polars]==10.8.0; python_version == '3.9'
-ibis-framework[duckdb]==10.8.0; python_version >= '3.10'
+ibis-framework[duckdb]==10.8.0
 ipykernel==6.30.1
 ipython==8.18.1; python_version == '3.9'
 ipython==8.37.0; python_version == '3.10'
