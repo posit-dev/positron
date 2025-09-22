@@ -7,7 +7,6 @@ import { IDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { ObservableMap } from '../../../../../../base/common/observable.js';
 import { ILocalizedString } from '../../../../../../platform/action/common/action.js';
-import { CellConditionPredicate } from './cellConditions.js';
 
 
 /**
@@ -30,8 +29,6 @@ export interface INotebookCellActionBarItem {
 	order?: number;
 	/** Visibility condition using VS Code context keys (optional) */
 	when?: ContextKeyExpression;
-	/** Cell-specific condition that determines if this command applies to a given cell */
-	cellCondition?: CellConditionPredicate;
 	/** Category of the action bar item. Items that share the same category will be grouped together. */
 	category?: string;
 }
