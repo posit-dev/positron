@@ -167,6 +167,7 @@ export default defineConfig<ExtendedTestOptions>({
 				web: false,
 				artifactDir: 'e2e-macOS-ci',
 			},
+			grep: /@:win/,
 			grepInvert: /@:web-only|@:interpreter/
 		},
 	],
