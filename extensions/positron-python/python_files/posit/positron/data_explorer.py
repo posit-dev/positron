@@ -22,10 +22,8 @@ from typing import (
 
 import comm
 
-# Import ibis directly since we're using it in runtime code
-import ibis
-
 from ._data_explorer_internal import (
+    _get_histogram_ibis,
     _get_histogram_method,
     _get_histogram_numpy,
     _get_histogram_polars,
@@ -2854,7 +2852,7 @@ def _ibis_summarize_string(col, _options: FormatOptions):
 def _ibis_summarize_boolean(col, _options: FormatOptions):
     """Summarize a boolean column."""
     try:
-        null_count = col.isna().sum().execute()
+        null_count = col.isnull().sum().execute()
         true_count = col.sum().execute()
         # Count total rows in the column and subtract true and null counts
         total_count = col.count().execute()
@@ -2873,15 +2871,8 @@ def _ibis_summarize_date(col, _options: FormatOptions):
         min_date = col.min().execute()
         max_date = col.max().execute()
 
-        # For mean and median, we need to convert to integers, take the mean/median, and convert back
-        # Since Ibis doesn't have direct date mean/median operations that return dates
-        import pandas as pd
-
-        pd_col = col.to_pandas()
-        mean_date = pd.to_datetime(pd_col.mean())
-        median_date = pd.to_datetime(pd_col.median())
-
-        return _box_date_stats(num_unique, min_date, mean_date, median_date, max_date)
+        # return None for mean and median as Ibis does not have direct methods for these
+        return _box_date_stats(num_unique, min_date, None, None, max_date)
     except Exception:
         # Return None for all values if we encounter errors
         return _box_date_stats(0, None, None, None, None)
@@ -2895,26 +2886,18 @@ def _ibis_summarize_datetime(col, _options: FormatOptions):
         min_date = col.min().execute()
         max_date = col.max().execute()
 
-        # For mean and median, we still need pandas since Ibis doesn't have direct
-        # datetime mean/median operations that return datetimes
-        import pandas as pd
-
-        pd_col = col.to_pandas()
-        mean_date = pd.to_datetime(pd_col.mean())
-        median_date = pd.to_datetime(pd_col.median())
-
         # Get timezone info from the pandas column
-        timezone = getattr(pd_col.dtype, "tz", None)
+        timezone = getattr(col.dtype, "tz", None)
         timezone_str = str(timezone) if timezone else None
 
         return _box_datetime_stats(
             "ns",  # Time unit - assuming nanoseconds
             num_unique,
             min_date,
-            mean_date,
-            median_date,
-            max_date,
-            timezone_str,
+            mean_date=None,  # Ibis does not have a direct mean for datetime
+            median_date=None,  # Ibis does not have a direct median for datetime
+            max_date=max_date,
+            timezone=timezone_str,
         )
     except Exception:
         # Return None for all values if we encounter errors
@@ -2952,6 +2935,17 @@ class IbisView(PandasView):
         # Call parent's constructor with the pandas dataframe
         super().__init__(pandas_df, comm, state, job_queue, sql_string)
 
+    _SUMMARIZERS = MappingProxyType(
+        {
+            ColumnDisplayType.Boolean: _ibis_summarize_boolean,
+            ColumnDisplayType.Number: _ibis_summarize_number,
+            ColumnDisplayType.String: _ibis_summarize_string,
+            ColumnDisplayType.Object: _ibis_summarize_object,
+            ColumnDisplayType.Date: _ibis_summarize_date,
+            ColumnDisplayType.Datetime: _ibis_summarize_datetime,
+        }
+    )
+
     def get_state(self, unused):
         # Call parent method to get basic state
         state = super().get_state(unused)
@@ -2970,46 +2964,68 @@ class IbisView(PandasView):
 
         return state
 
-    def _lazy_execute_column(self, column_index: int):
-        """Lazily execute a single column from the ibis table."""
+    def _get_column(self, column_index: int):
         col_name = self._ibis_table.columns[column_index]
-        return self._ibis_table.select(col_name).execute()
+        return self._ibis_table[col_name]
+
+    def _select_column(self, column_index: int):
+        col_name = self._ibis_table.columns[column_index]
+        return self._ibis_table.select(col_name)
 
     def _prof_null_count(self, column_index: int) -> int:
         """Count null values in a column using Ibis methods."""
-        try:
-            # Try to use Ibis directly for better performance
-            col_name = self._ibis_table.columns[column_index]
-            col = self._ibis_table[col_name]
-            return col.isnull().sum().execute()
-        except Exception:
-            # Fall back to pandas implementation if ibis method fails
-            return super()._prof_null_count(column_index)
+        col = self._get_column(column_index)
+        return col.isnull().sum().execute()
 
-    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
-        """Get summary stats for a column."""
-        col_schema = self._get_single_column_schema(column_index)
-        ui_type = col_schema.type_display
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
+        data = self._get_column(column_index)
+        # dtype = data.dtype
+        # is_datetime64 = data.dtype.is_temporal()
 
-        try:
-            # Try to use specialized ibis summarizers when possible
-            col = self._ibis_table[self._ibis_table.columns[column_index]]
+        method = _get_histogram_method(params.method)
 
-            if ui_type == ColumnDisplayType.Number:
-                return _ibis_summarize_number(col, options)
-            elif ui_type == ColumnDisplayType.String:
-                return _ibis_summarize_string(col, options)
-            elif ui_type == ColumnDisplayType.Boolean:
-                return _ibis_summarize_boolean(col, options)
-            elif ui_type == ColumnDisplayType.Date:
-                return _ibis_summarize_date(col, options)
-            elif ui_type == ColumnDisplayType.Datetime:
-                return _ibis_summarize_datetime(col, options)
-        except Exception:
-            # Fall back to pandas implementation if ibis methods fail
-            pass
+        bin_counts, bin_edges = _get_histogram_ibis(data, params.num_bins, method=method)
 
-        return super()._prof_summary_stats(column_index, options)
+        # if is_datetime64:
+        #     # A bit hacky for now, but will replace this with
+        #     # something better soon
+        #     bin_edges = np.floor(bin_edges).astype(np.int64).view(dtype)
+        #     bin_edges = pd.Series(bin_edges)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(
+            bin_edges=[str(x) for x in formatted_edges],
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
+
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
+        col = self._get_column(column_index)
+        value_counts = col.value_counts(name="count").execute()
+
+        counts_df = value_counts.sort_values("count", ascending=False)
+
+        # counts_df will be a pandas DataFrame
+        top_counts = counts_df.iloc[: params.limit]
+        other_group = counts_df.iloc[params.limit :]
+        formatted_groups = super()._format_values(top_counts.index, format_options)
+
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts],
+            other_count=int(other_group.sum()),
+        )
 
     def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
         """Returns the supported code types for exporting data."""
@@ -3024,7 +3040,7 @@ class IbisView(PandasView):
         set_sort_columns=PandasView.FEATURES.set_sort_columns,
         export_data_selection=PandasView.FEATURES.export_data_selection,
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Supported,
+            support_status=SupportStatus.Unsupported,
             code_syntaxes=[CodeSyntaxName(code_syntax_name="ibis")],
         ),
     )

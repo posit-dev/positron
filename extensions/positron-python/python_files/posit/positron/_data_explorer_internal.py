@@ -359,3 +359,105 @@ def _get_histogram_polars(
             bin_edges = [unique_value, unique_value]
 
     return bin_counts, bin_edges
+
+
+def _get_histogram_ibis(data, num_bins: int, method: str = "fd") -> Tuple[list, list]:
+    """
+    Compute histogram using Ibis methods.
+
+    This implementation uses native Ibis histogram functionality to compute bin counts
+    and edges for a column.
+
+    Parameters
+    ----------
+    data : ibis.expr.types.Column
+        The Ibis column to compute histogram for
+    num_bins : int
+        The maximum number of bins to use
+    method : str, default 'fd'
+        The binning method to use (fixed, fd, sturges, scott)
+
+    Returns
+    -------
+    tuple
+        A tuple of (bin_counts, bin_edges) where bin_counts is a list of integers
+        and bin_edges is a list of bin edge values
+    """
+    # Get min/max values to determine range
+    min_val = data.min().execute()
+    max_val = data.max().execute()
+
+    # Skip empty columns or columns with identical min/max
+    if min_val is None or max_val is None or min_val == max_val:
+        return [], [0.0, 1.0] if max_val is None else [float(min_val), float(min_val)]
+
+    # Calculate data range
+    data_range = float(max_val) - float(min_val)
+
+    # Determine number of bins based on method
+    if method == "fixed":
+        n_bins = num_bins
+    else:
+        # Get data count for binning calculations
+        n = data.count().execute()
+
+        if method == "fd":  # Freedman-Diaconis
+            # Calculate quartiles
+            q75 = data.quantile(0.75).execute()
+            q25 = data.quantile(0.25).execute()
+
+            if q75 is not None and q25 is not None and q75 > q25:
+                # Use Freedman-Diaconis rule
+                iqr = q75 - q25
+                bin_width = 2.0 * iqr * (n ** (-1.0 / 3.0))
+            else:
+                # Fall back to square root rule
+                bin_width = data_range / math.sqrt(n) if n > 0 else data_range
+
+            n_bins = math.ceil(data_range / bin_width) if bin_width > 0 else 1
+
+        elif method == "sturges":  # Sturges' rule
+            n_bins = math.ceil(math.log2(n)) + 1 if n > 0 else 1
+
+        elif method == "scott":  # Scott's rule
+            # Calculate standard deviation
+            std_dev = data.std().execute()
+
+            if std_dev is not None and std_dev > 0:
+                bin_width = 3.5 * std_dev * (n ** (-1.0 / 3.0))
+            else:
+                bin_width = data_range / math.sqrt(n) if n > 0 else data_range
+
+            n_bins = math.ceil(data_range / bin_width) if bin_width > 0 else 1
+
+        else:
+            raise ValueError(f"Unknown binning method: {method}")
+
+    # Limit to maximum number of bins
+    n_bins = max(1, n_bins)
+
+    # Create bin edges
+    bin_edges = [min_val + (data_range * i / n_bins) for i in range(n_bins + 1)]
+
+    # Calculate bin counts using ibis
+    # Note: For this to work, we need to get counts from the parent table
+    # We'll use the between() method for ibis columns
+    bin_counts = []
+
+    # For each bin, count values that fall within it
+    for i in range(n_bins):
+        lower = bin_edges[i]
+        upper = bin_edges[i + 1]
+
+        # For the last bin, include both bounds
+        if i == n_bins - 1:
+            # Use between which is inclusive of both endpoints
+            count = data.between(lower, upper).sum().execute()
+        else:
+            # For non-last bins, include lower bound but not upper bound
+            # between() is inclusive by default, so we need to handle the upper bound
+            count = ((data >= lower) & (data < upper)).sum().execute()
+
+        bin_counts.append(count)
+
+    return bin_counts, bin_edges
