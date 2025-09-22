@@ -702,27 +702,23 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param notebookUri The URI of the notebook
 	 */
 	showNotebookConsole(notebookUri: URI): void {
-		const positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
-			.find(consoleInstance => {
-				return consoleInstance.sessionMetadata.notebookUri?.toString() === notebookUri.toString()
-			});
-
-		// We already have a console instance! Focus it
-		if (positronConsoleInstance) {
-			this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
-			this.setActivePositronConsoleInstance(positronConsoleInstance);
-			positronConsoleInstance.focusInput();
-			return;
-		}
-
-		// We don't have a console instance. Check to see if we have a session to back one
+		// Check to see if we have a session to back this console
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
 			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()))
 			return;
 		}
 
-		// We found a session, start a console
+		const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
+		if (positronConsoleInstance) {
+			// We already have a console instance! Focus it
+			this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
+			this.setActivePositronConsoleInstance(positronConsoleInstance);
+			positronConsoleInstance.focusInput();
+			return;
+		}
+
+		// No console instance yet; start one
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
 		this.startPositronConsoleInstance(session, SessionAttachMode.Connected, true);
 	}
