@@ -39,4 +39,6 @@ product.overrides.json
 .venv
 .env.e2e*
 !.env.e2e*.example
+vsix-cache/
+product.json.backup
 # --- End Positron ---
