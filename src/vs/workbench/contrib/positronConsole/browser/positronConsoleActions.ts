@@ -33,6 +33,9 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { INotebookService } from '../../notebook/common/notebookService.js';
+import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 
 /**
  * Positron console command ID's.
@@ -46,6 +49,7 @@ const enum PositronConsoleCommandId {
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
 	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	ShowNotebookConsole = 'workbench.action.positronConsole.showNotebookConsole'
 }
 
 /**
@@ -756,6 +760,51 @@ export function registerPositronConsoleActions() {
 					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
 					sticky: false
 				});
+			}
+		}
+	});
+
+	/**
+	 * Register the action to show the notebook console.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.ShowNotebookConsole,
+				title: {
+					value: localize('workbench.action.positronConsole.showNotebookConsole', "Show Notebook Console"),
+					original: 'Show Notebook Console'
+				},
+				f1: true,
+				category,
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// TODO: Is it necessary to query the Positron notebook service
+			// separately or can we just route everything through the editor?
+
+			// const positronConsoleService = accessor.get(IPositronConsoleService);
+			const notebookService = accessor.get(IPositronNotebookService);
+			const activeNotebook = notebookService.getActiveInstance();
+			const editorService = accessor.get(IEditorService);
+			const notificationService = accessor.get(INotificationService);
+			if (activeNotebook) {
+				notificationService.info(`Creating console for Positron notebook ${activeNotebook.uri.toString()}`);
+			} else {
+				const context = getContextFromActiveEditor(editorService);
+				if (context) {
+					notificationService.info(`Creating console for legacy notebook ${context.notebookEditor.textModel.uri}`);
+				} else {
+					notificationService.info(`No active notebook`);
+				}
 			}
 		}
 	});
