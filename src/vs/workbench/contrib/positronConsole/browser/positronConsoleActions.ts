@@ -764,6 +764,9 @@ export function registerPositronConsoleActions() {
 
 	/**
 	 * Register the action to show the notebook console.
+	 *
+	 * This will create a new console for the notebook if it doesn't have one,
+	 * and will raise and focus the existing console if one exists
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -780,6 +783,8 @@ export function registerPositronConsoleActions() {
 				category,
 				menu: [
 					{
+						// Add an entry to the notebook toolbar to show the
+						// notebook console
 						id: MenuId.NotebookToolbar,
 						group: 'notebookConsole',
 						when: ContextKeyExpr.equals('config.notebook.globalToolbar', true),
@@ -790,16 +795,18 @@ export function registerPositronConsoleActions() {
 		}
 
 		/**
-		 * Runs action.
+		 * Runs action and creates the notebook console.
+		 *
 		 * @param accessor The services accessor.
 		 */
 		async run(accessor: ServicesAccessor) {
-			// TODO: Is it necessary to query the Positron notebook service
-			// separately or can we just route everything through the editor?
-
+			// Get services
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			const editorService = accessor.get(IEditorService);
 			const notificationService = accessor.get(INotificationService);
+
+			// Figure out the URI of the active notebook and tell the console
+			// service to start a console attached to the appropriate session
 			const context = getContextFromActiveEditor(editorService);
 			if (context) {
 				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri);
