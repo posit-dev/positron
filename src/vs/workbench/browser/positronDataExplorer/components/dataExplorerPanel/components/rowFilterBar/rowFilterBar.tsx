@@ -247,8 +247,10 @@ export const RowFilterBar = () => {
 		<div ref={ref} className='row-filter-bar'>
 			<Button
 				ref={rowFilterButtonRef}
-				ariaLabel={(() => localize('positron.dataExplorer.filtering', "Filtering"))()}
+				ariaLabel={(() => localize('positron.dataExplorer.manageFilters', "Manage Filters"))()}
 				className='row-filter-button'
+				hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
+				tooltip={localize('positron.dataExplorer.manageFilters', "Manage Filters")}
 				onPressed={filterButtonPressedHandler}
 			>
 				<div className='codicon codicon-positron-row-filter' />
@@ -281,6 +283,8 @@ export const RowFilterBar = () => {
 					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add Filter"))()}
 					className='add-row-filter-button'
 					disabled={!canFilter}
+					hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
+					tooltip={localize('positron.dataExplorer.addFilter', "Add Filter")}
 					onPressed={() => addRowFilterHandler(
 						addFilterButtonRef.current,
 						rowFilterDescriptors.length === 0
