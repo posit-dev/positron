@@ -1164,7 +1164,7 @@ class IbisDataFrameInspector(BaseTableInspector["ibis.Table", "ibis.Column"]):
         return True
 
     def is_mutable(self) -> bool:
-        return True
+        return False
 
 
 class BaseConnectionInspector(ObjectInspector):
