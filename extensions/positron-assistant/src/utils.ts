@@ -246,34 +246,40 @@ function convertToolResultToAiMessageExperimentalContent(
  * Convert a getPlot tool result into a Vercel AI message.
  */
 function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreUserMessage {
-	// Vercel AI doesn't support image tool results. Convert
-	// an image result into a user message containing the image.
-	const imageParts = part.content.filter((content): content is vscode.LanguageModelDataPart => content instanceof vscode.LanguageModelDataPart && isChatImageMimeType(content.mimeType));
-	if (imageParts.length > 0) {
+	const imageParts = part.content.filter(
+		(content) => content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)
+	) as vscode.LanguageModelDataPart[];
+
+	// If there was no image, forward the response as text.
+	if (imageParts.length === 0) {
 		return {
 			role: 'user',
-			content: imageParts.flatMap((imgPart) => ([
+			content: [
 				{
 					type: 'text',
-					text: 'Here is the current active plot:',
+					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
 				},
-				{
-					type: 'image',
-					image: Buffer.from(imgPart.data).toString('base64'),
-					mimeType: imgPart.mimeType,
-				}
-			])),
+			],
 		};
 	}
-	// If there was no image, forward the response as text.
+
+	// Otherwise, convert to a user message containing the image,
+	// as Vercel AI doesn't support image tool results.
 	return {
 		role: 'user',
-		content: [
+		// We only expect one image part, but just in case,
+		// include all image parts in the message.
+		content: imageParts.flatMap((imgPart) => ([
 			{
 				type: 'text',
-				text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+				text: 'Here is the current active plot:',
 			},
-		],
+			{
+				type: 'image',
+				image: Buffer.from(imgPart.data).toString('base64'),
+				mimeType: imgPart.mimeType,
+			}
+		])),
 	};
 }
 
