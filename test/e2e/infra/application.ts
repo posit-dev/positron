@@ -7,10 +7,7 @@ import { Workbench } from './workbench';
 import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
-
-// --- Start Positron ---
 import { expect } from '@playwright/test';
-// --- End Positron ---
 
 export const enum Quality {
 	Dev,
@@ -21,13 +18,13 @@ export const enum Quality {
 }
 
 export interface ApplicationOptions extends LaunchOptions {
-	quality: Quality;
+	readonly workspacePath: string;
 }
 
 export class Application {
 
 	constructor(private options: ApplicationOptions) {
-		this._userDataPath = options.userDataDir;
+		this._userDataPath = options.userDataDir || '';
 		this._workspacePathOrFolder = options.workspacePath;
 	}
 
@@ -54,12 +51,12 @@ export class Application {
 		return this._workspacePathOrFolder;
 	}
 
-	get extensionsPath(): string | undefined {
-		return this.options.extensionsPath;
+	get extensionsPath(): string {
+		return this.options.extensionsPath || '';
 	}
 
-	private _userDataPath: string | undefined;
-	get userDataPath(): string | undefined {
+	private _userDataPath: string;
+	get userDataPath(): string {
 		return this._userDataPath;
 	}
 
@@ -69,17 +66,13 @@ export class Application {
 
 	async start(): Promise<void> {
 		await this._start();
-		// --- Start Positron ---
 		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
-		// --- End Positron ---
 	}
 
-	// --- Start Positron ---
 	async connectToExternalServer(): Promise<void> {
 		await this._connectToExternalServer();
 		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
 	}
-	// --- End Positron ---
 
 	async restart(options?: { workspaceOrFolder?: string; extraArgs?: string[] }): Promise<void> {
 		await measureAndLog(() => (async () => {
@@ -108,7 +101,6 @@ export class Application {
 		}
 	}
 
-	// --- Start Positron ---
 	async stopExternalServer(): Promise<void> {
 		// For external servers, we only need to close the browser connection
 		// The external server keeps running
@@ -139,7 +131,6 @@ export class Application {
 
 		return code;
 	}
-	// --- End Positron ---
 
 	async startTracing(name: string): Promise<void> {
 		await this._code?.startTracing(name);
@@ -167,38 +158,16 @@ export class Application {
 		await measureAndLog(() => code.didFinishLoad(), 'Application#checkWindowReady: wait for navigation to be committed', this.logger);
 		await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench')).toBeVisible({ timeout: 30000 }), 'Application#checkWindowReady: wait for .monaco-workbench element', this.logger);
 
-		// --- Start Positron ---
 		// For external servers, use a more robust readiness check
-		/*
-		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkWorkbenchRestored', this.logger);
-		*/
 		if (this.options.useExternalServer) {
 			await measureAndLog(() => this.checkExternalServerWorkbenchReady(code), 'Application#checkExternalServerWorkbenchReady', this.logger);
 		} else {
 			await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkWorkbenchRestored', this.logger);
 		}
-		// --- End Positron ---
 
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
-			// --- Start Positron ---
-			/*
-			await measureAndLog(() => code.waitForTextContent('.monaco-workbench .statusbar-item[id="status.host"]', undefined, statusHostLabel => {
-				this.logger.log(`checkWindowReady: remote indicator text is ${statusHostLabel}`);
-
-				// The absence of "Opening Remote" is not a strict
-				// indicator for a successful connection, but we
-				// want to avoid hanging here until timeout because
-				// this method is potentially called from a location
-				// that has no tracing enabled making it hard to
-				// diagnose this. As such, as soon as the connection
-				// state changes away from the "Opening Remote..." one
-				// we return.
-				return !statusHostLabel.includes('Opening Remote');
-			}, 300 /* = 30s of retry */), 'Application#checkWindowReady: wait for remote indicator', this.logger);
-			*/
 			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench .statusbar-item[id="status.host"]')).not.toContainText('Opening Remote'), 'Application#checkWindowReady: wait for remote indicator', this.logger);
-			// --- End Positron ---
 		}
 	}
 
