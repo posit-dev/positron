@@ -1578,7 +1578,7 @@ END`;
 				const columnIndex = selection.column_index;
 				const schema = this.fullSchema[columnIndex];
 				const selector = getColumnSelectors([schema])[0];
-				const query = `SELECT ${selector} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
+				const query = `SELECT ${selector} FROM ${this.tableName}${this._whereClause}${this._sortClause} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
 				return {
 					data: result.toArray()[0][result.schema.names[0]],
@@ -1593,7 +1593,7 @@ END`;
 				const columnEnd = selection.last_column_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, columns);
 			}
@@ -1602,7 +1602,7 @@ END`;
 				const rowStart = selection.first_index;
 				const rowEnd = selection.last_index;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
@@ -1612,15 +1612,15 @@ END`;
 				const columnEnd = selection.last_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}`;
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
 				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}
-				WHERE rowid IN (${indices.join(', ')})`;
+				FROM ${this.tableName}${this._whereClause}
+				WHERE rowid IN (${indices.join(', ')})${this._sortClause}`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
 			case TableSelectionKind.ColumnIndices: {
@@ -1628,7 +1628,7 @@ END`;
 				const indices = selection.indices;
 				const columns = indices.map(i => this.fullSchema[i]);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}`;
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
 				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.CellIndices: {

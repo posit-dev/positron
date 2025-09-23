@@ -2458,6 +2458,91 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 assert filt_result["data"] == filt_expected
 
 
+def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
+    """Test that export_data_selection respects sort order for column selections."""
+    # Create test DataFrames
+    df_pandas = pd.DataFrame(
+        {"A": [3, 1, 2, 5, 4], "B": ["c", "a", "b", "e", "d"], "C": [30, 10, 20, 50, 40]}
+    )
+
+    df_polars = pl.DataFrame(
+        {"A": [3, 1, 2, 5, 4], "B": ["c", "a", "b", "e", "d"], "C": [30, 10, 20, 50, 40]}
+    )
+
+    # Register tables
+    dxf.register_table("pandas_sorted", df_pandas)
+    dxf.register_table("polars_sorted", df_polars)
+
+    # Test cases: (table_name, sort_keys, expected_column_B_values)
+    test_cases = [
+        # Sort by column A ascending
+        ("pandas_sorted", [{"column_index": 0, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        ("polars_sorted", [{"column_index": 0, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        # Sort by column A descending
+        ("pandas_sorted", [{"column_index": 0, "ascending": False}], ["e", "d", "c", "b", "a"]),
+        ("polars_sorted", [{"column_index": 0, "ascending": False}], ["e", "d", "c", "b", "a"]),
+        # Sort by column C ascending
+        ("pandas_sorted", [{"column_index": 2, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        ("polars_sorted", [{"column_index": 2, "ascending": True}], ["a", "b", "c", "d", "e"]),
+    ]
+
+    for table_name, sort_keys, expected_b_values in test_cases:
+        # Apply sort
+        dxf.set_sort_columns(table_name, sort_keys)
+
+        # Export column B (whole column selection using ColumnIndices)
+        selection = _select_column_indices([1])
+        result = dxf.export_data_selection(table_name, selection, "csv")
+
+        # Parse the CSV result to get the values
+        lines = result["data"].split("\n")
+        header = lines[0]
+        values = [line.strip() for line in lines[1:] if line.strip()]
+
+        # Check that values are in expected sorted order
+        assert header == "B", f"Expected header 'B', got '{header}'"
+        assert values == expected_b_values, (
+            f"Table {table_name} with sort {sort_keys}: Expected {expected_b_values}, got {values}"
+        )
+
+        # Also test ColumnRange selection (columns B and C)
+        selection_range = _select_column_range(1, 2)
+        result_range = dxf.export_data_selection(table_name, selection_range, "csv")
+
+        # Parse the CSV result
+        lines_range = result_range["data"].split("\n")
+        header_range = lines_range[0]
+        values_range = [line.split(",")[0] for line in lines_range[1:] if line.strip()]
+
+        assert "B,C" in header_range or "B\tC" in header_range, (
+            f"Expected 'B,C' in header, got '{header_range}'"
+        )
+        assert values_range == expected_b_values, (
+            f"Table {table_name} column range with sort {sort_keys}: Expected {expected_b_values}, got {values_range}"
+        )
+
+    # Test with filters and sort
+    schema = dxf.get_schema("pandas_sorted")
+    # Filter: A > 2
+    filter_params = [_compare_filter(schema[0], ">", "2")]
+
+    dxf.set_row_filters("pandas_sorted", filter_params)
+    # Sort by C ascending (filtered rows: A=[3,5,4], B=['c','e','d'], C=[30,50,40])
+    # After sort by C: B=['c','d','e']
+    dxf.set_sort_columns("pandas_sorted", [{"column_index": 2, "ascending": True}])
+
+    selection = _select_column_indices([1])
+    result = dxf.export_data_selection("pandas_sorted", selection, "csv")
+
+    lines = result["data"].split("\n")
+    values = [line.strip() for line in lines[1:] if line.strip()]
+    expected_filtered_sorted = ["c", "d", "e"]
+
+    assert values == expected_filtered_sorted, (
+        f"Filtered and sorted export: Expected {expected_filtered_sorted}, got {values}"
+    )
+
+
 def _profile_request(column_index, profiles):
     return {"column_index": column_index, "profiles": profiles}
 

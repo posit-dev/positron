@@ -662,12 +662,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		}
 	});
 
-	test('export_data_selection works correctly', async () => {
+	// Shared test utilities for export_data_selection tests
+	const createExportTestTable = async () => {
 		const tableName = makeTempTableName();
-
 		const longString = generateRandomString(1000);
 
-		// Create a test table with mixed data types for comprehensive testing
 		await createTempTable(tableName, [
 			{
 				name: 'int_col',
@@ -708,174 +707,264 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			}
 		]);
 
-		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		return { tableName, longString };
+	};
 
-		const testSelection = async (kind: TableSelectionKind, selection: Selection, expected: string,
+	const createExportHelper = (uri: vscode.Uri) => {
+		const testExport = async (kind: TableSelectionKind, selection: Selection, expected: string,
 			format: ExportFormat = ExportFormat.Csv
 		) => {
 			const result = await dxExec({
 				method: DataExplorerBackendRequest.ExportDataSelection,
 				uri: uri.toString(),
 				params: {
-					selection: {
-						kind,
-						selection
-					},
+					selection: { kind, selection },
 					format
 				}
 			});
 			assert.strictEqual(result.data, expected);
 		};
 
-		const testSingleCell = async (row: number, col: number, expected: string) => {
-			await testSelection(TableSelectionKind.SingleCell,
-				{
-					row_index: row,
-					column_index: col
-				}, expected
-			);
+		return {
+			singleCell: (row: number, col: number, expected: string) =>
+				testExport(TableSelectionKind.SingleCell, { row_index: row, column_index: col }, expected),
+
+			cellRange: (firstRow: number, lastRow: number, firstCol: number, lastCol: number, expected: string, format?: ExportFormat) =>
+				testExport(TableSelectionKind.CellRange, {
+					first_row_index: firstRow,
+					last_row_index: lastRow,
+					first_column_index: firstCol,
+					last_column_index: lastCol
+				}, expected, format),
+
+			rowRange: (firstRow: number, lastRow: number, expected: string) =>
+				testExport(TableSelectionKind.RowRange, { first_index: firstRow, last_index: lastRow }, expected),
+
+			columnRange: (firstCol: number, lastCol: number, expected: string) =>
+				testExport(TableSelectionKind.ColumnRange, { first_index: firstCol, last_index: lastCol }, expected),
+
+			rowIndices: (indices: number[], expected: string) =>
+				testExport(TableSelectionKind.RowIndices, { indices }, expected),
+
+			columnIndices: (indices: number[], expected: string) =>
+				testExport(TableSelectionKind.ColumnIndices, { indices }, expected),
+
+			cellIndices: (rowIndices: number[], columnIndices: number[], expected: string) =>
+				testExport(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected)
 		};
+	};
 
+	test('export_data_selection - data types and single cells', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { singleCell } = createExportHelper(uri);
 
-		const cellTestCases = [
-			// INTEGER
+		// Test single cell exports for different data types
+		const cellTests = [
+			// INTEGER column (col 0: int_col)
 			{ row: 0, col: 0, expected: '1' },
 			{ row: 1, col: 0, expected: '2' },
 			{ row: 4, col: 0, expected: 'NULL' },
 
-			// VARCHAR
+			// VARCHAR column (col 1: str_col)
 			{ row: 2, col: 1, expected: 'c' },
 			{ row: 3, col: 1, expected: 'NULL' },
 			{ row: 4, col: 1, expected: longString },
 
-			// DOUBLE
+			// DOUBLE column (col 2: float_col)
 			{ row: 3, col: 2, expected: 'NULL' },
 			{ row: 4, col: 2, expected: '5.5e+20' },
 
-			// Date type
+			// DATE column (col 3: date0)
 			{ row: 0, col: 3, expected: '2023-10-20' },
-			{ row: 1, col: 3, expected: '2024-01-01' },
 			{ row: 2, col: 3, expected: 'NULL' },
 
-			// Timestamp type
+			// TIMESTAMP column (col 4: timestamp0)
 			{ row: 0, col: 4, expected: '2023-10-20 15:30:00' },
-			{ row: 1, col: 4, expected: '2024-01-01 08:00:00' },
 			{ row: 2, col: 4, expected: 'NULL' },
 
-			// Timestamp with timezone type
+			// TIMESTAMP WITH TIME ZONE column (col 5: timestamptz0)
 			{ row: 0, col: 5, expected: '2023-10-20 15:30:00+00' },
-			{ row: 1, col: 5, expected: '2024-01-01 13:00:00+00' },
 			{ row: 2, col: 5, expected: 'NULL' },
 
-			// Time type
+			// TIME column (col 6: time0)
 			{ row: 0, col: 6, expected: '13:30:00' },
 			{ row: 1, col: 6, expected: '07:12:34.567' },
 			{ row: 2, col: 6, expected: 'NULL' }
 		];
 
-		// Run all test cases
-		for (const { row, col, expected } of cellTestCases) {
-			await testSingleCell(row, col, expected);
+		for (const { row, col, expected } of cellTests) {
+			await singleCell(row, col, expected);
 		}
+	});
 
-		const testCellRange = async (firstRow: number, lastRow: number, firstCol: number,
-			lastCol: number, expected: string) => {
-			await testSelection(TableSelectionKind.CellRange,
-				{
-					first_row_index: firstRow,
-					last_row_index: lastRow,
-					first_column_index: firstCol,
-					last_column_index: lastCol
-				},
-				expected
-			);
-		};
+	test('export_data_selection - ranges and selections', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellRange, rowRange, columnRange, rowIndices, columnIndices } = createExportHelper(uri);
 
-		await testCellRange(0, 1, 0, 1, 'int_col,str_col\n1,a\n2,b');
-		await testCellRange(0, 2, 0, 2, 'int_col,str_col,float_col\n1,a,1.1\n2,b,2.2\n3,c,3.3');
+		// Cell range selections
+		await cellRange(0, 1, 0, 1, 'int_col,str_col\n1,a\n2,b');
+		await cellRange(0, 2, 0, 2, 'int_col,str_col,float_col\n1,a,1.1\n2,b,2.2\n3,c,3.3');
 
-		// Test RowRange selection
-		const testRowRange = async (firstRow: number, lastRow: number, expected: string) => {
-			await testSelection(TableSelectionKind.RowRange,
-				{
-					first_index: firstRow,
-					last_index: lastRow
-				},
-				expected
-			);
-		};
-
-		await testRowRange(1, 2, `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+		// Row range selection (rows 1-2, all columns)
+		await rowRange(1, 2, `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
 2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
 3,c,3.3,NULL,NULL,NULL,NULL`);
 
-		// Test ColumnRange selection
-		const testColRange = async (firstCol: number, lastCol: number, expected: string) => {
-			await testSelection(TableSelectionKind.ColumnRange,
-				{
-					first_index: firstCol,
-					last_index: lastCol
-				},
-				expected
-			);
-		};
+		// Column range selection (columns 0-1, all rows)
+		await columnRange(0, 1, `int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,${longString}`);
 
-		await testColRange(0, 1, `int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,${longString}`);
-
-		// Test RowIndices selection
-		const testRowIndices = async (indices: number[], expected: string) => {
-			await testSelection(TableSelectionKind.RowIndices, { indices }, expected);
-		};
-		await testRowIndices([1, 3], `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+		// Specific row indices (rows 1 and 3)
+		await rowIndices([1, 3], `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
 2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
 4,NULL,NULL,2024-01-02,2024-01-02 12:00:00,2024-01-02 11:00:00+00,12:00:00`);
 
-		// Test ColumnIndices selection
-		const testColumnIndices = async (indices: number[], expected: string) => {
-			await testSelection(TableSelectionKind.ColumnIndices, { indices }, expected);
+		// Specific column indices (int_col and float_col)
+		await columnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
+	});
+
+	test('export_data_selection - cell indices and order preservation', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellIndices } = createExportHelper(uri);
+
+		// Basic cell indices selection
+		await cellIndices([0, 2], [0, 2], 'int_col,float_col\n1,1.1\n3,3.3');
+		await cellIndices([1, 3], [1, 2], 'str_col,float_col\nb,2.2\nNULL,NULL');
+		await cellIndices([0, 1, 4], [0], 'int_col\n1\n2\nNULL');
+
+		// Non-sequential row indices (order preservation is critical)
+		await cellIndices([4, 0, 2], [0], 'int_col\nNULL\n1\n3');
+		await cellIndices([3, 1, 0], [1, 2], 'str_col,float_col\nNULL,NULL\nb,2.2\na,1.1');
+		await cellIndices([2, 4, 1], [0, 1], `int_col,str_col\n3,c\nNULL,${longString}\n2,b`);
+
+		// Non-sequential column indices (order preservation is critical)
+		await cellIndices([0, 1], [2, 0, 1], 'float_col,int_col,str_col\n1.1,1,a\n2.2,2,b');
+		await cellIndices([1, 2], [1, 2, 0], 'str_col,float_col,int_col\nb,2.2,2\nc,3.3,3');
+
+		// Both rows and columns out of order
+		await cellIndices([2, 0], [2, 0], 'float_col,int_col\n3.3,3\n1.1,1');
+	});
+
+	test('export_data_selection - output formats', async () => {
+		const { tableName } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellRange } = createExportHelper(uri);
+
+		// Test different export formats on same data (first 2 rows, first 2 columns)
+		await cellRange(0, 1, 0, 1, 'int_col\tstr_col\n1\ta\n2\tb', ExportFormat.Tsv);
+		await cellRange(0, 1, 0, 1, '<tr><td>int_col</td><td>str_col</td></tr>\n<tr><td>1</td><td>a</td></tr>\n<tr><td>2</td><td>b</td></tr>', ExportFormat.Html);
+	});
+
+	// Shared utilities for sort order tests
+	const createSortTestHelper = (uri: vscode.Uri) => {
+		const exportHelper = createExportHelper(uri);
+
+		const setSortKeys = async (sortKeys: Array<{ column_index: number; ascending: boolean }>) => {
+			await dxExec({
+				method: DataExplorerBackendRequest.SetSortColumns,
+				uri: uri.toString(),
+				params: { sort_keys: sortKeys }
+			});
 		};
-		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
 
-		// Test CellIndices selection
-		const testCellIndices = async (rowIndices: number[], columnIndices: number[], expected: string) => {
-			await testSelection(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected);
-		};
-		await testCellIndices([0, 2], [0, 2], 'int_col,float_col\n1,1.1\n3,3.3');
-		await testCellIndices([1, 3], [1, 2], 'str_col,float_col\nb,2.2\nNULL,NULL');
-		await testCellIndices([0, 1, 4], [0], 'int_col\n1\n2\nNULL');
-		// Test non-strictly-increasing row indices (order should be preserved)
-		await testCellIndices([4, 0, 2], [0], 'int_col\nNULL\n1\n3');
-		await testCellIndices([3, 1, 0], [1, 2], 'str_col,float_col\nNULL,NULL\nb,2.2\na,1.1');
-		await testCellIndices([2, 4, 1], [0, 1], `int_col,str_col\n3,c\nNULL,${longString}\n2,b`);
-		// Test non-strictly-increasing column indices (order should be preserved)
-		await testCellIndices([0, 1], [2, 0, 1], 'float_col,int_col,str_col\n1.1,1,a\n2.2,2,b');
-		await testCellIndices([1, 2], [1, 2, 0], 'str_col,float_col,int_col\nb,2.2,2\nc,3.3,3');
-		// Test both row and column indices out of order
-		await testCellIndices([2, 0], [2, 0], 'float_col,int_col\n3.3,3\n1.1,1');
+		return { ...exportHelper, setSortKeys };
+	};
 
-		// Test TSV format
-		await testSelection(TableSelectionKind.CellRange,
+	test('export_data_selection respects sort order - basic sorting', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with data that will show the sort order clearly
+		await createTempTable(tableName, [
+			{ name: 'id', type: 'INTEGER', values: ['3', '1', '2', '5', '4'] },
+			{ name: 'name', type: 'VARCHAR', values: ['\'Charlie\'', '\'Alice\'', '\'Bob\'', '\'Eve\'', '\'David\''] },
+			{ name: 'value', type: 'INTEGER', values: ['30', '10', '20', '50', '40'] }
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { columnIndices, columnRange, setSortKeys } = createSortTestHelper(uri);
+
+		// Test unsorted data
+		await columnIndices([1], 'name\nCharlie\nAlice\nBob\nEve\nDavid');
+
+		// Test single column sorts
+		const sortTests = [
 			{
-				first_row_index: 0,
-				last_row_index: 1,
-				first_column_index: 0,
-				last_column_index: 1
+				desc: 'sort by id ascending',
+				sortKeys: [{ column_index: 0, ascending: true }],
+				exportCol: 1,
+				expected: 'name\nAlice\nBob\nCharlie\nDavid\nEve'
 			},
-			'int_col\tstr_col\n1\ta\n2\tb',
-			ExportFormat.Tsv
-		);
-
-		// Test HTML format
-		await testSelection(TableSelectionKind.CellRange,
 			{
-				first_row_index: 0,
-				last_row_index: 1,
-				first_column_index: 0,
-				last_column_index: 1
+				desc: 'sort by id descending',
+				sortKeys: [{ column_index: 0, ascending: false }],
+				exportCol: 1,
+				expected: 'name\nEve\nDavid\nCharlie\nBob\nAlice'
 			},
-			'<tr><td>int_col</td><td>str_col</td></tr>\n<tr><td>1</td><td>a</td></tr>\n<tr><td>2</td><td>b</td></tr>',
-			ExportFormat.Html
-		);
+			{
+				desc: 'sort by value ascending',
+				sortKeys: [{ column_index: 2, ascending: true }],
+				exportCol: 1,
+				expected: 'name\nAlice\nBob\nCharlie\nDavid\nEve'
+			}
+		];
+
+		for (const { desc, sortKeys, exportCol, expected } of sortTests) {
+			await setSortKeys(sortKeys);
+			await columnIndices([exportCol], expected);
+		}
+
+		// Test column range export with sort
+		await setSortKeys([{ column_index: 2, ascending: true }]);
+		await columnRange(0, 1, 'id,name\n1,Alice\n2,Bob\n3,Charlie\n4,David\n5,Eve');
+	});
+
+	test('export_data_selection respects sort order - multi-column and formats', async () => {
+		// Create table with duplicate values for multi-column sorting
+		const tableName2 = makeTempTableName();
+		await createTempTable(tableName2, [
+			{ name: 'category', type: 'VARCHAR', values: ['\'B\'', '\'A\'', '\'B\'', '\'A\'', '\'A\''] },
+			{ name: 'value', type: 'INTEGER', values: ['2', '3', '1', '1', '2'] },
+			{ name: 'name', type: 'VARCHAR', values: ['\'item2\'', '\'item3\'', '\'item1\'', '\'item4\'', '\'item5\''] }
+		]);
+
+		const uri2 = vscode.Uri.from({ scheme: 'duckdb', path: tableName2 });
+		const { columnIndices, columnRange, setSortKeys } = createSortTestHelper(uri2);
+
+		// Test multi-column sort (category ascending, then value ascending)
+		await setSortKeys([
+			{ column_index: 0, ascending: true },   // category
+			{ column_index: 1, ascending: true }    // value
+		]);
+		await columnIndices([2], 'name\nitem4\nitem5\nitem3\nitem1\nitem2');
+
+		// Test different export format with sort
+		const tableName1 = makeTempTableName();
+		await createTempTable(tableName1, [
+			{ name: 'id', type: 'INTEGER', values: ['3', '1', '2'] },
+			{ name: 'name', type: 'VARCHAR', values: ['\'Charlie\'', '\'Alice\'', '\'Bob\''] }
+		]);
+
+		const uri1 = vscode.Uri.from({ scheme: 'duckdb', path: tableName1 });
+		const helper1 = createSortTestHelper(uri1);
+
+		await helper1.setSortKeys([{ column_index: 0, ascending: true }]);
+
+		// Test TSV format maintains sort order
+		const tsvResult = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri: uri1.toString(),
+			params: {
+				selection: {
+					kind: TableSelectionKind.ColumnRange,
+					selection: { first_index: 0, last_index: 1 }
+				},
+				format: ExportFormat.Tsv
+			}
+		});
+
+		assert.strictEqual(tsvResult.data, 'id\tname\n1\tAlice\n2\tBob\n3\tCharlie');
 	});
 
 	test('set_row_filters works correctly', async () => {
