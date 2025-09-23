@@ -308,18 +308,20 @@ update_product_json() {
 		local hash_changed=$([[ "$has_sha256" == "true" && -n "$sha256" && "$current_sha256" != "$sha256" ]] && echo true || echo false)
 
 		if [[ "$version_changed" == true && "$hash_changed" == true ]]; then
-			echo -e "${GREEN}✅ Updated version ($current_version → v$version) and SHA256${NC}"
+			echo -e "${GREEN}✓ Updated version ($current_version → $version) and SHA256${NC}"
 		elif [[ "$version_changed" == true ]]; then
-			echo -e "${GREEN}✅ Updated version ($current_version → v$version)${NC}"
+			echo -e "${GREEN}✓ Updated version ($current_version → $version)${NC}"
 		elif [[ "$hash_changed" == true ]]; then
-			echo -e "${GREEN}✅ Updated SHA256${NC}"
+			echo -e "${GREEN}✓ Updated SHA256${NC}"
 		fi
 	else
 		[[ -f "${product_json}.backup" ]] && rm "${product_json}.backup"
 		if [[ "$has_sha256" == "true" ]]; then
-			echo -e "${BLUE}ℹ️  Already current ($version, SHA256 matches)${NC}"
+			# allow-any-unicode-next-line
+			echo -e "${BLUE}‣ Already current ($version, SHA256 matches)${NC}"
 		else
-			echo -e "${BLUE}ℹ️  Already current ($version)${NC}"
+			# allow-any-unicode-next-line
+			echo -e "${BLUE}‣ Already current ($version)${NC}"
 		fi
 	fi
 }
