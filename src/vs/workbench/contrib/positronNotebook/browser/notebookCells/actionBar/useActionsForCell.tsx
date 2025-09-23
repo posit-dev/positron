@@ -29,8 +29,10 @@ export function useActionsForCell(): Record<CellActionPosition, INotebookCellAct
 		}
 
 		/**
-		 * Efficiently filter context change events to only trigger re-renders
-		 * when notebook-relevant keys change
+		 * Filter context change events to only trigger re-renders when
+		 * notebook-relevant keys change. This _may_ be a bit rerender happy but
+		 * debouncing while accumulating events is a lot of complexity so we'll
+		 * leave it until it's a problem.
 		 */
 		const disposable = contextKeyService.onDidChangeContext((event) => {
 			// Only trigger re-render if any notebook-relevant key changed
