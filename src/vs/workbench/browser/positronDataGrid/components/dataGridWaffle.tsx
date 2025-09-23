@@ -27,7 +27,6 @@ import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { TableSummaryDataGridInstance } from '../../../services/positronDataExplorer/browser/tableSummaryDataGridInstance.js';
-import { TableDataDataGridInstance } from '../../../services/positronDataExplorer/browser/tableDataDataGridInstance.js';
 
 /**
  * DataGridWaffle component.
@@ -509,92 +508,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// Moves the cursor right.
 				context.instance.moveCursorRight();
-				break;
-			}
-
-			// F10 key (with modifiers for different context menus)
-			case 'F10': {
-				// We only show context menu for the TableDataDataGridInstance
-				// and not for other types of data grids, like the summary panel
-				if (context.instance instanceof TableDataDataGridInstance) {
-					// Make sure the cursor is showing in the data grid
-					if (context.instance.showCursor()) {
-						return;
-					}
-
-					// Get the location of the cursor
-					const cursorColumnIndex = context.instance.cursorColumnIndex;
-					const cursorRowIndex = context.instance.cursorRowIndex;
-
-					// Consume the default events
-					consumeEvent();
-
-					// Ctrl+Shift+F10 to show the column header context menu
-					if (e.ctrlKey && e.shiftKey) {
-						// Find the column header element
-						const columnHeaderElement = dataGridWaffleRef.current.querySelector(
-							`.data-grid-column-header[data-column-index="${cursorColumnIndex}"]`
-						) as HTMLElement;
-
-						if (columnHeaderElement) {
-							const headerRect = columnHeaderElement.getBoundingClientRect();
-							await context.instance.showColumnContextMenu(
-								cursorColumnIndex,
-								columnHeaderElement,
-								{
-									clientX: headerRect.left + headerRect.width / 2,
-									clientY: headerRect.top + headerRect.height / 2
-								}
-							);
-						}
-						return;
-					}
-
-					// Alt+Shift+F10 to show the row header context menu
-					if (e.altKey && e.shiftKey) {
-						// Find the row header element
-						const rowHeaderElement = dataGridWaffleRef.current.querySelector(
-							`.data-grid-row-header[data-row-index="${cursorRowIndex}"]`
-						) as HTMLElement;
-
-						if (rowHeaderElement) {
-							const headerRect = rowHeaderElement.getBoundingClientRect();
-							await context.instance.showRowContextMenu(
-								cursorRowIndex,
-								rowHeaderElement,
-								{
-									clientX: headerRect.left + headerRect.width / 2,
-									clientY: headerRect.top + headerRect.height / 2
-								}
-							);
-						}
-						return;
-					}
-
-					// Shift+F10 to show the cell context menu
-					if (e.shiftKey && !e.ctrlKey && !e.altKey) {
-						// Find the cell element
-						const cursorCellElement = dataGridWaffleRef.current.querySelector(
-							`#data-grid-row-cell-content-${cursorColumnIndex}-${cursorRowIndex}`
-						) as HTMLElement;
-
-						if (cursorCellElement) {
-							// Get the cell bounding rectangle to position the context menu
-							const cellRect = cursorCellElement.getBoundingClientRect();
-
-							// Position the context menu at the center of the cell
-							await context.instance.showCellContextMenu(
-								cursorColumnIndex,
-								cursorRowIndex,
-								cursorCellElement,
-								{
-									clientX: cellRect.left + cellRect.width / 2,
-									clientY: cellRect.top + cellRect.height / 2
-								}
-							);
-						}
-					}
-				}
 				break;
 			}
 		}
