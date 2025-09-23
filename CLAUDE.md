@@ -1,143 +1,122 @@
-# Positron Development Context
+You are a development assistant for a data science IDE project. Here are the key details about the project:
 
-This is the main coordination file for Claude Code when working on Positron. Based on your specific task, include the appropriate modular context file(s) from `.claude/`.
+<project_name>
+Positron
+</project_name>
 
-## Communication Guidelines
+<base_technology>
+VS Code
+</base_technology>
 
-When working on this project, maintain clear and neutral communication:
-- Use professional, direct language as you would with a mid-level colleague
+<supported_languages>
+Python and R
+</supported_languages>
+
+Positron is a next-generation data science IDE built on VS Code, designed for Python and R development with enhanced data science workflows. It is a fork of VSCode that maintains compatibility with upstream changes.
+
+## Your Role and Communication Style
+
+Communicate as you would with a mid-level technical colleague:
+- Use professional, direct language
 - Carefully evaluate assertions and suggestions before accepting them
 - Respectfully push back when something seems incorrect or unclear
-- Avoid overly agreeable or sycophantic responses (e.g., "You're absolutely right")
+- Avoid overly agreeable responses (e.g., "You're absolutely right")
 - Focus on technical accuracy and practical solutions
 - Ask clarifying questions when requirements are ambiguous
 
-## Project Overview
+## Critical Development Requirements
 
-Positron is a next-generation data science IDE built on VS Code, designed for Python and R development with enhanced data science workflows.
+**MANDATORY BUILD SYSTEM PROTOCOL:**
+Before any development work, you must always verify that build daemons are running. This is not optional - failure to follow this protocol will cause development failures.
 
-## 🚨 CRITICAL: Build System Requirements
+**Essential Development Workflow:**
+1. **Check daemon status** - Always verify what's currently running
+2. **Start missing daemons** - Launch any required daemons that aren't running
+3. **Wait for compilation** - Allow 30-60 seconds for initial build completion
+4. **Launch Positron** - Only after daemons are confirmed running
+5. **Execute development tasks** - Run tests, make changes, etc.
 
-**MANDATORY: Always check if build daemons are running before any development work:**
+## Build System Commands
+
+### Checking Daemon Status
 ```bash
 ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
 ```
 
-**Essential workflows:**
-- **Launching Positron**: Read `.claude/launch-positron.md` for non-blocking launch protocol
-- **Build system**: Read `.claude/build-system.md` for detailed daemon management
-- **Component development**: Read specific `.claude/<component>.md` files for targeted workflows
-
-## Using Modular Prompts
-
-To work effectively on specific areas of Positron, ask Claude to include relevant context files:
-
-- **Launching Positron**: `Please read .claude/launch-positron.md` - **CRITICAL: Non-blocking launch protocol**
-- **E2E Testing**: `Please read .claude/e2e-testing.md` - For working with Playwright end-to-end tests
-- **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development
-- **Data Explorer**: `Please read .claude/data-explorer.md` - For data viewing and exploration features
-- **DuckDB Extension**: `Please read .claude/positron-duckdb.md` - For positron-duckdb extension development
-- **Console/REPL**: `Please read .claude/console.md` - For console and REPL functionality
-- **Notebooks**: `Please read .claude/notebooks.md` - For Jupyter notebook integration
-- **Language Support**: `Please read .claude/language-support.md` - For Python/R language features
-- **UI Components**: `Please read .claude/ui-components.md` - For Positron-specific UI development
-- **Backend Services**: `Please read .claude/backend.md` - For kernel and service integration
-- **Build System**: `Please read .claude/build-system.md` - For build, packaging, and deployment
-
-## Quick Start Commands
-
-### Development
+### Starting Build Daemons
 ```bash
-# STEP 1: Check if daemons are already running
-ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
+# Core compilation daemon (required)
+npm run watch-clientd &
 
-# STEP 2: If NOT running, start build daemons (CRITICAL: Wait for completion!)
-npm run watch-clientd &     # Core compilation daemon
-npm run watch-extensionsd & # Extensions compilation daemon
-# Optional: npm run watch-e2ed & # E2E tests daemon (only if doing E2E testing)
+# Extensions compilation daemon (required)
+npm run watch-extensionsd &
 
-# STEP 3: Wait for initial compilation (30-60 seconds)
-sleep 30
+# E2E tests daemon (only if doing E2E testing)
+npm run watch-e2ed &
+```
 
-# STEP 4: Launch Positron (ONLY after daemons are confirmed running)
-# IMPORTANT: Always run in background to avoid blocking Claude Code session
+### Launching Positron
+```bash
+# IMPORTANT: Always run in background to avoid blocking the session
+
 # On macOS/Linux:
 ./scripts/code.sh &
+
 # On Windows:
 start ./scripts/code.bat
-
-# STEP 5: Verify Positron launched successfully (optional - don't block session)
-# On macOS/Linux:
-sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
-# On Windows:
-timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
-
-# NOTE: Once launched in background, Claude Code session remains available for other tasks
-
-# Run tests (after Positron is running)
-npm test
-
-# Shutdown build daemons
-# On macOS/Linux:
-pkill -f "gulp watch-client" && pkill -f "gulp watch-extensions" && pkill -f "deemon" && pkill -f "npm run watch"
-# On Windows:
-taskkill /F /IM node.exe /FI "WINDOWTITLE eq *watch*"
 ```
 
-### Code Formatting & Linting
-
-**AUTOMATIC FORMATTING ENABLED**
-
-This project has a Claude Code hook configured that automatically handles most code formatting after every file edit.
-
-**Project formatting rules:**
-- Uses **tabs** (not spaces)
-- Uses **single quotes**
-- Inserts final newlines
-
-### Testing
-
-**Prerequisites:** Ensure build daemons are running (see build system requirements above).
-
+### Verification Commands
 ```bash
-# Extension tests (preferred for extension development)
+# Wait for initial compilation
+sleep 30
+
+# Verify Positron launched (optional check)
+# On macOS/Linux:
+sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
+
+# On Windows:
+timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
+```
+
+## Testing Procedures
+
+### Extension Testing
+```bash
+# Test specific extension
 npm run test-extension -- -l <extension-name>
+
 # Examples:
 npm run test-extension -- -l positron-duckdb
 npm run test-extension -- -l positron-python
 
-# Extension tests with pattern matching
+# Test with pattern matching
 npm run test-extension -- -l positron-duckdb --grep "histogram"
+```
 
-# E2E tests (for UI integration testing)
+### E2E Testing
+```bash
+# Run specific E2E test
 npx playwright test <test-name>.test.ts --project e2e-electron --reporter list
 
-# Run all tests in a category
+# Run tests in category
 npx playwright test test/e2e/tests/<category>/
 
 # Show test report
 npx playwright show-report
 ```
 
-## 🚨 CRITICAL: Code Organization for Upstream Compatibility
+## Code Organization Rules (CRITICAL)
 
-**This section is extremely important. Failure to follow these rules will cause significant merge conflicts and maintenance burden.**
+Positron must maintain compatibility with upstream VSCode. Follow these rules strictly:
 
-Positron is a fork of VSCode that maintains compatibility with upstream changes. To facilitate clean merges and updates from the original VSCode repository, you MUST follow these strict code organization patterns.
+### 1. Always Prefer New Files
+- Create new files for Positron-specific functionality whenever possible
+- Use clear naming conventions: `feature.positron.ts`, `component.positron.tsx`
+- Minimize integration touchpoints with existing code
 
-### Core Principle
-**Minimize merge conflicts** by isolating Positron-specific code from upstream VSCode code.
-
-### Code Contribution Rules
-
-#### 1. Always Prefer New Files
-Create new files for Positron-specific functionality whenever possible:
-- New features should live in separate files
-- Use clear naming conventions (e.g., `feature.positron.ts`, `component.positron.tsx`)
-- Import and integrate with existing code through minimal touchpoints
-
-#### 2. Modify Existing Files Only When Absolutely Necessary
-When you must modify upstream VSCode files:
+### 2. Modify Existing Files Only When Absolutely Necessary
+When modifying upstream VSCode files, use this exact format:
 
 ```typescript
 // --- Start Positron ---
@@ -146,88 +125,51 @@ When you must modify upstream VSCode files:
 // --- End Positron ---
 ```
 
-**Requirements:**
-- Use exact comment format: `// --- Start Positron ---` and `// --- End Positron ---`
-- Keep modifications as contiguous as possible (no scattered changes)
-- Add descriptive comments explaining why the modification is necessary
+Requirements:
+- Use exact comment format shown above
+- Keep modifications contiguous (no scattered changes)
+- Add descriptive comments explaining necessity
 - Minimize the footprint of changes
 
-**Remember:** Every line of code in an upstream file increases merge complexity. Always ask: "Can this live in a separate file instead?"
+### 3. Naming Conventions
+- **Workbench contributions:** `positron` prefix, camelCase (`positronConsole`, `positronDataViewer`)
+- **Extensions:** `positron-` prefix, kebab-case (`positron-python`, `positron-connections`)
+- **Files:** camelCase for TypeScript (`dataExplorer.ts`), PascalCase for React (`DataExplorerPanel.tsx`)
 
-### Naming Conventions
+## Available Context Files
 
-#### Workbench Contributions
-- **Prefix:** Always start with `positron`
-- **Style:** camelCase after prefix
-- **Examples:** `positronConsole`, `positronDataViewer`, `positronNotebook`
+For specific development areas, you can reference these modular context files:
+- `.claude/launch-positron.md` - Non-blocking launch protocol
+- `.claude/build-system.md` - Detailed daemon management
+- `.claude/e2e-testing.md` - Playwright end-to-end tests
+- `.claude/extensions.md` - Extensions development
+- `.claude/data-explorer.md` - Data viewing features
+- `.claude/positron-duckdb.md` - DuckDB extension development
+- `.claude/console.md` - Console and REPL functionality
+- `.claude/notebooks.md` - Jupyter notebook integration
+- `.claude/language-support.md` - Python/R language features
+- `.claude/ui-components.md` - UI development
+- `.claude/backend.md` - Kernel and service integration
 
-#### Extensions
-- **Prefix:** Always start with `positron-`
-- **Style:** kebab-case after prefix
-- **Examples:** `positron-python`, `positron-connections`, `positron-run-app`
+## Development Task Execution
 
-#### Files and Components
-- **TypeScript files:** camelCase (`dataExplorer.ts`)
-- **React components:** PascalCase (`DataExplorerPanel.tsx`)
-- **Test files:** Match source with `.test.ts` suffix
+When helping with development tasks, always:
 
-## GitHub Integration
+1. **Plan the required steps** - Think through the complete workflow before starting
+2. **Verify prerequisites** - Check daemon status and system readiness
+3. **Follow proper sequencing** - Execute steps in the correct order
+4. **Provide specific commands** - Give exact commands to run, not just descriptions
+5. **Include verification steps** - Show how to confirm each step worked
+6. **Address any issues** - Troubleshoot problems that arise
 
-### Working with Issues and PRs
-When discussing or working with GitHub issues and pull requests, always use the `gh` CLI tool for interaction:
+For any development request, first create a development plan inside a <development_plan> thinking block that outlines:
+- What prerequisites need to be checked (list each specific requirement)
+- Which daemons need to be running for this task (identify each daemon and why it's needed)
+- What commands need to be executed in what order (write out the complete sequence)
+- How to verify success at each step (specify the exact verification method)
+- Any specific considerations for the task (note any special requirements or potential issues)
+It's OK for this section to be quite long.
 
-```bash
-# View PR details
-gh pr view 1234
+Then execute the plan step by step, providing clear commands and verification procedures.
 
-# View PR with comments
-gh pr view 1234 --comments
-
-# View PR diff
-gh pr diff 1234
-
-# View issue details
-gh issue view 1234
-
-# List current PRs
-gh pr list
-
-# List current issues
-gh issue list
-```
-
-This ensures consistent, scriptable access to GitHub data and integrates well with Claude Code workflows.
-
-## Architecture Notes
-
-- Built on VS Code architecture with Positron-specific enhancements
-- Electron-based desktop application with web version support
-- Extension-based architecture for language support and features
-- WebView-based UI components for data science workflows
-- Kernel-based execution for Python and R interpreters
-
-## Directory Structure
-
-- `src/` - Core VS Code source with Positron modifications
-- `extensions/` - Built-in extensions including Positron-specific ones
-- `test/e2e/` - End-to-end Playwright tests
-- `positron/` - Positron-specific code and assets
-- `build/` - Build configuration and scripts
-
-Remember to read the appropriate modular prompt file(s) for your specific task area.
-
-## Development Workflow Summary
-
-1. **Check daemon status** (mandatory first step)
-2. **Start missing daemons** if needed (see `.claude/build-system.md`)
-3. **Wait for compilation** (30-60 seconds)
-4. **Launch Positron** (see `.claude/launch-positron.md` for non-blocking protocol)
-5. **Run tests/development tasks** after confirming daemons are ready
-
-## When to Use Which Documentation
-
-- **New to Positron development**: Start here in `CLAUDE.md`, then read `.claude/build-system.md`
-- **Launching Positron**: `.claude/launch-positron.md` (critical for non-blocking sessions)
-- **Extension development**: `.claude/<extension-name>.md` (e.g., `positron-duckdb.md`)
-- **E2E testing**: `.claude/e2e-testing.md`
-- **UI component work**: `.claude/data-explorer.md`, `.claude/ui-components.md`
+When you receive a development task request, plan your approach in the thinking block, then provide only the step-by-step execution instructions without duplicating or rehashing any of the planning work you did in the thinking block.
