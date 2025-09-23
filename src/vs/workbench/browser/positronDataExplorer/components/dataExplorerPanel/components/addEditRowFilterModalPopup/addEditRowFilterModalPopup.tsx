@@ -787,9 +787,13 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		// Set the selected condition.
 		setSelectedFilterType(nextSelected);
 
-		// We need to clear the filter values and error text if we are changing
-		// between filter types that have a different numbers of parameters.
-		if (filterNumParams(prevSelected) !== filterNumParams(nextSelected)) {
+		if (filterNumParams(prevSelected) === filterNumParams(nextSelected)) {
+			// If the number of parameters is the same, clear only the error text.
+			setErrorText(undefined);
+		}
+		else {
+			// We need to clear the filter values and error text if we are changing
+			// between filter types that have a different numbers of parameters.
 			if (
 				(isSingleParam(prevSelected) && isTwoParams(nextSelected)) ||
 				(isTwoParams(prevSelected) && isSingleParam(nextSelected))
