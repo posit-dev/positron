@@ -1,3 +1,4 @@
+duckdb<1.4.0
 fastcore
 geopandas
 haystack-ai
