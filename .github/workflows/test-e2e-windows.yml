@@ -138,7 +138,7 @@ jobs:
           npm --prefix test/e2e ci
 
       - name: Compile and Download
-        run: npm exec -- npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64" playwright-install
 
       # Downloads Builtin Extensions (needed for integration & e2e testing)
       - shell: bash
