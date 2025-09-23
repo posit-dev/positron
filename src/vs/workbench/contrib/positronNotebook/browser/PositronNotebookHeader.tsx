@@ -29,7 +29,7 @@ export function PositronNotebookHeader({ notebookInstance }: { notebookInstance:
 			label={(() => localize('clearAllCellOutputsShort', 'Clear Outputs'))()}
 			onClick={() => { notebookInstance.clearAllCellOutputs(); }} />
 		<IconedButton
-			codicon='positron-console-view'
+			codicon='terminal'
 			fullLabel={(() => localize('showNotebookConsoleLong', 'Create or Focus Notebook Console'))()}
 			label={(() => localize('showNotebookConsole', 'Show Console'))()}
 			onClick={() => { notebookInstance.showNotebookConsole(); }} />
