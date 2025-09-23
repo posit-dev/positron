@@ -777,8 +777,10 @@ export class SummaryPanel {
 
 	async expectColumnOrderToBe(columnNames: string[]) {
 		await test.step('Verify column order in summary panel', async () => {
-			const actualOrder = await this.columnSummaryName.allInnerTexts();
-			expect(actualOrder).toEqual(columnNames);
+			await expect(async () => {
+				const actualOrder = await this.columnSummaryName.allInnerTexts();
+				expect(actualOrder).toEqual(columnNames);
+			}, 'summary panel column order').toPass({ timeout: 5000 });
 		});
 	}
 
