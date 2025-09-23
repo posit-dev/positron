@@ -19,14 +19,16 @@ test.use({
 
 test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, () => {
 
+	test.beforeEach(async function ({ openDataFile }) {
+		await openDataFile(join('data-files', 'small_file.csv'));
+	});
+
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
 	test('Summary Panel: Search', async function ({ app, openDataFile }) {
 		const { dataExplorer } = app.workbench;
-
-		await openDataFile(join('data-files', 'small_file.csv'));
 
 		// view data in data explorer
 		await dataExplorer.maximize();
@@ -63,8 +65,6 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 	test('Summary Panel: Sort', async function ({ app, openDataFile }) {
 		const { dataExplorer } = app.workbench;
 
-		await openDataFile(join('data-files', 'small_file.csv'));
-
 		// view data in data explorer
 		await dataExplorer.maximize();
 		await dataExplorer.waitForIdle();
@@ -90,5 +90,42 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
 		await dataExplorer.summaryPanel.expectColumnToBe({ index: 0, name: 'column0', expanded: false });
 		await dataExplorer.summaryPanel.expectColumnToBe({ index: 9, name: 'column9', expanded: true });
+	});
+
+	test('Summary Panel: Behavior with Pins', async function ({ app, openDataFile }) {
+		const { dataExplorer } = app.workbench;
+
+		// view data in data explorer
+		await dataExplorer.maximize();
+		await dataExplorer.waitForIdle();
+		await dataExplorer.summaryPanel.show();
+		await dataExplorer.summaryPanel.expectColumnCountToBe(10);
+		await dataExplorer.summaryPanel.expectSortToBeBy('Original');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9']);
+
+		// verify pinned columns stay at front of summary panel list
+		await dataExplorer.grid.pinColumn(5);
+		await dataExplorer.grid.pinColumn(2); // pin "column1"
+		await dataExplorer.grid.pinColumn(7);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column5', 'column1', 'column7', 'column0', 'column2', 'column3', 'column4', 'column6', 'column8', 'column9']);
+
+		// verify sort behavior with pinned columns
+		await dataExplorer.summaryPanel.sortBy('Name, Descending');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column5', 'column1', 'column7', 'column9', 'column8', 'column6', 'column4', 'column3', 'column2', 'column0']);
+
+		// verify unpinning columns returns them to correct location in summary panel list
+		await dataExplorer.grid.unpinColumn(1); // unpin "column1"
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column5', 'column7', 'column9', 'column8', 'column6', 'column4', 'column3', 'column2', 'column1', 'column0']);
+
+		// verify search with pinned columns
+		await dataExplorer.summaryPanel.search('4');
+		await dataExplorer.summaryPanel.expectColumnCountToBe(3); // pinned "column5" and "column7" + "column4"
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column5', 'column7', 'column4']);
+
+		// verify column order after clearing search with pins and sort applied
+		await dataExplorer.summaryPanel.sortBy('Name, Ascending');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column5', 'column7', 'column4']);
+		await dataExplorer.summaryPanel.clearSearch();
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column5', 'column7', 'column0', 'column1', 'column2', 'column3', 'column4', 'column6', 'column8', 'column9']);
 	});
 });
