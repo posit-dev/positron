@@ -139,7 +139,12 @@ export class ExtensionHostConnection extends Disposable {
 	}
 
 	override dispose(): void {
-		this._cleanResources();
+		// --- Start PWB ---
+                // cleanResources made async so it can flush the socket buffer before closing
+		this._cleanResources().catch((error) => {
+			this._logError('Error during async cleanup:' + error.toString());
+		});
+		// --- End PWB ---
 		super.dispose();
 	}
 
@@ -185,8 +190,21 @@ export class ExtensionHostConnection extends Disposable {
 	}
 
 	private async _sendSocketToExtensionHost(extensionHostProcess: cp.ChildProcess, connectionData: ConnectionData): Promise<void> {
+		// --- Start PWB ---
+		// Check if we're already disposed
+		if (this._disposed) {
+			return;
+		}
+
+		// Check if extension host process is valid
+		if (!extensionHostProcess || extensionHostProcess.killed) {
+			return;
+		}
+		// --- End PWB ---
+
 		// Make sure all outstanding writes have been drained before sending the socket
 		await connectionData.socketDrain();
+
 		const msg = connectionData.toIExtHostSocketMessage();
 		let socket: net.Socket;
 		if (connectionData.socket instanceof NodeSocket) {
@@ -194,14 +212,15 @@ export class ExtensionHostConnection extends Disposable {
 		} else {
 			socket = connectionData.socket.socket.socket;
 		}
+
 		// --- Start PWB ---
+		if (!socket || socket.destroyed || socket.readyState !== 'open') {
+			return;
+		}
 		try {
 			extensionHostProcess.send(msg, socket);
 		} catch (error) {
-			console.error('Error occurred while attempting to send socket to extension host');
-			if (error) {
-				console.error(error);
-			}
+			this._logError('Error occurred while attempting to send socket to extension host:' + error.toString());
 		}
 		// --- End PWB ---
 	}
@@ -230,13 +249,24 @@ export class ExtensionHostConnection extends Disposable {
 		this._sendSocketToExtensionHost(this._extensionHostProcess, connectionData);
 	}
 
-	private _cleanResources(): void {
+        // --- Start PWB ---
+        // Need to make this async to flush the socket before closing
+	private async _cleanResources(): Promise<void> {
+        // --- End PWB ---
+
 		if (this._disposed) {
 			// already called
 			return;
 		}
 		this._disposed = true;
 		if (this._connectionData) {
+		        // --- Start PWB ---
+			try {
+				await this._connectionData.socketDrain();
+			} catch (error) {
+				this._logError('Failed to drain socket during cleanup: ' + error.toString());
+			}
+		        // --- End PWB ---
 			this._connectionData.socket.end();
 			this._connectionData = null;
 		}
@@ -303,13 +333,22 @@ export class ExtensionHostConnection extends Disposable {
 			this._extensionHostProcess.on('error', (err) => {
 				this._logError(`<${pid}> Extension Host Process had an error`);
 				this._logService.error(err);
-				this._cleanResources();
+		                // --- Start PWB ---
+                                // Made async to flush buffer before closing
+				this._cleanResources().catch((error) => {
+					this._logError('Error during async cleanup after extension host error: ' + error.toString());
+				});
+		                // --- End PWB ---
 			});
 
 			this._extensionHostProcess.on('exit', (code: number, signal: string) => {
 				this._extensionHostStatusService.setExitInfo(this._reconnectionToken, { code, signal });
 				this._log(`<${pid}> Extension Host Process exited with code: ${code}, signal: ${signal}.`);
-				this._cleanResources();
+		                // --- Start PWB ---
+				this._cleanResources().catch((error) => {
+					this._logError('Error during async cleanup after extension host exit ' + error.toString());
+				});
+		                // --- End PWB ---
 			});
 
 			if (extHostNamedPipeServer) {
