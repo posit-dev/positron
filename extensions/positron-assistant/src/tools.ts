@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { LanguageModelImage } from './languageModelParts.js';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
@@ -247,11 +246,13 @@ export function registerAssistantTools(
 				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
 			}
 
-			// HACK: Return the image data as a prompt tsx part.
-			// See languageModelParts.ts for an explanation.
-			const image = new LanguageModelImage(matches[1], matches[2]);
-			const imageJson = image.toJSON();
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);
+			// Return the plot image data to the model.
+			const { 1: mimeType, 2: base64Data } = matches;
+			const imageBuffer = Buffer.from(base64Data, 'base64');
+			const imageData = new Uint8Array(imageBuffer);
+			return new vscode.LanguageModelToolResult2([
+				new vscode.LanguageModelDataPart(imageData, mimeType)
+			]);
 		},
 	});
 
