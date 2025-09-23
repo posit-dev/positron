@@ -182,6 +182,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param dynState The initial dynamic state of the runtime
 	 * @param _api The API instance to use for communication
 	 * @param _transport The transport mechanism to use for communication
+	 * @param _ensureServerRunning A function that will ensure the Kallichore
+	 * server is running
 	 * @param _new Set to `true` when the session is created for the first time,
 	 * and `false` when it is restored (reconnected).
 	 * @param _extra Extra functionality to enable for this session
@@ -189,8 +191,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
-		private readonly _api: DefaultApi,
+		private _api: DefaultApi,
 		private readonly _transport: KallichoreTransport,
+		private readonly _ensureServerRunning: () => Promise<void>,
 		private readonly _new: boolean,
 		private readonly _extra?: JupyterKernelExtra | undefined) {
 
@@ -982,6 +985,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Updates the API instance used by this session.
+	 *
+	 * @param api The new API instance to use.
+	 */
+	public refreshApi(api: DefaultApi) {
+		this._api = api;
+	}
+
+	/**
 	 * Tries to start and then adopt a kernel owned by an external provider.
 	 *
 	 * @param kernelSpec The kernel spec to use for the session
@@ -1061,7 +1073,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		try {
 			// Attempt to start the session
-			const info = await this.tryStart();
+			const info = await this.tryStart(true);
 			return info;
 		} catch (err) {
 			if (isAxiosError(err) && err.status === 500) {
@@ -1106,8 +1118,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * Attempts to start the session; returns a promise that resolves when the
 	 * session is ready to use.
+	 *
+	 * @param retry Whether to retry starting the session if it fails due to
+	 * the server not being available.
 	 */
-	private async tryStart(): Promise<positron.LanguageRuntimeInfo> {
+	private async tryStart(retry: boolean): Promise<positron.LanguageRuntimeInfo> {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
@@ -1120,13 +1135,33 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
-			const result = await this._api.startSession(this.metadata.sessionId);
-			// Typically, the API returns the kernel info as the result of
-			// starting a new session, but the server doesn't validate the
-			// result returned by the kernel, so check for a `status` field
-			// before assuming it's a Jupyter message.
-			if (result.data.status === 'ok') {
-				runtimeInfo = this.runtimeInfoFromKernelInfo(result.data);
+			try {
+				const result = await this._api.startSession(this.metadata.sessionId);
+				// Typically, the API returns the kernel info as the result of
+				// starting a new session, but the server doesn't validate the
+				// result returned by the kernel, so check for a `status` field
+				// before assuming it's a Jupyter message.
+				if (result.data.status === 'ok') {
+					runtimeInfo = this.runtimeInfoFromKernelInfo(result.data);
+				}
+			} catch (err) {
+				if (!retry) {
+					throw err;
+				}
+				if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
+					// If it looks like the server is not running, try to
+					// start it and then try again.
+					this.log(`Server not available; attempting to start it: ${summarizeError(err)}`, vscode.LogLevel.Warning);
+
+					// Ensure the server is running
+					await this._ensureServerRunning();
+
+					// Try to start the session again, but don't retry again
+					return this.tryStart(false);
+				} else {
+					// Some other error; just rethrow it
+					throw err;
+				}
 			}
 		}
 

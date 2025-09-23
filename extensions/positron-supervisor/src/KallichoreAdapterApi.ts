@@ -532,7 +532,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create a bearer auth object with the token
 		const bearerToken = connectionData.bearer_token;
-		this._api.loadState(connectionData);
+		this.refreshServerState(connectionData);
 
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
@@ -569,10 +569,11 @@ export class KCApi implements PositronSupervisorApi {
 					throw new Error(`The supervisor process exited before the server was ready.`);
 				}
 
-				// ECONNREFUSED is a normal condition during startup; the
-				// server isn't ready yet. Keep trying up to 10 seconds from
-				// the time we got a process ID established.
-				if (err.code === 'ECONNREFUSED') {
+				// ECONNREFUSED (for TCP) and ENOENT (for sockets) are normal
+				// conditions during startup; the server isn't ready yet. Keep
+				// trying up to 10 seconds from the time we got a process ID
+				// established.
+				if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
 					if (elapsed < 10000) {
 						// Log every few attempts. We don't want to overwhelm
 						// the logs, and it's normal for us to encounter a few
@@ -749,7 +750,7 @@ export class KCApi implements PositronSupervisorApi {
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
-		this._api.loadState(serverState);
+		this.refreshServerState(serverState);
 
 		// Re-establish the log stream
 		if (this._logStreamer) {
@@ -774,6 +775,22 @@ export class KCApi implements PositronSupervisorApi {
 		this._newSupervisor = false;
 
 		return true;
+	}
+
+	/**
+	 * Called when server connection information changes, to update the API
+	 * object and propagate the new API to all existing sessions.
+	 *
+	 * @param state The new server state
+	 */
+	refreshServerState(state: KallichoreServerState) {
+		// Update the API object with the new connection information
+		this._api.loadState(state);
+
+		// Update all existing sessions with the new API object
+		for (const session of this._sessions) {
+			session.refreshApi(this._api.api);
+		}
 	}
 
 	/**
@@ -811,10 +828,10 @@ export class KCApi implements PositronSupervisorApi {
 			if (this._started.isOpen()) {
 				// The server is still started; send a heartbeat
 				this._api.api.clientHeartbeat(heartbeatPayload).catch(async (err) => {
-					if (err.code === 'ECONNREFUSED') {
-						// We thought the server was online, but ECONNREFUSED
-						// suggests that it isn't. See if the server has exited
-						// between heartbeats.
+					if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
+						// We thought the server was online, but ECONNREFUSED or
+						// ENOENT suggests that it isn't. See if the server has
+						// exited between heartbeats.
 						this.log(
 							`Connection refused while attempting to send heartbeat;` +
 							`checking server status`);
@@ -859,7 +876,16 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Create the session object
 		const session = new KallichoreSession(
-			sessionMetadata, runtimeMetadata, dynState, this._api.api, this._api.transport, true, _extra);
+			sessionMetadata,
+			runtimeMetadata,
+			dynState,
+			this._api.api,
+			this._api.transport,
+			async () => {
+				await this.testServerExited();
+			},
+			true,
+			_extra);
 
 		this.log(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
@@ -872,8 +898,8 @@ export class KCApi implements PositronSupervisorApi {
 			} catch (err) {
 				// If the connection was refused, check the server status; this
 				// suggests that the server may have exited
-				if (err.code === 'ECONNREFUSED' && !retried) {
-					this.log(`Connection refused while attempting to create session; checking server status`);
+				if ((err.code === 'ECONNREFUSED' || err.code === 'ENOENT') && !retried) {
+					this.log(`Could not connect while attempting to create session; checking server status`);
 					await this.testServerExited();
 
 					// If the open barrier is now open, we can retry the
@@ -953,8 +979,8 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * Tests the server after a session disconnects, or after an RPC fails with
-	 * ECONNREFUSED, to see if it is still running.  If it isn't, marks all
-	 * sessions as exited and restarts the server.
+	 * ECONNREFUSED or ENOENT, to see if it is still running.  If it isn't,
+	 * marks all sessions as exited and restarts the server.
 	 *
 	 * Consider: This only tests the server's local process ID, not the server
 	 * itself.  We can't use this technique on a remote server, and it doesn't
@@ -1009,9 +1035,17 @@ export class KCApi implements PositronSupervisorApi {
 
 		// We need to mark all sessions as exited since (at least right now)
 		// they cannot live without the supervisor.
+		let hadAbend = false;
 		for (const session of this._sessions) {
-			session.markExited(1, positron.RuntimeExitReason.Error);
+			if (session.runtimeState !== positron.RuntimeState.Exited) {
+				hadAbend = true;
+				this.log(`Marking session ${session.metadata.sessionId} as exited because the server is no longer running`);
+				session.markExited(1, positron.RuntimeExitReason.Error);
+			}
 		}
+
+		// Forget the sessions; they will not exist on the new server.
+		this._sessions.length = 0;
 
 		// Stop streaming the logs from the old server
 		if (this._logStreamer) {
@@ -1020,13 +1054,14 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		// Reset the start barrier and start the server again.
+		this._starting = undefined;
 		this._started = new Barrier();
 		try {
 			// Start the server again
 			await this.ensureStarted();
 
 			// If any sessions were running, show a message to the user
-			if (this._sessions.length > 0) {
+			if (hadAbend) {
 				vscode.window.showInformationMessage(
 					vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
 			}
@@ -1116,7 +1151,7 @@ export class KCApi implements PositronSupervisorApi {
 					sessionName: dynState.sessionName,
 					continuationPrompt: kcSession.continuation_prompt,
 					inputPrompt: kcSession.input_prompt
-				}, this._api.api, this._api.transport, false);
+				}, this._api.api, this._api.transport, async () => { await this.testServerExited() }, false);
 
 				// Restore the session from the server
 				try {
@@ -1125,6 +1160,10 @@ export class KCApi implements PositronSupervisorApi {
 					this.log(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
 					if (err.code === 'ECONNREFUSED') {
 						this.log(`Connection refused while attempting to restore session; checking server status`);
+						await this.testServerExited();
+					}
+					if (err.code === 'ENOENT') {
+						this.log(`Socket/pipe not found while attempting to restore session; checking server status`);
 						await this.testServerExited();
 					}
 					reject(err);
