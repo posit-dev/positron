@@ -20,7 +20,8 @@
     "defaultChatParticipant",
     "findFiles2",
     "inlineCompletionsAdditions",
-    "languageModelDataPart"
+    "languageModelDataPart",
+    "languageModelSystem"
   ],
   "contributes": {
     "chatParticipants": [
