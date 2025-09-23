@@ -2343,7 +2343,7 @@ def _pandas_export_table(x, fmt):
     """Helper to export pandas DataFrame to various formats with proper line ending handling."""
     buf = StringIO()
     if fmt == "csv":
-        x.to_csv(buf, index=False)
+        x.to_csv(buf, index=False, sep=",")
     elif fmt == "tsv":
         x.to_csv(buf, sep="\t", index=False)
     elif fmt == "html":
