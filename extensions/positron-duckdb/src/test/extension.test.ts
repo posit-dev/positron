@@ -54,10 +54,31 @@ const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	max_value_length: 100
 };
 
+// Global callback registry for column profile events
+const columnProfileCallbacks = new Map<string, (value: any) => void>();
+let globalCommandRegistered = false;
+
 // Not sure why it is not possible to use Mocha's 'before' for this
 async function activateExtension() {
 	// Ensure the extension is activated
 	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
+
+	// Register the global command handler once
+	if (!globalCommandRegistered) {
+		vscode.commands.registerCommand(
+			'positron-data-explorer.sendUiEvent',
+			(event: any) => {
+				if (event.method === 'return_column_profiles' && event.params.callback_id) {
+					const callback = columnProfileCallbacks.get(event.params.callback_id);
+					if (callback) {
+						callback(event.params);
+						columnProfileCallbacks.delete(event.params.callback_id);
+					}
+				}
+			}
+		);
+		globalCommandRegistered = true;
+	}
 }
 
 async function runQuery<Type>(query: string): Promise<Array<Type>> {
@@ -1265,27 +1286,21 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	): Promise<T> {
 		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
+		// Ensure the extension and global command handler are set up
+		await activateExtension();
+
 		// Create a promise that will resolve when we receive the column profile event
 		let resolveProfilePromise: (value: any) => void;
 		const profilePromise = new Promise<any>(resolve => {
 			resolveProfilePromise = resolve;
 		});
 
-		// Set up event listener for the column profile results
-		const disposable = vscode.commands.registerCommand(
-			'positron-data-explorer.sendUiEvent',
-			(event: any) => {
-				if (event.method === 'return_column_profiles' &&
-					event.params.callback_id === callbackId) {
-					resolveProfilePromise(event.params);
-					disposable.dispose();
-				}
-			}
-		);
+		// Register the callback with the global handler
+		columnProfileCallbacks.set(callbackId, resolveProfilePromise);
 
 		// Add a timeout to prevent tests from hanging indefinitely
 		const timeoutId = setTimeout(() => {
-			disposable.dispose();
+			columnProfileCallbacks.delete(callbackId);
 			resolveProfilePromise({
 				error: `${timeoutMessage} for callback_id: ${callbackId}`
 			});
@@ -1324,7 +1339,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			return resultExtractor(profile);
 		} catch (error) {
 			// Clean up in case of error
-			disposable.dispose();
+			columnProfileCallbacks.delete(callbackId);
 			clearTimeout(timeoutId);
 			throw error;
 		}
@@ -2372,5 +2387,218 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify that the table name is properly quoted in SQL
 		assert.strictEqual(result.converted_code[1], `FROM "${specialTableName}"`, 'Second line should properly quote the table name');
+	});
+
+	/**
+	 * Helper function to request frequency table profiles
+	 */
+	async function requestFrequencyTable(
+		tableName: string,
+		columnIndex: number,
+		profileType: ColumnProfileType,
+		limit: number,
+		callbackId: string
+	): Promise<any> {
+		return requestColumnProfile(
+			tableName,
+			columnIndex,
+			[
+				{
+					profile_type: profileType,
+					params: { limit }
+				}
+			],
+			callbackId,
+			(profile) => {
+				const key = profileType === ColumnProfileType.SmallFrequencyTable ? 'small_frequency_table' : 'large_frequency_table';
+				if (profile && profile[key]) {
+					return profile[key];
+				}
+				throw new Error(`Expected ${key} to be present in profile results`);
+			},
+			`Timeout waiting for ${profileType} data`
+		);
+	}
+
+	/**
+	 * Creates a test table with frequency data that has ties to test the fix
+	 */
+	async function createFrequencyTestTable(): Promise<string> {
+		const tableName = makeTempTableName();
+
+		// Create data where some values have the same frequency (ties)
+		// This will test that the ordering is consistent between small and large frequency tables
+		const values = [
+			// Most frequent (5 times each)
+			'A', 'A', 'A', 'A', 'A',
+			'B', 'B', 'B', 'B', 'B',
+			// Second most frequent (4 times each)
+			'C', 'C', 'C', 'C',
+			'D', 'D', 'D', 'D',
+			// Third most frequent (3 times each) - this creates the tie scenario
+			'E', 'E', 'E',
+			'9E', '9E', '9E',  // This was the problematic value from the original bug report
+			'WN', 'WN', 'WN',  // This was the value that appeared instead of 9E
+			'F', 'F', 'F',
+			// Less frequent (2 times each)
+			'G', 'G',
+			'H', 'H',
+			'I', 'I',
+			'J', 'J',
+			// Single occurrences
+			'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'
+		];
+
+		await createTempTable(tableName, [
+			{
+				name: 'category',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: values.map(v => `'${v}'`)
+			}
+		]);
+
+		return tableName;
+	}
+
+	test('ColumnProfileEvaluator.computeFreqTable - Small and Large frequency tables are consistent', async () => {
+		const tableName = await createFrequencyTestTable();
+		const callbackId = randomUUID();
+
+		// Request both small and large frequency tables
+		const [smallFreqTable, largeFreqTable] = await Promise.all([
+			requestFrequencyTable(tableName, 0, ColumnProfileType.SmallFrequencyTable, 8, callbackId + '_small'),
+			requestFrequencyTable(tableName, 0, ColumnProfileType.LargeFrequencyTable, 16, callbackId + '_large')
+		]);
+
+		// Verify basic structure
+		assert.ok(smallFreqTable.values, 'Small frequency table should have values');
+		assert.ok(smallFreqTable.counts, 'Small frequency table should have counts');
+		assert.ok(largeFreqTable.values, 'Large frequency table should have values');
+		assert.ok(largeFreqTable.counts, 'Large frequency table should have counts');
+
+		// The small table should have at most 8 entries
+		assert.ok(smallFreqTable.values.length <= 8, `Small frequency table should have <= 8 entries, got ${smallFreqTable.values.length}`);
+		assert.ok(largeFreqTable.values.length <= 16, `Large frequency table should have <= 16 entries, got ${largeFreqTable.values.length}`);
+
+		// Verify that values are sorted by frequency (descending), then by value (ascending)
+		for (let i = 0; i < smallFreqTable.counts.length - 1; i++) {
+			const currentCount = smallFreqTable.counts[i];
+			const nextCount = smallFreqTable.counts[i + 1];
+			const currentValue = smallFreqTable.values[i];
+			const nextValue = smallFreqTable.values[i + 1];
+
+			assert.ok(
+				currentCount > nextCount || (currentCount === nextCount && currentValue <= nextValue),
+				`Small frequency table should be sorted by count DESC, value ASC. Position ${i}: (${currentValue}, ${currentCount}) vs (${nextValue}, ${nextCount})`
+			);
+		}
+
+		for (let i = 0; i < largeFreqTable.counts.length - 1; i++) {
+			const currentCount = largeFreqTable.counts[i];
+			const nextCount = largeFreqTable.counts[i + 1];
+			const currentValue = largeFreqTable.values[i];
+			const nextValue = largeFreqTable.values[i + 1];
+
+			assert.ok(
+				currentCount > nextCount || (currentCount === nextCount && currentValue <= nextValue),
+				`Large frequency table should be sorted by count DESC, value ASC. Position ${i}: (${currentValue}, ${currentCount}) vs (${nextValue}, ${nextCount})`
+			);
+		}
+
+		// CRITICAL TEST: The small frequency table should be a prefix of the large frequency table
+		// This is the main fix - ensuring consistent ordering between small and large tables
+		for (let i = 0; i < Math.min(smallFreqTable.values.length, largeFreqTable.values.length); i++) {
+			assert.strictEqual(
+				smallFreqTable.values[i],
+				largeFreqTable.values[i],
+				`Small and large frequency tables should have consistent ordering. Position ${i}: small="${smallFreqTable.values[i]}", large="${largeFreqTable.values[i]}"`
+			);
+			assert.strictEqual(
+				smallFreqTable.counts[i],
+				largeFreqTable.counts[i],
+				`Small and large frequency tables should have consistent counts. Position ${i}: small=${smallFreqTable.counts[i]}, large=${largeFreqTable.counts[i]}`
+			);
+		}
+
+		// Verify that "9E" appears in both tables (it should be in the top values due to frequency)
+		const smallHas9E = smallFreqTable.values.includes('9E');
+		const largeHas9E = largeFreqTable.values.includes('9E');
+
+		assert.ok(largeHas9E, 'Large frequency table should include "9E"');
+		if (smallFreqTable.values.length >= 8) {
+			// If small table has 8 or more entries, it should also include 9E since it has 3 occurrences
+			assert.ok(smallHas9E, 'Small frequency table should include "9E" when it has enough entries');
+		}
+	});
+
+	test('ColumnProfileEvaluator.computeFreqTable - Tie-breaking works correctly', async () => {
+		const tableName = await createFrequencyTestTable();
+		const callbackId = randomUUID();
+
+		// Request a large frequency table to see all the ties
+		const freqTable = await requestFrequencyTable(tableName, 0, ColumnProfileType.LargeFrequencyTable, 20, callbackId);
+
+		// Find values with the same frequency count (ties)
+		const frequencyGroups = new Map<number, string[]>();
+		for (let i = 0; i < freqTable.counts.length; i++) {
+			const count = freqTable.counts[i];
+			const value = freqTable.values[i];
+			if (!frequencyGroups.has(count)) {
+				frequencyGroups.set(count, []);
+			}
+			frequencyGroups.get(count)!.push(value);
+		}
+
+		// For each group of values with the same frequency, verify they are sorted alphabetically
+		for (const [count, values] of frequencyGroups) {
+			if (values.length > 1) {
+				for (let i = 0; i < values.length - 1; i++) {
+					assert.ok(
+						values[i] <= values[i + 1],
+						`Values with same frequency (${count}) should be sorted alphabetically: "${values[i]}" should come before or equal to "${values[i + 1]}"`
+					);
+				}
+			}
+		}
+
+		// Specifically verify that "9E", "WN", and other 3-count values are in alphabetical order
+		const threeCountValues = frequencyGroups.get(3) || [];
+		if (threeCountValues.includes('9E') && threeCountValues.includes('WN')) {
+			const nineEIndex = freqTable.values.indexOf('9E');
+			const wnIndex = freqTable.values.indexOf('WN');
+			assert.ok(nineEIndex < wnIndex, '"9E" should appear before "WN" in the frequency table due to alphabetical tie-breaking');
+		}
+	});
+
+	test('ColumnProfileEvaluator.computeFreqTable - Edge case: Empty table', async () => {
+		const tableName = makeTempTableName();
+
+		// Create an empty table using the createTempTable helper
+		await createTempTable(tableName, [
+			{
+				name: 'category',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ['\'test\''] // Add one value first
+			}
+		]);
+
+		// Then delete all rows to make it empty
+		await runQuery(`DELETE FROM ${tableName}`);
+
+		// Open the dataset with the data explorer
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri: uri.toString() }
+		});
+
+		const callbackId = randomUUID();
+		const freqTable = await requestFrequencyTable(tableName, 0, ColumnProfileType.SmallFrequencyTable, 8, callbackId);
+
+		assert.strictEqual(freqTable.values.length, 0, 'Empty table should produce empty frequency table values');
+		assert.strictEqual(freqTable.counts.length, 0, 'Empty table should produce empty frequency table counts');
+		assert.strictEqual(freqTable.other_count, 0, 'Empty table should have 0 other_count');
 	});
 });
