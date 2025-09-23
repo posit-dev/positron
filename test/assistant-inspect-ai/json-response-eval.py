@@ -80,8 +80,18 @@ def json_model_graded_eval():
 	input_filename = os.getenv("INPUT_FILENAME", "response-dataset.json")
 	with open(input_filename, "r") as f:
 		data = json.load(f)
+
+	# Extract model and tests from the JSON data
+	model_name = data.get("model", "anthropic/claude-3-5-sonnet-20241022")
+	# Convert model name to inspect AI format if needed
+	if model_name == "Claude 4 Opus":
+		model_name = "anthropic/claude-3-opus-20240229"
+	elif model_name == "Claude 4 Sonnet":
+		model_name = "anthropic/claude-3-5-sonnet-20241022"
+	test_data = data.get("tests", [])
+
 	# Create samples from the loaded JSON data
-	samples = [record_to_sample(record) for record in data]
+	samples = [record_to_sample(record) for record in test_data]
 	# Create a dataset from the samples
 	dataset = samples
 
@@ -108,6 +118,6 @@ Explanation: [Brief explanation focusing ONLY on how well the specified criteria
 			""",
 			grade_pattern=r"GRADE:\s*([CPI])",
 			partial_credit=True,
-			model="anthropic/claude-3-5-sonnet-20241022"
+			model=model_name
 		),
 	)

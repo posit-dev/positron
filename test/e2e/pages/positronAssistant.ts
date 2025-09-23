@@ -36,6 +36,8 @@ const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat ac
 const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
+const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
+const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -266,6 +268,32 @@ export class Assistant {
 		}
 
 		throw new Error(`Mode "${mode}" not found in dropdown`);
+	}
+
+	async selectChatModel(model: string) {
+		// Click the model picker dropdown to open it
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+
+		// Wait for the dropdown menu to appear
+		await this.code.driver.page.locator(MODEL_DROPDOWN_ITEM).first().waitFor({ state: 'visible' });
+
+		// Find and click the item with the matching text
+		const items = this.code.driver.page.locator(MODEL_DROPDOWN_ITEM);
+		const count = await items.count();
+
+		for (let i = 0; i < count; i++) {
+			const item = items.nth(i);
+			const titleSpan = item.locator('span.title');
+			const text = await titleSpan.textContent();
+
+			if (text?.trim() === model) {
+				// Use force: true to bypass the pointer block
+				await item.click({ force: true });
+				return;
+			}
+		}
+
+		throw new Error(`Model "${model}" not found in dropdown`);
 	}
 
 	async getChatResponseText(exportFolder?: string) {
