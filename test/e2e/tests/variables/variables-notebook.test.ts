@@ -39,6 +39,40 @@ test.describe('Variables Pane - Notebook', {
 		}).toPass({ timeout: 60000 });
 	});
 
+	test('Python - Verify Variables available after reload', async function ({ app, runCommand, sessions }) {
+		await app.workbench.notebooks.createNewNotebook();
+		await app.code.wait(1000);
+
+		// Create a variable
+		await app.workbench.notebooks.selectInterpreter('Python');
+		await app.workbench.notebooks.addCodeToCellAtIndex('dict = [{"a":1,"b":2},{"a":3,"b":4}]');
+		await app.workbench.notebooks.executeCodeInCell();
+
+		const filename = 'Untitled-1.ipynb';
+
+		const interpreter = app.workbench.variables.interpreterLocator;
+		await expect(interpreter).toBeVisible();
+		await expect(interpreter).toHaveText(filename);
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+
+		// Ensure the variable is present
+		await expect(async () => {
+			const variablesMap = await app.workbench.variables.getFlatVariables();
+			expect(variablesMap.get('dict')).toStrictEqual({ value: `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, type: 'list [2]' });
+		}).toPass({ timeout: 30000 });
+
+		// Reload window
+		await runCommand('workbench.action.reloadWindow');
+		await sessions.expectAllSessionsToBeReady();
+
+		// Get the variable again and ensure it's still present
+		await expect(async () => {
+			const variablesMap = await app.workbench.variables.getFlatVariables();
+			expect(variablesMap.get('dict')).toStrictEqual({ value: `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, type: 'list [2]' });
+		}).toPass({ timeout: 30000 });
+
+	});
+
 	test('R - Verify Variables pane basic function for notebook', {
 		tag: [tags.ARK]
 	}, async function ({ app, r }) {
