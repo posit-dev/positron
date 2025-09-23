@@ -2495,7 +2495,7 @@ def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
         result = dxf.export_data_selection(table_name, selection, "csv")
 
         # Parse the CSV result to get the values
-        lines = result["data"].split("\n")
+        lines = result["data"].splitlines()
         header = lines[0]
         values = [line.strip() for line in lines[1:] if line.strip()]
 
@@ -2510,7 +2510,7 @@ def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
         result_range = dxf.export_data_selection(table_name, selection_range, "csv")
 
         # Parse the CSV result
-        lines_range = result_range["data"].split("\n")
+        lines_range = result_range["data"].splitlines()
         header_range = lines_range[0]
         values_range = [line.split(",")[0] for line in lines_range[1:] if line.strip()]
 
@@ -2534,7 +2534,7 @@ def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
     selection = _select_column_indices([1])
     result = dxf.export_data_selection("pandas_sorted", selection, "csv")
 
-    lines = result["data"].split("\n")
+    lines = result["data"].splitlines()
     values = [line.strip() for line in lines[1:] if line.strip()]
     expected_filtered_sorted = ["c", "d", "e"]
 
