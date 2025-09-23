@@ -9,7 +9,6 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -28,6 +27,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 
 /**
  * Positron data explorer action category.
@@ -59,6 +59,9 @@ export const enum PositronDataExplorerCommandId {
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
 	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
 	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
+	ShowColumnContextMenuAction = 'workbench.action.positronDataExplorer.showColumnContextMenu',
+	ShowRowContextMenuAction = 'workbench.action.positronDataExplorer.showRowContextMenu',
+	ShowCellContextMenuAction = 'workbench.action.positronDataExplorer.showCellContextMenu',
 }
 
 /**
@@ -148,10 +151,7 @@ class PositronDataExplorerCopyAction extends Action2 {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 			},
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				PositronDataExplorerFocused
-			)
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
 		});
 	}
 
@@ -946,6 +946,181 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerShowColumnContextMenuAction action.
+ */
+class PositronDataExplorerShowColumnContextMenuAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ShowColumnContextMenuAction,
+			title: {
+				value: localize('positronDataExplorer.showColumnContextMenu', 'Show Column Context Menu'),
+				original: 'Show Column Context Menu'
+			},
+			category,
+			f1: true,
+			keybinding: {
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.F10,
+			},
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		// Get the table data grid instance
+		const tableDataDataGridInstance = positronDataExplorerInstance.tableDataDataGridInstance;
+
+		// Get the current column the cursor is positioned at
+		const cursorColumnIndex = tableDataDataGridInstance.cursorColumnIndex;
+
+		// Find the column header element for the column the cursor is positioned at
+		// by querying the DOM
+		const columnHeaderElement = mainWindow.document.querySelector(
+			`.data-grid-column-header[data-column-index="${cursorColumnIndex}"]`
+		) as HTMLElement;
+
+		if (columnHeaderElement) {
+			const headerRect = columnHeaderElement.getBoundingClientRect();
+			await tableDataDataGridInstance.showColumnContextMenu(
+				cursorColumnIndex,
+				columnHeaderElement,
+				// position the context menu in the center of the cell
+				{
+					clientX: headerRect.left + headerRect.width / 2,
+					clientY: headerRect.top + headerRect.height / 2
+				}
+			);
+		}
+	}
+}
+
+/**
+ * PositronDataExplorerShowRowContextMenuAction action.
+ */
+class PositronDataExplorerShowRowContextMenuAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ShowRowContextMenuAction,
+			title: {
+				value: localize('positronDataExplorer.showRowContextMenu', 'Show Row Context Menu'),
+				original: 'Show Row Context Menu'
+			},
+			category,
+			f1: true,
+			keybinding: {
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.F10,
+			},
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		// Get the table data grid instance
+		const tableDataDataGridInstance = positronDataExplorerInstance.tableDataDataGridInstance;
+
+		// Get the current row the cursor is positioned at
+		const cursorRowIndex = tableDataDataGridInstance.cursorRowIndex;
+
+		// Find the row header element for the row the cursor is positioned at
+		// by querying the DOM
+		const rowHeaderElement = mainWindow.document.querySelector(
+			`.data-grid-row-header[data-row-index="${cursorRowIndex}"]`
+		) as HTMLElement;
+
+		if (rowHeaderElement) {
+			const headerRect = rowHeaderElement.getBoundingClientRect();
+			await tableDataDataGridInstance.showRowContextMenu(
+				cursorRowIndex,
+				rowHeaderElement,
+				// position the context menu in the center of the cell
+				{
+					clientX: headerRect.left + headerRect.width / 2,
+					clientY: headerRect.top + headerRect.height / 2
+				}
+			);
+		}
+	}
+}
+
+/**
+ * PositronDataExplorerShowCellContextMenuAction action.
+ */
+class PositronDataExplorerShowCellContextMenuAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ShowCellContextMenuAction,
+			title: {
+				value: localize('positronDataExplorer.showCellContextMenu', 'Show Cell Context Menu'),
+				original: 'Show Cell Context Menu'
+			},
+			category,
+			f1: true,
+			keybinding: {
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.F10,
+			},
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		// Get the table data grid instance
+		const tableDataDataGridInstance = positronDataExplorerInstance.tableDataDataGridInstance;
+
+		// Get the location of the cursor
+		const cursorColumnIndex = tableDataDataGridInstance.cursorColumnIndex;
+		const cursorRowIndex = tableDataDataGridInstance.cursorRowIndex;
+
+		// Find the cell element the cursor is on by querying the DOM
+		const cellElement = mainWindow.document.querySelector(
+			`#data-grid-row-cell-content-${cursorColumnIndex}-${cursorRowIndex}`
+		) as HTMLElement;
+
+		if (cellElement) {
+			const cellRect = cellElement.getBoundingClientRect();
+			await tableDataDataGridInstance.showCellContextMenu(
+				cursorColumnIndex,
+				cursorRowIndex,
+				cellElement,
+				// position the context menu in the center of the cell
+				{
+					clientX: cellRect.left + cellRect.width / 2,
+					clientY: cellRect.top + cellRect.height / 2
+				}
+			);
+		}
+	}
+}
+
+/**
  * Registers Positron data explorer actions.
  */
 export function registerPositronDataExplorerActions() {
@@ -959,4 +1134,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
 	registerAction2(PositronDataExplorerConvertToCodeAction);
 	registerAction2(PositronDataExplorerConvertToCodeModalAction);
+	registerAction2(PositronDataExplorerShowColumnContextMenuAction);
+	registerAction2(PositronDataExplorerShowRowContextMenuAction);
+	registerAction2(PositronDataExplorerShowCellContextMenuAction);
 }

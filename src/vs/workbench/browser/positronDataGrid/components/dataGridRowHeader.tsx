@@ -94,6 +94,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 				'data-grid-row-header',
 				{ pinned: props.pinned },
 			)}
+			data-row-index={props.rowIndex}
 			style={{
 				top: props.top,
 				height: props.height,
