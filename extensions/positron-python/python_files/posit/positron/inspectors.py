@@ -887,7 +887,7 @@ class MapInspector(_BaseMapInspector[Mapping]):
         return "".join(parts), truncated
 
 
-Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index", "ibis.Column")
+Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index", "ibis.expr.types.generic.Column")
 
 
 class BaseColumnInspector(_BaseMapInspector[Column], ABC):
@@ -898,10 +898,17 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         return self.value[key]
 
     def get_children(self) -> Collection[Any]:
-        return range(len(self.value))
+        if hasattr(self.value, "__len__"):
+            return range(len(self.value))
+        # Fallback for collections that don't implement len, like Ibis columns
+        return []
 
     def get_display_type(self) -> str:
-        return f"{self.value.dtype} [{self.get_length()}]"
+        dtype = getattr(self.value, "dtype", None)
+        if dtype is None:
+            # Fallback for objects without a dtype attribute
+            return f"{type(self.value).__name__} [{self.get_length()}]"
+        return f"{dtype} [{self.get_length()}]"
 
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         qualname = _get_simplified_qualname(self.value)
@@ -1368,14 +1375,15 @@ def _get_string_display_value(
 
 
 def _get_collection_display_value(
-    value: CollectionT | Column,
+    value: CollectionT | pd.Series | pl.Series | pd.Index,
     *,
     prefix: str,
     suffix: str,
     level: int = 0,
 ):
     # If the collection is empty, return the empty representation.
-    if len(value) == 0:
+    # Use getattr with a default to handle objects that might not implement len
+    if getattr(value, "__len__", lambda: 0)() == 0:
         return f"{prefix}{suffix}", False
 
     # If we're at the max nested level, just return ellipsis e.g. `[...]`.

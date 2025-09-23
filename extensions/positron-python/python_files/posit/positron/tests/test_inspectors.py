@@ -882,15 +882,15 @@ def test_inspect_ibis_exprs() -> None:
     ibis.options.interactive = True
 
     test_df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
-    rows, columns = test_df.shape
+    _, columns = test_df.shape
     t = ibis.memtable(test_df, name="df")
     table_type = "ibis.Table"
 
     verify_inspector(
         value=t,
-        display_value=f"[{rows} rows x {columns} columns] {table_type}",
+        display_value=f"[{columns} columns] {table_type}",
         kind=VariableKind.Table,
-        display_type=f"Table [{rows}x{columns}]",
+        display_type=f"Table [{columns} columns]",
         type_info=get_type_as_str(t),
         has_children=True,
         is_truncated=True,
