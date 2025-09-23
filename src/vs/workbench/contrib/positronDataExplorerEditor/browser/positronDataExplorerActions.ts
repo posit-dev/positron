@@ -960,7 +960,7 @@ class PositronDataExplorerShowColumnContextMenuAction extends Action2 {
 			f1: true,
 			keybinding: {
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.F10,
+				primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.F10,
 			},
 			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
 		});
