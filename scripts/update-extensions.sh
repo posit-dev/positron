@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 
 # Update Bootstrap Extensions Script
@@ -8,6 +9,13 @@
 #   ./update-extensions.sh --help
 
 set -euo pipefail
+
+# Check jq once at the top
+if ! command -v jq >/dev/null 2>&1; then
+	echo -e "\033[0;31mError: jq is required but not installed\033[0m" >&2
+	echo -e "\033[1;33mInstall jq: brew install jq (macOS) or apt install jq (Ubuntu)\033[0m" >&2
+	exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -25,117 +33,55 @@ PROCESS_ALL=false
 # Help function
 show_help() {
 	cat << EOF
-Update Bootstrap Extensions Script
+	Update Bootstrap Extensions Script
 
-USAGE:
-	$0 [extension-id...] [options]
-	$0 --all [options]
+	USAGE:
+		$0 [extension-id...] [options]
+		$0 --all [options]
 
-ARGUMENTS:
-	extension-id    One or more extension IDs in format "publisher.name" (e.g., ms-python.debugpy)
-					If no extension IDs are provided, all bootstrap extensions from product.json will be processed
+	ARGUMENTS:
+		extension-id    One or more extension IDs in format "publisher.name" (e.g., ms-python.debugpy)
+						If no extension IDs are provided, all bootstrap extensions from product.json will be processed
 
-OPTIONS:
-	--all                 Process all bootstrap extensions from product.json (same as providing no extension IDs)
-	--version <ver>       Use specific version instead of latest
-	--vsix-dir <path>     Directory to cache VSIX files (default: ./vsix-cache)
-	--help                Show this help message
+	OPTIONS:
+		--all                 Process all bootstrap extensions from product.json (same as providing no extension IDs)
+		--version <ver>       Use specific version instead of latest
+		--vsix-dir <path>     Directory to cache VSIX files (default: ./vsix-cache)
+		--help                Show this help message
 
-EXAMPLES:
-	$0 ms-python.debugpy
-	$0 ms-python.debugpy posit.publisher
-	$0 ms-python.debugpy --version 2025.10.0
-	$0 --all
-	$0
+	EXAMPLES:
+		$0 ms-python.debugpy
+		$0 ms-python.debugpy posit.publisher
+		$0 ms-python.debugpy --version 2025.10.0
+		$0 --all
+		$0
 
-DESCRIPTION:
-This script automates the process of updating extension versions in product.json:
-	1. Fetches the latest version info from Open VSX Registry
-	2. Downloads the VSIX file (only if needed)
-	3. Calculates the SHA256 hash
-	4. Updates the product.json file with new version and hash
-
-When run without extension IDs, it will process ALL bootstrap extensions found in product.json.
-
+	DESCRIPTION:
+	This script automates the process of updating extension versions in product.json:
+		1. Fetches the latest version info from Open VSX Registry
+		2. Downloads the VSIX file (only if needed)
+		3. Calculates the SHA256 hash
 EOF
 }
 
-# Parse arguments
-parse_args() {
-	while [[ $# -gt 0 ]]; do
-	case $1 in
-		--help|-h)
-			show_help
-			exit 0
-			;;
-		--all)
-			PROCESS_ALL=true
-			shift
-			;;
-		--version)
-			SPECIFIC_VERSION="$2"
-			shift 2
-			;;
-		--vsix-dir)
-			VSIX_DIR="$2"
-			shift 2
-			;;
-		-*)
-			echo -e "${RED}Error: Unknown option $1${NC}" >&2
-			exit 1
-			;;
-		*)
-			EXTENSION_IDS+=("$1")
-			shift
-			;;
-	esac
-	done
-
-	# If no extension IDs provided and --all not explicitly set, default to processing all
-	if [[ ${#EXTENSION_IDS[@]} -eq 0 && "$PROCESS_ALL" == false ]]; then
-		PROCESS_ALL=true
-	fi
-}
-
-# Find product.json file
+# Find product.json in the current directory or parent directories
 find_product_json() {
-	local product_json="./product.json"
-
-	if [[ -f "$product_json" ]]; then
-		echo "$product_json"
-	else
-		echo -e "${RED}Error: Could not find product.json file${NC}" >&2
-		exit 1
-	fi
+	local dir="$PWD"
+	while [[ "$dir" != "/" ]]; do
+		if [[ -f "$dir/product.json" ]]; then
+			echo "$dir/product.json"
+			return 0
+		fi
+		dir=$(dirname "$dir")
+	done
+	echo -e "${RED}Error: product.json not found in this directory or any parent directory${NC}" >&2
+	exit 1
 }
 
-# Extract all extension IDs from product.json
+# Extract all bootstrap extension IDs from product.json
 get_all_extension_ids() {
 	local product_json="$1"
-
-	if ! command -v jq >/dev/null 2>&1; then
-		echo -e "${RED}Error: jq is required but not installed${NC}" >&2
-		echo -e "${YELLOW}Install jq: brew install jq (macOS) or apt install jq (Ubuntu)${NC}" >&2
-		exit 1
-	fi
-
-	local ids=$(jq -r '
-		.bootstrapExtensions // [] |
-		map(
-			if has("publisher") and .publisher != null and .publisher != "" then
-				.publisher + "." + .name
-			elif .name | contains(".") then
-				.name
-			else empty end
-		) | unique | .[]
-	' "$product_json" 2>/dev/null)
-
-	if [[ -z "$ids" ]]; then
-		echo -e "${RED}Error: No bootstrap extension IDs found in product.json${NC}" >&2
-		exit 1
-	fi
-
-	echo "$ids"
+	jq -r '.bootstrapExtensions[] | .name' "$product_json" | sort -u
 }
 
 # Split extension ID into publisher and name
@@ -151,45 +97,42 @@ split_extension_id() {
 
 # Get latest version from Open VSX and detect platform-specific extensions
 get_extension_info() {
-	local publisher="$1"
-	local name="$2"
-	local url="https://open-vsx.org/api/${publisher}/${name}"
-	local response
+       local publisher="$1"
+       local name="$2"
+       local url="https://open-vsx.org/api/${publisher}/${name}"
+       local response
 
-	if ! response=$(curl -s -f "$url" 2>/dev/null); then
-		echo -e "${RED}Error: Failed to fetch extension metadata from Open VSX${NC}" >&2
-		exit 1
-	fi
+       if ! response=$(curl -s -f "$url" 2>/dev/null); then
+	       echo -e "${RED}Error: Failed to fetch extension metadata from Open VSX${NC}" >&2
+	       exit 1
+       fi
 
-	local version target_platform
-	if command -v jq >/dev/null 2>&1; then
-		version=$(echo "$response" | jq -r '.versions[0].version // .version // empty')
-		target_platform=$(echo "$response" | jq -r '.versions[0].targetPlatform // .targetPlatform // empty')
+       EXTENSION_VERSION=""
+       EXTENSION_TARGET_PLATFORM=""
+       if command -v jq >/dev/null 2>&1; then
+	       EXTENSION_VERSION=$(echo "$response" | jq -r '.versions[0].version // .version // empty')
+	       EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions[0].targetPlatform // .targetPlatform // empty')
 
-		# If no version found, try extracting from download URL
-		if [[ -z "$version" ]]; then
-			local download_url=$(echo "$response" | jq -r '.files.download // empty')
-			if [[ -n "$download_url" ]]; then
-				version=$(echo "$download_url" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+[^/]*' | head -1)
-				# Extract target platform from URL if present
-				if [[ "$download_url" =~ /([^/]+)/[^/]*\.vsix$ && ! "${BASH_REMATCH[1]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-					target_platform="${BASH_REMATCH[1]}"
-				fi
-			fi
-		fi
-	else
-		# Fallback parsing without jq
-		version=$(echo "$response" | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
-		target_platform=$(echo "$response" | grep -o '"targetPlatform":"[^"]*"' | head -1 | cut -d'"' -f4)
-	fi
+	       # If no version found, try extracting from download URL
+	       if [[ -z "$EXTENSION_VERSION" ]]; then
+		       local download_url=$(echo "$response" | jq -r '.files.download // empty')
+		       if [[ -n "$download_url" ]]; then
+			       EXTENSION_VERSION=$(echo "$download_url" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+[^/]*' | head -1)
+			       # Extract target platform from URL if present
+			       if [[ "$download_url" =~ /([^/]+)/[^/]*\.vsix$ && ! "${BASH_REMATCH[1]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+				       EXTENSION_TARGET_PLATFORM="${BASH_REMATCH[1]}"
+			       fi
+		       fi
+	       fi
+       else
+	       # Fallback parsing without jq
+	       EXTENSION_VERSION=$(echo "$response" | grep -o '"version":"[^\"]*"' | head -1 | cut -d'"' -f4)
+	       EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"targetPlatform":"[^\"]*"' | head -1 | cut -d'"' -f4)
+       fi
 
-	if [[ -z "$version" ]]; then
-		echo -e "${RED}Error: Could not determine latest version${NC}" >&2
-		exit 1
-	fi
-
-	EXTENSION_VERSION="$version"
-	EXTENSION_TARGET_PLATFORM="$target_platform"
+       if [[ -z "$EXTENSION_VERSION" ]]; then
+	       echo -e "${RED}Error: Could not determine latest version${NC}" >&2
+       fi
 }
 
 # Download VSIX file
@@ -247,7 +190,7 @@ update_product_json() {
 	local version="$4"
 	local sha256="$5"
 
-	echo "Checking product.json..."
+	# echo "Checking product.json..."
 
 	# Check current values in product.json
 	local extension_id="${publisher}.${name}"
@@ -293,21 +236,31 @@ update_product_json() {
 			local version_changed=$([[ "$current_version" != "$version" ]] && echo true || echo false)
 			local hash_changed=$([[ "$has_sha256" == true && "$current_sha256" != "$sha256" ]] && echo true || echo false)
 
+			short_sha() {
+				local sha="$1"
+				if [[ -n "$sha" && ${#sha} -ge 12 ]]; then
+					echo "${sha:0:7}"
+				else
+					echo "$sha"
+				fi
+			}
+
 			if [[ "$version_changed" == true && "$hash_changed" == true ]]; then
-				echo -e "${GREEN}✓ Updated version ($current_version → v$version) and SHA256${NC}"
+				echo "${GREEN}✓ Updated version: $current_version → $version"
+				echo "${GREEN}✓ Updated sha: $(short_sha "$current_sha256") → $(short_sha "$sha256")${NC}"
 			elif [[ "$version_changed" == true ]]; then
-				echo -e "${GREEN}✓ Updated version ($current_version → v$version)${NC}"
+				echo "${GREEN}✓ Updated version: $current_version → v$version${NC}"
 			elif [[ "$hash_changed" == true ]]; then
-				echo -e "${GREEN}✓ Updated SHA256${NC}"
+				echo "${GREEN}✓ Updated sha: $(short_sha "$current_sha256") → $(short_sha "$sha256")${NC}"
 			fi
 		else
 			# Remove backup since no changes were made
 			[[ -f "${product_json}.backup" ]] && rm "${product_json}.backup"
 
 			if [[ "$has_sha256" == true ]]; then
-				echo -e "${BLUE}Already current ($version, sha matches)${NC}"
+				echo "${BLUE}Already current: $version, sha matches${NC}"
 			else
-				echo -e "${BLUE}Already current ($version)${NC}"
+				echo "${BLUE}Already current: $version${NC}"
 			fi
 		fi
 	fi
@@ -345,10 +298,10 @@ should_download() {
 		echo "Version differs ($current_version → $target_version)"
 		return 0  # need to download
 	elif [[ "$has_sha256" != "true" ]]; then
-		echo "Version matches ($target_version) and no SHA to verify"
+		echo "Version matches and no SHA to verify"
 		return 1  # no need to download
 	else
-		echo "Version matches ($target_version) but need to verify SHA"
+		echo "Version matches but need to verify SHA"
 		return 0  # need to download to verify hash
 	fi
 }
@@ -401,6 +354,7 @@ process_extension() {
 	fi
 }
 
+# Update version/hash in product.json using jq
 update_with_jq() {
 	local product_json="$1"
 	local publisher="$2"
@@ -408,58 +362,48 @@ update_with_jq() {
 	local version="$4"
 	local sha256="$5"
 	local has_sha256="$6"
-
 	local temp_file=$(mktemp)
 	local extension_id="${publisher}.${name}"
 
-	# Update all matching entries - handle both formats:
-	# Format 1: separate publisher/name fields: { publisher: "ms-python", name: "debugpy" }
-	# Format 2: combined name field: { name: "ms-python.debugpy" }
+	# Use jq to update the version and optionally the sha256
 	if [[ "$has_sha256" == true ]]; then
-	# Update both version and sha256/sha256sum (preserve existing field name)
-	jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" --arg hash "$sha256" '
-		def update_extension:
-			if type == "object" then
-				if (.publisher == $pub and .name == $nm) or .name == $id then
-					.version = $ver |
-					if has("sha256") then .sha256 = $hash
-					elif has("sha256sum") then .sha256sum = $hash
-					else . end
-				else
-					with_entries(.value |= update_extension)
-				end
-			elif type == "array" then
-				map(update_extension)
-			else
-				.
-			end;
-		update_extension
-	' "$product_json" > "$temp_file"
+		# Update only version, don't add sha256
+		jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" --arg hash "$sha256" '
+			def update_extension:
+				if type == "object" then
+					if (.publisher == $pub and .name == $nm) or .name == $id then
+						.version = $ver |
+						if has("sha256") then .sha256 = $hash
+						elif has("sha256sum") then .sha256sum = $hash
+						else . end
+					else
+						with_entries(.value |= update_extension)
+					end
+				elif type == "array" then
+					map(update_extension)
+				else . end;
+			update_extension
+		' "$product_json" > "$temp_file"
 	else
-	# Update only version, don't add sha256
-	jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" '
-		def update_extension:
-			if type == "object" then
-				if (.publisher == $pub and .name == $nm) or .name == $id then
-					.version = $ver
-				else
-					with_entries(.value |= update_extension)
-				end
-			elif type == "array" then
-				map(update_extension)
-			else
-				.
-			end;
-		update_extension
-	' "$product_json" > "$temp_file"
+		jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" '
+			def update_extension:
+				if type == "object" then
+					if (.publisher == $pub and .name == $nm) or .name == $id then
+						.version = $ver
+					else
+						with_entries(.value |= update_extension)
+					end
+				elif type == "array" then
+					map(update_extension)
+				else . end;
+			update_extension
+		' "$product_json" > "$temp_file"
 	fi
-
 	mv "$temp_file" "$product_json"
 }
 
 # Main function
 main() {
-	parse_args "$@"
 
 	# Find product.json once for all extensions
 	PRODUCT_JSON=$(find_product_json)
@@ -470,14 +414,82 @@ main() {
 		echo "Processing all bootstrap extensions from product.json..."
 		while IFS= read -r extension_id; do
 			[[ -n "$extension_id" ]] && extensions_to_process+=("$extension_id")
-		done < <(get_all_extension_ids "$PRODUCT_JSON")
+		done <<< "$(get_all_extension_ids "$PRODUCT_JSON")"
 		echo "Found ${#extensions_to_process[@]} bootstrap extensions to process"
+
+       else
+	       if [[ ${#EXTENSION_IDS[@]} -gt 0 ]]; then
+		       extensions_to_process=("${EXTENSION_IDS[@]}")
+	       else
+		       extensions_to_process=()
+	       fi
+       fi
+
+       # Process each extension
+       if [[ ${#extensions_to_process[@]} -gt 0 ]]; then
+	       for extension_id in "${extensions_to_process[@]}"; do
+		       echo
+		       echo "=== $extension_id ==="
+		       process_extension "$extension_id"
+	       done
+       else
+	       echo -e "${YELLOW}No extensions specified and --all not set. Nothing to do.${NC}"
+       fi
+}
+
+# Parse arguments and populate EXTENSION_IDS
+parse_args() {
+	local args=()
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			--all)
+				PROCESS_ALL=true
+				;;
+			--version)
+				shift
+				SPECIFIC_VERSION="$1"
+				;;
+			--vsix-dir)
+				shift
+				VSIX_DIR="$1"
+				;;
+			--help)
+				show_help
+				exit 0
+				;;
+			--*)
+				# ignore unknown options for now
+				;;
+			*)
+				args+=("$1")
+				;;
+		esac
+		shift
+	done
+
+	# Find product.json once for all extensions
+	PRODUCT_JSON=$(find_product_json)
+
+	if [[ "$PROCESS_ALL" == true || ${#args[@]} -eq 0 ]]; then
+		EXTENSION_IDS=()
+		for id in $(get_all_extension_ids "$PRODUCT_JSON"); do
+			EXTENSION_IDS+=("$id")
+		done
 	else
-		extensions_to_process=("${EXTENSION_IDS[@]}")
+		EXTENSION_IDS=("${args[@]}")
+	fi
+}
+
+# Main function
+main() {
+	parse_args "$@"
+
+	if [[ ${#EXTENSION_IDS[@]} -eq 0 ]]; then
+		echo -e "${YELLOW}No extensions found to process.${NC}"
+		return
 	fi
 
-	# Process each extension
-	for extension_id in "${extensions_to_process[@]}"; do
+	for extension_id in "${EXTENSION_IDS[@]}"; do
 		echo
 		echo "=== $extension_id ==="
 		process_extension "$extension_id"
@@ -486,3 +498,4 @@ main() {
 
 # Run main function with all arguments
 main "$@"
+
