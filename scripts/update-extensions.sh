@@ -403,41 +403,6 @@ update_with_jq() {
 	mv "$temp_file" "$product_json"
 }
 
-# Main function
-main() {
-
-	# Find product.json once for all extensions
-	PRODUCT_JSON=$(find_product_json)
-
-	# Determine which extensions to process
-	local extensions_to_process=()
-	if [[ "$PROCESS_ALL" == true ]]; then
-		echo "Processing all bootstrap extensions from product.json..."
-		while IFS= read -r extension_id; do
-			[[ -n "$extension_id" ]] && extensions_to_process+=("$extension_id")
-		done <<< "$(get_all_extension_ids "$PRODUCT_JSON")"
-		echo "Found ${#extensions_to_process[@]} bootstrap extensions to process"
-
-		else
-			if [[ ${#EXTENSION_IDS[@]} -gt 0 ]]; then
-				extensions_to_process=("${EXTENSION_IDS[@]}")
-			else
-				extensions_to_process=()
-			fi
-		fi
-
-		# Process each extension
-		if [[ ${#extensions_to_process[@]} -gt 0 ]]; then
-			for extension_id in "${extensions_to_process[@]}"; do
-				echo
-				echo "=== $extension_id ==="
-				process_extension "$extension_id"
-			done
-		else
-			echo -e "${YELLOW}No extensions specified and --all not set. Nothing to do.${NC}"
-		fi
-}
-
 # Parse arguments and populate EXTENSION_IDS
 parse_args() {
 	local args=()
