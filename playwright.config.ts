@@ -124,7 +124,7 @@ export default defineConfig<ExtendedTestOptions>({
 				useExternalServer: true,
 				externalServerUrl: 'http://localhost:8787'
 			},
-			grep: /@:web|@:workbench/
+			grep: /@:workbench/
 		},
 		{
 			name: 'e2e-browser-server',
