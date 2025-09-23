@@ -114,7 +114,7 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 
 		// verify pinned columns stay at front of summary panel list
 		await dataExplorer.grid.pinColumn(4);
-		await dataExplorer.grid.pinColumn(2); // pin "column1"
+		await dataExplorer.grid.pinColumn(2); // pin index 2: "column1"
 		await dataExplorer.grid.pinColumn(6);
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col1Col6_ascending);
 
@@ -123,7 +123,7 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col1Col6_descending);
 
 		// verify unpinning columns returns them to correct location in summary panel list
-		await dataExplorer.grid.unpinColumn(1); // unpin "column1"
+		await dataExplorer.grid.unpinColumn(1); // unpin index 1: "column1"
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col6_descending);
 
 		// verify search with pinned columns
