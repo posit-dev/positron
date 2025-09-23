@@ -47,7 +47,6 @@ export function useCellContextKeys(
 		// Create a scoped context key service for this cell
 		const scopedContextKeyService = environment.scopedContextKeyProviderCallback(cellElement);
 		disposables.add(scopedContextKeyService);
-		setContextKeyService(scopedContextKeyService);
 
 		// Bind the cell-specific context keys
 		const keys = bindCellContextKeys(scopedContextKeyService);
@@ -77,6 +76,9 @@ export function useCellContextKeys(
 			keys.isSelected.set(selectionStatus === CellSelectionStatus.Selected);
 			keys.isEditing.set(selectionStatus === CellSelectionStatus.Editing);
 		}));
+
+		// Set the state to let other components know that the context keys are ready
+		setContextKeyService(scopedContextKeyService);
 
 		return () => {
 			resetCellContextKeys(keys);
