@@ -33,10 +33,11 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
-import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 
 
 /**
@@ -370,6 +371,7 @@ registerCellCommand({
 	commandId: 'positronNotebook.cell.delete',
 	handler: (cell) => cell.delete(),
 	multiSelect: true,  // Delete all selected cells
+	editMode: false,
 	actionBar: {
 		icon: 'codicon-trash',
 		position: 'mainRight',
@@ -393,16 +395,16 @@ registerCellCommand({
 	handler: (cell) => {
 		cell.run();
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,
-		CellConditions.not(CellConditions.isRunning),
-		CellConditions.not(CellConditions.isPending),
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		CELL_CONTEXT_KEYS.isRunning.toNegated(),
+		CELL_CONTEXT_KEYS.isPending.toNegated()
 	),
 	actionBar: {
 		icon: 'codicon-play',
 		position: 'left',
 		order: CELL_EXECUTION_POSITION,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.execute', "Execute cell")
@@ -412,18 +414,18 @@ registerCellCommand({
 registerCellCommand({
 	commandId: 'positronNotebook.cell.stopExecution',
 	handler: (cell) => cell.run(), // Run called when cell is executing is stop
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,
-		CellConditions.or(
-			CellConditions.isRunning,
-			CellConditions.isPending,
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		ContextKeyExpr.or(
+			CELL_CONTEXT_KEYS.isRunning.isEqualTo(true),
+			CELL_CONTEXT_KEYS.isPending.isEqualTo(true)
 		)
 	),
 	actionBar: {
 		icon: 'codicon-primitive-square',
 		position: 'left',
 		order: CELL_EXECUTION_POSITION,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.stopExecution', "Stop cell execution")
@@ -445,15 +447,15 @@ registerCellCommand({
 			}
 		}
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,     // Only on code cells
-		CellConditions.notFirst    // Not on the first cell
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		CELL_CONTEXT_KEYS.isFirst.toNegated()
 	),
 	actionBar: {
 		icon: 'codicon-run-above',
 		position: 'main',
 		order: 20,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllAbove', "Run all code cells above this cell")
@@ -476,15 +478,15 @@ registerCellCommand({
 			}
 		}
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,     // Only on code cells
-		CellConditions.notLast     // Not on the last cell
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		CELL_CONTEXT_KEYS.isLast.toNegated()
 	),
 	actionBar: {
 		icon: 'codicon-run-below',
 		position: 'main',
 		order: 21,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllBelow', "Run all code cells below this cell")
@@ -500,15 +502,15 @@ registerCellCommand({
 			cell.toggleEditor();
 		}
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isMarkdown,
-		CellConditions.not(CellConditions.markdownEditorOpen)
-	),  // Only on markdown cells with the editor closed
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
+		CELL_CONTEXT_KEYS.markdownEditorOpen.toNegated()
+	),
 	actionBar: {
 		icon: 'codicon-chevron-down',
 		position: 'main',
 		order: 10,
-		category: 'Markdown'
+		category: 'Markdown',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.openMarkdownEditor', "Open markdown editor")
@@ -525,15 +527,15 @@ registerCellCommand({
 			cell.toggleEditor();
 		}
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isMarkdown,
-		CellConditions.markdownEditorOpen
-	),  // Only on markdown cells with the editor open
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
+		CELL_CONTEXT_KEYS.markdownEditorOpen.isEqualTo(true)
+	),
 	actionBar: {
 		icon: 'codicon-chevron-up',
 		position: 'main',
 		order: 10,
-		category: 'Markdown'
+		category: 'Markdown',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor")

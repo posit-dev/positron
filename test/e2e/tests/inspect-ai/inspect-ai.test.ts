@@ -94,7 +94,7 @@ test.use({
  * the dataset for use in the inspect-ai tests. It also does some basic validation that there are valid responses
  * from the assistant.
  */
-test.describe.skip('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI, tags.WIN, tags.WEB] }, () => {
+test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.INSPECT_AI] }, () => {
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
 		// Change veiwport size for web tests
 		await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });

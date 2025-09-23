@@ -24,7 +24,7 @@ interface NotebookCellActionBarProps {
 }
 
 export function NotebookCellActionBar({ cell, children }: NotebookCellActionBarProps) {
-	const actionsForCell = useActionsForCell(cell);
+	const actionsForCell = useActionsForCell();
 	const instance = useNotebookInstance();
 	const mainActions = actionsForCell.main;
 	const mainRightActions = actionsForCell['mainRight'];

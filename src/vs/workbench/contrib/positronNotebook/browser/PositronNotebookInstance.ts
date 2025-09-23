@@ -8,7 +8,7 @@ import { Disposable, DisposableStore, toDisposable } from '../../../../base/comm
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
@@ -702,10 +702,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Attaches the notebook view to a DOM container.
 	 * @param container The DOM element to render the notebook into
 	 */
-	async attachView(container: HTMLElement) {
+	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
 		this.detachView();
 		this._container = container;
-		this.contextManager.setContainer(container);
+		this.contextManager.setContainer(container, scopedContextKeyService);
 
 		this._setupKeyboardNavigation(container);
 		this._logService.info(this.id, 'attachView');
@@ -1140,4 +1140,3 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// #endregion
 }
-

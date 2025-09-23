@@ -152,6 +152,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				'data-grid-column-header',
 				{ pinned: props.pinned },
 			)}
+			data-column-index={props.columnIndex}
 			style={{
 				left: props.left,
 				width: props.width,

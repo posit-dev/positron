@@ -55,6 +55,9 @@ case "$PROJECT" in
   "e2e-electron")
     OUTPUT="" # No prefix for linux
     ;;
+	"inspect-ai")
+		OUTPUT="(?=.*@:inspect-ai)"  # Base tag for inspect-ai
+		;;
   *)
     echo "Unknown PROJECT: $PROJECT"
     exit 1

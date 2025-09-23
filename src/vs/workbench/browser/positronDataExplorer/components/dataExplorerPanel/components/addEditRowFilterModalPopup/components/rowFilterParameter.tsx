@@ -19,6 +19,7 @@ interface RowFilterParameterProps {
 	placeholder?: string;
 	value?: string;
 	onTextChanged: (text: string) => void;
+	onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
 /**
@@ -61,6 +62,7 @@ export const RowFilterParameter = forwardRef<HTMLInputElement, RowFilterParamete
 						props.onTextChanged(e.target.value);
 					}}
 					onFocus={() => setFocused(true)}
+					onKeyDown={props.onKeyDown}
 				/>
 			</div>
 		</div>

@@ -44,6 +44,10 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 async function launchElectron(configuration: IElectronConfiguration, options: LaunchOptions) {
 	const { logger, tracing, snapshots } = options;
 
+	if (!fs.existsSync(configuration.electronPath || '')) {
+		throw new Error(`Cannot find Positron at ${configuration.electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
+	}
+
 	const electron = await measureAndLog(() => playwright._electron.launch({
 		executablePath: configuration.electronPath,
 		args: configuration.args,
