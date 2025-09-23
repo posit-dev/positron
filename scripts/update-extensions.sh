@@ -97,42 +97,43 @@ split_extension_id() {
 
 # Get latest version from Open VSX and detect platform-specific extensions
 get_extension_info() {
-       local publisher="$1"
-       local name="$2"
-       local url="https://open-vsx.org/api/${publisher}/${name}"
-       local response
+	local publisher="$1"
+	local name="$2"
+	local url="https://open-vsx.org/api/${publisher}/${name}"
+	local response
 
-       if ! response=$(curl -s -f "$url" 2>/dev/null); then
-	       echo -e "${RED}Error: Failed to fetch extension metadata from Open VSX${NC}" >&2
-	       exit 1
-       fi
+	if ! response=$(curl -s -f "$url" 2>/dev/null); then
+		echo -e "${RED}Error: Failed to fetch extension metadata from Open VSX${NC}" >&2
+		exit 1
+	fi
 
-       EXTENSION_VERSION=""
-       EXTENSION_TARGET_PLATFORM=""
-       if command -v jq >/dev/null 2>&1; then
-	       EXTENSION_VERSION=$(echo "$response" | jq -r '.versions[0].version // .version // empty')
-	       EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions[0].targetPlatform // .targetPlatform // empty')
+	EXTENSION_VERSION=""
+	EXTENSION_TARGET_PLATFORM=""
 
-	       # If no version found, try extracting from download URL
-	       if [[ -z "$EXTENSION_VERSION" ]]; then
-		       local download_url=$(echo "$response" | jq -r '.files.download // empty')
-		       if [[ -n "$download_url" ]]; then
-			       EXTENSION_VERSION=$(echo "$download_url" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+[^/]*' | head -1)
-			       # Extract target platform from URL if present
-			       if [[ "$download_url" =~ /([^/]+)/[^/]*\.vsix$ && ! "${BASH_REMATCH[1]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-				       EXTENSION_TARGET_PLATFORM="${BASH_REMATCH[1]}"
-			       fi
-		       fi
-	       fi
-       else
-	       # Fallback parsing without jq
-	       EXTENSION_VERSION=$(echo "$response" | grep -o '"version":"[^\"]*"' | head -1 | cut -d'"' -f4)
-	       EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"targetPlatform":"[^\"]*"' | head -1 | cut -d'"' -f4)
-       fi
+	if command -v jq >/dev/null 2>&1; then
+		EXTENSION_VERSION=$(echo "$response" | jq -r '.versions[0].version // .version // empty')
+		EXTENSION_TARGET_PLATFORM=$(echo "$response" | jq -r '.versions[0].targetPlatform // .targetPlatform // empty')
 
-       if [[ -z "$EXTENSION_VERSION" ]]; then
-	       echo -e "${RED}Error: Could not determine latest version${NC}" >&2
-       fi
+		# If no version found, try extracting from download URL
+		if [[ -z "$EXTENSION_VERSION" ]]; then
+			local download_url=$(echo "$response" | jq -r '.files.download // empty')
+			if [[ -n "$download_url" ]]; then
+				EXTENSION_VERSION=$(echo "$download_url" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+[^/]*' | head -1)
+				# Extract target platform from URL if present
+				if [[ "$download_url" =~ /([^/]+)/[^/]*\.vsix$ && ! "${BASH_REMATCH[1]}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+					EXTENSION_TARGET_PLATFORM="${BASH_REMATCH[1]}"
+				fi
+			fi
+		fi
+	else
+		# Fallback parsing without jq
+		EXTENSION_VERSION=$(echo "$response" | grep -o '"version":"[^\"]*"' | head -1 | cut -d'"' -f4)
+		EXTENSION_TARGET_PLATFORM=$(echo "$response" | grep -o '"targetPlatform":"[^\"]*"' | head -1 | cut -d'"' -f4)
+	fi
+
+	if [[ -z "$EXTENSION_VERSION" ]]; then
+		echo -e "${RED}Error: Could not determine latest version${NC}" >&2
+	fi
 }
 
 # Download VSIX file
@@ -417,24 +418,24 @@ main() {
 		done <<< "$(get_all_extension_ids "$PRODUCT_JSON")"
 		echo "Found ${#extensions_to_process[@]} bootstrap extensions to process"
 
-       else
-	       if [[ ${#EXTENSION_IDS[@]} -gt 0 ]]; then
-		       extensions_to_process=("${EXTENSION_IDS[@]}")
-	       else
-		       extensions_to_process=()
-	       fi
-       fi
+		else
+			if [[ ${#EXTENSION_IDS[@]} -gt 0 ]]; then
+				extensions_to_process=("${EXTENSION_IDS[@]}")
+			else
+				extensions_to_process=()
+			fi
+		fi
 
-       # Process each extension
-       if [[ ${#extensions_to_process[@]} -gt 0 ]]; then
-	       for extension_id in "${extensions_to_process[@]}"; do
-		       echo
-		       echo "=== $extension_id ==="
-		       process_extension "$extension_id"
-	       done
-       else
-	       echo -e "${YELLOW}No extensions specified and --all not set. Nothing to do.${NC}"
-       fi
+		# Process each extension
+		if [[ ${#extensions_to_process[@]} -gt 0 ]]; then
+			for extension_id in "${extensions_to_process[@]}"; do
+				echo
+				echo "=== $extension_id ==="
+				process_extension "$extension_id"
+			done
+		else
+			echo -e "${YELLOW}No extensions specified and --all not set. Nothing to do.${NC}"
+		fi
 }
 
 # Parse arguments and populate EXTENSION_IDS
