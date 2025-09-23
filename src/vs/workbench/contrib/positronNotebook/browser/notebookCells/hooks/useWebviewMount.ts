@@ -13,6 +13,7 @@ import { DisposableStore, toDisposable } from '../../../../../../base/common/lif
 import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
 import { Event } from '../../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { autorun } from '../../../../../../base/common/observable.js';
 
 // Constants
 const MAX_OUTPUT_HEIGHT = 1000;
@@ -161,7 +162,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 
 			try {
 				// If not visible, don't mount the webview
-				if (!visibilityObservable) {
+				if (!visibilityObservable.get()) {
 					return emptyDisposable;
 				}
 
@@ -239,17 +240,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 		}
 
 		// Listen for changes in visibility, claiming or releasing the webview
-		if (visibilityObservable) {
-			disposables.add(
-				Event.fromObservable(visibilityObservable)((isVisible) => {
-					if (isVisible) {
-						claimWebview();
-					} else {
-						releaseWebview();
-					}
-				})
-			);
-		}
+		disposables.add(
+			autorun(reader => {
+				const isVisible = visibilityObservable.read(reader);
+				if (isVisible) {
+					claimWebview();
+				} else {
+					releaseWebview();
+				}
+			})
+		);
 
 		// Actually start the mounting process
 		mountWebview();

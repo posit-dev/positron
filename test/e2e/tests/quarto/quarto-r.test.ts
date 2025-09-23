@@ -22,6 +22,12 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 	});
 
 	test.afterEach(async function ({ app }) {
+		// Clean up any terminals that may have been created during Quarto operations
+		try {
+			await app.workbench.quickaccess.runCommand('workbench.action.terminal.killAll');
+		} catch (error) {
+			// Ignore errors if no terminals exist
+		}
 		await deleteGeneratedFiles(app);
 	});
 

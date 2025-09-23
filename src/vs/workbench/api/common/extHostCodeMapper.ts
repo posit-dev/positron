@@ -69,7 +69,10 @@ export class ExtHostCodeMapper implements extHostProtocol.ExtHostCodeMapperShape
 
 	registerMappedEditsProvider(extension: IExtensionDescription, provider: vscode.MappedEditsProvider2): vscode.Disposable {
 		const handle = ExtHostCodeMapper._providerHandlePool++;
-		this._proxy.$registerCodeMapperProvider(handle, extension.displayName ?? extension.name);
+		// --- Start Positron ---
+		// this._proxy.$registerCodeMapperProvider(handle, extension.displayName ?? extension.name);
+		this._proxy.$registerCodeMapperProvider(handle, extension.identifier, extension.displayName ?? extension.name);
+		// --- End Positron ---
 		this.providers.set(handle, provider);
 		return {
 			dispose: () => {

@@ -2,6 +2,11 @@ name: "Test: E2E (Windows)"
 on:
   workflow_call:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@:win)(?=.*@:feature)"
@@ -37,15 +42,19 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: false
-
-      skip_tags:
+      skip_extension_test:
         required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: ""
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-windows"
+        type: string
       grep:
         required: false
         description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
@@ -56,11 +65,11 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
-      skip_tags:
+      skip_extension_test:
         required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: "@:nightly-only"
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
 
 permissions:
   id-token: write
@@ -85,14 +94,14 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # - name: Load secret
-      #   uses: 1password/load-secrets-action@v3
-      #   with:
-      #     # Export loaded secrets as environment variables
-      #     export-env: true
-      #   env:
-      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      #     ANTHROPIC: "op://Positron/Anthropic/credential"
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Set screen resolution
         shell: pwsh
@@ -221,6 +230,7 @@ jobs:
           echo "exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Run Bootstrap Extensions Test
+        if: ${{ inputs.skip_extension_test != true }}
         id: bootstrap
         shell: bash
         env:
@@ -246,25 +256,8 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
         run: |
-          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
-
-          # Convert comma-separated skip_tags input into a pipe-separated string
-          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
-
-          # Build a single lookahead regex pattern
-          if [ -n "$SKIP_TAGS_PATTERN" ]; then
-            SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
-          else
-            SKIP_TAGS_REGEX="(?=.*(@:web-only))"
-          fi
-
-          # Build the --grep-invert argument if needed
-          GREP_INVERT_ARG=""
-          if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
-          fi
-
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
             GREP_ARG=""
@@ -274,13 +267,18 @@ jobs:
 
           # Log the arguments
           echo "Final --grep argument: $GREP_ARG"
-          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           export SKIP_BOOTSTRAP=true
-          export SKIP_CLONE=true
+          # Skip close on qa-example-content if we already did the bootstrap test
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+            export SKIP_CLONE=true
+          else
+            export SKIP_CLONE=false
+          fi
+
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -315,3 +313,10 @@ jobs:
         run: |
           echo "Extension tests failed."
           exit 1
+
+      - name: Upload inspect-ai JSON Responses
+        if: ${{ always() && inputs.project == 'inspect-ai' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: test/assistant-inspect-ai/*.json
