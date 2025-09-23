@@ -9,7 +9,6 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -152,10 +151,7 @@ class PositronDataExplorerCopyAction extends Action2 {
 				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 			},
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				PositronDataExplorerFocused
-			)
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
 		});
 	}
 
