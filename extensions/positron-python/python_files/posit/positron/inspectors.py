@@ -1015,17 +1015,6 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
         return self.value.to_frame().write_csv(file=None, separator="\t")
 
 
-class IbisColumnInspector(BaseColumnInspector["ibis.Column"]):
-    def is_mutable(self) -> bool:
-        return False
-
-    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:  # noqa: ARG002
-        return f"{type(self.value)}", False
-
-    def has_children(self):
-        return False
-
-
 Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame", "ibis.expr.types.relations.Table")
 
 
@@ -1125,15 +1114,13 @@ class IbisDataFrameInspector(BaseTableInspector["ibis.Table", "ibis.Column"]):
     CLASS_QNAME = ("ibis.expr.types.relations.Table", "ibis.Table")
 
     def get_size(self) -> int:
-        rows = self.value.count().execute()
-        columns = len(self.value.columns)
-        return rows * columns
+        # size of the object in memory, not the data it represents
+        return sys.getsizeof(self.value)
 
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
-        rows = self.value.count().execute()
         columns = len(self.value.columns)
-        display_value = f"[{rows} rows x {columns} columns] {display_value}"
+        display_value = f"[{columns} columns] {display_value}"
 
         return (_maybe_truncate_string(display_value, level=level)[0], True)
 
@@ -1148,9 +1135,8 @@ class IbisDataFrameInspector(BaseTableInspector["ibis.Table", "ibis.Column"]):
 
     def get_display_type(self) -> str:
         type_name = type(self.value).__name__
-        rows = self.value.count().execute()
         columns = len(self.value.columns)
-        return f"{type_name} [{rows}x{columns}]"
+        return f"{type_name} [{columns} columns]"
 
     def get_kind(self) -> str:
         return "table"

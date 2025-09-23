@@ -19,7 +19,7 @@ from fastcore.foundation import L
 from shapely.geometry import Polygon
 
 from positron import inspectors
-from positron.inspectors import Column, _get_simplified_qualname, get_inspector
+from positron.inspectors import _get_simplified_qualname, get_inspector
 from positron.utils import get_qualname
 from positron.variables_comm import VariableKind
 

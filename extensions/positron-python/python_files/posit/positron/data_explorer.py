@@ -113,7 +113,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
 
-
+IBIS_LIMIT_ROWS = 1000
 logger = logging.getLogger(__name__)
 
 
@@ -2824,7 +2824,7 @@ class IbisView(PandasView):
     ):
         self._ibis_table = table
         # Convert to pandas dataframe (limit to 1000 rows for performance)
-        pandas_df = table.head(1000).execute()
+        pandas_df = table.limit(IBIS_LIMIT_ROWS).execute()
 
         super().__init__(pandas_df, comm, state, job_queue, sql_string)
 
