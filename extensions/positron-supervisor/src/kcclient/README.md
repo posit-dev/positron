@@ -2,7 +2,7 @@
 
 This folder contains the Kallichore client library. It is entirely code
 generated from the Kallichore API definition using the OpenAPI generator's
-`typescript-fetch` mode.
+`typescript-axios` mode.
 
 Because it is code-generated, it is excluded from hygiene checks during the
 build process. However, the editor may still show linting errors in the
