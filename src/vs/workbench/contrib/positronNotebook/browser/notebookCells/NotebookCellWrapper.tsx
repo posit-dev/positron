@@ -16,8 +16,11 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
+import { useCellContextKeys } from './useCellContextKeys.js';
+import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 
 export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	cell: IPositronNotebookCell;
@@ -25,7 +28,9 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	children: React.ReactNode;
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
-	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
+	const notebookInstance = useNotebookInstance();
+	const selectionStateMachine = notebookInstance.selectionStateMachine;
+	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
 
@@ -36,6 +41,8 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 		}
 	}, [cell, cellRef]);
 
+	// Manage context keys for this cell
+	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
@@ -78,9 +85,11 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
 	>
-		<NotebookCellActionBar cell={cell}>
-			{actionBarChildren}
-		</NotebookCellActionBar>
-		{children}
+		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
+			<NotebookCellActionBar cell={cell}>
+				{actionBarChildren}
+			</NotebookCellActionBar>
+			{children}
+		</CellScopedContextKeyServiceProvider>
 	</div>;
 }

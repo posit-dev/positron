@@ -14,7 +14,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -72,6 +72,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	);
 
 	protected override _input: PositronNotebookEditorInput | undefined;
+
+	private _containerScopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
 	 * The editor control, used by other features to access the code editor widget of the selected cell.
@@ -270,9 +272,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			)
 		);
 
-		this._renderReact();
+		const scopedContextKeyService = this._renderReact();
 
-		notebookInstance.attachView(this._parentDiv);
+		notebookInstance.attachView(this._parentDiv, scopedContextKeyService);
 	}
 
 	override clearInput(): void {
@@ -331,9 +333,13 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			this._positronReactRenderer.dispose();
 			this._positronReactRenderer = undefined;
 		}
+
+		// Dispose of the scoped context key service
+		this._containerScopedContextKeyService?.dispose();
+		this._containerScopedContextKeyService = undefined;
 	}
 
-	private _renderReact() {
+	private _renderReact(): IScopedContextKeyService {
 		this._logService.info(this._identifier, 'renderReact');
 
 		if (!this.notebookInstance) {
@@ -344,8 +350,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			throw new Error('Base element is not set.');
 		}
 
-		// Create a new context service that has the output overlay container as the root element.
-		const scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
+		// Create a scoped context key service rooted at the notebook container so cell scopes inherit it.
+		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
 		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? new PositronReactRenderer(this._parentDiv);
 
@@ -361,6 +367,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 				</NotebookInstanceProvider>
 			</NotebookVisibilityProvider>
 		);
+
+		return scopedContextKeyService;
 	}
 
 
