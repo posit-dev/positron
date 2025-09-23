@@ -99,23 +99,14 @@ parse_args() {
 
 # Find product.json file
 find_product_json() {
-	# Auto-detect product.json
-	local candidates=(
-		"./product.json"
-		"../product.json"
-		"../../product.json"
-		"./positron/product.json"
-	)
+	local product_json="./product.json"
 
-	for candidate in "${candidates[@]}"; do
-		if [[ -f "$candidate" ]]; then
-			echo "$candidate"
-			return
-		fi
-	done
-
-	echo -e "${RED}Error: Could not find product.json file${NC}" >&2
-	exit 1
+	if [[ -f "$product_json" ]]; then
+		echo "$product_json"
+	else
+		echo -e "${RED}Error: Could not find product.json file${NC}" >&2
+		exit 1
+	fi
 }
 
 # Extract all extension IDs from product.json
