@@ -945,29 +945,40 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+interface ModelDefinition {
+	name: string;
+	identifier: string;
+	contextWindow?: number;
+	maxOutputTokens?: number;
+}
+
 // Note: we don't query for available models using any provider API since it may return ones that are not
 // suitable for chat and we don't want the selection to be too large
-export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
+export const availableModels = new Map<string, ModelDefinition[]>(
 	[
 		['anthropic-api', [
 			{
 				name: 'Claude 4 Sonnet',
 				identifier: 'claude-sonnet-4-20250514',
+				contextWindow: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 4 Opus',
 				identifier: 'claude-opus-4-20250514',
+				contextWindow: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.7 Sonnet v1',
 				identifier: 'claude-3-7-sonnet-latest',
+				contextWindow: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2',
 				identifier: 'claude-3-5-sonnet-latest',
+				contextWindow: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]],

@@ -105,8 +105,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			name: model.name,
 			family: this._config.provider,
 			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
-			maxInputTokens: this.maxInputTokens,
-			maxOutputTokens: this.maxOutputTokens,
+			maxInputTokens: model.contextWindow ?? this.maxInputTokens,
+			maxOutputTokens: model.maxOutputTokens ?? this.maxOutputTokens,
 			capabilities: this.capabilities,
 			isDefault: model === models[0],
 			isUserSelectable: true,
