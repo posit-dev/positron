@@ -10,6 +10,7 @@ ps aux | grep -E "npm.*watch-(client|extensions)d" | grep -v grep
 ```
 
 ### Step 2: Start missing daemons (if needed)
+**For detailed daemon management, see `.claude/build-system.md`**
 ```bash
 # Run these in background
 npm run watch-clientd &
