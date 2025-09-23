@@ -9,7 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { availableModels } from './models.js';
 import { TokenUsage } from './tokens.js';
@@ -78,7 +78,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			apiKey: _config.apiKey,
 		});
 		this.version = '';
-		this.maxInputTokens = 0;
+		this.maxInputTokens = DEFAULT_MAX_TOKEN_INPUT; // TODO: Should this come from _config?
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
@@ -92,7 +92,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					name: this.name,
 					family: this.provider,
 					version: this._context?.extension.packageJSON.version ?? '',
-					maxInputTokens: 0,
+					maxInputTokens: this.maxInputTokens,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
 
@@ -105,7 +105,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			name: model.name,
 			family: this._config.provider,
 			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
-			maxInputTokens: model.contextWindow ?? this.maxInputTokens,
+			maxInputTokens: model.maxInputTokens ?? this.maxInputTokens,
 			maxOutputTokens: model.maxOutputTokens ?? this.maxOutputTokens,
 			capabilities: this.capabilities,
 			isDefault: model === models[0],

@@ -15,6 +15,9 @@ export const MARKDOWN_DIR = path.join(EXTENSION_ROOT_DIR, 'src', 'md');
 /** Selects all documents. */
 export const ALL_DOCUMENTS_SELECTOR: DocumentSelector = [{ scheme: '*' }];
 
+/** The default max token input if a model's maximum is unknown */
+export const DEFAULT_MAX_TOKEN_INPUT = 0; // TODO: This is 0 right now, but should it be something else? Copilot tools won't work.
+
 /** The default max token output if a model's maximum is unknown */
 export const DEFAULT_MAX_TOKEN_OUTPUT = 4_096;
 
