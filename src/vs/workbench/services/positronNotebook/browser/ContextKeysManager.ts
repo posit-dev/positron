@@ -31,7 +31,7 @@ export const POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN = new RawContextKey<boo
 export const POSITRON_NOTEBOOK_CELL_IS_SELECTED = new RawContextKey<boolean>('positronNotebookCellIsSelected', false);
 export const POSITRON_NOTEBOOK_CELL_IS_EDITING = new RawContextKey<boolean>('positronNotebookCellIsEditing', false);
 
-// All cell context keys in one place so we can easily opperate on them all at once
+// All cell context keys in one place so we can easily operate on them all at once
 export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	isCode: POSITRON_NOTEBOOK_CELL_IS_CODE,
 	isMarkdown: POSITRON_NOTEBOOK_CELL_IS_MARKDOWN,
@@ -56,26 +56,36 @@ export type IPositronNotebookCellContextKeys = {
  * Bind all cell context keys to a scoped context key service
  */
 export function bindCellContextKeys(service: IScopedContextKeyService): IPositronNotebookCellContextKeys {
-	const boundKeys: Partial<IPositronNotebookCellContextKeys> = {};
-
-	for (const [key, rawKey] of Object.entries(POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS)) {
-		(boundKeys as any)[key] = rawKey.bindTo(service);
-	}
-
-	return boundKeys as IPositronNotebookCellContextKeys;
+	return {
+		isCode: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isCode.bindTo(service),
+		isMarkdown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isMarkdown.bindTo(service),
+		isRaw: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isRaw.bindTo(service),
+		isRunning: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isRunning.bindTo(service),
+		isPending: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isPending.bindTo(service),
+		isFirst: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isFirst.bindTo(service),
+		isLast: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isLast.bindTo(service),
+		isOnly: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isOnly.bindTo(service),
+		markdownEditorOpen: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.markdownEditorOpen.bindTo(service),
+		isSelected: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isSelected.bindTo(service),
+		isEditing: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isEditing.bindTo(service),
+	} satisfies IPositronNotebookCellContextKeys;
 }
 
 
 /**
- * Reset all cell context keys
+ * Reset all cell context keys to their default values
+ *
+ * @param keys - The cell context keys object to reset, or undefined if not available
  */
 export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | undefined): void {
 	if (!keys) {
 		return;
 	}
-	for (const key of Object.keys(keys)) {
-		(keys as any)[key].reset();
-	}
+
+	// Reset each context key to its default value in a type-safe manner
+	Object.values(keys).forEach(contextKey => {
+		contextKey.reset();
+	});
 }
 
 
