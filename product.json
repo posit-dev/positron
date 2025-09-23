@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.6",
+			"version": "1.23.5",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -292,7 +292,9 @@
 		"nlsBaseUrl": "",
 		"publisherUrl": ""
 	},
-	"trustedExtensionAuthAccess": ["GitHub.copilot-chat"],
+	"trustedExtensionAuthAccess": [
+		"GitHub.copilot-chat"
+	],
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",
@@ -319,7 +321,9 @@
 			}
 		}
 	},
-	"extensionsEnabledWithApiProposalVersion": ["GitHub.copilot-chat"],
+	"extensionsEnabledWithApiProposalVersion": [
+		"GitHub.copilot-chat"
+	],
 	"extensionEnabledApiProposals": {
 		"ms-vscode.vscode-selfhost-test-provider": [
 			"testObserver",
@@ -349,7 +353,9 @@
 			"workspaceTrust",
 			"tunnels"
 		],
-		"ms-toolsai.vscode-ai-remote": ["resolvers"],
+		"ms-toolsai.vscode-ai-remote": [
+			"resolvers"
+		],
 		"ms-python.python": [
 			"contribEditorContentMenu",
 			"quickPickSortByLabel",
@@ -361,7 +367,9 @@
 			"contribIssueReporter",
 			"terminalShellIntegration"
 		],
-		"ms-dotnettools.dotnet-interactive-vscode": ["notebookMessaging"],
+		"ms-dotnettools.dotnet-interactive-vscode": [
+			"notebookMessaging"
+		],
 		"GitHub.codespaces": [
 			"contribEditSessions",
 			"contribMenuBarHome",
@@ -413,7 +421,11 @@
 			"contribViewsRemote",
 			"telemetry"
 		],
-		"ms-vscode.remote-server": ["resolvers", "tunnels", "contribViewsWelcome"],
+		"ms-vscode.remote-server": [
+			"resolvers",
+			"tunnels",
+			"contribViewsWelcome"
+		],
 		"ms-vscode.remote-explorer": [
 			"contribRemoteHelp",
 			"contribViewsRemote",
@@ -435,8 +447,12 @@
 			"workspaceTrust",
 			"tunnels"
 		],
-		"ms-vscode.lsif-browser": ["documentFiltersExclusive"],
-		"ms-vscode.vscode-speech": ["speech"],
+		"ms-vscode.lsif-browser": [
+			"documentFiltersExclusive"
+		],
+		"ms-vscode.vscode-speech": [
+			"speech"
+		],
 		"GitHub.vscode-pull-request-github": [
 			"activeComment",
 			"codiconDecoration",
@@ -461,8 +477,13 @@
 			"tokenInformation",
 			"treeViewMarkdownMessage"
 		],
-		"GitHub.copilot": ["authGetSessions", "inlineCompletionsAdditions"],
-		"GitHub.copilot-nightly": ["inlineCompletionsAdditions"],
+		"GitHub.copilot": [
+			"authGetSessions",
+			"inlineCompletionsAdditions"
+		],
+		"GitHub.copilot-nightly": [
+			"inlineCompletionsAdditions"
+		],
 		"GitHub.copilot-chat": [
 			"interactive",
 			"terminalDataWriteEvent",
@@ -511,15 +532,21 @@
 			"textSearchProvider",
 			"timeline"
 		],
-		"ms-python.gather": ["notebookCellExecutionState"],
-		"ms-python.vscode-pylance": ["notebookCellExecutionState"],
+		"ms-python.gather": [
+			"notebookCellExecutionState"
+		],
+		"ms-python.vscode-pylance": [
+			"notebookCellExecutionState"
+		],
 		"ms-python.debugpy": [
 			"contribIssueReporter",
 			"contribViewsWelcome",
 			"debugVisualization",
 			"portsAttributes"
 		],
-		"ms-toolsai.jupyter-renderers": ["contribNotebookStaticPreloads"],
+		"ms-toolsai.jupyter-renderers": [
+			"contribNotebookStaticPreloads"
+		],
 		"ms-toolsai.jupyter": [
 			"notebookDeprecated",
 			"notebookMessaging",
@@ -536,21 +563,39 @@
 			"notebookCellExecution",
 			"notebookVariableProvider"
 		],
-		"dbaeumer.vscode-eslint": ["notebookCellExecutionState"],
-		"ms-vscode.azure-sphere-tools-ui": ["tunnels"],
-		"ms-azuretools.vscode-azureappservice": ["terminalDataWriteEvent"],
-		"ms-azuretools.vscode-azureresourcegroups": ["authGetSessions"],
+		"dbaeumer.vscode-eslint": [
+			"notebookCellExecutionState"
+		],
+		"ms-vscode.azure-sphere-tools-ui": [
+			"tunnels"
+		],
+		"ms-azuretools.vscode-azureappservice": [
+			"terminalDataWriteEvent"
+		],
+		"ms-azuretools.vscode-azureresourcegroups": [
+			"authGetSessions"
+		],
 		"ms-azuretools.vscode-azure-github-copilot": [
 			"chatParticipantAdditions",
 			"embeddings",
 			"languageModelSystem",
 			"lmTools"
 		],
-		"ms-vscode.anycode": ["extensionsAny"],
-		"ms-vscode.cpptools": ["terminalDataWriteEvent"],
-		"redhat.java": ["documentPaste"],
-		"ms-dotnettools.csdevkit": ["inlineCompletionsAdditions"],
-		"ms-dotnettools.vscodeintellicode-csharp": ["inlineCompletionsAdditions"],
+		"ms-vscode.anycode": [
+			"extensionsAny"
+		],
+		"ms-vscode.cpptools": [
+			"terminalDataWriteEvent"
+		],
+		"redhat.java": [
+			"documentPaste"
+		],
+		"ms-dotnettools.csdevkit": [
+			"inlineCompletionsAdditions"
+		],
+		"ms-dotnettools.vscodeintellicode-csharp": [
+			"inlineCompletionsAdditions"
+		],
 		"microsoft-IsvExpTools.powerplatform-vscode": [
 			"fileSearchProvider",
 			"textSearchProvider"
