@@ -80,7 +80,8 @@ export function OptionsFixture() {
 
 export function UserDataDirFixture() {
 	return async (options: ApplicationOptions) => {
-		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
+		const userDataDir = options.userDataDir || '';
+		const userDir = options.web ? join(userDataDir, 'data', 'User') : join(userDataDir, 'User');
 		process.env.PLAYWRIGHT_USER_DATA_DIR = userDir;
 
 		// Copy keybindings and settings fixtures to the user data directory

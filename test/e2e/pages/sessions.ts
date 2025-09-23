@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, Locator } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
 import { Code, QuickAccess, Console } from '../infra';
 import { QuickInput } from './quickInput';
 
@@ -19,10 +19,10 @@ const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
  * Class to manage console sessions
  */
 export class Sessions {
-	private page = this.code.driver.page;
+	private get page(): Page { return this.code.driver.page; }
 
 	// Session management and UI elements
-	private quickPick = new SessionQuickPick(this.code, this);
+	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
@@ -993,9 +993,9 @@ export class Sessions {
  * Helper class to manage the session quick pick
  */
 export class SessionQuickPick {
-	private quickInputTitleBar = this.code.driver.page.locator('.quick-input-titlebar');
-	private sessionQuickMenu = this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/);
-	allSessionsMenu = this.quickInputTitleBar.getByText(/Start New Interpreter Session/);
+	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
+	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/); }
+	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Interpreter Session/); }
 
 	constructor(private code: Code, private sessions: Sessions) { }
 

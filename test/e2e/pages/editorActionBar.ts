@@ -21,7 +21,7 @@ type EditorActionBarButton =
 
 
 export class EditorActionBar {
-	actionBar: Locator = this.page.locator('.editor-action-bar > .positron-action-bar > .action-bar-region');
+	get actionBar(): Locator { return this.page.locator('.editor-action-bar > .positron-action-bar > .action-bar-region'); }
 
 	constructor(private page: Page, private viewer: Viewer, private quickaccess: QuickAccess) { }
 

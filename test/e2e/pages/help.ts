@@ -19,7 +19,7 @@ const AUX_BAR = '.part.auxiliarybar';
  */
 export class Help {
 
-	private auxilaryBar = this.code.driver.page.locator(AUX_BAR);
+	private get auxilaryBar(): Locator { return this.code.driver.page.locator(AUX_BAR); }
 
 	constructor(private code: Code) { }
 

@@ -17,9 +17,9 @@ const LINE_NUMBERS = (filename: string) => `${EDITOR(filename)} .margin .margin-
 
 export class Editor {
 
-	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
-	playButton = this.code.driver.page.locator(PLAY_BUTTON);
-	editorPane = this.code.driver.page.locator('[id="workbench.parts.editor"]');
+	get viewerFrame(): FrameLocator { return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
+	get playButton(): Locator { return this.code.driver.page.locator(PLAY_BUTTON); }
+	get editorPane(): Locator { return this.code.driver.page.locator('[id="workbench.parts.editor"]'); }
 
 	getEditorViewerLocator(locator: string,): Locator {
 		return this.viewerFrame.locator(locator);

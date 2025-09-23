@@ -47,9 +47,9 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-function getInstalledExtensions(extensionsDir: string): Map<string, string> {
+function getInstalledExtensions(extensionsDir?: string): Map<string, string> {
 	const installed = new Map<string, string>();
-	if (!fs.existsSync(extensionsDir)) { return installed; }
+	if (!extensionsDir || !fs.existsSync(extensionsDir)) { return installed; }
 
 	for (const extDir of fs.readdirSync(extensionsDir)) {
 		const packageJsonPath = path.join(extensionsDir, extDir, 'package.json');
@@ -64,7 +64,7 @@ function getInstalledExtensions(extensionsDir: string): Map<string, string> {
 	return installed;
 }
 
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string) {
+async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath?: string) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 

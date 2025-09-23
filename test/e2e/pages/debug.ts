@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 
@@ -31,9 +31,9 @@ export interface IStackFrame {
  *  Reuseable Positron debug functionality for tests to leverage
  */
 export class Debug {
-	debugVariablesSection = this.code.driver.page.getByRole('button', { name: 'Debug Variables Section' });
-	callStackSection = this.code.driver.page.getByRole('button', { name: 'Call Stack Section' });
-	callStack = this.code.driver.page.locator(DEBUG_CALL_STACK);
+	get debugVariablesSection(): Locator { return this.code.driver.page.getByRole('button', { name: 'Debug Variables Section' }); }
+	get callStackSection(): Locator { return this.code.driver.page.getByRole('button', { name: 'Call Stack Section' }); }
+	get callStack(): Locator { return this.code.driver.page.locator(DEBUG_CALL_STACK); }
 	stackAtIndex = (index: number) => this.callStack.locator(`.monaco-list-row[data-index="${index}"]`);
 
 	constructor(private code: Code) {

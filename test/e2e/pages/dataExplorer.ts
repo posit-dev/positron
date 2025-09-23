@@ -199,9 +199,9 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private rowHeaders = this.code.driver.page.locator('.data-grid-row-headers');
-	private columnHeaders = this.code.driver.page.locator(HEADER_TITLES);
-	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
+	private get rowHeaders(): Locator { return this.code.driver.page.locator('.data-grid-row-headers'); }
+	private get columnHeaders(): Locator { return this.code.driver.page.locator(HEADER_TITLES); }
+	private get rows(): Locator { return this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`); }
 	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
 		`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`
 	);
