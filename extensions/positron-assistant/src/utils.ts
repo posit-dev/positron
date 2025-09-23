@@ -5,10 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import * as positron from 'positron';
 import { JSONTree } from '@vscode/prompt-tsx';
 import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
-import { isLanguageModelImagePart } from './languageModelParts.js';
 import { log } from './extension.js';
 
 /**
@@ -219,11 +217,11 @@ function convertToolResultToAiMessageExperimentalContent(
 						type: 'text',
 						text: content.value,
 					};
-				} else if (isLanguageModelImagePart(content)) {
+				} else if (content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)) {
 					return {
 						type: 'image',
-						data: content.value.base64,
-						mimeType: content.value.mimeType,
+						data: Buffer.from(content.data).toString('base64'),
+						mimeType: content.mimeType,
 					};
 				} else if (content instanceof vscode.LanguageModelPromptTsxPart) {
 					return {
@@ -250,20 +248,21 @@ function convertToolResultToAiMessageExperimentalContent(
 function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreUserMessage {
 	// Vercel AI doesn't support image tool results. Convert
 	// an image result into a user message containing the image.
-	const imageParts = part.content.filter((content) => isLanguageModelImagePart(content));
+	const imageParts = part.content.filter((content): content is vscode.LanguageModelDataPart => content instanceof vscode.LanguageModelDataPart && isChatImageMimeType(content.mimeType));
 	if (imageParts.length > 0) {
 		return {
 			role: 'user',
-			content: imageParts.flatMap((content) => ([
+			content: imageParts.flatMap((imgPart) => ([
 				{
 					type: 'text',
 					text: 'Here is the current active plot:',
 				},
 				{
 					type: 'image',
-					image: content.value.base64,
-					mimeType: content.value.mimeType,
-				}])),
+					image: Buffer.from(imgPart.data).toString('base64'),
+					mimeType: imgPart.mimeType,
+				}
+			])),
 		};
 	}
 	// If there was no image, forward the response as text.

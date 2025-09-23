@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
-import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
@@ -378,6 +377,7 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
 			} else {
 				// Skip other data parts.
+				log.debug(`[anthropic] Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
 			}
 		} else {
 			throw new Error('Unsupported part type on user message');
@@ -432,10 +432,13 @@ function toAnthropicToolResultBlock(
 		const resultDataPart = resultNextPart instanceof vscode.LanguageModelDataPart ? resultNextPart : undefined;
 		if (resultPart instanceof vscode.LanguageModelTextPart) {
 			content.push(toAnthropicTextBlock(resultPart, source, resultDataPart));
-		} else if (isLanguageModelImagePart(resultPart)) {
-			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
-			// Skip data parts.
+			if (isChatImagePart(resultPart)) {
+				content.push(chatImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
+			} else {
+				// Skip other data parts.
+				log.debug(`[anthropic] Skipping unsupported data part in tool result: ${JSON.stringify(resultPart, null, 2)}`);
+			}
 		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
 			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
 		} else {
@@ -466,26 +469,6 @@ function chatImagePartToAnthropicImageBlock(
 				// We may pass an unsupported mime type; let Anthropic throw the error.
 				media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
 				data: Buffer.from(part.data).toString('base64'),
-			},
-		},
-		source,
-		dataPart,
-	);
-}
-
-function languageModelImagePartToAnthropicImageBlock(
-	part: LanguageModelImagePart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.ImageBlockParam {
-	return withCacheControl(
-		{
-			type: 'image',
-			source: {
-				type: 'base64',
-				// We may pass an unsupported mime type; let Anthropic throw the error.
-				media_type: part.value.mimeType as Anthropic.Base64ImageSource['media_type'],
-				data: part.value.base64,
 			},
 		},
 		source,
@@ -608,11 +591,11 @@ function withCacheControl<T extends CacheControllableBlockParam>(
 	}
 
 	try {
-		const cachBreakpoint = parseCacheBreakpoint(dataPart);
+		const cacheBreakpoint = parseCacheBreakpoint(dataPart);
 		log.debug(`[anthropic] Adding cache breakpoint to ${part.type} part. Source: ${source}`);
 		return {
 			...part,
-			cache_control: cachBreakpoint,
+			cache_control: cacheBreakpoint,
 		};
 	} catch (error) {
 		log.error(`[anthropic] Failed to parse cache breakpoint: ${error}`);
