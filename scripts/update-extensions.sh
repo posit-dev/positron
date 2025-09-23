@@ -245,83 +245,70 @@ update_product_json() {
 	local publisher="$2"
 	local name="$3"
 	local version="$4"
-	local sha256="$5"  # Can be empty if no download occurred
-
-	if ! command -v jq >/dev/null 2>&1; then
-		echo -e "${RED}Error: jq is required but not installed${NC}" >&2
-		echo -e "${YELLOW}Install jq: brew install jq (macOS) or apt install jq (Ubuntu)${NC}" >&2
-		exit 1
-	fi
+	local sha256="$5"
 
 	echo "Checking product.json..."
 
+	# Check current values in product.json
 	local extension_id="${publisher}.${name}"
-	local extension_info=$(jq --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
-		[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
-	' "$product_json")
-
-	if [[ -z "$extension_info" || "$extension_info" == "null" ]]; then
-		echo -e "${RED}Error: Extension $extension_id not found in product.json${NC}" >&2
-		exit 1
-	fi
-
-	local current_version=$(echo "$extension_info" | jq -r '.version // empty')
-	local current_sha256=$(echo "$extension_info" | jq -r '.sha256 // .sha256sum // empty')
-	local has_sha256=$(echo "$extension_info" | jq -e 'has("sha256") or has("sha256sum")')
+	local current_version=""
+	local current_sha256=""
+	local has_sha256=false
 	local needs_update=false
 
-	# Check if updates are needed
-	if [[ "$current_version" != "$version" ]] || [[ "$has_sha256" == "true" && -n "$sha256" && "$current_sha256" != "$sha256" ]]; then
-		needs_update=true
-	fi
+	if command -v jq >/dev/null 2>&1; then
+		# Get current version and hash values
+		local extension_info=$(jq --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" '
+			[.. | objects | select((.publisher == $pub and .name == $nm) or .name == $id)] | .[0] // empty
+		' "$product_json")
 
-	if [[ "$needs_update" == true ]]; then
-		cp "$product_json" "${product_json}.backup"
-		echo "Updating product.json..."
-
-		local temp_file=$(mktemp)
-		local update_logic
-		if [[ -n "$sha256" && "$has_sha256" == "true" ]]; then
-			update_logic='.version = $ver | if has("sha256") then .sha256 = $hash elif has("sha256sum") then .sha256sum = $hash else . end'
+		if [[ -n "$extension_info" && "$extension_info" != "null" ]]; then
+			current_version=$(echo "$extension_info" | jq -r '.version // empty')
+			if echo "$extension_info" | jq -e 'has("sha256")' >/dev/null 2>&1; then
+				current_sha256=$(echo "$extension_info" | jq -r '.sha256 // empty')
+				has_sha256=true
+			elif echo "$extension_info" | jq -e 'has("sha256sum")' >/dev/null 2>&1; then
+				current_sha256=$(echo "$extension_info" | jq -r '.sha256sum // empty')
+				has_sha256=true
+			fi
 		else
-			update_logic='.version = $ver'
+			echo -e "${RED}Error: Extension $extension_id not found in product.json${NC}" >&2
+			exit 1
 		fi
 
-		jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" --arg hash "$sha256" "
-			def update_extension:
-				if type == \"object\" then
-					if (.publisher == \$pub and .name == \$nm) or .name == \$id then
-						$update_logic
-					else
-						with_entries(.value |= update_extension)
-					end
-				elif type == \"array\" then
-					map(update_extension)
-				else
-					.
-				end;
-			update_extension
-		" "$product_json" > "$temp_file" && mv "$temp_file" "$product_json"
-
-		# Report what was updated
-		local version_changed=$([[ "$current_version" != "$version" ]] && echo true || echo false)
-		local hash_changed=$([[ "$has_sha256" == "true" && -n "$sha256" && "$current_sha256" != "$sha256" ]] && echo true || echo false)
-
-		if [[ "$version_changed" == true && "$hash_changed" == true ]]; then
-			echo -e "${GREEN}✓ Updated version ($current_version → $version) and SHA256${NC}"
-		elif [[ "$version_changed" == true ]]; then
-			echo -e "${GREEN}✓ Updated version ($current_version → $version)${NC}"
-		elif [[ "$hash_changed" == true ]]; then
-			echo -e "${GREEN}✓ Updated SHA256${NC}"
+		# Check if updates are needed
+		if [[ "$current_version" != "$version" ]]; then
+			needs_update=true
+		elif [[ "$has_sha256" == true && "$current_sha256" != "$sha256" ]]; then
+			needs_update=true
 		fi
-	else
-		[[ -f "${product_json}.backup" ]] && rm "${product_json}.backup"
-		if [[ "$has_sha256" == "true" ]]; then
-			# allow-any-unicode-next-line
-			echo -e "${BLUE}‣ Already current ($version, SHA256 matches)${NC}"
+
+		if [[ "$needs_update" == true ]]; then
+			# Create a backup
+			cp "$product_json" "${product_json}.backup"
+			echo "Updating product.json..."
+			update_with_jq "$product_json" "$publisher" "$name" "$version" "$sha256" "$has_sha256"
+
+			# Determine what was updated
+			local version_changed=$([[ "$current_version" != "$version" ]] && echo true || echo false)
+			local hash_changed=$([[ "$has_sha256" == true && "$current_sha256" != "$sha256" ]] && echo true || echo false)
+
+			if [[ "$version_changed" == true && "$hash_changed" == true ]]; then
+				echo -e "${GREEN}✓ Updated version ($current_version → v$version) and SHA256${NC}"
+			elif [[ "$version_changed" == true ]]; then
+				echo -e "${GREEN}✓ Updated version ($current_version → v$version)${NC}"
+			elif [[ "$hash_changed" == true ]]; then
+				echo -e "${GREEN}✓ Updated SHA256${NC}"
+			fi
 		else
-			# allow-any-unicode-next-line
-			echo -e "${BLUE}‣ Already current ($version)${NC}"
+			# Remove backup since no changes were made
+			[[ -f "${product_json}.backup" ]] && rm "${product_json}.backup"
+
+			if [[ "$has_sha256" == true ]]; then
+				echo -e "${BLUE}Already current ($version, sha matches)${NC}"
+			else
+				echo -e "${BLUE}Already current ($version)${NC}"
+			fi
 		fi
 	fi
 }
@@ -412,6 +399,62 @@ process_extension() {
 		# But still call update_product_json to show the proper status message
 		update_product_json "$PRODUCT_JSON" "$PUBLISHER" "$NAME" "$VERSION" ""
 	fi
+}
+
+update_with_jq() {
+	local product_json="$1"
+	local publisher="$2"
+	local name="$3"
+	local version="$4"
+	local sha256="$5"
+	local has_sha256="$6"
+
+	local temp_file=$(mktemp)
+	local extension_id="${publisher}.${name}"
+
+	# Update all matching entries - handle both formats:
+	# Format 1: separate publisher/name fields: { publisher: "ms-python", name: "debugpy" }
+	# Format 2: combined name field: { name: "ms-python.debugpy" }
+	if [[ "$has_sha256" == true ]]; then
+	# Update both version and sha256/sha256sum (preserve existing field name)
+	jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" --arg hash "$sha256" '
+		def update_extension:
+			if type == "object" then
+				if (.publisher == $pub and .name == $nm) or .name == $id then
+					.version = $ver |
+					if has("sha256") then .sha256 = $hash
+					elif has("sha256sum") then .sha256sum = $hash
+					else . end
+				else
+					with_entries(.value |= update_extension)
+				end
+			elif type == "array" then
+				map(update_extension)
+			else
+				.
+			end;
+		update_extension
+	' "$product_json" > "$temp_file"
+	else
+	# Update only version, don't add sha256
+	jq --tab --arg pub "$publisher" --arg nm "$name" --arg id "$extension_id" --arg ver "$version" '
+		def update_extension:
+			if type == "object" then
+				if (.publisher == $pub and .name == $nm) or .name == $id then
+					.version = $ver
+				else
+					with_entries(.value |= update_extension)
+				end
+			elif type == "array" then
+				map(update_extension)
+			else
+				.
+			end;
+		update_extension
+	' "$product_json" > "$temp_file"
+	fi
+
+	mv "$temp_file" "$product_json"
 }
 
 # Main function
