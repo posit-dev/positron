@@ -19,16 +19,9 @@ test.use({
 
 test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, () => {
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'dataExplorer.summaryPanelEnhancements': true
-		}, { reload: 'web' });
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
-
 
 	test('Summary Panel: Search', async function ({ app, openDataFile }) {
 		const { dataExplorer } = app.workbench;
