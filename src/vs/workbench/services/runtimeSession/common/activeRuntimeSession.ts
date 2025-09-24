@@ -68,11 +68,11 @@ export class ActiveRuntimeSession extends Disposable {
 		// can restore the console when the session is restored.  This primarily
 		// exists to support notebook consoles since they may not initially be
 		// shown.
-		this._consoleService.onDidStartPositronConsoleInstance(e => {
+		this._register(this._consoleService.onDidStartPositronConsoleInstance(e => {
 			if (e.sessionId === session.sessionId) {
 				this.hasConsole = true;
 			}
-		});
+		}));
 	}
 
 	/// An event that fires when a runtime receives a global event.
