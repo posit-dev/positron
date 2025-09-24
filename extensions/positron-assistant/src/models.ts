@@ -658,8 +658,8 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'GPT-4o',
-			model: 'gpt-4o',
+			name: 'OpenAI',
+			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
 			completions: true,
@@ -694,10 +694,17 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 					'Content-Type': 'application/json'
 				}
 			});
-			if (!response.ok) {
-				return undefined;
+
+			const data = await response.json();
+			if (!response.ok || !data || data.error) {
+				if (!response.ok) {
+					throw new Error(`Could not fetch models ${response.statusText}`);
+				} else if (data.error) {
+					throw new Error(`Could not fetch models ${data.error.message || JSON.stringify(data.error)}`);
+				} else {
+					throw new Error('Unknown error fetching models');
+				}
 			} else {
-				const data = await response.json();
 				if (data && data.data && Array.isArray(data.data)) {
 					const models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
 						return {
@@ -722,31 +729,20 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			} else {
 				log.error(`Error fetching OpenAI models: ${JSON.stringify(error)}`);
 			}
-			return undefined;
+			throw error;
 		}
 	}
 
 	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		try {
-			const response = await fetch(`${this.baseUrl}/models`, {
-				method: 'GET',
-				headers: {
-					'Authorization': `Bearer ${this._config.apiKey}`,
-					'Content-Type': 'application/json'
-				}
-			});
-			if (!response.ok) {
-				const errorText = await response.text();
-				log.error(`Error fetching OpenAI models: ${errorText}`);
-				return new Error(`Error fetching OpenAI models: ${response.status} ${response.statusText}`);
-			}
+			await this.resolveModels(token);
 		} catch (error) {
 			if (ai.AISDKError.isInstance(error)) {
 				log.error(`Error fetching OpenAI models: ${error.message}`);
 			} else {
 				log.error(`Error fetching OpenAI models: ${JSON.stringify(error)}`);
 			}
-			return error instanceof Error ? error : new Error('Unknown error');
+			throw error;
 		}
 		return undefined;
 	}
