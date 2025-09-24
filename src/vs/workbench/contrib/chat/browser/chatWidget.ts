@@ -970,7 +970,13 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			let welcomeContent: IChatViewWelcomeContent;
 			const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
 			let additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
+			// --- Start Positron ---
+			// Hide additional messages for Positron Assistant
+			/*
 			if (!additionalMessage) {
+			*/
+			if (!additionalMessage && numItems) {
+				// --- End Positron ---;
 				const generateInstructionsCommand = 'workbench.action.chat.generateInstructions';
 				additionalMessage = new MarkdownString(localize(
 					'chatWidget.instructions',
