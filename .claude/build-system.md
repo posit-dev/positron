@@ -1,3 +1,4 @@
+<build_documentation>
 # Positron Build System & Development Workflows
 
 ## Quick Start
@@ -5,7 +6,7 @@
 1. **Check daemon status** (always first): `ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep`
 2. **Start missing daemons**: `npm run watch-clientd &` and `npm run watch-extensionsd &`
 3. **Wait for compilation**: 30-60 seconds until "Finished compilation" messages
-4. **Launch Positron**: See `.claude/launch-positron.md`
+4. **Launch Positron**: See `.claude/launch-Positron.md`
 
 ## Build Daemons
 
@@ -35,7 +36,7 @@ npm install  # Only when needed
 # Start core TypeScript compilation daemon
 npm run watch-clientd
 
-# Start extensions TypeScript compilation daemon  
+# Start extensions TypeScript compilation daemon
 npm run watch-extensionsd
 ```
 
@@ -53,7 +54,7 @@ npm run watch-e2ed
 
 ### 3. Launch Positron Application
 
-**See `.claude/launch-positron.md` for launch instructions.**
+**See `.claude/launch-Positron.md` for launch instructions.**
 
 ## Build Daemon Management
 
@@ -63,7 +64,7 @@ npm run watch-e2ed
 npm run watch-clientd
 
 # Extensions compilation (extensions/)
-npm run watch-extensionsd  
+npm run watch-extensionsd
 
 # E2E tests compilation (test/e2e/)
 npm run watch-e2ed
@@ -122,7 +123,7 @@ npm run watch-e2ed &         # E2E test compilation
 
 Look for these messages to confirm compilation is ready:
 - Core client: "Finished compilation[api-proposal-names] with 0 errors"
-- Extensions: "Finished compilation[extensions] with 0 errors" 
+- Extensions: "Finished compilation[extensions] with 0 errors"
 - E2E: "Found 0 errors. Watching for file changes."
 
 ### Restart Development Environment
@@ -178,7 +179,7 @@ npm run e2e-pr
 ### Extension Tests
 ```bash
 # Run specific extension tests
-npm run test-extension -- -l positron-duckdb
+npm run test-extension -- -l Positron-duckdb
 ```
 
 ## Advanced Workflows
@@ -217,7 +218,7 @@ export VSCODE_SKIP_PRELAUNCH=1
 ### Debugging
 ```bash
 # Enable debug logging for specific components
-export POSITRON_DEBUG=1
+export Positron_DEBUG=1
 export VSCODE_LOG_LEVEL=trace
 ```
 
@@ -253,5 +254,63 @@ npm run watch-extensions --dry-run
 1. **Dependencies**: Run `npm install` only when needed (dependency errors)
 2. **Build Daemons**: Start appropriate daemon combination based on task
 3. **Compilation**: Wait for "Finished compilation" messages
-4. **Launch**: Follow `.claude/launch-positron.md` for non-blocking launch
+4. **Launch**: Follow `.claude/launch-Positron.md` for non-blocking launch
 5. **Testing**: Use `npm run test-extension` for extensions, Playwright for E2E
+</build_documentation>
+
+
+## Instructions
+
+When a user asks for help with building, running, testing, or troubleshooting this application, follow these steps:
+
+1. **Analyze the situation first** - Before executing any commands, understand what the user is trying to accomplish and assess the current state of their development environment.
+
+2. **Always check daemon status before starting new processes** - Use the status check commands to verify which daemons are already running to avoid conflicts or duplicate processes.
+
+3. **Execute commands in the correct sequence** - Follow the documented workflows exactly, ensuring each step completes successfully before proceeding to the next.
+
+4. **Monitor command outputs** - Watch for the specific success indicators mentioned in the documentation (like "Finished compilation" messages) and don't proceed until these appear.
+
+5. **Provide clear next steps** - After executing commands, explain what should happen next and how to verify success.
+
+## Critical Requirements
+
+- **Never skip daemon status checks** - Always run `ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep` before starting new daemons
+- **Wait for compilation completion** - Don't launch the application or run tests until you see "Finished compilation" messages
+- **Use conservative dependency management** - Only suggest `npm install` when there are clear dependency issues, not as a default troubleshooting step
+- **Verify each command's success** - Check command outputs and provide troubleshooting if commands fail
+- **Follow the exact command syntax** - Use the commands exactly as documented, including flags and parameters
+
+## Response Format
+
+Structure your response as follows:
+
+```
+## Analysis
+[Your analysis of the current situation and what needs to be done]
+
+## Recommended Actions
+[Step-by-step commands with explanations]
+
+## Expected Output
+[What the user should see if commands succeed]
+
+## Next Steps
+[What to do after the commands complete successfully]
+
+## Troubleshooting
+[What to do if commands fail, specific to the situation]
+```
+
+When you help users with this build system, first assess the situation thoroughly in <situation_assessment> tags:
+
+- Identify what the user is trying to accomplish (build, test, launch, troubleshoot)
+- Determine what components are needed (core only, extensions, E2E tests)
+- List what daemon status checks need to be performed
+- Plan the sequence of commands that will be needed
+- Consider potential dependency issues or conflicts that might arise
+- Note any specific success indicators to watch for
+
+It's OK for this section to be quite long if needed to thoroughly understand the situation.
+
+Then provide the exact sequence of commands they should execute.
