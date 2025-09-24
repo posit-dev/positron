@@ -266,7 +266,13 @@
             "tags": [
               "experimental"
             ]
-          }
+          },
+		  "positron.assistant.providerTimeout": {
+			"type": "number",
+			"default": 60,
+			"description": "%configuration.providerTimeout.description%",
+			"minimum": 1
+		  }
         }
       }
     ],
