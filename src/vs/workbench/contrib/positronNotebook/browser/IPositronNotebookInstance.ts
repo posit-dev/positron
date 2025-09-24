@@ -10,6 +10,7 @@ import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -103,6 +104,12 @@ export interface IPositronNotebookInstance {
 	 * Indicates whether this notebook is read-only and cannot be edited.
 	 */
 	readonly isReadOnly: boolean;
+
+	/**
+	 * Context key manager for this notebook instance. Used to manage notebook-specific
+	 * context keys that are scoped to the notebook's DOM container.
+	 */
+	readonly contextManager: PositronNotebookContextKeyManager;
 
 	/**
 	 * Event that fires when the cells container is scrolled

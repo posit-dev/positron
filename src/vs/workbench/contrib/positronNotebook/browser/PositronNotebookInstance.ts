@@ -506,14 +506,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const synchronous = true;
-		const pushUndoStop = true;
 		const endSelections: ISelectionState = { kind: SelectionStateType.Index, focus: { start: index, end: index + 1 }, selections: [{ start: index, end: index + 1 }] };
 		const focusAfterInsertion = {
 			start: index,
 			end: index + 1
 		};
-		this.textModel.applyEdits([
+		textModel.applyEdits([
 			{
 				editType: CellEditType.Replace,
 				index,
@@ -536,7 +537,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				focus: focusAfterInsertion,
 				selections: [focusAfterInsertion]
 			},
-			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
+			() => endSelections,
+			undefined,
+			computeUndoRedo
 		);
 
 		this._onDidChangeContent.fire();
@@ -591,9 +594,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const textModel = this.textModel;
-		// TODO: Hook up readOnly to the notebook actual value
-		const readOnly = false;
-		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 
 		// Get indices and sort in descending order to avoid index shifting
 		const cellIndices = cellsToDelete
@@ -638,20 +639,27 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			end: lowestDeletedIndex + 1
 		};
 
-		textModel.applyEdits(edits, true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
-			if (nextCellAfterContainingSelection) {
-				const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
-				return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
-			} else {
-				if (textModel.length) {
-					const lastCellIndex = textModel.length - 1;
-					return { kind: SelectionStateType.Index, focus: { start: lastCellIndex, end: lastCellIndex + 1 }, selections: [{ start: lastCellIndex, end: lastCellIndex + 1 }] };
-
+		textModel.applyEdits(
+			edits,
+			true,
+			{ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] },
+			() => {
+				if (nextCellAfterContainingSelection) {
+					const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
+					return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
 				} else {
-					return { kind: SelectionStateType.Index, focus: { start: 0, end: 0 }, selections: [{ start: 0, end: 0 }] };
+					if (textModel.length) {
+						const lastCellIndex = textModel.length - 1;
+						return { kind: SelectionStateType.Index, focus: { start: lastCellIndex, end: lastCellIndex + 1 }, selections: [{ start: lastCellIndex, end: lastCellIndex + 1 }] };
+
+					} else {
+						return { kind: SelectionStateType.Index, focus: { start: 0, end: 0 }, selections: [{ start: 0, end: 0 }] };
+					}
 				}
-			}
-		}, undefined, computeUndoRedo);
+			},
+			undefined,
+			computeUndoRedo
+		);
 
 		this._onDidChangeContent.fire();
 
@@ -1055,12 +1063,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._assertTextModel();
 
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const pasteIndex = index ?? this.getInsertionIndex();
 		const cellCount = this._clipboardCells.length;
 
 		// Use textModel.applyEdits to properly create and register cells
 		const synchronous = true;
-		const pushUndoStop = true;
 		const endSelections: ISelectionState = {
 			kind: SelectionStateType.Index,
 			focus: { start: pasteIndex, end: pasteIndex + cellCount },
@@ -1071,7 +1080,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			end: pasteIndex + cellCount
 		};
 
-		this.textModel.applyEdits([
+		textModel.applyEdits([
 			{
 				editType: CellEditType.Replace,
 				index: pasteIndex,
@@ -1085,7 +1094,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				focus: focusAfterInsertion,
 				selections: [focusAfterInsertion]
 			},
-			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
+			() => endSelections, undefined, computeUndoRedo
 		);
 
 		// If this was a cut operation, clear the clipboard

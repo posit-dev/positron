@@ -38,6 +38,7 @@ import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.j
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import './contrib/undoRedo/positronNotebookUndoRedo.js';
 
 
 /**
@@ -684,5 +685,4 @@ registerCellCommand({
 
 
 //#endregion Cell Commands
-
 

@@ -132,5 +132,14 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		}));
 	}
 
+	/**
+	 * Gets the scoped context key service for this notebook editor.
+	 * This is the context service that has access to notebook-specific context keys.
+	 * @returns The scoped context key service, or undefined if no container has been set
+	 */
+	getScopedContextKeyService(): IContextKeyService | undefined {
+		return this._scopedContextKeyService;
+	}
+
 	//#endregion Public Methods
 }
