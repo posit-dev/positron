@@ -50,14 +50,18 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			// This shouldn't happen in normal operation, but provides a safety net
 			const containerFocused = this.contextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
 			const cellEditorFocused = this.contextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
-			return containerFocused && !cellEditorFocused;
+			// Handle undo/redo if either the container is focused OR a cell editor is focused
+			// This matches VS Code's behavior where notebook undo works regardless of specific focus location
+			return containerFocused || cellEditorFocused;
 		}
 
 		// Read context keys from the scoped context service that actually has these keys bound
 		const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
 		const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
 
-		return containerFocused && !cellEditorFocused;
+		// Handle undo/redo if either the container is focused OR a cell editor is focused
+		// This allows undo to work even when typing in a cell (common after adding a new cell)
+		return containerFocused || cellEditorFocused;
 	}
 
 	private handleUndo(): boolean | Promise<void> {
