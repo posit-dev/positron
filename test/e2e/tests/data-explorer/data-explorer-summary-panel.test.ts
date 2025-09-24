@@ -16,10 +16,10 @@ import { test, tags } from '../_test.setup';
 const columnOrder = {
 	default: ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
 	descending: ['column9', 'column8', 'column7', 'column6', 'column5', 'column4', 'column3', 'column2', 'column1', 'column0'],
-	pinCol4Col1Col6_ascending: ['column4', 'column1', 'column6', 'column0', 'column2', 'column3', 'column5', 'column7', 'column8', 'column9'],
-	pinCol4Col1Col6_descending: ['column4', 'column1', 'column6', 'column9', 'column8', 'column7', 'column5', 'column3', 'column2', 'column0'],
-	pinCol4Col6_ascending: ['column4', 'column6', 'column0', 'column1', 'column2', 'column3', 'column5', 'column7', 'column8', 'column9'],
-	pinCol4Col6_descending: ['column4', 'column6', 'column9', 'column8', 'column7', 'column5', 'column3', 'column2', 'column1', 'column0'],
+	pinCol3Col1Col4_ascending: ['column3', 'column1', 'column4', 'column0', 'column2', 'column5', 'column6', 'column7', 'column8', 'column9'],
+	pinCol3Col1Col4_descending: ['column3', 'column1', 'column4', 'column9', 'column8', 'column7', 'column6', 'column5', 'column2', 'column0'],
+	pinCol3Col4_ascending: ['column3', 'column4', 'column0', 'column1', 'column2', 'column5', 'column6', 'column7', 'column8', 'column9'],
+	pinCol3Col4_descending: ['column3', 'column4', 'column9', 'column8', 'column7', 'column6', 'column5', 'column2', 'column1', 'column0'],
 };
 
 test.use({
@@ -113,28 +113,28 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.default);
 
 		// verify pinned columns stay at front of summary panel list
+		await dataExplorer.grid.pinColumn(3);
+		await dataExplorer.grid.pinColumn(2); // position 2: "column1"
 		await dataExplorer.grid.pinColumn(4);
-		await dataExplorer.grid.pinColumn(2); // pin index 2: "column1"
-		await dataExplorer.grid.pinColumn(6);
-		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col1Col6_ascending);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol3Col1Col4_ascending);
 
 		// verify sort behavior with pinned columns
 		await dataExplorer.summaryPanel.sortBy('Name, Descending');
-		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col1Col6_descending);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol3Col1Col4_descending);
 
 		// verify unpinning columns returns them to correct location in summary panel list
 		await dataExplorer.grid.unpinColumn(1); // unpin index 1: "column1"
-		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col6_descending);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol3Col4_descending);
 
 		// verify search with pinned columns
-		await dataExplorer.summaryPanel.search('3');
-		await dataExplorer.summaryPanel.expectColumnCountToBe(3); // pinned "column4" and "column6" + "column3"
-		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column4', 'column6', 'column3']);
+		await dataExplorer.summaryPanel.search('7');
+		await dataExplorer.summaryPanel.expectColumnCountToBe(3); // pinned "column3" and "column4" + "column7"
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column3', 'column4', 'column7']);
 
 		// verify column order after clearing search with pins and sort applied
 		await dataExplorer.summaryPanel.sortBy('Name, Ascending');
-		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column4', 'column6', 'column3']);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(['column3', 'column4', 'column7']);
 		await dataExplorer.summaryPanel.clearSearch();
-		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol4Col6_ascending);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol3Col4_ascending);
 	});
 });
