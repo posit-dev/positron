@@ -121,7 +121,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	const hasEnvApiKey = !!source.defaults.apiKeyEnvVar && source.defaults.apiKeyEnvVar.signedIn;
 	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasEnvApiKey;
 	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasEnvApiKey;
-	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl') && authStatus !== AuthStatus.SIGNED_IN;
+	const showBaseUrl = authMethod === AuthMethod.API_KEY && source.supportedOptions?.includes('baseUrl');
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
@@ -139,21 +139,26 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>}
-		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
+		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<ExternalAPIKey envKeyName={source.defaults.apiKeyEnvVar} provider={source.provider.id} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
 
 // Language config parts
-const BaseUrl = (props: { baseUrl?: string, onChange: (newBaseUrl: string) => void }) => {
+const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBaseUrl: string) => void }) => {
 	return (<>
 		<div className='language-model-authentication-container' id='base-url-input'>
-			<LabeledTextInput
-				label={localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL')}
-				type='text'
-				value={props.baseUrl ?? ''}
-				onChange={e => { props.onChange(e.currentTarget.value) }} />
+			{
+				props.signedIn ?
+					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", props.baseUrl)}</p>
+					:
+					<LabeledTextInput
+						label={localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL')}
+						type='text'
+						value={props.baseUrl ?? ''}
+						onChange={e => { props.onChange(e.currentTarget.value) }} />
+			}
 		</div>
 	</>)
 }
