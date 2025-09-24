@@ -242,14 +242,14 @@ export class DataGrid {
 	}
 
 	/**
-	 * Click a cell by its visual position (Index is 0-based)
+	 * Click a cell by its visual position (position is 0-based)
 	 * For example, if a column/row is pinned, the position would be index 0.
 	 */
-	async clickCell(rowIndex: number, columnIndex: number, withShift = false) {
-		await test.step(`Click cell by 0-based position: row ${rowIndex}, column ${columnIndex}`, async () => {
+	async clickCell(rowPosition: number, columnPosition: number, withShift = false) {
+		await test.step(`Click cell by 0-based position: row ${rowPosition}, column ${columnPosition}`, async () => {
 			withShift
-				? await this.cellByPosition(rowIndex, columnIndex).click({ modifiers: ['Shift'] })
-				: await this.cellByPosition(rowIndex, columnIndex).click();
+				? await this.cellByPosition(rowPosition, columnPosition).click({ modifiers: ['Shift'] })
+				: await this.cellByPosition(rowPosition, columnPosition).click();
 		});
 	}
 
@@ -258,7 +258,7 @@ export class DataGrid {
 	 * These indexes never change even with sorting, filtering, or pinning.
 	 */
 	async clickCellByIndex(rowIndex: number, columnIndex: number, withShift = false) {
-		await test.step(`Click cell by index: row ${rowIndex}, column ${columnIndex}`, async () => {
+		await test.step(`Click cell by 0-based index: row ${rowIndex}, column ${columnIndex}`, async () => {
 			withShift
 				? await this.cellByIndex(rowIndex, columnIndex).click({ modifiers: ['Shift'] })
 				: await this.cellByIndex(rowIndex, columnIndex).click();
@@ -288,49 +288,49 @@ export class DataGrid {
 	}
 
 	/**
-	 * Pin a column by its visual index
-	 * @param colIndex (Index is 0-based)
+	 * Pin a column by its position
+	 * @param colPosition (position is 0-based)
 	 */
-	async pinColumn(colIndex: number) {
-		await test.step(`Pin column at index ${colIndex}`, async () => {
+	async pinColumn(colPosition: number) {
+		await test.step(`Pin column at 0-based position: ${colPosition}`, async () => {
 			await this.jumpToStart(); // make sure we are at the start so our index is accurate
-			await this.selectColumnAction(colIndex + 1, 'Pin Column'); // selectColumnAction is 1-based
+			await this.selectColumnAction(colPosition + 1, 'Pin Column'); // selectColumnAction is 1-based
 		});
 	}
 
 	/**
-	 * Unpin a column by its visual index
-	 * @param colIndex (Index is 0-based)
+	 * Unpin a column by its position
+	 * @param colPosition (position is 0-based)
 	 */
-	async unpinColumn(colIndex = 0) {
-		await test.step(`Unpin column at index ${colIndex}`, async () => {
+	async unpinColumn(colPosition = 0) {
+		await test.step(`Unpin column at 0-based position: ${colPosition}`, async () => {
 			await this.jumpToStart(); // make sure we are at the start so our index is accurate
-			await this.selectColumnAction(colIndex + 1, 'Unpin Column'); // selectColumnAction is 1-based
+			await this.selectColumnAction(colPosition + 1, 'Unpin Column'); // selectColumnAction is 1-based
 		});
 	}
 
 	/**
-	 * Pin a row by its visual index
-	 * @param rowIndex (Index is 0-based)
+	 * Pin a row by its position
+	 * @param rowPosition (position is 0-based)
 	 */
-	async pinRow(rowIndex: number) {
-		await test.step(`Pin row at index ${rowIndex}`, async () => {
+	async pinRow(rowPosition: number) {
+		await test.step(`Pin row at 0-based position: ${rowPosition}`, async () => {
 			await this.code.driver.page
-				// rowIndex is 0-based, nth-child is 1-based
-				.locator(`.data-grid-row-headers > div:nth-child(${rowIndex + 1})`)
+				// rowPosition is 0-based, nth-child is 1-based
+				.locator(`.data-grid-row-headers > div:nth-child(${rowPosition + 1})`)
 				.click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
 		});
 	}
 
 	/**
-	 * Unpin a row by its visual index
-	 * @param rowIndex (Index is 0-based)
+	 * Unpin a row by its position
+	 * @param rowPosition (position is 0-based)
 	 */
-	async unpinRow(rowIndex = 0) {
-		await test.step(`Unpin row at index ${rowIndex}`, async () => {
+	async unpinRow(rowPosition = 0) {
+		await test.step(`Unpin row at 0-based position: ${rowPosition}`, async () => {
 			await this.code.driver.page
-				.locator(`.data-grid-row-headers > div:nth-child(${rowIndex + 1})`)
+				.locator(`.data-grid-row-headers > div:nth-child(${rowPosition + 1})`)
 				.click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Unpin Row' }).click();
 		});
