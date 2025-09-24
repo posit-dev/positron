@@ -1,6 +1,6 @@
 # Positron DuckDB Extension Development Context
 
-This prompt provides context for working with the `positron-duckdb` extension, which provides DuckDB WebAssembly support for headless data exploration in Positron.
+You will help developers work with the `positron-DuckDB` extension, which provides DuckDB WebAssembly support for headless data exploration in Positron.
 
 **Related documentation:**
 - **Build system**: `.claude/build-system.md` - For daemon management and compilation
@@ -9,11 +9,11 @@ This prompt provides context for working with the `positron-duckdb` extension, w
 
 ## Extension Overview
 
-**Purpose**: Provides DuckDB support for headless data explorers for previewing data files  
-**Display Name**: "Positron DuckDB Wasm Support"  
-**Location**: `extensions/positron-duckdb/`  
-**Main Entry**: `src/extension.ts`  
-**Dependencies**: `@duckdb/duckdb-wasm`, `apache-arrow`, `web-worker`  
+**Purpose**: Provides DuckDB support for headless data explorers for previewing data files
+**Display Name**: "Positron DuckDB Wasm Support"
+**Location**: `extensions/positron-DuckDB/`
+**Main Entry**: `src/extension.ts`
+**Dependencies**: `@duckdb/duckdb-wasm`, `apache-arrow`, `web-worker`
 
 ## Architecture
 
@@ -21,7 +21,7 @@ This prompt provides context for working with the `positron-duckdb` extension, w
 
 1. **DuckDBInstance**: Manages DuckDB WebAssembly database connection
 2. **DuckDBTableView**: Handles data explorer requests for a specific table
-3. **ColumnProfileEvaluator**: Computes statistical summaries and profiles 
+3. **ColumnProfileEvaluator**: Computes statistical summaries and profiles
 4. **DataExplorerRpcHandler**: Implements the Data Explorer RPC protocol
 
 ### Key Features
@@ -36,7 +36,7 @@ This prompt provides context for working with the `positron-duckdb` extension, w
 ## File Structure
 
 ```
-extensions/positron-duckdb/
+extensions/positron-DuckDB/
 ├── package.json          # Extension manifest
 ├── package.nls.json      # Localized strings
 ├── src/
@@ -52,10 +52,11 @@ extensions/positron-duckdb/
 └── extension.webpack.config.js  # Build configuration
 ```
 
-## Quick Development Workflow
+## MANDATORY Development Workflow
 
-### 1. Prerequisites
-Ensure build daemons are running (see `.claude/build-system.md`):
+**CRITICAL**: You must always follow this exact workflow when providing development guidance:
+
+### 1. Prerequisites (Always Check First)
 ```bash
 # Check daemon status first
 ps aux | grep -E "npm.*watch-extensionsd" | grep -v grep
@@ -65,22 +66,22 @@ npm run watch-extensionsd &
 sleep 30  # Wait for compilation
 ```
 
-### 2. Testing
+### 2. Testing (Always Include)
 ```bash
 # Run all DuckDB extension tests
-npm run test-extension -- -l positron-duckdb
+npm run test-extension -- -l positron-DuckDB
 
 # Test specific functionality
-npm run test-extension -- -l positron-duckdb --grep "histogram"
-npm run test-extension -- -l positron-duckdb --grep "csv"
-npm run test-extension -- -l positron-duckdb --grep "filter"
+npm run test-extension -- -l positron-DuckDB --grep "histogram"
+npm run test-extension -- -l positron-DuckDB --grep "csv"
+npm run test-extension -- -l positron-DuckDB --grep "filter"
 ```
 
-### 3. Development Cycle
-1. Edit code in `extensions/positron-duckdb/src/`
+### 3. Development Cycle (Follow This Order)
+1. Edit code in `extensions/positron-DuckDB/src/`
 2. Watch for compilation completion in daemon output
 3. Run tests to verify changes
-4. Debug using test data in `extensions/positron-duckdb/src/test/data/`
+4. Debug using test data in `extensions/positron-DuckDB/src/test/data/`
 
 ## Key Classes and Interfaces
 
@@ -99,7 +100,7 @@ Implements data explorer backend protocol:
 - Computes column profiles
 - Exports data selections
 
-### ColumnProfileEvaluator  
+### ColumnProfileEvaluator
 Statistical computation engine:
 - Generates SQL for statistical queries
 - Computes histograms using multiple methods (Fixed, Freedman-Diaconis, Sturges)
@@ -110,7 +111,7 @@ Statistical computation engine:
 The extension implements the full Data Explorer RPC protocol:
 - `OpenDataset`: Import files or connect to tables
 - `GetSchema`: Retrieve column information
-- `GetDataValues`: Query formatted cell values  
+- `GetDataValues`: Query formatted cell values
 - `SetRowFilters`: Apply WHERE clause filters
 - `SetSortColumns`: Apply ORDER BY sorting
 - `GetColumnProfiles`: Generate statistical summaries
@@ -121,7 +122,7 @@ The extension implements the full Data Explorer RPC protocol:
 ### DuckDB to Display Type Mapping
 - **BOOLEAN** → Boolean
 - **INTEGER, BIGINT, FLOAT, DOUBLE** → Number
-- **VARCHAR, UUID** → String  
+- **VARCHAR, UUID** → String
 - **DATE** → Date
 - **TIMESTAMP** → Datetime
 - **TIME** → Time
@@ -150,11 +151,11 @@ suite('DuckDB Extension Tests', () => {
     test('should handle CSV files', async () => {
         // Test CSV import and querying
     });
-    
+
     test('should compute histograms', async () => {
         // Test statistical profiling
     });
-    
+
     test('should filter data correctly', async () => {
         // Test row filtering
     });
@@ -170,7 +171,7 @@ suite('DuckDB Extension Tests', () => {
 
 ### Adding New File Format Support
 1. Update `createTableFromUri()` method
-2. Add file extension detection logic  
+2. Add file extension detection logic
 3. Implement appropriate DuckDB import function
 4. Add tests with sample data
 
@@ -200,7 +201,7 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 4. **Memory Management**: Clean up resources and event handlers
 5. **Type Conversions**: Handle DuckDB to JavaScript type mapping
 
-#### Testing Isolation  
+#### Testing Isolation
 - Use `makeTempTableName()` for unique table names
 - Clean up temporary tables after tests
 - Test with various data sizes and edge cases
@@ -208,13 +209,13 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 ## Integration Points
 
 ### VSCode Extension API
-- Command registration: `positron-duckdb.runQuery`, `positron-duckdb.dataExplorerRpc`
+- Command registration: `positron-DuckDB.runQuery`, `positron-DuckDB.dataExplorerRpc`
 - File system watching for data file changes
 - URI handling for different data sources
 
 ### Positron Data Explorer
 - Implements backend protocol for data exploration UI
-- Provides statistical profiling for data science workflows  
+- Provides statistical profiling for data science workflows
 - Integrates with Variables pane for dataframe viewing
 
 ### DuckDB WebAssembly
@@ -226,6 +227,37 @@ Set `DEBUG_LOG = true` in extension.ts for query logging
 
 - **Query Optimization**: Use subqueries for better DuckDB performance
 - **Batch Statistics**: Compute multiple statistics in single query
-- **Memory Management**: Use virtual files to avoid handle caching  
+- **Memory Management**: Use virtual files to avoid handle caching
 - **Pagination**: Implement LIMIT/OFFSET for large result sets
 - **Type Conversion**: Minimize JavaScript ↔ Arrow conversions
+
+## Instructions for Providing Assistance
+
+When helping with development tasks:
+
+1. **Always start by thinking through your approach**: Before providing any guidance, work through your approach in `<thinking>` tags inside your thinking block. In this section:
+   - Identify what type of development task the user is asking about (e.g., adding new functionality, debugging, testing, performance optimization)
+   - Note which parts of the mandatory workflow are most relevant to their question
+   - Plan the structure of your response (setup, implementation, testing, etc.)
+   - Identify specific documentation sections, code examples, or classes that will be most helpful
+   - Consider potential challenges or edge cases they might encounter
+   It's OK for this section to be quite long.
+
+2. **Verify workflow adherence**: In your thinking phase, explicitly check that your guidance follows the Prerequisites → Testing → Development Cycle workflow.
+
+3. **Provide structured responses**: Format your responses with clear sections for different aspects (setup, implementation, testing, debugging).
+
+4. **Include concrete examples**: When suggesting code changes or new implementations, provide specific code examples that fit the extension's architecture.
+
+5. **Reference relevant documentation sections**: Point to specific parts of this context document that are most relevant to the user's question.
+
+**Example response structure:**
+- Setup steps (with prerequisite checks)
+- Implementation guidance
+- Testing approach
+- Potential issues and debugging tips
+- Performance considerations (if applicable)
+
+Your goal is to provide accurate, actionable guidance that strictly follows the established development workflow and helps developers successfully work with the positron-DuckDB extension.
+
+Your final response should provide the structured development guidance without duplicating or rehashing any of the analysis you did in your thinking block.
