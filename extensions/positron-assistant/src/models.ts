@@ -234,59 +234,36 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		return this.providerName;
 	}
 
+	protected getMaxTokens(id: string, type: 'input' | 'output'): number {
+		const defaultTokens = type === 'input'
+			? (this._config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT)
+			: (this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT);
 
-	getMaxInputTokens(id: string): number {
-		// Override using fixed model list if available
 		const fixedModels = availableModels.get(this._config.provider);
-		let maxInputTokens = fixedModels?.find(m => m.identifier === id)?.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT;
+		const fixedValue = type === 'input'
+			? fixedModels?.find(m => m.identifier === id)?.maxInputTokens
+			: fixedModels?.find(m => m.identifier === id)?.maxOutputTokens;
+		let maxTokens = fixedValue ?? defaultTokens;
 
-		// Override maxInputTokens if specified in the configuration
-		const maxInputTokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxInputTokens', {});
-		for (const [key, value] of Object.entries(maxInputTokensConfig)) {
+		const configKey = type === 'input' ? 'maxInputTokens' : 'maxOutputTokens';
+		const tokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get(configKey, {});
+		for (const [key, value] of Object.entries(tokensConfig)) {
 			if (id.indexOf(key) !== -1 && value) {
 				if (typeof value !== 'number') {
-					log.warn(`Invalid maxInputTokens '${value}' for ${key} (${id}); ignoring`);
+					log.warn(`Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
 					continue;
 				}
 				if (value < 512) {
-					log.warn(`Specified maxInputTokens '${value}' for ${key} (${id}) is too low; using 512 instead`);
-					maxInputTokens = 512;
+					log.warn(`Specified ${configKey} '${value}' for ${key} (${id}) is too low; using 512 instead`);
+					maxTokens = 512;
 				}
-				maxInputTokens = value;
+				maxTokens = value;
 				break;
 			}
 		}
 
-		log.debug(`Setting maxInputTokens for (${id}) to ${maxInputTokens}`);
-		return maxInputTokens;
-	}
-
-	getMaxOutputTokens(id: string): number {
-		let maxOutputTokens = this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
-
-		// Override using fixed model list if available
-		const fixedModels = availableModels.get(this._config.provider);
-		maxOutputTokens = fixedModels?.find(m => m.identifier === id)?.maxOutputTokens ?? maxOutputTokens;
-
-		// Override maxOutputTokens if specified in the configuration
-		const maxOutputTokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
-		for (const [key, value] of Object.entries(maxOutputTokensConfig)) {
-			if (id.indexOf(key) !== -1 && value) {
-				if (typeof value !== 'number') {
-					log.warn(`Invalid maxOutputTokens '${value}' for ${key} (${id}); ignoring`);
-					continue;
-				}
-				if (value < 512) {
-					log.warn(`Specified maxOutputTokens '${value}' for ${key} (${id}) is too low; using 512 instead`);
-					maxOutputTokens = 512;
-				}
-				maxOutputTokens = value;
-				break;
-			}
-		}
-
-		log.debug(`Setting maxOutputTokens for (${id}) to ${maxOutputTokens}`);
-		return maxOutputTokens;
+		log.debug(`Setting ${configKey} for (${id}) to ${maxTokens}`);
+		return maxTokens;
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
@@ -330,8 +307,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 					name: this.name,
 					family: aiModel.provider,
 					version: aiModel.specificationVersion,
-					maxInputTokens: this.getMaxInputTokens(aiModel.modelId),
-					maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
+					maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
+					maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 					capabilities: this.capabilities,
 					isDefault: true,
 					isUserSelectable: true,
@@ -348,8 +325,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				name: m.name,
 				family: aiModel.provider,
 				version: aiModel.specificationVersion,
-				maxInputTokens: this.getMaxInputTokens(aiModel.modelId),
-				maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
+				maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
+				maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 				capabilities: this.capabilities,
 				// is default if it's the first model out of models
 				isDefault: m === models[0],
@@ -448,7 +425,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: this.getMaxOutputTokens(aiModel.modelId),
+			maxTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 		});
 
 		let accumulatedTextDeltas: string[] = [];

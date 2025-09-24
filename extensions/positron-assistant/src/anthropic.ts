@@ -78,7 +78,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			apiKey: _config.apiKey,
 		});
 		this.version = '';
-		this.maxInputTokens = DEFAULT_MAX_TOKEN_INPUT; // TODO: Should this come from _config?
+		this.maxInputTokens = _config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT;
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
