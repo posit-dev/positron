@@ -63,9 +63,7 @@ function loadEnvFile(envFilePath: string): ProjectEnvironmentVars {
  */
 const PROJECT_ENV_FILES: Record<string, string[]> = {
 	'e2e-workbench': ['.env.e2e-workbench'],
-	'e2e-electron': ['.env.e2e'],
-	'e2e-browser': ['.env.e2e'],
-	'e2e-browser-server': ['.env.e2e'],
+	default: ['.env.e2e']
 } as const;
 
 /**
@@ -154,7 +152,7 @@ export function validateEnvironmentVars(
 
 	// Log issues for visibility
 	if (missing.length > 0) {
-		console.error(`❌ Missing env var(s): ${missing.join(', ')}`);
+		// console.error(`❌ Missing env var(s): ${missing.join(', ')}`);
 	}
 	if (!allowEmpty && empty.length > 0) {
 		console.error(`❌ Empty env var(s): ${empty.join(', ')}`);

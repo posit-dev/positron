@@ -123,7 +123,7 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 1. Open the **Testing** extension.
 2. Ensure the correct project is selected; otherwise, no tests will populate in the Test Explorer.
    - `e2e-electron`: Standard Electron app testing
-   - `e2e-browser`: Browser testing with managed server
+   - `e2e-chromium`: Chromium browser testing with managed server
    - `e2e-browser-server`: Browser testing with external Positron server
    - `e2e-workbench`: Browser testing against container containing both Positron and Workbench
 3. Expand the file tree to locate the desired test.
@@ -150,7 +150,7 @@ Run tests directly from the CLI with these scripts:
 npm run e2e
 
 # run entire web test suite
-npm run e2e-browser
+npm run e2e-chromium
 
 # run entire pr test suite
 npm run e2e-pr
@@ -206,8 +206,7 @@ When creating a pull request, the test runner automatically scans the PR descrip
 1. Use the format `@:tag` anywhere in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-> [!NOTE]
-> **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
+> [!NOTE] > **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
 > For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 ### Running Windows and Browser Tests

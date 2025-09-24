@@ -99,7 +99,7 @@ export default defineConfig<ExtendedTestOptions>({
 			grepInvert: /@:web-only/
 		},
 		{
-			name: 'e2e-browser',
+			name: 'e2e-chromium',
 			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
@@ -108,8 +108,9 @@ export default defineConfig<ExtendedTestOptions>({
 			],
 			use: {
 				web: true,
-				artifactDir: 'e2e-browser',
+				artifactDir: 'e2e-chromium',
 				headless: false,
+				browserName: 'chromium',
 			},
 			grep: /@:web/
 		},
@@ -175,6 +176,55 @@ export default defineConfig<ExtendedTestOptions>({
 			},
 			grep: /@:win/,
 			grepInvert: /@:web-only|@:interpreter/
+		},
+		{
+			name: 'e2e-firefox',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/inspect-ai/**'
+			],
+			use: {
+				web: true,
+				artifactDir: 'e2e-firefox',
+				headless: false,
+				browserName: 'firefox'
+			},
+			grep: /@:web/
+		},
+		{
+			name: 'e2e-webkit',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/inspect-ai/**'
+			],
+			use: {
+				web: true,
+				artifactDir: 'e2e-webkit',
+				headless: false,
+				browserName: 'webkit'
+			},
+			grep: /@:web/
+		},
+		{
+			name: 'e2e-edge',
+			testDir: './test/e2e',
+			testIgnore: [
+				'example.test.ts',
+				'**/workbench/**',
+				'**/inspect-ai/**'
+			],
+			use: {
+				web: true,
+				artifactDir: 'e2e-edge',
+				headless: false,
+				browserName: 'chromium',
+				channel: 'msedge',
+			},
+			grep: /@:web/
 		},
 		{
 			name: 'inspect-ai',

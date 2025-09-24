@@ -15,6 +15,7 @@ export interface CustomTestOptions {
 	web: boolean;
 	artifactDir: string;
 	headless?: boolean;
+	browserName?: "chromium" | "firefox" | "webkit" | undefined;
 	/**
 	 * When true, connects to an existing server instead of launching one.
 	 * Use with externalServerUrl to specify the server to connect to.
@@ -44,6 +45,9 @@ export function OptionsFixture() {
 			patch: parseInt(packageVersion.split('.')[2], 10),
 		};
 
+		const browser = project.browserName + (workerInfo.project.use.channel ? '-' + workerInfo.project.use.channel : '');
+		console.log(browser)
+
 		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
@@ -56,6 +60,7 @@ export function OptionsFixture() {
 			remote: !!process.env.REMOTE,
 			web: project.web,
 			headless: project.headless,
+			browser,
 			tracing: true,
 			snapshots,
 			quality: Quality.Dev,

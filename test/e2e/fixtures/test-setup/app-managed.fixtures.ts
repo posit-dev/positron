@@ -9,7 +9,7 @@ import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils.js';
 
 /**
  * App fixture for managed servers (both Electron and browser-based apps)
- * Projects: e2e-electron, e2e-browser (port 9000)
+ * Projects: e2e-electron, e2e-chromium/firefox/webkit (port 9000)
  */
 export function ManagedAppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {

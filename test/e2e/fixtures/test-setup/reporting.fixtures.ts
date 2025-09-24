@@ -102,8 +102,11 @@ export function TracingFixture() {
 		// Determine execution mode
 		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
 
-		// Use default built-in tracing for e2e-browser except when running via CLI
-		if (testInfo.project.name === 'e2e-browser' && !isCommandLineRun) {
+		// Use default built-in tracing except when running via CLI
+		if (
+			['e2e-chromium', 'e2e-webkit', 'e2e-firefox'].includes(testInfo.project.name) &&
+			!isCommandLineRun
+		) {
 			await use(app);
 		} else {
 			// start tracing
