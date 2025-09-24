@@ -215,55 +215,47 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 		setShowProgress(true);
 		setErrorMessage(undefined);
-		if (providerConfig) {
+
+		try {
+			if (!providerConfig) {
+				setErrorMessage(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
+				return;
+			}
+
+			// Handle the main chat/completion model configuration
 			switch (getAuthMethod()) {
 				case AuthMethod.NONE:
 				// Use the same actions as API_KEY
 				case AuthMethod.API_KEY:
-					await props.onAction(providerConfig, isSignedIn() ? 'delete' : 'save')
-						.catch((e) => {
-							setErrorMessage(e.message);
-						}).finally(() => {
-							setShowProgress(false);
-						});
+					await props.onAction(providerConfig, isSignedIn() ? 'delete' : 'save');
 					break;
 				case AuthMethod.OAUTH:
-					await props.onAction(providerConfig, isSignedIn() ? 'oauth-signout' : 'oauth-signin')
-						.catch((e) => {
-							setErrorMessage(e.message);
-						}).finally(() => {
-							setShowProgress(false);
-						});
+					await props.onAction(providerConfig, isSignedIn() ? 'oauth-signout' : 'oauth-signin');
 					break;
 				default:
-					setShowProgress(false);
 					setErrorMessage(localize('positron.languageModelProviderModalDialog.unsupportedAuthMethod', 'Unsupported authentication method.'));
-					break;
+					return;
 			}
-		} else {
-			setShowProgress(false);
-			setErrorMessage(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
-		}
 
-		if (providerConfig.completions) {
-			setShowProgress(true);
-			// Assume a completion source exists with the same provider ID and compatible auth details
-			const completionSource = allProviders.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
-			const completionConfig = {
-				provider: providerConfig.provider,
-				type: PositronLanguageModelType.Completion,
-				...completionSource.defaults,
-				apiKey: providerConfig.apiKey,
-				oauth: providerConfig.oauth,
+			// Handle completion model if needed
+			if (providerConfig.completions) {
+				// Assume a completion source exists with the same provider ID and compatible auth details
+				const completionSource = allProviders.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
+				const completionConfig = {
+					provider: providerConfig.provider,
+					type: PositronLanguageModelType.Completion,
+					...completionSource.defaults,
+					apiKey: providerConfig.apiKey,
+					oauth: providerConfig.oauth,
+				}
+				await props.onAction(
+					completionConfig,
+					selectedProvider.signedIn ? 'delete' : 'save');
 			}
-			await props.onAction(
-				completionConfig,
-				selectedProvider.signedIn ? 'delete' : 'save')
-				.catch((e) => {
-					setErrorMessage(e.message);
-				}).finally(() => {
-					setShowProgress(false);
-				});
+		} catch (e) {
+			setErrorMessage(e instanceof Error ? e.message : String(e));
+		} finally {
+			setShowProgress(false);
 		}
 	}
 

@@ -748,6 +748,25 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+	// This class is identical to OpenAILanguageModel but uses a different provider ID
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'openai-compatible',
+			displayName: 'OpenAI Compatible'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		defaults: {
+			name: 'OpenAI Compatible',
+			model: 'openai-compatible',
+			baseUrl: 'https://localhost:1337/v1',
+			toolCalls: true,
+			completions: true,
+		},
+	};
+}
+
 class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	protected aiProvider: MistralProvider;
 
@@ -989,6 +1008,7 @@ export function getLanguageModels() {
 		MistralLanguageModel,
 		OllamaLanguageModel,
 		OpenAILanguageModel,
+		OpenAICompatibleLanguageModel,
 		OpenRouterLanguageModel,
 		VertexLanguageModel,
 	];

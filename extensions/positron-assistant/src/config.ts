@@ -231,15 +231,15 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		...otherConfig,
 	};
 
+	// Update global state
+	await context.globalState.update(
+		'positron.assistant.models',
+		[...existingConfigs, newConfig]
+	);
+
 	// Register the new model FIRST, before saving configuration
 	try {
 		await registerModel(newConfig, context, storage);
-
-		// Only save configuration if registration succeeds
-		await context.globalState.update(
-			'positron.assistant.models',
-			[...existingConfigs, newConfig]
-		);
 
 		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
 
@@ -258,8 +258,11 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
 	} catch (error) {
-		// Clean up API key if registration fails
 		await storage.delete(`apiKey-${id}`);
+		await context.globalState.update(
+			'positron.assistant.models',
+			existingConfigs
+		);
 		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
 		throw new Error(vscode.l10n.t(`Failed to add language model {0}: {1}`, name, err.message));
 	}
