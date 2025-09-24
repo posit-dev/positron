@@ -267,6 +267,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
 	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+		// Clear pinned rows whenever a sort is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the sort columns.
 		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => ({
 			column_index: columnSort.columnIndex,
@@ -788,6 +793,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
+		// Clear pinned rows whenever a filter is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the row filters.
 		await this._dataExplorerClientInstance.setRowFilters(filters);
 
