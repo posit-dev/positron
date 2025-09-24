@@ -1804,9 +1804,9 @@ declare module 'positron' {
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
 		 * @param sessionId An optional session ID to execute the code in. If
-		 * not provided, an appropriate session will be chosen, and if no
-		 * session for the desired language is running at all, a new session
-		 * will be started.
+		 *  not provided, an appropriate session will be chosen, and if no
+		 *  session for the desired language is running at all, a new session
+		 *  will be started.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
