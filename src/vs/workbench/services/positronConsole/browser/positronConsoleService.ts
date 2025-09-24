@@ -740,8 +740,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Show or create a notebook console
 	 *
 	 * @param notebookUri The URI of the notebook
+	 * @param focus Whether to focus the console input
 	 */
-	showNotebookConsole(notebookUri: URI): void {
+	showNotebookConsole(notebookUri: URI, focus: boolean): void {
 		// Check to see if we have a session to back this console
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
@@ -754,13 +755,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			// We already have a console instance! Focus it
 			this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
 			this.setActivePositronConsoleInstance(positronConsoleInstance);
-			positronConsoleInstance.focusInput();
+			if (focus) {
+				positronConsoleInstance.focusInput();
+			}
 			return;
 		}
 
 		// No console instance yet; start one
 		this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID);
-		this.startPositronConsoleInstance(session, SessionAttachMode.Connected, true);
+		this.startPositronConsoleInstance(session, SessionAttachMode.Connected, focus);
 	}
 
 	//#endregion IPositronConsoleService Implementation

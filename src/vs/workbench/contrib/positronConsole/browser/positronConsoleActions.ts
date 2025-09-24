@@ -809,7 +809,7 @@ export function registerPositronConsoleActions() {
 			// service to start a console attached to the appropriate session
 			const context = getContextFromActiveEditor(editorService);
 			if (context) {
-				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri);
+				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri, true);
 			} else {
 				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 			}

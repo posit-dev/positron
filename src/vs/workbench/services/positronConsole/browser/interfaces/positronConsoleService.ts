@@ -148,8 +148,11 @@ export interface IPositronConsoleService {
 	/**
 	 * Shows and focuses the notebook console for the given notebook. If no
 	 * console exists for the notebook, one is created.
+	 *
+	 * @param notebookUri The URI of the notebook.
+	 * @param focus A value which indicates whether to focus the console.
 	 */
-	showNotebookConsole(notebookUri: URI): void;
+	showNotebookConsole(notebookUri: URI, focus: boolean): void;
 }
 
 /**

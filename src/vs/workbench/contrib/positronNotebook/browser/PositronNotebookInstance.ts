@@ -939,7 +939,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Show a notebook console for this instance.
 	 */
 	showNotebookConsole(): void {
-		this._positronConsoleService.showNotebookConsole(this.uri);
+		this._positronConsoleService.showNotebookConsole(this.uri, true);
 	}
 
 	/**
