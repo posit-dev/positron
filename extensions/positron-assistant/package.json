@@ -283,10 +283,10 @@
         "vendor": "anthropic-api",
         "displayName": "Anthropic"
       },
-	  {
-		"vendor": "openai",
-		"displayName": "OpenAI"
-	  }
+      {
+        "vendor": "openai",
+        "displayName": "OpenAI"
+      }
     ],
     "languageModelTools": [
       {
