@@ -415,7 +415,7 @@ export function registerPositronConsoleActions() {
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
 			if (!await positronConsoleService.executeCode(
-				languageId, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+				languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

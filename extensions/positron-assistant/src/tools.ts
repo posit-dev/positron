@@ -119,6 +119,7 @@ export function registerAssistantTools(
 	context.subscriptions.push(selectionEditTool);
 
 	const executeCodeTool = vscode.lm.registerTool<{
+		sessionIdentifier: string;
 		code: string;
 		language: string;
 		summary: string;
@@ -200,7 +201,8 @@ export function registerAssistantTools(
 						true,  // allow incomplete input, so that incomplete statements error right away
 						positron.RuntimeCodeExecutionMode.Interactive,
 						positron.RuntimeErrorBehavior.Stop,
-						observer);
+						observer,
+						options.input.sessionIdentifier);
 
 				// Currently just the text/plain output is returned
 				const output = execResult['text/plain'];

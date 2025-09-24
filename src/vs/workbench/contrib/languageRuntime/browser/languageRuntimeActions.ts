@@ -1104,7 +1104,12 @@ export function registerLanguageRuntimeActions() {
 				};
 
 			consoleService.executeCode(
-				args.langId, args.code, attribution, !!args.focus, true /* execute the code even if incomplete */);
+				args.langId,
+				undefined /* no particular session */,
+				args.code,
+				attribution,
+				!!args.focus,
+				true /* execute the code even if incomplete */);
 		}
 	});
 

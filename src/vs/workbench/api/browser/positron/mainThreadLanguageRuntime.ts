@@ -1692,8 +1692,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	$executeCode(languageId: string,
-		code: string,
 		extensionId: string,
+		sessionId: string | undefined,
+		code: string,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
@@ -1709,7 +1710,7 @@ export class MainThreadLanguageRuntime
 		};
 
 		return this._positronConsoleService.executeCode(
-			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+			languageId, sessionId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
 	$executeInSession(sessionId: string, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): Promise<void> {
