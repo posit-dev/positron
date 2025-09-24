@@ -17,7 +17,7 @@ export class HotKeys {
 	}
 
 	private isExternalBrowser(): boolean {
-		return this.code.driver.page.url().includes('8080');
+		return (/(8080|8787)/.test(this.code.driver.page.url()));
 	}
 
 	// ----------------------

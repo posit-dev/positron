@@ -9,36 +9,12 @@ import { IPositronNotebookService } from '../../../../../services/positronNotebo
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
-import { CellConditionPredicate, createCellInfo } from './cellConditions.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-
-
-/**
- * Configuration for action bar UI registration.
- */
-export type ICellActionBarOptions = {
-	/** Category of the action bar item. Items that share the same category
-	 * will be grouped together. Ignored for "main" position actions. */
-	category?: string;
-	/** Sort order within position (lower numbers appear first) */
-	order?: number;
-	/** Visibility condition using VS Code context keys */
-	when?: ContextKeyExpression;
-} & ({
-	/** Location in UI - main action bar */
-	position: 'main';
-	/** Codicon class for the button icon - required for main position */
-	icon: string;
-} | {
-	/** Location in UI - dropdown menu */
-	position: 'menu';
-	/** Codicon class for the button icon - optional for menu position */
-	icon?: string;
-});
+import { getSelectedCell, getSelectedCells, getEditingCell } from '../../selectionMachine.js';
+import { ContextKeyExpr, ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * Options for registering a cell command.
@@ -46,29 +22,41 @@ export type ICellActionBarOptions = {
 export interface IRegisterCellCommandOptions {
 	/** The unique command identifier */
 	commandId: string;
+
 	/** The function to execute when the command is invoked, receives the active notebook instance and services accessor */
 	handler: (cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor) => void;
 
 	/** If true, handler is called for each selected cell */
 	multiSelect?: boolean;
 
-	/** Cell-specific condition that determines if this command applies to a given cell */
-	cellCondition?: CellConditionPredicate;
-
 	/** Optional UI registration for the action bar */
-	actionBar?: ICellActionBarOptions;
+	actionBar?: Omit<INotebookCellActionBarItem, 'commandId' | 'when'>;
 
 	/** Optional keybinding configuration */
-	keybinding?: IPositronNotebookCommandKeybinding;
+	keybinding?: Omit<IPositronNotebookCommandKeybinding, 'when'>;
 
 	/** Optional command metadata including description, args, and return type. As passed to CommandsRegistry.registerCommand. */
 	metadata?: ICommandMetadata;
+
+	/** Visibility condition using context keys (optional). Defaults to `POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED` when not specified.
+	 * When the command is not an "editMode" command, then the keybinding will only run when the cell editor is not focused.
+	 * This is equivalent to the `and(<your when condition>, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated())` condition.
+	 * This is so you dont have to specify not(editor focused) for the majority of commands.
+	*/
+	when?: ContextKeyExpression;
+
+	/** If true, also consider the editing cell when no selected cell is found */
+	editMode?: boolean;
 }
 
 /**
  * Helper function to register a command that operates on notebook cells.
  * Automatically handles getting the selected cell(s) from the active notebook.
  * Optionally registers the command in the cell action bar UI.
+ *
+ * When `editMode: true` is set, the command will combine the existing keybinding condition
+ * with `POSITRON_NOTEBOOK_HAS_FOCUS` (using OR logic). This ensures the shortcut works in
+ * both the original context AND when focus is on the notebook container or inside a cell's Monaco editor.
  *
  * @param commandId The command ID to register
  * @param handler The function to execute with the selected cell(s)
@@ -80,28 +68,13 @@ export function registerCellCommand({
 	commandId,
 	handler,
 	multiSelect,
-	cellCondition,
 	actionBar,
 	keybinding,
-	metadata
+	when,
+	metadata,
+	editMode
 }: IRegisterCellCommandOptions): IDisposable {
 	const disposables = new DisposableStore();
-
-	// Helper to check if a cell passes the cell condition
-	const cellPassesCondition = (cell: IPositronNotebookCell, activeNotebook: any) => {
-		if (!cellCondition) {
-			return true;
-		}
-
-		const cells = activeNotebook.cells.get();
-		const cellIndex = cells.indexOf(cell);
-		if (cellIndex === -1) {
-			return false;
-		}
-
-		const cellInfo = createCellInfo(cell, cellIndex, cells.length);
-		return cellCondition(cellInfo);
-	};
 
 	// Register the command
 	const commandDisposable = CommandsRegistry.registerCommand({
@@ -115,18 +88,17 @@ export function registerCellCommand({
 
 			if (multiSelect) {
 				// Handle multiple selected cells
-				const selectedCells = activeNotebook.selectionStateMachine.getSelectedCells();
+				const selectedCells = getSelectedCells(activeNotebook.selectionStateMachine.state.get());
 
-				// Filter cells based on cell condition and execute handler
 				for (const cell of selectedCells) {
-					if (cellPassesCondition(cell, activeNotebook)) {
-						handler(cell, activeNotebook, accessor);
-					}
+					handler(cell, activeNotebook, accessor);
 				}
 			} else {
 				// Handle single cell
-				const cell = activeNotebook.selectionStateMachine.getSelectedCell();
-				if (cell && cellPassesCondition(cell, activeNotebook)) {
+				const state = activeNotebook.selectionStateMachine.state.get();
+				// Get the selected cell and/or the editing cell if edit mode is enabled
+				const cell = getSelectedCell(state) || (editMode ? getEditingCell(state) : undefined);
+				if (cell) {
 					handler(cell, activeNotebook, accessor);
 				}
 			}
@@ -145,9 +117,7 @@ export function registerCellCommand({
 			position: actionBar.position,
 			category: actionBar.category,
 			order: actionBar.order,
-			when: actionBar.when,
-			needsCellContext: true,  // Always true for cell commands
-			cellCondition  // Pass cell condition to action bar registry
+			when
 		};
 
 		const uiDisposable = NotebookCellActionBarRegistry.getInstance().register(uiItem);
@@ -156,10 +126,21 @@ export function registerCellCommand({
 
 	// Optionally register keybinding
 	if (keybinding) {
+		// Determine the when condition based on edit mode
+		const defaultCondition = editMode ?
+			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED :
+			ContextKeyExpr.and( // When the command is not an "editMode" command, don't let it run when the cell editor is focused
+				POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+			);
+
+		// Combine top-level `when` with keybinding.when (or default) using AND when both exist
+		const combinedKbWhen = when ? ContextKeyExpr.and(when, defaultCondition) : defaultCondition;
+
 		const keybindingDisposable = KeybindingsRegistry.registerKeybindingRule({
 			id: commandId,
 			weight: keybinding.weight ?? KeybindingWeight.EditorContrib,
-			when: keybinding.when ?? POSITRON_NOTEBOOK_EDITOR_FOCUSED,
+			when: combinedKbWhen,
 			primary: keybinding.primary,
 			secondary: keybinding.secondary,
 			mac: keybinding.mac,

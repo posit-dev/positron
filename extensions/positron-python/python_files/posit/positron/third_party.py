@@ -27,6 +27,12 @@ def _polars():
     return pl
 
 
+def _ibis():
+    import ibis
+
+    return ibis
+
+
 def _torch():
     import torch
 
@@ -45,7 +51,7 @@ def _sqlalchemy():
     return sqlalchemy
 
 
-__all__ = ["_numpy", "_pandas", "_polars", "_pyarrow", "_sqlalchemy", "_torch"]
+__all__ = ["_ibis", "_numpy", "_pandas", "_polars", "_pyarrow", "_sqlalchemy", "_torch"]
 
 
 def is_pandas(table):
@@ -64,3 +70,13 @@ def is_polars(table):
         return False
 
     return bool(isinstance(table, (pl.DataFrame, pl.Series)))
+
+
+def is_ibis(table):
+    try:
+        import ibis
+        from ibis.expr.types.relations import Table as TableExpr
+    except ImportError:
+        return False
+
+    return bool(isinstance(table, (ibis.Table, TableExpr)))

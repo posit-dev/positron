@@ -53,16 +53,16 @@ on:
         description: "Whether or not to install positron-license"
         type: boolean
         default: false
-      skip_tags:
-        required: false
-        description: "Comma-separated list of tags to skip."
-        type: string
-        default: ""
       upload_logs:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: true
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -83,6 +83,16 @@ on:
         required: false
         description: "Run each test N times, defaults to one."
         default: 1
+        type: number
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: true
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
         type: number
 
 permissions:
@@ -136,14 +146,14 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # - name: Load secret
-      #   uses: 1password/load-secrets-action@v3
-      #   with:
-      #     # Export loaded secrets as environment variables
-      #     export-env: true
-      #   env:
-      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      #     ANTHROPIC: "op://Positron/Anthropic/credential"
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
@@ -210,33 +220,8 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
         run: |
-          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
-
-          # Convert comma-separated skip_tags input into a pipe-separated string
-          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
-
-          # Build a single lookahead regex pattern
-          if [ "${{ inputs.project }}" == "e2e-electron" ]; then
-            if [ -n "$SKIP_TAGS_PATTERN" ]; then
-              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
-            else
-              SKIP_TAGS_REGEX="(?=.*(@:web-only))"
-            fi
-          else
-            if [ -n "$SKIP_TAGS_PATTERN" ]; then
-              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN))"
-            else
-              SKIP_TAGS_REGEX=""
-            fi
-          fi
-
-          # Build the --grep-invert argument if needed
-          GREP_INVERT_ARG=""
-          if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
-          fi
-
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then
             GREP_ARG=""
@@ -246,15 +231,20 @@ jobs:
 
           # Log the arguments
           echo "Final --grep argument: $GREP_ARG"
-          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
-          echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
-          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+            echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
+            npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+            SKIP_CLONE_ARG="SKIP_CLONE=true"
+          else
+            echo "Skipping bootstrap extensions test (skip_extension_test=true)"
+            SKIP_CLONE_ARG=""
+          fi
 
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -270,3 +260,10 @@ jobs:
           name: ${{ inputs.project }}-logs
           path: test-logs
           if-no-files-found: ignore
+
+      - name: Upload inspect-ai JSON Responses
+        if: ${{ always() && inputs.project == 'inspect-ai' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: test/assistant-inspect-ai/*.json

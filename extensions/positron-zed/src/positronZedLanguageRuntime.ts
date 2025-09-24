@@ -957,7 +957,6 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 			case positron.RuntimeClientType.Help:
 			case positron.RuntimeClientType.Lsp:
-			case positron.RuntimeClientType.Dap:
 				// These types aren't currently supported by Zed, so close the
 				// comm immediately to signal this to the client.
 				this._onDidReceiveRuntimeMessage.fire({

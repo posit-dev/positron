@@ -276,27 +276,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * @param parent The parent HTML element.
 	 */
 	protected override createEditor(parent: HTMLElement): void {
-		// Create the focus tracker.
-		const focusTracker = this._register(DOM.trackFocus(parent));
-
-		// Add the onDidFocus event handler.
-		this._register(focusTracker.onDidFocus(() => {
-			// If there is an identifier, meaning there is an input, set the focused Positron data
-			// explorer.
-			if (this._identifier) {
-				this._positronDataExplorerService.setFocusedPositronDataExplorer(this._identifier);
-			}
-		}));
-
-		// Add the onDidBlur event handler.
-		this._register(focusTracker.onDidBlur(() => {
-			// If there is an identifier, meaning there is an input, clear the focused Positron data
-			// explorer.
-			if (this._identifier) {
-				this._positronDataExplorerService.clearFocusedPositronDataExplorer(this._identifier);
-			}
-		}));
-
 		// Append the Positron data explorer container.
 		parent.appendChild(this._positronDataExplorerContainer);
 	}
@@ -430,15 +409,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	override clearInput(): void {
 		// Dispose the PositronReactRenderer.
 		this.disposePositronReactRenderer();
-
-		// If there is an identifier, clear it.
-		if (this._identifier) {
-			// Clear the focused Positron data explorer.
-			this._positronDataExplorerService.clearFocusedPositronDataExplorer(this._identifier);
-
-			// Clear the identifier.
-			this._identifier = undefined;
-		}
 
 		// Call the base class's method.
 		super.clearInput();

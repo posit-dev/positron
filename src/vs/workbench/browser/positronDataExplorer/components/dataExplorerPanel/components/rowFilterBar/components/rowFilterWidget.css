@@ -23,7 +23,15 @@
 }
 
 .row-filter-widget:hover {
-	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+	background-color: var(--vscode-positronActionBar-hoverBackground);
+}
+
+/*
+ * remove hover effect from edit filter button when hovering over the
+ * clear filter button to help differentiate both buttons
+ */
+.row-filter-widget:has(.clear-filter-button:hover) {
+	background-color: var(--vscode-positronDataExplorer-background);
 }
 
 .row-filter-widget .boolean-operator {
@@ -68,13 +76,15 @@
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
+	/* the transparent border prevents layout shift when hovering over button */
+	border: 1px solid transparent;
 }
 
 .row-filter-widget .clear-filter-button:hover {
-	border: 1px solid var(--vscode-positronDataExplorer-border);
-
-	/* outline: 1px solid var(--vscode-focusBorder); */
-	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+	/* add filter property to make hover style match the actionBarButton style */
+	filter: brightness(90%);
+	border: 1px solid var(--vscode-positronActionBar-selectBorder);
+	background-color: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .row-filter-widget .clear-button:focus {
