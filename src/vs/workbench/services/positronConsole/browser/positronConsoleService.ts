@@ -254,7 +254,7 @@ configurationRegistry.registerConfiguration({
 		// Whether to show notebook consoles
 		'console.showNotebookConsoles': {
 			type: 'boolean',
-			default: true,
+			default: false,
 			markdownDescription: localize('console.showNotebookConsoles', "Whether to show consoles for open notebooks."),
 		}
 	}
