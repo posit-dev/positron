@@ -197,5 +197,29 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
 			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
 		});
+
+		test(`${env} - Pinned rows are cleared when sort or filter changes`, async function ({ app }) {
+			const { dataExplorer } = app.workbench;
+
+			// pin row 5
+			await dataExplorer.grid.pinRow(5);
+			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
+
+			// sort by column 4 - this should clear pinned rows
+			await dataExplorer.grid.sortColumnBy(4, 'Sort Descending');
+			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.default, indexOffset);
+
+			// pin row 6
+			await dataExplorer.grid.pinRow(6);
+			await dataExplorer.grid.expectRowsToBePinned([6], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow6, indexOffset);
+
+			// clear sort by column 4 - this should also clear pinned rows
+			await dataExplorer.grid.sortColumnBy(4, 'Clear Sorting');
+			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
+			await dataExplorer.grid.expectRowOrderToBe(rowOrder.default, indexOffset);
+		});
 	});
 }
