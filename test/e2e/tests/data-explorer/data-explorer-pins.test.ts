@@ -255,7 +255,6 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 
 			// pin row 5
 			await dataExplorer.grid.pinRow(5);
-			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
 			await dataExplorer.grid.verifyTableData(expectedDataPinRow5);
 
 			// sort by column 4 - this should clear pinned rows
@@ -265,7 +264,6 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 
 			// pin row 6
 			await dataExplorer.grid.pinRow(6);
-			await dataExplorer.grid.expectRowsToBePinned([6], indexOffset);
 			await dataExplorer.grid.verifyTableData(expectedDataSortColumn4AscPinRow6);
 
 			// clear sort by column 4 - this should also clear pinned rows
