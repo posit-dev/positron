@@ -1290,7 +1290,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		await activateExtension();
 
 		// Create a promise that will resolve when we receive the column profile event
-		let resolveProfilePromise: (value: any) => void;
+		let resolveProfilePromise: (value: any) => void = () => { };
 		const profilePromise = new Promise<any>(resolve => {
 			resolveProfilePromise = resolve;
 		});
