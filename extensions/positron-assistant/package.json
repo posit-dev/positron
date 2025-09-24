@@ -369,7 +369,7 @@
       {
         "name": "executeCode",
         "displayName": "Execute Code",
-        "modelDescription": "Execute a piece of code in the specified programming language. Only use this tool if you absolutely need to execute code, otherwise reply directly to the user with markdown code snippets.",
+        "modelDescription": "Execute a piece of code in the specified programming language and return the result. You prefer to show code over running it unless given an imperative. You prefer this tool to the terminal and other ways of running code when there is a session available with the correct language.",
         "icon": "$(play)",
         "toolReferenceName": "executeCode",
         "userDescription": "Execute code in the console",
@@ -377,6 +377,10 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the session to execute the code in."
+            },
             "code": {
               "type": "string",
               "description": "The code to execute."

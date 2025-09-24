@@ -1225,7 +1225,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		observer?: IExecutionObserver): Promise<Record<string, any>> {
+		observer?: IExecutionObserver,
+		sessionId?: string): Promise<Record<string, any>> {
 
 		// Create a UUID and an observer for this execution request
 		const executionId = generateUuid();
@@ -1234,8 +1235,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Begin the code execution. This returns a promise that resolves to the
 		// session ID of the session assigned (or created) to run the code.
+		//
+		// The parameter order gets rearranged here; the API parameter order is
+		// more or less fixed since it's part of the public API, but the
+		// internal parameter order can be more logical.
 		this._proxy.$executeCode(
-			languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, executionId).then(
+			languageId, extensionId, sessionId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;
