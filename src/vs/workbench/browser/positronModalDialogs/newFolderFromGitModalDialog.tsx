@@ -114,9 +114,8 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					throw new Error(localize('positron.gitRepoNotProvided', "A git repository URL was not provided."));
 				}
 				// Dispose dialog immediately, then start cloning
-				const repoInfo = { ...result };
 				props.renderer.dispose();
-				await props.createFolder(repoInfo);
+				await props.createFolder(result);
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>
