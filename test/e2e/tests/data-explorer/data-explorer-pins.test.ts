@@ -201,25 +201,77 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 		test(`${env} - Pinned rows are cleared when sort or filter changes`, async function ({ app }) {
 			const { dataExplorer } = app.workbench;
 
+			const expectedDataOriginal = [
+				{ 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column4': 9, 'column5': 5, 'column6': 96, 'column7': 80, 'column8': 37, 'column9': 61 },
+				{ 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column4': 8, 'column5': 83, 'column6': 21, 'column7': 76, 'column8': 82, 'column9': 29 },
+				{ 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column4': 98, 'column5': 20, 'column6': 83, 'column7': 82, 'column8': 12, 'column9': 7 },
+				{ 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column4': 37, 'column5': 85, 'column6': 82, 'column7': 36, 'column8': 92, 'column9': 58 },
+				{ 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column4': 54, 'column5': 33, 'column6': 16, 'column7': 15, 'column8': 79, 'column9': 20 },
+				{ 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column4': 50, 'column5': 78, 'column6': 35, 'column7': 13, 'column8': 14, 'column9': 39 },
+				{ 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column4': 80, 'column5': 61, 'column6': 33, 'column7': 21, 'column8': 92, 'column9': 95 },
+				{ 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column4': 85, 'column5': 45, 'column6': 41, 'column7': 39, 'column8': 80, 'column9': 99 },
+				{ 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column4': 40, 'column5': 73, 'column6': 79, 'column7': 98, 'column8': 80, 'column9': 24 },
+				{ 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column4': 46, 'column5': 15, 'column6': 88, 'column7': 15, 'column8': 84, 'column9': 38 }
+			];
+			const expectedDataPinRow5 = [
+				{ 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column4': 50, 'column5': 78, 'column6': 35, 'column7': 13, 'column8': 14, 'column9': 39 },
+				{ 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column4': 9, 'column5': 5, 'column6': 96, 'column7': 80, 'column8': 37, 'column9': 61 },
+				{ 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column4': 8, 'column5': 83, 'column6': 21, 'column7': 76, 'column8': 82, 'column9': 29 },
+				{ 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column4': 98, 'column5': 20, 'column6': 83, 'column7': 82, 'column8': 12, 'column9': 7 },
+				{ 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column4': 37, 'column5': 85, 'column6': 82, 'column7': 36, 'column8': 92, 'column9': 58 },
+				{ 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column4': 54, 'column5': 33, 'column6': 16, 'column7': 15, 'column8': 79, 'column9': 20 },
+				{ 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column4': 80, 'column5': 61, 'column6': 33, 'column7': 21, 'column8': 92, 'column9': 95 },
+				{ 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column4': 85, 'column5': 45, 'column6': 41, 'column7': 39, 'column8': 80, 'column9': 99 },
+				{ 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column4': 40, 'column5': 73, 'column6': 79, 'column7': 98, 'column8': 80, 'column9': 24 },
+				{ 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column4': 46, 'column5': 15, 'column6': 88, 'column7': 15, 'column8': 84, 'column9': 38 }
+			];
+			const expectedDataSortColumn4Asc = [
+				{ 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column4': 37, 'column5': 85, 'column6': 82, 'column7': 36, 'column8': 92, 'column9': 58 },
+				{ 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column4': 8, 'column5': 83, 'column6': 21, 'column7': 76, 'column8': 82, 'column9': 29 },
+				{ 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column4': 54, 'column5': 33, 'column6': 16, 'column7': 15, 'column8': 79, 'column9': 20 },
+				{ 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column4': 85, 'column5': 45, 'column6': 41, 'column7': 39, 'column8': 80, 'column9': 99 },
+				{ 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column4': 98, 'column5': 20, 'column6': 83, 'column7': 82, 'column8': 12, 'column9': 7 },
+				{ 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column4': 40, 'column5': 73, 'column6': 79, 'column7': 98, 'column8': 80, 'column9': 24 },
+				{ 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column4': 46, 'column5': 15, 'column6': 88, 'column7': 15, 'column8': 84, 'column9': 38 },
+				{ 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column4': 9, 'column5': 5, 'column6': 96, 'column7': 80, 'column8': 37, 'column9': 61 },
+				{ 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column4': 80, 'column5': 61, 'column6': 33, 'column7': 21, 'column8': 92, 'column9': 95 },
+				{ 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column4': 50, 'column5': 78, 'column6': 35, 'column7': 13, 'column8': 14, 'column9': 39 },
+			];
+			const expectedDataSortColumn4AscPinRow6 = [
+				{ 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column4': 46, 'column5': 15, 'column6': 88, 'column7': 15, 'column8': 84, 'column9': 38 },
+				{ 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column4': 37, 'column5': 85, 'column6': 82, 'column7': 36, 'column8': 92, 'column9': 58 },
+				{ 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column4': 8, 'column5': 83, 'column6': 21, 'column7': 76, 'column8': 82, 'column9': 29 },
+				{ 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column4': 54, 'column5': 33, 'column6': 16, 'column7': 15, 'column8': 79, 'column9': 20 },
+				{ 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column4': 85, 'column5': 45, 'column6': 41, 'column7': 39, 'column8': 80, 'column9': 99 },
+				{ 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column4': 98, 'column5': 20, 'column6': 83, 'column7': 82, 'column8': 12, 'column9': 7 },
+				{ 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column4': 40, 'column5': 73, 'column6': 79, 'column7': 98, 'column8': 80, 'column9': 24 },
+				{ 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column4': 9, 'column5': 5, 'column6': 96, 'column7': 80, 'column8': 37, 'column9': 61 },
+				{ 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column4': 80, 'column5': 61, 'column6': 33, 'column7': 21, 'column8': 92, 'column9': 95 },
+				{ 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column4': 50, 'column5': 78, 'column6': 35, 'column7': 13, 'column8': 14, 'column9': 39 },
+			];
+
+			// maximize to ensure all rows/columns are rendered and visible
+			await dataExplorer.maximize(true);
+
 			// pin row 5
 			await dataExplorer.grid.pinRow(5);
 			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
-			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
+			await dataExplorer.grid.verifyTableData(expectedDataPinRow5);
 
 			// sort by column 4 - this should clear pinned rows
-			await dataExplorer.grid.sortColumnBy(4, 'Sort Descending');
+			await dataExplorer.grid.sortColumnBy(4, 'Sort Ascending');
 			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
-			await dataExplorer.grid.expectRowOrderToBe(rowOrder.default, indexOffset);
+			await dataExplorer.grid.verifyTableData(expectedDataSortColumn4Asc);
 
 			// pin row 6
 			await dataExplorer.grid.pinRow(6);
 			await dataExplorer.grid.expectRowsToBePinned([6], indexOffset);
-			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow6, indexOffset);
+			await dataExplorer.grid.verifyTableData(expectedDataSortColumn4AscPinRow6);
 
 			// clear sort by column 4 - this should also clear pinned rows
 			await dataExplorer.grid.sortColumnBy(4, 'Clear Sorting');
 			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
-			await dataExplorer.grid.expectRowOrderToBe(rowOrder.default, indexOffset);
+			await dataExplorer.grid.verifyTableData(expectedDataOriginal);
 		});
 	});
 }
