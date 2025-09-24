@@ -10,6 +10,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -41,7 +42,7 @@ export class ExecuteSelectionInConsoleAction extends Action2 {
 				ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 				ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
 			),
-			// Show in the cell context menu, but only for code cells
+			// Show in the cell context menu, but only for code cells and when there's a selection
 			menu: [
 				{
 					id: MenuId.NotebookCellTitle,
@@ -50,7 +51,10 @@ export class ExecuteSelectionInConsoleAction extends Action2 {
 					// needing to reorder any menus from upstream
 					order: CellToolbarOrder.ExecuteCellAndBelow,
 					group: CELL_TITLE_CELL_GROUP_ID,
-					when: NOTEBOOK_CELL_TYPE.isEqualTo('code'),
+					when: ContextKeyExpr.and(
+						NOTEBOOK_CELL_TYPE.isEqualTo('code'),
+						EditorContextKeys.hasNonEmptySelection
+					),
 				}
 			]
 		});
