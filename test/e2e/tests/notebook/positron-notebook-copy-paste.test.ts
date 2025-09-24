@@ -107,7 +107,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 		// Verify cell 2 is selected and has correct content
 		expect(await getFocusedCellIndex(app)).toBe(2);
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 2');
+		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 2');
 
 		// Copy the cell
 		await copyCellsWithKeyboard(app);
@@ -123,7 +123,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		expect(await getCellCount(app)).toBe(6);
 
 		// Verify the pasted cell has the correct content (should be at index 5)
-		expect(await app.workbench.notebooksPositron.getCellContent(5)).toBe('# Cell 2');
+		expect(await app.workbench.notebooksPositron.getCellContent(5)).toBe('# Cell 2');
 
 		// Focus should be on the pasted cell
 		expect(await getFocusedCellIndex(app)).toBe(5);
@@ -134,7 +134,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await app.workbench.notebooksPositron.selectCellAtIndex(1);
 
 		// Verify we're at cell 1 with correct content
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
+		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
 
 		// Cut the cell
 		await cutCellsWithKeyboard(app);
@@ -144,7 +144,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 		// Focus should move to what was cell 2 (now at index 1)
 		expect(await getFocusedCellIndex(app)).toBe(1);
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 2');
+		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 2');
 
 		// Move to index 3 and paste
 		await app.workbench.notebooksPositron.selectCellAtIndex(3);
@@ -154,7 +154,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		expect(await getCellCount(app)).toBe(6);
 
 		// Verify the pasted cell has correct content at index 4
-		expect(await app.workbench.notebooksPositron.getCellContent(4)).toBe('# Cell 1');
+		expect(await app.workbench.notebooksPositron.getCellContent(4)).toBe('# Cell 1');
 
 		// Focus should be on the pasted cell
 		expect(await getFocusedCellIndex(app)).toBe(4);
@@ -165,7 +165,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await app.workbench.notebooksPositron.selectCellAtIndex(0);
 
 		// Copy cell 0
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
+		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
 		await copyCellsWithKeyboard(app);
 
 		// Paste at position 2
@@ -174,7 +174,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 		// Verify first paste
 		expect(await getCellCount(app)).toBe(7);
-		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 0');
+		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 0');
 
 		// Paste again at position 5
 		await app.workbench.notebooksPositron.selectCellAtIndex(5);
@@ -182,7 +182,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 		// Verify second paste
 		expect(await getCellCount(app)).toBe(8);
-		expect(await app.workbench.notebooksPositron.getCellContent(6)).toBe('# Cell 0');
+		expect(await app.workbench.notebooksPositron.getCellContent(6)).toBe('# Cell 0');
 
 		// ========================================
 		// Test 4: Cut and paste at beginning of notebook
