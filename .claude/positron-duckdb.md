@@ -2,6 +2,11 @@
 
 This prompt provides context for working with the `positron-duckdb` extension, which provides DuckDB WebAssembly support for headless data exploration in Positron.
 
+**Related documentation:**
+- **Build system**: `.claude/build-system.md` - For daemon management and compilation
+- **Data Explorer UI**: `.claude/data-explorer.md` - For frontend components that use this extension
+- **Testing**: `.claude/e2e-testing.md` - For E2E tests involving data exploration
+
 ## Extension Overview
 
 **Purpose**: Provides DuckDB support for headless data explorers for previewing data files  
@@ -47,16 +52,35 @@ extensions/positron-duckdb/
 └── extension.webpack.config.js  # Build configuration
 ```
 
-## Development Commands
+## Quick Development Workflow
 
-### Testing
+### 1. Prerequisites
+Ensure build daemons are running (see `.claude/build-system.md`):
 ```bash
-# Run extension tests
+# Check daemon status first
+ps aux | grep -E "npm.*watch-extensionsd" | grep -v grep
+
+# Start if not running
+npm run watch-extensionsd &
+sleep 30  # Wait for compilation
+```
+
+### 2. Testing
+```bash
+# Run all DuckDB extension tests
 npm run test-extension -- -l positron-duckdb
 
-# Test with specific pattern
+# Test specific functionality
 npm run test-extension -- -l positron-duckdb --grep "histogram"
+npm run test-extension -- -l positron-duckdb --grep "csv"
+npm run test-extension -- -l positron-duckdb --grep "filter"
 ```
+
+### 3. Development Cycle
+1. Edit code in `extensions/positron-duckdb/src/`
+2. Watch for compilation completion in daemon output
+3. Run tests to verify changes
+4. Debug using test data in `extensions/positron-duckdb/src/test/data/`
 
 ## Key Classes and Interfaces
 
