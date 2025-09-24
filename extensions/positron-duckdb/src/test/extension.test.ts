@@ -2388,6 +2388,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// Verify that the table name is properly quoted in SQL
 		assert.strictEqual(result.converted_code[1], `FROM "${specialTableName}"`, 'Second line should properly quote the table name');
 	});
+<<<<<<< HEAD
 
 	/**
 	 * Helper function to request frequency table profiles
@@ -2601,4 +2602,47 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(freqTable.counts.length, 0, 'Empty table should produce empty frequency table counts');
 		assert.strictEqual(freqTable.other_count, 0, 'Empty table should have 0 other_count');
 	});
+||||||| parent of 4e0e9ba97 (Add tests, try to fix problem)
+=======
+
+	test('null count profiles with zero rows should return 0', async () => {
+		// Create an empty table using direct SQL since createTempTable doesn't handle empty arrays
+		const tableName = makeTempTableName();
+		await runQuery(`CREATE TABLE ${tableName} (str_col VARCHAR, num_col INTEGER);`);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// Test string column null count
+		const stringColumnProfile = await requestColumnProfile(
+			tableName,
+			0, // str_col column index
+			[{
+				profile_type: ColumnProfileType.NullCount
+			}],
+			randomUUID(),
+			(profile) => {
+				return profile?.null_count;
+			},
+			'String column null count should be computed for zero-row table'
+		);
+
+		assert.strictEqual(stringColumnProfile, 0, 'String column null count should be 0 for zero-row table');
+
+		// Test number column null count
+		const numberColumnProfile = await requestColumnProfile(
+			tableName,
+			1, // num_col column index
+			[{
+				profile_type: ColumnProfileType.NullCount
+			}],
+			randomUUID(),
+			(profile) => {
+				return profile?.null_count;
+			},
+			'Number column null count should be computed for zero-row table'
+		);
+
+		assert.strictEqual(numberColumnProfile, 0, 'Number column null count should be 0 for zero-row table');
+	});
+>>>>>>> 4e0e9ba97 (Add tests, try to fix problem)
 });
