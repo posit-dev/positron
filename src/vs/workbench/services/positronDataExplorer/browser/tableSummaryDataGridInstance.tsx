@@ -19,7 +19,6 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
@@ -560,9 +559,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param state The backend state, if known; otherwise, undefined.
 	 */
 	private async updateLayoutEntries(state?: BackendState) {
-		const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(this._services.configurationService);
-
-		if (!showSummaryPanelEnhancements || this.hasNoSearchOrSort()) {
+		if (this.hasNoSearchOrSort()) {
 			// When there is no search or sort option, we need to tell the layout manager
 			// to use the original table shape and render all the data
 			if (!state) {
