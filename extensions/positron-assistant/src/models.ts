@@ -19,7 +19,7 @@ import { markBedrockCacheBreakpoint, processMessages, toAIMessage } from './util
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 
@@ -81,6 +81,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	readonly name = 'Echo Language Model';
 	readonly provider = 'echo';
 	readonly id = 'echo-language-model';
+	readonly maxInputTokens = DEFAULT_MAX_TOKEN_INPUT;
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 
 	constructor(
@@ -121,7 +122,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 				name: this.name,
 				family: this.provider,
 				version: '1.0.0',
-				maxInputTokens: 0,
+				maxInputTokens: this.maxInputTokens,
 				maxOutputTokens: this.maxOutputTokens,
 				capabilities: this.capabilities,
 				isDefault: true,
@@ -233,32 +234,36 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		return this.providerName;
 	}
 
-	getMaxOutputTokens(id: string): number {
-		let maxOutputTokens = this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+	protected getMaxTokens(id: string, type: 'input' | 'output'): number {
+		const defaultTokens = type === 'input'
+			? (this._config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT)
+			: (this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT);
 
-		// Override using fixed model list if available
 		const fixedModels = availableModels.get(this._config.provider);
-		maxOutputTokens = fixedModels?.find(m => m.identifier === id)?.maxOutputTokens ?? maxOutputTokens;
+		const fixedValue = type === 'input'
+			? fixedModels?.find(m => m.identifier === id)?.maxInputTokens
+			: fixedModels?.find(m => m.identifier === id)?.maxOutputTokens;
+		let maxTokens = fixedValue ?? defaultTokens;
 
-		// Override maxOutputTokens if specified in the configuration
-		const maxOutputTokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
-		for (const [key, value] of Object.entries(maxOutputTokensConfig)) {
+		const configKey = type === 'input' ? 'maxInputTokens' : 'maxOutputTokens';
+		const tokensConfig: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get(configKey, {});
+		for (const [key, value] of Object.entries(tokensConfig)) {
 			if (id.indexOf(key) !== -1 && value) {
 				if (typeof value !== 'number') {
-					log.warn(`Invalid maxOutputTokens '${value}' for ${key} (${id}); ignoring`);
+					log.warn(`Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
 					continue;
 				}
 				if (value < 512) {
-					log.warn(`Specified maxOutputTokens '${value}' for ${key} (${id}) is too low; using 512 instead`);
-					maxOutputTokens = 512;
+					log.warn(`Specified ${configKey} '${value}' for ${key} (${id}) is too low; using 512 instead`);
+					maxTokens = 512;
 				}
-				maxOutputTokens = value;
+				maxTokens = value;
 				break;
 			}
 		}
 
-		log.debug(`Setting maxOutputTokens for (${id}) to ${maxOutputTokens}`);
-		return maxOutputTokens;
+		log.debug(`Setting ${configKey} for (${id}) to ${maxTokens}`);
+		return maxTokens;
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
@@ -302,8 +307,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 					name: this.name,
 					family: aiModel.provider,
 					version: aiModel.specificationVersion,
-					maxInputTokens: 0,
-					maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
+					maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
+					maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 					capabilities: this.capabilities,
 					isDefault: true,
 					isUserSelectable: true,
@@ -320,8 +325,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				name: m.name,
 				family: aiModel.provider,
 				version: aiModel.specificationVersion,
-				maxInputTokens: 0,
-				maxOutputTokens: this.getMaxOutputTokens(aiModel.modelId),
+				maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
+				maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 				capabilities: this.capabilities,
 				// is default if it's the first model out of models
 				isDefault: m === models[0],
@@ -420,7 +425,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
 			abortSignal: signal,
-			maxTokens: this.getMaxOutputTokens(aiModel.modelId),
+			maxTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 		});
 
 		let accumulatedTextDeltas: string[] = [];
@@ -945,29 +950,40 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+interface ModelDefinition {
+	name: string;
+	identifier: string;
+	maxInputTokens?: number;
+	maxOutputTokens?: number;
+}
+
 // Note: we don't query for available models using any provider API since it may return ones that are not
 // suitable for chat and we don't want the selection to be too large
-export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
+export const availableModels = new Map<string, ModelDefinition[]>(
 	[
 		['anthropic-api', [
 			{
 				name: 'Claude 4 Sonnet',
 				identifier: 'claude-sonnet-4-20250514',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 4 Opus',
 				identifier: 'claude-opus-4-20250514',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.7 Sonnet v1',
 				identifier: 'claude-3-7-sonnet-latest',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2',
 				identifier: 'claude-3-5-sonnet-latest',
+				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]],

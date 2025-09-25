@@ -20,7 +20,8 @@
     "defaultChatParticipant",
     "findFiles2",
     "inlineCompletionsAdditions",
-    "languageModelDataPart"
+    "languageModelDataPart",
+    "languageModelSystem"
   ],
   "contributes": {
     "chatParticipants": [
@@ -244,6 +245,15 @@
             "type": "boolean",
             "default": false,
             "description": "%configuration.showTokenUsage.description%"
+          },
+          "positron.assistant.maxInputTokens": {
+            "type": "object",
+            "default": {},
+            "description": "%configuration.maxInputTokens.description%",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 512
+            }
           },
           "positron.assistant.maxOutputTokens": {
             "type": "object",
