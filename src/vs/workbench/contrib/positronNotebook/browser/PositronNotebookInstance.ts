@@ -408,11 +408,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
 			this._syncCells();
-			// After syncing cells, restore any pending selection state from undo/redo
-			if (this._pendingSelectionState) {
-				this._restoreSelectionState(this._pendingSelectionState);
-				this._pendingSelectionState = undefined;
-			}
 		}));
 	}
 
@@ -457,10 +452,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			// Fire content change event before syncing
 			this._onDidChangeContent.fire();
-
-			// Store the selection state if present (from undo/redo operations)
-			// We'll use this after syncing cells to restore the correct selection
-			this._pendingSelectionState = e.endSelectionState;
 		}));
 
 		// Select the appropriate kernel for the notebook
@@ -823,50 +814,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 	}
 
-	// Pending selection state from undo/redo operations
-	private _pendingSelectionState: ISelectionState | undefined;
-
-	/**
-	 * Restores selection state after operations like undo/redo.
-	 * This ensures the appropriate cell is selected and focused.
-	 * @param selectionState The selection state to restore
-	 */
-	private _restoreSelectionState(selectionState: ISelectionState): void {
-		// Use a timeout to ensure cells are fully rendered
-		disposableTimeout(() => {
-			const cells = this.cells.get();
-			if (cells.length === 0) {
-				return;
-			}
-
-			if (selectionState.kind === SelectionStateType.Index) {
-				// Get the focus index from the selection state
-				const focusIndex = selectionState.focus.start;
-
-				// Clamp the index to valid range
-				const targetIndex = Math.min(Math.max(0, focusIndex), cells.length - 1);
-
-				const cellToSelect = cells[targetIndex];
-				if (cellToSelect) {
-					// Select the cell in normal mode (not edit mode)
-					// This matches VS Code's behavior where undo/redo selects but doesn't enter edit mode
-					this.selectionStateMachine.selectCell(cellToSelect, CellSelectionType.Normal);
-					cellToSelect.focus();
-				}
-			} else if (selectionState.kind === SelectionStateType.Handle) {
-				// Handle-based selection (less common in undo/redo scenarios)
-				const handle = selectionState.primary;
-				if (handle !== null) {
-					const cellToSelect = cells.find(c => c.cellModel.handle === handle);
-					if (cellToSelect) {
-						this.selectionStateMachine.selectCell(cellToSelect, CellSelectionType.Normal);
-						cellToSelect.focus();
-					}
-				}
-			}
-		}, 0);
-	}
-
 	/**
 	 * Method to sync the editor cells with the current cells in the model.
 	 */
@@ -895,7 +842,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		});
 
 		// Only auto-select new cells if we don't have a pending selection state from undo/redo
-		if (newlyAddedCells.length === 1 && !this._pendingSelectionState) {
+		if (newlyAddedCells.length === 1) {
 			// If we've only added one cell, we can set it as the selected cell.
 			this._register(disposableTimeout(async () => {
 				this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
