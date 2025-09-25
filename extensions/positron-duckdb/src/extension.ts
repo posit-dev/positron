@@ -1618,9 +1618,11 @@ END`;
 			case TableSelectionKind.RowIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
+				const whereCondition = this._whereClause
+					? `${this._whereClause} AND rowid IN (${indices.join(', ')})`
+					: `\nWHERE rowid IN (${indices.join(', ')})`;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}${this._whereClause}
-				WHERE rowid IN (${indices.join(', ')})${this._sortClause}`;
+				FROM ${this.tableName}${whereCondition}${this._sortClause}`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
 			case TableSelectionKind.ColumnIndices: {
