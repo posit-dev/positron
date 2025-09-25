@@ -1146,7 +1146,7 @@ suite('Positron - RuntimeSessionService', () => {
 		assert.strictEqual(sessionBeforeUpdate, session, 'Session should be accessible via untitled URI before update');
 
 		// Update the session's URI
-		const returnedSessionId = runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
+		const returnedSessionId = await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
 
 		// Verify returned sessionId matches the session's ID
 		assert.strictEqual(returnedSessionId, session.sessionId, 'Function should return the correct session ID');
@@ -1166,7 +1166,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const newUri = URI.file('/path/to/new/notebook.ipynb');
 
 		// Attempt to update a non-existent session
-		const returnedSessionId = runtimeSessionService.updateNotebookSessionUri(nonExistentUri, newUri);
+		const returnedSessionId = await runtimeSessionService.updateNotebookSessionUri(nonExistentUri, newUri);
 
 		// Verify no session ID is returned
 		assert.strictEqual(returnedSessionId, undefined,
