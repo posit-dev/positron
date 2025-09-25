@@ -183,6 +183,13 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						`Runtime kernel ${this.id} executed cells for notebook`,
 					);
 				});
+				session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+				if (!session) {
+					// We shouldn't get here since ensureSessionStarted should
+					// notify and throw if it fails, but just in case...
+					this._logService.error(`Failed to start runtime session for notebook '${notebookUri.toString()}'`);
+					return;
+				}
 			}
 
 			// Queue the cell executions.
@@ -248,6 +255,11 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		const cellExecution = this._notebookExecutionStateService.getCellExecution(cell.uri);
 		if (!cellExecution) {
 			throw new Error(`No execution for cell '${cell.uri.toString()}'`);
+		}
+
+		// Ensure we have a session.
+		if (!session) {
+			throw new Error(`No active interpreter session for notebook '${notebook.uri.toString()}'`);
 		}
 
 		// Determine error behavior based on cell metadata tags
