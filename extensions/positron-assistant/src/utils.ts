@@ -245,10 +245,11 @@ function convertToolResultToAiMessageExperimentalContent(
 /**
  * Convert a getPlot tool result into a Vercel AI message.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreUserMessage {
-	const imageParts = part.content.filter(
-		(content) => content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)
-	) as vscode.LanguageModelDataPart[];
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreUserMessage {
+	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
+		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
+	};
+	const imageParts = part.content.filter(isImageDataPart);
 
 	// If there was no image, forward the response as text.
 	if (imageParts.length === 0) {
