@@ -87,7 +87,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			// For external/workbench projects, this fixture isn't used, they handle it separately
 			await use('');
 		} else {
-			// Default case for e2e-electron, e2e-browser, and other projects
+			// Default case for e2e-electron, e2e-chromium, and other projects
 			const userDataDirFixture = UserDataDirFixture();
 			const userDir = await userDataDirFixture(options);
 			await use(userDir);
