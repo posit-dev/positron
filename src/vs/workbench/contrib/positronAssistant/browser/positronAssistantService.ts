@@ -8,7 +8,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronAssistantConfigurationService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
@@ -18,6 +18,28 @@ import * as glob from '../../../../base/common/glob.js';
 import { IChatService } from '../../chat/common/chatService.js';
 import { IChatWidgetService } from '../../chat/browser/chat.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
+
+/**
+ * PositronAssistantConfigurationService class.
+ */
+export class PositronAssistantConfigurationService extends Disposable implements IPositronAssistantConfigurationService {
+	declare readonly _serviceBrand: undefined;
+	private _copilotEnabled = false;
+	private _copilotEnabledEmitter = this._register(new Emitter<boolean>());
+
+	readonly onChangeCopilotEnabled = this._copilotEnabledEmitter.event;
+
+
+	get copilotEnabled(): boolean {
+		return this._copilotEnabled;
+	}
+
+	set copilotEnabled(value: boolean) {
+		this._copilotEnabled = value;
+		this._copilotEnabledEmitter.fire(this._copilotEnabled);
+	}
+}
+
 
 /**
  * PositronAssistantService class.
@@ -42,6 +64,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
 		@IProductService protected readonly _productService: IProductService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
+		@IPositronAssistantConfigurationService private readonly _assistantConfigurationService: PositronAssistantConfigurationService,
 	) {
 		super();
 	}
@@ -95,11 +118,19 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		this._languageModelRegistry.add(source.provider.id);
 
+		if (source.provider.id === 'copilot') {
+			this._assistantConfigurationService.copilotEnabled = !!source.signedIn;
+		}
+
 		this._onLanguageModelConfigEmitter.fire(source);
 	}
 
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		this._languageModelRegistry.delete(source.provider.id);
+
+		if (source.provider.id === 'copilot') {
+			this._assistantConfigurationService.copilotEnabled = false;
+		}
 
 		this._onLanguageModelConfigEmitter.fire(source);
 	}
@@ -181,6 +212,13 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 	//#endregion
 }
+
+// Register the Positron assistant configuration service.
+registerSingleton(
+	IPositronAssistantConfigurationService,
+	PositronAssistantConfigurationService,
+	InstantiationType.Delayed
+);
 
 // Register the Positron assistant service.
 registerSingleton(
