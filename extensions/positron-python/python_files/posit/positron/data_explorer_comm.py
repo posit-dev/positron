@@ -229,8 +229,6 @@ class SupportStatus(str, enum.Enum):
 
     Supported = "supported"
 
-    Experimental = "experimental"
-
 
 class OpenDatasetResult(BaseModel):
     """
