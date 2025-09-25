@@ -31,5 +31,6 @@
 	"configuration.showTokenUsage.description": "Show token usage in the chat view for supported providers for the session and each message and response including prompts. Check with your provider for detailed usage.",
 	"configuration.maxOutputTokens.description": "Override the maximum output tokens for specific language models. The key selects a model ID (partial match supported); the value is the maximum output tokens for that model.",
 	"configuration.followups.enable.description": "Enable suggested followup prompts after chat responses.",
-	"configuration.consoleActions.enable.description": "Enable Positron Assistant console actions, such as Fix and Explain."
+	"configuration.consoleActions.enable.description": "Enable Positron Assistant console actions, such as Fix and Explain.",
+	"configuration.providerTimeout.description": "Specifies the timeout in seconds when signing in to a provider."
 }
