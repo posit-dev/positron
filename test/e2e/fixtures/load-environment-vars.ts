@@ -90,7 +90,7 @@ function applyEnvironmentVars(vars: ProjectEnvironmentVars, sourceFile: string):
  * Load and apply environment variables for a specific project
  */
 export function loadEnvironmentVars(projectName: string): void {
-	const envFiles = PROJECT_ENV_FILES[projectName];
+	const envFiles = PROJECT_ENV_FILES[projectName] || PROJECT_ENV_FILES['default'];
 
 	if (!envFiles) {
 		// No specific env files for this project - that's fine
@@ -152,7 +152,7 @@ export function validateEnvironmentVars(
 
 	// Log issues for visibility
 	if (missing.length > 0) {
-		// console.error(`❌ Missing env var(s): ${missing.join(', ')}`);
+		console.error(`❌ Missing env var(s): ${missing.join(', ')}`);
 	}
 	if (!allowEmpty && empty.length > 0) {
 		console.error(`❌ Empty env var(s): ${empty.join(', ')}`);
