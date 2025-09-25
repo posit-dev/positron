@@ -72,6 +72,9 @@ export function OptionsFixture() {
 
 export function UserDataDirFixture() {
 	return async (options: ApplicationOptions) => {
+		if (!options.userDataDir) {
+			throw new Error('Cannot create user data dir from undefined userDataDir');
+		}
 		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
 		process.env.PLAYWRIGHT_USER_DATA_DIR = userDir;
 

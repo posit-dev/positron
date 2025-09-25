@@ -6,9 +6,9 @@
 import { Code } from '../../infra/code.js';
 
 export class AuthPage {
-	username = this.code.driver.page.getByRole('textbox', { name: 'Username' });
-	password = this.code.driver.page.getByRole('textbox', { name: 'Password' });
-	signInButton = this.code.driver.page.getByRole('button', { name: 'Sign In' });
+	get username() { return this.code.driver.page.getByRole('textbox', { name: 'Username or Email' }); }
+	get password() { return this.code.driver.page.getByRole('textbox', { name: 'Password' }); }
+	get signInButton() { return this.code.driver.page.getByRole('button', { name: 'Sign In' }); }
 
 	constructor(private code: Code) { }
 
