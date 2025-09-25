@@ -15,7 +15,7 @@ import { teardown } from './processes';
 import { Quality } from './application';
 import { ElectronApplication } from '@playwright/test';
 
-export type Browser = "chromium" | "firefox" | "webkit" | "chromium-msedge" | "chromium-chrome" | undefined;
+export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
 
 export interface LaunchOptions {
 	codePath?: string;
