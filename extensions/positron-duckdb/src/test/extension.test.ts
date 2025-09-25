@@ -967,6 +967,125 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(tsvResult.data, 'id\tname\n1\tAlice\n2\tBob\n3\tCharlie');
 	});
 
+	test('export_data_selection single cell respects sort order', async () => {
+		const { tableName, longString } = await createExportTestTable();
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { singleCell, setSortKeys, columnRange } = createSortTestHelper(uri);
+
+		// Original table:
+		// Row 0: int_col=1, str_col='a'
+		// Row 1: int_col=2, str_col='b'
+		// Row 2: int_col=3, str_col='c'
+		// Row 3: int_col=4, str_col=NULL
+		// Row 4: int_col=NULL, str_col=longString
+
+		// Test single cell export without sorting first
+		await singleCell(0, 0, '1');  // Row 0, Column 0 (int_col) = 1
+		await singleCell(1, 1, 'b');  // Row 1, Column 1 (str_col) = 'b'
+		await singleCell(2, 0, '3');  // Row 2, Column 0 (int_col) = 3
+
+		// Sort by int_col descending (NULL values last)
+		await setSortKeys([{ column_index: 0, ascending: false }]);
+
+		// First, let's verify the sort order with columnRange to see actual data
+		await columnRange(0, 1, `int_col,str_col\n4,NULL\n3,c\n2,b\n1,a\nNULL,${longString}`);
+
+		// Now test single cells - these should match the sorted order
+		// If these tests fail, it means single cell export is not respecting sort order
+		await singleCell(0, 0, '4');    // Visual Row 0, int_col should be 4
+		await singleCell(1, 0, '3');    // Visual Row 1, int_col should be 3
+		await singleCell(2, 0, '2');    // Visual Row 2, int_col should be 2
+		await singleCell(3, 0, '1');    // Visual Row 3, int_col should be 1
+		await singleCell(4, 0, 'NULL'); // Visual Row 4, int_col should be NULL
+	});
+
+	test('export_data_selection single cell with duplicate sort values (stable sort test)', async () => {
+		// Create a table with many duplicate values to test stable sorting
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'sort_col',
+				type: 'INTEGER',
+				// Many rows with value 1, then some with value 2
+				values: ['1', '1', '1', '1', '1', '1', '1', '1', '2', '2']
+			},
+			{
+				name: 'id',
+				type: 'INTEGER',
+				// Unique identifier to track which original row we're getting
+				values: ['100', '101', '102', '103', '104', '105', '106', '107', '200', '201']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { singleCell, setSortKeys, columnRange } = createSortTestHelper(uri);
+
+		// Before sorting - verify original order
+		await columnRange(0, 1, 'sort_col,id\n1,100\n1,101\n1,102\n1,103\n1,104\n1,105\n1,106\n1,107\n2,200\n2,201');
+
+		// Sort by sort_col ascending - all the 1's should come first, then 2's
+		// But within the 1's, the order might be unstable
+		await setSortKeys([{ column_index: 0, ascending: true }]);
+
+		// The issue: When we export single cells from the sorted view,
+		// the OFFSET might not correspond to the same row the UI is showing
+		// due to unstable sorting of duplicate values
+
+		// Test: Export the first few cells after sorting
+		// These should all be from the "1" group, but which specific ID values?
+		const cell0Result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri: uri.toString(),
+			params: {
+				selection: {
+					kind: TableSelectionKind.SingleCell,
+					selection: { row_index: 0, column_index: 1 } // First row, id column
+				},
+				format: ExportFormat.Csv
+			}
+		});
+
+		const cell1Result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri: uri.toString(),
+			params: {
+				selection: {
+					kind: TableSelectionKind.SingleCell,
+					selection: { row_index: 1, column_index: 1 } // Second row, id column
+				},
+				format: ExportFormat.Csv
+			}
+		});
+
+		// Let's also check what columnRange gives us for comparison
+		const rangeResult = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri: uri.toString(),
+			params: {
+				selection: {
+					kind: TableSelectionKind.CellRange,
+					selection: {
+						first_row_index: 0,
+						last_row_index: 1,
+						first_column_index: 1,
+						last_column_index: 1
+					}
+				},
+				format: ExportFormat.Csv
+			}
+		});
+
+		console.log('Single cell row 0:', cell0Result.data);
+		console.log('Single cell row 1:', cell1Result.data);
+		console.log('Range rows 0-1:', rangeResult.data);
+
+		// After the fix, single cell exports should be consistent with range exports
+		// Single cells should return different rows (100, 101) not the same row twice
+		assert.strictEqual(cell0Result.data, '100', 'First cell should be ID 100');
+		assert.strictEqual(cell1Result.data, '101', 'Second cell should be ID 101');
+		assert.strictEqual(rangeResult.data, 'id\n100\n101', 'Range should return IDs 100,101');
+	});
+
 	test('set_row_filters works correctly', async () => {
 		const tableName = makeTempTableName();
 

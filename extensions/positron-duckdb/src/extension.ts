@@ -1493,6 +1493,10 @@ END`;
 			sortExprs.push(`${quotedName}${modifier}`);
 		}
 
+		// Add rowid as the final sort key to ensure stable sorting
+		// This prevents inconsistencies when there are duplicate values in the sort columns
+		sortExprs.push('rowid');
+
 		this._sortClause = `\nORDER BY ${sortExprs.join(', ')}`;
 	}
 
@@ -1680,9 +1684,16 @@ END`;
 			result.push(whereClause);
 		}
 
-		if (this._sortClause) {
-			const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
-			result.push(sortClause);
+		if (this.sortKeys.length > 0) {
+			// Generate user-facing sort clause without the auxiliary rowid
+			const sortExprs = [];
+			for (const sortKey of this.sortKeys) {
+				const columnSchema = this.fullSchema[sortKey.column_index];
+				const quotedName = quoteIdentifier(columnSchema.column_name);
+				const modifier = sortKey.ascending ? '' : ' DESC';
+				sortExprs.push(`${quotedName}${modifier}`);
+			}
+			result.push(`ORDER BY ${sortExprs.join(', ')}`);
 		}
 
 		return {
