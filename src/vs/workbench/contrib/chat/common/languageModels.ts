@@ -566,8 +566,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 				continue;
 			}
 			seenProviderIds.add(model.vendor);
+			// Copilot Chat sets the provider label in the model auth
+			const providerName = model.auth && model.auth.providerLabel ? model.auth.providerLabel : model.providerName;
+
 			providers.push({
-				displayName: model.providerName ?? model.vendor,
+				displayName: providerName ?? model.vendor,
 				id: model.vendor
 			});
 		}
