@@ -13,13 +13,17 @@
 	text-align: unset !important;
 }
 
+.positron-button.disabled {
+	cursor: default;
+}
+
 .hc-black .positron-button:not(.border),
 .hc-light .positron-button:not(.border) {
 	border: 1px solid transparent;
 }
 
-.hc-black .positron-button:hover,
-.hc-light .positron-button:hover {
+.hc-black .positron-button:hover:not(.disabled),
+.hc-light .positron-button:hover:not(.disabled) {
 	border: 1px dashed var(--vscode-focusBorder);
 }
 

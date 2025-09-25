@@ -687,7 +687,6 @@ declare module 'positron' {
 	export enum RuntimeClientType {
 		Variables = 'positron.variables',
 		Lsp = 'positron.lsp',
-		Dap = 'positron.dap',
 		Plot = 'positron.plot',
 		DataExplorer = 'positron.dataExplorer',
 		Ui = 'positron.ui',
@@ -1645,6 +1644,19 @@ declare module 'positron' {
 			cancelButtonTitle?: string): Thenable<boolean>;
 
 		/**
+		 * Create and show a simple modal dialog input prompt.
+		 *
+		 * @param title The title of the dialog
+		 * @param message The message to display in the dialog
+		 * @param placeholder The placeholder text for the input field
+		 *
+		 * @returns A Thenable that resolves to the user's input, or undefined if the user cancelled.
+		 */
+		export function showSimpleModalDialogInputPrompt(title: string,
+			message: string,
+			placeholder?: string): Thenable<string | undefined>;
+
+		/**
 		 * Create and show a different simple modal dialog prompt.
 		 *
 		 * @param title The title of the dialog
@@ -1792,6 +1804,10 @@ declare module 'positron' {
 		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
+		 * @param sessionId An optional session ID to execute the code in. If
+		 *  not provided, an appropriate session will be chosen, and if no
+		 *  session for the desired language is running at all, a new session
+		 *  will be started.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -1801,7 +1817,8 @@ declare module 'positron' {
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
-			observer?: ExecutionObserver): Thenable<Record<string, any>>;
+			observer?: ExecutionObserver,
+			sessionId?: string): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.

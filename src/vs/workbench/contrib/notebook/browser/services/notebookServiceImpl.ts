@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { checkPositronNotebookEnabled } from '../../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+// --- End Positron ---
 import { localize } from '../../../../../nls.js';
 import { toAction } from '../../../../../base/common/actions.js';
 import { createErrorWithActions } from '../../../../../base/common/errorMessage.js';
@@ -49,9 +52,6 @@ import { SnapshotContext } from '../../../../services/workingCopy/common/fileWor
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { ICellRange } from '../../common/notebookRange.js';
-// --- Start Positron ---
-import { checkPositronNotebookEnabled } from '../../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
-// --- End Positron ---
 
 
 export class NotebookProviderInfoStore extends Disposable {
@@ -351,9 +351,6 @@ export class NotebookProviderInfoStore extends Disposable {
 			));
 			// Then register the schema handler as exclusive for that notebook
 			// --- Start Positron ---
-			// If Positron notebooks are enabled,
-			// let the Positron notebook cell handler take care of it.
-
 			// disposables.add(this._editorResolverService.registerEditor(
 			// 	`${Schemas.vscodeNotebookCell}:/**/${ globPattern } `,
 			// 	{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
@@ -361,6 +358,10 @@ export class NotebookProviderInfoStore extends Disposable {
 			// 	notebookCellFactoryObject
 			// ));
 
+			// The cell handler is specifically for opening and focusing a cell by URI
+			// e.g. vscode.window.showTextDocument(cell.document).
+			// The editor resolver service expects a single handler with 'exclusive' priority,
+			// so don't register this one if Positron notebooks are enabled.
 			if (!checkPositronNotebookEnabled(this._configurationService)) {
 				disposables.add(this._editorResolverService.registerEditor(
 					`${Schemas.vscodeNotebookCell}:/**/${globPattern} `,

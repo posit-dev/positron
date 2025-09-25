@@ -140,7 +140,6 @@ export const PositronConsoleTabFocused = new RawContextKey<boolean>('positronCon
 export const PositronConsoleInstancesExistContext = new RawContextKey<boolean>('positronConsoleInstancesExist', false, localize('positronConsoleInstancesExist', "Whether any Positron Console instances exist"));
 export const PositronVariablesFocused = new RawContextKey<boolean>('positronVariablesFocused', false, localize('positronVariablesFocused', "Whether Positron Variables has keyboard focus"));
 export const PositronHelpFocused = new RawContextKey<boolean>('positronHelpFocused', false, localize('positronHelpFocused', "Whether Positron Help has keyboard focus"));
-export const PositronDataExplorerFocused = new RawContextKey<boolean>('positronDataExplorerFocused', false, localize('positronDataExplorerFocused', "Whether Positron Data Explorer has keyboard focus"));
 // --- End Positron ---
 
 //#region < --- Banner --- >

@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ------------------------------------------------------------
 
@@ -32,7 +32,7 @@ fi
 pushd "${SCRIPTDIR}/../src/kcclient"
 
 # Generate the API client
-openapi-generator generate -i ~/git/kallichore/kallichore.json  -g typescript-node
+openapi-generator generate -i ~/git/kallichore/kallichore.json  -g typescript-axios
 
 # Return to the original directory
 popd

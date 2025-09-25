@@ -24,7 +24,7 @@ const user = process.env.E2E_POSTGRES_USER || 'testuser';
 const password = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
 
 test.describe('Postgres DB Connection', {
-	tag: [tags.WEB, tags.CONNECTIONS]
+	tag: [tags.WEB, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
 	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {

@@ -32,6 +32,7 @@ import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../serv
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 
 /**
  * Positron console command ID's.
@@ -216,7 +217,8 @@ export function registerPositronConsoleActions() {
 				category,
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
-					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -411,7 +413,7 @@ export function registerPositronConsoleActions() {
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
 			if (!await positronConsoleService.executeCode(
-				languageId, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+				languageId, undefined /* run in any session */, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

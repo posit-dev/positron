@@ -1,37 +1,32 @@
 # Positron Build System & Development Workflows
 
-## Overview
+## Quick Start
 
-This document covers the Positron build system, compilation daemons, and development workflows.
-
-**For launching Positron:** See `.claude/launch-positron.md` for the non-blocking launch protocol.
+1. **Check daemon status** (always first): `ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep`
+2. **Start missing daemons**: `npm run watch-clientd &` and `npm run watch-extensionsd &`
+3. **Wait for compilation**: 30-60 seconds until "Finished compilation" messages
+4. **Launch Positron**: See `.claude/launch-positron.md`
 
 ## Build Daemons
 
-Positron requires compilation daemons to be running before launch:
-- **watch-clientd**: Compiles core TypeScript code in `src/`
-- **watch-extensionsd**: Compiles extensions in `extensions/`
-- **watch-e2ed**: (Optional) Compiles E2E tests in `test/e2e/`
+**Required for Positron to function:**
+- `watch-clientd`: Core TypeScript (`src/`)
+- `watch-extensionsd`: Extensions (`extensions/`)
+- `watch-e2ed`: (Optional) E2E tests (`test/e2e/`)
 
-### Why Daemons Matter:
-- Positron WILL crash if daemons aren't running
-- Extensions won't load without `watch-extensionsd`
-- Changes won't be reflected without active daemons
-- Initial compilation takes 30-60 seconds
+**Critical**: Positron crashes without running daemons. Extensions won't load without `watch-extensionsd`.
 
-## Core Development Workflows
+## Detailed Workflows
 
-### 1. Dependency Management
+### Dependency Management
+Only run `npm install` when necessary:
+- Build/launch errors on first setup
+- Clear dependency sync issues
+- User explicitly requests it
+
 ```bash
-# Ensure dependencies are in sync
-npm install
+npm install  # Only when needed
 ```
-
-**⚠️ Important:** Only run `npm install` if:
-- There are apparent build/launch errors on first setup
-- Dependencies are clearly out of sync causing compilation failures  
-- The user explicitly requests it
-- Otherwise, avoid running it unnecessarily as it's time-consuming
 
 ### 2. Build Daemons
 

@@ -36,7 +36,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	// Reference hooks.
 	const containerRef = useRef<HTMLDivElement>(null);
 	const hoverTimeoutIdRef = useRef<number | null>(null);
-	const actionsForCell = useActionsForCell(cell);
+	const actionsForCell = useActionsForCell();
 	const leftActions = actionsForCell.left;
 	const primaryLeftAction = leftActions.at(0);
 

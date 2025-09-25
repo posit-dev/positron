@@ -33,9 +33,11 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
 import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
-import { CellConditions } from './notebookCells/actionBar/cellConditions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
+import { SelectionState } from './selectionMachine.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 
 
 /**
@@ -77,7 +79,20 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
-				createEditorInput: async ({ resource, options }) => {
+				createUntitledEditorInput: async ({ resource, options }) => {
+					// We should handle undefined resource as in notebookEditorServiceImpl.ts,
+					// but resource seems to always be defined so we throw for now to simplify
+					if (!resource) {
+						throw new Error(`Cannot create untitled Positron notebook editor without a resource`);
+					}
+					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						resource,
+						undefined,
+					);
+					return { editor: notebookEditorInput, options };
+				},
+				createEditorInput: ({ resource, options }) => {
 					const notebookEditorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
 						resource,
@@ -91,8 +106,10 @@ class PositronNotebookContribution extends Disposable {
 		// Register for cells in .ipynb files
 		this._register(this.editorResolverService.registerEditor(
 			`${Schemas.vscodeNotebookCell}:/**/*.ipynb`,
-			// We have to use exclusive priority because vscode.window.showTextDocument(cell.document)
-			// restricts to editors with exclusive priority.
+			// The cell handler is specifically for opening and focusing a cell by URI
+			// e.g. vscode.window.showTextDocument(cell.document).
+			// The editor resolver service expects a single handler with 'exclusive' priority.
+			// This one is only registered if Positron notebooks are enabled.
 			// This does not seem to be an issue for file schemes (registered above).
 			{ ...notebookEditorInfo, priority: RegisteredEditorPriority.exclusive },
 			{
@@ -102,7 +119,7 @@ class PositronNotebookContribution extends Disposable {
 				}
 			},
 			{
-				createEditorInput: async (editorInput) => {
+				createEditorInput: (editorInput) => {
 					const parsed = CellUri.parse(editorInput.resource);
 					if (!parsed) {
 						throw new Error(`Invalid cell URI: ${editorInput.resource.toString()}`);
@@ -255,7 +272,7 @@ class PositronNotebookEditorSerializer implements IEditorSerializer {
 }
 
 Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEditorSerializer(
-	PositronNotebookEditorInput.ID,
+	POSITRON_NOTEBOOK_EDITOR_INPUT_ID,
 	PositronNotebookEditorSerializer
 );
 
@@ -350,45 +367,44 @@ registerCellCommand({
 	}
 });
 
-registerCellCommand(
-	{
-		commandId: 'positronNotebook.cell.delete',
-		handler: (cell) => cell.delete(),
-		multiSelect: true,  // Delete all selected cells
-		actionBar: {
-			icon: 'codicon-trash',
-			position: 'mainRight',
-			order: 100,
-			category: 'Cell'
-		},
-		keybinding: {
-			primary: KeyCode.Backspace,
-			secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
-		},
-		metadata: {
-			description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
-		}
+registerCellCommand({
+	commandId: 'positronNotebook.cell.delete',
+	handler: (cell) => cell.delete(),
+	multiSelect: true,  // Delete all selected cells
+	editMode: false,
+	actionBar: {
+		icon: 'codicon-trash',
+		position: 'mainRight',
+		order: 100,
+		category: 'Cell'
+	},
+	keybinding: {
+		primary: KeyCode.Backspace,
+		secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
 	}
+}
 );
 
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
 registerCellCommand({
 	commandId: 'positronNotebook.cell.execute',
-	handler: (cell) => cell.run(),
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,
-		CellConditions.not(CellConditions.isRunning),
-		CellConditions.not(CellConditions.isPending),
-	),  // Only show on code cells that are not running or pending
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	handler: (cell) => {
+		cell.run();
 	},
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		CELL_CONTEXT_KEYS.isRunning.toNegated(),
+		CELL_CONTEXT_KEYS.isPending.toNegated()
+	),
 	actionBar: {
 		icon: 'codicon-play',
 		position: 'left',
 		order: CELL_EXECUTION_POSITION,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.execute', "Execute cell")
@@ -398,43 +414,25 @@ registerCellCommand({
 registerCellCommand({
 	commandId: 'positronNotebook.cell.stopExecution',
 	handler: (cell) => cell.run(), // Run called when cell is executing is stop
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,
-		CellConditions.or(
-			CellConditions.isRunning,
-			CellConditions.isPending,
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		ContextKeyExpr.or(
+			CELL_CONTEXT_KEYS.isRunning.isEqualTo(true),
+			CELL_CONTEXT_KEYS.isPending.isEqualTo(true)
 		)
-	),  // Only show on code cells that are running or pending
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
-	},
+	),
 	actionBar: {
 		icon: 'codicon-primitive-square',
 		position: 'left',
 		order: CELL_EXECUTION_POSITION,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.stopExecution', "Stop cell execution")
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.executeAndSelectBelow',
-	handler: (cell, notebook) => {
-		cell.run();
-		notebook.selectionStateMachine.moveDown(false);
-	},
-	cellCondition: CellConditions.isCode,  // Only show on code cells
-	keybinding: {
-		primary: KeyMod.Shift | KeyCode.Enter
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
-	}
-});
-
-// Example of position-based conditions
+// Run all code cells above the current cell
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllAbove',
 	handler: (cell, notebook) => {
@@ -449,21 +447,22 @@ registerCellCommand({
 			}
 		}
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,     // Only on code cells
-		CellConditions.notFirst    // Not on the first cell
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		CELL_CONTEXT_KEYS.isFirst.toNegated()
 	),
 	actionBar: {
 		icon: 'codicon-run-above',
 		position: 'main',
 		order: 20,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllAbove', "Run all code cells above this cell")
 	}
 });
 
+// Run all code cells below the current cell
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllBelow',
 	handler: (cell, notebook) => {
@@ -479,41 +478,133 @@ registerCellCommand({
 			}
 		}
 	},
-	cellCondition: CellConditions.and(
-		CellConditions.isCode,     // Only on code cells
-		CellConditions.notLast     // Not on the last cell
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+		CELL_CONTEXT_KEYS.isLast.toNegated()
 	),
 	actionBar: {
 		icon: 'codicon-run-below',
 		position: 'main',
 		order: 21,
-		category: 'Execution'
+		category: 'Execution',
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllBelow', "Run all code cells below this cell")
 	}
 });
 
-// Markdown cell toggle editor command
+// Open markdown editor (For action bar)
 registerCellCommand({
-	commandId: 'positronNotebook.cell.toggleMarkdownEditor',
+	commandId: 'positronNotebook.cell.openMarkdownEditor',
 	handler: (cell) => {
 		if (cell.isMarkdownCell()) {
+			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
 		}
 	},
-	cellCondition: CellConditions.isMarkdown,  // Only on markdown cells
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
+		CELL_CONTEXT_KEYS.markdownEditorOpen.toNegated()
+	),
 	actionBar: {
-		icon: 'codicon-primitive-square',  // Will need to be dynamic based on editor state
+		icon: 'codicon-chevron-down',
 		position: 'main',
 		order: 10,
-		category: 'Markdown'
+		category: 'Markdown',
 	},
 	metadata: {
-		description: localize('positronNotebook.cell.toggleMarkdownEditor', "Toggle markdown editor visibility")
+		description: localize('positronNotebook.cell.openMarkdownEditor', "Open markdown editor")
 	}
 });
 
+
+// Collapse markdown editor (For action bar)
+registerCellCommand({
+	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
+	handler: (cell) => {
+		if (cell.isMarkdownCell()) {
+			// This test is just to appease typescript, we know it's a markdown cell
+			cell.toggleEditor();
+		}
+	},
+	when: ContextKeyExpr.and(
+		CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
+		CELL_CONTEXT_KEYS.markdownEditorOpen.isEqualTo(true)
+	),
+	actionBar: {
+		icon: 'codicon-chevron-up',
+		position: 'main',
+		order: 10,
+		category: 'Markdown',
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor")
+	}
+});
+
+
+// Keyboard shortcut commands. These are not shown in the action bar.
+// TODO: Improve the context key support so we don't need to have a single command per
+// the keyboard shortcut and can reuse the action bar commands. Cell agnostic
+// "Execute in place" command.
+registerCellCommand({
+	commandId: 'positronNotebook.cell.executeOrToggleEditor',
+	handler: (cell) => {
+		if (cell.isMarkdownCell()) {
+			cell.toggleEditor();
+		} else {
+			// This also stops if the cell is running.
+			cell.run();
+		}
+	},
+	editMode: true,  // Allow command to work when focus is in the cell editor
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyCode.Enter
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.executeOrToggleEditor', "Execute cell or toggle editor")
+	}
+});
+
+
+// Execute cell and select below
+registerCellCommand({
+	commandId: 'positronNotebook.cell.executeAndSelectBelow',
+	handler: (cell, notebook) => {
+		// Check if we're in edit mode and exit if so
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type === SelectionState.EditingSelection) {
+			notebook.selectionStateMachine.exitEditor();
+		}
+
+		// Execute the cell only if it's a code cell. Otherwise the user would
+		// have to double call for markdown cells to open and then close the
+		// editor.
+		if (cell.isCodeCell()) {
+			cell.run();
+		}
+
+		// If the cell is a markdown cell and the editor is open, close it. Otherwise just pass over.
+		if (cell.isMarkdownCell() && cell.editorShown.get()) {
+			cell.toggleEditor();
+		}
+
+		// If this is the last cell, insert a new cell below of the same type
+		if (cell.isLastCell()) {
+			notebook.addCell(cell.kind, cell.index + 1);
+		}
+
+		// Move to the next cell
+		notebook.selectionStateMachine.moveDown(false);
+	},
+	editMode: true,  // Allow execution from edit mode
+	keybinding: {
+		primary: KeyMod.Shift | KeyCode.Enter
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
+	}
+});
 
 // Copy cells command - Cmd/Ctrl+C
 registerCellCommand({

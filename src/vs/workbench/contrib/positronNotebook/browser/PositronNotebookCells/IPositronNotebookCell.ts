@@ -107,6 +107,15 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	isCodeCell(): this is IPositronNotebookCodeCell;
 
+	/**
+	 * Check if this cell is the last cell in the notebook
+	 */
+	isLastCell(): boolean;
+
+	/**
+	 * Check if this cell is the only cell in the notebook
+	 */
+	isOnlyCell(): boolean;
 
 	/**
 	 * Set focus to this cell
@@ -271,7 +280,7 @@ export interface NotebookCellOutputs {
 }
 
 /**
- * Lightweight copy of the vscode `NotebookCellTextModel` interface.
+ * Partial interface of the vscode `NotebookCellTextModel` class.
  */
 export interface PositronNotebookCellTextModel {
 	readonly uri: URI;

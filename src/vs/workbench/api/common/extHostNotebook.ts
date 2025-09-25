@@ -232,6 +232,14 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 		if (editor) {
 			return editor;
 		}
+		// --- Start Positron ---
+		// Positron notebooks don't implement INotebookEditor yet, so mock the result.
+		// This will lead to unexpected errors in extensions that use this API
+		// until we implement INotebookEditor (https://github.com/posit-dev/positron/issues/9440).
+		if (editorId.startsWith('positron-notebook-')) {
+			return {} as any;
+		}
+		// --- End Positron ---
 
 		if (editorId) {
 			throw new Error(`Could NOT open editor for "${notebook.uri.toString()}" because another editor opened in the meantime.`);
