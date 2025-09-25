@@ -12,7 +12,6 @@ import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 
 export interface CustomTestOptions {
-	web: boolean;
 	artifactDir: string;
 	headless?: boolean;
 	browserName?: "chromium" | "firefox" | "webkit" | undefined;
