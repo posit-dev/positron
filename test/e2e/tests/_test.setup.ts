@@ -83,7 +83,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	userDataDir: [async ({ options }, use, workerInfo) => {
 		const projectName = workerInfo.project.name;
 
-		if (['e2e-browser-server', 'e2e-workbench'].includes(projectName)) {
+		if (['server', 'workbench'].includes(projectName)) {
 			// For external/workbench projects, this fixture isn't used, they handle it separately
 			await use('');
 		} else {

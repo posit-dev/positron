@@ -7,7 +7,7 @@ import { join } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
-import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir } from '../../infra';
+import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser } from '../../infra';
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 
@@ -45,8 +45,11 @@ export function OptionsFixture() {
 			patch: parseInt(packageVersion.split('.')[2], 10),
 		};
 
-		const browser = project.browserName + (workerInfo.project.use.channel ? '-' + workerInfo.project.use.channel : '');
-		console.log(browser)
+		let browser: Browser = project.browserName;
+		const channel = workerInfo.project.use.channel;
+		if (project.browserName === "chromium" && channel) {
+			browser = `chromium-${channel}` as Browser;
+		}
 
 		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
@@ -58,7 +61,7 @@ export function OptionsFixture() {
 			crashesPath: SPEC_CRASHES_PATH,
 			verbose: !!process.env.VERBOSE,
 			remote: !!process.env.REMOTE,
-			web: project.web,
+			web: !!browser,
 			headless: project.headless,
 			browser,
 			tracing: true,
