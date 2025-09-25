@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { autorun, autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
+import { autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -129,9 +129,8 @@ export class SelectionStateMachine extends Disposable {
 		}));
 
 		// Update the selection state when cells change
-		this._register(autorun(reader => {
-			const cells = this._cells.read(reader);
-			this._setCells(cells);
+		this._register(autorunDelta(this._cells, ({ lastValue, newValue }) => {
+			this._setCells(newValue, lastValue);
 		}));
 	}
 	//#endregion Constructor & Dispose
@@ -270,8 +269,30 @@ export class SelectionStateMachine extends Disposable {
 	 * Updates the selection state when cells change.
 	 *
 	 * @param cells The new cells to set.
+	 * @param previousCells The previous cells array (undefined on initial call).
 	 */
-	private _setCells(cells: IPositronNotebookCell[]): void {
+	private _setCells(cells: IPositronNotebookCell[], previousCells?: IPositronNotebookCell[]): void {
+		// Handle initial case where there are no previous cells
+		if (!previousCells) {
+			return;
+		}
+
+		// Detect newly added cells
+		const newlyAddedCells = cells.filter(cell => !previousCells.includes(cell));
+		if (newlyAddedCells.length === 1) {
+			// If we've only added one cell, set it as the selected cell and enter edit mode
+			this._register(disposableTimeout(async () => {
+				this.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
+				await newlyAddedCells[0].showEditor(true);
+			}, 0));
+		}
+
+		// Detect deleted cells
+		const deletedCells = previousCells.filter(cell => !cells.includes(cell));
+		if (deletedCells.length > 0) {
+			this._handleCellDeletion(deletedCells, previousCells.length);
+		}
+
 		const state = this._state.get();
 
 		if (state.type === SelectionState.NoSelection) {
@@ -478,6 +499,84 @@ export class SelectionStateMachine extends Disposable {
 
 		nextCell.focus();
 	}
+
+	/**
+	 * Handles the deletion of cells from the notebook.
+	 * Manages selection state when selected cells are deleted.
+	 *
+	 * @param deletedCells Array of cells that were deleted
+	 * @param startingCellCount The number of cells before deletion
+	 */
+	private _handleCellDeletion(deletedCells: IPositronNotebookCell[], startingCellCount: number): void {
+		if (deletedCells.length === 0) {
+			return;
+		}
+
+		const selectedCells = getSelectedCells(this._state.get());
+		const deletedSelectedCells = deletedCells.filter(deletedCell =>
+			selectedCells.some(selectedCell => selectedCell === deletedCell)
+		);
+
+		if (deletedSelectedCells.length === 0) {
+			// No selected cells were deleted, nothing to do
+			return;
+		}
+
+		// Check if there will be no selected cells left after deletion
+		const remainingSelectedCells = selectedCells.filter(selectedCell =>
+			!deletedCells.includes(selectedCell)
+		);
+
+		if (remainingSelectedCells.length === 0) {
+			// Use the helper method to determine where selection should be placed
+			const deletedIndices = deletedCells.map(cell => cell.index).sort((a, b) => a - b);
+			const suggestedFocusIndex = this._determineFocusAfterDeletion(deletedIndices, startingCellCount);
+
+			// Set focus on the suggested cell after sync completes
+			if (suggestedFocusIndex !== null) {
+				this._register(disposableTimeout(() => {
+					if (suggestedFocusIndex !== null && suggestedFocusIndex < this._cells.get().length) {
+						const cellToFocus = this._cells.get()[suggestedFocusIndex];
+						if (cellToFocus) {
+							this.selectCell(cellToFocus, CellSelectionType.Normal);
+							cellToFocus.focus();
+						}
+					}
+				}, 0));
+			} else {
+				// No cells remain, clear selection
+				this._setState({ type: SelectionState.NoSelection });
+			}
+		}
+		// If some selected cells remain, the existing _setCells logic will handle updating the selection
+	}
+
+	/**
+	 * Determines which cell should receive focus after deleting the specified cell indices.
+	 * @param cellIndices Array of cell indices being deleted (assumed to be sorted)
+	 * @param originalCellCount Total number of cells before deletion
+	 * @returns The index of the cell that should receive focus, or null if no cells remain
+	 */
+	private _determineFocusAfterDeletion(cellIndices: number[], originalCellCount: number): number | null {
+		const lowestDeletedIndex = Math.min(...cellIndices);
+		const totalCellsToDelete = cellIndices.length;
+		const newCellCount = originalCellCount - totalCellsToDelete;
+
+		// Determine the index of the cell that should receive focus after deletion
+		let targetFocusIndex: number | null = null;
+		if (newCellCount > 0) {
+			if (lowestDeletedIndex < newCellCount) {
+				// Focus on the cell that takes the place of the first deleted cell
+				targetFocusIndex = lowestDeletedIndex;
+			} else {
+				// We deleted from the end, focus on the last remaining cell
+				targetFocusIndex = newCellCount - 1;
+			}
+		}
+
+		return targetFocusIndex;
+	}
+
 	//#endregion Private Methods
 
 }

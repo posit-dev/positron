@@ -27,7 +27,6 @@ import { PositronNotebookContextKeyManager } from '../../../services/positronNot
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
-import { disposableTimeout } from '../../../../base/common/async.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernel, INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
@@ -583,31 +582,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.deleteCells([cell]);
 	}
 
-	/**
-	 * Determines which cell should receive focus after deleting the specified cell indices.
-	 * @param cellIndices Array of cell indices being deleted (assumed to be sorted)
-	 * @param originalCellCount Total number of cells before deletion
-	 * @returns The index of the cell that should receive focus, or null if no cells remain
-	 */
-	private _determineFocusAfterDeletion(cellIndices: number[], originalCellCount: number): number | null {
-		const lowestDeletedIndex = Math.min(...cellIndices);
-		const totalCellsToDelete = cellIndices.length;
-		const newCellCount = originalCellCount - totalCellsToDelete;
-
-		// Determine the index of the cell that should receive focus after deletion
-		let targetFocusIndex: number | null = null;
-		if (newCellCount > 0) {
-			if (lowestDeletedIndex < newCellCount) {
-				// Focus on the cell that takes the place of the first deleted cell
-				targetFocusIndex = lowestDeletedIndex;
-			} else {
-				// We deleted from the end, focus on the last remaining cell
-				targetFocusIndex = newCellCount - 1;
-			}
-		}
-
-		return targetFocusIndex;
-	}
 
 	/**
 	 * Deletes multiple cells from the notebook.
@@ -824,9 +798,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const cellModelToCellMap = new Map(
 			this.cells.get().map(cell => [cell.cellModel, cell])
 		);
-		const startingCellCount = cellModelToCellMap.size;
-
-		const newlyAddedCells: IPositronNotebookCell[] = [];
 
 		const cells = modelCells.map(cell => {
 			const existingCell = cellModelToCellMap.get(cell);
@@ -836,57 +807,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return existingCell;
 			}
 			const newCell = createNotebookCell(cell, this, this._instantiationService);
-			newlyAddedCells.push(newCell);
 
 			return newCell;
 		});
 
-		// Only auto-select new cells if we don't have a pending selection state from undo/redo
-		if (newlyAddedCells.length === 1) {
-			// If we've only added one cell, we can set it as the selected cell.
-			this._register(disposableTimeout(async () => {
-				this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-				await newlyAddedCells[0].showEditor(true);
-			}, 0));
-		}
-
-		// Detect deleted cells - any cells remaining in the map were not reused (i.e., deleted)
-		const deletedCells = Array.from(cellModelToCellMap.values());
-		if (deletedCells.length > 0) {
-			const selectedCells = getSelectedCells(this.selectionStateMachine.state.get());
-			const deletedSelectedCells = deletedCells.filter(deletedCell =>
-				selectedCells.some(selectedCell => selectedCell === deletedCell)
-			);
-
-			if (deletedSelectedCells.length > 0) {
-
-				// Check if there will be no selected cells left after deletion
-				const remainingSelectedCells = selectedCells.filter(selectedCell =>
-					!deletedCells.includes(selectedCell)
-				);
-				if (remainingSelectedCells.length === 0) {
-					console.log('No selected cells will remain after deletion');
-
-					// Use the helper method to determine where selection should be placed
-					const deletedIndices = deletedCells.map(cell => cell.index).sort((a, b) => a - b);
-					const suggestedFocusIndex = this._determineFocusAfterDeletion(deletedIndices, startingCellCount);
-					console.log('Suggested focus placement after deletion:', suggestedFocusIndex);
-
-					// Set focus on the suggested cell after sync completes
-					if (suggestedFocusIndex !== null) {
-						this._register(disposableTimeout(() => {
-							if (suggestedFocusIndex !== null && suggestedFocusIndex < this.cells.get().length) {
-								const cellToFocus = this.cells.get()[suggestedFocusIndex];
-								if (cellToFocus) {
-									this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
-									cellToFocus.focus();
-								}
-							}
-						}, 0));
-					}
-				}
-			}
-		}
 
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
