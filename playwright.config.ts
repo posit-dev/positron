@@ -74,20 +74,6 @@ export default defineConfig<ExtendedTestOptions>({
 		currentsFixturesEnabled: !!process.env.CI,
 	},
 
-	// Only start webServer when running the e2e-server project
-	// Note: this automatic start only works for CLI runs. For IDE runs, please start the server manually with `npm run e2e-start-server`
-	webServer: process.argv.some(arg => arg.includes('server')) ? [
-		{
-			command: 'npm run e2e-start-server',
-			url: 'http://localhost:8080',
-			name: 'Positron Server',
-			reuseExistingServer: !process.env.CI,
-			timeout: 30 * 1000, // timeout waiting for server to be ready
-			// stdout: 'pipe',
-			// stderr: 'pipe',
-		},
-	] : undefined,
-
 	projects: [
 		{
 			name: 'e2e-electron',
