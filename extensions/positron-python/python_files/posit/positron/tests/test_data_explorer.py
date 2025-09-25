@@ -14,6 +14,7 @@ from importlib.metadata import version
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
+import ibis
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -137,6 +138,14 @@ SIMPLE_DATA = {
 }
 
 SIMPLE_PANDAS_DF = pd.DataFrame(SIMPLE_DATA)
+
+SIMPLE_IBIS_DF = ibis.memtable(
+    {
+        "a": [1, 2, 3, 4, 5],
+        "b": [True, False, True, None, True],
+        "c": ["foo", "bar", None, "bar", "None"],
+    }
+)
 
 
 def test_service_properties(de_service: DataExplorerService):
@@ -4021,3 +4030,41 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+def test_ibis_supported_features(dxf: DataExplorerFixture):
+    dxf.register_table("example", SIMPLE_IBIS_DF)
+    features = dxf.get_state("example")["supported_features"]
+
+    search_schema = features["search_schema"]
+    row_filters = features["set_row_filters"]
+    column_profiles = features["get_column_profiles"]
+
+    assert search_schema["support_status"] == SupportStatus.Supported
+
+    column_filters = features["set_column_filters"]
+    assert column_filters["support_status"] == SupportStatus.Unsupported
+    assert column_filters["supported_types"] == []
+
+    assert row_filters["support_status"] == SupportStatus.Supported
+    assert row_filters["supports_conditions"] == SupportStatus.Unsupported
+
+    row_filter_types = list(RowFilterType)
+    for tp in row_filter_types:
+        assert (
+            RowFilterTypeSupportStatus(row_filter_type=tp, support_status=SupportStatus.Supported)
+            in row_filters["supported_types"]
+        )
+    assert len(row_filter_types) == len(row_filters["supported_types"])
+
+    assert column_profiles["support_status"] == SupportStatus.Supported
+
+    profile_types = [
+        ColumnProfileTypeSupportStatus(profile_type=pt, support_status=SupportStatus.Supported)
+        for pt in list(ColumnProfileType)
+    ]
+
+    for tp in profile_types:
+        assert tp in column_profiles["supported_types"]
+
+    assert features["convert_to_code"]["support_status"] == SupportStatus.Unsupported

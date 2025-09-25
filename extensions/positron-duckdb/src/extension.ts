@@ -449,11 +449,11 @@ class ColumnProfileEvaluator {
 			SELECT ${quotedName} AS value, COUNT(*) AS freq
 			FROM ${this.tableName} ${composedPred}
 			GROUP BY 1
-			LIMIT ${params.limit}
 		)
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
-		ORDER BY freq DESC, value ASC;`) as Table<any>;
+		ORDER BY freq DESC, value ASC
+		LIMIT ${params.limit};`) as Table<any>;
 
 		const values: string[] = [];
 		const counts: number[] = [];

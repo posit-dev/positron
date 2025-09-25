@@ -2,74 +2,46 @@ name: "Test: Assistant LLM Testing"
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
-  # schedule:
-  #   - cron: "0 2 * * 1-5"
+  schedule:
+    - cron: "0 2 * * 1-5"
   workflow_dispatch:
 
-jobs:
-  # e2e-electron:
-  #   name: e2e
-  #   uses: ./.github/workflows/test-e2e-ubuntu.yml
-  #   with:
-  #     grep: "@:inspect-ai"
-  #     project: "e2e-electron"
-  #     display_name: "electron (ubuntu)"
-  #     currents_tags: "merge,electron/ubuntu"
-  #     report_testrail: false
-  #     install_undetectable_interpreters: false
-  #     install_license: false
-  #     skip_tags: "@:nightly-only"
-  #     upload_logs: false
-  #     report_currents: false
-  #     workers: 1
-  #   secrets: inherit
+jobs:  # to input into inspect-ai-test job below
 
-  # e2e-windows-electron:
-  #   name: e2e
-  #   uses: ./.github/workflows/test-e2e-windows.yml
-  #   with:
-  #     grep: "@:inspect-ai"
-  #     display_name: "electron (windows)"
-  #     currents_tags: "merge,electron/windows"
-  #     report_testrail: false
-  #     skip_tags: "@:nightly-only"
-  #     upload_logs: false
-  #     report_currents: false
-  #   secrets: inherit
-
-  e2e-linux-browser:
+  e2e-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
-      grep: "@:inspect-ai"
-      display_name: "browser (ubuntu)"
-      project: "e2e-browser"
-      currents_tags: "merge,browser/ubuntu"
+      grep: ""
+      project: "inspect-ai"
+      display_name: "electron (ubuntu)"
+      currents_tags: "merge,electron/ubuntu"
       report_testrail: false
       install_undetectable_interpreters: false
-      install_license: true
-      skip_tags: "@:nightly-only"
-      upload_logs: true
+      install_license: false
+      upload_logs: false
       report_currents: false
+      skip_extension_test: true
       workers: 1
     secrets: inherit
 
-  # slack-notify:
-  #   if: failure()
-  #   needs: [unit-tests, integration-tests, e2e-electron, e2e-windows-electron, e2e-linux-browser]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Notify Slack
-  #       uses: midleman/slack-workflow-status@v3.1.2
-  #       with:
-  #         gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-  #         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-  #         slack_channel: "#positron-test-results"
-  #         notify_on: "failure"
-
+  # Windows works, but takes a long time and need to add processing of multiple artifacts
+  # e2e-windows-electron:
+    # name: e2e
+    # uses: ./.github/workflows/test-e2e-windows.yml
+    # with:
+    #   grep: ""
+    #   project: "inpsect-ai"
+    #   display_name: "electron (windows)"
+    #   currents_tags: "merge,electron/windows"
+    #   report_testrail: false
+    #   upload_logs: false
+    #   report_currents: false
+    #   skip_extension_test: true
+    # secrets: inherit
 
   inspect-ai-test:
-    needs: [e2e-linux-browser]
+    needs: [e2e-electron]
     name: inspect-ai-test
     timeout-minutes: 120
     runs-on: ubuntu-latest

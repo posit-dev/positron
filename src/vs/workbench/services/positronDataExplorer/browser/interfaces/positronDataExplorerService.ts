@@ -59,18 +59,6 @@ export interface IPositronDataExplorerService {
 	setInstanceForVar(instanceId: string, variableId: string): void;
 
 	/**
-	 * Sets the focused Positron data explorer.
-	 * @param identifier The identifier of the focused Positron data explorer to set.
-	 */
-	setFocusedPositronDataExplorer(identifier: string): void;
-
-	/**
-	 * Clears the focused Positron data explorer.
-	 * @param identifier The identifier of the focused Positron data explorer to clear.
-	 */
-	clearFocusedPositronDataExplorer(identifier: string): void;
-
-	/**
 	 * Open a URI in the data explorer using the positron-duckdb extension.
 	 * @param uri The URI, usually a file in the workspace.
 	 */

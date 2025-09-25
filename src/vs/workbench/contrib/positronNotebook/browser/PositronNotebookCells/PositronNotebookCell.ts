@@ -128,6 +128,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		return this.index === cells.length - 1;
 	}
 
+	isOnlyCell(): boolean {
+		const cells = this._instance.cells.get();
+		return cells.length === 1;
+	}
+
 	select(type: CellSelectionType): void {
 		this._instance.selectionStateMachine.selectCell(this, type);
 	}

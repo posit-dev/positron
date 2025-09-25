@@ -72,10 +72,6 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 			process.env.VSCODE_CLI = '1';
 		}
 
-		if (!fs.existsSync(electronPath || '')) {
-			throw new Error(`Cannot find Positron at ${electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
-		}
-
 		if (REMOTE) {
 			logger.log(`Running desktop E2E Remote tests against ${electronPath}`);
 		} else {
@@ -162,4 +158,4 @@ export function getPositronVersion(testCodePath = process.env.BUILD || ''): Posi
 	}
 }
 
-type PositronVersion = { positronVersion: string | null, buildNumber: string | null };
+type PositronVersion = { positronVersion: string | null; buildNumber: string | null };

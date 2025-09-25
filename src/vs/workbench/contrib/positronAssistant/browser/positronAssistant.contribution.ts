@@ -63,6 +63,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				};
 				consoleService.executeCode(
 					context.languageId || '',
+					undefined, // run in any session
 					context.code,
 					attribution,
 					true, // focus

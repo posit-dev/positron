@@ -584,6 +584,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	/**
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
+	 * @param sessionId An optional session ID. If provided, the code will be executed in the
+	 *  Positron console instance for the specified session. If not provided, the code will be
+	 *   executed in the active Positron console instance for the language, or a new Positron
+	 *   console instance will be created if there is no active instance for the language.
 	 * @param code The code.
 	 * @param attribution Attribution naming the origin of the code.
 	 * @param focus A value which indicates whether to focus the Positron console instance.
@@ -596,6 +600,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
+		sessionId: string | undefined,
 		code: string,
 		attribution: IConsoleCodeAttribution,
 		focus: boolean,
@@ -607,19 +612,66 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
-		// Get the running runtimes for the language.
-		const runningLanguageRuntimeSessions = this._runtimeSessionService.activeSessions.filter(
-			session => session.runtimeMetadata.languageId === languageId);
+		let positronConsoleInstance: PositronConsoleInstance | undefined;
 
-		// If there isn't a running runtime for the language, start one.
-		if (!runningLanguageRuntimeSessions.length) {
-			// Get the preferred runtime for the language.
+		if (sessionId) {
+			const existingInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
+			// Just a sanity check
+			if (existingInstance) {
+				const existingLanguageId = existingInstance.runtimeMetadata.languageId;
+				// It's possible that someone could try to execute code in a
+				// session that is for a different language than the code being
+				// executed. It's arguable whether we should allow this or not, but
+				// for now we'll just log a warning and send the code along.
+				if (existingLanguageId !== languageId) {
+					this._logService.warn(
+						`Code is being executed in a Positron console instance for language ` +
+						`${existingLanguageId} (session ${sessionId}), not for requested language ` +
+						`${languageId}.`);
+				}
+				positronConsoleInstance = existingInstance;
+			} else {
+				throw new Error(
+					`Cannot execute code because the requested session ID ${sessionId} ` +
+					`does not have a Positron console instance.`);
+			}
+		}
+
+		// If no session was provided and the language desired is the language
+		// of the current console session, prefer that
+		if (!positronConsoleInstance) {
+			if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId) {
+				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+					this._activePositronConsoleInstance.sessionId);
+				sessionId = positronConsoleInstance?.sessionId;
+			}
+		}
+
+		// No session provided and the active console instance is not for the
+		// desired language, so look for *any* existing console instance for the
+		// desired language.
+		if (!positronConsoleInstance) {
+			const allInstances = Array.from(this._positronConsoleInstancesBySessionId.values());
+			// Sort the array by most recently used (MRU) so that we prefer the
+			// most recently created session
+			allInstances.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp);
+			for (const instance of allInstances) {
+				if (instance.runtimeMetadata.languageId === languageId) {
+					positronConsoleInstance = instance;
+					break;
+				}
+			}
+		}
+
+		// No existing Positron console instance was found, so create a new one
+		if (!positronConsoleInstance) {
+			// Get the preferred runtime for the language and start it
 			const languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 			if (languageRuntime) {
 				// Start the preferred runtime.
 				this._logService.trace(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-				await this._runtimeSessionService.startNewRuntimeSession(
+				sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 					languageRuntime.runtimeId,
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
@@ -634,24 +686,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				throw new Error(
 					`Cannot execute code because there is no registered runtime for the '${languageId}' language.`);
 			}
+
+			// If the runtime was started successfully, we should now have an entry for it
+			positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
 		}
 
-		// Get the Positron console instance for the language ID.
-		let positronConsoleInstance: PositronConsoleInstance | undefined;
-		if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId) {
-			// Return the active console instance for the language if there is one
-			positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
-				this._activePositronConsoleInstance?.sessionId);
-		} else {
-			// Otherwise find the newest session for the languageId that is ready to use
-			positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
-				.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp)
-				.find(consoleInstance => {
-					return consoleInstance.runtimeMetadata.languageId === languageId &&
-						consoleInstance.state === PositronConsoleState.Ready;
-				});
-		}
-
+		// If we still don't have a Positron console instance, something went wrong.
 		if (!positronConsoleInstance) {
 			throw new Error(
 				`Could not find or create console for language ID ${languageId} ` +
