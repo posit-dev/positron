@@ -467,8 +467,8 @@ class OpenAICompletion extends FimPromptCompletion {
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
-			name: 'GPT-4.1 Mini',
-			model: 'gpt-4.1-mini',
+			name: 'OpenAI',
+			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 		},
 	};
@@ -480,6 +480,22 @@ class OpenAICompletion extends FimPromptCompletion {
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
+}
+
+class OpenAICompatibleCompletion extends OpenAICompletion {
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'openai-compatible',
+			displayName: 'OpenAI Compatible'
+		},
+		supportedOptions: ['apiKey', 'baseUrl'],
+		defaults: {
+			name: 'OpenAI Compatible',
+			model: 'openai-compatible',
+			baseUrl: 'https://localhost/v1',
+		},
+	};
 }
 
 class OpenRouterCompletion extends FimPromptCompletion {
@@ -676,6 +692,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 		'mistral': MistralCompletion,
 		'ollama': OllamaCompletion,
 		'openai': OpenAICompletion,
+		'openai-compatible': OpenAICompatibleCompletion,
 		'openai-legacy': OpenAILegacyCompletion,
 		'openrouter': OpenRouterCompletion,
 		'vertex': VertexCompletion,
@@ -699,6 +716,7 @@ export const completionModels = [
 	GoogleCompletion,
 	OllamaCompletion,
 	OpenAICompletion,
+	OpenAICompatibleCompletion,
 	OpenAILegacyCompletion,
 	OpenRouterCompletion,
 	VertexCompletion,

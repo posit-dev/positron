@@ -140,7 +140,10 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		.map((provider) => {
 			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
 			provider.source.signedIn = !!isRegistered;
-			return provider.source;
+			return {
+				...provider.source,
+				...(isRegistered && { defaults: { ...provider.source.defaults, ...isRegistered } })
+			};
 		})
 		.filter((source) => {
 			// If no specific set of providers was specified, include all
@@ -234,7 +237,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		[...existingConfigs, newConfig]
 	);
 
-	// Register the new model
+	// Register the new model FIRST, before saving configuration
 	try {
 		await registerModel(newConfig, context, storage);
 

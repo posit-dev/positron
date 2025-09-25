@@ -158,10 +158,17 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		// const modelsCopy = models ? [...models] : [];
 
 		const languageModel = newLanguageModelChatProvider(modelConfig, context);
-		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
-		if (error) {
-			throw new Error(error.message);
+		try {
+			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+
+			if (error) {
+				throw new Error(error.message);
+			}
+		} catch (error) {
+			// Handle both patterns: models that throw errors directly (like ErrorLanguageModel and OpenAILanguageModel)
+			// and models that return errors (like the base AILanguageModel)
+			throw error;
 		}
 
 		const vendor = modelConfig.provider; // as defined in package.json in "languageModels"
