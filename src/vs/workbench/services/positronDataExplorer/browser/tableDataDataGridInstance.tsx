@@ -21,7 +21,6 @@ import { CustomContextMenuSeparator } from '../../../browser/positronComponents/
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
 import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
@@ -812,7 +811,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Given a status check if the feature is enabled.
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
-		return dataExplorerExperimentalFeatureEnabled(status, this._services.configurationService);
+		return status === SupportStatus.Supported;
 	}
 
 	//#endregion Public Methods
