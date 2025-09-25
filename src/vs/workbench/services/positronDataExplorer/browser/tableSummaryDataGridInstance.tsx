@@ -418,11 +418,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns The column profile null percent for the specified column index
 	 */
 	getColumnProfileNullPercent(columnIndex: number) {
-		// If the table has no rows, it's meaningless to calculate the column null percent. Return
-		// undefined in this case.
 		const rows = this._tableSummaryCache.rows;
+
+		// If the table has no rows, the null percent is 0% (0 nulls out of 0 total).
 		if (!rows) {
-			return undefined;
+			return 0;
 		}
 
 		// Get the null count. If it hasn't been loaded yet, return undefined.
