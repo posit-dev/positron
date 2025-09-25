@@ -2567,6 +2567,45 @@ def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
         assert results == ex_results
 
 
+def test_zero_row_null_count(dxf: DataExplorerFixture):
+    """Test null count for zero-row DataFrames."""
+    # Create empty pandas DataFrame
+    empty_pd = pd.DataFrame(
+        {
+            "str_col": pd.Series([], dtype=str),
+            "num_col": pd.Series([], dtype=int),
+            "bool_col": pd.Series([], dtype=bool),
+        }
+    )
+
+    # Create empty polars DataFrame
+    empty_pl = pl.DataFrame(
+        {
+            "str_col": pl.Series([], dtype=pl.String),
+            "num_col": pl.Series([], dtype=pl.Int64),
+            "bool_col": pl.Series([], dtype=pl.Boolean),
+        }
+    )
+
+    dxf.register_table("empty_pd", empty_pd)
+    dxf.register_table("empty_pl", empty_pl)
+
+    # Test null count for each column type on both pandas and polars
+    for table_name in ["empty_pd", "empty_pl"]:
+        results = dxf.get_column_profiles(
+            table_name,
+            [
+                _get_null_count(0),  # str_col
+                _get_null_count(1),  # num_col
+                _get_null_count(2),  # bool_col
+            ],
+        )
+
+        # All null counts should be 0 for zero-row table
+        expected = [ColumnProfileResult(null_count=0) for _ in range(3)]
+        assert results == expected
+
+
 EPSILON = 1e-7
 
 

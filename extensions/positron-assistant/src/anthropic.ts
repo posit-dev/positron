@@ -7,9 +7,8 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
-import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
-import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { availableModels } from './models.js';
 import { TokenUsage } from './tokens.js';
@@ -78,7 +77,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			apiKey: _config.apiKey,
 		});
 		this.version = '';
-		this.maxInputTokens = 0;
+		this.maxInputTokens = _config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT;
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
@@ -92,7 +91,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					name: this.name,
 					family: this.provider,
 					version: this._context?.extension.packageJSON.version ?? '',
-					maxInputTokens: 0,
+					maxInputTokens: this.maxInputTokens,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
 
@@ -105,8 +104,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			name: model.name,
 			family: this._config.provider,
 			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
-			maxInputTokens: this.maxInputTokens,
-			maxOutputTokens: this.maxOutputTokens,
+			maxInputTokens: model.maxInputTokens ?? this.maxInputTokens,
+			maxOutputTokens: model.maxOutputTokens ?? this.maxOutputTokens,
 			capabilities: this.capabilities,
 			isDefault: model === models[0],
 			isUserSelectable: true,
@@ -336,6 +335,8 @@ function toAnthropicMessage(message: vscode.LanguageModelChatMessage2, source: s
 			return toAnthropicAssistantMessage(message, source);
 		case vscode.LanguageModelChatMessageRole.User:
 			return toAnthropicUserMessage(message, source);
+		case vscode.LanguageModelChatMessageRole.System:
+			return toAnthropicSystemMessage(message, source);
 		default:
 			throw new Error(`Unsupported message role: ${message.role}`);
 	}
@@ -378,9 +379,27 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
 			} else {
 				// Skip other data parts.
+				log.debug(`[anthropic] Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
 			}
 		} else {
 			throw new Error('Unsupported part type on user message');
+		}
+	}
+	return {
+		role: 'user',
+		content,
+	};
+}
+
+function toAnthropicSystemMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
+	const content: Anthropic.ContentBlockParam[] = [];
+	for (let i = 0; i < message.content.length; i++) {
+		const [part, nextPart] = [message.content[i], message.content[i + 1]];
+		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
+		if (part instanceof vscode.LanguageModelTextPart) {
+			content.push(toAnthropicTextBlock(part, source, dataPart, true));
+		} else {
+			throw new Error('Unsupported part type on system message');
 		}
 	}
 	return {
@@ -393,11 +412,12 @@ function toAnthropicTextBlock(
 	part: vscode.LanguageModelTextPart,
 	source: string,
 	dataPart?: vscode.LanguageModelDataPart,
+	system: boolean = false,
 ): Anthropic.TextBlockParam {
 	return withCacheControl(
 		{
 			type: 'text',
-			text: part.value,
+			text: system ? `<system>\n${part.value}\n</system>` : part.value,
 		},
 		source,
 		dataPart,
@@ -432,10 +452,13 @@ function toAnthropicToolResultBlock(
 		const resultDataPart = resultNextPart instanceof vscode.LanguageModelDataPart ? resultNextPart : undefined;
 		if (resultPart instanceof vscode.LanguageModelTextPart) {
 			content.push(toAnthropicTextBlock(resultPart, source, resultDataPart));
-		} else if (isLanguageModelImagePart(resultPart)) {
-			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
-			// Skip data parts.
+			if (isChatImagePart(resultPart)) {
+				content.push(chatImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
+			} else {
+				// Skip other data parts.
+				log.debug(`[anthropic] Skipping unsupported data part in tool result: ${JSON.stringify(resultPart, null, 2)}`);
+			}
 		} else if (resultPart instanceof vscode.LanguageModelPromptTsxPart) {
 			content.push(languageModelPromptTsxPartToAnthropicBlock(resultPart, source, resultDataPart));
 		} else {
@@ -466,26 +489,6 @@ function chatImagePartToAnthropicImageBlock(
 				// We may pass an unsupported mime type; let Anthropic throw the error.
 				media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
 				data: Buffer.from(part.data).toString('base64'),
-			},
-		},
-		source,
-		dataPart,
-	);
-}
-
-function languageModelImagePartToAnthropicImageBlock(
-	part: LanguageModelImagePart,
-	source: string,
-	dataPart?: vscode.LanguageModelDataPart,
-): Anthropic.ImageBlockParam {
-	return withCacheControl(
-		{
-			type: 'image',
-			source: {
-				type: 'base64',
-				// We may pass an unsupported mime type; let Anthropic throw the error.
-				media_type: part.value.mimeType as Anthropic.Base64ImageSource['media_type'],
-				data: part.value.base64,
 			},
 		},
 		source,
@@ -608,11 +611,11 @@ function withCacheControl<T extends CacheControllableBlockParam>(
 	}
 
 	try {
-		const cachBreakpoint = parseCacheBreakpoint(dataPart);
+		const cacheBreakpoint = parseCacheBreakpoint(dataPart);
 		log.debug(`[anthropic] Adding cache breakpoint to ${part.type} part. Source: ${source}`);
 		return {
 			...part,
-			cache_control: cachBreakpoint,
+			cache_control: cacheBreakpoint,
 		};
 	} catch (error) {
 		log.error(`[anthropic] Failed to parse cache breakpoint: ${error}`);

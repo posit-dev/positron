@@ -163,6 +163,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	 */
 	async executeCode(
 		languageId: string,
+		sessionId: string | undefined,
 		code: string,
 		attribution: IConsoleCodeAttribution,
 		focus: boolean,
