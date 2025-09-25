@@ -1874,7 +1874,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this._onWillStartRuntimeEmitter.fire({
 							session,
 							startMode: RuntimeStartMode.Restarting,
-							hasConsole: activeSession.hasConsole,
+							hasConsole: !!activeSession.hasConsole,
 							activate: false
 						});
 					}
