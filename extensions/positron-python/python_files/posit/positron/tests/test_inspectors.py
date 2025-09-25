@@ -882,20 +882,21 @@ def test_inspect_ibis_exprs() -> None:
     ibis.options.interactive = True
 
     test_df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
-
+    _, columns = test_df.shape
     t = ibis.memtable(test_df, name="df")
-    table_type = "ibis.expr.types.relations.Table"
+    table_type = "ibis.Table"
 
     verify_inspector(
         value=t,
-        display_value=table_type,
-        kind=VariableKind.Other,
-        display_type="ibis.Expr",
+        display_value=f"[{columns} columns] {table_type}",
+        kind=VariableKind.Table,
+        display_type=f"Table [{columns} columns]",
         type_info=get_type_as_str(t),
-        has_children=False,
+        has_children=True,
         is_truncated=True,
-        length=0,
+        length=2,
         mutable=False,
+        has_viewer=True,
     )
 
     a_sum = t["a"].sum()  # type: ignore

@@ -116,6 +116,9 @@ export interface IPositronConsoleService {
 	 * Executes code in a PositronConsoleInstance.
 	 *
 	 * @param languageId The language ID.
+	 * @param sessionId The session ID. This can be empty, in which case an appropriate session
+	 *   will be chosen, and if no session for the desired language is running at all, a new
+	 *   session will be started.
 	 * @param code The code.
 	 * @param attribution An optional attribution object that describes the source of the code.
 	 * @param focus A value which indicates whether to focus Positron console instance.
@@ -127,6 +130,7 @@ export interface IPositronConsoleService {
 	 * @returns The session ID that was assigned to execute the code.
 	 */
 	executeCode(languageId: string,
+		sessionId: string | undefined,
 		code: string,
 		attribution: IConsoleCodeAttribution,
 		focus: boolean,

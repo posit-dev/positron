@@ -68,10 +68,10 @@ on:
         type: choice
         options:
           - e2e-electron
-          - e2e-browser
+          - e2e-chromium
       grep:
         required: false
-        description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-browser`, tests tagged with @:web are pre-filtered; additional tags, titles, or filenames can be specified to refine filtering."
+        description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-chromium`, tests tagged with @:web are pre-filtered; additional tags, titles, or filenames can be specified to refine filtering."
         default: "@:critical"
         type: string
       repeat_each:
@@ -178,7 +178,7 @@ jobs:
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary
-        if: ${{ inputs.project == 'e2e-browser' }}
+        if: ${{ inputs.project == 'e2e-chromium' }}
         run: npm run gulp node
 
       - name: Send Results to GH Summary

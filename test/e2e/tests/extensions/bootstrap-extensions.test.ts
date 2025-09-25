@@ -99,7 +99,7 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 			console.log(`   * ${ext}`);
 		}
 		console.log('\nRun script and commit changes:');
-		console.log(`   ./scripts/update-extension.sh ${Array.from(mismatched).join(' ')}`);
+		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}`);
 
 		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
 			throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');

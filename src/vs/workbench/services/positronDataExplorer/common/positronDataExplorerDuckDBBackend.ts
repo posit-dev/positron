@@ -131,9 +131,10 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 					reject(new Error(`${commandName} not registered within 30 seconds`));
 				}, 30000);
 
-				CommandsRegistry.onDidRegisterCommand((id: string) => {
+				const disposable = CommandsRegistry.onDidRegisterCommand((id: string) => {
 					if (id === commandName) {
 						clearTimeout(timeoutId);
+						disposable.dispose();
 						resolve();
 					}
 				});

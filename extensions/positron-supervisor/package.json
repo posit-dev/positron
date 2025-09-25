@@ -159,7 +159,6 @@
   },
   "devDependencies": {
     "@types/decompress": "^4.2.7",
-    "@types/request": "^2.48.12",
     "@types/mocha": "^9.1.0",
     "@types/tail": "^2.2.3",
     "@types/ws": "^8.5.12",
@@ -176,9 +175,9 @@
     "positron.positron-environment"
   ],
   "dependencies": {
-    "request": "^2.88.2",
     "tail": "^2.2.6",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "axios": "^1.12.0"
   },
   "overrides": {
 	"request": {

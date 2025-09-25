@@ -16,6 +16,7 @@
 		"../../src/vscode-dts/vscode.proposed.languageModelDataPart.d.ts",
 		"../../src/vscode-dts/vscode.proposed.findFiles2.d.ts",
 		"../../src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts",
+		"../../src/vscode-dts/vscode.proposed.languageModelSystem.d.ts",
 		"../../src/vscode-dts/vscode.proposed.defaultChat*.d.ts",
 		"../../src/vscode-dts/vscode.proposed.inlineCompletions*.d.ts",
 		"../../src/vscode-dts/vscode.d.ts",

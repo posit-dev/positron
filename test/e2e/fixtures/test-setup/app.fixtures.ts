@@ -26,7 +26,7 @@ export function AppFixture() {
 		// Route to the appropriate fixture based on configuration
 		if (project === 'e2e-workbench') {
 			return await WorkbenchAppFixture()(fixtureOptions, use);
-		} else if (project === 'e2e-browser-server') {
+		} else if (project.includes('server')) {
 			return await ExternalPositronServerFixture()(fixtureOptions, use);
 		} else {
 			return await ManagedAppFixture()(fixtureOptions, use);
