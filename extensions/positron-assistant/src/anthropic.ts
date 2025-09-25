@@ -126,9 +126,15 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			: undefined;
 		const tools = options.tools && toAnthropicTools(options.tools);
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
-		const system = options.modelOptions?.system &&
-			toAnthropicSystem(options.modelOptions.system, cacheControlOptions?.system);
-		const anthropicMessages = toAnthropicMessages(messages);
+
+		const systemMessages = messages.filter(m => m.role === vscode.LanguageModelChatMessageRole.System);
+		const otherMessages = messages.filter(m => m.role !== vscode.LanguageModelChatMessageRole.System);
+
+		// Convert messages with system role into a anthropic system prompt
+		const system = toAnthropicSystem(systemMessages, cacheControlOptions?.system, options.modelOptions?.system);
+
+		// Convert the remaining messages into anthropic user and assistant messages.
+		const anthropicMessages = toAnthropicMessages(otherMessages);
 
 		const body: Anthropic.MessageStreamParams = {
 			model: model.id,
@@ -335,9 +341,8 @@ function toAnthropicMessage(message: vscode.LanguageModelChatMessage2, source: s
 			return toAnthropicAssistantMessage(message, source);
 		case vscode.LanguageModelChatMessageRole.User:
 			return toAnthropicUserMessage(message, source);
-		case vscode.LanguageModelChatMessageRole.System:
-			return toAnthropicSystemMessage(message, source);
 		default:
+			// System messages should be filtered and instead handled elsewhere.
 			throw new Error(`Unsupported message role: ${message.role}`);
 	}
 }
@@ -391,33 +396,15 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 	};
 }
 
-function toAnthropicSystemMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
-	const content: Anthropic.ContentBlockParam[] = [];
-	for (let i = 0; i < message.content.length; i++) {
-		const [part, nextPart] = [message.content[i], message.content[i + 1]];
-		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
-		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, source, dataPart, true));
-		} else {
-			throw new Error('Unsupported part type on system message');
-		}
-	}
-	return {
-		role: 'user',
-		content,
-	};
-}
-
 function toAnthropicTextBlock(
 	part: vscode.LanguageModelTextPart,
 	source: string,
 	dataPart?: vscode.LanguageModelDataPart,
-	system: boolean = false,
 ): Anthropic.TextBlockParam {
 	return withCacheControl(
 		{
 			type: 'text',
-			text: system ? `<system>\n${part.value}\n</system>` : part.value,
+			text: part.value,
 		},
 		source,
 		dataPart,
@@ -559,38 +546,51 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 	}
 }
 
-function toAnthropicSystem(system: unknown, cacheSystem = true): Anthropic.MessageCreateParams['system'] {
-	if (typeof system === 'string') {
-		const anthropicSystem: Anthropic.MessageCreateParams['system'] = [{
-			type: 'text',
-			text: system,
-		}];
-
-		if (cacheSystem) {
-			// Add a cache breakpoint to the last system prompt block.
-			const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
-			lastSystemBlock.cache_control = { type: 'ephemeral' };
-			log.debug(`[anthropic] Adding cache breakpoint to system prompt`);
-		}
-
-		return anthropicSystem;
+/*
+ * Convert a set of system messages into an anthropic system prompt.
+ */
+function toAnthropicSystem(
+	messages: vscode.LanguageModelChatMessage2[],
+	cacheSystem = true,
+	system?: string | vscode.LanguageModelTextPart[],
+): Anthropic.MessageCreateParams['system'] {
+	// Append system prompt from `modelOptions.system`, if provided.
+	// TODO: Once extensions such as databot no longer use `modelOptions.system`,
+	// we can remove the `system` parameter and use the given system messages only.
+	if (system) {
+		messages.push(
+			new vscode.LanguageModelChatMessage2(vscode.LanguageModelChatMessageRole.System, system)
+		);
 	}
 
-	// Check if it's an array of parts.
-	if (Array.isArray(system) && system.every(part => (part instanceof vscode.LanguageModelTextPart) ||
-		(part instanceof vscode.LanguageModelDataPart))) {
-		const anthropicSystem: Anthropic.MessageCreateParams['system'] = [];
-		for (let i = 0; i < system.length; i++) {
-			const [part, nextPart] = [system[i], system[i + 1]];
-			const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
-			if (part instanceof vscode.LanguageModelTextPart) {
-				anthropicSystem.push(toAnthropicTextBlock(part, 'System prompt', dataPart));
-			}
-		}
-		return anthropicSystem;
+	// Convert each system message to anthropic text blocks
+	const anthropicSystem = messages.flatMap((message, idx) => {
+		return toAnthropicSystemParts(message, `System message ${idx}`);
+	});
+
+	if (anthropicSystem.length === 0) {
+		return undefined;
+	} else if (cacheSystem) {
+		// Add a cache breakpoint to the last system prompt block.
+		const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
+		lastSystemBlock.cache_control = { type: 'ephemeral' };
+		log.debug(`[anthropic] Adding cache breakpoint to system prompt`);
 	}
 
-	throw new Error(`Unexpected system prompt value`);
+	return anthropicSystem;
+}
+
+function toAnthropicSystemParts(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.TextBlockParam[] {
+	const content: Anthropic.TextBlockParam[] = [];
+	for (let i = 0; i < message.content.length; i++) {
+		const part = message.content[i];
+		if (part instanceof vscode.LanguageModelTextPart) {
+			content.push(toAnthropicTextBlock(part, source));
+		} else {
+			throw new Error('Unsupported part type on system message');
+		}
+	}
+	return content;
 }
 
 function isCacheControlOptions(options: unknown): options is CacheControlOptions {
