@@ -809,6 +809,7 @@ suite('Positron - RuntimeSessionService', () => {
 				sinon.assert.calledOnceWithExactly(willStartSession, {
 					session,
 					startMode: RuntimeStartMode.Restarting,
+					hasConsole: mode === LanguageRuntimeSessionMode.Console,
 					activate: false
 				});
 			});
