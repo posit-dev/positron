@@ -63,7 +63,7 @@ export class DataExplorer {
 		});
 	}
 
-	async expectStatusBarToHaveText(expectedText: string, timeout = 60000): Promise<void> {
+	async expectStatusBarToHaveText(expectedText: string | RegExp, timeout = 15000): Promise<void> {
 		await test.step(`Expect status bar text: ${expectedText}`, async () => {
 			await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
 		});
@@ -496,16 +496,21 @@ export class DataGrid {
 		});
 	}
 
-	async expectLastCellContentToBe(columnName: string, expectedContent: string, rowAtIndex = -1): Promise<void> {
-		await test.step(`Verify last cell content: ${expectedContent}`, async () => {
-			await expect(async () => {
-				const tableData = await this.getData();
-				const lastRow = tableData.at(rowAtIndex);
-				const lastHour = lastRow![columnName];
-				expect(lastHour).toBe(expectedContent);
-			}, 'Verify last hour cell content').toPass();
+	/**
+	 * Verify that the nth cell (default: last) has the expected content.
+	 * @param expectedContent The expected text content of the cell
+	 * @param cellIndex The index of the cell to check (default: last)
+	 */
+	async expectCellContentAtIndexToBe(expectedContent: string, cellIndex?: number): Promise<void> {
+		await test.step(`Verify cell content at index ${cellIndex ?? 'last'}: ${expectedContent}`, async () => {
+			const cells = this.code.driver.page.locator('.data-grid-row-cell');
+			const cell = cellIndex !== undefined ? cells.nth(cellIndex) : cells.last();
+			await expect(cell).toHaveText(expectedContent);
 		});
 	}
+
+	// locator('.data-grid-column-header') #12
+	// locator('.data-grid-row-header') #34
 
 	async expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string | number }): Promise<void> {
 		await test.step(`Verify cell content at (${rowIndex}, ${colIndex}): ${value}`, async () => {
