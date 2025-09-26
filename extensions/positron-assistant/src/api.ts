@@ -13,6 +13,7 @@ import { PositronAssistantToolName } from './types.js';
 import path = require('path');
 import fs = require('fs');
 import { log } from './extension.js';
+import { CopilotService } from './copilot.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -106,7 +107,7 @@ export class PositronAssistantApi {
 	 */
 	public notifySignIn(provider: string) {
 		log.info(`[Assistant API] Provider signed in: ${provider}`);
-		this._signInEmitter.fire(provider)
+		this._signInEmitter.fire(provider);
 	}
 
 	/**
@@ -273,7 +274,11 @@ export function getEnabledTools(
 
 		// Final check: if we're in agent mode, or the tool is marked for use with
 		// Assistant, include the tool
-		if (isAgentMode || tool.tags.includes('positron-assistant')) {
+		const toolFromCopilot = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
+		const copilotEnabled = CopilotService.instance().isSignedIn;
+		// If the tool is from Copilot Chat, only include it if Copilot Chat
+		if ((isAgentMode || tool.tags.includes('positron-assistant')) &&
+			(!toolFromCopilot || copilotEnabled)) {
 			enabledTools.push(tool.name);
 		}
 	}
