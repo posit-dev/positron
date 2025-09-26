@@ -95,7 +95,8 @@
         "onLanguageModelTool:get_python_executable_details",
         "onLanguageModelTool:install_python_packages",
         "onLanguageModelTool:configure_python_environment",
-        "onLanguageModelTool:create_virtual_environment"
+        "onLanguageModelTool:create_virtual_environment",
+        "onTerminalShellIntegration:python"
     ],
     "main": "./out/client/extension",
     "browser": "./dist/extension.browser.js",
@@ -874,7 +875,7 @@
                     "type": "array"
                 },
                 "python.terminal.shellIntegration.enabled": {
-                    "default": false,
+                    "default": true,
                     "markdownDescription": "%python.terminal.shellIntegration.enabled.description%",
                     "scope": "resource",
                     "type": "boolean",
@@ -1958,7 +1959,7 @@
                 "displayName": "Get Python Environment Info",
                 "when": "false",
                 "userDescription": "%python.languageModelTools.get_python_environment_details.userDescription%",
-                "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. The details returned include the 1. Type of Environment (conda, venv, etec), 2. Version of Python, 3. List of all installed packages with their versions. ALWAYS call configure_python_environment before using this tool.",
+                "modelDescription": "This tool will retrieve the details of the Python Environment for the specified file or workspace. The details returned include the 1. Type of Python Environment (conda, venv, etec), 2. Version of Python, 3. List of all installed Python packages with their versions. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "getPythonEnvironmentInfo",
                 "tags": [
                     "python",
@@ -2010,7 +2011,7 @@
                 "displayName": "Install Python Package",
                 "when": "false",
                 "userDescription": "%python.languageModelTools.install_python_packages.userDescription%",
-                "modelDescription": "Installs Python packages in the given workspace. Use this tool to install packages in the user's chosen environment. ALWAYS call configure_python_environment before using this tool.",
+                "modelDescription": "Installs Python packages in the given workspace. Use this tool to install Python packages in the user's chosen Python environment. ALWAYS call configure_python_environment before using this tool.",
                 "toolReferenceName": "installPythonPackage",
                 "tags": [
                     "python",
@@ -2029,7 +2030,7 @@
                             "items": {
                                 "type": "string"
                             },
-                            "description": "The list of packages to install."
+                            "description": "The list of Python packages to install."
                         },
                         "resourcePath": {
                             "type": "string",
@@ -2177,7 +2178,7 @@
         "semver": "^7.5.2",
         "stack-trace": "0.0.10",
         "sudo-prompt": "^9.2.1",
-        "tmp": "^0.0.33",
+        "tmp": "^0.2.5",
         "uint64be": "^3.0.0",
         "unicode": "^14.0.0",
         "vscode-debugprotocol": "^1.28.0",
