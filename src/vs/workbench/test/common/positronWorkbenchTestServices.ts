@@ -114,7 +114,8 @@ export class TestPositronModalDialogService implements IPositronModalDialogsServ
 		throw new Error('Method not implemented.');
 	}
 	showSimpleModalDialogPrompt(title: string, message: string, okButtonTitle?: string, cancelButtonTitle?: string): Promise<boolean> {
-		throw new Error('Method not implemented.');
+		// implement this one for runtimeSession tests
+		return Promise.resolve(true);
 	}
 	showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {
 		throw new Error('Method not implemented.');

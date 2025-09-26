@@ -1140,6 +1140,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// Start a notebook session with the untitled URI
 		const session = await startSession(runtime, LanguageRuntimeSessionMode.Notebook, untitledUri);
+		await timeout(0);
 
 		// Ensure the session is retrievable with the untitled URI
 		const sessionBeforeUpdate = runtimeSessionService.getNotebookSessionForNotebookUri(untitledUri);
@@ -1158,6 +1159,9 @@ suite('Positron - RuntimeSessionService', () => {
 		// Verify the session is accessible via the new URI
 		const newUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(savedUri);
 		assert.strictEqual(newUriSession, session, 'Session should be accessible via new URI');
+
+		// Verify the working directory changed
+		assert.strictEqual(session.getWorkingDirectory(), '/path/to/saved', 'Working directory should update to new URI parent folder');
 	});
 
 	test('updateNotebookSessionUri returns undefined when session not found', async () => {

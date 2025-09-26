@@ -2438,8 +2438,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Untildify for comparison
 		const userHome = await this._pathService.userHome();
-		const currentWorkingDirectoryResolved = untildify(currentWorkingDirectory, userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path);
-		const newWorkingDirectoryResolved = untildify(newWorkingDirectory, userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path);
+		const userHomePath = userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path;
+		const currentWorkingDirectoryResolved = untildify(currentWorkingDirectory, userHomePath);
+		const newWorkingDirectoryResolved = untildify(newWorkingDirectory, userHomePath);
 
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
 			const result = await this._positronModalDialogsService.showSimpleModalDialogPrompt(
