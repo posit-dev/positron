@@ -509,9 +509,6 @@ export class DataGrid {
 		});
 	}
 
-	// locator('.data-grid-column-header') #12
-	// locator('.data-grid-row-header') #34
-
 	async expectCellContentToBe({ rowIndex, colIndex, value }: { rowIndex: number; colIndex: number; value: string | number }): Promise<void> {
 		await test.step(`Verify cell content at (${rowIndex}, ${colIndex}): ${value}`, async () => {
 			await expect(async () => {
