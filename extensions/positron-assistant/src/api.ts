@@ -275,7 +275,13 @@ export function getEnabledTools(
 		// Final check: if we're in agent mode, or the tool is marked for use with
 		// Assistant, include the tool
 		const toolFromCopilot = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
-		const copilotEnabled = CopilotService.instance().isSignedIn;
+		let copilotEnabled;
+		try {
+			copilotEnabled = CopilotService.instance().isSignedIn;
+		} catch {
+			// Ignore errors
+			copilotEnabled = false;
+		}
 		// If the tool is from Copilot Chat, only include it if Copilot Chat
 		if ((isAgentMode || tool.tags.includes('positron-assistant')) &&
 			(!toolFromCopilot || copilotEnabled)) {
