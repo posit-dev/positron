@@ -2543,6 +2543,61 @@ def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
     )
 
 
+def test_export_data_selection_cell_indices_with_sort(dxf: DataExplorerFixture):
+    """Test that CellIndices selection respects table sort order."""
+    # Create test DataFrames with clear sort order differences
+    df_pandas = pd.DataFrame(
+        {
+            "sort_col": [3, 1, 4, 2, 5],
+            "id": [300, 100, 400, 200, 500],
+            "data": ["row3", "row1", "row4", "row2", "row5"],
+        }
+    )
+
+    df_polars = pl.DataFrame(
+        {
+            "sort_col": [3, 1, 4, 2, 5],
+            "id": [300, 100, 400, 200, 500],
+            "data": ["row3", "row1", "row4", "row2", "row5"],
+        }
+    )
+
+    # Register tables
+    dxf.register_table("pandas_cell_indices", df_pandas)
+    dxf.register_table("polars_cell_indices", df_polars)
+
+    for table_name in ["pandas_cell_indices", "polars_cell_indices"]:
+        # Sort by sort_col ascending - should reorder to: 1,2,3,4,5
+        # Original indices: [1,3,0,2,4] -> rows with IDs: [100,200,300,400,500]
+        dxf.set_sort_columns(table_name, [{"column_index": 0, "ascending": True}])
+
+        # Test CellIndices selection: rows 0,1 from sorted view should be rows with IDs 100,200
+        selection = _select_cell_indices([0, 1], [1, 2])  # id and data columns
+        result = dxf.export_data_selection(table_name, selection, "csv")
+
+        lines = result["data"].splitlines()
+        header = lines[0]
+        values = [line.strip() for line in lines[1:] if line.strip()]
+
+        # Should get first two rows from sorted table: ID 100,200 with data row1,row2
+        assert header == "id,data", f"Expected header 'id,data', got '{header}'"
+        assert values == ["100,row1", "200,row2"], (
+            f"CellIndices with sort on {table_name}: Expected ['100,row1', '200,row2'], got {values}"
+        )
+
+        # Test reverse order selection to ensure selection order is preserved
+        selection_reverse = _select_cell_indices([2, 0], [0, 1])  # sort_col and id columns
+        result_reverse = dxf.export_data_selection(table_name, selection_reverse, "csv")
+
+        lines_reverse = result_reverse["data"].splitlines()
+        values_reverse = [line.strip() for line in lines_reverse[1:] if line.strip()]
+
+        # Should get rows 2,0 from sorted view: (3,300) then (1,100)
+        assert values_reverse == ["3,300", "1,100"], (
+            f"CellIndices reverse order on {table_name}: Expected ['3,300', '1,100'], got {values_reverse}"
+        )
+
+
 def _profile_request(column_index, profiles):
     return {"column_index": column_index, "profiles": profiles}
 
