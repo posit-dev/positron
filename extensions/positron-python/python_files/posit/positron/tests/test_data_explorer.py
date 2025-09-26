@@ -3413,7 +3413,7 @@ def test_profile_histogram_windows_int32_bug():
     )
     result = _get_histogram_numpy(arr, 10, method="fd")[0]
     expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
-    assert (result == expected).all()
+    assert (result == expected).all()  # type: ignore
 
 
 def test_histogram_single_value_special_case():
@@ -4253,27 +4253,35 @@ def test_histogram_edge_cases_empty_and_single_row(dxf: DataExplorerFixture):
     """Test histogram behavior for 0-row and 1-row DataFrames."""
 
     # Test 0-row DataFrames
-    empty_pd = pd.DataFrame({
-        "numbers": pd.Series([], dtype='float64'),
-        "integers": pd.Series([], dtype='int64'),
-    })
-    empty_pl = pl.DataFrame({
-        "numbers": pl.Series([], dtype=pl.Float64),
-        "integers": pl.Series([], dtype=pl.Int64),
-    })
+    empty_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([], dtype="float64"),
+            "integers": pd.Series([], dtype="int64"),
+        }
+    )
+    empty_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([], dtype=pl.Float64),
+            "integers": pl.Series([], dtype=pl.Int64),
+        }
+    )
 
     dxf.register_table("empty_pd", empty_pd)
     dxf.register_table("empty_pl", empty_pl)
 
     # Test 1-row DataFrames
-    single_pd = pd.DataFrame({
-        "numbers": pd.Series([42.5], dtype='float64'),
-        "integers": pd.Series([7], dtype='int64'),
-    })
-    single_pl = pl.DataFrame({
-        "numbers": pl.Series([42.5], dtype=pl.Float64),
-        "integers": pl.Series([7], dtype=pl.Int64),
-    })
+    single_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([42.5], dtype="float64"),
+            "integers": pd.Series([7], dtype="int64"),
+        }
+    )
+    single_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([42.5], dtype=pl.Float64),
+            "integers": pl.Series([7], dtype=pl.Int64),
+        }
+    )
 
     dxf.register_table("single_pd", single_pd)
     dxf.register_table("single_pl", single_pl)
