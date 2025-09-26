@@ -368,18 +368,22 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
 			!aiModel.modelId.startsWith('us.anthropic.claude-3-5');
 
-		const aiMessages: ai.CoreMessage[] = [];
-
 		// Add system prompt from `modelOptions.system`, if provided.
 		// TODO: Once extensions such as databot no longer use `modelOptions.system`,
 		// we can remove the `system` parameter and use the given system messages only.
 		if (modelOptions.system) {
-			aiMessages.push({ role: 'system', content: modelOptions.system });
+			processedMessages.unshift(new vscode.LanguageModelChatMessage(
+				vscode.LanguageModelChatMessageRole.System,
+				modelOptions.system
+			));
 		}
 
 		// Convert all messages to the Vercel AI format.
-		aiMessages.push(...toAIMessage(processedMessages, toolResultExperimentalContent,
-			bedrockCacheBreakpoint));
+		const aiMessages: ai.CoreMessage[] = toAIMessage(
+			processedMessages,
+			toolResultExperimentalContent,
+			bedrockCacheBreakpoint
+		);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
