@@ -26,9 +26,8 @@ import { IPositronModalDialogsService } from '../../../positronModalDialogs/comm
 import { RuntimeSessionService } from '../../common/runtimeSession.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
-import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService } from '../../../../test/common/positronWorkbenchTestServices.js';
+import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService, TestPathService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService, TestContextService } from '../../../../test/common/workbenchTestServices.js';
-import { TestPathService } from '../../../../test/browser/workbenchTestServices.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
