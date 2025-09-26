@@ -43,6 +43,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 
 /**
@@ -74,6 +75,8 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	protected override _input: PositronNotebookEditorInput | undefined;
 
 	private _containerScopedContextKeyService: IScopedContextKeyService | undefined;
+
+	private notebookInstance: PositronNotebookInstance | undefined;
 
 	/**
 	 * The editor control, used by other features to access the code editor widget of the selected cell.
@@ -110,7 +113,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 	}
 
-	//#region AbstractEditorWithViewState implementation
+	//#region AbstractEditorWithViewState
 
 	/**
 	 * The actual method to provide for gathering the view state
@@ -158,7 +161,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		return input.resource;
 	}
 
-	//#endregion AbstractEditorWithViewState implementation
+	//#endregion AbstractEditorWithViewState
+
+	//#region EditorPane
 
 	/**
 	 * Event emitter for letting the IDE know that there has been a selection change in the
@@ -183,12 +188,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	 * Observable tracking if the editor is currently visible
 	 */
 	private readonly _isVisible = observableValue<boolean>('isVisible', false);
-
-
-	// Getter for notebook instance to avoid having to cast the input every time.
-	get notebookInstance() {
-		return this._input?.notebookInstance;
-	}
 
 	protected override setEditorVisible(visible: boolean): void {
 		this._isVisible.set(visible, undefined);
@@ -239,12 +238,14 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
 
+		// TODO: Who should dispose notebook instances?
+		this.notebookInstance = PositronNotebookInstance.getOrCreate(input, undefined, this.instantiationService);
+
 		// Update the editor control given the notebook instance.
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		const { notebookInstance } = input;
-		this._control.value = new PositronNotebookEditorControl(notebookInstance);
+		this._control.value = new PositronNotebookEditorControl(this.notebookInstance);
 
 		await super.setInput(input, options, context, token);
 
@@ -261,7 +262,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		}
 
 		// Set the notebook instance model
-		notebookInstance.setModel(model.notebook, options?.viewState);
+		this.notebookInstance.setModel(model.notebook, options?.viewState);
 
 		// Trigger the selection change event when the notebook was edited.
 		this._instanceDisposableStore.add(
@@ -274,7 +275,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 		const scopedContextKeyService = this._renderReact();
 
-		notebookInstance.attachView(this._parentDiv, scopedContextKeyService);
+		this.notebookInstance.attachView(this._parentDiv, scopedContextKeyService);
 	}
 
 	override clearInput(): void {
@@ -317,6 +318,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	override getControl() {
 		return this._control.value;
 	}
+
+	//#endregion EditorPane
+
+	//#region React
 
 	/**
 	 * Gets or sets the PositronReactRenderer for the PositronNotebook component.
@@ -371,6 +376,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		return scopedContextKeyService;
 	}
 
+	//#endregion React
 
 	/**
 	 * dispose override method.

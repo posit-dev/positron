@@ -14,7 +14,6 @@ import { INotebookEditorModelResolverService } from '../../notebook/common/noteb
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
@@ -88,8 +87,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 	public readonly viewType = 'jupyter-notebook';
 
-	notebookInstance: PositronNotebookInstance;
-
 	//#endregion Static Properties
 	//#region Constructor & Dispose
 	/**
@@ -111,18 +108,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 		// Call the base class's constructor.
 		super();
 		this._logService.info(this._identifier, 'constructor');
-
-		this.notebookInstance = PositronNotebookInstance.getOrCreate(this, undefined, instantiationService);
-	}
-
-	/**
-	 * dispose override method.
-	 */
-	override dispose(): void {
-		this.notebookInstance.dispose();
-
-		// Call the base class's dispose method
-		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
