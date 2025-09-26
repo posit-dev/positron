@@ -8,7 +8,7 @@ import { Code } from '../infra/code';
 
 
 const GLYPH_AREA = '.margin-view-overlays>:nth-child';
-const BREAKPOINT_GLYPH = '.codicon-debug-breakpoint';
+const BREAKPOINT_GLYPH = '.monaco-editor .codicon-debug-breakpoint';
 const STOP = `.debug-toolbar .action-label[aria-label*="Stop"]`;
 
 const VIEWLET = 'div[id="workbench.view.debug"]';
@@ -40,11 +40,18 @@ export class Debug {
 
 	}
 
-	async setBreakpointOnLine(lineNumber: number): Promise<void> {
+	async setBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Set breakpoint on line ${lineNumber}`, async () => {
 			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
-			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 } });
-			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH)).toBeVisible();
+			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
+			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible();
+		});
+	}
+
+	async unSetBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
+		await test.step(`Debug: Unset breakpoint on line ${lineNumber}`, async () => {
+			await this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index).click({ position: { x: 5, y: 5 } });
+			await this.code.driver.page.mouse.move(50, 50);
 		});
 	}
 
@@ -170,9 +177,9 @@ export class Debug {
 	 * Verify: the current line indicator is visible
 	 * Note: This does not check the line number, only that the indicator is present
 	 */
-	async expectCurrentLineIndicatorVisible(): Promise<void> {
+	async expectCurrentLineIndicatorVisible(timeout: number = 15000): Promise<void> {
 		await test.step('Verify current line indicator is visible', async () => {
-			await expect(this.code.driver.page.locator('.codicon-debug-stackframe')).toBeVisible();
+			await expect(this.code.driver.page.locator('.codicon-debug-stackframe')).toBeVisible({ timeout: timeout });
 		});
 	}
 }
