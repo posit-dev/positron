@@ -4251,7 +4251,6 @@ def test_ibis_supported_features(dxf: DataExplorerFixture):
 
 def test_histogram_edge_cases_empty_and_single_row(dxf: DataExplorerFixture):
     """Test histogram behavior for 0-row and 1-row DataFrames."""
-
     # Test 0-row DataFrames
     empty_pd = pd.DataFrame(
         {
