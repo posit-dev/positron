@@ -818,6 +818,15 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		});
 	};
 
+	// Helper to create a table and return configured test helpers
+	const createSortableTestTable = async (columns: Array<{ name: string; type: string; values: string[] }>) => {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, columns);
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const helpers = createSortTestHelper(uri);
+		return { tableName, uri, ...helpers };
+	};
+
 	test('export_data_selection - data types and single cells', async () => {
 		const { tableName, longString } = await createExportTestTable();
 		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
@@ -933,17 +942,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	};
 
 	test('export_data_selection respects sort order - basic sorting', async () => {
-		const tableName = makeTempTableName();
-
-		// Create a test table with data that will show the sort order clearly
-		await createTempTable(tableName, [
+		const { columnIndices, columnRange, setSortKeys } = await createSortableTestTable([
 			{ name: 'id', type: 'INTEGER', values: ['3', '1', '2', '5', '4'] },
 			{ name: 'name', type: 'VARCHAR', values: ['\'Charlie\'', '\'Alice\'', '\'Bob\'', '\'Eve\'', '\'David\''] },
 			{ name: 'value', type: 'INTEGER', values: ['30', '10', '20', '50', '40'] }
 		]);
-
-		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
-		const { columnIndices, columnRange, setSortKeys } = createSortTestHelper(uri);
 
 		// Test unsorted data
 		await columnIndices([1], 'name\nCharlie\nAlice\nBob\nEve\nDavid');
@@ -951,28 +954,22 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// Test single column sorts
 		const sortTests = [
 			{
-				desc: 'sort by id ascending',
 				sortKeys: [{ column_index: 0, ascending: true }],
-				exportCol: 1,
 				expected: 'name\nAlice\nBob\nCharlie\nDavid\nEve'
 			},
 			{
-				desc: 'sort by id descending',
 				sortKeys: [{ column_index: 0, ascending: false }],
-				exportCol: 1,
 				expected: 'name\nEve\nDavid\nCharlie\nBob\nAlice'
 			},
 			{
-				desc: 'sort by value ascending',
 				sortKeys: [{ column_index: 2, ascending: true }],
-				exportCol: 1,
 				expected: 'name\nAlice\nBob\nCharlie\nDavid\nEve'
 			}
 		];
 
-		for (const { desc, sortKeys, exportCol, expected } of sortTests) {
+		for (const { sortKeys, expected } of sortTests) {
 			await setSortKeys(sortKeys);
-			await columnIndices([exportCol], expected);
+			await columnIndices([1], expected);
 		}
 
 		// Test column range export with sort
@@ -1108,8 +1105,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 	test('CellIndices respects table sort order - comprehensive test', async () => {
 		// Create a table with data that will expose sort order issues
-		const tableName = makeTempTableName();
-		await createTempTable(tableName, [
+		const { cellIndices, columnRange, setSortKeys } = await createSortableTestTable([
 			{
 				name: 'sort_col',
 				type: 'INTEGER',
@@ -1126,9 +1122,6 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				values: ['\'row3\'', '\'row1\'', '\'row4\'', '\'row2\'', '\'row5\'']
 			}
 		]);
-
-		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
-		const { cellIndices, columnRange, setSortKeys } = createSortTestHelper(uri);
 
 		// Before sorting - verify original order
 		await columnRange(0, 2, 'sort_col,id,data\n3,300,row3\n1,100,row1\n4,400,row4\n2,200,row2\n5,500,row5');
