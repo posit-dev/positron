@@ -46,6 +46,7 @@ import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 import { TestMcpService } from '../../../mcp/test/common/testMcpService.js';
 import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatSessionsService } from '../../browser/chatSessions.contribution.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 
 function getAgentData(id: string): IChatAgentData {
 	return {
@@ -95,6 +96,9 @@ suite('ChatEditingService', function () {
 			override hasSupportedNotebooks(_resource: URI): boolean {
 				return false;
 			}
+		});
+		collection.set(IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+			override copilotEnabled: boolean = true;
 		});
 		const insta = store.add(store.add(workbenchInstantiationService(undefined, store)).createChild(collection));
 		store.add(insta.get(IEditorWorkerService) as TestWorkerService);

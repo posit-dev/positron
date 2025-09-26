@@ -15,6 +15,7 @@ import { ILanguageModelChatProvider, ILanguageModelsChangeEvent, ILanguageModels
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 
 const testAgentId = 'testAgent';
@@ -85,8 +86,13 @@ suite('ChatAgents', function () {
 		configurationService = new TestConfigurationService();
 		const logService = new NullLogService();
 		const languageModelsService = new TestLanguageModelsService();
+		const positronAssistantConfigurationService = {
+			_serviceBrand: undefined,
+			copilotEnabled: true,
+			onChangeCopilotEnabled: Event.None,
+		} satisfies IPositronAssistantConfigurationService;
 		configurationService.setUserConfiguration('positron.assistant.enable', true);
-		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService));
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService, positronAssistantConfigurationService));
 		// --- End Positron ---
 	});
 

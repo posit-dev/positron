@@ -70,6 +70,7 @@ import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 import { TestMcpService } from '../../../mcp/test/common/testMcpService.js';
 import { IChatSessionsService } from '../../../chat/common/chatSessionsService.js';
 import { ChatSessionsService } from '../../../chat/browser/chatSessions.contribution.js';
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 
 suite('InlineChatSession', function () {
 
@@ -134,7 +135,9 @@ suite('InlineChatSession', function () {
 			[IViewDescriptorService, new class extends mock<IViewDescriptorService>() {
 				override onDidChangeLocation = Event.None;
 			}],
-			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()]
+			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()],
+			[IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+			}]
 		);
 
 

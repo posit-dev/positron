@@ -31,6 +31,7 @@ import { IChatFollowup, IChatLocationData, IChatProgress, IChatResponseErrorDeta
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from './constants.js';
 // --- Start Positron ---
 import { ILanguageModelsService } from './languageModels.js';
+import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 
 //#region agent service, commands etc
@@ -260,6 +261,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// --- Start Positron ---
 		@ILogService private readonly logService: ILogService,
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 	) {
 		super();
@@ -490,6 +492,12 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	private _agentIsEnabled(idOrAgent: string | IChatAgentEntry): boolean {
 		const entry = typeof idOrAgent === 'string' ? this._agents.get(idOrAgent) : idOrAgent;
+		// --- Start Positron ---
+		// Disable Copilot Chat agent if Copilot is not enabled
+		if (ExtensionIdentifier.equals(entry?.data.extensionId, 'github.copilot-chat') && !this.positronAssistantConfigurationService.copilotEnabled) {
+			return false;
+		}
+		// --- End Positron ---
 		return !entry?.data.when || this.contextKeyService.contextMatchesRules(ContextKeyExpr.deserialize(entry.data.when));
 	}
 
