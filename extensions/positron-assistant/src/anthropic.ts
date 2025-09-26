@@ -586,6 +586,8 @@ function toAnthropicSystemParts(message: vscode.LanguageModelChatMessage2, sourc
 		const part = message.content[i];
 		if (part instanceof vscode.LanguageModelTextPart) {
 			content.push(toAnthropicTextBlock(part, source));
+		} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+			content.push(languageModelPromptTsxPartToAnthropicBlock(part, source));
 		} else {
 			throw new Error('Unsupported part type on system message');
 		}
