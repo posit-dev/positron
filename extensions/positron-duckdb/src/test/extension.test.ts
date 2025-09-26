@@ -725,6 +725,17 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			assert.strictEqual(result.data, expected);
 		};
 
+		const exportRaw = async (kind: TableSelectionKind, selection: Selection, format: ExportFormat = ExportFormat.Csv) => {
+			return await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri: uri.toString(),
+				params: {
+					selection: { kind, selection },
+					format
+				}
+			});
+		};
+
 		return {
 			singleCell: (row: number, col: number, expected: string) =>
 				testExport(TableSelectionKind.SingleCell, { row_index: row, column_index: col }, expected),
@@ -750,8 +761,61 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				testExport(TableSelectionKind.ColumnIndices, { indices }, expected),
 
 			cellIndices: (rowIndices: number[], columnIndices: number[], expected: string) =>
-				testExport(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected)
+				testExport(TableSelectionKind.CellIndices, { row_indices: rowIndices, column_indices: columnIndices }, expected),
+
+			// Raw export methods that return results without assertions
+			singleCellRaw: (row: number, col: number, format?: ExportFormat) =>
+				exportRaw(TableSelectionKind.SingleCell, { row_index: row, column_index: col }, format),
+
+			cellRangeRaw: (firstRow: number, lastRow: number, firstCol: number, lastCol: number, format?: ExportFormat) =>
+				exportRaw(TableSelectionKind.CellRange, {
+					first_row_index: firstRow,
+					last_row_index: lastRow,
+					first_column_index: firstCol,
+					last_column_index: lastCol
+				}, format),
+
+			columnRangeRaw: (firstCol: number, lastCol: number, format?: ExportFormat) =>
+				exportRaw(TableSelectionKind.ColumnRange, { first_index: firstCol, last_index: lastCol }, format)
 		};
+	};
+
+	// Helper functions to reduce code duplication in tests
+	const openDataset = async (uri: vscode.Uri) => {
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri }
+		});
+	};
+
+	const setSortColumns = async (uri: vscode.Uri, sortKeys: Array<{ column_index: number; ascending: boolean }>) => {
+		await dxExec({
+			method: DataExplorerBackendRequest.SetSortColumns,
+			uri: uri.toString(),
+			params: { sort_keys: sortKeys }
+		});
+	};
+
+	const setRowFilters = async (uri: vscode.Uri, filters: any[]) => {
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri: uri.toString(),
+			params: { filters }
+		});
+	};
+
+	const convertToCode = async (uri: vscode.Uri, params: any = {}) => {
+		const defaultParams = {
+			column_filters: [],
+			row_filters: [],
+			sort_keys: [],
+			code_syntax_name: { code_syntax_name: 'SQL' }
+		};
+		return await dxExec({
+			method: DataExplorerBackendRequest.ConvertToCode,
+			uri: uri.toString(),
+			params: { ...defaultParams, ...params }
+		});
 	};
 
 	test('export_data_selection - data types and single cells', async () => {
@@ -862,11 +926,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const exportHelper = createExportHelper(uri);
 
 		const setSortKeys = async (sortKeys: Array<{ column_index: number; ascending: boolean }>) => {
-			await dxExec({
-				method: DataExplorerBackendRequest.SetSortColumns,
-				uri: uri.toString(),
-				params: { sort_keys: sortKeys }
-			});
+			await setSortColumns(uri, sortKeys);
 		};
 
 		return { ...exportHelper, setSortKeys };
@@ -1018,7 +1078,8 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		]);
 
 		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
-		const { singleCell, setSortKeys, columnRange } = createSortTestHelper(uri);
+		const { setSortKeys, columnRange } = createSortTestHelper(uri);
+		const { singleCellRaw, cellRangeRaw } = createExportHelper(uri);
 
 		// Before sorting - verify original order
 		await columnRange(0, 1, 'sort_col,id\n1,100\n1,101\n1,102\n1,103\n1,104\n1,105\n1,106\n1,107\n2,200\n2,201');
@@ -1031,53 +1092,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// the OFFSET might not correspond to the same row the UI is showing
 		// due to unstable sorting of duplicate values
 
-		// Test: Export the first few cells after sorting
-		// These should all be from the "1" group, but which specific ID values?
-		const cell0Result = await dxExec({
-			method: DataExplorerBackendRequest.ExportDataSelection,
-			uri: uri.toString(),
-			params: {
-				selection: {
-					kind: TableSelectionKind.SingleCell,
-					selection: { row_index: 0, column_index: 1 } // First row, id column
-				},
-				format: ExportFormat.Csv
-			}
-		});
+		// Test: Export the first few cells after sorting using helper functions
+		const cell0Result = await singleCellRaw(0, 1); // First row, id column
+		const cell1Result = await singleCellRaw(1, 1); // Second row, id column
 
-		const cell1Result = await dxExec({
-			method: DataExplorerBackendRequest.ExportDataSelection,
-			uri: uri.toString(),
-			params: {
-				selection: {
-					kind: TableSelectionKind.SingleCell,
-					selection: { row_index: 1, column_index: 1 } // Second row, id column
-				},
-				format: ExportFormat.Csv
-			}
-		});
-
-		// Let's also check what columnRange gives us for comparison
-		const rangeResult = await dxExec({
-			method: DataExplorerBackendRequest.ExportDataSelection,
-			uri: uri.toString(),
-			params: {
-				selection: {
-					kind: TableSelectionKind.CellRange,
-					selection: {
-						first_row_index: 0,
-						last_row_index: 1,
-						first_column_index: 1,
-						last_column_index: 1
-					}
-				},
-				format: ExportFormat.Csv
-			}
-		});
-
-		console.log('Single cell row 0:', cell0Result.data);
-		console.log('Single cell row 1:', cell1Result.data);
-		console.log('Range rows 0-1:', rangeResult.data);
+		// Let's also check what cellRange gives us for comparison
+		const rangeResult = await cellRangeRaw(0, 1, 1, 1);
 
 		// After the fix, single cell exports should be consistent with range exports
 		// Single cells should return different rows (100, 101) not the same row twice
