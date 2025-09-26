@@ -1769,6 +1769,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			// TODO: Will need to be able to pass CSV / TSV options from the
 			// UI at some point.
 			const options: Array<string> = [];
+
+			// Always treat the first row as header to avoid inference issues
+			options.push('header=true');
+
 			if (fileExt === '.tsv') {
 				options.push('delim=\'\t\'');
 			} else if (fileExt !== '.csv' && fileExt !== '.tsv') {
