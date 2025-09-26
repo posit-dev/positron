@@ -101,9 +101,12 @@ export function TracingFixture() {
 
 		// Determine execution mode
 		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
-
-		// Use default built-in tracing for e2e-browser except when running via CLI
-		if (testInfo.project.name === 'e2e-browser' && !isCommandLineRun) {
+		// Use Playwright's built-in tracing only for browser-based runs (extension, UI mode).
+		// Use custom tracing for Positron desktop runs or CLI runs.
+		if (
+			testInfo.project.use.browserName &&
+			!isCommandLineRun
+		) {
 			await use(app);
 		} else {
 			// start tracing

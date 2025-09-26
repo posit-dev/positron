@@ -93,6 +93,9 @@ async function dxExec(rpc: DataExplorerRpc): Promise<any> {
 	const resp: DataExplorerResponse = await vscode.commands.executeCommand(
 		'positron-duckdb.dataExplorerRpc', rpc
 	);
+	if (!resp) {
+		return Promise.reject(new Error('dataExplorerRpc command returned undefined'));
+	}
 	if (resp.error_message) {
 		return Promise.reject(new Error(resp.error_message));
 	} else {
@@ -1582,6 +1585,37 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	}
 
 	/**
+	 * Helper function to request null count profile for a column
+	 * @param tableName The name of the table
+	 * @param columnIndex The index of the column
+	 * @param callbackId The callback ID for the request
+	 * @returns A promise that resolves to the null count
+	 */
+	async function requestNullCount(
+		tableName: string,
+		columnIndex: number,
+		callbackId: string
+	): Promise<number> {
+		return requestColumnProfile(
+			tableName,
+			columnIndex,
+			[
+				{
+					profile_type: ColumnProfileType.NullCount
+				}
+			],
+			callbackId,
+			(profile) => {
+				if (profile && profile.null_count !== undefined) {
+					return profile.null_count as number;
+				}
+				throw new Error(`No null count returned for column ${columnIndex}`);
+			},
+			'Timeout waiting for null count data'
+		);
+	}
+
+	/**
 	 * Creates a test table with data for summary stats testing, using quoted field names
 	 * @param columnName The name of the column (should be quoted for testing)
 	 * @param valueType The SQL type of the value column
@@ -2387,6 +2421,36 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify that the table name is properly quoted in SQL
 		assert.strictEqual(result.converted_code[1], `FROM "${specialTableName}"`, 'Second line should properly quote the table name');
+	});
+
+	test('null count profiles with zero rows should return 0', async () => {
+		// Create an empty table using direct SQL since createTempTable doesn't handle empty arrays
+		const tableName = makeTempTableName();
+		await runQuery(`CREATE TABLE ${tableName} (str_col VARCHAR, num_col INTEGER);`);
+
+		// Open the dataset so it can respond to RPCs
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri: vscode.Uri.from({ scheme: 'duckdb', path: tableName }) }
+		});
+
+		// Test string column null count
+		const stringColumnProfile = await requestNullCount(
+			tableName,
+			0, // str_col column index
+			randomUUID()
+		);
+
+		assert.strictEqual(stringColumnProfile, 0, 'String column null count should be 0 for zero-row table');
+
+		// Test number column null count
+		const numberColumnProfile = await requestNullCount(
+			tableName,
+			1, // num_col column index
+			randomUUID()
+		);
+
+		assert.strictEqual(numberColumnProfile, 0, 'Number column null count should be 0 for zero-row table');
 	});
 
 	/**

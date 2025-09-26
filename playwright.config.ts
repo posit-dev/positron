@@ -21,10 +21,15 @@ export default defineConfig<ExtendedTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
+	testIgnore: [
+		'example.test.ts',
+		'**/workbench/**',
+		'**/inspect-ai/**'
+	],
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
-	workers: 3, // Number of parallel workers
+	workers: 3,
 	timeout: 2 * 60 * 1000,
 	reportSlowTests: {
 		max: 10,
@@ -69,108 +74,87 @@ export default defineConfig<ExtendedTestOptions>({
 		currentsFixturesEnabled: !!process.env.CI,
 	},
 
-	// Only start webServer when running the e2e-browser-server project
-	// Note: this automatic start only works for CLI runs. For IDE runs, please start the server manually with `npm run e2e-start-server`
-	webServer: process.argv.some(arg => arg.includes('e2e-browser-server')) ? [
-		{
-			command: 'npm run e2e-start-server',
-			url: 'http://localhost:8080',
-			name: 'Positron Server',
-			reuseExistingServer: !process.env.CI,
-			timeout: 30 * 1000, // timeout waiting for server to be ready
-			// stdout: 'pipe',
-			// stderr: 'pipe',
-		},
-	] : undefined,
-
 	projects: [
 		{
 			name: 'e2e-electron',
-			testDir: './test/e2e',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/inspect-ai/**'
-			],
 			use: {
-				web: false,
 				artifactDir: 'e2e-electron'
 			},
 			grepInvert: /@:web-only/
 		},
 		{
-			name: 'e2e-browser',
-			testDir: './test/e2e',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/inspect-ai/**'
-			],
-			use: {
-				web: true,
-				artifactDir: 'e2e-browser',
-				headless: false,
-			},
-			grep: /@:web/
-		},
-		{
 			name: 'e2e-workbench',
-			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
 				'**/inspect-ai/**'
 			],
 			use: {
-				web: true,
 				artifactDir: 'e2e-workbench',
 				headless: false,
 				useExternalServer: true,
-				externalServerUrl: 'http://localhost:8787'
+				externalServerUrl: 'http://localhost:8787',
+				browserName: 'chromium',
 			},
 			grep: /@:workbench/
 		},
 		{
-			name: 'e2e-browser-server',
-			testDir: './test/e2e',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/inspect-ai/**'
-			],
+			name: 'e2e-chromium',
 			use: {
-				web: true,
-				artifactDir: 'e2e-browser-server',
+				artifactDir: 'e2e-chromium',
 				headless: false,
-				useExternalServer: true,
-				externalServerUrl: 'http://localhost:8080/?tkn=dev-token'
+				browserName: 'chromium'
 			},
 			grep: /@:web/
 		},
 		{
-			name: 'e2e-windows',
-			testDir: './test/e2e',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/inspect-ai/**'
-			],
+			name: 'e2e-firefox',
 			use: {
-				web: false,
+				artifactDir: 'e2e-firefox',
+				headless: false,
+				browserName: 'firefox'
+			},
+		},
+		{
+			name: 'e2e-windows',
+			use: {
 				artifactDir: 'e2e-windows',
 			},
 			grep: /@:win/,
 			grepInvert: /@:web-only/
 		},
 		{
-			name: 'e2e-macOS-ci',
-			testDir: './test/e2e',
-			testIgnore: [
-				'example.test.ts',
-				'**/workbench/**',
-				'**/inspect-ai/**'
-			],
+			name: 'e2e-webkit',
 			use: {
-				web: false,
+				artifactDir: 'e2e-webkit',
+				headless: false,
+				browserName: 'webkit'
+			},
+			grep: /@:web/
+		},
+		{
+			name: 'e2e-edge',
+			use: {
+				artifactDir: 'e2e-edge',
+				headless: false,
+				browserName: 'chromium',
+				channel: 'msedge',
+			},
+			grep: /@:web/
+		},
+		{
+			name: 'e2e-server',
+			use: {
+				artifactDir: 'e2e-server',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8080/?tkn=dev-token',
+				browserName: 'chromium'
+			},
+			grep: /@:web/
+		},
+		{
+			name: 'e2e-macOS-ci',
+			use: {
 				artifactDir: 'e2e-macOS-ci',
 			},
 			grep: /@:win/,
@@ -178,13 +162,11 @@ export default defineConfig<ExtendedTestOptions>({
 		},
 		{
 			name: 'inspect-ai',
-			testDir: './test/e2e',
 			testIgnore: [
 				'example.test.ts',
 				'**/workbench/**',
 			],
 			use: {
-				web: false,
 				artifactDir: 'inspect-ai',
 			},
 			grep: /@:inspect-ai/

@@ -172,30 +172,104 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await dataExplorer.grid.expectCellToBeSelected(1, 2);
 		});
 
-		test(`${env} - Column sorting doesn't impact pin locations`, {
+		test(`${env} - Column sorting removes pinned rows`, {
 			annotation: [
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9344' },
 			],
 		}, async function ({ app }) {
-			if (env !== 'DuckDB') { test.skip(); }  // Once issue 9344 is fixed, we can enable for R and Python
 			const { dataExplorer } = app.workbench;
 
-			// pin column 4
-			await dataExplorer.grid.pinColumn(4);
-			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
-			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
+			// The Positron window size determines how many columns are visible in the DOM.
+			// When verifying the table data, we only check the data for the first 7 columns
+			// because those are the only columns that get rendered based off the window size.
+			const dataPinRow5 = [
+				{ 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column4': 50, 'column5': 78, 'column6': 35, 'column7': 13 },
+				{ 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column4': 9, 'column5': 5, 'column6': 96, 'column7': 80 },
+				{ 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column4': 8, 'column5': 83, 'column6': 21, 'column7': 76 },
+				{ 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column4': 98, 'column5': 20, 'column6': 83, 'column7': 82 },
+				{ 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column4': 37, 'column5': 85, 'column6': 82, 'column7': 36 },
+				{ 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column4': 54, 'column5': 33, 'column6': 16, 'column7': 15 },
+				{ 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column4': 80, 'column5': 61, 'column6': 33, 'column7': 21 },
+				{ 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column4': 85, 'column5': 45, 'column6': 41, 'column7': 39 },
+				{ 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column4': 40, 'column5': 73, 'column6': 79, 'column7': 98 },
+				{ 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column4': 46, 'column5': 15, 'column6': 88, 'column7': 15 }
+			];
+			const dataPinRow5AndCol4 = [
+				{ 'column4': 50, 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column5': 78, 'column6': 35, 'column7': 13 },
+				{ 'column4': 9, 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column5': 5, 'column6': 96, 'column7': 80 },
+				{ 'column4': 8, 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column5': 83, 'column6': 21, 'column7': 76 },
+				{ 'column4': 98, 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column5': 20, 'column6': 83, 'column7': 82 },
+				{ 'column4': 37, 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column5': 85, 'column6': 82, 'column7': 36 },
+				{ 'column4': 54, 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column5': 33, 'column6': 16, 'column7': 15 },
+				{ 'column4': 80, 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column5': 61, 'column6': 33, 'column7': 21 },
+				{ 'column4': 85, 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column5': 45, 'column6': 41, 'column7': 39 },
+				{ 'column4': 40, 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column5': 73, 'column6': 79, 'column7': 98 },
+				{ 'column4': 46, 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column5': 15, 'column6': 88, 'column7': 15 }
+			];
+			const dataPinCol4SortCol4 = [
+				{ 'column4': 98, 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column5': 20, 'column6': 83, 'column7': 82 },
+				{ 'column4': 85, 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column5': 45, 'column6': 41, 'column7': 39 },
+				{ 'column4': 80, 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column5': 61, 'column6': 33, 'column7': 21 },
+				{ 'column4': 54, 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column5': 33, 'column6': 16, 'column7': 15 },
+				{ 'column4': 50, 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column5': 78, 'column6': 35, 'column7': 13 },
+				{ 'column4': 46, 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column5': 15, 'column6': 88, 'column7': 15 },
+				{ 'column4': 40, 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column5': 73, 'column6': 79, 'column7': 98 },
+				{ 'column4': 37, 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column5': 85, 'column6': 82, 'column7': 36 },
+				{ 'column4': 9, 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column5': 5, 'column6': 96, 'column7': 80 },
+				{ 'column4': 8, 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column5': 83, 'column6': 21, 'column7': 76 }
+			];
+			const dataSortCol4PinRow6 = [
+				{ 'column4': 40, 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column5': 73, 'column6': 79, 'column7': 98 },
+				{ 'column4': 98, 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column5': 20, 'column6': 83, 'column7': 82 },
+				{ 'column4': 85, 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column5': 45, 'column6': 41, 'column7': 39 },
+				{ 'column4': 80, 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column5': 61, 'column6': 33, 'column7': 21 },
+				{ 'column4': 54, 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column5': 33, 'column6': 16, 'column7': 15 },
+				{ 'column4': 50, 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column5': 78, 'column6': 35, 'column7': 13 },
+				{ 'column4': 46, 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column5': 15, 'column6': 88, 'column7': 15 },
+				{ 'column4': 37, 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column5': 85, 'column6': 82, 'column7': 36 },
+				{ 'column4': 9, 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column5': 5, 'column6': 96, 'column7': 80 },
+				{ 'column4': 8, 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column5': 83, 'column6': 21, 'column7': 76 }
+			];
+			const dataPinCol4 = [
+				{ 'column4': 9, 'column0': 82, 'column1': 69, 'column2': 75, 'column3': 56, 'column5': 5, 'column6': 96, 'column7': 80 },
+				{ 'column4': 8, 'column0': 8, 'column1': 79, 'column2': 99, 'column3': 13, 'column5': 83, 'column6': 21, 'column7': 76 },
+				{ 'column4': 98, 'column0': 75, 'column1': 71, 'column2': 52, 'column3': 41, 'column5': 20, 'column6': 83, 'column7': 82 },
+				{ 'column4': 37, 'column0': 52, 'column1': 48, 'column2': 14, 'column3': 12, 'column5': 85, 'column6': 82, 'column7': 36 },
+				{ 'column4': 54, 'column0': 7, 'column1': 3, 'column2': 75, 'column3': 17, 'column5': 33, 'column6': 16, 'column7': 15 },
+				{ 'column4': 50, 'column0': 41, 'column1': 42, 'column2': 47, 'column3': 99, 'column5': 78, 'column6': 35, 'column7': 13 },
+				{ 'column4': 80, 'column0': 97, 'column1': 79, 'column2': 8, 'column3': 89, 'column5': 61, 'column6': 33, 'column7': 21 },
+				{ 'column4': 85, 'column0': 38, 'column1': 91, 'column2': 5, 'column3': 33, 'column5': 45, 'column6': 41, 'column7': 39 },
+				{ 'column4': 40, 'column0': 22, 'column1': 9, 'column2': 4, 'column3': 43, 'column5': 73, 'column6': 79, 'column7': 98 },
+				{ 'column4': 46, 'column0': 30, 'column1': 8, 'column2': 19, 'column3': 47, 'column5': 15, 'column6': 88, 'column7': 15 }
+			];
+
+			// maximize to ensure all rows/columns are rendered and visible
+			await dataExplorer.maximize(true);
 
 			// pin row 5
-			await dataExplorer.grid.pinRow(5);
-			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
-			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
+			await dataExplorer.grid.pinRow(5); // pins the 6th row
+			await dataExplorer.grid.verifyTableData(dataPinRow5);
 
-			// sort by column 4
-			await dataExplorer.grid.sortColumnBy(4, 'Sort Descending');
-			await dataExplorer.grid.expectRowsToBePinned([5], indexOffset);
+			// pin column 4
+			await dataExplorer.grid.pinColumn(4); // pins 'column4'
 			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
-			await dataExplorer.grid.expectRowOrderToBe(rowOrder.pinRow5, indexOffset);
-			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
+			await dataExplorer.grid.verifyTableData(dataPinRow5AndCol4);
+
+			// sort 'column 4' - this should only clear the pinned rows
+			await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
+			await dataExplorer.grid.verifyTableData(dataPinCol4SortCol4);
+
+			// pin row 6
+			await dataExplorer.grid.pinRow(6); // pins the 7th row in the current sort order
+			await dataExplorer.grid.verifyTableData(dataSortCol4PinRow6);
+
+			// clear 'column4' sort - this should only clear the pinned rows
+			await dataExplorer.grid.sortColumnBy(1, 'Clear Sorting');
+			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
+			await dataExplorer.grid.expectRowsToBePinned([], indexOffset);
+			await dataExplorer.grid.verifyTableData(dataPinCol4);
 		});
 	});
 }

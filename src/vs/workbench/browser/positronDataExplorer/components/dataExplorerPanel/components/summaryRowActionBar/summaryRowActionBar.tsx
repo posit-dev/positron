@@ -28,17 +28,22 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	// State to hold the search text typed by the user
 	const [searchText, setSearchText] = useState(instance.searchText || '');
 	// State to hold the debounced search text that we use to filter data.
-	const [debouncedSearchText, setDebouncedSearchText] = useState('');
+	const [debouncedSearchText, setDebouncedSearchText] = useState(instance.searchText || '');
 	// State to hold the current sort option
 	const [sortOption, setSortOption] = useState<SearchSchemaSortOrder>(instance.sortOption || SearchSchemaSortOrder.Original);
 
 	/**
-	 * Initialize the search text input when the instance changes.
-	 * This ensures the search text is displayed correctly when switching between tabs.
+	 * Initialize the search text input and sort option when the instance changes.
+	 * This ensures the search text and sort option are displayed correctly when switching between tabs.
 	 */
 	useEffect(() => {
 		const instanceSearchText = instance.searchText || '';
+		const instanceSortOption = instance.sortOption || SearchSchemaSortOrder.Original;
+
 		setSearchText(instanceSearchText);
+		setDebouncedSearchText(instanceSearchText);
+		setSortOption(instanceSortOption);
+
 		// Update the filter input field
 		if (filterRef.current) {
 			filterRef.current.setFilterText(instanceSearchText);
@@ -55,7 +60,7 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 		}, SEARCH_DEBOUNCE_TIMEOUT);
 
 		return () => clearTimeout(debounce);
-	}, [searchText, instance]);
+	}, [searchText]);
 
 	/**
 	 * Every time the debounced search text changes (every SEARCH_DEBOUNCE_TIMEOUT milliseconds),
