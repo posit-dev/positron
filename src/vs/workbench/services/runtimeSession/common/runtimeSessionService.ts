@@ -60,6 +60,9 @@ export interface IRuntimeSessionWillStartEvent {
 	/** Whether the runtime should be activated when it starts */
 	activate: boolean;
 
+	/** Whether the runtime has a console */
+	hasConsole: boolean;
+
 	/** The session about to start */
 	session: ILanguageRuntimeSession;
 }
@@ -442,12 +445,14 @@ export interface IRuntimeSessionService {
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
 	 * @param sessionName A human-readable (displayed) name for the session.
+	 * @param createConsole Whether to create a console for the session.
 	 * @param activate Whether to activate/focus the session after it is reconnected.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string,
+		createConsole: boolean,
 		activate: boolean): Promise<void>;
 
 	/**

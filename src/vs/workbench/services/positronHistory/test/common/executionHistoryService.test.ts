@@ -131,6 +131,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		this._onWillStartSession.fire({
 			session,
 			startMode,
+			hasConsole: true,
 			activate: true
 		});
 	}
@@ -392,6 +393,7 @@ function createSerializedSessionMetadata(session: ILanguageRuntimeSession): Seri
 		sessionName: session.dynState.sessionName,
 		sessionState: RuntimeState.Idle,
 		workingDirectory: '',
+		hasConsole: false,
 		localWindowId: 'test-window-id',
 	};
 }
@@ -641,6 +643,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -656,6 +659,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -677,6 +681,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -728,6 +733,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -779,6 +785,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -833,6 +840,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -875,6 +883,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -917,6 +926,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -971,6 +981,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session: activeSession,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 
@@ -1006,6 +1017,7 @@ suite('ExecutionHistoryService', () => {
 		runtimeSessionService.onWillStartSessionEmitter.fire({
 			session: runtimeSessionService.sessions.get(sessionId)!,
 			startMode: RuntimeStartMode.Starting,
+			hasConsole: true,
 			activate: false
 		});
 

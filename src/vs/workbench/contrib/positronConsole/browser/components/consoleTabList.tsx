@@ -20,6 +20,8 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browse
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { basename } from '../../../../../base/common/path.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -35,14 +37,30 @@ interface ConsoleTabProps {
 }
 
 const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
+
 	// Context
 	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
+	// Compute session display name
+	const isNotebookSession =
+		positronConsoleInstance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+	const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
+	let sessionDisplayName = '';
+	if (session) {
+		// Ask the session directly
+		sessionDisplayName = session.session.getLabel();
+	} else {
+		// No session to ask, compute from the other metadata we have
+		sessionDisplayName = isNotebookSession ?
+			basename(positronConsoleInstance.sessionMetadata.notebookUri!.path) :
+			positronConsoleInstance.sessionName;
+	}
+
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
-	const [sessionName, setSessionName] = useState(positronConsoleInstance.sessionName);
+	const [sessionName, setSessionName] = useState(sessionDisplayName);
 
 	// Refs
 	const tabRef = useRef<HTMLDivElement>(null);
@@ -60,7 +78,24 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === positronConsoleInstance.sessionId) {
-					setSessionName(session.dynState.sessionName);
+					setSessionName(session.getLabel());
+				}
+			})
+
+		);
+
+		// Add the onDidUpdateNotebookSessionUri event handler.
+		//
+		// Notebook session URI changes can change what the label shows; if we
+		// get one of these events for our session and there's a new label for
+		// the session, pick it up.
+		disposableStore.add(
+			services.runtimeSessionService.onDidUpdateNotebookSessionUri(e => {
+				if (e.sessionId === sessionId) {
+					const session = services.runtimeSessionService.getActiveSession(sessionId);
+					if (session) {
+						setSessionName(session.session.getLabel());
+					}
 				}
 			})
 		);
@@ -89,20 +124,26 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	};
 
 	/**
-	 * The mouse down handler for the parent element of the console tab instance.
-	 * This handler is used to show the context menu when the user right-clicks on a tab.
+	 * The mouse down handler for the parent element of the console tab
+	 * instance.  This handler is used to show the context menu when the user
+	 * right-clicks on a tab.
+	 *
+	 * Notebook consoles can't be renamed, so we currently do not show a context
+	 * menu for them.
 	 */
-	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-		// Prevent the default action and stop the event from propagating.
-		e.preventDefault();
-		e.stopPropagation();
+	const handleMouseDown = positronConsoleInstance.sessionMetadata.sessionMode ===
+		LanguageRuntimeSessionMode.Notebook ? undefined :
+		(e: MouseEvent<HTMLDivElement>) => {
+			// Prevent the default action and stop the event from propagating.
+			e.preventDefault();
+			e.stopPropagation();
 
-		// Show the context menu when the user right-clicks on a tab or
-		// when the user executes ctrl + left-click on macOS
-		if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
-			showContextMenu(e.clientX, e.clientY);
+			// Show the context menu when the user right-clicks on a tab or
+			// when the user executes ctrl + left-click on macOS
+			if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
+				showContextMenu(e.clientX, e.clientY);
+			}
 		}
-	}
 
 	/**
 	 * Shows the context menu when a user right-clicks on a console instance tab.
@@ -328,10 +369,16 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onMouseDown={handleMouseDown}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			<img
-				className='icon'
-				src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
-			/>
+			{
+				!isNotebookSession &&
+				<img
+					className='icon'
+					src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
+				/>
+			}
+			{isNotebookSession &&
+				<span className='codicon codicon-notebook icon'></span>
+			}
 			{isRenamingSession ? (
 				<input
 					ref={inputRef}

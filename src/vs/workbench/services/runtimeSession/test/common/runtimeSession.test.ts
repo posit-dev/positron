@@ -183,7 +183,7 @@ suite('Positron - RuntimeSessionService', () => {
 	async function restoreSession(
 		sessionMetadata: IRuntimeSessionMetadata, runtime: ILanguageRuntimeMetadata,
 	) {
-		await runtimeSessionService.restoreRuntimeSession(runtime, sessionMetadata, sessionName, true);
+		await runtimeSessionService.restoreRuntimeSession(runtime, sessionMetadata, sessionName, true, true);
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);
@@ -806,9 +806,10 @@ suite('Positron - RuntimeSessionService', () => {
 				assertCurrentSession(runtime, notebookUri, session);
 				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
 
-				sinon.assert.calledOnceWithExactly(willStartSession, {
+				sinon.assert.calledOnceWithMatch(willStartSession, {
 					session,
 					startMode: RuntimeStartMode.Restarting,
+					hasConsole: mode === LanguageRuntimeSessionMode.Console,
 					activate: false
 				});
 			});
@@ -873,6 +874,9 @@ suite('Positron - RuntimeSessionService', () => {
 			// Get a session to the uninitialized state.
 			const state = RuntimeState.Uninitialized;
 
+			// Set up console configuration for consistent test behavior
+			configService.setUserConfiguration('console.showNotebookConsoles', false);
+
 			const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
 				sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
 			});
@@ -909,12 +913,13 @@ suite('Positron - RuntimeSessionService', () => {
 			assert.ok(newSession);
 			disposables.add(newSession);
 
-			sinon.assert.calledOnceWithExactly(willStartSession2, {
-				session: newSession,
-				// Since we restarted from an exited state, the start mode is 'starting'.
-				startMode: RuntimeStartMode.Starting,
-				activate: true
-			});
+			sinon.assert.calledOnce(willStartSession2);
+			const event = willStartSession2.getCall(0).args[0];
+			assert.strictEqual(event.session, newSession);
+			// Since we restarted from an uninitialized state, the start mode is 'starting'.
+			assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
+			assert.strictEqual(event.hasConsole, mode === LanguageRuntimeSessionMode.Console);
+			assert.strictEqual(event.activate, true);
 
 			assert.strictEqual(newSession.dynState.sessionName, session.dynState.sessionName);
 			assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);

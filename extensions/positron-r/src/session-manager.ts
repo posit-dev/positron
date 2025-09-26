@@ -107,8 +107,8 @@ export class RSessionManager implements vscode.Disposable {
 			return;
 		}
 
-		if (session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
-			throw Error(`Foreground session with ID ${sessionId} must be a console session.`);
+		if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Background) {
+			throw Error(`Foreground session with ID ${sessionId} must not be a background session.`);
 		}
 
 		this._lastForegroundSessionId = session.metadata.sessionId;
