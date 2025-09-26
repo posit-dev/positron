@@ -21,6 +21,8 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 
 /**
  * PositronAssistantConfigurationService class.
+ * Broken out from PositronAssistantService to avoid a circular dependency
+ * between PositronAssistantService and ChatAgentService (through IChatService).
  */
 export class PositronAssistantConfigurationService extends Disposable implements IPositronAssistantConfigurationService {
 	declare readonly _serviceBrand: undefined;
