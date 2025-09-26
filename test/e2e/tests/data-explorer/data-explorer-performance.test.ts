@@ -62,7 +62,7 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 	});
 
 	testCases.forEach(testCase => {
-		test(`${testCase.varType} - Record data load, basic filtering and sorting [${testCase.preFilterSummary.source} rows ]`,
+		test(`${testCase.varType} - Record data load, basic filtering and sorting [${testCase.preFilterSummary.source} rows]`,
 			{ tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] },
 			async function ({ app, openFile, runCommand, metric, sessions }) {
 				const { dataExplorer, variables, editors } = app.workbench;
