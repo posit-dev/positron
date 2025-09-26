@@ -2443,16 +2443,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const newWorkingDirectoryResolved = untildify(newWorkingDirectory, userHomePath);
 
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
+			// For display, create relative paths to the workspace
+			const path = await this._pathService.path;
+			const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(newUri) || undefined;
+			const workspaceFolderName = workspaceFolder ? workspaceFolder.name : '';
+
+			const currentWorkingDirectoryDisplay = workspaceFolder ?
+				path.join(workspaceFolderName, path.relative(workspaceFolder.uri.fsPath, currentWorkingDirectoryResolved)) :
+				currentWorkingDirectoryResolved;
+			const newWorkingDirectoryDisplay = workspaceFolder ?
+				path.join(workspaceFolderName, path.relative(workspaceFolder.uri.fsPath, newWorkingDirectoryResolved)) :
+				newWorkingDirectoryResolved;
+
 			const result = await this._positronModalDialogsService.showSimpleModalDialogPrompt(
-				localize('positron.notebook.workingDirectoryChanged.title', 'Working Directory Changed'),
+				localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),
 				localize(
 					'positron.notebook.workingDirectoryChanged',
-					'The suggested working directory for this notebook has changed from <code>{0}</code> to <code>{1}</code>. Would you like to update the session\'s working directory?',
-					currentWorkingDirectoryResolved,
-					newWorkingDirectoryResolved
+					'This notebook was moved to a new location but your session is still running from the original directory.'
+					+ '<br><br>Saved at: <code>{0}</code>'
+					+ '<br>Running from: <code>{1}</code>'
+					+ '<br><br>Update the running working directory to match where the notebook is saved? (Recommended)',
+					newWorkingDirectoryDisplay,
+					currentWorkingDirectoryDisplay,
 				),
 				localize('positron.notebook.updateWorkingDirectory', 'Update'),
-				localize('positron.notebook.keepCurrent', 'Keep')
+				localize('positron.notebook.keepCurrent', 'Keep'),
+				300,
 			);
 			if (result) {
 				await session.setWorkingDirectory(newWorkingDirectory);
