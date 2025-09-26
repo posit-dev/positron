@@ -5,7 +5,7 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
 	 * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
@@ -97,7 +97,6 @@ export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | un
  */
 export class PositronNotebookContextKeyManager extends Disposable {
 	//#region Private Properties
-	private _container?: HTMLElement;
 	private _scopedContextKeyService?: IScopedContextKeyService;
 	//#endregion Private Properties
 
@@ -105,20 +104,10 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	positronEditorFocus?: IContextKey<boolean>;
 	//#endregion Public Properties
 
-	//#region Constructor & Dispose
-	constructor(
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-	) {
-		super();
-	}
-
-	//#endregion Constructor & Dispose
-
 	//#region Public Methods
-	setContainer(container: HTMLElement, scopedContextKeyService?: IScopedContextKeyService) {
-		this._container = container;
+	setContainer(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
 		this.positronEditorFocus?.reset();
-		this._scopedContextKeyService = scopedContextKeyService ?? this._contextKeyService.createScoped(this._container);
+		this._scopedContextKeyService = scopedContextKeyService;
 
 		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
 
