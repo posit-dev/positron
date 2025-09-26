@@ -1771,8 +1771,7 @@
 				"description": "The support status of the RPC method",
 				"enum": [
 					"unsupported",
-					"supported",
-					"experimental"
+					"supported"
 				]
 			}
 		}

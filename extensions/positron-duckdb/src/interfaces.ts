@@ -1314,8 +1314,7 @@ export enum ExportFormat {
  */
 export enum SupportStatus {
 	Unsupported = 'unsupported',
-	Supported = 'supported',
-	Experimental = 'experimental'
+	Supported = 'supported'
 }
 
 /**

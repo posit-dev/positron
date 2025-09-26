@@ -20,8 +20,7 @@ import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileD
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
-import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
+import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -344,10 +343,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 
 		// Return the summary stats support status.
-		return dataExplorerExperimentalFeatureEnabled(
-			summaryStatsSupportStatus.support_status,
-			this.configurationService
-		);
+		return summaryStatsSupportStatus.support_status === SupportStatus.Supported;
 	}
 
 	/**

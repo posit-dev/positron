@@ -139,7 +139,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Create the table summary cache.
 		this._register(this._tableSummaryCache = new TableSummaryCache(
-			this._services.configurationService,
 			this._dataExplorerClientInstance
 		));
 
