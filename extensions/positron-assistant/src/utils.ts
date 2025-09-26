@@ -33,6 +33,7 @@ export function toAIMessage(
 
 	// Convert messages from vscode to ai format
 	const aiMessages: ai.CoreMessage[] = [];
+	const systemContent: string[] = [];
 	for (const message of messages) {
 		if (message.role === vscode.LanguageModelChatMessageRole.User) {
 			// VSCode expects tool results to be user messages but
@@ -156,7 +157,36 @@ export function toAIMessage(
 				markBedrockCacheBreakpoint(aiMessage);
 			}
 			aiMessages.push(aiMessage);
+		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					systemContent.push(part.value);
+				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+					// Convert PromptTSX parts to text
+					const text = promptTsxPartToString(part);
+					systemContent.push(text);
+				} else {
+					// Skip unknown parts.
+					log.warn(`[vercel] Skipping unsupported part type in system message: ${part.constructor.name}`);
+				}
+			}
 		}
+	}
+
+	if (systemContent.length > 0) {
+		// Not all providers support multiple system messages, so we consolidate.
+		const systemMessage: ai.CoreSystemMessage = {
+			role: 'system',
+			content: systemContent.join('\n'),
+		};
+
+		// Add a cache breakpoint for our combined system prompt.
+		// This is only used by the Bedrock provider.
+		if (bedrockCacheBreakpoint) {
+			markBedrockCacheBreakpoint(systemMessage);
+		}
+
+		aiMessages.unshift(systemMessage);
 	}
 
 	// Remove empty messages to keep certain LLM providers happy

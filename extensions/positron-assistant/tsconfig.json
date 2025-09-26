@@ -19,6 +19,7 @@
 		"../../src/vscode-dts/vscode.proposed.languageModelSystem.d.ts",
 		"../../src/vscode-dts/vscode.proposed.defaultChat*.d.ts",
 		"../../src/vscode-dts/vscode.proposed.inlineCompletions*.d.ts",
+		"../../src/vscode-dts/vscode.proposed.languageModelSystem*.d.ts",
 		"../../src/vscode-dts/vscode.d.ts",
 		"../../src/positron-dts/positron.d.ts",
 	],

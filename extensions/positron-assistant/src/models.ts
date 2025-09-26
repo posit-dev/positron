@@ -368,33 +368,22 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
 			!aiModel.modelId.startsWith('us.anthropic.claude-3-5');
 
-		const aiMessages: ai.CoreMessage[] = [];
-
-		// The system message we will send to the model.
-		let systemMessage: string | undefined = modelOptions.system;
-
-		if (bedrockCacheBreakpoint && systemMessage) {
-			// Add the system prompt as the first message if we have a system
-			// prompt and cache breakpoints are enabled.
-			//
-			// This must be done in order to set a cache breakpoint for the
-			// system message. In general we prefer to send the system message
-			// using the 'system' option in streamText; see the
-			// CoreSystemMessage documentation for a detailed explanation.
-			const aiSystemMessage: ai.CoreSystemMessage = {
-				role: 'system',
-				content: systemMessage,
-			};
-			markBedrockCacheBreakpoint(aiSystemMessage);
-			aiMessages.push(aiSystemMessage);
-
-			// Consume the system message so it doesn't get sent a second time
-			systemMessage = undefined;
+		// Add system prompt from `modelOptions.system`, if provided.
+		// TODO: Once extensions such as databot no longer use `modelOptions.system`,
+		// we can remove the `system` parameter and use the given system messages only.
+		if (modelOptions.system) {
+			processedMessages.unshift(new vscode.LanguageModelChatMessage(
+				vscode.LanguageModelChatMessageRole.System,
+				modelOptions.system
+			));
 		}
 
-		// Convert all other messages to the Vercel AI format.
-		aiMessages.push(...toAIMessage(processedMessages, toolResultExperimentalContent,
-			bedrockCacheBreakpoint));
+		// Convert all messages to the Vercel AI format.
+		const aiMessages: ai.CoreMessage[] = toAIMessage(
+			processedMessages,
+			toolResultExperimentalContent,
+			bedrockCacheBreakpoint
+		);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -414,13 +403,16 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		if (modelTools) {
 			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
 		}
+
+		const systemMessage = aiMessages.find(m => m.role === 'system');
 		if (systemMessage) {
-			log.trace(`system: ${systemMessage.length > 100 ? `${systemMessage.substring(0, 100)}...` : systemMessage} (${systemMessage.length} chars)`);
+			const content = systemMessage.content;
+			log.trace(`system: ${content.length > 100 ? `${content.substring(0, 100)}...` : content} (${content.length} chars)`);
 		}
+
 		log.trace(`messages: ${JSON.stringify(aiMessages, null, 2)}`);
 		const result = ai.streamText({
 			model: aiModel,
-			system: systemMessage,
 			messages: aiMessages,
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: modelTools,
