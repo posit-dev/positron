@@ -58,10 +58,11 @@ const sortLabelMap = new Map(
  */
 export interface SummaryRowSortDropdownProps {
 	currentSort: SearchSchemaSortOrder;
+	disabled?: boolean;
 	onSortChanged: (sortOption: SearchSchemaSortOrder) => void;
 }
 
-export const SummaryRowSortDropdown = ({ currentSort, onSortChanged }: SummaryRowSortDropdownProps) => {
+export const SummaryRowSortDropdown = ({ currentSort, disabled, onSortChanged }: SummaryRowSortDropdownProps) => {
 	// Get the label for the current sort option
 	const currentSortLabel = sortLabelMap.get(currentSort) || positronSortByOriginal;
 
@@ -72,7 +73,7 @@ export const SummaryRowSortDropdown = ({ currentSort, onSortChanged }: SummaryRo
 			id: sortOption.id,
 			label: sortOption.label,
 			tooltip: sortOption.label,
-			enabled: true,
+			enabled: disabled ? false : true,
 			checked: currentSort === sortOption.option,
 			run: () => { onSortChanged(sortOption.option) }
 		}));
@@ -82,6 +83,7 @@ export const SummaryRowSortDropdown = ({ currentSort, onSortChanged }: SummaryRo
 		<ActionBarMenuButton
 			actions={actions}
 			ariaLabel={positronDataExplorerSummarySort}
+			disabled={disabled}
 			label={currentSortLabel}
 			tooltip={positronDataExplorerSummarySort}
 		/>
