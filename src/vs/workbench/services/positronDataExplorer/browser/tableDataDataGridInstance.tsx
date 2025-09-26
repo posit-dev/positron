@@ -303,12 +303,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override async fetchData(invalidateCacheFlags?: InvalidateCacheFlags) {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
+
+		// We update the cache as long as there is a column in the dataset.
+		// This allows datasets with column headers but zero rows to render
+		// the column headers in the data grid.
+		// See https://github.com/posit-dev/positron/issues/9619
+		if (columnDescriptor) {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
 				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				rowIndices: rowDescriptor ? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR) : []
 			});
 		}
 	}
