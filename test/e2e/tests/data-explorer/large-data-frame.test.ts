@@ -64,8 +64,9 @@ test.describe('Data Explorer: Load data and basic filtering', { tag: [] }, () =>
 	testCases.forEach(testCase => {
 		test(`${testCase.env} - Verify data loads and basic filtering - ${testCase.preFilterSummary.source} rows [${testCase.varType}]`,
 			{ tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] },
-			async function ({ app, openFile, runCommand, metric }) {
+			async function ({ app, openFile, runCommand, metric, sessions }) {
 				const { dataExplorer, variables, editors } = app.workbench;
+				await sessions.start(testCase.env === 'Python' ? 'python' : 'r');
 
 				await openFile('workspaces/' + testCase.data);
 				await runCommand(testCase.env === 'Python' ? 'python.execInConsole' : 'r.sourceCurrentFile');
