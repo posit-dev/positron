@@ -9,6 +9,7 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
 import { TableDataCell } from './components/tableDataCell.js';
@@ -18,6 +19,7 @@ import { CustomContextMenuItem } from '../../../browser/positronComponents/custo
 import { PositronDataExplorerColumn } from './positronDataExplorerColumn.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
+import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -123,6 +125,48 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this.minimumColumnWidth,
 				this.maximumColumnWidth
 			);
+
+			// Notify the user if the dataset exceeds the advanced layout limits which will
+			// cause advanced features to be disabled to improve performance.
+			// See https://github.com/posit-dev/positron/issues/9265
+			if (state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT || state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
+				const exceedsColumns = state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
+				const exceedsRows = state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
+
+				let message: string;
+				if (exceedsColumns && exceedsRows) {
+					message = localize(
+						'positron.dataExplorer.largeDatasetNotificationColumnsAndRows',
+						"Dataset '{0}' has {1} columns and {2} rows, which exceeds the supported size for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+						state.display_name,
+						state.table_shape.num_columns.toLocaleString(),
+						state.table_shape.num_rows.toLocaleString()
+					);
+				} else if (exceedsColumns) {
+					message = localize(
+						'positron.dataExplorer.largeDatasetNotificationColumns',
+						"Dataset '{0}' has {1} columns, which exceeds the supported size for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+						state.display_name,
+						state.table_shape.num_columns.toLocaleString()
+					);
+				} else {
+					message = localize(
+						'positron.dataExplorer.largeDatasetNotificationRows',
+						"Dataset '{0}' has {1} rows, which exceeds the supported size for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+						state.display_name,
+						state.table_shape.num_rows.toLocaleString()
+					);
+				}
+
+				// Show a sticky notification that persists until dismissed
+				this._services.notificationService.notify({
+					id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
+					severity: Severity.Warning,
+					message: message,
+					sticky: true,
+					source: localize('positron.dataExplorer.source', 'Data Explorer')
+				});
+			}
 
 			// Set the layout entries.
 			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
