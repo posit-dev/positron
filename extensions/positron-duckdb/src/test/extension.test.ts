@@ -338,6 +338,76 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		} satisfies TableSchema);
 	});
 
+	test('CSV header inference - always treat first row as header', async () => {
+		// Create a temporary CSV file with the problematic format that was failing header inference
+		const csvContent = '"","f0","f1"\n"0","abc","def"\n"1","ghi","jkl"';
+		const tempPath = path.join(__dirname, 'temp_header_test.csv');
+
+		// Write the CSV file
+		await vscode.workspace.fs.writeFile(vscode.Uri.file(tempPath), Buffer.from(csvContent, 'utf8'));
+
+		try {
+			const uri = vscode.Uri.file(tempPath);
+
+			// Open the dataset
+			await dxExec({
+				method: DataExplorerBackendRequest.OpenDataset,
+				params: { uri }
+			});
+
+			// Get the schema to verify column names are read from first row
+			const schemaResult = await dxExec({
+				method: DataExplorerBackendRequest.GetSchema,
+				uri: uri.toString(),
+				params: {
+					column_indices: [0, 1, 2]
+				} satisfies GetSchemaParams
+			});
+
+			// Verify that the column names are from the first row (headers), not auto-generated
+			// Note: DuckDB renames empty column names to "column0", "column1", etc.
+			assert.strictEqual(schemaResult.columns.length, 3, 'Should have 3 columns');
+			assert.strictEqual(schemaResult.columns[0].column_name, 'column0', 'First column should be renamed from empty header');
+			assert.strictEqual(schemaResult.columns[1].column_name, 'f0', 'Second column should be f0 from header');
+			assert.strictEqual(schemaResult.columns[2].column_name, 'f1', 'Third column should be f1 from header');
+
+			// Verify the data doesn't include the header row
+			const cell0Result = await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri: uri.toString(),
+				params: {
+					selection: {
+						kind: TableSelectionKind.SingleCell,
+						selection: { row_index: 0, column_index: 0 }
+					},
+					format: ExportFormat.Csv
+				}
+			});
+			assert.strictEqual(cell0Result.data, '0', 'First data row, first column should be "0"');
+
+			const cell1Result = await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri: uri.toString(),
+				params: {
+					selection: {
+						kind: TableSelectionKind.SingleCell,
+						selection: { row_index: 0, column_index: 1 }
+					},
+					format: ExportFormat.Csv
+				}
+			});
+			assert.strictEqual(cell1Result.data, 'abc', 'First data row, second column should be "abc"');
+
+		} finally {
+			// Clean up the temporary file
+			try {
+				await vscode.workspace.fs.delete(vscode.Uri.file(tempPath));
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
+	});
+
 	type TestCaseType = [InsertColumn[] | undefined, ColumnValue[][], FormatOptions];
 
 	test('get_data_values formatting', async () => {
