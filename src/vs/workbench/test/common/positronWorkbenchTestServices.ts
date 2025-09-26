@@ -5,6 +5,7 @@
 
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
+import { posix } from '../../../base/common/path.js';
 import { IProcessEnvironment } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
@@ -247,7 +248,8 @@ export class TestPathService implements IPathService {
 	declare readonly _serviceBrand: undefined;
 
 	get path(): Promise<any> {
-		throw new Error('Method not implemented.');
+		// For tests, return posix path since most tests expect Unix-like behavior
+		return Promise.resolve(posix);
 	}
 
 	get defaultUriScheme(): string {
