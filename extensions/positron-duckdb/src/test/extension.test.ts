@@ -1106,6 +1106,54 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(rangeResult.data, 'id\n100\n101', 'Range should return IDs 100,101');
 	});
 
+	test('CellIndices respects table sort order - comprehensive test', async () => {
+		// Create a table with data that will expose sort order issues
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'sort_col',
+				type: 'INTEGER',
+				values: ['3', '1', '4', '2', '5'] // Will be sorted: 1,2,3,4,5
+			},
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['300', '100', '400', '200', '500'] // Track original rows
+			},
+			{
+				name: 'data',
+				type: 'VARCHAR',
+				values: ['\'row3\'', '\'row1\'', '\'row4\'', '\'row2\'', '\'row5\'']
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+		const { cellIndices, columnRange, setSortKeys } = createSortTestHelper(uri);
+
+		// Before sorting - verify original order
+		await columnRange(0, 2, 'sort_col,id,data\n3,300,row3\n1,100,row1\n4,400,row4\n2,200,row2\n5,500,row5');
+
+		// Sort by sort_col ascending
+		// Expected sorted order: 1,2,3,4,5 (rows: 1,3,0,2,4 in original indices)
+		await setSortKeys([{ column_index: 0, ascending: true }]);
+
+		// Verify the sort with columnRange first
+		await columnRange(0, 2, 'sort_col,id,data\n1,100,row1\n2,200,row2\n3,300,row3\n4,400,row4\n5,500,row5');
+
+		// Now test CellIndices - select rows 0,1 from the SORTED view
+		// This should get the first two rows from the sorted table: (1,100,row1) and (2,200,row2)
+		// NOT the first two rows from the original table: (3,300,row3) and (1,100,row1)
+		await cellIndices([0, 1], [0, 1, 2], 'sort_col,id,data\n1,100,row1\n2,200,row2');
+
+		// Test with non-sequential selection from sorted view
+		// Rows 1,3 from sorted view should be: (2,200,row2) and (4,400,row4)
+		await cellIndices([1, 3], [1, 2], 'id,data\n200,row2\n400,row4');
+
+		// Test reverse order selection to ensure selection order is preserved
+		// Rows 2,0 from sorted view should be: (3,300,row3) then (1,100,row1)
+		await cellIndices([2, 0], [0, 1], 'sort_col,id\n3,300\n1,100');
+	});
+
 	test('set_row_filters works correctly', async () => {
 		const tableName = makeTempTableName();
 

@@ -1643,13 +1643,28 @@ END`;
 				const columnIndices = selection.column_indices;
 				const columns = columnIndices.map(i => this.fullSchema[i]);
 
-				// Create a VALUES clause to preserve the order of row indices
-				const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
-				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}
-				JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
-				ORDER BY row_order.sort_order`;
-				return await exportQueryOutput(query, columns);
+				// For CellIndices, we need to respect both the table's sort order and the specific row selection order
+				// First apply table filters and sorting to get the sorted view, then select specific rows from that
+				if (this._sortClause || this._whereClause) {
+					// Create a subquery with the sorted/filtered table, then select specific rows
+					const sortedTableQuery = `SELECT *, ROW_NUMBER() OVER(${this._sortClause || 'ORDER BY rowid'}) - 1 AS sorted_row_index
+					FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
+
+					const orderValues = rowIndices.map((rowIdx, idx) => `(${rowIdx}, ${idx})`).join(', ');
+					const query = `SELECT ${getColumnSelectors(columns).join(',')}
+					FROM (${sortedTableQuery}) sorted_table
+					JOIN (VALUES ${orderValues}) AS row_order(sorted_row_index, selection_order) ON sorted_table.sorted_row_index = row_order.sorted_row_index
+					ORDER BY row_order.selection_order`;
+					return await exportQueryOutput(query, columns);
+				} else {
+					// No sorting/filtering, use the original simple approach
+					const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
+					const query = `SELECT ${getColumnSelectors(columns).join(',')}
+					FROM ${this.tableName}
+					JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
+					ORDER BY row_order.sort_order`;
+					return await exportQueryOutput(query, columns);
+				}
 			}
 		}
 	}
