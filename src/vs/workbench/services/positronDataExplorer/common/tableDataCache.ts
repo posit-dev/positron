@@ -365,13 +365,18 @@ export class TableDataCache extends Disposable {
 		this._rows = tableState.table_shape.num_rows;
 		this._hasRowLabels = tableState.has_row_labels;
 
-		// If there are no rows or no columns (e.g., due to filtering), immediately fire an update and return.
-		if (this._rows === 0 || this._columns === 0) {
+		// If there are no columns, immediately fire an update and return,
+		// otherwise, continue on to fetch and cache the column schema.
+		// This check for columns is done before checking the number of rows
+		// to handle the case where a dataset has column headers but zero rows.
+		// See https://github.com/posit-dev/positron/issues/9619
+		if (this._columns === 0) {
 			// Clear existing caches for a clean display.
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
+			this._columnSchemaCache.clear();
 
-			// Fire the update event before returning to ensure UI updates even with zero rows.
+			// Fire the update event before returning to ensure UI updates even with zero columns.
 			this._onDidUpdateEmitter.fire();
 
 			// Clear the updating flag.
@@ -413,6 +418,25 @@ export class TableDataCache extends Disposable {
 		// Cache the column schemas that were returned.
 		for (const columnSchema of tableSchema.columns) {
 			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+		}
+
+		// If there are no rows, immediately fire an update and return.
+		// This check is done after checking for columns to handle the case
+		// where a dataset has column headers but zero rows.
+		// See https://github.com/posit-dev/positron/issues/9619
+		if (this._rows === 0) {
+			// Clear existing data caches for a clean display.
+			this._rowLabelCache.clear();
+			this._dataColumnCache.clear();
+
+			// Fire the update event before returning to ensure UI updates with column headers.
+			this._onDidUpdateEmitter.fire();
+
+			// Clear the updating flag.
+			this._updating = false;
+
+			// Return.
+			return;
 		}
 
 		// Fire the onDidUpdate event.
