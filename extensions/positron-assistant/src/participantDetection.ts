@@ -44,14 +44,16 @@ class PositronAssistantParticipantDetector implements vscode.ChatParticipantDete
 			// Serialize participants to JSON for the model
 			const participantJson = JSON.stringify(participants);
 
+			// System prompt instructs the model to return a JSON object or null
+			const system = await fs.promises.readFile(`${MD_DIR}/prompts/chat/participantDetection.md`, 'utf8');
+
 			// Send a request to the language model with participants and user prompt
 			const result = await chatRequest.model.sendRequest([
+				new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
 				vscode.LanguageModelChatMessage.User(participantJson),
 				vscode.LanguageModelChatMessage.User(userPrompt),
 			], {
 				modelOptions: {
-					// System prompt instructs the model to return a JSON object or null
-					system: await fs.promises.readFile(`${MD_DIR}/prompts/chat/participantDetection.md`, 'utf8'),
 					// Pass the request ID through modelOptions for token usage tracking
 					requestId: chatRequest.id,
 				}

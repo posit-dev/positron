@@ -171,15 +171,18 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 
 			const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
-			const messages = toLanguageModelChatMessage(context.history);
-			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
+			const messages = [
+				new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
+				...toLanguageModelChatMessage(context.history),
+				vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.')
+			];
 
 			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
 			if (models.length === 0) {
 				throw new Error(vscode.l10n.t('Selected model not available.'));
 			}
 
-			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
+			const response = await models[0].sendRequest(messages, {}, token);
 
 			let json = '';
 			for await (const fragment of response.text) {
@@ -310,7 +313,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Start with the chat history.
 		// Note that context.history excludes tool calls and results.
-		const messages = toLanguageModelChatMessage(context.history);
+		const messages = [
+			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, systemPrompt),
+			...toLanguageModelChatMessage(context.history),
+		];
 
 		// Add the user's prompt.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
@@ -327,7 +333,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const contextInfo = await attachContextInfo(messages);
 
 		// Send the request to the language model.
-		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools, systemPrompt);
+		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);
 
 		return {
 			metadata: {
@@ -599,7 +605,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		token: vscode.CancellationToken,
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
-		system: string,
 	): Promise<{ provider: string; tokens: TokenUsage } | undefined> {
 		if (token.isCancellationRequested) {
 			return;
@@ -615,7 +620,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			tools,
 			modelOptions: {
 				toolInvocationToken: request.toolInvocationToken,
-				system,
 				// Pass the request ID through modelOptions for token usage tracking
 				requestId: request.id,
 			},
@@ -687,7 +691,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					})
 				),
 			];
-			return this.sendLanguageModelRequest(request, response, token, newMessages, tools, system);
+			return this.sendLanguageModelRequest(request, response, token, newMessages, tools);
 		}
 
 		// Return token usage information
