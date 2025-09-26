@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
+import { MetricTargetType, RecordMetric } from '../utils/metrics/metric-base.js';
 
 const HEADER_TITLES = '.data-grid-column-header .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
@@ -33,7 +34,7 @@ export class DataExplorer {
 	private _summaryPanel: SummaryPanel;
 
 	constructor(private code: Code, private workbench: Workbench) {
-		this._filters = new Filters(this.code);
+		this._filters = new Filters(this.code, this.workbench);
 		this._editorActionBar = new EditorActionBar(this.code, this.workbench);
 		this._dataGrid = new DataGrid(this.code, this);
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
@@ -145,7 +146,7 @@ export class Filters {
 	// private filteringMenu: Locator;
 	// private menuItemClearFilters: Locator;
 
-	constructor(private code: Code) {
+	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
 		this.clearFilterButton = this.code.driver.page.locator(CLEAR_FILTER_BUTTON);
 		this.addFilterButton = this.code.driver.page.getByRole('button', { name: 'Add Filter' });
@@ -159,10 +160,12 @@ export class Filters {
 
 	// --- Actions ---
 
-	/*
-	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
+	/**
+	 * Add a filter to the data explorer. Only works for a single filter at the moment. Optionally record metric.
+	 * @param options Object containing filter parameters
 	 */
-	async add(columnName: string, condition: string, value?: string) {
+	async add(options: { columnName: string; condition: string; value?: string; metricRecord?: RecordMetric; metricTargetType?: MetricTargetType }): Promise<void> {
+		const { columnName, condition, value, metricRecord, metricTargetType } = options;
 		await test.step(`Add filter: ${columnName} ${condition} ${value}`, async () => {
 			await this.addFilterButton.click();
 
@@ -179,7 +182,15 @@ export class Filters {
 				await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(value);
 			}
 
-			await this.applyFilterButton.click();
+			// record metric only for loading after apply
+			if (metricRecord && metricTargetType) {
+				await metricRecord.dataExplorer.filter(async () => {
+					await this.applyFilterButton.click();
+					await this.workbench.dataExplorer.waitForIdle();
+				}, metricTargetType);
+			} else {
+				await this.applyFilterButton.click();
+			}
 		});
 	}
 

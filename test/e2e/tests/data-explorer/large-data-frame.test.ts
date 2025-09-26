@@ -52,7 +52,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Data Explorer: Load data and basic filtering', { tag: [] }, () => {
+test.describe('Data Explorer: Performance', { tag: [] }, () => {
 	test.beforeEach(async function ({ hotKeys }) {
 		await hotKeys.stackedLayout();
 	});
@@ -62,7 +62,7 @@ test.describe('Data Explorer: Load data and basic filtering', { tag: [] }, () =>
 	});
 
 	testCases.forEach(testCase => {
-		test(`${testCase.env} - Verify data loads and basic filtering - ${testCase.preFilterSummary.source} rows [${testCase.varType}]`,
+		test(`${testCase.varType} - Record data load, basic filtering and sorting [${testCase.preFilterSummary.source} rows ]`,
 			{ tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] },
 			async function ({ app, openFile, runCommand, metric, sessions }) {
 				const { dataExplorer, variables, editors } = app.workbench;
@@ -71,6 +71,7 @@ test.describe('Data Explorer: Load data and basic filtering', { tag: [] }, () =>
 				await openFile('workspaces/' + testCase.data);
 				await runCommand(testCase.env === 'Python' ? 'python.execInConsole' : 'r.sourceCurrentFile');
 
+				// Record data loading
 				await metric.dataExplorer.loadData(async () => {
 					await variables.doubleClickVariableRow(testCase.varName);
 					await editors.verifyTab(`Data: ${testCase.varName}`, { isVisible: true, isSelected: true });
@@ -81,17 +82,24 @@ test.describe('Data Explorer: Load data and basic filtering', { tag: [] }, () =>
 				await dataExplorer.expectStatusBarToHaveText(testCase.preFilterSummary);
 				await dataExplorer.maximize(true);
 
-				// Validate full grid by checking data in the bottom right corner
+				// Perform and record basic sorting
+				await metric.dataExplorer.sort(async () => {
+					await dataExplorer.grid.sortColumnBy(5, 'Sort Descending');
+					await dataExplorer.waitForIdle();
+				}, testCase.varType);
+				await dataExplorer.editorActionBar.clickButton('Clear Column Sorting');
+
+				// Verify full grid by checking data in the bottom right corner
 				await dataExplorer.grid.clickLowerRightCorner();
 				await dataExplorer.grid.expectCellContentAtIndexToBe('2013-09-30 08:00:00');
 
-				// Validate basic filtering
+				// Perform and record basic filtering
 				await dataExplorer.grid.clickUpperLeftCorner();
-				await dataExplorer.filters.add('tailnum', 'is equal to', 'N532UA');
-				await dataExplorer.filters.add('arr_delay', 'is equal to', '-49');
+				await dataExplorer.filters.add({ columnName: 'tailnum', condition: 'is equal to', value: 'N532UA', metricRecord: metric, metricTargetType: testCase.varType });
+				await dataExplorer.filters.add({ columnName: 'arr_delay', condition: 'is equal to', value: '-49' });
 				await dataExplorer.expectStatusBarToHaveText(testCase.postFilterSummary);
 			});
-	})
+	});
 });
 
 
