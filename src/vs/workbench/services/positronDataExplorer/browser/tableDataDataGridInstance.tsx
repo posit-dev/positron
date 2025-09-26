@@ -131,19 +131,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// See https://github.com/posit-dev/positron/issues/9265
 			const exceedsLimit = await this.exceedsAdvancedLayoutLimits(state);
 			if (exceedsLimit) {
-				const exceedsColumns = state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
-				const exceedsRows = state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
-
 				let message: string;
-				if (exceedsColumns && exceedsRows) {
-					message = localize(
-						'positron.dataExplorer.largeDatasetNotificationColumnsAndRows',
-						"Dataset '{0}' has {1} columns and {2} rows, which exceeds the supported size for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
-						state.display_name,
-						state.table_shape.num_columns.toLocaleString(),
-						state.table_shape.num_rows.toLocaleString()
-					);
-				} else if (exceedsColumns) {
+				if (state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
 					message = localize(
 						'positron.dataExplorer.largeDatasetNotificationColumns',
 						"Dataset '{0}' has {1} columns, which exceeds the supported size for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
