@@ -129,7 +129,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Notify the user if the dataset exceeds the advanced layout limits which will
 			// cause advanced features to be disabled to improve performance.
 			// See https://github.com/posit-dev/positron/issues/9265
-			if (state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT || state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
+			const exceedsLimit = await this.exceedsAdvancedLayoutLimits(state);
+			if (exceedsLimit) {
 				const exceedsColumns = state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
 				const exceedsRows = state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
 
@@ -447,8 +448,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status) && !exceedsLimits;
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status) && !exceedsLimits;
 
 		// Get the column sort key for the column.
 		const columnSortKey = sortSupported ? this.columnSortKey(columnIndex) : undefined;
@@ -632,8 +634,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status) && !exceedsLimits;
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status) && !exceedsLimits;
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -871,6 +874,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
 		return status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Checks if the dataset exceeds the advanced layout limits.
+	 * @returns true if the dataset exceeds the limits, false otherwise.
+	 */
+	private async exceedsAdvancedLayoutLimits(state?: BackendState): Promise<boolean> {
+		// Get the backend state, if was not provided.
+		if (!state) {
+			state = await this._dataExplorerClientInstance.getBackendState();
+		}
+		return state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT ||
+			state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
 	}
 
 	//#endregion Public Methods
