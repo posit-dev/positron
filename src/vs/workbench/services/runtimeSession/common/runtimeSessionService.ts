@@ -551,7 +551,7 @@ export interface IRuntimeSessionService {
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined;
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined>;
 
 	/**
 	 * Updates the active languages with the update service. This has to be pushed to the update

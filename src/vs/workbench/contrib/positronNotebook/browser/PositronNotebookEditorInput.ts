@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -262,7 +262,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 			// Call updateNotebookSessionUri on the runtime service
 			// This updates internal mappings and emits events that other components listen for
-			const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+			const sessionId = await this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
 
 			if (sessionId) {
 				// Log success to aid debugging session transfer issues

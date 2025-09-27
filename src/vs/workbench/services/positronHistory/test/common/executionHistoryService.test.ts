@@ -114,7 +114,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
+	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
 		return undefined;
 	}
 

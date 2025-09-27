@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -58,6 +58,7 @@ export interface IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 * @param height The height of the dialog (optional; defaults to 200)
 	 *
 	 * @returns A dialog instance, with an event that fires when the user makes a selection.
 	 */
@@ -65,7 +66,8 @@ export interface IPositronModalDialogsService {
 		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string
+		cancelButtonTitle?: string,
+		height?: number,
 	): IModalDialogPromptInstance;
 
 	/**
@@ -78,6 +80,7 @@ export interface IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 * @param height The height of the dialog (optional; defaults to 200)
 	 *
 	 * @returns A promise that resolves to true if the user clicked OK, or false
 	 *   if the user clicked Cancel.
@@ -86,7 +89,8 @@ export interface IPositronModalDialogsService {
 		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string
+		cancelButtonTitle?: string,
+		height?: number,
 	): Promise<boolean>;
 
 	/**

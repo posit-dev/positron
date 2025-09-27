@@ -259,7 +259,7 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 
 				// Call updateNotebookSessionUri on the runtime service
 				// This updates internal mappings and emits events that other components listen for
-				const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+				const sessionId = await this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
 
 				if (sessionId) {
 					// Log success to aid debugging session transfer issues
