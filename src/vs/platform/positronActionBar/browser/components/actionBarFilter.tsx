@@ -18,6 +18,7 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
  */
 interface ActionBarFilterProps {
 	width: number;
+	disabled?: boolean;
 	initialFilterText?: string;
 	onFilterTextChanged: (filterText: string) => void;
 }
@@ -77,6 +78,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 				<input
 					ref={inputRef}
 					className='text-input'
+					disabled={props.disabled}
 					placeholder={(() => localize('positronFilterPlaceholder', "Filter"))()}
 					type='text'
 					value={filterText}
@@ -88,6 +90,7 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					<button
 						aria-label={(() => localize('positronClearFilter', "Clear filter"))()}
 						className='clear-button'
+						disabled={props.disabled}
 						onClick={buttonClearClickHandler}
 						onKeyDown={buttonClearKeyDownHandler}
 					>

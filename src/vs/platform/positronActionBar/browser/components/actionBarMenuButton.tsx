@@ -34,6 +34,7 @@ interface ActionBarMenuButtonProps {
 	readonly tooltip?: string | (() => string | undefined);
 	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
+	readonly disabled?: boolean;
 	readonly actions: () => readonly IAction[] | Promise<readonly IAction[]>;
 }
 
