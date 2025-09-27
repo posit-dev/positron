@@ -97,6 +97,15 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         # For decimals, we convert to float which is lossy but works for now
         return _get_histogram_numpy(data.astype(float), num_bins, method=method)
 
+    # Handle empty data case - return empty histogram consistent with Polars implementation
+    if len(data) == 0:
+        return _EMPTY_HISTOGRAM
+
+    # Handle single value case - return single bin consistent with Polars implementation
+    unique_values = np.unique(data)
+    if len(unique_values) == 1:
+        return [len(data)], [unique_values[0], unique_values[0]]
+
     # We optimistically compute the histogram once, and then do extra
     # work in the special cases where the binning method produces a
     # finer-grained histogram than the maximum number of bins that we
@@ -117,6 +126,9 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         # raised. We catch it and try again to avoid paying the
         # filtering cost every time
         data = data[np.isfinite(data)]
+        # Check if filtering removed all data
+        if len(data) == 0:
+            return _EMPTY_HISTOGRAM
         bin_counts, bin_edges = np.histogram(data, **hist_params)
 
     need_recompute = False
@@ -150,7 +162,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
             # All values are the same, set bin edges to [value, value]
             bin_edges = np.array([unique_values[0], unique_values[0]])
 
-    return bin_counts, bin_edges
+    return bin_counts.tolist(), bin_edges.tolist()
 
 
 def _get_histogram_polars(
