@@ -194,6 +194,11 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			});
 		}
 
+		// --- Start Positron ---
+		// Fire the onDidChangeProviders so that extensions can refresh their model lists.
+		this._onDidChangeProviders.fire();
+		// --- End Positron ---
+
 		// FIX provider name is no longer available because metadata is no longer passed
 		// this._proxy.$registerLanguageModelProvider(handle, `${ExtensionIdentifier.toKey(extension.identifier)}/${identifier}`, {
 		// 	extension: extension.identifier,
@@ -224,6 +229,10 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		return toDisposable(() => {
 			this._languageModelProviders.delete(vendor);
 			this._clearModelCache(vendor);
+			// --- Start Positron ---
+			// Fire the onDidChangeProviders so that extensions can refresh their model lists.
+			this._onDidChangeProviders.fire();
+			// --- End Positron ---
 			providerChangeEventDisposable?.dispose();
 			this._proxy.$unregisterProvider(vendor);
 		});
