@@ -104,7 +104,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
     # Handle single value case - return single bin consistent with Polars implementation
     unique_values = np.unique(data)
     if len(unique_values) == 1:
-        return [len(data)], np.array([unique_values[0], unique_values[0]])
+        return [len(data)], [unique_values[0], unique_values[0]]
 
     # We optimistically compute the histogram once, and then do extra
     # work in the special cases where the binning method produces a
@@ -162,7 +162,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
             # All values are the same, set bin edges to [value, value]
             bin_edges = np.array([unique_values[0], unique_values[0]])
 
-    return bin_counts, bin_edges
+    return bin_counts.tolist(), bin_edges.tolist()
 
 
 def _get_histogram_polars(
