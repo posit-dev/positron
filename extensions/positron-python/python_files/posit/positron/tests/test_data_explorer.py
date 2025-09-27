@@ -3413,7 +3413,7 @@ def test_profile_histogram_windows_int32_bug():
     )
     result = _get_histogram_numpy(arr, 10, method="fd")[0]
     expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
-    assert (result == expected).all()  # type: ignore
+    assert result == expected
 
 
 def test_histogram_single_value_special_case():
