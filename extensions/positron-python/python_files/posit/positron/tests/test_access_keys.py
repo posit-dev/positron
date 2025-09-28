@@ -28,7 +28,7 @@ from .data import (
 )
 
 try:
-    import torch  # type: ignore [reportMissingImports] for 3.12
+    import torch  # type: ignore [reportMissingImports] for 3.14
 except ImportError:
     torch = None
 
@@ -98,7 +98,7 @@ def test_encode_access_key_not_implemented_error(case: Any) -> None:
 @pytest.mark.parametrize(
     "type_name",
     [
-        # for Python 3.12
+        # for Python 3.14
         "torch.Tensor" if torch else "None",
         "function",
     ],

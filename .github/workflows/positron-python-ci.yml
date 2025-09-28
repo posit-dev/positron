@@ -23,7 +23,7 @@ defaults:
    working-directory: 'extensions/positron-python'
 
 env:
-  NODE_VERSION: '20.12.1'
+  NODE_VERSION: '22.17.0'
   PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
@@ -131,7 +131,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.9', '3.13']
+        python: ['3.9', '3.14']
 
     steps:
       - name: Checkout
@@ -178,6 +178,8 @@ jobs:
             python: '3.12'
           - os: 'ubuntu-latest'
             python: '3.13'
+          - os: 'ubuntu-latest'
+            python: '3.14'
     env:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -428,4 +430,3 @@ jobs:
       - name: Run TypeScript functional tests
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
-
