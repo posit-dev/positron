@@ -30,6 +30,9 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPathService } from '../../path/common/pathService.js';
+import { untildify } from '../../../../base/common/labels.js';
+import { Schemas } from '../../../../base/common/network.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -176,6 +179,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IFileService private readonly _fileService: IFileService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IPathService private readonly _pathService: IPathService,
 	) {
 
 		super();
@@ -2314,7 +2318,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
+	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
 
 		// Find the session associated with the old URI
 		const session = this._notebookSessionsByNotebookUri.get(oldUri);
@@ -2337,8 +2341,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return undefined;
 		}
 
-		// Remember the session ID for return value
+		// Remember the session ID and old working directory for return value
 		const sessionId = session.sessionId;
+		const oldWorkingDirectory = session.dynState.currentWorkingDirectory;
+		let workingDirectoryWasChanged = false;
 
 		try {
 			// Operations are performed in a specific order to maintain atomic-like behavior
@@ -2350,11 +2356,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// so even if the next steps fail, the session is still accessible via some URI
 			this._notebookSessionsByNotebookUri.set(newUri, session);
 
-			// 2. Then update the session's notebook URI in its dynamic state
+			// 2. Then update the session's notebook URI and working directory in its dynamic state
 			// Why: This ensures the session's internal references are consistent
 			// with our mapping, which helps debugging and ensures session properties
 			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
+			workingDirectoryWasChanged = await this.promptAndUpdateWorkingDirectoryIfChanged(session, newUri);
 
 			// 3. Finally remove the old mapping - we do this last because it's
 			// the most likely to fail if ResourceMap has internal inconsistency
@@ -2397,14 +2404,78 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._notebookSessionsByNotebookUri.delete(newUri);
 			}
 
-			// 3. Restore original URI in session state if needed
+			// 3. Restore original URI and working directory in session state if needed
 			// Why: Keep the session's internal state consistent with our mappings
 			if (session.dynState.currentNotebookUri === newUri) {
 				session.dynState.currentNotebookUri = oldUri;
 			}
+			if (workingDirectoryWasChanged) {
+				await session.setWorkingDirectory(oldWorkingDirectory);
+			}
 
 			return undefined;
 		}
+	}
+
+	/**
+	 * Prompts the user to update the session's working directory if it has changed
+	 * due to a notebook URI change, and updates it if the user chooses to do so.
+	 *
+	 * @param session The runtime session to potentially update.
+	 * @param newUri The new notebook URI to resolve the working directory from.
+	 * @returns Whether the working directory was changed
+	 */
+	private async promptAndUpdateWorkingDirectoryIfChanged(
+		session: ILanguageRuntimeSession,
+		newUri: URI
+	): Promise<boolean> {
+		let wasChanged = false;
+		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
+		const newWorkingDirectory = await this.resolveNotebookWorkingDirectory(newUri);
+		if (!newWorkingDirectory) {
+			return false;
+		}
+
+		// Untildify for comparison
+		const userHome = await this._pathService.userHome();
+		const userHomePath = userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path;
+		const currentWorkingDirectoryResolved = untildify(currentWorkingDirectory, userHomePath);
+		const newWorkingDirectoryResolved = untildify(newWorkingDirectory, userHomePath);
+
+		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
+			// For display, create relative paths to the workspace
+			const path = await this._pathService.path;
+			const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(newUri) || undefined;
+			const workspaceFolderName = workspaceFolder ? workspaceFolder.name : '';
+
+			const currentWorkingDirectoryDisplay = workspaceFolder ?
+				path.join(workspaceFolderName, path.relative(workspaceFolder.uri.fsPath, currentWorkingDirectoryResolved)) :
+				currentWorkingDirectoryResolved;
+			const newWorkingDirectoryDisplay = workspaceFolder ?
+				path.join(workspaceFolderName, path.relative(workspaceFolder.uri.fsPath, newWorkingDirectoryResolved)) :
+				newWorkingDirectoryResolved;
+
+			const result = await this._positronModalDialogsService.showSimpleModalDialogPrompt(
+				localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),
+				localize(
+					'positron.notebook.workingDirectoryChanged',
+					'This notebook was moved to a new location but your session is still running from the original directory.'
+					+ '<br><br>Saved at: <code>{0}</code>'
+					+ '<br>Running from: <code>{1}</code>'
+					+ '<br><br>Update the running working directory to match where the notebook is saved? (Recommended)',
+					newWorkingDirectoryDisplay,
+					currentWorkingDirectoryDisplay,
+				),
+				localize('positron.notebook.updateWorkingDirectory', 'Update'),
+				localize('positron.notebook.keepCurrent', 'Keep'),
+				300,
+			);
+			if (result) {
+				await session.setWorkingDirectory(newWorkingDirectory);
+				wasChanged = true;
+			}
+		}
+		return wasChanged;
 	}
 }
 
