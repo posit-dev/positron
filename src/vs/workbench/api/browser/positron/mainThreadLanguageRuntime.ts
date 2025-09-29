@@ -172,7 +172,11 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		this._register(this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
 
-			if (state === RuntimeState.Exited) {
+			if (state === RuntimeState.Busy) {
+				this.dynState.busy = true;
+			} else if (state === RuntimeState.Idle) {
+				this.dynState.busy = false;
+			} else if (state === RuntimeState.Exited) {
 
 				// When the runtime exits, check for any clients that still
 				// think they're connected, and notify them that they are now
