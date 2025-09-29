@@ -10,6 +10,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { POSITRON_CONSOLE_EXEC_PREFIX } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -45,7 +46,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	/**
 	 * The execution ID. Only replies to this ID are handled.
 	 */
-	public readonly id = generateUuid();
+	public readonly id = this.generateExecutionId();
 
 	/**
 	 * Deferred promise that resolves when the runtime execution completes,
@@ -178,6 +179,10 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 		// Reply to the prompt.
 		this._session.replyToPrompt(message.id, reply ?? '');
+	}
+
+	private generateExecutionId() {
+		return `${POSITRON_CONSOLE_EXEC_PREFIX}-${generateUuid()}`;
 	}
 
 	private handleRuntimeMessageOutput(

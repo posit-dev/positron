@@ -74,6 +74,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 * @param height The height of the dialog (optional; defaults to 200)
 	 *
 	 * @returns A dialog instance, with an event that fires when the user makes a selection.
 	 */
@@ -81,7 +82,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string
+		cancelButtonTitle?: string,
+		height?: number,
 	): IModalDialogPromptInstance {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer();
@@ -99,9 +101,10 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			choiceEmitter.fire(false);
 			choiceEmitter.dispose();
 		};
+		const heightValue = height ?? 200;
 
 		renderer.render(
-			<PositronModalDialog height={200} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
+			<PositronModalDialog height={heightValue} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
 				<ContentArea>
 					{renderHtml(
 						message,
@@ -203,6 +206,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	 * @param message The message to display in the dialog
 	 * @param okButtonTitle The title of the OK button (optional; defaults to 'OK')
 	 * @param cancelButtonTitle The title of the Cancel button (optional; defaults to 'Cancel')
+	 * @param height The height of the dialog (optional; defaults to 200)
 	 *
 	 * @returns A promise that resolves to true if the user clicked OK, or false
 	 *   if the user clicked Cancel.
@@ -210,10 +214,12 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	showSimpleModalDialogPrompt(title: string,
 		message: string,
 		okButtonTitle?: string | undefined,
-		cancelButtonTitle?: string | undefined): Promise<boolean> {
+		cancelButtonTitle?: string | undefined,
+		height?: number,
+	): Promise<boolean> {
 
 		// Show the dialog and return a promise that resolves to the user's choice.
-		const dialog = this.showModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+		const dialog = this.showModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle, height);
 		return new Promise<boolean>((resolve) => {
 			const disposable = dialog.onChoice((choice) => {
 				disposable.dispose();

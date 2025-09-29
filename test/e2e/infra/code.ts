@@ -15,6 +15,8 @@ import { teardown } from './processes';
 import { Quality } from './application';
 import { ElectronApplication } from '@playwright/test';
 
+export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
+
 export interface LaunchOptions {
 	codePath?: string;
 	readonly workspacePath: string;
@@ -30,7 +32,7 @@ export interface LaunchOptions {
 	readonly tracing?: boolean;
 	snapshots?: boolean;
 	readonly headless?: boolean;
-	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
+	readonly browser?: Browser;
 	readonly quality: Quality;
 	version: { major: number; minor: number; patch: number };
 	/** When true, connects to an external server instead of launching one */

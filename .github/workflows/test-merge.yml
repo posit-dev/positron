@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - 'prerelease/**'
+      - "prerelease/**"
 
 jobs:
   e2e-electron:
@@ -32,14 +32,14 @@ jobs:
       upload_logs: false
     secrets: inherit
 
-  e2e-linux-browser:
+  e2e-linux-chromium:
     name: e2e
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ""
-      display_name: "browser (ubuntu)"
-      project: "e2e-browser"
-      currents_tags: "merge,browser/ubuntu"
+      display_name: "chromium (ubuntu)"
+      project: "e2e-chromium"
+      currents_tags: "merge,chromium/ubuntu"
       report_testrail: false
       install_undetectable_interpreters: false
       install_license: true
@@ -60,7 +60,14 @@ jobs:
 
   slack-notify:
     if: failure()
-    needs: [unit-tests, integration-tests, e2e-electron, e2e-windows-electron, e2e-linux-browser]
+    needs:
+      [
+        unit-tests,
+        integration-tests,
+        e2e-electron,
+        e2e-windows-electron,
+        e2e-linux-chromium,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
@@ -70,5 +77,3 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           notify_on: "failure"
-
-

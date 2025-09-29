@@ -1,6 +1,6 @@
 # Positron Development Context
 
-This is the main coordination file for Claude Code when working on Positron. Based on your specific task, include the appropriate modular context file(s) from `dev_prompts/`.
+This is the main coordination file for Claude Code when working on Positron. Based on your specific task, include the appropriate modular context file(s) from `.claude/`.
 
 ## Communication Guidelines
 
@@ -16,13 +16,17 @@ When working on this project, maintain clear and neutral communication:
 
 Positron is a next-generation data science IDE built on VS Code, designed for Python and R development with enhanced data science workflows.
 
-## 🚨 CRITICAL: Development Startup
+## 🚨 CRITICAL: Build System Requirements
 
-**For launching Positron: ALWAYS read `.claude/launch-positron.md` first!**
-This file contains the exact non-blocking launch protocol to avoid session blocking.
+**MANDATORY: Always check if build daemons are running before any development work:**
+```bash
+ps aux | grep -E "npm.*watch-(client|extensions|e2e)d" | grep -v grep
+```
 
-**For build details: See `.claude/build-system.md`**
-This file contains detailed build daemon and compilation instructions.
+**Essential workflows:**
+- **Launching Positron**: Read `.claude/launch-positron.md` for non-blocking launch protocol
+- **Build system**: Read `.claude/build-system.md` for detailed daemon management
+- **Component development**: Read specific `.claude/<component>.md` files for targeted workflows
 
 ## Using Modular Prompts
 
@@ -92,6 +96,9 @@ This project has a Claude Code hook configured that automatically handles most c
 - Inserts final newlines
 
 ### Testing
+
+**Prerequisites:** Ensure build daemons are running (see build system requirements above).
+
 ```bash
 # Extension tests (preferred for extension development)
 npm run test-extension -- -l <extension-name>
@@ -208,3 +215,19 @@ This ensures consistent, scriptable access to GitHub data and integrates well wi
 - `build/` - Build configuration and scripts
 
 Remember to read the appropriate modular prompt file(s) for your specific task area.
+
+## Development Workflow Summary
+
+1. **Check daemon status** (mandatory first step)
+2. **Start missing daemons** if needed (see `.claude/build-system.md`)
+3. **Wait for compilation** (30-60 seconds)
+4. **Launch Positron** (see `.claude/launch-positron.md` for non-blocking protocol)
+5. **Run tests/development tasks** after confirming daemons are ready
+
+## When to Use Which Documentation
+
+- **New to Positron development**: Start here in `CLAUDE.md`, then read `.claude/build-system.md`
+- **Launching Positron**: `.claude/launch-positron.md` (critical for non-blocking sessions)
+- **Extension development**: `.claude/<extension-name>.md` (e.g., `positron-duckdb.md`)
+- **E2E testing**: `.claude/e2e-testing.md`
+- **UI component work**: `.claude/data-explorer.md`, `.claude/ui-components.md`

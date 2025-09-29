@@ -24,7 +24,6 @@ import { usePositronReactServicesContext } from '../../../../../../base/browser/
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
-import { summaryPanelEnhancementsFeatureEnabled } from '../../../../../services/positronDataExplorer/common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -56,9 +55,6 @@ export const DataExplorer = () => {
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
-
-	// Feature flags.
-	const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(services.configurationService);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -343,7 +339,6 @@ export const DataExplorer = () => {
 
 			<div ref={leftColumnRef} className='left-column'>
 				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
-					showSummaryPanelEnhancements &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
@@ -384,7 +379,6 @@ export const DataExplorer = () => {
 			}
 			<div ref={rightColumnRef} className='right-column'>
 				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
-					showSummaryPanelEnhancements &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>

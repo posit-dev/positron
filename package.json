@@ -43,7 +43,7 @@
     "e2e-watch": "npm run watch-e2e",
     "kill-watch-e2ed": "deemon --kill npm run watch-e2e",
     "e2e-electron": "npx playwright test --project e2e-electron",
-    "e2e-browser": "npx playwright test --project e2e-browser",
+    "e2e-chromium": "npx playwright test --project e2e-chromium",
     "e2e-pr": "npx playwright test --project e2e-electron --grep @:critical",
     "e2e-win": "npx playwright test --project e2e-electron --grep @:win",
     "e2e-failed": "npx playwright test --last-failed",

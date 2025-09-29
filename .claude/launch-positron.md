@@ -10,22 +10,28 @@ ps aux | grep -E "npm.*watch-(client|extensions)d" | grep -v grep
 ```
 
 ### Step 2: Start missing daemons (if needed)
+**For detailed daemon management, see `.claude/build-system.md`**
 ```bash
 # Run these in background
 npm run watch-clientd &
 npm run watch-extensionsd &
 ```
 
-### Step 3: Wait for compilation to complete
-**CRITICAL**: You MUST verify that both daemons have finished their initial compilation before launching Positron.
+### Step 3: VERIFY compilation is complete (DO NOT just wait 30 seconds!)
+**CRITICAL**: You MUST actively verify that both daemons have finished their initial compilation before launching Positron. Simply waiting 30 seconds is NOT sufficient.
+
 ```bash
-# Check daemon output using BashOutput tool to verify compilation is complete
-# Look for messages like:
-# - "Finished compilation" 
+# Use BashOutput tool to check daemon output and verify compilation is complete
+# Look for messages indicating compilation finished:
+# - "Finished compilation"
 # - "Watching for file changes"
 # - "Found 0 errors"
-# This typically takes 30-60 seconds from daemon start
-# Note: May take longer (2-3 minutes) on slower machines or during initial builds
+# - CSS compilation messages
+#
+# TIMING: Initial compilation typically takes 30-60 seconds, but can take 2-3 minutes
+# on slower machines or during initial builds. Always verify rather than guess!
+#
+# If output still shows ongoing compilation, wait longer and check again.
 ```
 
 ### Step 4: Launch Positron in background

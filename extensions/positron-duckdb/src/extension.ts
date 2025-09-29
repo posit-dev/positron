@@ -449,11 +449,11 @@ class ColumnProfileEvaluator {
 			SELECT ${quotedName} AS value, COUNT(*) AS freq
 			FROM ${this.tableName} ${composedPred}
 			GROUP BY 1
-			LIMIT ${params.limit}
 		)
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
-		ORDER BY freq DESC, value ASC;`) as Table<any>;
+		ORDER BY freq DESC, value ASC
+		LIMIT ${params.limit};`) as Table<any>;
 
 		const values: string[] = [];
 		const counts: number[] = [];
@@ -1493,6 +1493,10 @@ END`;
 			sortExprs.push(`${quotedName}${modifier}`);
 		}
 
+		// Add rowid as the final sort key to ensure stable sorting
+		// This prevents inconsistencies when there are duplicate values in the sort columns
+		sortExprs.push('rowid');
+
 		this._sortClause = `\nORDER BY ${sortExprs.join(', ')}`;
 	}
 
@@ -1578,7 +1582,7 @@ END`;
 				const columnIndex = selection.column_index;
 				const schema = this.fullSchema[columnIndex];
 				const selector = getColumnSelectors([schema])[0];
-				const query = `SELECT ${selector} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
+				const query = `SELECT ${selector} FROM ${this.tableName}${this._whereClause}${this._sortClause} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
 				return {
 					data: result.toArray()[0][result.schema.names[0]],
@@ -1593,7 +1597,7 @@ END`;
 				const columnEnd = selection.last_column_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, columns);
 			}
@@ -1602,7 +1606,7 @@ END`;
 				const rowStart = selection.first_index;
 				const rowEnd = selection.last_index;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
@@ -1612,15 +1616,17 @@ END`;
 				const columnEnd = selection.last_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}`;
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
 				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
+				const whereCondition = this._whereClause
+					? `${this._whereClause} AND rowid IN (${indices.join(', ')})`
+					: `\nWHERE rowid IN (${indices.join(', ')})`;
 				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
-				FROM ${this.tableName}
-				WHERE rowid IN (${indices.join(', ')})`;
+				FROM ${this.tableName}${whereCondition}${this._sortClause}`;
 				return await exportQueryOutput(query, this.fullSchema);
 			}
 			case TableSelectionKind.ColumnIndices: {
@@ -1628,7 +1634,7 @@ END`;
 				const indices = selection.indices;
 				const columns = indices.map(i => this.fullSchema[i]);
 				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}`;
+				FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
 				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.CellIndices: {
@@ -1637,13 +1643,28 @@ END`;
 				const columnIndices = selection.column_indices;
 				const columns = columnIndices.map(i => this.fullSchema[i]);
 
-				// Create a VALUES clause to preserve the order of row indices
-				const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
-				const query = `SELECT ${getColumnSelectors(columns).join(',')}
-				FROM ${this.tableName}
-				JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
-				ORDER BY row_order.sort_order`;
-				return await exportQueryOutput(query, columns);
+				// For CellIndices, we need to respect both the table's sort order and the specific row selection order
+				// First apply table filters and sorting to get the sorted view, then select specific rows from that
+				if (this._sortClause || this._whereClause) {
+					// Create a subquery with the sorted/filtered table, then select specific rows
+					const sortedTableQuery = `SELECT *, ROW_NUMBER() OVER(${this._sortClause || 'ORDER BY rowid'}) - 1 AS sorted_row_index
+					FROM ${this.tableName}${this._whereClause}${this._sortClause}`;
+
+					const orderValues = rowIndices.map((rowIdx, idx) => `(${rowIdx}, ${idx})`).join(', ');
+					const query = `SELECT ${getColumnSelectors(columns).join(',')}
+					FROM (${sortedTableQuery}) sorted_table
+					JOIN (VALUES ${orderValues}) AS row_order(sorted_row_index, selection_order) ON sorted_table.sorted_row_index = row_order.sorted_row_index
+					ORDER BY row_order.selection_order`;
+					return await exportQueryOutput(query, columns);
+				} else {
+					// No sorting/filtering, use the original simple approach
+					const orderValues = rowIndices.map((rowId, idx) => `(${rowId}, ${idx})`).join(', ');
+					const query = `SELECT ${getColumnSelectors(columns).join(',')}
+					FROM ${this.tableName}
+					JOIN (VALUES ${orderValues}) AS row_order(rowid, sort_order) ON ${this.tableName}.rowid = row_order.rowid
+					ORDER BY row_order.sort_order`;
+					return await exportQueryOutput(query, columns);
+				}
 			}
 		}
 	}
@@ -1678,9 +1699,16 @@ END`;
 			result.push(whereClause);
 		}
 
-		if (this._sortClause) {
-			const sortClause = this._sortClause.replace(/\n/g, ' ').trim();
-			result.push(sortClause);
+		if (this.sortKeys.length > 0) {
+			// Generate user-facing sort clause without the auxiliary rowid
+			const sortExprs = [];
+			for (const sortKey of this.sortKeys) {
+				const columnSchema = this.fullSchema[sortKey.column_index];
+				const quotedName = quoteIdentifier(columnSchema.column_name);
+				const modifier = sortKey.ascending ? '' : ' DESC';
+				sortExprs.push(`${quotedName}${modifier}`);
+			}
+			result.push(`ORDER BY ${sortExprs.join(', ')}`);
 		}
 
 		return {
@@ -1769,6 +1797,10 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			// TODO: Will need to be able to pass CSV / TSV options from the
 			// UI at some point.
 			const options: Array<string> = [];
+
+			// Always treat the first row as header to avoid inference issues
+			options.push('header=true');
+
 			if (fileExt === '.tsv') {
 				options.push('delim=\'\t\'');
 			} else if (fileExt !== '.csv' && fileExt !== '.tsv') {
