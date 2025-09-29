@@ -226,6 +226,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						break;
 
 					case RuntimeState.Busy:
+						setStateLabel(labelForState(state));
 						setInterruptible(true);
 						setCanShutdown(true);
 						setCanStart(false);
