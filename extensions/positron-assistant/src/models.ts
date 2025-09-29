@@ -762,6 +762,14 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 			completions: true,
 		},
 	};
+
+	override get providerName(): string {
+		return OpenAICompatibleLanguageModel.source.provider.displayName;
+	}
+
+	override get baseUrl(): string | undefined {
+		return (this._config.baseUrl ?? OpenAICompatibleLanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
 }
 
 class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {

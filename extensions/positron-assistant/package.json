@@ -296,7 +296,11 @@
       {
         "vendor": "openai",
         "displayName": "OpenAI"
-      }
+      },
+	  {
+		"vendor": "openai-compatible",
+		"displayName": "Custom Provider"
+	  }
     ],
     "languageModelTools": [
       {

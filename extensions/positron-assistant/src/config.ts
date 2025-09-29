@@ -157,7 +157,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				const envVarName = (source.defaults as any).apiKeyEnvVar.key;
 				const envVarValue = process.env[envVarName];
 
-				source = {
+				return {
 					...source,
 					defaults: {
 						...source.defaults,
