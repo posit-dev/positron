@@ -65,6 +65,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
+	/**
+	 * This tracks if we've already shown the exceeds dataset limit notification for this instance
+	 * which should only be shown once per instance. This notification is shown when the dataset
+	 * exceeds the limit for certain advanced features such as filtering, resizing, etc.
+	 * See https://github.com/posit-dev/positron/issues/9265
+	 */
+	private _hasShownLargeDatasetNotification: boolean = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -131,7 +139,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// See https://github.com/posit-dev/positron/issues/9265
 			const exceedsColumnLimit = await this.exceedsAdvancedColumnLayoutLimits(state);
 			const exceedsRowLimit = await this.exceedsAdvancedRowLayoutLimits(state);
-			if (exceedsColumnLimit || exceedsRowLimit) {
+			if ((exceedsColumnLimit || exceedsRowLimit) && !this._hasShownLargeDatasetNotification) {
+				this._hasShownLargeDatasetNotification = true;
+
 				let message: string;
 				if (exceedsColumnLimit) {
 					message = localize(
