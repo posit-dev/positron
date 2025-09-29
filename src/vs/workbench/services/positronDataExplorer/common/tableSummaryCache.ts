@@ -5,10 +5,8 @@
 
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { dataExplorerExperimentalFeatureEnabled } from './positronDataExplorerExperimentalConfig.js';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -103,11 +101,9 @@ export class TableSummaryCache extends Disposable {
 
 	/**
 	 * Constructor.
-	 * @param _configurationService The configuration service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 */
 	constructor(
-		private readonly _configurationService: IConfigurationService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
 	) {
 		// Call the base class's constructor.
@@ -478,10 +474,7 @@ export class TableSummaryCache extends Disposable {
 			return false;
 		}
 
-		return dataExplorerExperimentalFeatureEnabled(
-			histogramSupportStatus.support_status,
-			this._configurationService
-		);
+		return histogramSupportStatus.support_status === SupportStatus.Supported;
 	}
 
 	/**
@@ -499,10 +492,7 @@ export class TableSummaryCache extends Disposable {
 			return false;
 		}
 
-		return dataExplorerExperimentalFeatureEnabled(
-			frequencyTableSupportStatus.support_status,
-			this._configurationService
-		);
+		return frequencyTableSupportStatus.support_status === SupportStatus.Supported;
 	}
 
 	/**
