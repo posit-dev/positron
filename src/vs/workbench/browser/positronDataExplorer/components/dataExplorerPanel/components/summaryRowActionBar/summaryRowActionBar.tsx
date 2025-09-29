@@ -48,7 +48,7 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	useEffect(() => {
 		const checkBackendState = async () => {
 			const backendState = await context.instance.dataExplorerClientInstance.getBackendState();
-			if (backendState.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT || backendState.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
+			if (backendState.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
 				setDisabled(true);
 			}
 		};
