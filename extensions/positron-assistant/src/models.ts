@@ -273,7 +273,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 			await ai.generateText({
 				model: this.aiProvider(this._config.model, this.aiOptions),
-				prompt: 'I\'m checking to see if you\'re there. Responsd only with the word "hello".',
+				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
 				abortSignal: AbortSignal.timeout(timeoutMs),
 			});
 		} catch (error) {
