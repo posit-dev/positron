@@ -1187,8 +1187,22 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this.markReady('new session');
 			}
 		} else if (this._activeSession?.status === Status.Busy) {
-			// If we're reconnecting to a session that's busy, we need to wait
-			// for it to become idle before we can mark it as ready.
+			setTimeout(() => {
+				// On the next tick, if we're still in the starting state,
+				// notify the client that we're busy if we're not already in the
+				// busy state. We need to do this on the next tick since the
+				// client doesn't start listening for state changes until after
+				// `start()` returns.
+				//
+				// An alternative would be to have the reconnect method return
+				// the current state when connecting.
+				if (this._runtimeState === positron.RuntimeState.Starting) {
+					// Notify client that we're busy
+					this.onStateChange(positron.RuntimeState.Busy, 'reconnecting to busy session');
+				}
+			}, 0);
+
+			// Mark ready when the session becomes idle
 			this.waitForIdle().then(() => {
 				this.markReady('idle after busy reconnect');
 			});
