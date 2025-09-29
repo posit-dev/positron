@@ -1140,13 +1140,14 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// Start a notebook session with the untitled URI
 		const session = await startSession(runtime, LanguageRuntimeSessionMode.Notebook, untitledUri);
+		await timeout(0);
 
 		// Ensure the session is retrievable with the untitled URI
 		const sessionBeforeUpdate = runtimeSessionService.getNotebookSessionForNotebookUri(untitledUri);
 		assert.strictEqual(sessionBeforeUpdate, session, 'Session should be accessible via untitled URI before update');
 
 		// Update the session's URI
-		const returnedSessionId = runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
+		const returnedSessionId = await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
 
 		// Verify returned sessionId matches the session's ID
 		assert.strictEqual(returnedSessionId, session.sessionId, 'Function should return the correct session ID');
@@ -1158,6 +1159,9 @@ suite('Positron - RuntimeSessionService', () => {
 		// Verify the session is accessible via the new URI
 		const newUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(savedUri);
 		assert.strictEqual(newUriSession, session, 'Session should be accessible via new URI');
+
+		// Verify the working directory changed
+		assert.strictEqual(session.getWorkingDirectory(), '/path/to/saved', 'Working directory should update to new URI parent folder');
 	});
 
 	test('updateNotebookSessionUri returns undefined when session not found', async () => {
@@ -1166,7 +1170,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const newUri = URI.file('/path/to/new/notebook.ipynb');
 
 		// Attempt to update a non-existent session
-		const returnedSessionId = runtimeSessionService.updateNotebookSessionUri(nonExistentUri, newUri);
+		const returnedSessionId = await runtimeSessionService.updateNotebookSessionUri(nonExistentUri, newUri);
 
 		// Verify no session ID is returned
 		assert.strictEqual(returnedSessionId, undefined,
