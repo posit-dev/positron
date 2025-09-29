@@ -210,7 +210,7 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private rowHeaders = this.code.driver.page.locator('.data-grid-row-headers');
+	private rowHeader = this.code.driver.page.locator('.data-grid-row-header');
 	private columnHeaders = this.code.driver.page.locator(HEADER_TITLES);
 	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
 	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
@@ -326,10 +326,7 @@ export class DataGrid {
 	 */
 	async pinRow(rowPosition: number) {
 		await test.step(`Pin row at 0-based position: ${rowPosition}`, async () => {
-			await this.code.driver.page
-				// rowPosition is 0-based, nth-child is 1-based
-				.locator(`.data-grid-row-headers > div:nth-child(${rowPosition + 1})`)
-				.click({ button: 'right' });
+			await this.rowHeader.nth(rowPosition).click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
 		});
 	}
@@ -371,12 +368,12 @@ export class DataGrid {
 	}
 
 	/**
-	 * Click a row header by its visual position
+	 * Click a row header by its position
 	 * Index is 1-based to match UI
 	 **/
 	async clickRowHeader(rowIndex: number) {
 		await test.step(`Click row header: ${rowIndex}`, async () => {
-			await this.rowHeaders.getByText(rowIndex.toString(), { exact: true }).click();
+			await this.rowHeader.nth(rowIndex).click();
 		});
 	}
 
