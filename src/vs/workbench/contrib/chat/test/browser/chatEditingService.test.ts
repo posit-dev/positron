@@ -46,7 +46,9 @@ import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 import { TestMcpService } from '../../../mcp/test/common/testMcpService.js';
 import { IChatSessionsService } from '../../common/chatSessionsService.js';
 import { ChatSessionsService } from '../../browser/chatSessions.contribution.js';
+// --- Start Positron ---
 import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
+// --- End Positron ---
 
 function getAgentData(id: string): IChatAgentData {
 	return {
