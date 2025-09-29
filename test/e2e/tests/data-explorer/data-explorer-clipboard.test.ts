@@ -37,7 +37,6 @@ test.use({
 for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of testCases) {
 	test.describe('Data Explorer: Copy/Paste', { tag: [tags.WEB, tags.DATA_EXPLORER, ...testTags] }, () => {
 
-
 		test.beforeEach(async function ({ app, openDataFile, hotKeys }) {
 			const { dataExplorer, console, sessions, variables } = app.workbench;
 
@@ -68,7 +67,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 			await clipboard.expectClipboardTextToBe(expectedData['col3'], '\n');
 
 			// verify copy and paste on rows
-			await dataExplorer.grid.clickRowHeader(9 + indexOffset);
+			await dataExplorer.grid.clickRowHeader(9);
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(expectedData['row9'], '\n');
 
@@ -83,21 +82,19 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 			await clipboard.expectClipboardTextToBe(expectedData['col0_col1'], '\n');
 		});
 
-		test.skip(`${env} - Copy and paste works on cells, rows, columns, and ranges of sorted data`, {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/9344' }]
-		}, async function ({ app }) {
+		test(`${env} - Copy and paste works on cells, rows, columns, and ranges of sorted data`, async function ({ app }) {
 			const { dataExplorer, clipboard } = app.workbench;
 
 			// verify copy and paste on columns
 			await dataExplorer.grid.selectColumnAction(4, 'Sort Descending');
 			await dataExplorer.grid.clickColumnHeader('column3');
 			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe(expectedData['col3']);
+			await clipboard.expectClipboardTextToBe(expectedData['col3_sorted_desc'], '\n');
 
-			// verify copy and paste on rows - issue 9344
-			await dataExplorer.grid.clickRowHeader(4 + indexOffset);
+			// verify copy and paste on rows
+			await dataExplorer.grid.clickRowHeader(4);
 			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe(expectedData['row4']);
+			await clipboard.expectClipboardTextToBe(expectedData['row4'], '\n');
 
 			// verify copy and paste on cell
 			await dataExplorer.grid.clickCell(6, 4);
@@ -107,7 +104,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 			// verify copy and paste on range
 			await dataExplorer.grid.selectRange({ start: { row: 0, col: 2 }, end: { row: 1, col: 3 } });
 			await clipboard.copy();
-			await clipboard.expectClipboardTextToBe('column2\tcolumn3\n47\t99\n8\t89');
+			await clipboard.expectClipboardTextToBe('column2\tcolumn3\n47\t99\n8\t89', '\n');
 		});
 
 		test(`${env} - Copy and paste of ranges works with pinned data`, async function ({ app }) {
