@@ -446,15 +446,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}));
 
-		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
-		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
-
-			if (positronConsoleInstance) {
-				positronConsoleInstance.setState(PositronConsoleState.Ready);
-			}
-		}));
-
 		// Register the onDidFailStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(session => {
 			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
@@ -1917,6 +1908,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				switch (this._state) {
 					// Remove the starting runtime item when we transition from starting to running.
 					case PositronConsoleState.Starting:
+					case PositronConsoleState.Busy:
 						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
 							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
 								const runtimeItem = this._runtimeItems[i] as RuntimeItemStarting;
@@ -2059,6 +2051,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.clearRestartItems();
 			}
 
+			// If we moved directly from Starting to Busy, we just reattached to
+			// a busy session. Update the state accordingly.
+			if (this._state === PositronConsoleState.Starting &&
+				runtimeState === RuntimeState.Busy) {
+				this.setState(PositronConsoleState.Busy);
+			}
+
 			if (runtimeState === RuntimeState.Exited || runtimeState === RuntimeState.Uninitialized) {
 				if (this._runtimeState === RuntimeState.Starting ||
 					this._runtimeState === RuntimeState.Initializing) {
@@ -2110,8 +2109,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Add the onDidCompleteStartup event handler.
 		this._runtimeDisposableStore.add(this._session.onDidCompleteStartup(languageRuntimeInfo => {
-			this.setState(PositronConsoleState.Ready);
-
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidCompleteStartup`);
@@ -2345,14 +2342,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					}
 
 					case RuntimeOnlineState.Busy: {
-						// Generally speaking, we only want to set Busy/Idle state
-						// when that state is a result of processing one of our own
-						// messages, which begin with `fragment-`. However, if we
-						// are currently in the Offline state, the message that
-						// brings us back online may not be one of our own messages.
+						// Generally speaking, we only want to set Busy/Idle
+						// state when that state is a result of processing one
+						// of our own messages, which begin with `fragment-`.
 						if (languageRuntimeMessageState.parent_id.startsWith(POSITRON_CONSOLE_EXEC_PREFIX) ||
 							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
-							this.state === PositronConsoleState.Offline) {
+							this.state === PositronConsoleState.Offline ||
+							this.state === PositronConsoleState.Starting) {
 							this.setState(PositronConsoleState.Busy);
 						}
 						// Mark the associated input as busy.
