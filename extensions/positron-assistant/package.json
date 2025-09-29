@@ -276,6 +276,11 @@
             "tags": [
               "experimental"
             ]
+          },
+          "positron.assistant.alwaysIncludeCopilotTools": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.alwaysIncludeCopilotTools.description%"
           }
         }
       }
