@@ -46,6 +46,7 @@ import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
 import { DapComm } from './DapComm';
+import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus.js';
 
 /**
  * The reason for a disconnection event.
@@ -1197,6 +1198,31 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// An alternative would be to have the reconnect method return
 				// the current state when connecting.
 				if (this._runtimeState === positron.RuntimeState.Starting) {
+					// If we have an active execution, synthesize a busy message
+					// to update the client with the current execution state.
+					const activeExecution =
+						this._activeSession?.execution_queue.active as JupyterMessage;
+					if (activeExecution) {
+						const kernelStatus: JupyterKernelStatus = {
+							execution_state: 'busy'
+						};
+						const statusMessage: JupyterMessage = {
+							header: {
+								msg_id: `status-replay-${createUniqueId()}`,
+								session: activeExecution.header.session,
+								msg_type: JupyterMessageType.Status,
+								username: activeExecution.header.username,
+								version: activeExecution.header.version,
+								date: new Date().toISOString()
+							},
+							channel: JupyterChannel.IOPub,
+							parent_header: activeExecution.header,
+							metadata: {},
+							content: kernelStatus,
+							buffers: []
+						};
+						this._messages.onKernelStatus(statusMessage, kernelStatus);
+					}
 					// Notify client that we're busy
 					this.onStateChange(positron.RuntimeState.Busy, 'reconnecting to busy session');
 				}
