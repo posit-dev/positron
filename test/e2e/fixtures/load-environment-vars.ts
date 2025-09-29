@@ -63,9 +63,7 @@ function loadEnvFile(envFilePath: string): ProjectEnvironmentVars {
  */
 const PROJECT_ENV_FILES: Record<string, string[]> = {
 	'e2e-workbench': ['.env.e2e-workbench'],
-	'e2e-electron': ['.env.e2e'],
-	'e2e-browser': ['.env.e2e'],
-	'e2e-browser-server': ['.env.e2e'],
+	default: ['.env.e2e']
 } as const;
 
 /**
@@ -92,7 +90,7 @@ function applyEnvironmentVars(vars: ProjectEnvironmentVars, sourceFile: string):
  * Load and apply environment variables for a specific project
  */
 export function loadEnvironmentVars(projectName: string): void {
-	const envFiles = PROJECT_ENV_FILES[projectName];
+	const envFiles = PROJECT_ENV_FILES[projectName] || PROJECT_ENV_FILES['default'];
 
 	if (!envFiles) {
 		// No specific env files for this project - that's fine

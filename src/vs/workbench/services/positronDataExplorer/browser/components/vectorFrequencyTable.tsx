@@ -58,8 +58,8 @@ const FrequencyCount = React.memo(({
 		if (typeof val === 'number') {
 			return val.toPrecision(4);
 		}
-		const num = parseFloat(String(val));
-		return !isNaN(num) ? num.toPrecision(4) : val;
+		// Keep strings as strings - no parsing
+		return val;
 	};
 
 	const formattedValue = formatValue(value);

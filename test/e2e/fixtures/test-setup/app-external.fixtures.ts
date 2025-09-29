@@ -12,7 +12,7 @@ import { renameTempLogsDir, copyUserSettings, captureScreenshotOnError } from '.
 
 /**
  * External Positron server fixture (port 8080)
- * Projects: e2e-browser-server
+ * Projects: e2e-server
  */
 export function ExternalPositronServerFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {

@@ -267,6 +267,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
 	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+		// Clear pinned rows whenever a sort is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the sort columns.
 		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => ({
 			column_index: columnSort.columnIndex,
@@ -298,12 +303,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override async fetchData(invalidateCacheFlags?: InvalidateCacheFlags) {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
+
+		// We update the cache as long as there is a column in the dataset.
+		// This allows datasets with column headers but zero rows to render
+		// the column headers in the data grid.
+		// See https://github.com/posit-dev/positron/issues/9619
+		if (columnDescriptor) {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
 				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				rowIndices: rowDescriptor ? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR) : []
 			});
 		}
 	}
@@ -788,6 +798,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
+		// Clear pinned rows whenever a filter is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the row filters.
 		await this._dataExplorerClientInstance.setRowFilters(filters);
 

@@ -160,8 +160,9 @@ export async function generateCommitMessage(
 		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
 			if (changes.length > 0) {
 				const response = await model.sendRequest([
+					new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
 					vscode.LanguageModelChatMessage.User(changes.map(change => change.summary).join('\n')),
-				], { modelOptions: { system } }, tokenSource.token);
+				], {}, tokenSource.token);
 
 				repo.inputBox.value = '';
 				for await (const delta of response.text) {

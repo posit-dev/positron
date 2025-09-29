@@ -1803,6 +1803,10 @@ declare module 'positron' {
 		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
+		 * @param sessionId An optional session ID to execute the code in. If
+		 *  not provided, an appropriate session will be chosen, and if no
+		 *  session for the desired language is running at all, a new session
+		 *  will be started.
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
@@ -1812,7 +1816,8 @@ declare module 'positron' {
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
-			observer?: ExecutionObserver): Thenable<Record<string, any>>;
+			observer?: ExecutionObserver,
+			sessionId?: string): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -2172,6 +2177,7 @@ declare module 'positron' {
 			project?: string;
 			location?: string;
 			numCtx?: number;
+			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
 			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key

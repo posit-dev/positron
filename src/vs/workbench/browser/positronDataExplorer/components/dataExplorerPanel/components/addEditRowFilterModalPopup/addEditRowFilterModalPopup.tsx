@@ -115,6 +115,18 @@ const isSingleParam = (filterType: RowFilterDescrType | undefined) => {
 };
 
 /**
+ * Checks whether a RowFilterDescrType takes two parameters.
+ * @param filterType A row filter descr type.
+ * @returns Whether the filter takes two parameters.
+ */
+const isTwoParams = (filterType: RowFilterDescrType | undefined) => {
+	if (filterType === undefined) {
+		return false;
+	}
+	return filterNumParams(filterType) === 2;
+}
+
+/**
  * AddEditRowFilterModalPopupProps interface.
  */
 interface AddEditRowFilterModalPopupProps {
@@ -768,6 +780,32 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		setErrorText(undefined);
 	};
 
+	const handleSelectionChanged = (dropDownListBoxItem: DropDownListBoxItem<RowFilterDescrType, void>) => {
+		const prevSelected = selectedFilterType;
+		const nextSelected = dropDownListBoxItem.options.identifier;
+
+		// Set the selected condition.
+		setSelectedFilterType(nextSelected);
+
+		// We need to clear the filter values and error text if we are changing
+		// between filter types that have a different numbers of parameters.
+		if (filterNumParams(prevSelected) !== filterNumParams(nextSelected)) {
+			if (
+				(isSingleParam(prevSelected) && isTwoParams(nextSelected)) ||
+				(isTwoParams(prevSelected) && isSingleParam(nextSelected))
+			) {
+				// If we are going from single param to two params, or
+				// from two params to single param, we keep the first
+				// param value and clear everything else.
+				setSecondRowFilterValue('');
+				setErrorText(undefined);
+			} else {
+				// In all other cases, we clear everything.
+				clearFilterValuesAndErrorText();
+			}
+		}
+	};
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -809,17 +847,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						'positron.addEditRowFilter.selectCondition',
 						"Select Condition"
 					))()}
-					onSelectionChanged={dropDownListBoxItem => {
-						const prevSelected = selectedFilterType;
-						const nextSelected = dropDownListBoxItem.options.identifier;
-						// Set the selected condition.
-						setSelectedFilterType(nextSelected);
-
-						// Clear the filter values and error text.
-						if (!(isSingleParam(prevSelected) && isSingleParam(nextSelected))) {
-							clearFilterValuesAndErrorText();
-						}
-					}}
+					onSelectionChanged={handleSelectionChanged}
 				/>
 
 				{firstRowFilterParameterComponent}
