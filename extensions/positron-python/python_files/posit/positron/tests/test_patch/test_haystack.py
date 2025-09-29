@@ -3,12 +3,18 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import sys
 from typing import Any, Dict
 from unittest.mock import patch
+
+import pytest
 
 from positron.positron_ipkernel import PositronShell
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14), reason="haystack is not installed at all on 3.14 yet"
+)
 def test_haystack_patch_automatically_applied(shell: PositronShell):
     """
     Test that the haystack is_in_jupyter function is automatically patched to return True.

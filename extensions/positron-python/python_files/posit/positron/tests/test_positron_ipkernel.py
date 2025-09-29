@@ -24,6 +24,11 @@ from positron.utils import alias_home
 from .conftest import PositronShell
 from .utils import assert_register_table_called
 
+try:
+    import lightning
+except ImportError:
+    lightning = None
+
 # The idea for these tests is to mock out communications with Positron
 # via our various comms, and only test IPython interactions. For
 # example, in testing the %view magic, we assert that running a cell
@@ -420,6 +425,7 @@ def test_console_warning_logger(shell: PositronShell, caplog, warning_kwargs):
         assert "this is a warning" in caplog.text
 
 
+@pytest.mark.skipif(lightning is None, reason="lightning is not installed")
 def test_import_lightning_and_torch_dynamo(shell: PositronShell) -> None:
     # See: https://github.com/posit-dev/positron/issues/5879
     shell.run_cell("import lightning").raise_error()

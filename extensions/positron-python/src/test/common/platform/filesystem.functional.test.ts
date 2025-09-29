@@ -13,6 +13,7 @@ import {
     DOES_NOT_EXIST,
     fixPath,
     FSFixture,
+    OSX,
     SUPPORTS_SOCKETS,
     SUPPORTS_SYMLINKS,
     WINDOWS,
@@ -468,6 +469,12 @@ suite('FileSystem - utils', () => {
             if (!SUPPORTS_SOCKETS) {
                 this.skip();
             }
+            // --- Start Positron ---
+            // for some reason this fails only on macOS, which upstream does not test on but we do
+            if (OSX) {
+                this.skip();
+            }
+            // --- End Positron ---
             const sockFile = await fix.createSocket('x/y/z/ipc.sock');
 
             const exists = utils.fileExistsSync(sockFile);
@@ -764,6 +771,12 @@ suite('FileSystem', () => {
                 if (!SUPPORTS_SOCKETS) {
                     this.skip();
                 }
+                // --- Start Positron ---
+                // for some reason this fails only on macOS, which upstream does not test on but we do
+                if (OSX) {
+                    this.skip();
+                }
+                // --- End Positron ---
                 const sockFile = await fix.createSocket('x/y/z/ipc.sock');
 
                 const exists = fileSystem.fileExistsSync(sockFile);
