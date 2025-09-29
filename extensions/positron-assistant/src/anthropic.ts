@@ -334,9 +334,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 		this.modelListing = modelListing;
 
-		return new Promise((resolve) => {
-			resolve(modelListing);
-		});
+		return modelListing;
 	}
 }
 

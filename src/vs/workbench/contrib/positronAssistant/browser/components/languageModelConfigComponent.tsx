@@ -30,25 +30,37 @@ const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel
 const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
 const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
 
-function getProviderTermsOfServiceText(providerDisplayName: string) {
+function getProviderTermsOfServiceText(provider: IProvider) {
+	if (provider.id === 'openai-compatible') {
+		return localize(
+			'positron.languageModelConfig.openAiCompatible.tos',
+			'A custom provider is considered "Third Party Materials" as defined in the {posit-eula} and subject to the its {provider-tos} and {provider-privacy-policy}.',
+		);
+	}
 	return localize(
 		'positron.languageModelConfig.tos',
 		'{0} is considered "Third Party Materials" as defined in the {posit-eula} and subject to the {0} {provider-tos} and {provider-privacy-policy}.',
-		providerDisplayName,
+		provider.displayName,
 	);
 }
 
-function getProviderUsageDisclaimerText(providerDisplayName: string) {
+function getProviderUsageDisclaimerText(provider: IProvider) {
+	if (provider.id === 'openai-compatible') {
+		return localize(
+			'positron.languageModelConfig.openAiCompatible.tos2',
+			'Your use of the custom provider is optional and at your sole risk.',
+		);
+	}
 	return localize(
 		'positron.languageModelConfig.tos2',
 		'Your use of {0} is optional and at your sole risk.',
-		providerDisplayName,
+		provider.displayName,
 	);
 }
 
 function getProviderTermsOfServiceLink(providerId: string) {
 	switch (providerId) {
-		case 'anthropic':
+		case 'anthropic-api':
 			return 'https://www.anthropic.com/legal/consumer-terms';
 		case 'google':
 			return 'https://cloud.google.com/terms/service-terms';
@@ -61,7 +73,7 @@ function getProviderTermsOfServiceLink(providerId: string) {
 
 function getProviderPrivacyPolicyLink(providerId: string) {
 	switch (providerId) {
-		case 'anthropic':
+		case 'anthropic-api':
 			return 'https://www.anthropic.com/legal/privacy';
 		case 'google':
 			return 'https://policies.google.com/privacy';
@@ -139,14 +151,15 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>}
-		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
+		{showBaseUrl && <BaseUrl baseUrl={config.baseUrl} provider={props.source.provider} signedIn={authStatus === AuthStatus.SIGNED_IN} onChange={newBaseUrl => props.onChange({ ...config, baseUrl: newBaseUrl })} />}
 		<ExternalAPIKey envKeyName={source.defaults.apiKeyEnvVar} provider={source.provider.id} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
 
 // Language config parts
-const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBaseUrl: string) => void }) => {
+const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBaseUrl: string) => void, provider: IProvider }) => {
+	const baseUrlLabel = props.provider.id === 'openai-compatible' ? localize('positron.languageModelConfig.baseUrlOpenAICompatibleInputLabel', 'Base URL (must be OpenAI compatible)') : localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL');
 	return (<>
 		<div className='language-model-authentication-container' id='base-url-input'>
 			{
@@ -154,7 +167,7 @@ const BaseUrl = (props: { baseUrl?: string, signedIn?: boolean, onChange: (newBa
 					<p>{localize('positron.languageModelConfig.baseUrlSignedIn', "Base URL: {0}", props.baseUrl)}</p>
 					:
 					<LabeledTextInput
-						label={localize('positron.languageModelConfig.baseUrlInputLabel', 'Base URL')}
+						label={baseUrlLabel}
 						type='text'
 						value={props.baseUrl ?? ''}
 						onChange={e => { props.onChange(e.currentTarget.value) }} />
@@ -189,7 +202,7 @@ const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, o
 }
 
 const ProviderNotice = (props: { provider: IProvider }) => {
-	const termsOfServiceText = getProviderTermsOfServiceText(props.provider.displayName);
+	const termsOfServiceText = getProviderTermsOfServiceText(props.provider);
 	const termsOfService = interpolate(
 		termsOfServiceText,
 		(key) => {
@@ -214,7 +227,7 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 		},
 	)
 
-	const disclaimerText = getProviderUsageDisclaimerText(props.provider.displayName);
+	const disclaimerText = getProviderUsageDisclaimerText(props.provider);
 
 	return <div className='language-model-dialog-tos' id='model-tos'>
 		<p>{termsOfService}</p>

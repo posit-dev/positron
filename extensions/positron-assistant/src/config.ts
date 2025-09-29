@@ -139,10 +139,12 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const sources = [...getLanguageModels(), ...completionModels]
 		.map((provider) => {
 			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
-			provider.source.signedIn = !!isRegistered;
 			return {
 				...provider.source,
-				...(isRegistered && { defaults: { ...provider.source.defaults, ...isRegistered } })
+				signedIn: !!isRegistered,
+				defaults: isRegistered
+					? { ...provider.source.defaults, ...isRegistered }
+					: provider.source.defaults
 			};
 		})
 		.filter((source) => {

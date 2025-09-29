@@ -754,11 +754,11 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'openai-compatible',
-			displayName: 'OpenAI Compatible'
+			displayName: 'Custom Provider'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'OpenAI Compatible',
+			name: 'Custom Provider',
 			model: 'openai-compatible',
 			baseUrl: 'https://localhost:1337/v1',
 			toolCalls: true,
