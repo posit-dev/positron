@@ -24,7 +24,7 @@ pytest-mock
 syrupy
 torch; python_version < '3.14'
 scipy
-snowflake-connector-python
+snowflake-connector-python; python_version < '3.14'
 sqlalchemy
 
 # putting this last because holoviews is picky about dependency versions (including bokeh),

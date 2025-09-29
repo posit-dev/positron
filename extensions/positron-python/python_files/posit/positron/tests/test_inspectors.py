@@ -643,11 +643,11 @@ def test_inspect_pandas_dataframe() -> None:
 
 @pytest.mark.skipif(geopandas is None, reason="geopandas is not available")
 def test_inspect_geopandas_dataframe() -> None:
-    p1 = Polygon([(0, 0), (1, 0), (1, 1)])
-    p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
-    p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])
+    p1 = Polygon([(0, 0), (1, 0), (1, 1)])  # type: ignore
+    p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])  # type: ignore
+    p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])  # type: ignore
 
-    value = geopandas.GeoDataFrame({"g": geopandas.GeoSeries([p1, p2, p3]), "data": [0, 1, 2]})
+    value = geopandas.GeoDataFrame({"g": geopandas.GeoSeries([p1, p2, p3]), "data": [0, 1, 2]})  # type: ignore
 
     rows, cols = value.shape
 
@@ -725,11 +725,11 @@ def test_inspect_pandas_series(value: pd.Series) -> None:
 
 @pytest.mark.skipif(geopandas is None, reason="geopandas is not available")
 def test_inspect_geopandas_series() -> None:
-    value = geopandas.GeoSeries(
+    value = geopandas.GeoSeries(  # type: ignore
         [
-            Polygon([(0, 0), (1, 0), (1, 1)]),
-            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
-            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),
+            Polygon([(0, 0), (1, 0), (1, 1)]),  # type: ignore
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),  # type: ignore
+            Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),  # type: ignore
         ]
     )
     (rows,) = value.shape
@@ -889,11 +889,11 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
 @pytest.mark.skipif(ibis is None, reason="ibis not available")
 def test_inspect_ibis_exprs() -> None:
     # Make sure we don't return an executed repr
-    ibis.options.interactive = True
+    ibis.options.interactive = True  # type: ignore
 
     test_df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
     _, columns = test_df.shape
-    t = ibis.memtable(test_df, name="df")
+    t = ibis.memtable(test_df, name="df")  # type: ignore
     table_type = "ibis.Table"
 
     verify_inspector(
@@ -933,7 +933,7 @@ def test_inspect_ibis_exprs() -> None:
     [
         (lambda: np.array([[1, 2, 3], [4, 5, 6]], dtype="int64"), 48),
         pytest.param(
-            lambda: torch.Tensor([[1, 2, 3], [4, 5, 6]]),
+            lambda: torch.Tensor([[1, 2, 3], [4, 5, 6]]),  # type: ignore
             24,
             marks=pytest.mark.skipif(torch is None, reason="torch not available"),
         ),
@@ -998,7 +998,7 @@ class VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong:
         ),
         pytest.param(lambda: np.ones((20, 20)), id="numpy_array"),
         pytest.param(
-            lambda: torch.ones((20, 20)),
+            lambda: torch.ones((20, 20)),  # type: ignore
             id="torch_tensor",
             marks=pytest.mark.skipif(torch is None, reason="torch not available"),
         ),
