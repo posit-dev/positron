@@ -290,7 +290,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Get the current active state of the data explorer backend.
-	 * @returns A promose that resolves to the current backend state.
+	 * @returns A promise that resolves to the current backend state.
 	 */
 	async getBackendState(): Promise<BackendState> {
 		if (this._backendPromise) {
@@ -299,7 +299,11 @@ export class DataExplorerClientInstance extends Disposable {
 		} else if (this.cachedBackendState === undefined) {
 			// The state is being requested for the first time
 			return this.updateBackendState();
-		} else {
+		} else if (this._numPendingTasks > 0) {
+			// There are pending tasks, so refresh the state
+			return this.updateBackendState();
+		}
+		else {
 			// The state was previously computed
 			return this.cachedBackendState;
 		}
@@ -307,11 +311,31 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Requests a fresh update of the backend state and fires event to notify state listeners.
+	 * Ensures all in-flight backend tasks (like row filtering) complete before getting the state.
 	 * @returns A promise that resolves to the latest table state.
 	 */
 	async updateBackendState(): Promise<BackendState> {
 		if (this._backendPromise) {
 			return this._backendPromise;
+		}
+
+		// If there are pending tasks, wait for them to complete first
+		if (this._numPendingTasks > 0) {
+			// Create a promise that resolves when all pending tasks complete
+			const waitForPendingTasks = new Promise<void>((resolve) => {
+				const checkPendingTasks = () => {
+					if (this._numPendingTasks === 0) {
+						resolve();
+					} else {
+						// Check again after a small delay
+						setTimeout(checkPendingTasks, 50);
+					}
+				};
+				checkPendingTasks();
+			});
+
+			// Wait for all pending tasks to complete before getting state
+			await waitForPendingTasks;
 		}
 
 		this._backendPromise = this.runBackendTask(
