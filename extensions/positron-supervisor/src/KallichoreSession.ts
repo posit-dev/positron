@@ -1206,6 +1206,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.waitForIdle().then(() => {
 				this.markReady('idle after busy reconnect');
 			});
+		} else if (runtimeInfo) {
+			// If we got runtime info from the kernel when starting the
+			// session, we're ready to go.
+			this.markReady('reconnecting to idle session');
 		}
 
 		// If we don't have runtime info yet, get it now.
