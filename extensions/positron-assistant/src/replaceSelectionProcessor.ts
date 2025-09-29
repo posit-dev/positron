@@ -33,31 +33,31 @@ export class ReplaceSelectionProcessor {
 	) {
 		this._lexer = new StreamingTagLexer({
 			tagNames: ['replaceSelection'],
-			contentHandler: (chunk) => {
-				this.processChunk(chunk);
+			contentHandler: async (chunk) => {
+				await this.processChunk(chunk);
 			}
 		});
 	}
 
-	process(text: string): void {
-		this._lexer.process(text);
+	async process(text: string): Promise<void> {
+		await this._lexer.process(text);
 	}
 
-	flush(): void {
-		this._lexer.flush();
+	async flush(): Promise<void> {
+		await this._lexer.flush();
 		// Also flush the default text processor if available
 		if (this._defaultTextProcessor) {
-			this._defaultTextProcessor.flush();
+			await this._defaultTextProcessor.flush();
 		}
 	}
 
-	private processChunk(chunk: any): void {
+	private async processChunk(chunk: any): Promise<void> {
 		// Proceed through the states in the expected order.
 		// NOTE: This does not currently handle unexpected or out-of-order tags.
 		switch (this._state) {
 			case 'pending_replaceSelection_open': {
 				if (chunk.type === 'text') {
-					this.onPlainText(chunk.text);
+					await this.onPlainText(chunk.text);
 				} else if (chunk.type === 'tag' && chunk.kind === 'open' && chunk.name === 'replaceSelection') {
 					this._state = 'pending_replaceSelection_close';
 				}
@@ -75,10 +75,10 @@ export class ReplaceSelectionProcessor {
 		}
 	}
 
-	private onPlainText(text: string): void {
+	private async onPlainText(text: string): Promise<void> {
 		// Outside of a replaceSelection tag, delegate to the default text processor if available
 		if (this._defaultTextProcessor) {
-			this._defaultTextProcessor.process(text);
+			await this._defaultTextProcessor.process(text);
 		} else {
 			// Fallback to treating it as markdown
 			this._response.markdown(text);

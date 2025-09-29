@@ -20,18 +20,18 @@ export class DefaultTextProcessor {
 	) {
 		this._lexer = new StreamingTagLexer({
 			tagNames: ['warning'],
-			contentHandler: (chunk) => {
-				this.processChunk(chunk);
+			contentHandler: async (chunk) => {
+				await this.processChunk(chunk);
 			}
 		});
 	}
 
-	process(text: string): void {
-		this._lexer.process(text);
+	async process(text: string): Promise<void> {
+		await this._lexer.process(text);
 	}
 
-	flush(): void {
-		this._lexer.flush();
+	async flush(): Promise<void> {
+		await this._lexer.flush();
 
 		// If we have buffered warning content at the end, emit it
 		if (this._warningBuffer.trim()) {
@@ -40,7 +40,7 @@ export class DefaultTextProcessor {
 		}
 	}
 
-	private processChunk(chunk: any): void {
+	private async processChunk(chunk: any): Promise<void> {
 		if (chunk.type === 'tag' && chunk.name === 'warning') {
 			if (chunk.kind === 'open') {
 				this._insideWarning = true;
@@ -53,6 +53,7 @@ export class DefaultTextProcessor {
 			}
 		} else if (chunk.type === 'text') {
 			if (this._insideWarning) {
+				// Buffer warning text until the closing tag
 				this._warningBuffer += chunk.text;
 			} else {
 				// All non-warning text goes to markdown
