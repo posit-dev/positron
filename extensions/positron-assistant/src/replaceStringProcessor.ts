@@ -4,16 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Chunk } from './streamingTagLexer.js';
-
-export type ReplaceStringTag = typeof ReplaceStringProcessor.TagNames[number];
+import { StreamingTagLexer } from './streamingTagLexer.js';
+import { DefaultTextProcessor } from './defaultTextProcessor.js';
 
 /**
  * A streaming tag processor that handles string replacement operations.
  */
 export class ReplaceStringProcessor {
-	/** The names of the tags that this processor can handle. */
-	public static readonly TagNames = ['replaceString', 'old', 'new'] as const;
+	private readonly _lexer: StreamingTagLexer<string>;
 
 	/** The current state of the processor. */
 	private _state:
@@ -36,9 +34,29 @@ export class ReplaceStringProcessor {
 	constructor(
 		private readonly _document: vscode.TextDocument,
 		private readonly _response: vscode.ChatResponseStream,
-	) { }
+		private readonly _defaultTextProcessor?: DefaultTextProcessor,
+	) {
+		this._lexer = new StreamingTagLexer({
+			tagNames: ['replaceString', 'old', 'new'],
+			contentHandler: (chunk) => {
+				this.processChunk(chunk);
+			}
+		});
+	}
 
-	process(chunk: Chunk<ReplaceStringTag>) {
+	process(text: string): void {
+		this._lexer.process(text);
+	}
+
+	flush(): void {
+		this._lexer.flush();
+		// Also flush the default text processor if available
+		if (this._defaultTextProcessor) {
+			this._defaultTextProcessor.flush();
+		}
+	}
+
+	private processChunk(chunk: any): void {
 		// Proceed through the states in the expected order.
 		// NOTE: This does not currently handle unexpected or out-of-order tags.
 		switch (this._state) {
@@ -89,8 +107,13 @@ export class ReplaceStringProcessor {
 	}
 
 	private onPlainText(text: string) {
-		// Outside of a replaceString tag, just treat it as markdown.
-		this._response.markdown(text);
+		// Outside of a replaceString tag, delegate to the default text processor if available
+		if (this._defaultTextProcessor) {
+			this._defaultTextProcessor.process(text);
+		} else {
+			// Fallback to treating it as markdown
+			this._response.markdown(text);
+		}
 	}
 
 	private onOldText(text: string) {

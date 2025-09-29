@@ -4,14 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Chunk } from './streamingTagLexer.js';
-
-export type ReplaceSelectionTag = typeof ReplaceSelectionProcessor.TagNames[number];
+import { StreamingTagLexer } from './streamingTagLexer.js';
+import { DefaultTextProcessor } from './defaultTextProcessor.js';
 
 /** A streaming tag processor that handles selection replacement operations. */
 export class ReplaceSelectionProcessor {
-	/** The names of the tags that this processor can handle. */
-	public static readonly TagNames = ['replaceSelection'] as const;
+	private readonly _lexer: StreamingTagLexer<string>;
 
 	/** The current state of the processor. */
 	private _state:
@@ -31,9 +29,29 @@ export class ReplaceSelectionProcessor {
 		private readonly _uri: vscode.Uri,
 		private readonly _selection: vscode.Selection,
 		private readonly _response: vscode.ChatResponseStream,
-	) { }
+		private readonly _defaultTextProcessor?: DefaultTextProcessor,
+	) {
+		this._lexer = new StreamingTagLexer({
+			tagNames: ['replaceSelection'],
+			contentHandler: (chunk) => {
+				this.processChunk(chunk);
+			}
+		});
+	}
 
-	process(chunk: Chunk<ReplaceSelectionTag>): void {
+	process(text: string): void {
+		this._lexer.process(text);
+	}
+
+	flush(): void {
+		this._lexer.flush();
+		// Also flush the default text processor if available
+		if (this._defaultTextProcessor) {
+			this._defaultTextProcessor.flush();
+		}
+	}
+
+	private processChunk(chunk: any): void {
 		// Proceed through the states in the expected order.
 		// NOTE: This does not currently handle unexpected or out-of-order tags.
 		switch (this._state) {
@@ -58,8 +76,13 @@ export class ReplaceSelectionProcessor {
 	}
 
 	private onPlainText(text: string): void {
-		// Outside of a replaceSelection tag, just treat it as markdown.
-		this._response.markdown(text);
+		// Outside of a replaceSelection tag, delegate to the default text processor if available
+		if (this._defaultTextProcessor) {
+			this._defaultTextProcessor.process(text);
+		} else {
+			// Fallback to treating it as markdown
+			this._response.markdown(text);
+		}
 	}
 
 	private onReplaceSelectionText(text: string): void {
