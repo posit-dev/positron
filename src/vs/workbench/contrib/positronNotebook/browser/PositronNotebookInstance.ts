@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getSelectedCell, getSelectedCells, OperationSource, OperationType, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -439,6 +439,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._modelStore.clear();
 		this._modelStore.add(model.onDidChangeContent((e) => {
+			// Check if this is an undo/redo operation (not initiated by user)
+			if (!this._isUserOperation) {
+				// This change wasn't initiated by a user operation, so it's likely undo/redo
+				this.selectionStateMachine.setOperationContext(OperationType.Unknown, OperationSource.UndoRedo);
+			}
+			// Reset the flag for the next operation
+			this._isUserOperation = false;
+
 			// Check if cells are in the same order by comparing references
 			const newCells = model.cells;
 
@@ -1000,6 +1008,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// =============================================================================================
 	// #region Clipboard Methods
+
+	/**
+	 * Flag to track if the current operation was initiated by the user
+	 */
+	private _isUserOperation: boolean = false;
 
 	/**
 	 * Internal clipboard for storing cells with full fidelity
