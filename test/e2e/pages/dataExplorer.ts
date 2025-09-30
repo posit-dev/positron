@@ -210,7 +210,7 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private rowHeaders = this.code.driver.page.locator('.data-grid-row-headers');
+	private rowHeader = this.code.driver.page.locator('.data-grid-row-header');
 	private columnHeaders = this.code.driver.page.locator(HEADER_TITLES);
 	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
 	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
@@ -321,15 +321,23 @@ export class DataGrid {
 	}
 
 	/**
+	 * Copy a column by its position
+	 * @param colPosition (position is 0-based)
+	 */
+	async copyColumn(colPosition: number) {
+		await test.step(`Copy column at 0-based position: ${colPosition}`, async () => {
+			await this.jumpToStart(); // make sure we are at the start so our index is accurate
+			await this.selectColumnAction(colPosition + 1, 'Copy Column'); // selectColumnAction is 1-based
+		});
+	}
+
+	/**
 	 * Pin a row by its position
 	 * @param rowPosition (position is 0-based)
 	 */
 	async pinRow(rowPosition: number) {
 		await test.step(`Pin row at 0-based position: ${rowPosition}`, async () => {
-			await this.code.driver.page
-				// rowPosition is 0-based, nth-child is 1-based
-				.locator(`.data-grid-row-headers > div:nth-child(${rowPosition + 1})`)
-				.click({ button: 'right' });
+			await this.rowHeader.nth(rowPosition).click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
 		});
 	}
@@ -363,20 +371,21 @@ export class DataGrid {
 	/**
 	 * Click a column header by its title
 	 * @param columnTitle The exact title of the column to click
+	 * @param options Optional parameters (e.g., right-click)
 	 */
-	async clickColumnHeader(columnTitle: string) {
+	async clickColumnHeader(columnTitle: string, options?: { button: 'left' | 'right' }) {
 		await test.step(`Click column header: ${columnTitle}`, async () => {
-			await this.columnHeaders.getByText(columnTitle).click();
+			await this.columnHeaders.getByText(columnTitle).click({ button: options?.button ?? 'left' });
 		});
 	}
 
 	/**
-	 * Click a row header by its visual position
+	 * Click a row header by its position
 	 * Index is 1-based to match UI
 	 **/
 	async clickRowHeader(rowIndex: number) {
 		await test.step(`Click row header: ${rowIndex}`, async () => {
-			await this.rowHeaders.getByText(rowIndex.toString(), { exact: true }).click();
+			await this.rowHeader.nth(rowIndex).click();
 		});
 	}
 
@@ -964,4 +973,4 @@ export interface ColumnProfile {
 
 export type CellPosition = { row: number; col: number };
 
-export type ColumnRightMenuOption = 'Copy' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';
+export type ColumnRightMenuOption = 'Copy Column' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';

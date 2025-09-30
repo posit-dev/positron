@@ -49,7 +49,7 @@ export async function getIpykernelBundle(
 
     // Check if ipykernel is bundled for the interpreter version.
     // (defined in scripts/pip-compile-ipykernel.py).
-    if (interpreter.version?.major !== 3 || ![9, 10, 11, 12, 13].includes(interpreter.version?.minor)) {
+    if (interpreter.version?.major !== 3 || ![9, 10, 11, 12, 13, 14].includes(interpreter.version?.minor)) {
         return { disabledReason: `unsupported interpreter version: ${interpreter.version?.raw}` };
     }
 

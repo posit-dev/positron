@@ -22,7 +22,10 @@ export async function explainHandler(
 	_token: vscode.CancellationToken,
 	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
-	context.systemPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/explain.md`, 'utf8');
+	const defaultPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/default.md`, 'utf8');
+	const explainPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/explain.md`, 'utf8');
+
+	context.systemPrompt = defaultPrompt + '\n\n' + explainPrompt;
 
 	return handleDefault();
 }
