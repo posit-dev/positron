@@ -541,11 +541,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 		}
 
-		// When the user is holding the shift key, invert delta X and delta Y.
-		if (e.shiftKey) {
-			[deltaX, deltaY] = [deltaY, deltaX];
-		}
-
 		// If the alt key is pressed, scroll by 10 times the delta X and delta Y.
 		if (e.altKey) {
 			deltaX *= 10;

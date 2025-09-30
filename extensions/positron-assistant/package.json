@@ -271,10 +271,10 @@
           },
           "positron.assistant.consoleActions.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "description": "%configuration.consoleActions.enable.description%",
             "tags": [
-              "experimental"
+              "preview"
             ]
           },
 		  "positron.assistant.providerTimeout": {
