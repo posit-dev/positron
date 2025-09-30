@@ -429,10 +429,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					let sessionContent = JSON.stringify(sessionReference.value.activeSession, null, 2);
 					if (sessionReference.value.variables) {
 						// Include the session variables in the session content.
-						const variablesSummary = JSON.stringify(sessionReference.value.variables, null, 2);
+						// In Python, `kind` provides a more accurate type than `display_type`, so
+						// we'll include both.
+						const variablesSummary = sessionReference.value.variables.map((v) => {
+							return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
+						}).join('\n');
 						sessionContent += '\n' + xml.node('variables', variablesSummary);
 					}
-					sessionPrompts.push(xml.node('session', sessionContent));
+					sessionPrompts.push(xml.node('session', sessionContent, {
+						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type`.',
+					}));
 					log.debug(`[context] adding session context for session ${sessionReference.value.activeSession!.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
