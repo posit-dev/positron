@@ -29,15 +29,20 @@ type CreateUserResponse = {
 	guid: string;
 };
 
+type ServerSettingsResponse = {
+	installations?: Array<{ version?: string }>;
+	api_enabled?: boolean;
+};
+
+const apiServer = 'http://localhost:3939/__api__/v1/';
+
 export class PositConnect {
 
-	private connectApiUrl: string;
 	private headers: Record<string, string>;
 	private connectApiKey: string;
 
 	constructor(private code: Code) {
 		this.code = code;
-		this.connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
 		this.headers = {};
 		this.connectApiKey = '';
 	}
@@ -46,6 +51,14 @@ export class PositConnect {
 		this.connectApiKey = key;
 		this.headers['Authorization'] = `Key ${this.connectApiKey}`;
 	}
+
+	getConnectApiKey() {
+		return this.connectApiKey;
+	}
+
+	// Create a new user and return the user guid
+	// Note: This function does not check for existing users with the same username/email
+	// It is the caller's responsibility to ensure uniqueness if needed
 
 	async createUser(): Promise<string> {
 		const body: CreateUserBody = {
@@ -57,7 +70,7 @@ export class PositConnect {
 			username: 'user1',
 		};
 
-		const res = await fetch('http://localhost:3939/__api__/v1/users', {
+		const res = await fetch(`${apiServer}users`, {
 			method: 'POST',
 			headers: this.headers,
 			body: JSON.stringify(body),
@@ -76,36 +89,16 @@ export class PositConnect {
 	}
 
 
-	async deleteUserContent() {
-		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
-			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
-		}
+	async getPythonVersions(): Promise<string[]> {
+		const res = await fetch(`${apiServer}server_settings/python`, {
+			headers: this.headers
+		});
+		if (!res.ok) { throw new Error(`HTTP ${res.status} ${res.statusText}`); }
 
-		const userGuid = await this.getUser();
-
-		const appInfo = await (await fetch(this.connectApiUrl + `content?owner_guid=${userGuid}`, { headers: this.headers })).json();
-
-		for (const app of appInfo) {
-			const guid = app.guid as string;
-
-			const response = await fetch(`${this.connectApiUrl}content/${guid}`, {
-				method: 'DELETE',
-				headers: this.headers,
-			});
-
-			if (response.status !== 204) {
-				throw new Error(`Failed to delete content with GUID: ${guid}`);
-			}
-		}
-	}
-
-	async getUser(): Promise<string> {
-		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
-			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
-		}
-
-		const userGuid = (await (await fetch(this.connectApiUrl + 'user', { headers: this.headers })).json()).guid;
-		return userGuid;
+		const data = (await res.json()) as ServerSettingsResponse;
+		return Array.from(
+			new Set((data.installations ?? []).map(i => i.version).filter((v): v is string => !!v))
+		);
 	}
 
 	// To prevent flakiness, this function always add the file name after app.py, which is guaranteed to be present
