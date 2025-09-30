@@ -665,7 +665,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					const cellToFocus = this.cells.get()[targetFocusIndex];
 					if (cellToFocus) {
 						this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
-						cellToFocus.focus();
+						// React will handle focus based on selection state change
 					}
 				}
 			}, 0));

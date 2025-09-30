@@ -118,11 +118,6 @@ export interface IPositronNotebookCell extends Disposable {
 	isOnlyCell(): boolean;
 
 	/**
-	 * Set focus to this cell
-	 */
-	focus(): void;
-
-	/**
 	 * Observable that signals when the editor should receive focus.
 	 * Automatically resets after being consumed (one-shot signal).
 	 */
