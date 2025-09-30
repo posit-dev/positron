@@ -839,7 +839,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
 			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
-			return defaultSystem + '\n\n' + editor;
+			return defaultSystem + '\n\n' + ask + '\n\n' + editor;
 		}
 
 		// If the user has selected text, generate a new version of the selection.
