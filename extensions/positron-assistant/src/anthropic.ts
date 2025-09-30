@@ -299,8 +299,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		const cfg = vscode.workspace.getConfiguration('positron.assistant');
+		const timeoutMs = cfg.get<number>('providerTimeout', 60) * 1000;
 		try {
-			await this._client.models.list();
+			await this._client.withOptions({ timeout: timeoutMs }).models.list();
 		} catch (error) {
 			return error as Error;
 		}
