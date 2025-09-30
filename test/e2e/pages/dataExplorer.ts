@@ -321,6 +321,17 @@ export class DataGrid {
 	}
 
 	/**
+	 * Copy a column by its position
+	 * @param colPosition (position is 0-based)
+	 */
+	async copyColumn(colPosition: number) {
+		await test.step(`Copy column at 0-based position: ${colPosition}`, async () => {
+			await this.jumpToStart(); // make sure we are at the start so our index is accurate
+			await this.selectColumnAction(colPosition + 1, 'Copy Column'); // selectColumnAction is 1-based
+		});
+	}
+
+	/**
 	 * Pin a row by its position
 	 * @param rowPosition (position is 0-based)
 	 */
@@ -360,10 +371,11 @@ export class DataGrid {
 	/**
 	 * Click a column header by its title
 	 * @param columnTitle The exact title of the column to click
+	 * @param options Optional parameters (e.g., right-click)
 	 */
-	async clickColumnHeader(columnTitle: string) {
+	async clickColumnHeader(columnTitle: string, options?: { button: 'left' | 'right' }) {
 		await test.step(`Click column header: ${columnTitle}`, async () => {
-			await this.columnHeaders.getByText(columnTitle).click();
+			await this.columnHeaders.getByText(columnTitle).click({ button: options?.button ?? 'left' });
 		});
 	}
 
@@ -961,4 +973,4 @@ export interface ColumnProfile {
 
 export type CellPosition = { row: number; col: number };
 
-export type ColumnRightMenuOption = 'Copy' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';
+export type ColumnRightMenuOption = 'Copy Column' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';

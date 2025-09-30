@@ -29,7 +29,7 @@ from .utils import (
 )
 
 try:
-    import torch  # type: ignore [reportMissingImports] for 3.12
+    import torch
 except ImportError:
     torch = None
 
@@ -104,7 +104,8 @@ def test_set_console_width(ui_comm: DummyComm) -> None:
     assert np.get_printoptions()["linewidth"] == width
     assert pd.get_option("display.width") is None
     assert pl.Config.state()["POLARS_TABLE_WIDTH"] == str(width)
-    assert torch._tensor_str.PRINT_OPTS.linewidth == width  # type: ignore[reportGeneralTypeIssues]  # noqa: SLF001
+    if torch is not None:
+        assert torch._tensor_str.PRINT_OPTS.linewidth == width  # type: ignore[reportGeneralTypeIssues]  # noqa: SLF001
 
 
 def test_open_editor(ui_service: UiService, ui_comm: DummyComm) -> None:
