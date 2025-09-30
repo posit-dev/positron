@@ -21,11 +21,10 @@ export function WorkbenchAppFixture() {
 	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
 		const { options, logsPath, logger, workerInfo } = fixtureOptions;
 
-		const app = createApp(options);
+		const { workspacePath } = await setupWorkbenchEnvironment();
+		const app = createApp({ ...options, workspacePath });
 
 		try {
-			// Setup Docker environment and copy configuration
-			await setupWorkbenchEnvironment();
 			await app.connectToExternalServer();
 
 			// Workbench: Login to Posit Workbench
@@ -61,25 +60,31 @@ export function WorkbenchAppFixture() {
 /**
  * Setup the complete Workbench environment: Docker container, configuration, and permissions
  */
-async function setupWorkbenchEnvironment(): Promise<void> {
-	// Create workspace and settings directories
-	await runDockerCommand('docker exec test mkdir -p /home/user1/qa-example-content/', 'Create workspace directory');
-	await runDockerCommand('docker exec test mkdir -p /home/user1/.positron-server/User/', 'Create settings directory');
+async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; userDataDir: string }> {
+	const WORKBENCH_WORKSPACES_PATH = '/home/user1/qa-example-content/'
+	const WORKBENCH_USER_DATA_DIR = '/home/user1/.positron-server/User/';
 
-	// Copy workspace to container
+	// Create workspace and settings directories
+	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACES_PATH}`, 'Create workspace directory');
+	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
+
+	// Copy qa-example-content workspace to container
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
-	const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-	await runDockerCommand(`docker cp ${WORKSPACE_PATH}/. test:/home/user1/qa-example-content/`, 'Copy workspace to container');
+	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
+
+	await runDockerCommand(`docker cp ${DEFAULT_WORKSPACE_PATH}/. test:${WORKBENCH_WORKSPACES_PATH}`, 'Copy workspace to container');
 
 	// Copy settings to container
 	await copyUserSettingsToContainer();
 	await copyKeyBindingsToContainer();
 
 	// Fix permissions
-	await runDockerCommand('docker exec test chown -R user1:user1g /home/user1/.positron-server/', 'Set ownership of settings directory');
-	await runDockerCommand('docker exec test chown -R user1 /home/user1/qa-example-content/', 'Set ownership of workspace directory');
-	await runDockerCommand('docker exec test chmod -R 755 /home/user1/.positron-server/User/', 'Set permissions of settings directory');
-	await runDockerCommand('docker exec test chmod -R 755 /home/user1/qa-example-content/', 'Set permissions of workspace directory');
+	await runDockerCommand(`docker exec test chown -R user1:user1g ${WORKBENCH_USER_DATA_DIR}`, 'Set ownership of settings directory');
+	await runDockerCommand(`docker exec test chown -R user1 ${WORKBENCH_WORKSPACES_PATH}`, 'Set ownership of workspace directory');
+	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_USER_DATA_DIR}`, 'Set permissions of settings directory');
+	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_WORKSPACES_PATH}`, 'Set permissions of workspace directory');
+
+	return { workspacePath: WORKBENCH_WORKSPACES_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
 }
 
 /**
