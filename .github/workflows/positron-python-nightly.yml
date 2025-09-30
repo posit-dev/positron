@@ -11,7 +11,7 @@ defaults:
   working-directory: 'extensions/positron-python'
 
 env:
-  NODE_VERSION: '18.17.1'
+  NODE_VERSION: '22.17.0'
   PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
@@ -43,6 +43,8 @@ jobs:
             python: '3.12'
           - os: 'ubuntu-latest'
             python: '3.13'
+          - os: 'ubuntu-latest'
+            python: '3.14'
 
 
     steps:
@@ -97,6 +99,8 @@ jobs:
             python: '3.12'
           - os: 'ubuntu-latest'
             python: '3.13'
+          - os: 'ubuntu-latest'
+            python: '3.14'
 
 
     steps:

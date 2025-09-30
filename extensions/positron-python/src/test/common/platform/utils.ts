@@ -28,7 +28,11 @@ export const SUPPORTS_SYMLINKS = (() => {
     return true;
 })();
 export const SUPPORTS_SOCKETS = (() => {
-    if (WINDOWS) {
+    // --- Start Positron ---
+    // Upstream doesn't run on OSX but that seems to fail too.
+    // if (WINDOWS) {
+    if (WINDOWS || OSX) {
+        // --- End Positron ---
         // Windows requires named pipes to have a specific path under
         // the local domain ("\\.\pipe\*").  This makes them relatively
         // useless in our functional tests, where we want to use them
