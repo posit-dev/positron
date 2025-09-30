@@ -24,6 +24,7 @@ import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 
 
 export function PositronNotebookComponent() {
@@ -35,6 +36,11 @@ export function PositronNotebookComponent() {
 	React.useEffect(() => {
 		notebookInstance.setCellsContainer(containerRef.current);
 	}, [notebookInstance]);
+
+	// Observe scroll events and fire to notebook instance
+	useScrollObserver(containerRef, React.useCallback(() => {
+		notebookInstance.fireScrollEvent();
+	}, [notebookInstance]));
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
