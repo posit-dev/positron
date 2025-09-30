@@ -48,7 +48,7 @@ const stateLabelStarting = localize('positronConsoleState.Starting', "Starting")
 const stateLabelInterrupting = localize('positronConsoleState.Interrupting', "Interrupting");
 const stateLabelShuttingDown = localize('positronConsoleState.ShuttingDown', "Shutting down");
 const stateLabelRestarting = localize('positronConsoleState.Restarting', "Restarting");
-const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Reconnecting");
+const stateLabelReconnecting = localize('positronConsoleState.Reconnecting', "Reconnecting");
 
 /**
  * Localized strings for UI.
@@ -84,7 +84,7 @@ function labelForState(state: RuntimeState): string {
 
 		case RuntimeState.Offline:
 			// We attempt to reconnect to the runtime when it goes offline.
-			return stateLabelReconecting;
+			return stateLabelReconnecting;
 
 		default:
 			return '';
@@ -226,6 +226,7 @@ export const ActionBar = (props: ActionBarProps) => {
 						break;
 
 					case RuntimeState.Busy:
+						setStateLabel(labelForState(state));
 						setInterruptible(true);
 						setCanShutdown(true);
 						setCanStart(false);
