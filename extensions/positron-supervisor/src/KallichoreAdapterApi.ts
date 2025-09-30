@@ -18,7 +18,6 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { DapComm } from './DapComm';
-import { KernelInfoReply } from './jupyter/KernelInfoRequest.js';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
