@@ -61,6 +61,8 @@ export function WorkbenchAppFixture() {
  * Setup the complete Workbench environment: Docker container, configuration, and permissions
  */
 async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; userDataDir: string }> {
+	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
+	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 	const WORKBENCH_WORKSPACE_PATH = '/home/user1/qa-example-content/'
 	const WORKBENCH_USER_DATA_DIR = '/home/user1/.positron-server/User/';
 
@@ -69,9 +71,6 @@ async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; use
 	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
 
 	// Copy qa-example-content workspace to container
-	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
-	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-
 	await runDockerCommand(`docker cp ${DEFAULT_WORKSPACE_PATH}/. test:${WORKBENCH_WORKSPACE_PATH}`, 'Copy workspace to container');
 
 	// Copy settings to container
