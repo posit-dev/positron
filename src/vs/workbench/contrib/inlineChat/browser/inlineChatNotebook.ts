@@ -17,7 +17,7 @@ import { NotebookTextDiffEditor } from '../../notebook/browser/diff/notebookDiff
 import { NotebookMultiTextDiffEditor } from '../../notebook/browser/diff/notebookMultiDiffEditor.js';
 // --- Start Positron ---
 // Imports to support inline chat in Positron notebooks.
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 // --- End Positron ---
 
 export class InlineChatNotebookContribution {

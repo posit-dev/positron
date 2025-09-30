@@ -19,7 +19,7 @@ import { INotebookExecutionService } from '../../../notebook/common/notebookExec
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IPositronNotebookService } from '../../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from '../../browser/positronNotebookService.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { Event } from '../../../../../base/common/event.js';
 
