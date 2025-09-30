@@ -2443,17 +2443,25 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const newWorkingDirectoryResolved = untildify(newWorkingDirectory, userHomePath);
 
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
-			// For display, create relative paths to the workspace
+			// Format the paths for display
 			const path = await this._pathService.path;
 			const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(newUri) || undefined;
 			const workspaceFolderName = workspaceFolder ? workspaceFolder.name : '';
 
-			const currentWorkingDirectoryDisplay = workspaceFolder ?
-				path.join(workspaceFolderName, path.relative(workspaceFolder.uri.fsPath, currentWorkingDirectoryResolved)) :
-				currentWorkingDirectoryResolved;
-			const newWorkingDirectoryDisplay = workspaceFolder ?
-				path.join(workspaceFolderName, path.relative(workspaceFolder.uri.fsPath, newWorkingDirectoryResolved)) :
-				newWorkingDirectoryResolved;
+			// Convert an absolute path to a display path relative to the workspace folder if it's inside it
+			const makeDisplayPath = function (p: string): string {
+				if (!workspaceFolder) {
+					return p;
+				}
+				const relativePath = path.relative(workspaceFolder.uri.fsPath, p);
+				if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+					return p;
+				}
+				return path.join(workspaceFolderName, relativePath);
+			}
+
+			const currentWorkingDirectoryDisplay = makeDisplayPath(currentWorkingDirectoryResolved);
+			const newWorkingDirectoryDisplay = makeDisplayPath(newWorkingDirectoryResolved);
 
 			const result = await this._positronModalDialogsService.showSimpleModalDialogPrompt(
 				localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),

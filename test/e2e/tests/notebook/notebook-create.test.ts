@@ -90,6 +90,9 @@ test.describe('Notebooks', {
 			await quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
 			await quickInput.clickOkButton();
 
+			// Click 'Update' on the modal that popped up
+			await app.code.driver.page.getByRole('button', { name: 'Update' }).click();
+
 			// Verify the variables pane shows the correct notebook name
 			await variables.expectRuntimeToBe('visible', newFileName);
 
@@ -163,5 +166,3 @@ test.describe('Notebooks', {
 		});
 	});
 });
-
-
