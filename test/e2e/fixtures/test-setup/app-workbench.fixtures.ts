@@ -61,18 +61,18 @@ export function WorkbenchAppFixture() {
  * Setup the complete Workbench environment: Docker container, configuration, and permissions
  */
 async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; userDataDir: string }> {
-	const WORKBENCH_WORKSPACES_PATH = '/home/user1/qa-example-content/'
+	const WORKBENCH_WORKSPACE_PATH = '/home/user1/qa-example-content/'
 	const WORKBENCH_USER_DATA_DIR = '/home/user1/.positron-server/User/';
 
 	// Create workspace and settings directories
-	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACES_PATH}`, 'Create workspace directory');
+	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
 	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
 
 	// Copy qa-example-content workspace to container
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 
-	await runDockerCommand(`docker cp ${DEFAULT_WORKSPACE_PATH}/. test:${WORKBENCH_WORKSPACES_PATH}`, 'Copy workspace to container');
+	await runDockerCommand(`docker cp ${DEFAULT_WORKSPACE_PATH}/. test:${WORKBENCH_WORKSPACE_PATH}`, 'Copy workspace to container');
 
 	// Copy settings to container
 	await copyUserSettingsToContainer();
@@ -80,11 +80,11 @@ async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; use
 
 	// Fix permissions
 	await runDockerCommand(`docker exec test chown -R user1:user1g ${WORKBENCH_USER_DATA_DIR}`, 'Set ownership of settings directory');
-	await runDockerCommand(`docker exec test chown -R user1 ${WORKBENCH_WORKSPACES_PATH}`, 'Set ownership of workspace directory');
+	await runDockerCommand(`docker exec test chown -R user1 ${WORKBENCH_WORKSPACE_PATH}`, 'Set ownership of workspace directory');
 	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_USER_DATA_DIR}`, 'Set permissions of settings directory');
-	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_WORKSPACES_PATH}`, 'Set permissions of workspace directory');
+	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');
 
-	return { workspacePath: WORKBENCH_WORKSPACES_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
+	return { workspacePath: WORKBENCH_WORKSPACE_PATH, userDataDir: WORKBENCH_USER_DATA_DIR };
 }
 
 /**
