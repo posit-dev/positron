@@ -41,11 +41,42 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 		}
 	}, [cell, cellRef]);
 
+	// Focus management based on selection status
+	React.useLayoutEffect(() => {
+		if (!cellRef.current) {
+			return;
+		}
+
+		const status = selectionStatus;
+
+		if (status === CellSelectionStatus.Selected) {
+			// Cell is selected (not editing) - focus the cell container
+			cellRef.current.focus();
+		}
+	}, [selectionStatus, cellRef]);
+
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
+
+	// State for ARIA announcements
+	const [announcement, setAnnouncement] = React.useState<string>('');
+
+	// Announce selection changes for screen readers
+	React.useLayoutEffect(() => {
+		const cellIndex = cell.index;
+
+		if (selectionStatus === CellSelectionStatus.Selected) {
+			setAnnouncement(`Cell ${cellIndex + 1} selected`);
+		} else if (selectionStatus === CellSelectionStatus.Editing) {
+			setAnnouncement(`Editing cell ${cellIndex + 1}`);
+		} else if (selectionStatus === CellSelectionStatus.Unselected) {
+			// Clear announcement when unselected
+			setAnnouncement('');
+		}
+	}, [selectionStatus, cell.index]);
 
 	return <div
 		ref={cellRef}
@@ -91,5 +122,14 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			</NotebookCellActionBar>
 			{children}
 		</CellScopedContextKeyServiceProvider>
+		{/* ARIA live region for screen readers */}
+		<div
+			aria-atomic="true"
+			aria-live="polite"
+			role="status"
+			style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
+		>
+			{announcement}
+		</div>
 	</div>;
 }
