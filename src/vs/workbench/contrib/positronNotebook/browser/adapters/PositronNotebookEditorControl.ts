@@ -34,6 +34,7 @@ import { PositronNotebookViewModel } from './PositronNotebookViewModel.js';
 export class PositronNotebookEditorControl extends Disposable implements INotebookEditor {
 	//#region Private properties
 	private _layoutInfo;
+	private _activeCell;
 	private _activeCodeEditor;
 
 	private readonly _viewModel = this._register(new MutableDisposable<PositronNotebookViewModel>());
@@ -57,8 +58,6 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	private readonly _onDidBlurWidget = this._register(new Emitter<void>());
 	private readonly _onDidScroll = this._register(new Emitter<void>());
 	private readonly _onDidChangeLayout = this._register(new Emitter<void>());
-	private readonly _onDidChangeActiveCell = this._register(new Emitter<void>());
-	private readonly _onDidChangeActiveKernel = this._register(new Emitter<void>());
 	private readonly _onMouseUp = this._register(new Emitter<INotebookEditorMouseEvent>());
 	private readonly _onMouseDown = this._register(new Emitter<INotebookEditorMouseEvent>());
 	private readonly _onDidReceiveMessage = this._register(new Emitter<INotebookWebviewMessage>());
@@ -78,8 +77,8 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	public readonly onDidBlurWidget = this._onDidBlurWidget.event;
 	public readonly onDidScroll = this._onDidScroll.event;
 	public readonly onDidChangeLayout = this._onDidChangeLayout.event;
-	public readonly onDidChangeActiveCell = this._onDidChangeActiveCell.event;
-	public readonly onDidChangeActiveKernel = this._onDidChangeActiveKernel.event;
+	public readonly onDidChangeActiveCell;
+	public readonly onDidChangeActiveKernel;
 	public readonly onMouseUp = this._onMouseUp.event;
 	public readonly onMouseDown = this._onMouseDown.event;
 	public readonly onDidReceiveMessage = this._onDidReceiveMessage.event;
@@ -103,18 +102,20 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 			fontInfo: {} as FontInfo,
 			stickyHeight: 0,
 			listViewOffsetTop: 0
-		});
+		} satisfies NotebookLayoutInfo);
 
 		// Register this as a notebook editor widget
 		this._notebookEditorService.addNotebookEditor(this);
 
 		// Update the active code editor when the notebook selection state changes.
-		this._activeCodeEditor = selectionMachine.state.map(
-			this,
-			(state) => /** @description activeCodeEditor */ getSelectedCells(state)[0]?.editor
-		);
-		this.onDidChangeActiveEditor = Event.fromObservable(this._activeCodeEditor.map(this, () => this));
+		this._activeCell = selectionMachine.state.map(this, (state) => /** @description activeCell */ getSelectedCells(state)[0]);
+		this._activeCodeEditor = this._activeCell.map(this, (cell) => /** @description activeCodeEditor */ cell?.editor);
 
+		this.onDidChangeActiveCell = Event.fromObservable(this._activeCell.map(this, () => { }));
+		this.onDidChangeActiveEditor = Event.fromObservable(this._activeCodeEditor.map(this, () => this));
+		this.onDidChangeActiveKernel = Event.fromObservable(this._notebookInstance.kernel.map(this, () => { }));
+
+		// Update the view model when the notebook text model changes.
 		this._register(this._notebookInstance.onDidChangeModel(model => {
 			this._viewModelDisposables.clear();
 
@@ -139,7 +140,6 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	 * The visible range of cells.
 	 */
 	public get visibleRanges(): ICellRange[] {
-		// TODO: Implement visible ranges
 		return [];
 	}
 
@@ -284,7 +284,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		return this._viewModel.value;
 	}
 	hasModel(): this is IActiveNotebookEditor {
-		return this._notebookInstance.textModel !== undefined;
+		return Boolean(this._notebookInstance.textModel);
 	}
 	getDomNode(): HTMLElement {
 		if (!this._notebookInstance.cellsContainer) {
@@ -330,7 +330,6 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	}
 	/**
 	 * Gather info about editor layout such as width, height, and scroll behavior.
-	 * @returns The current layout info for the editor.
 	 */
 	getLayoutInfo(): NotebookLayoutInfo {
 		return this._layoutInfo.get();
@@ -350,7 +349,7 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 	}
 	getActiveCell(): ICellViewModel | undefined {
 		if (this._viewModel.value) {
-			const activeCell = getSelectedCells(this._notebookInstance.selectionStateMachine.state.get())[0];
+			const activeCell = this._activeCell.get();
 			if (activeCell) {
 				return this._viewModel.value.viewCells[activeCell.index];
 			}
@@ -454,7 +453,6 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		throw new Error('Method not implemented.');
 	}
 	getContribution<T extends INotebookEditorContribution>(id: string): T {
-		// TODO: Implement notebook editor contributions
 		return null as unknown as T;
 	}
 	getViewIndexByModelIndex(index: number): number {
@@ -470,12 +468,11 @@ export class PositronNotebookEditorControl extends Disposable implements INotebo
 		// Note: end is exclusive based on typical VS Code patterns
 		return viewCells.slice(range.start, range.end);
 	}
-
 	cellAt(index: number): ICellViewModel | undefined {
-		throw new Error('Method not implemented.');
+		return this._viewModel.value?.viewCells[index];
 	}
 	getCellByHandle(handle: number): ICellViewModel | undefined {
-		throw new Error('Method not implemented.');
+		return this._viewModel.value?.viewCells.find(cell => cell.handle === handle);
 	}
 	getCellIndex(cell: ICellViewModel): number | undefined {
 		return this._viewModel.value?.getCellIndex(cell);
