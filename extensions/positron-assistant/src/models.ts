@@ -679,6 +679,41 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
 	}
 
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		await this.resolveModels(token);
+
+		token.onCancellationRequested(() => {
+			return false;
+		});
+
+		if (!this.modelListing || this.modelListing.length === 0) {
+			return new Error('No models available for this provider');
+		}
+
+		try {
+			// send a test message to the model
+			const result = await ai.generateText({
+				model: this.aiProvider(this.modelListing[0].id, this.aiOptions),
+				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
+			});
+
+			// if the model responds, the config works
+			return undefined;
+		} catch (error) {
+			const providerErrorMessage = this.parseProviderError(error);
+			if (providerErrorMessage) {
+				return new Error(providerErrorMessage);
+			}
+			if (ai.AISDKError.isInstance(error)) {
+				return new Error(error.message);
+			}
+			else {
+				return new Error(JSON.stringify(error));
+			}
+		}
+
+	}
+
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		// fetch the model list from OpenAI
 		// use the baseUrl/v1/models endpoint
@@ -728,20 +763,6 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			}
 			throw error;
 		}
-	}
-
-	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		try {
-			await this.resolveModels(token);
-		} catch (error) {
-			if (ai.AISDKError.isInstance(error)) {
-				log.error(`Error fetching OpenAI models: ${error.message}`);
-			} else {
-				log.error(`Error fetching OpenAI models: ${JSON.stringify(error)}`);
-			}
-			throw error;
-		}
-		return undefined;
 	}
 }
 
