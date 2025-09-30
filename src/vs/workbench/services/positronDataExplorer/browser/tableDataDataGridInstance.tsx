@@ -65,14 +65,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onDidChangePinnedColumns = this._register(new Emitter<number[]>());
 
-	/**
-	 * This tracks if we've already shown the exceeds dataset limit notification for this instance
-	 * which should only be shown once per instance. This notification is shown when the dataset
-	 * exceeds the limit for certain advanced features such as filtering, resizing, etc.
-	 * See https://github.com/posit-dev/positron/issues/9265
-	 */
-	private _hasShownLargeDatasetNotification: boolean = false;
-
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -128,36 +120,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				state = await this._dataExplorerClientInstance.getBackendState();
 			}
 
-			// Calculate column widths.
-			const columnWidths = await this._tableDataCache.calculateColumnWidths(
-				this.minimumColumnWidth,
-				this.maximumColumnWidth
-			);
-
 			// Notify the user if the dataset exceeds the advanced layout limits which will
 			// cause advanced features to be disabled to improve performance.
 			// See https://github.com/posit-dev/positron/issues/9265
-			const exceedsColumnLimit = await this.exceedsAdvancedColumnLayoutLimits(state);
-			const exceedsRowLimit = await this.exceedsAdvancedRowLayoutLimits(state);
-			if ((exceedsColumnLimit || exceedsRowLimit) && !this._hasShownLargeDatasetNotification) {
-				this._hasShownLargeDatasetNotification = true;
-
-				let message: string;
-				if (exceedsColumnLimit) {
-					message = localize(
-						'positron.dataExplorer.largeDatasetNotificationColumns',
-						"Dataset '{0}' has {1} columns, which exceeds the supported size for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
-						state.display_name,
-						state.table_shape.num_columns.toLocaleString()
-					);
-				} else {
-					message = localize(
-						'positron.dataExplorer.largeDatasetNotificationRows',
-						"Dataset '{0}' has {1} rows, which exceeds the supported size for the Data Explorer. Advanced features such as row resizing will be disabled to improve performance.",
-						state.display_name,
-						state.table_shape.num_rows.toLocaleString()
-					);
-				}
+			const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
+			if (exceedsColumnLimit) {
+				const message = localize(
+					'positron.dataExplorer.largeDatasetNotificationColumns',
+					"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+					state.display_name,
+					state.table_shape.num_columns.toLocaleString()
+				);
 
 				// Show a sticky notification that persists until dismissed
 				this._services.notificationService.notify({
@@ -168,6 +141,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 					source: localize('positron.dataExplorer.source', 'Data Explorer')
 				});
 			}
+
+			// Calculate column widths.
+			const columnWidths = await this._tableDataCache.calculateColumnWidths(
+				this.minimumColumnWidth,
+				this.maximumColumnWidth
+			);
 
 			// Set the layout entries.
 			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
@@ -448,7 +427,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
-		const exceedsLimits = await this.exceedsAdvancedColumnLayoutLimits();
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
 		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status) && !exceedsLimits;
 		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status) && !exceedsLimits;
 
@@ -634,7 +613,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
-		const exceedsLimits = await this.exceedsAdvancedColumnLayoutLimits();
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
 		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status) && !exceedsLimits;
 		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status) && !exceedsLimits;
 
@@ -880,20 +859,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Checks if the dataset exceeds the advanced layout limits.
 	 * @returns true if the dataset exceeds the limits, false otherwise.
 	 */
-	private async exceedsAdvancedColumnLayoutLimits(state?: BackendState): Promise<boolean> {
+	private async exceedsAdvancedLayoutLimits(state?: BackendState): Promise<boolean> {
 		// Get the backend state, if was not provided.
 		if (!state) {
 			state = await this._dataExplorerClientInstance.getBackendState();
 		}
 		return state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
-	}
-
-	private async exceedsAdvancedRowLayoutLimits(state?: BackendState): Promise<boolean> {
-		// Get the backend state, if was not provided.
-		if (!state) {
-			state = await this._dataExplorerClientInstance.getBackendState();
-		}
-		return state.table_shape.num_rows >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
 	}
 
 	//#endregion Public Methods
