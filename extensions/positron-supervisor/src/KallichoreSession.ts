@@ -1739,8 +1739,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param reason The reason for the state change
 	 */
 	private onStateChange(newState: positron.RuntimeState, reason: string) {
-		// If the kernel is ready, open the ready barrier
 		if (newState === positron.RuntimeState.Ready) {
+			// We're ready now!
 			this.log(`Kernel is ready.`);
 		}
 		this.log(`State: ${this._runtimeState} => ${newState} (${reason})`, vscode.LogLevel.Debug);
