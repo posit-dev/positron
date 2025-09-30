@@ -35,7 +35,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 import { observableValue } from '../../../../base/common/observable.js';
-import { PositronNotebookEditorControl } from './PositronNotebookEditorControl.js';
+import { PositronNotebookEditorControl } from './adapters/PositronNotebookEditorControl.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { AbstractEditorWithViewState } from '../../../browser/parts/editor/editorWithViewState.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -245,7 +245,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		this._control.value = new PositronNotebookEditorControl(this.notebookInstance);
+		this._control.value = this.instantiationService.createInstance(PositronNotebookEditorControl, this.notebookInstance);
 
 		await super.setInput(input, options, context, token);
 
