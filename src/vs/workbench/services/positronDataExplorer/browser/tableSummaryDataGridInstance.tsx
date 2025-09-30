@@ -353,6 +353,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		let summaryStatsSupported;
 		switch (columnSchema.type_display) {
 			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 			case ColumnDisplayType.Boolean:
 			case ColumnDisplayType.String:
 			case ColumnDisplayType.Date:
@@ -631,8 +634,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Return the row height.
 		switch (columnSchema.type_display) {
-			// Number.
+			// Number (including all numeric subtypes).
 			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return rowHeight(true, COLUMN_PROFILE_NUMBER_LINE_COUNT);
 
 			// Boolean.

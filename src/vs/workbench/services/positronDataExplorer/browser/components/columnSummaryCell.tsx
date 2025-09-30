@@ -60,6 +60,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		const shouldShowSparkline = () => {
 			switch (props.columnSchema.type_display) {
 				case ColumnDisplayType.Number:
+				case ColumnDisplayType.Floating:
+				case ColumnDisplayType.Integer:
+				case ColumnDisplayType.Decimal:
 				case ColumnDisplayType.Boolean:
 				case ColumnDisplayType.String:
 					return true;
@@ -109,7 +112,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		// Render.
 		switch (props.columnSchema.type_display) {
 			// Column display types that render a histogram sparkline.
-			case ColumnDisplayType.Number: {
+			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal: {
 				// Get the column histogram.
 				const columnHistogram = props.instance.getColumnProfileSmallHistogram(props.columnIndex);
 				if (!columnHistogram) {
@@ -363,8 +369,11 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const ColumnProfile = () => {
 		// Return the profile for the display type.
 		switch (props.columnSchema.type_display) {
-			// Number.
+			// Number (including all numeric subtypes).
 			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return <ColumnProfileNumber columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Boolean.
@@ -407,8 +416,11 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const dataTypeIcon = (() => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
-			// Number.
+			// Number (including all numeric subtypes).
 			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return 'codicon-positron-data-type-number';
 
 			// Boolean.
