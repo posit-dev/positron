@@ -15,6 +15,20 @@ export enum SelectionState {
 	EditingSelection = 'EditingSelection'
 }
 
+export enum OperationSource {
+	User = 'user',
+	UndoRedo = 'undoRedo',
+	Unknown = 'unknown'
+}
+
+export enum OperationType {
+	Add = 'add',
+	Delete = 'delete',
+	Cut = 'cut',
+	Paste = 'paste',
+	Unknown = 'unknown'
+}
+
 type SelectionStates =
 	| {
 		type: SelectionState.NoSelection;
@@ -108,6 +122,13 @@ export class SelectionStateMachine extends Disposable {
 		equalsFn: isSelectionStateEqual
 	}, { type: SelectionState.NoSelection });
 
+	/**
+	 * Tracks the context of the next operation to determine selection behavior
+	 */
+	private _operationContext?: {
+		type: OperationType;
+		source: OperationSource;
+	};
 
 	//#endregion Private Properties
 
@@ -255,6 +276,16 @@ export class SelectionStateMachine extends Disposable {
 		if (state.type !== SelectionState.EditingSelection) { return; }
 		state.selectedCell.defocusEditor();
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
+	}
+
+	/**
+	 * Sets the context for the next operation to determine selection behavior.
+	 * This should be called before operations that will change cells.
+	 * @param type The type of operation being performed
+	 * @param source Whether this is user-initiated or from undo/redo
+	 */
+	setOperationContext(type: OperationType, source: OperationSource): void {
+		this._operationContext = { type, source };
 	}
 
 	//#endregion Public Methods
