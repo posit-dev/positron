@@ -5,17 +5,77 @@
 
 import { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
+
+type CreateUserBody = {
+	email: string;
+	first_name: string;
+	last_name: string;
+	password: string;
+	user_role: 'viewer' | 'publisher' | 'administrator';
+	username: string;
+};
+
+type CreateUserResponse = {
+	email: string;
+	username: string;
+	first_name: string;
+	last_name: string;
+	user_role: string;
+	created_time: string;
+	updated_time: string;
+	active_time: string | null;
+	confirmed: boolean;
+	locked: boolean;
+	guid: string;
+};
+
 export class PositConnect {
 
 	private connectApiUrl: string;
 	private headers: Record<string, string>;
+	private connectApiKey: string;
 
 	constructor(private code: Code) {
 		this.code = code;
 		this.connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
-		this.headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
-
+		this.headers = {};
+		this.connectApiKey = '';
 	}
+
+	setConnectApiKey(key: string) {
+		this.connectApiKey = key;
+		this.headers['Authorization'] = `Key ${this.connectApiKey}`;
+	}
+
+	async createUser(): Promise<string> {
+		const body: CreateUserBody = {
+			email: 'john_doe@posit.co',
+			first_name: 'John',
+			last_name: 'Doe',
+			password: process.env.POSIT_WORKBENCH_PASSWORD || 'dummy',
+			user_role: 'viewer',
+			username: 'user1',
+		};
+
+		const res = await fetch('http://localhost:3939/__api__/v1/users', {
+			method: 'POST',
+			headers: this.headers,
+			body: JSON.stringify(body),
+		});
+
+		if (!res.ok) {
+			const text = await res.text().catch(() => '');
+			throw new Error(`Request failed: ${res.status} ${res.statusText}\n${text}`);
+		}
+
+		// If the server returns JSON, this will parse it.
+		const data = (await res.json()) as CreateUserResponse;
+
+		// Return the guid
+		return data.guid;
+	}
+
+
 	async deleteUserContent() {
 		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
 			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');

@@ -21,44 +21,34 @@ before executing this test locally.
 - If credentials are already stored, this test is expected to FAIL.
 */
 
-import { test, tags, expect } from '../_test.setup';
-import { TestInfo } from '@playwright/test';
+import { test, tags, expect } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER] }, () => {
-	/*
-	Temporarily disabled file deletion from Connect after test runs for the same reason below.
-	test.afterAll('Delete file from Posit Connect', async function ({ app }) {
-		await app.workbench.positConnect.deleteUserContent();
-	});
-	*/
-	test.beforeAll('Check Dogfoods API status', async function ({ app, page }, testInfo: TestInfo) {
-		try {
-			// to test that catch block works, add `throw new Error('Force fail');` by uncommenting line below.
-			// throw new Error('Force fail');
-			await app.workbench.positConnect.getUser();
-		} catch {
-			await app.workbench.quickaccess.runCommand('workbench.action.positronPreview.openUrl', { keepOpen: true });
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
-			await page.keyboard.press('Enter');
-			await app.workbench.quickInput.waitForQuickInputClosed();
-			await app.code.wait(5000);
-			const screenshot = await page.screenshot();
-			await testInfo.attach('API check failed screenshot', {
-				body: screenshot,
-				contentType: 'image/png'
-			});
-			testInfo.annotations.push({ type: 'skip', description: 'Skipping due to env var' });
-			test.skip();
-		}
+let userId: string;
+
+test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
+
+	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand }) {
+
+		const connectApiKey = await runDockerCommand('docker exec connect rsconnect bootstrap --server http://connect:3939 --raw', 'Get Connect API key');
+
+		// debug only
+		console.log('Connect API Key:', connectApiKey.stdout.trim());
+
+		app.workbench.positConnect.setConnectApiKey(connectApiKey.stdout.trim());
+
+		await runDockerCommand('docker exec connect sudo groupadd -g 1100 user1g', 'Create group user1g');
+		await runDockerCommand('docker exec connect sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1', 'Create user user1');
+		await runDockerCommand(`docker exec connect bash -c \'echo "user1":"${process.env.POSIT_WORKBENCH_PASSWORD}" | sudo chpasswd\'`, 'Set password for user1');
+
+		userId = await app.workbench.positConnect.createUser();
+
 	});
 
 	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile }) {
-
 
 		await test.step('Open file', async () => {
 			await openFile('workspaces/shiny-py-example/app.py');

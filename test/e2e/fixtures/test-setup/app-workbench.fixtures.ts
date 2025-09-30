@@ -7,11 +7,20 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
 import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils';
 import { ROOT_PATH } from './constants';
+import { promisify } from 'util';
+const execP = promisify(exec);
+
+export type RunResult = {
+	stdout: string;
+	stderr: string;
+	code?: number;      // best-effort exit code (populated on failure)
+	signal?: NodeJS.Signals | null;
+};
 
 /**
  * Posit Workbench fixture (Docker on port 8787)
@@ -85,12 +94,29 @@ async function setupWorkbenchEnvironment(): Promise<void> {
 /**
  * Run a Docker command with error handling and logging
  */
-export async function runDockerCommand(command: string, description: string): Promise<void> {
+export async function runDockerCommand(command: string, description: string): Promise<RunResult> {
 	try {
-		execSync(command, { stdio: 'inherit' });
-	} catch (error) {
-		console.error(`Failed to ${description.toLowerCase()}:`, error);
-		throw error;
+		// Increase buffers for commands that produce lots of output (pull, build, logs, etc.)
+		const { stdout, stderr } = await execP(command, {
+			maxBuffer: 1024 * 1024 * 20, // 20 MB
+			timeout: 0,                   // no timeout
+			shell: '/bin/bash',           // so things like pipes && envs work consistently
+		});
+		return { stdout, stderr };
+	} catch (err: any) {
+		// exec throws with an Error that includes stdout/stderr and possibly signal/code
+		const result: RunResult = {
+			stdout: err.stdout ?? '',
+			stderr: err.stderr ?? String(err.message ?? ''),
+			code: typeof err.code === 'number' ? err.code : undefined,
+			signal: err.signal ?? null,
+		};
+		// Re-throw with richer context but preserve captured output for callers
+		const wrapped = new Error(
+			`Failed to ${description.toLowerCase()} (exit ${result.code ?? 'unknown'}):\n${result.stderr}`
+		);
+		(wrapped as any).result = result;
+		throw wrapped;
 	}
 }
 
