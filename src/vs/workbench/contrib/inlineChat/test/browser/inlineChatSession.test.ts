@@ -88,6 +88,10 @@ suite('InlineChatSession', function () {
 
 
 		const serviceCollection = new ServiceCollection(
+			// --- Start Positron ---
+			[IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+			}],
+			// --- End Positron ---
 			[IConfigurationService, new TestConfigurationService()],
 			[IChatVariablesService, new SyncDescriptor(ChatVariablesService)],
 			[ILogService, new NullLogService()],
@@ -137,9 +141,7 @@ suite('InlineChatSession', function () {
 			[IViewDescriptorService, new class extends mock<IViewDescriptorService>() {
 				override onDidChangeLocation = Event.None;
 			}],
-			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()],
-			[IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
-			}]
+			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()]
 		);
 
 

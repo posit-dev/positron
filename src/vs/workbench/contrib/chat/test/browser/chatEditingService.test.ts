@@ -99,9 +99,12 @@ suite('ChatEditingService', function () {
 				return false;
 			}
 		});
+		// --- Start Positron ---
 		collection.set(IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
 			override copilotEnabled: boolean = true;
 		});
+		// --- End Positron ---
+
 		const insta = store.add(store.add(workbenchInstantiationService(undefined, store)).createChild(collection));
 		store.add(insta.get(IEditorWorkerService) as TestWorkerService);
 		const value = insta.get(IChatEditingService);
