@@ -18,14 +18,13 @@ import { usePositronDataExplorerContext } from '../../../../positronDataExplorer
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEditRowFilterModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
-import { ColumnSchema } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnSchema, SupportStatus } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
 import { usePositronReactServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
 
 /**
  * Constants.
@@ -141,7 +140,7 @@ export const RowFilterBar = () => {
 	}, [context.instance.dataExplorerClientInstance, context.instance.tableDataDataGridInstance, rowFilterDescriptors, services.workbenchLayoutService]);
 
 	const features = backendClient.getSupportedFeatures();
-	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, services.configurationService);
+	const canFilter = features.set_row_filters.support_status === SupportStatus.Supported;
 
 	/**
 	 * Filter button pressed handler.
