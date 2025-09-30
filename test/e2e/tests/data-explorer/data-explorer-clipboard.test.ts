@@ -61,7 +61,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 		test(`${env} - Copy and paste works on cells, rows, columns, and ranges of unsorted data`, async function ({ app }) {
 			const { dataExplorer, clipboard } = app.workbench;
 
-			// verify copy and paste on columns
+			// verify copy and paste on column (via shortcut)
 			await dataExplorer.grid.clickColumnHeader('column3');
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(expectedData['col3'], '\n');
@@ -80,6 +80,12 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 			await dataExplorer.grid.selectRange({ start: { row: 0, col: 0 }, end: { row: 1, col: 1 } });
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(expectedData['col0_col1'], '\n');
+
+			// verify copy and paste on column (via context menu)
+			await dataExplorer.grid.clickCell(0, 0);
+			await dataExplorer.grid.copyColumn(3)
+			await clipboard.copy();
+			await clipboard.expectClipboardTextToBe(expectedData['col3'], '\n');
 		});
 
 		test(`${env} - Copy and paste works on cells, rows, columns, and ranges of sorted data`, async function ({ app }) {
