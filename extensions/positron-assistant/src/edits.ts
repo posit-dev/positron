@@ -138,10 +138,11 @@ async function* mapEdit(
 
 	// Send a request to the language model with the document and code block
 	const response = await model.sendRequest([
+		new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })
 		)
-	], { modelOptions: { system } }, token);
+	], {}, token);
 
 	let hasCodeFence = false; // Tracks if a code fence has been detected
 	let buffer = ''; // Buffer for accumulating streamed text

@@ -106,14 +106,14 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import is_pandas, is_polars
+from .third_party import is_ibis, is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
 
-
+IBIS_LIMIT_ROWS = 1000
 logger = logging.getLogger(__name__)
 
 
@@ -1661,7 +1661,7 @@ class PandasView(DataExplorerTableView):
         buf = StringIO()
 
         if fmt == ExportFormat.Csv:
-            to_export.to_csv(buf, index=False)
+            to_export.to_csv(buf, index=False, sep=",")
         elif fmt == ExportFormat.Tsv:
             to_export.to_csv(buf, sep="\t", index=False)
         elif fmt == ExportFormat.Html:
@@ -2807,6 +2807,48 @@ class PyArrowView(DataExplorerTableView):
     pass
 
 
+# ----------------------------------------------------------------------
+# ibis Data Explorer RPC implementations
+
+
+class IbisView(PandasView):
+    """DataExplorer view implementation for Ibis tables."""
+
+    def __init__(
+        self,
+        table,
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
+        sql_string: str | None = None,
+    ):
+        self._ibis_table = table
+        # Convert to pandas dataframe (limit to 1000 rows for performance)
+        pandas_df = table.limit(IBIS_LIMIT_ROWS).execute()
+
+        super().__init__(pandas_df, comm, state, job_queue, sql_string)
+
+    def get_state(self, _unused):
+        state = super().get_state(_unused)
+        state.display_name = self.state.name + " (preview)"
+
+        return state
+
+    # Override convert_to_code to be unsupported for now, tracked in #9514
+    FEATURES = SupportedFeatures(
+        search_schema=PandasView.FEATURES.search_schema,
+        set_column_filters=PandasView.FEATURES.set_column_filters,
+        set_row_filters=PandasView.FEATURES.set_row_filters,
+        get_column_profiles=PandasView.FEATURES.get_column_profiles,
+        set_sort_columns=PandasView.FEATURES.set_sort_columns,
+        export_data_selection=PandasView.FEATURES.export_data_selection,
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Unsupported,
+            code_syntaxes=[],
+        ),
+    )
+
+
 def _get_table_view(
     table,
     comm: PositronComm,
@@ -2821,6 +2863,8 @@ def _get_table_view(
         return PandasView(table, comm, state, job_queue, sql_string)
     elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
+    elif is_ibis(table):
+        return IbisView(table, comm, state, job_queue, sql_string)
     else:
         return UnsupportedView(table, comm, state, job_queue)
 
@@ -2828,7 +2872,9 @@ def _get_table_view(
 def _value_type_is_supported(value):
     if is_pandas(value):
         return True
-    return bool(is_polars(value))
+    if is_polars(value):
+        return True
+    return bool(is_ibis(value))
 
 
 class DataExplorerService:

@@ -37,7 +37,7 @@ export interface ISessionRestoreFailedEvent {
  * Metadata for serialized runtime sessions.
  */
 export interface SerializedSessionMetadata {
-	// The user-facing name of the session.
+	/// The user-facing name of the session.
 	sessionName: string;
 
 	/// The metadata for the runtime session itself.
@@ -54,6 +54,11 @@ export interface SerializedSessionMetadata {
 
 	/// The working directory of the runtime session, at the time it was serialized.
 	workingDirectory: string;
+
+	/// Whether the session has a console. Console sessions always do,
+	/// background sessions never do, and notebook sessions sometimes do
+	/// (depending on whether the user has created one)
+	hasConsole: boolean;
 
 	/// The ID of the window in which the session was last used.
 	localWindowId: string;

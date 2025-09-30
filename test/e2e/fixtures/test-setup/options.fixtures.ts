@@ -7,14 +7,14 @@ import { join } from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as playwright from '@playwright/test';
-import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir } from '../../infra';
+import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser } from '../../infra';
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
 
 export interface CustomTestOptions {
-	web: boolean;
 	artifactDir: string;
 	headless?: boolean;
+	browserName?: "chromium" | "firefox" | "webkit" | undefined;
 	/**
 	 * When true, connects to an existing server instead of launching one.
 	 * Use with externalServerUrl to specify the server to connect to.
@@ -44,6 +44,12 @@ export function OptionsFixture() {
 			patch: parseInt(packageVersion.split('.')[2], 10),
 		};
 
+		let browser: Browser = project.browserName;
+		const channel = workerInfo.project.use.channel;
+		if (project.browserName === "chromium" && channel) {
+			browser = `chromium-${channel}` as Browser;
+		}
+
 		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
@@ -54,8 +60,9 @@ export function OptionsFixture() {
 			crashesPath: SPEC_CRASHES_PATH,
 			verbose: !!process.env.VERBOSE,
 			remote: !!process.env.REMOTE,
-			web: project.web,
+			web: !!browser,
 			headless: project.headless,
+			browser,
 			tracing: true,
 			snapshots,
 			quality: Quality.Dev,

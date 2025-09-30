@@ -1,53 +1,52 @@
 name: "Test: Full Suite"
 
 on:
-
   workflow_dispatch:
-      inputs:
-        run_e2e_linux:
-          description: "E2E Tests / Electron (Ubuntu)"
-          required: false
-          default: true
-          type: boolean
-        run_e2e_rhel:
-          description: "E2E Tests / Electron (RHEL)"
-          required: false
-          default: false
-          type: boolean
-        run_e2e_windows:
-          description: "E2E Tests / Electron (Windows)"
-          required: false
-          default: true
-          type: boolean
-        run_e2e_browser:
-          description: "E2E Tests / Chromium (Ubuntu)"
-          required: false
-          default: true
-          type: boolean
-        run_e2e_browser_rhel:
-          description: "E2E Tests / Chromium (RHEL)"
-          required: false
-          default: false
-          type: boolean
-        run_unit_tests:
-          description: "Unit Tests"
-          required: false
-          default: true
-          type: boolean
-        run_integration_tests:
-          description: "Integration Tests"
-          required: false
-          default: true
-          type: boolean
-        notify_on:
-            description: "Slack notification on:"
-            required: false
-            default: "failure"
-            type: choice
-            options:
-              - failure
-              - always
-              - never
+    inputs:
+      run_e2e_linux:
+        description: "E2E Tests / Electron (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_rhel:
+        description: "E2E Tests / Electron (RHEL)"
+        required: false
+        default: false
+        type: boolean
+      run_e2e_windows:
+        description: "E2E Tests / Electron (Windows)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_browser:
+        description: "E2E Tests / Chromium (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_browser_rhel:
+        description: "E2E Tests / Chromium (RHEL)"
+        required: false
+        default: false
+        type: boolean
+      run_unit_tests:
+        description: "Unit Tests"
+        required: false
+        default: true
+        type: boolean
+      run_integration_tests:
+        description: "Integration Tests"
+        required: false
+        default: true
+        type: boolean
+      notify_on:
+        description: "Slack notification on:"
+        required: false
+        default: "failure"
+        type: choice
+        options:
+          - failure
+          - always
+          - never
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -81,16 +80,16 @@ jobs:
       report_testrail: false
       report_currents: false
 
-  e2e-browser:
+  e2e-chromium:
     name: e2e
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
       grep: ""
-      project: "e2e-browser"
-      display_name: "browser (ubuntu)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
+      project: "e2e-chromium"
+      display_name: "chromium (ubuntu)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/ubuntu' || 'chromium/ubuntu' }}
       report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
@@ -111,16 +110,16 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
 
-  e2e-browser-rhel:
+  e2e-chromium-rhel:
     name: e2e
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser_rhel }}
     uses: ./.github/workflows/test-e2e-rhel.yml
     secrets: inherit
     with:
       grep: ""
-      project: "e2e-browser"
-      display_name: "browser (rhel)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/rhel' || 'browser/rhel' }}
+      project: "e2e-chromium"
+      display_name: "chromium (rhel)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/rhel' || 'chromium/rhel' }}
       report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
@@ -142,7 +141,8 @@ jobs:
 
   slack-notify:
     if: always()
-    needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
+    needs:
+      [e2e-electron, e2e-windows, e2e-chromium, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
@@ -156,4 +156,3 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
-

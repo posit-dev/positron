@@ -60,7 +60,7 @@ test.describe('Headless Data Explorer', {
 
 			// verify all data loads
 			await dataExplorer.grid.clickLowerRightCorner();
-			await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+			await dataExplorer.grid.expectCellContentAtIndexToBe(LAST_CELL_CONTENTS);
 
 			// verify action bar has correct buttons
 			await dataExplorer.editorActionBar.expectToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
@@ -93,7 +93,7 @@ test.describe('Headless Data Explorer', {
 
 		// verify all data loads
 		await dataExplorer.grid.clickLowerRightCorner();
-		await dataExplorer.grid.expectLastCellContentToBe('decimal_no_scale', '5555555555', -2);
+		await dataExplorer.grid.expectCellContentAtIndexToBe('5555555555', 15);
 	});
 });
 
