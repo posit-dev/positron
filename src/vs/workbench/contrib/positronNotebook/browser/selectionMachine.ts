@@ -6,8 +6,6 @@ import { autorunDelta, IObservable, observableValueOpts } from '../../../../base
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { disposableTimeout } from '../../../../base/common/async.js';
-import { mainWindow } from '../../../../base/browser/window.js';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',
@@ -230,9 +228,7 @@ export class SelectionStateMachine extends Disposable {
 
 		if (state.type === SelectionState.MultiSelection) {
 			const updatedSelection = state.selected.filter(c => c !== cell);
-			// Set focus on the last cell in the selection to avoid confusingly leaving selection
-			// styles on cell just deselected. Not sure if this is the best UX.
-			updatedSelection.at(-1)?.focus();
+			// React will handle focus based on selection state change
 			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
 		}
 
@@ -266,13 +262,8 @@ export class SelectionStateMachine extends Disposable {
 
 		const cellToEdit = state.selected[0];
 		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
-		// Timeout here avoids the problem of enter applying to the editor widget itself.
-		this._register(
-			disposableTimeout(async () => {
-				await cellToEdit.showEditor();
-				cellToEdit.requestEditorFocus();
-			}, 0)
-		);
+		// Request editor focus through observable - React will handle it
+		cellToEdit.requestEditorFocus();
 	}
 
 	/**
@@ -531,7 +522,7 @@ export class SelectionStateMachine extends Disposable {
 		// If meta is not held down, we're in single selection mode.
 		this.selectCell(nextCell, CellSelectionType.Normal);
 
-		nextCell.focus();
+		// React will handle focus based on selection state change
 	}
 
 	/**

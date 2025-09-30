@@ -196,12 +196,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 	}
 
-	focus(): void {
-		if (this._container) {
-			this._container.focus();
-		}
-	}
-
 	requestEditorFocus(): void {
 		this._editorFocusRequested.set(true, undefined);
 		// Auto-reset after a short delay to make it a one-shot signal
@@ -217,8 +211,8 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	defocusEditor(): void {
-		// Send focus to the enclosing cell itself to blur the editor
-		this.focus();
+		// Let React handle focus when selection state changes
+		// This method now just signals state change without direct DOM manipulation
 	}
 
 	deselect(): void {
