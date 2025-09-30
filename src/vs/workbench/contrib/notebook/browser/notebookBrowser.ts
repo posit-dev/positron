@@ -33,6 +33,9 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IObservable } from '../../../../base/common/observable.js';
 import { INotebookTextDiffEditor } from './diff/notebookDiffEditorBrowser.js';
+// --- Start Positron ---
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
+// --- End Positron ---
 
 //#region Shared commands
 export const EXPAND_CELL_INPUT_COMMAND_ID = 'notebook.cell.expandCellInput';
@@ -926,7 +929,9 @@ export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): INote
 		return;
 	}
 
-	if (editorPane.getId() === NOTEBOOK_EDITOR_ID) {
+	// --- Start Positron ---
+	if (editorPane.getId() === NOTEBOOK_EDITOR_ID || editorPane.getId() === POSITRON_NOTEBOOK_EDITOR_ID) {
+		// --- End Positron ---
 		return editorPane.getControl() as INotebookEditor | undefined;
 	}
 
