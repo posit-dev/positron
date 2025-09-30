@@ -11,7 +11,7 @@ import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
-import { ContextInfo, PositronAssistantToolName } from './types.js';
+import { ContextInfo, PositronAssistantToolName, RuntimeSessionReference } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -416,18 +416,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			const attachmentPrompts: string[] = [];
 			const sessionPrompts: string[] = [];
 			for (const reference of request.references) {
-				const value = reference.value as any;
-				if (value.activeSession) {
+				const value = reference.value;
+				if ((value as any).activeSession) {
 					// The user attached a runtime session - usually the active session in the IDE.
-					const sessionSummary = JSON.stringify(value.activeSession, null, 2);
-					let sessionContent = sessionSummary;
-					if (value.variables) {
+					// This awkward casting is unfortunately necessary because request.references is an
+					// Array<ChatPromptReference>. If we had cast it to
+					// Array<ChatPromptReference | RuntimeSessionReference>, that still wouldn't eliminate
+					// the need for this case, because ChatPromptReference.value is defined as
+					// `string | Uri | Location | ChatReferenceBinaryData | unknown` -- the `unknown`
+					// causes it to not narrow the type based on the presence of `value.activeSession`.
+					const sessionReference = reference as RuntimeSessionReference;
+					let sessionContent = JSON.stringify(sessionReference.value.activeSession, null, 2);
+					if (sessionReference.value.variables) {
 						// Include the session variables in the session content.
-						const variablesSummary = JSON.stringify(value.variables, null, 2);
+						const variablesSummary = JSON.stringify(sessionReference.value.variables, null, 2);
 						sessionContent += '\n' + xml.node('variables', variablesSummary);
 					}
 					sessionPrompts.push(xml.node('session', sessionContent));
-					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionContent.length} characters`);
+					log.debug(`[context] adding session context for session ${sessionReference.value.activeSession!.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.
