@@ -768,8 +768,9 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+		const ask = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'ask.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		const prompts = [defaultSystem, filepaths, languages];
+		const prompts = [defaultSystem, filepaths, ask, languages];
 		return prompts.join('\n\n');
 	}
 }
@@ -781,8 +782,9 @@ class PositronAssistantEditParticipant extends PositronAssistantParticipant impl
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+		const edit = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'edit.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		const prompts = [defaultSystem, filepaths, languages];
+		const prompts = [defaultSystem, filepaths, edit, languages];
 		return prompts.join('\n\n');
 	}
 }
@@ -831,15 +833,18 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 
+		// Inline editor chats behave as in "Ask" mode
+		const ask = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'ask.md'), 'utf8');
+
 		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
 			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
-			return defaultSystem + '\n\n' + editor;
+			return defaultSystem + '\n\n' + ask + '\n\n' + editor;
 		}
 
 		// If the user has selected text, generate a new version of the selection.
 		const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
-		return defaultSystem + '\n\n' + selection;
+		return defaultSystem + '\n\n' + ask + '\n\n' + selection;
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {

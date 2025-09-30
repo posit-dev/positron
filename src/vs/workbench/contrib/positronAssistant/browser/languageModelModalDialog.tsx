@@ -10,6 +10,7 @@ import './languageModelModalDialog.css';
 import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
@@ -85,6 +86,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	// UI State
 	const [showProgress, setShowProgress] = useState(false);
+	const [progressValue, setProgressValue] = useState(0);
 	const [errorMessage, setErrorMessage] = useState<string>();
 
 	// List of provider sources, which is updated when the service emits a change to a language model config.
@@ -124,6 +126,34 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			setSelectedProvider(updatedSource);
 		}
 	}, [providerSources, selectedProvider.provider.id]);
+
+	// Progress tracking based on timeout setting
+	useEffect(() => {
+		if (!showProgress) {
+			setProgressValue(0);
+			return;
+		}
+
+		// Get the timeout value from configuration (in seconds, convert to milliseconds)
+		const timeoutSeconds = props.renderer.services.configurationService.getValue<number>('positron.assistant.providerTimeout');
+		const timeoutMs = timeoutSeconds * 1000;
+
+		const startTime = Date.now();
+		const updateInterval = 100; // Update every 100ms for smooth progress
+		const targetWindow = DOM.getActiveWindow();
+
+		const interval = targetWindow.setInterval(() => {
+			const elapsed = Date.now() - startTime;
+			const progress = Math.min((elapsed / timeoutMs) * 100, 100);
+			setProgressValue(progress);
+
+			if (progress >= 100 || !showProgress) {
+				targetWindow.clearInterval(interval);
+			}
+		}, updateInterval);
+
+		return () => targetWindow.clearInterval(interval);
+	}, [showProgress, props.renderer.services.configurationService]);
 
 	/** Check if the current provider is one of the signed in providers */
 	const isSignedIn = () => {
@@ -341,7 +371,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				onSignIn={onSignIn}
 			/>
 			{showProgress &&
-				<ProgressBar />
+				<ProgressBar value={progressValue} />
 			}
 			{errorMessage &&
 				<div className='language-model-error error error-msg'>{errorMessage}</div>

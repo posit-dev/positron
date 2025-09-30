@@ -296,14 +296,16 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		});
 
 		try {
+			// Configure timeout for provider call
+			const cfg = vscode.workspace.getConfiguration('positron.assistant');
+			const timeoutMs = cfg.get<number>('providerTimeout', 60) * 1000;
+
 			// send a test message to the model
-			const result = await ai.generateText({
+			await ai.generateText({
 				model: this.aiProvider(this._config.model, this.aiOptions),
 				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
+				abortSignal: AbortSignal.timeout(timeoutMs),
 			});
-
-			// if the model responds, the config works
-			return undefined;
 		} catch (error) {
 			const providerErrorMessage = this.parseProviderError(error);
 			if (providerErrorMessage) {

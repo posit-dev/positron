@@ -14,6 +14,9 @@ export interface IUpdate {
 	timestamp?: number;
 	url?: string;
 	sha256hash?: string;
+	// --- Start Positron ---
+	codeoss_version?: string;
+	// --- End Positron ---
 }
 
 /**
