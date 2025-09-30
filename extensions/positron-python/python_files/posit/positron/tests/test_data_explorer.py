@@ -14,7 +14,6 @@ from importlib.metadata import version
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
-import ibis
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -58,6 +57,11 @@ from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
 from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
+
+try:
+    import ibis
+except ImportError:
+    ibis = None
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -122,7 +126,7 @@ SIMPLE_DATA = {
     "a": [1, 2, 3, 4, 5],
     "b": [True, False, True, None, True],
     "c": ["foo", "bar", None, "bar", "None"],
-    "d": [0, 1.2, -4.5, 6, np.nan],
+    "d": [0.0, 1.2, -4.5, 6, np.nan],
     "e": pd.to_datetime(
         [
             "2024-01-01 00:00:00",
@@ -139,13 +143,16 @@ SIMPLE_DATA = {
 
 SIMPLE_PANDAS_DF = pd.DataFrame(SIMPLE_DATA)
 
-SIMPLE_IBIS_DF = ibis.memtable(
-    {
-        "a": [1, 2, 3, 4, 5],
-        "b": [True, False, True, None, True],
-        "c": ["foo", "bar", None, "bar", "None"],
-    }
-)
+if ibis:
+    SIMPLE_IBIS_DF = ibis.memtable(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": [True, False, True, None, True],
+            "c": ["foo", "bar", None, "bar", "None"],
+        }
+    )
+else:
+    SIMPLE_IBIS_DF = None
 
 
 def test_service_properties(de_service: DataExplorerService):
@@ -4211,6 +4218,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
+@pytest.mark.skipif(ibis is None, reason="ibis is not available")
 def test_ibis_supported_features(dxf: DataExplorerFixture):
     dxf.register_table("example", SIMPLE_IBIS_DF)
     features = dxf.get_state("example")["supported_features"]
