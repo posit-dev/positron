@@ -12,9 +12,8 @@ import { EditorResolverService } from '../../../../services/editor/browser/edito
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../../services/editor/common/editorResolverService.js';
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { usingPositronNotebooks } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 
 // Mock implementation for testing static editor registration
 class MockPositronNotebookContribution extends DisposableStore {

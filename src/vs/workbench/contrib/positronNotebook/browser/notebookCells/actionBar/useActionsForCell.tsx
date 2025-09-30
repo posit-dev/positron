@@ -7,7 +7,7 @@ import React from 'react';
 import { useObservedValue } from '../../useObservedValue.js';
 import { CellActionPosition, INotebookCellActionBarItem, NotebookCellActionBarRegistry } from './actionBarRegistry.js';
 import { useCellScopedContextKeyService } from '../CellContextKeyServiceProvider.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS } from '../../ContextKeysManager.js';
 
 // Create a set of all the context key names
 const notebookCellContextKeysSet = new Set(Object.values(POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS).map(key => key.key));

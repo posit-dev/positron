@@ -10,7 +10,7 @@ import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
