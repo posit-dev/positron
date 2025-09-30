@@ -123,11 +123,22 @@ export interface IPositronNotebookCell extends Disposable {
 	focus(): void;
 
 	/**
+	 * Observable that signals when the editor should receive focus.
+	 * Automatically resets after being consumed (one-shot signal).
+	 */
+	readonly editorFocusRequested: IObservable<boolean>;
+
+	/**
+	 * Request that the editor receive focus.
+	 * Sets the observable to true, which will be consumed by React.
+	 */
+	requestEditorFocus(): void;
+
+	/**
 	 * Show the cell's editor.
-	 * @param focus Whether to focus the editor after showing it. Default: false.
 	 * @returns Promise that resolves to the editor when it is available, or undefined if the editor could not be shown.
 	 */
-	showEditor(focus?: boolean): Promise<ICodeEditor | undefined>;
+	showEditor(): Promise<ICodeEditor | undefined>;
 
 	/**
 	 * Remove focus from within monaco editor and out to the cell itself

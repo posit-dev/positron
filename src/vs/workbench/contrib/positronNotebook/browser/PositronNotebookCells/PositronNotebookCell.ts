@@ -27,9 +27,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	protected readonly _internalMetadata;
+	private readonly _editorFocusRequested = observableValue<boolean>('editorFocusRequested', false);
 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
+	public readonly editorFocusRequested = this._editorFocusRequested;
 
 	constructor(
 		public readonly cellModel: NotebookCellTextModel,
@@ -183,7 +185,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	async setEditorOptions(options: ITextEditorOptions | undefined): Promise<void> {
 		if (options) {
-			const editor = await this.showEditor(!(options.preserveFocus ?? true));
+			const editor = await this.showEditor();
+			if (editor && !(options.preserveFocus ?? true)) {
+				// Request focus through the observable if preserveFocus is false
+				this.requestEditorFocus();
+			}
 			if (editor) {
 				applyTextEditorOptions(options, editor, ScrollType.Immediate);
 			}
@@ -196,12 +202,18 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 	}
 
-	async showEditor(focus = false): Promise<ICodeEditor | undefined> {
-		const editor = this._editor.get();
-		if (editor && focus) {
-			editor.focus();
-		}
-		return editor;
+	requestEditorFocus(): void {
+		this._editorFocusRequested.set(true, undefined);
+		// Auto-reset after a short delay to make it a one-shot signal
+		setTimeout(() => {
+			this._editorFocusRequested.set(false, undefined);
+		}, 100);
+	}
+
+	async showEditor(): Promise<ICodeEditor | undefined> {
+		// Remove focus parameter and direct focus call
+		// Focus will be managed by React through the editorFocusRequested observable
+		return this._editor.get();
 	}
 
 	defocusEditor(): void {

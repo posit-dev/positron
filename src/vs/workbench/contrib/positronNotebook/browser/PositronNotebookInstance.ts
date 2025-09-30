@@ -840,7 +840,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// If we've only added one cell, we can set it as the selected cell.
 			this._register(disposableTimeout(async () => {
 				this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-				await newlyAddedCells[0].showEditor(true);
+				await newlyAddedCells[0].showEditor();
+				newlyAddedCells[0].requestEditorFocus();
 			}, 0));
 		}
 
