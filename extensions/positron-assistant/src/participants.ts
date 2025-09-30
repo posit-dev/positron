@@ -808,12 +808,12 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 			// If the user has not selected text, use the prompt for the whole document.
 			if (request.location2.selection.isEmpty) {
 				const editorSteaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
-				return editorSteaming + '\n\n' + warningStreaming;
+				return [editorSteaming, warningStreaming].join('\n\n');
 			}
 
 			// If the user has selected text, generate a new version of the selection.
 			const selectionStreaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
-			return selectionStreaming + '\n\n' + warningStreaming;
+			return [selectionStreaming, warningStreaming].join('\n\n');
 		}
 
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
@@ -825,12 +825,12 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
 			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
-			return defaultSystem + '\n\n' + warning + '\n\n' + ask + '\n\n' + editor;
+			return [defaultSystem, warning, ask, editor].join('\n\n');
 		}
 
 		// If the user has selected text, generate a new version of the selection.
 		const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
-		return defaultSystem + '\n\n' + warning + '\n\n' + ask + '\n\n' + selection;
+		return [defaultSystem, warning, ask, selection].join('\n\n');
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
