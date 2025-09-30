@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as xml from './xml.js';
 
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, MAX_CONTEXT_VARIABLES } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { ContextInfo, PositronAssistantToolName, RuntimeSessionReference } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
@@ -431,7 +431,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						// Include the session variables in the session content.
 						// In Python, `kind` provides a more accurate type than `display_type`, so
 						// we'll include both.
-						const variablesSummary = sessionReference.value.variables.map((v) => {
+						// Limit the number of variables to prevent excessive context size
+						const vars = sessionReference.value.variables.slice(0, MAX_CONTEXT_VARIABLES);
+						const variablesSummary = vars.map((v) => {
 							return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
 						}).join('\n');
 						sessionContent += '\n' + xml.node('variables', variablesSummary);
