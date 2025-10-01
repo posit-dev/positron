@@ -12,7 +12,6 @@ import React from 'react';
 // Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
-import { ActionButton } from './utilityComponents/ActionButton.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
@@ -23,13 +22,16 @@ export function KernelStatusBadge() {
 	const kernelStatus = useObservedValue(notebookInstance.kernelStatus);
 	const services = usePositronReactServicesContext();
 
-	return <ActionButton
-		className='positron-notebook-kernel-status-badge'
-		onPressed={() => services.commandService.executeCommand(SELECT_KERNEL_ID_POSITRON, { forceDropdown: true })}
-	>
-		<div aria-label='Notebook kernel status'>
+	return (
+		<div
+			aria-label='Notebook kernel status'
+			className='positron-notebook-kernel-status-badge'
+			role='button'
+			tabIndex={0}
+			onClick={() => services.commandService.executeCommand(SELECT_KERNEL_ID_POSITRON, { forceDropdown: true })}
+		>
 			Kernel
 			<span className={`kernel-status ${kernelStatus}`}>{' ' + kernelStatus}</span>
 		</div>
-	</ActionButton>;
+	);
 }
