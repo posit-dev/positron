@@ -254,7 +254,7 @@ export class SelectionStateMachine extends Disposable {
 	/**
 	 * Enters the editor for the selected cell.
 	 */
-	enterEditor(): void {
+	async enterEditor(): Promise<void> {
 		const state = this._state.get();
 		if (state.type !== SelectionState.SingleSelection) {
 			return;
@@ -262,6 +262,8 @@ export class SelectionStateMachine extends Disposable {
 
 		const cellToEdit = state.selected[0];
 		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
+		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
+		await cellToEdit.showEditor();
 		// Request editor focus through observable - React will handle it
 		cellToEdit.requestEditorFocus();
 	}

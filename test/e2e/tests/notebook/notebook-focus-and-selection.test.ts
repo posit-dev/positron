@@ -302,6 +302,45 @@ test.describe('Notebook Focus and Selection', {
 		const cellContent = await app.workbench.notebooksPositron.getCellContent(2);
 		const normalizedContent = normalizeCellContent(cellContent);
 		expect(normalizedContent).toContain('# test');
+
+		// Verify no extra newline was added at the beginning (Enter key didn't bleed through)
+		// The content should start with the original content, not a newline
+		expect(normalizedContent).toMatch(/^print\("Cell 2"\)/);
+	});
+
+	test('Shift+Enter on last cell creates new cell and enters edit mode', async function ({ app }) {
+		// Select last cell (index 4)
+		await app.workbench.notebooksPositron.selectCellAtIndex(4);
+		await waitForFocusSettle(app, 200);
+
+		// Enter edit mode on the last cell
+		await app.code.driver.page.keyboard.press('Enter');
+		await waitForFocusSettle(app, 300);
+		expect(await isEditorFocused(app, 4)).toBe(true);
+
+		// Get initial cell count
+		const initialCount = await getCellCount(app);
+		expect(initialCount).toBe(5);
+
+		// Press Shift+Enter to add a new cell below
+		await app.code.driver.page.keyboard.press('Shift+Enter');
+		await waitForFocusSettle(app, 500);
+
+		// Verify new cell was added
+		const newCount = await getCellCount(app);
+		expect(newCount).toBe(6);
+
+		// Verify the NEW cell (index 5) is now in edit mode with focus
+		expect(await isEditorFocused(app, 5)).toBe(true);
+		expect(await isCellSelected(app, 5)).toBe(true);
+
+		// Verify we can type immediately in the new cell
+		await app.code.driver.page.keyboard.type('new cell content');
+		await waitForFocusSettle(app, 100);
+
+		const newCellContent = await app.workbench.notebooksPositron.getCellContent(5);
+		const normalizedContent = normalizeCellContent(newCellContent);
+		expect(normalizedContent).toContain('new cell content');
 	});
 
 	// The following tests are disabled because they test features that either:
