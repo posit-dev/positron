@@ -206,10 +206,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._cellsContainer = container;
-
-		// React will handle scroll observation via useScrollObserver hook
-		// Fire initial scroll event
-		this._onDidScrollCellsContainer.fire();
 	}
 
 	/**
@@ -807,11 +803,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		if (newlyAddedCells.length === 1) {
 			// If we've only added one cell, we can set it as the selected cell in edit mode.
-			// Must ensure editor is shown before requesting focus.
 			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-			// Use setTimeout to ensure the editor is mounted in the DOM first
-			setTimeout(async () => {
-				await newlyAddedCells[0].showEditor();
+			// Defer focus request to next tick to allow React to mount the editor component.
+			// Without this, requestEditorFocus() fires before the editor exists, and the
+			// autorun in CellEditorMonacoWidget won't be able to focus a non-existent editor.
+			setTimeout(() => {
 				newlyAddedCells[0].requestEditorFocus();
 			}, 0);
 		}
@@ -867,7 +863,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				// Prevent the Enter key from being processed by the editor
 				event.preventDefault();
 				event.stopPropagation();
-				void this.selectionStateMachine.enterEditor();
+				this.selectionStateMachine.enterEditor().catch(err => {
+					this._logService.error(this.id, 'Error entering editor:', err);
+				});
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();
 			}

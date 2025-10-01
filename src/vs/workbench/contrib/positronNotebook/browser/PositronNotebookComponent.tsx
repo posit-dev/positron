@@ -34,7 +34,8 @@ export function PositronNotebookComponent() {
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
 
-	// Global announcements for cell operations
+	// Accessibility: Global announcements for notebook-level operations (cell add/delete).
+	// These are rendered in a ScreenReaderOnly ARIA live region for screen reader users.
 	const [globalAnnouncement, setGlobalAnnouncement] = React.useState<string>('');
 	const previousCellCount = React.useRef<number>(notebookCells.length);
 
@@ -42,7 +43,7 @@ export function PositronNotebookComponent() {
 		notebookInstance.setCellsContainer(containerRef.current);
 	}, [notebookInstance]);
 
-	// Announce when cells are added or removed
+	// Track cell count changes and announce to screen readers
 	React.useEffect(() => {
 		const currentCount = notebookCells.length;
 		const previousCount = previousCellCount.current;

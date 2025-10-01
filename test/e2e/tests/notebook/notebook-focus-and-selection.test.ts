@@ -52,9 +52,16 @@ async function getCellCount(app: Application): Promise<number> {
 
 /**
  * Helper function to wait for focus to settle (useful after DOM changes)
+ * Waits until any notebook cell has focus (or until timeout)
  */
-async function waitForFocusSettle(app: Application, timeoutMs: number = 500): Promise<void> {
-	await app.code.driver.page.waitForTimeout(timeoutMs);
+async function waitForFocusSettle(app: Application, timeoutMs: number = 2000): Promise<void> {
+	const page = app.code.driver.page;
+	await page.waitForFunction(() => {
+		const cells = Array.from(document.querySelectorAll('[data-testid="notebook-cell"]'));
+		return cells.some(cell =>
+			cell.contains(document.activeElement) || cell === document.activeElement
+		);
+	}, { timeout: timeoutMs });
 }
 
 /**
