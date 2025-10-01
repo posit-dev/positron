@@ -14,31 +14,62 @@ import { StatsValue } from './statsValue.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 import { ColumnProfileNullCountValue } from './columnProfileNullCountValue.js';
 import { ColumnProfileSparklineHistogram } from './columnProfileSparklines.js';
-import { positronMax, positronMean, positronMedian, positronMin, positronMissing, positronSD } from '../../common/constants.js';
+import { positronMax, positronMean, positronMedian, positronMin, positronMissing, positronNA, positronSD } from '../../common/constants.js';
 
 /**
  * Constants.
  */
-export const COLUMN_PROFILE_NUMBER_LINE_COUNT = 6;
+export const COLUMN_PROFILE_INTEGER_LINE_COUNT = 6;
 
 /**
- * ColumnProfileNumberProps interface.
+ * IntegerStatsValue component for formatting integer values.
  */
-interface ColumnProfileNumberProps {
+const IntegerStatsValue = ({ stats, value }: { stats?: any; value?: number | string }) => {
+	// Render placeholder.
+	if (stats === undefined) {
+		return (
+			<div className='value-placeholder'>&#x22ef;</div>
+		);
+	}
+
+	// Format value as integer if it's a number
+	let displayValue: string;
+	if (value === undefined || value === null) {
+		displayValue = positronNA;
+	} else if (typeof value === 'number') {
+		// Round to nearest integer and format without thousands separator
+		displayValue = Math.round(value).toString();
+	} else {
+		// Already a string, try to parse and format as integer
+		const num = parseFloat(value);
+		displayValue = isNaN(num) ? value : Math.round(num).toString();
+	}
+
+	// Render value.
+	return (
+		<div className='value'>{displayValue}</div>
+	);
+};
+
+/**
+ * ColumnProfileIntegerProps interface.
+ */
+interface ColumnProfileIntegerProps {
 	instance: TableSummaryDataGridInstance;
 	columnIndex: number;
 }
 
 /**
- * ColumnProfileNumber component.
- * @param props A ColumnProfileNumberProps that contains the component properties.
+ * ColumnProfileInteger component.
+ * @param props A ColumnProfileIntegerProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ColumnProfileNumber = (props: ColumnProfileNumberProps) => {
+export const ColumnProfileInteger = (props: ColumnProfileIntegerProps) => {
 	// Render.
 	const columnHistogram = props.instance.getColumnProfileLargeHistogram(props.columnIndex);
 	const stats = props.instance.getColumnProfileSummaryStats(props.columnIndex)?.number_stats;
 	const columnSchema = props.instance.getColumnSchema(props.columnIndex);
+
 	return (
 		<div className='column-profile-info'>
 			{columnHistogram &&
@@ -59,10 +90,12 @@ export const ColumnProfileNumber = (props: ColumnProfileNumberProps) => {
 				</div>
 				<div className='values'>
 					<ColumnProfileNullCountValue {...props} />
-					<StatsValue stats={stats} value={stats?.min_value} />
-					<StatsValue stats={stats} value={stats?.median} />
+					<IntegerStatsValue stats={stats} value={stats?.min_value} />
+					<IntegerStatsValue stats={stats} value={stats?.median} />
+					{/* Use StatsValue for mean to handle cases where mean is not an integer */}
 					<StatsValue stats={stats} value={stats?.mean} />
-					<StatsValue stats={stats} value={stats?.max_value} />
+					<IntegerStatsValue stats={stats} value={stats?.max_value} />
+					{/* Use StatsValue for stdev to handle cases where stdev is not an integer */}
 					<StatsValue stats={stats} value={stats?.stdev} />
 				</div>
 			</div>

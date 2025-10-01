@@ -63,6 +63,12 @@ class ColumnDisplayType(str, enum.Enum):
 
     Unknown = "unknown"
 
+    Floating = "floating"
+
+    Integer = "integer"
+
+    Decimal = "decimal"
+
 
 @enum.unique
 class RowFilterCondition(str, enum.Enum):
