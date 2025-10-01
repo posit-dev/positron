@@ -9,12 +9,12 @@ Parses Inspect AI evaluation results and provides a summary with pass/fail deter
 based on accuracy threshold. Designed for use in GitHub Actions.
 
 Usage:
-    python inspect_result_parser.py <json_file> --threshold <accuracy_threshold>
+	python inspect_result_parser.py <json_file> --threshold <accuracy_threshold>
 
 Exit codes:
-    0: Success (accuracy >= threshold)
-    1: Failure (accuracy < threshold)
-    2: Error parsing file or other issues
+	0: Success (accuracy >= threshold)
+	1: Failure (accuracy < threshold)
+	2: Error parsing file or other issues
 """
 
 import json
@@ -90,7 +90,7 @@ def extract_accuracy(result_data: Dict[str, Any]) -> Optional[float]:
 
 
 def print_summary(result_data: Dict[str, Any], sample_summaries: List[Dict[str, Any]],
-                 grade_counts: Dict[str, int], accuracy: Optional[float]):
+	grade_counts: Dict[str, int], accuracy: Optional[float]):
 	"""Print a comprehensive summary of the evaluation results."""
 
 	# Header
@@ -138,9 +138,9 @@ def main():
 	)
 	parser.add_argument('json_file', help='Path to the Inspect AI JSON result file')
 	parser.add_argument('--threshold', '-t', type=float, default=0.8,
-	                   help='Accuracy threshold for pass/fail (default: 0.8)')
+		help='Accuracy threshold for pass/fail (default: 0.8)')
 	parser.add_argument('--quiet', '-q', action='store_true',
-	                   help='Suppress detailed output, only show pass/fail result')
+		help='Suppress detailed output, only show pass/fail result')
 
 	args = parser.parse_args()
 
