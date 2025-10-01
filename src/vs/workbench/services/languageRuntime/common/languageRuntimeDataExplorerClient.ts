@@ -311,7 +311,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Requests a fresh update of the backend state and fires event to notify state listeners.
-	 * Ensures all in-flight backend tasks (like row filtering) complete before getting the state.
+	 * Ensures all in-flight backend tasks complete before getting the state.
 	 * @returns A promise that resolves to the latest table state.
 	 */
 	async updateBackendState(): Promise<BackendState> {
@@ -321,21 +321,15 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// If there are pending tasks, wait for them to complete first
 		if (this._numPendingTasks > 0) {
-			// Create a promise that resolves when all pending tasks complete
-			const waitForPendingTasks = new Promise<void>((resolve) => {
-				const checkPendingTasks = () => {
-					if (this._numPendingTasks === 0) {
+			// Wait for the status to become Idle
+			await new Promise<void>(resolve => {
+				const disposable = this.onDidStatusUpdate(status => {
+					if (status === DataExplorerClientStatus.Idle) {
+						disposable.dispose();
 						resolve();
-					} else {
-						// Check again after a small delay
-						setTimeout(checkPendingTasks, 50);
 					}
-				};
-				checkPendingTasks();
+				});
 			});
-
-			// Wait for all pending tasks to complete before getting state
-			await waitForPendingTasks;
 		}
 
 		this._backendPromise = this.runBackendTask(
