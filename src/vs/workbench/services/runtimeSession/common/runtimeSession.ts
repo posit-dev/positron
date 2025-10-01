@@ -2418,6 +2418,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Resolves a path by expanding tildes and resolving symlinks.
+	 *
+	 * @param path The path to resolve
+	 * @returns The resolved path with tildes expanded and symlinks resolved
+	 */
+	private async resolvePath(path: string): Promise<string> {
+		const userHome = await this._pathService.userHome();
+		const userHomePath = userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path;
+
+		// First expand tildes
+		const untildifiedPath = untildify(path, userHomePath);
+
+		// Then try to resolve symlinks
+		try {
+			const pathUri = userHome.with({ path: untildifiedPath });
+			const realpath = await this._fileService.realpath(pathUri);
+			return realpath ? (realpath.scheme === Schemas.file ? realpath.fsPath : realpath.path) : untildifiedPath;
+		} catch (error) {
+			// If realpath fails (e.g., path doesn't exist, permission issues),
+			// fall back to the untildified path
+			this._logService.debug(`Failed to resolve symlinks for path '${untildifiedPath}': ${error}`);
+			return untildifiedPath;
+		}
+	}
+
+	/**
 	 * Prompts the user to update the session's working directory if it has changed
 	 * due to a notebook URI change, and updates it if the user chooses to do so.
 	 *
@@ -2436,11 +2462,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return false;
 		}
 
-		// Untildify for comparison
-		const userHome = await this._pathService.userHome();
-		const userHomePath = userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path;
-		const currentWorkingDirectoryResolved = untildify(currentWorkingDirectory, userHomePath);
-		const newWorkingDirectoryResolved = untildify(newWorkingDirectory, userHomePath);
+		// Resolve both paths (untildify + symlink resolution) for comparison
+		const currentWorkingDirectoryResolved = await this.resolvePath(currentWorkingDirectory);
+		const newWorkingDirectoryResolved = await this.resolvePath(newWorkingDirectory);
 
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
 			// Format the paths for display
