@@ -25,6 +25,7 @@ import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
+import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
 
 export function PositronNotebookComponent() {
@@ -33,9 +34,29 @@ export function PositronNotebookComponent() {
 	const fontStyles = useFontStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
 
+	// Global announcements for cell operations
+	const [globalAnnouncement, setGlobalAnnouncement] = React.useState<string>('');
+	const previousCellCount = React.useRef<number>(notebookCells.length);
+
 	React.useEffect(() => {
 		notebookInstance.setCellsContainer(containerRef.current);
 	}, [notebookInstance]);
+
+	// Announce when cells are added or removed
+	React.useEffect(() => {
+		const currentCount = notebookCells.length;
+		const previousCount = previousCellCount.current;
+
+		if (currentCount > previousCount) {
+			const added = currentCount - previousCount;
+			setGlobalAnnouncement(`${added} cell${added > 1 ? 's' : ''} added. Total: ${currentCount}`);
+		} else if (currentCount < previousCount) {
+			const removed = previousCount - currentCount;
+			setGlobalAnnouncement(`${removed} cell${removed > 1 ? 's' : ''} removed. Total: ${currentCount}`);
+		}
+
+		previousCellCount.current = currentCount;
+	}, [notebookCells.length]);
 
 	// Observe scroll events and fire to notebook instance
 	useScrollObserver(containerRef, React.useCallback(() => {
@@ -52,6 +73,9 @@ export function PositronNotebookComponent() {
 				</>) : <div>{localize('noCells', 'No cells')}</div>
 				}
 			</div>
+			<ScreenReaderOnly className='notebook-announcements'>
+				{globalAnnouncement}
+			</ScreenReaderOnly>
 		</div>
 	);
 }

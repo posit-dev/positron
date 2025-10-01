@@ -21,6 +21,7 @@ import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
+import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
 export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	cell: IPositronNotebookCell;
@@ -67,16 +68,17 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	// Announce selection changes for screen readers
 	React.useLayoutEffect(() => {
 		const cellIndex = cell.index;
+		const totalCells = notebookInstance.cells.get().length;
 
 		if (selectionStatus === CellSelectionStatus.Selected) {
-			setAnnouncement(`Cell ${cellIndex + 1} selected`);
+			setAnnouncement(`Cell ${cellIndex + 1} of ${totalCells} selected`);
 		} else if (selectionStatus === CellSelectionStatus.Editing) {
-			setAnnouncement(`Editing cell ${cellIndex + 1}`);
+			setAnnouncement(`Editing cell ${cellIndex + 1} of ${totalCells}`);
 		} else if (selectionStatus === CellSelectionStatus.Unselected) {
 			// Clear announcement when unselected
 			setAnnouncement('');
 		}
-	}, [selectionStatus, cell.index]);
+	}, [selectionStatus, cell.index, notebookInstance]);
 
 	return <div
 		ref={cellRef}
@@ -122,14 +124,8 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			</NotebookCellActionBar>
 			{children}
 		</CellScopedContextKeyServiceProvider>
-		{/* ARIA live region for screen readers */}
-		<div
-			aria-atomic="true"
-			aria-live="polite"
-			role="status"
-			style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
-		>
+		<ScreenReaderOnly>
 			{announcement}
-		</div>
+		</ScreenReaderOnly>
 	</div>;
 }
