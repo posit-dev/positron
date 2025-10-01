@@ -128,11 +128,11 @@ export function registerCellCommand({
 	if (keybinding) {
 		// Determine the when condition based on edit mode
 		const defaultCondition = editMode ?
-			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED :
-			ContextKeyExpr.and( // When the command is not an "editMode" command, don't let it run when the cell editor is focused
+			ContextKeyExpr.or(
 				POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-				POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-			);
+				POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+			) :
+			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED;
 
 		// Combine top-level `when` with keybinding.when (or default) using AND when both exist
 		const combinedKbWhen = when ? ContextKeyExpr.and(when, defaultCondition) : defaultCondition;

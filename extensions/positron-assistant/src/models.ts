@@ -75,6 +75,10 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
 		throw new Error(this._message);
 	}
+
+	resolveModels(token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatInformation[] | undefined> {
+		throw new Error(this._message);
+	}
 }
 
 class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
@@ -83,12 +87,35 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	readonly id = 'echo-language-model';
 	readonly maxInputTokens = DEFAULT_MAX_TOKEN_INPUT;
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+	availableModels: vscode.LanguageModelChatInformation[] = [];
 
 	constructor(
 		_config: ModelConfig,
 		private readonly _context?: vscode.ExtensionContext
 	) {
-		// No additional setup needed for echo model
+		this.availableModels = [
+			{
+				id: this.id,
+				name: this.name,
+				family: this.provider,
+				version: '1.0.0',
+				maxInputTokens: this.maxInputTokens,
+				maxOutputTokens: this.maxOutputTokens,
+				capabilities: this.capabilities,
+				isDefault: true,
+				isUserSelectable: true,
+			},
+			{
+				id: 'echo-language-model-v2',
+				name: 'Echo Language Model v2',
+				family: this.provider,
+				version: '1.0.0',
+				maxInputTokens: this.maxInputTokens,
+				maxOutputTokens: this.maxOutputTokens,
+				capabilities: this.capabilities,
+				isUserSelectable: true,
+			}
+		];
 	}
 
 	static source = {
@@ -116,19 +143,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		return [
-			{
-				id: this.id,
-				name: this.name,
-				family: this.provider,
-				version: '1.0.0',
-				maxInputTokens: this.maxInputTokens,
-				maxOutputTokens: this.maxOutputTokens,
-				capabilities: this.capabilities,
-				isDefault: true,
-				isUserSelectable: true,
-			} satisfies vscode.LanguageModelChatInformation
-		];
+		return this.availableModels;
 	}
 
 	async provideLanguageModelChatResponse(
@@ -158,6 +173,9 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		}
 		else if (inputText === 'Send R Code') {
 			response = '```r\nfoo <- 200\n```';
+		}
+		else if (inputText === 'Return model') {
+			response = model.id;
 		}
 		else {
 			// Default case: echo back the input message
@@ -200,8 +218,12 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		}
 	}
 
-	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		return Promise.resolve(undefined);
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		return Promise.resolve(this.availableModels);
 	}
 }
 
@@ -214,6 +236,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	public readonly id;
 	protected abstract aiProvider: (id: string, options?: Record<string, any>) => ai.LanguageModelV1;
 	protected aiOptions: Record<string, any> = {};
+
+	protected modelListing?: vscode.LanguageModelChatInformation[];
 
 	capabilities = {
 		vision: true,
@@ -272,14 +296,16 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		});
 
 		try {
-			// send a test message to the model
-			const result = await ai.generateText({
-				model: this.aiProvider(this._config.model, this.aiOptions),
-				prompt: 'I\'m checking to see if you\'re there. Response only with the word "hello".',
-			});
+			// Configure timeout for provider call
+			const cfg = vscode.workspace.getConfiguration('positron.assistant');
+			const timeoutMs = cfg.get<number>('providerTimeout', 60) * 1000;
 
-			// if the model responds, the config works
-			return undefined;
+			// send a test message to the model
+			await ai.generateText({
+				model: this.aiProvider(this._config.model, this.aiOptions),
+				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
+				abortSignal: AbortSignal.timeout(timeoutMs),
+			});
 		} catch (error) {
 			const providerErrorMessage = this.parseProviderError(error);
 			if (providerErrorMessage) {
@@ -295,9 +321,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		await this.resolveModels(token);
+
 		// Prepare the language model chat information
 		const providerId = this._config.provider;
-		const models = availableModels.get(providerId);
+		const models = this.modelListing ?? availableModels.get(providerId);
+
+		log.trace(`Preparing ${providerId} language model`);
 
 		if (!models || models.length === 0) {
 			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
@@ -318,10 +348,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 		// Return the available models for this provider
 		// The first model is the default model
-		const languageModels: vscode.LanguageModelChatInformation[] = models.map(m => {
-			const aiModel = this.aiProvider(m.identifier);
+		const languageModels: vscode.LanguageModelChatInformation[] = models.map((m, index) => {
+			const modelId = 'identifier' in m ? m.identifier : m.id;
+			const aiModel = this.aiProvider(modelId);
 			return {
-				id: m.identifier,
+				id: modelId,
 				name: m.name,
 				family: aiModel.provider,
 				version: aiModel.specificationVersion,
@@ -329,7 +360,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 				capabilities: this.capabilities,
 				// is default if it's the first model out of models
-				isDefault: m === models[0],
+				isDefault: index === 0,
 				isUserSelectable: true,
 			};
 		});
@@ -555,6 +586,33 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 		return undefined;
 	}
+
+	/**
+	 * Resolves the available language models. Each provider will have their own way of fetching the model listing.
+	 * @param token The cancellation token.
+	 * @returns A promise that resolves to an array of language model descriptors or undefined if unsupported.
+	 */
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		log.trace(`Resolving models for provider ${this._config.provider}`);
+		return new Promise((resolve) => {
+			const models = availableModels.get(this._config.provider);
+			if (models) {
+				resolve(models.map(model => ({
+					id: model.identifier,
+					name: model.name,
+					family: this.provider,
+					version: this.aiProvider(model.identifier).specificationVersion,
+					maxInputTokens: 0,
+					maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+					capabilities: this.capabilities,
+					isDefault: false,
+					isUserSelectable: true,
+				} satisfies vscode.LanguageModelChatInformation)));
+			} else {
+				resolve(undefined);
+			}
+		});
+	}
 }
 
 class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider2 {
@@ -599,8 +657,8 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
-			name: 'GPT-4o',
-			model: 'gpt-4o',
+			name: 'OpenAI',
+			model: 'openai',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
 			completions: true,
@@ -611,12 +669,129 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		super(_config, _context);
 		this.aiProvider = createOpenAI({
 			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
+			baseURL: this.baseUrl,
 		});
 	}
 
 	get providerName(): string {
 		return OpenAILanguageModel.source.provider.displayName;
+	}
+
+	get baseUrl(): string | undefined {
+		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
+	}
+
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		await this.resolveModels(token);
+
+		token.onCancellationRequested(() => {
+			return false;
+		});
+
+		if (!this.modelListing || this.modelListing.length === 0) {
+			return new Error('No models available for this provider');
+		}
+
+		try {
+			// send a test message to the model
+			const result = await ai.generateText({
+				model: this.aiProvider(this.modelListing[0].id, this.aiOptions),
+				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
+			});
+
+			// if the model responds, the config works
+			return undefined;
+		} catch (error) {
+			const providerErrorMessage = this.parseProviderError(error);
+			if (providerErrorMessage) {
+				return new Error(providerErrorMessage);
+			}
+			if (ai.AISDKError.isInstance(error)) {
+				return new Error(error.message);
+			}
+			else {
+				return new Error(JSON.stringify(error));
+			}
+		}
+
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		// fetch the model list from OpenAI
+		// use the baseUrl/v1/models endpoint
+		try {
+			// make an http request to the models endpoint
+			const response = await fetch(`${this.baseUrl}/models`, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Bearer ${this._config.apiKey}`,
+					'Content-Type': 'application/json'
+				}
+			});
+
+			const data = await response.json();
+			if (!response.ok || !data || data.error) {
+				if (!response.ok) {
+					throw new Error(`Could not fetch models ${response.statusText}`);
+				} else if (data.error) {
+					throw new Error(`Could not fetch models ${data.error.message || JSON.stringify(data.error)}`);
+				} else {
+					throw new Error('Unknown error fetching models');
+				}
+			} else {
+				if (data && data.data && Array.isArray(data.data)) {
+					const models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
+						return {
+							id: model.id,
+							name: model.id,
+							family: this.provider,
+							version: model.id,
+							maxInputTokens: 0,
+							maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+							capabilities: this.capabilities,
+						};
+					});
+					this.modelListing = models;
+					return models;
+				} else {
+					return undefined;
+				}
+			}
+		} catch (error) {
+			if (ai.AISDKError.isInstance(error)) {
+				log.error(`Error fetching OpenAI models: ${error.message}`);
+			} else {
+				log.error(`Error fetching OpenAI models: ${JSON.stringify(error)}`);
+			}
+			throw error;
+		}
+	}
+}
+
+class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements positron.ai.LanguageModelChatProvider2 {
+	// This class is identical to OpenAILanguageModel but uses a different provider ID
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'openai-compatible',
+			displayName: 'Custom Provider'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		defaults: {
+			name: 'Custom Provider',
+			model: 'openai-compatible',
+			baseUrl: 'https://localhost:1337/v1',
+			toolCalls: true,
+			completions: true,
+		},
+	};
+
+	override get providerName(): string {
+		return OpenAICompatibleLanguageModel.source.provider.displayName;
+	}
+
+	override get baseUrl(): string | undefined {
+		return (this._config.baseUrl ?? OpenAICompatibleLanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
 	}
 }
 
@@ -861,6 +1036,7 @@ export function getLanguageModels() {
 		MistralLanguageModel,
 		OllamaLanguageModel,
 		OpenAILanguageModel,
+		OpenAICompatibleLanguageModel,
 		OpenRouterLanguageModel,
 		VertexLanguageModel,
 	];
@@ -880,6 +1056,7 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 	models.forEach(model => {
 		if ('apiKeyEnvVar' in model.source.defaults) {
 			const key = model.source.defaults.apiKeyEnvVar?.key;
+			// pragma: allowlist nextline secret
 			const apiKey = key ? process.env[key] : undefined;
 
 			if (key && apiKey) {
@@ -890,6 +1067,7 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 					name: model.source.provider.displayName,
 					model: model.source.defaults.model,
 					apiKey: apiKey,
+					// pragma: allowlist nextline secret
 					apiKeyEnvVar: 'apiKeyEnvVar' in model.source.defaults ? model.source.defaults.apiKeyEnvVar : undefined,
 				};
 				modelConfigs.push(modelConfig);
@@ -900,7 +1078,6 @@ export function createModelConfigsFromEnv(): ModelConfig[] {
 	return modelConfigs;
 }
 
-// export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
 export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider2 {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
@@ -953,28 +1130,34 @@ interface ModelDefinition {
 // suitable for chat and we don't want the selection to be too large
 export const availableModels = new Map<string, ModelDefinition[]>(
 	[
+		//
 		['anthropic-api', [
 			{
 				name: 'Claude 4 Sonnet',
-				identifier: 'claude-sonnet-4-20250514',
+				identifier: 'claude-sonnet-4',
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 4 Opus',
-				identifier: 'claude-opus-4-20250514',
+				identifier: 'claude-opus-4',
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.7 Sonnet v1',
-				identifier: 'claude-3-7-sonnet-latest',
+				identifier: 'claude-3-7-sonnet',
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet-latest',
+				identifier: 'claude-3-5-sonnet',
+				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
+				name: 'Claude 3.5 Haiku',
+				identifier: 'claude-3-5-haiku',
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
