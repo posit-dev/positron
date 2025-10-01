@@ -5,6 +5,16 @@ on:
   schedule:
     - cron: "0 2 * * 1-5"
   workflow_dispatch:
+    inputs:
+      notify_on:
+        description: "Slack notification on:"
+        required: false
+        default: "failure"
+        type: choice
+        options:
+          - failure
+          - always
+          - never
 
 jobs:  # to input into inspect-ai-test job below
 
@@ -106,6 +116,8 @@ jobs:  # to input into inspect-ai-test job below
         e2e-electron,
       ]
     runs-on: ubuntu-latest
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
     steps:
       - name: Notify Slack
         uses: midleman/slack-workflow-status@v3.1.2
@@ -113,7 +125,7 @@ jobs:  # to input into inspect-ai-test job below
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
-          notify_on: "failure"
+          notify_on: ${{ env.notify_on }}
           include_commit_msg: false
           include_job_statuses: "on-failure"
           include_job_durations: false
