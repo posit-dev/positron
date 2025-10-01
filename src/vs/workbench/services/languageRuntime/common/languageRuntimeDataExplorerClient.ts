@@ -302,8 +302,7 @@ export class DataExplorerClientInstance extends Disposable {
 		} else if (this._numPendingTasks > 0 && waitForCompletedTasks) {
 			// There are pending tasks, so refresh the state
 			return this.updateBackendState(waitForCompletedTasks);
-		}
-		else {
+		} else {
 			// The state was previously computed
 			return this.cachedBackendState;
 		}
