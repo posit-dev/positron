@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -200,41 +200,23 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Clean up any existing listeners
 		this._cellsContainerListeners.clear();
 
-		if (!container) { return; }
+		if (!container) {
+			this._cellsContainer = undefined;
+			return;
+		}
 
 		this._cellsContainer = container;
 
-		// Fire initial scroll event after a small delay to ensure layout has settled
-		const initialScrollTimeout = setTimeout(() => {
-			this._onDidScrollCellsContainer.fire();
-		}, 50);
-
-		// Set up scroll listener
-		const scrollListener = DOM.addDisposableListener(container, 'scroll', () => {
-			this._onDidScrollCellsContainer.fire();
-		});
-
-		// Set up mutation observer to watch for DOM changes
-		const observer = new MutationObserver(() => {
-			// Small delay to let the DOM changes settle
-			setTimeout(() => {
-				this._onDidScrollCellsContainer.fire();
-			}, 0);
-		});
-
-		observer.observe(container, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			attributeFilter: ['style', 'class']
-		});
-
-		// Add all the disposables to our store
-		this._cellsContainerListeners.add(toDisposable(() => clearTimeout(initialScrollTimeout)));
-		this._cellsContainerListeners.add(scrollListener);
-		this._cellsContainerListeners.add(toDisposable(() => observer.disconnect()));
-
+		// React will handle scroll observation via useScrollObserver hook
 		// Fire initial scroll event
+		this._onDidScrollCellsContainer.fire();
+	}
+
+	/**
+	 * Fire the scroll event for the cells container.
+	 * Called by React when scroll or DOM mutations occur.
+	 */
+	fireScrollEvent(): void {
 		this._onDidScrollCellsContainer.fire();
 	}
 
@@ -673,6 +655,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		this._onDidChangeContent.fire();
+
+		// After the content change fires and cells are synced, explicitly set the selection
+		// to maintain focus on the appropriate cell after deletion
+		// React will handle focus based on selection state change
+		if (targetFocusIndex !== null && targetFocusIndex < this.cells.get().length) {
+			const cellToFocus = this.cells.get()[targetFocusIndex];
+			if (cellToFocus) {
+				this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
+			}
+		}
 	}
 
 
@@ -837,14 +829,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		});
 
 		if (newlyAddedCells.length === 1) {
-			// If we've only added one cell, we can set it as the selected cell in edit mode.
-			// Must ensure editor is shown before requesting focus.
+			// If we've only added one cell, we can set it as the selected cell.
+			// Selection state change will trigger React to focus the editor
 			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-			// Use setTimeout to ensure the editor is mounted in the DOM first
-			setTimeout(async () => {
-				await newlyAddedCells[0].showEditor();
-				newlyAddedCells[0].requestEditorFocus();
-			}, 0);
+			newlyAddedCells[0].requestEditorFocus();
 		}
 
 		// Dispose of any cells that were not reused.
