@@ -1,5 +1,5 @@
 {
-	"model": "Claude 4 Opus",
+	"model": "Claude 4 Sonnet",
 	"tests": [
 		{
 			"id": "sample_1",
