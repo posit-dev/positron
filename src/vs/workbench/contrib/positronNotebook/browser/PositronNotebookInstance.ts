@@ -814,10 +814,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		});
 
 		if (newlyAddedCells.length === 1) {
-			// If we've only added one cell, we can set it as the selected cell.
-			// Selection state change will trigger React to focus the editor
+			// If we've only added one cell, we can set it as the selected cell in edit mode.
+			// Must ensure editor is shown before requesting focus.
 			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-			newlyAddedCells[0].requestEditorFocus();
+			// Use setTimeout to ensure the editor is mounted in the DOM first
+			setTimeout(async () => {
+				await newlyAddedCells[0].showEditor();
+				newlyAddedCells[0].requestEditorFocus();
+			}, 0);
 		}
 
 		// Dispose of any cells that were not reused.
@@ -865,9 +869,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Add some keyboard navigation for cases not covered by the keybindings. I'm not sure if
 		// there's a way to do this directly with keybindings but this feels acceptable due to the
 		// ubiquity of the enter key and escape keys for these types of actions.
-		const onKeyDown = ({ key, shiftKey, ctrlKey, metaKey }: KeyboardEvent) => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			const { key, shiftKey, ctrlKey, metaKey } = event;
 			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
-				this.selectionStateMachine.enterEditor();
+				// Prevent the Enter key from being processed by the editor
+				event.preventDefault();
+				event.stopPropagation();
+				void this.selectionStateMachine.enterEditor();
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();
 			}

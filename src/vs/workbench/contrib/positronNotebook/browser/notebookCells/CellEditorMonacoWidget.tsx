@@ -125,16 +125,14 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {
-		const editor = cell.editor;
-		if (!editor) {
-			return;
-		}
-
 		// Subscribe to focus request observable
 		const disposable = autorun(reader => {
 			const shouldFocus = cell.editorFocusRequested.read(reader);
 			if (shouldFocus) {
-				editor.focus();
+				const editor = cell.editor;
+				if (editor) {
+					editor.focus();
+				}
 			}
 		});
 
