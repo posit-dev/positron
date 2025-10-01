@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { JSONTree } from '@vscode/prompt-tsx';
-import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName, RuntimeSessionReference } from './types.js';
 import { log } from './extension.js';
 
 /**
@@ -616,4 +616,19 @@ export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart
 	// or Positron Assistant can set cache breakpoints with the same schema.
 	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
 	return vscode.LanguageModelDataPart.text(LanguageModelCacheBreakpointType.Ephemeral, LanguageModelDataPartMimeType.CacheControl);
+}
+
+/**
+ * Type guard to check if a reference is a RuntimeSessionReference.
+ *
+ * This function validates that the reference object has the expected structure
+ * of a RuntimeSessionReference.
+ */
+export function isRuntimeSessionReference(reference: unknown): reference is RuntimeSessionReference {
+	return typeof reference === 'object' && reference !== null &&
+		'value' in reference &&
+		typeof reference.value === 'object' && reference.value !== null &&
+		'activeSession' in reference.value &&
+		'variables' in reference.value &&
+		Array.isArray(reference.value.variables);
 }

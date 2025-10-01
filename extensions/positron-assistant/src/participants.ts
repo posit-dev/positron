@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, MAX_CONTEXT_VARIABLES } from './constants';
-import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
+import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference } from './utils';
 import { ContextInfo, PositronAssistantToolName, RuntimeSessionReference } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -415,33 +415,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		if (request.references.length > 0) {
 			const attachmentPrompts: string[] = [];
 			const sessionPrompts: string[] = [];
-			for (const reference of request.references) {
+			for (const reference of request.references as Array<vscode.ChatPromptReference | RuntimeSessionReference>) {
 				const value = reference.value;
-				if ((value as any).activeSession) {
+				if (isRuntimeSessionReference(reference)) {
 					// The user attached a runtime session - usually the active session in the IDE.
-					// This awkward casting is unfortunately necessary because request.references is an
-					// Array<ChatPromptReference>. If we had cast it to
-					// Array<ChatPromptReference | RuntimeSessionReference>, that still wouldn't eliminate
-					// the need for this case, because ChatPromptReference.value is defined as
-					// `string | Uri | Location | ChatReferenceBinaryData | unknown` -- the `unknown`
-					// causes it to not narrow the type based on the presence of `value.activeSession`.
-					const sessionReference = reference as RuntimeSessionReference;
-					let sessionContent = JSON.stringify(sessionReference.value.activeSession, null, 2);
-					if (sessionReference.value.variables) {
-						// Include the session variables in the session content.
-						// In Python, `kind` provides a more accurate type than `display_type`, so
-						// we'll include both.
-						// Limit the number of variables to prevent excessive context size
-						const vars = sessionReference.value.variables.slice(0, MAX_CONTEXT_VARIABLES);
-						const variablesSummary = vars.map((v) => {
-							return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
-						}).join('\n');
-						sessionContent += '\n' + xml.node('variables', variablesSummary);
-					}
+					let sessionContent = JSON.stringify(reference.value.activeSession, null, 2);
+					// Include the session variables in the session content.
+					// In Python, `kind` provides a more accurate type than `display_type`, so
+					// we'll include both.
+					// Limit the number of variables to prevent excessive context size
+					const vars = reference.value.variables.slice(0, MAX_CONTEXT_VARIABLES);
+					const variablesSummary = vars.map((v) => {
+						return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
+					}).join('\n');
+					sessionContent += '\n' + xml.node('variables', variablesSummary);
 					sessionPrompts.push(xml.node('session', sessionContent, {
 						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type`.',
 					}));
-					log.debug(`[context] adding session context for session ${sessionReference.value.activeSession!.identifier}: ${sessionContent.length} characters`);
+					log.debug(`[context] adding session context for session ${reference.value.activeSession!.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.

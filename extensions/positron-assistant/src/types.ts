@@ -84,7 +84,7 @@ export type ContextInfo = {
  */
 export interface RuntimeSessionReference {
 	readonly value: {
-		activeSession?: {
+		activeSession: {
 			identifier: string;
 			language: string;
 			version: string;
