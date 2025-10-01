@@ -121,7 +121,7 @@ export function TracingFixture() {
 
 			// attach the trace to the report if CI and test failed or not in CI
 			const isCI = process.env.CI === 'true';
-			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE_MODE === 'on') {
+			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry || process.env.PW_TRACE === 'on') {
 				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 			}
 		}
