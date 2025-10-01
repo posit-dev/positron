@@ -343,17 +343,4 @@ test.describe('Notebook Focus and Selection', {
 		expect(normalizedContent).toContain('new cell content');
 	});
 
-	// The following tests are disabled because they test features that either:
-	// 1. Don't work with keyboard shortcuts (insert/delete need UI interaction)
-	// 2. Have different behavior than expected (edit mode, shift+click)
-	// These tests document the INTENDED behavior after refactoring is complete
-
-	// test('Enter key on selected cell focuses editor', async function ({ app }) { ... });
-	// test('Escape key in editor exits edit mode and focuses cell container', async function ({ app }) { ... });
-	// test('Shift+Click adds cell to selection', async function ({ app }) { ... });
-	// test('Insert cell above focuses new cell', async function ({ app }) { ... });
-	// test('Insert cell below focuses new cell', async function ({ app }) { ... });
-	// test('Delete cell focuses next cell', async function ({ app }) { ... });
-	// test('Delete last cell focuses previous cell', async function ({ app }) { ... });
-	// test('Clicking outside editor while editing exits edit mode', async function ({ app }) { ... });
 });
