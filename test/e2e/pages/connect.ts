@@ -34,6 +34,38 @@ type ServerSettingsResponse = {
 	api_enabled?: boolean;
 };
 
+type ConnectUser = {
+	email: string;
+	username: string;
+	first_name: string;
+	last_name: string;
+	user_role: string;
+	created_time: string;
+	updated_time: string;
+	active_time: string | null;
+	confirmed: boolean;
+	locked: boolean;
+	guid: string;
+};
+
+type UsersResponse = {
+	results: ConnectUser[];
+	current_page: number;
+	total: number;
+};
+
+export interface PermissionPayload {
+	principal_guid: string;
+	principal_type: 'user' | 'group' | string;
+	role: 'viewer' | 'publisher' | 'admin' | string;
+}
+
+interface PermissionResponse {
+	// Shape depends on your API; widen as needed
+	success?: boolean;
+	[key: string]: unknown;
+}
+
 const apiServer = 'http://localhost:3939/__api__/v1/';
 
 export class PositConnect {
@@ -101,25 +133,75 @@ export class PositConnect {
 		);
 	}
 
-	// To prevent flakiness, this function always add the file name after app.py, which is guaranteed to be present
-	async selectFilesForDeploy(files: string[]) {
+	async getUserId(username: string): Promise<string | undefined> {
+		const controller = new AbortController();
+		const t = setTimeout(() => controller.abort(), 10_000);
+
+		try {
+			const res = await fetch(`${apiServer}users`, {
+				method: 'GET',
+				headers: this.headers,
+				redirect: 'error', // mirrors --max-redirs 0 + --fail behavior
+				signal: controller.signal,
+			});
+
+			if (!res.ok) {
+				const text = await res.text().catch(() => '');
+				throw new Error(`GET /users failed: ${res.status} ${res.statusText}${text ? ` — ${text}` : ''}`);
+			}
+
+			const data = (await res.json()) as UsersResponse;
+
+			const user1 = data.results.find(u => u.username === username);
+			return user1?.guid; // undefined if not found
+		} finally {
+			clearTimeout(t);
+		}
+	}
+
+	async setPythonVersion(version: string) {
 		const editorContainer = this.code.driver.page.locator('[id="workbench.parts.editor"]');
-		const dynamicTomlLineRegex = 'app.py';
+		const dynamicTomlLineRegex = '[python]';
 		const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 
-		await targetLine.scrollIntoViewIfNeeded({ timeout: 20000 });
 		await expect(targetLine).toBeVisible({ timeout: 10000 });
 
 		await targetLine.click();
 		await this.code.driver.page.keyboard.press('End');
+		await this.code.driver.page.keyboard.press('Enter');
 
-		for (let i = 0; i < files.length; i++) {
-			if (i > 0) {
-				await this.code.driver.page.keyboard.press('Enter');
+		await this.code.driver.page.keyboard.type(`version = '${version}'`, { delay: 50 });
+	}
+
+
+	async setContentPermission(
+		contentGuid: string,
+		payload: PermissionPayload,
+	): Promise<PermissionResponse> {
+		const url = `${apiServer}content/${contentGuid}/permissions`;
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 15_000);
+
+		try {
+			const res = await fetch(url, {
+				method: 'POST',
+				headers: this.headers,
+				body: JSON.stringify(payload),
+				redirect: 'follow',
+				signal: controller.signal,
+			});
+
+			if (!res.ok) {
+				const text = await res.text().catch(() => '');
+				throw new Error(`HTTP ${res.status} ${res.statusText} — ${text}`);
 			}
-			await this.code.driver.page.keyboard.type(`'/${files[i]}',`);
+			// If the API returns JSON, parse it; otherwise return empty object
+			const contentType = res.headers.get('content-type') || '';
+			return contentType.includes('application/json')
+				? ((await res.json()) as PermissionResponse)
+				: {};
+		} finally {
+			clearTimeout(timeout);
 		}
-		const saveButton = this.code.driver.page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
-		await saveButton.click();
 	}
 }

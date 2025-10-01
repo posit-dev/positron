@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { PermissionPayload } from '../../../pages/connect.js';
 import { test, tags, expect } from '../../_test.setup';
 
 test.use({
@@ -15,31 +16,43 @@ const connectServer = 'http://connect:3939';
 
 test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] }, () => {
 
-	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand }) {
+	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
-		const connectApiKey = await runDockerCommand(`docker exec test rsconnect bootstrap --server ${connectServer} --raw`, 'Get Connect API key');
+		// await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
 
-		// debug only
-		console.log('Connect API Key:', connectApiKey.stdout.trim());
+		// Read previously bootstrapped token from the shared volume
+		const { stdout } = await runDockerCommand(
+			`docker exec test bash -lc 'set -euo pipefail; [ -s /tokens/connect_bootstrap_token ] && cat /tokens/connect_bootstrap_token'`,
+			'Read Connect API key'
+		);
 
-		app.workbench.positConnect.setConnectApiKey(connectApiKey.stdout.trim());
+		const connectApiKey = stdout.trim();
+		if (!connectApiKey) {
+			throw new Error('Connect API key file was empty or missing at /tokens/connect_bootstrap_token');
+		}
 
-		await runDockerCommand('docker exec connect sudo groupadd -g 1100 user1g', 'Create group user1g');
-		await runDockerCommand('docker exec connect sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1', 'Create user user1');
-		await runDockerCommand(`docker exec connect bash -c \'echo "user1":"${process.env.POSIT_WORKBENCH_PASSWORD}" | sudo chpasswd\'`, 'Set password for user1');
+		app.workbench.positConnect.setConnectApiKey(connectApiKey);
 
-		userId = await app.workbench.positConnect.createUser();
+		const user1Present = await app.workbench.positConnect.getUserId('user1');
+		if (!user1Present) {
+
+			await runDockerCommand('docker exec connect sudo groupadd -g 1100 user1g', 'Create group user1g');
+			await runDockerCommand('docker exec connect sudo useradd --create-home --shell /bin/bash --home-dir /home/user1 -u 1100 -g 1100 user1', 'Create user user1');
+			await runDockerCommand(`docker exec connect bash -c \'echo "user1":"${process.env.POSIT_WORKBENCH_PASSWORD}" | sudo chpasswd\'`, 'Set password for user1');
+
+			userId = await app.workbench.positConnect.createUser();
+		} else {
+			userId = user1Present;
+		}
 
 		const versions = await app.workbench.positConnect.getPythonVersions();
 		pythonVersion = versions[0];
 
-		// debug only
-		console.log('Created Connect user:', userId);
-		console.log('Python version:', pythonVersion);
+		await hotKeys.stackedLayout();
 
 	});
 
-	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile }) {
+	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile, hotKeys }) {
 
 		await test.step('Open file', async () => {
 			await openFile('workspaces/shiny-py-example/app.py');
@@ -52,13 +65,6 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 		await test.step('Enter title for application through quick-input', async () => {
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			await app.workbench.quickInput.type('shiny-py-example');
-			await page.keyboard.press('Enter');
-		});
-
-		await test.step('Select Posit Connect as deployment target', async () => {
-			await app.workbench.quickInput.selectQuickInputElement(1, true);
-			await expect(app.code.driver.page.getByText('Please provide the Posit Connect server\'s URL')).toBeVisible({ timeout: 10000 });
-			await app.workbench.quickInput.type(connectServer);
 			await page.keyboard.press('Enter');
 		});
 
@@ -76,6 +82,14 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 				await app.workbench.quickInput.selectQuickInputElement(0, false);
 			});
 		} else {
+
+			await test.step('Select Posit Connect as deployment target', async () => {
+				await app.workbench.quickInput.selectQuickInputElement(1, true);
+				await expect(app.code.driver.page.getByText('Please provide the Posit Connect server\'s URL')).toBeVisible({ timeout: 10000 });
+				await app.workbench.quickInput.type(connectServer);
+				await page.keyboard.press('Enter');
+			});
+
 			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
 			await test.step('Enter Connect server and API key', async () => {
 				await app.workbench.quickInput.selectQuickInputElement(1, true);
@@ -86,46 +100,79 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			});
 
 			await test.step('Unique name for credential (Connect Server and API key)', async () => {
+				await expect(app.code.driver.page.getByText(`Successfully connected to ${connectServer}`)).toBeVisible({ timeout: 10000 });
+
 				await app.workbench.quickInput.type('shiny-py-example');
 				await page.keyboard.press('Enter');
 			});
 		}
 
-
-		await test.step('Add files to deployment file (after app.py) and save', async () => {
-			const files = ['shared.py', 'styles.css', 'tips.csv'];
-			await app.workbench.positConnect.selectFilesForDeploy(files);
-		});
-
 		const outerFrame = page.frameLocator('iframe.webview.ready');
 		const innerFrame = outerFrame.frameLocator('iframe#active-frame');
+
+		await test.step('Add files to deployment file (after app.py) and save', async () => {
+			await innerFrame.locator('.tree-item-title', { hasText: 'shared.py' }).click();
+			await innerFrame.locator('.tree-item-title', { hasText: 'styles.css' }).click();
+			await innerFrame.locator('.tree-item-title', { hasText: 'tips.csv' }).click();
+		});
+
 		const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
 
 		await test.step('Expect Deploy Your Project button to appear', async () => {
 			await expect(deployButton).toBeVisible();
 		});
 
+		await hotKeys.toggleBottomPanel();
+
+		await app.code.wait(2000);
+
+		await app.workbench.positConnect.setPythonVersion(pythonVersion);
+
+		await hotKeys.save();
+
+		await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
+
+		await hotKeys.toggleBottomPanel();
+
 		await test.step('Click on Deploy Your Project button', async () => {
 			await deployButton.click();
 		});
 
-		await test.step('Click on View Log', async () => {
-			const viewLogLink = innerFrame.locator('a.webview-link', { hasText: 'View Log' });
-			await viewLogLink.waitFor({ state: 'visible' });
-			await viewLogLink.click();
-		});
+		await app.workbench.toasts.awaitToastDisappearance(120000);
 
-		await test.step('Verify deployments process gets kicked in by Publisher (out of scope: whether deployment succeeds', async () => {
-			// Not needed thanks to PR 7840, but this is an example of implementation
-			// await app.workbench.popups.closeSpecificToast('Import your settings from Visual Studio Code into Positron?');
-			await page.getByRole('button', { name: 'Maximize Panel' }).click();
-			// The next two await expects are a bit redundant on purpose. If "Deploy Bundle" isn't visible, test should quickly fail (5secs).
-			await expect(page.locator('span.monaco-highlighted-label:has-text("Deploy Bundle")')).toBeVisible({ timeout: 5000 });
-			// Then, checkmark next to it might take a bit long to appear, which is expected.
-			await expect(page.locator('.monaco-list-row:has-text("Deploy Bundle") .custom-view-tree-node-item-icon.codicon.codicon-check')).toBeVisible({ timeout: 90000 });
-		});
+		await hotKeys.closeSecondarySidebar();
+
+		await app.code.driver.page.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
+
+		const deployedLocator = app.code.driver.page.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
+
+		const deploymentText = await deployedLocator.textContent();
+
+		const appGuid = extractGuid(deploymentText || '');
+
+		console.log(appGuid);
+
+		const payload: PermissionPayload = {
+			principal_guid: userId,
+			principal_type: 'user',
+			role: 'viewer',
+		};
+
+		await app.workbench.positConnect.setContentPermission(
+			appGuid!,
+			payload,
+		);
+
+		await app.code.driver.page.goto('http://localhost:3939');
 
 		await app.code.wait(60000);
 
 	});
 });
+
+export function extractGuid(line: string): string | null {
+	const m = line.match(
+		/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?!.*[0-9a-f-])/i
+	);
+	return m ? m[1] : null;
+}
