@@ -5,10 +5,8 @@
 
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../../../common/contributions.js';
-import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { UndoCommand, RedoCommand } from '../../../../../../editor/browser/editorExtensions.js';
 import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
-import { PositronNotebookEditorInput } from '../../PositronNotebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/undoRedo.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
@@ -18,7 +16,6 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronNotebookUndoRedo';
 
 	constructor(
-		@IEditorService private readonly editorService: IEditorService,
 		@IUndoRedoService private readonly undoRedoService: IUndoRedoService,
 		@IPositronNotebookService private readonly positronNotebookService: IPositronNotebookService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService
@@ -32,11 +29,6 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 	}
 
 	private shouldHandleUndoRedo(): boolean {
-		const activeEditor = this.editorService.activeEditor;
-		if (!(activeEditor instanceof PositronNotebookEditorInput)) {
-			return false;
-		}
-
 		// Get the active notebook instance to access its scoped context key service
 		const instance = this.positronNotebookService.getActiveInstance();
 		if (!instance) {
