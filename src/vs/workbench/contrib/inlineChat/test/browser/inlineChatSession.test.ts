@@ -70,6 +70,9 @@ import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 import { TestMcpService } from '../../../mcp/test/common/testMcpService.js';
 import { IChatSessionsService } from '../../../chat/common/chatSessionsService.js';
 import { ChatSessionsService } from '../../../chat/browser/chatSessions.contribution.js';
+// --- Start Positron ---
+import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
+// --- End Positron ---
 
 suite('InlineChatSession', function () {
 
@@ -85,6 +88,10 @@ suite('InlineChatSession', function () {
 
 
 		const serviceCollection = new ServiceCollection(
+			// --- Start Positron ---
+			[IPositronAssistantConfigurationService, new class extends mock<IPositronAssistantConfigurationService>() {
+			}],
+			// --- End Positron ---
 			[IConfigurationService, new TestConfigurationService()],
 			[IChatVariablesService, new SyncDescriptor(ChatVariablesService)],
 			[ILogService, new NullLogService()],

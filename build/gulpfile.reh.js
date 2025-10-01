@@ -29,6 +29,7 @@ const glob = require('glob');
 // --- Start Positron ---
 const { positronBuildNumber } = require('./utils');
 const { copyExtensionBinariesTask } = require('./gulpfile.extensions');
+const { getQuartoBinaries } = require('./lib/quarto');
 // --- End Positron ---
 const { compileBuildWithManglingTask } = require('./gulpfile.compile');
 // --- Start PWB ---
@@ -415,6 +416,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 
 		// --- Start Positron ---
 		let all = es.merge(
+			getQuartoBinaries(),
 			// --- End Positron ---
 			packageJsonStream,
 			productJsonStream,

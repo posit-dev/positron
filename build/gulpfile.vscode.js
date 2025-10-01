@@ -38,7 +38,7 @@ const rcedit = promisify(require('rcedit'));
 
 // --- Start Positron ---
 const fancyLog = require('fancy-log');
-const { getQuartoStream } = require('./lib/quarto');
+const { getQuartoBinaries } = require('./lib/quarto');
 const { positronBuildNumber } = require('./utils');
 const { copyExtensionBinariesTask } = require('./gulpfile.extensions');
 // --- End Positron ---
@@ -316,31 +316,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
 
-		// Bundled Quarto binaries
-		const quarto = getQuartoStream()
-			// Move the Quarto binaries into a `quarto` subdirectory
-			.pipe(rename(f => { f.dirname = path.join('quarto', f.dirname); }))
-
-			// Skip generated files that start with '._'
-			.pipe(es.mapSync(f => {
-				if (!f.basename.startsWith('._')) {
-					return f;
-				}
-			}))
-
-			// Restore the executable bit on the Quarto binaries. (It's very
-			// unfortunate that gulp doesn't preserve the executable bit when
-			// copying files.)
-			.pipe(util.setExecutableBit([
-				'**/dart',
-				'**/deno',
-				'**/esbuild',
-				'**/pandoc',
-				'**/quarto',
-				'**/sass',
-				'**/typst'
-			]));
-
 		// --- End Positron ---
 
 		const telemetry = gulp.src('.build/telemetry/**', { base: '.build/telemetry', dot: true });
@@ -380,7 +355,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			// --- Start Positron ---
 			positronApi,
-			quarto,
+			getQuartoBinaries(),
 			moduleSources,
 			// --- End Positron ---
 			telemetry,

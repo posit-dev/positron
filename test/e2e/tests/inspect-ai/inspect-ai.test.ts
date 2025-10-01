@@ -114,7 +114,11 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		const outputFilename = process.env.OUTPUT_FILENAME || 'response-dataset.json';
 		const datasetPath = join(__dirname, '../../../assistant-inspect-ai/response-dataset.json');
 		const outputPath = join(__dirname, '../../../assistant-inspect-ai', outputFilename);
-		const dataset = readJSONFile(datasetPath);
+		const datasetJson = readJSONFile(datasetPath);
+
+		// Extract model and tests from the JSON data
+		const dataset = datasetJson.tests || [];
+		const modelName = datasetJson.model || 'Claude 4 Opus';
 
 		// Start a Python Session
 		const [pySession] = await sessions.start(['python']);
@@ -133,6 +137,8 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		}
 
 		await app.workbench.toasts.closeAll();
+
+		await app.workbench.assistant.selectChatModel(modelName);
 
 		// Track if we've updated any items
 		let updatedItems = false;
@@ -199,7 +205,8 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		// Write updated dataset back to file if any items were updated
 		if (updatedItems) {
 			try {
-				writeJSONFile(outputPath, dataset);
+				const outputData = { model: modelName, tests: dataset };
+				writeJSONFile(outputPath, outputData);
 				console.log(`Updated model responses in dataset file: ${outputPath}`);
 			} catch (error) {
 				fail(`Failed to write updated dataset: ${error}`);

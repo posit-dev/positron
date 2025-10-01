@@ -18,14 +18,14 @@ import { usePositronDataExplorerContext } from '../../../../positronDataExplorer
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEditRowFilterModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
-import { ColumnSchema } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnSchema, SupportStatus } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
 import { usePositronReactServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
+import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../../../positronDataGrid/classes/layoutManager.js';
 
 /**
  * Constants.
@@ -54,6 +54,24 @@ export const RowFilterBar = () => {
 			backendClient.cachedBackendState.row_filters.map(getRowFilterDescriptor)
 	);
 	const [rowFiltersHidden, setRowFiltersHidden] = useState(false);
+	const [disableFiltering, setDisableFiltering] = useState(false);
+
+	/**
+	 * useEffect to check if filtering should be disabled when the
+	 * dataset has too many columns, which causes the column selector
+	 * dropdown to be empty due to the layout manager not being unable
+	 * to create an entryMap.
+	 * See https://github.com/posit-dev/positron/issues/9265
+	 */
+	useEffect(() => {
+		const checkBackendState = async () => {
+			const backendState = await context.instance.dataExplorerClientInstance.getBackendState();
+			if (backendState.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
+				setDisableFiltering(true);
+			}
+		};
+		checkBackendState();
+	}, [context.instance.dataExplorerClientInstance]);
 
 	/**
 	 * Add row filter handler.
@@ -141,7 +159,7 @@ export const RowFilterBar = () => {
 	}, [context.instance.dataExplorerClientInstance, context.instance.tableDataDataGridInstance, rowFilterDescriptors, services.workbenchLayoutService]);
 
 	const features = backendClient.getSupportedFeatures();
-	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, services.configurationService);
+	const canFilter = features.set_row_filters.support_status === SupportStatus.Supported && !disableFiltering;
 
 	/**
 	 * Filter button pressed handler.
@@ -249,6 +267,7 @@ export const RowFilterBar = () => {
 				ref={rowFilterButtonRef}
 				ariaLabel={(() => localize('positron.dataExplorer.manageFilters', "Manage Filters"))()}
 				className='row-filter-button'
+				disabled={!canFilter}
 				hoverManager={context.instance.tableDataDataGridInstance.hoverManager}
 				tooltip={localize('positron.dataExplorer.manageFilters', "Manage Filters")}
 				onPressed={filterButtonPressedHandler}

@@ -9,6 +9,7 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
 import { TableDataCell } from './components/tableDataCell.js';
@@ -18,10 +19,10 @@ import { CustomContextMenuItem } from '../../../browser/positronComponents/custo
 import { PositronDataExplorerColumn } from './positronDataExplorerColumn.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { CustomContextMenuSeparator } from '../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
+import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../browser/positronDataGrid/classes/layoutManager.js';
 import { PositronDataExplorerCommandId } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from '../common/tableDataCache.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
 import { BackendState, ColumnSchema, DataSelectionCellIndices, DataSelectionIndices, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardData, ClipboardRowIndexes, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, MouseSelectionType, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
@@ -117,6 +118,28 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Get the backend state, if was not provided.
 			if (!state) {
 				state = await this._dataExplorerClientInstance.getBackendState();
+			}
+
+			// Notify the user if the dataset exceeds the advanced layout limits which will
+			// cause advanced features to be disabled to improve performance.
+			// See https://github.com/posit-dev/positron/issues/9265
+			const exceedsColumnLimit = await this.exceedsAdvancedLayoutLimits(state);
+			if (exceedsColumnLimit) {
+				const message = localize(
+					'positron.dataExplorer.largeDatasetNotificationColumns',
+					"Dataset '{0}' has {1} columns, which exceeds the size to fully support all features for the Data Explorer. Advanced features such as filtering, sorting, and row resizing will be disabled to improve performance.",
+					state.display_name,
+					state.table_shape.num_columns.toLocaleString()
+				);
+
+				// Show a sticky notification that persists until dismissed
+				this._services.notificationService.notify({
+					id: `dataExplorer.largeDataset.${this._dataExplorerClientInstance.identifier}`,
+					severity: Severity.Warning,
+					message: message,
+					sticky: true,
+					source: localize('positron.dataExplorer.source', 'Data Explorer')
+				});
 			}
 
 			// Calculate column widths.
@@ -267,6 +290,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the data is sorted.
 	 */
 	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
+		// Clear pinned rows whenever a sort is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the sort columns.
 		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => ({
 			column_index: columnSort.columnIndex,
@@ -298,12 +326,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	override async fetchData(invalidateCacheFlags?: InvalidateCacheFlags) {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
-		if (columnDescriptor && rowDescriptor) {
+
+		// We update the cache as long as there is a column in the dataset.
+		// This allows datasets with column headers but zero rows to render
+		// the column headers in the data grid.
+		// See https://github.com/posit-dev/positron/issues/9619
+		if (columnDescriptor) {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
 				columnIndices: this._columnLayoutManager.getLayoutIndexes(this.horizontalScrollOffset, this.layoutWidth, OVERSCAN_FACTOR),
-				rowIndices: this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR)
+				rowIndices: rowDescriptor ? this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR) : []
 			});
 		}
 	}
@@ -394,8 +427,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status) && !exceedsLimits;
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status) && !exceedsLimits;
 
 		// Get the column sort key for the column.
 		const columnSortKey = sortSupported ? this.columnSortKey(columnIndex) : undefined;
@@ -579,8 +613,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
+		const exceedsLimits = await this.exceedsAdvancedLayoutLimits();
+		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status) && !exceedsLimits;
+		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status) && !exceedsLimits;
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -788,6 +823,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
+		// Clear pinned rows whenever a filter is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Set the row filters.
 		await this._dataExplorerClientInstance.setRowFilters(filters);
 
@@ -812,7 +852,19 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Given a status check if the feature is enabled.
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
-		return dataExplorerExperimentalFeatureEnabled(status, this._services.configurationService);
+		return status === SupportStatus.Supported;
+	}
+
+	/**
+	 * Checks if the dataset exceeds the advanced layout limits.
+	 * @returns true if the dataset exceeds the limits, false otherwise.
+	 */
+	private async exceedsAdvancedLayoutLimits(state?: BackendState): Promise<boolean> {
+		// Get the backend state, if was not provided.
+		if (!state) {
+			state = await this._dataExplorerClientInstance.getBackendState();
+		}
+		return state.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT;
 	}
 
 	//#endregion Public Methods

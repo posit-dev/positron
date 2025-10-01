@@ -10,6 +10,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IExportableChatData } from '../../../chat/common/chatModel.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
+export const IPositronAssistantConfigurationService = createDecorator<IPositronAssistantConfigurationService>('positronAssistantConfigurationService');
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
 
 //#region Chat Participants
@@ -63,11 +64,35 @@ export interface IPositronLanguageModelConfig {
 	project?: string;
 	location?: string;
 	numCtx?: number;
+	maxInputTokens?: number;
 	maxOutputTokens?: number;
 	completions?: boolean;
 	apiKeyEnvVar?: { key: string; signedIn: boolean };
 }
 
+//#endregion
+//#region Configuration Service
+
+/**
+ * IPositronAssistantConfigurationService interface.
+ */
+export interface IPositronAssistantConfigurationService {
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
+	readonly _serviceBrand: undefined;
+
+	/**
+	 * Flag indicating whether GitHub Copilot is enabled (via disabled extension, or lack of authentication).
+	 */
+	readonly copilotEnabled: boolean;
+
+	/**
+	 * Event that fires when the Copilot enabled flag changes.
+	 */
+	readonly onChangeCopilotEnabled: Event<boolean>;
+
+}
 //#endregion
 //#region Assistant Service
 

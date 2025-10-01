@@ -394,13 +394,15 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * PositronDataExplorerEditor is instantiated.
 	 */
 	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance) {
+		const instance = this._register(new PositronDataExplorerInstance(
+			languageName,
+			client
+		));
+
 		// Set the Positron data explorer client instance.
 		this._positronDataExplorerInstances.set(
 			client.identifier,
-			new PositronDataExplorerInstance(
-				languageName,
-				client
-			)
+			instance
 		);
 
 		this._register(client.onDidClose(() => {
@@ -421,13 +423,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance for the editor.
 	 */
 	private closeEditor(dataExplorerClientInstance: DataExplorerClientInstance) {
-		// Get the data explorer client instance. If it was found, delete it and dispose it.
+		// Get the data explorer client instance. If it was found, delete it from the map.
+		// We don't need to dispose it explicitly here as it's already registered with the parent
+		// disposable store and will be disposed when the service is disposed.
 		const positronDataExplorerInstance = this._positronDataExplorerInstances.get(
 			dataExplorerClientInstance.identifier
 		);
 		if (positronDataExplorerInstance) {
 			this._positronDataExplorerInstances.delete(dataExplorerClientInstance.identifier);
-			positronDataExplorerInstance.dispose();
 		}
 	}
 

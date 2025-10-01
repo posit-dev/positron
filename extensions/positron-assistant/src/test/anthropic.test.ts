@@ -335,13 +335,14 @@ suite('AnthropicLanguageModel', () => {
 			// Call the method under test.
 			const { body } = await provideLanguageModelResponse(
 				[
+					new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
 					vscode.LanguageModelChatMessage.User('Hi'),
 					vscode.LanguageModelChatMessage.User('Bye'),
 				],
 				{
 					// Define the request tools, not sorted by name, so we can test sorting behavior.
 					tools: [toolB, toolA],
-					modelOptions: { system },
+					modelOptions: {},
 					requestInitiator: 'test',
 					toolMode: vscode.LanguageModelChatToolMode.Auto,
 				},
@@ -390,6 +391,7 @@ suite('AnthropicLanguageModel', () => {
 			// Call the method under test with no cacheControl options to test default behavior.
 			const { body } = await provideLanguageModelResponse(
 				[
+					new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, system),
 					vscode.LanguageModelChatMessage.User('Hi'),
 					vscode.LanguageModelChatMessage.User('Bye'),
 				],
@@ -397,7 +399,6 @@ suite('AnthropicLanguageModel', () => {
 					// Define the request tools, not sorted by name, so we can test sorting behavior.
 					tools: [toolB, toolA],
 					modelOptions: {
-						system,
 						cacheControl: {
 							system: false,
 						} satisfies CacheControlOptions,

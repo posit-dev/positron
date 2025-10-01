@@ -14,6 +14,8 @@ import { PositronActionBarContextProvider } from '../../../../../../../platform/
 import { ActionBarRegion } from '../../../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { SearchSchemaSortOrder } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { usePositronDataExplorerContext } from '../../../../positronDataExplorerContext.js';
+import { MAX_ADVANCED_LAYOUT_ENTRY_COUNT } from '../../../../../positronDataGrid/classes/layoutManager.js';
 
 // This is the debounce time for the search input in milliseconds.
 // It allows the user to type without triggering a search on every keystroke.
@@ -24,21 +26,47 @@ export interface SummaryRowActionBarProps {
 }
 
 export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
+	const context = usePositronDataExplorerContext();
 	const filterRef = useRef<ActionBarFilterHandle>(null);
+
 	// State to hold the search text typed by the user
 	const [searchText, setSearchText] = useState(instance.searchText || '');
 	// State to hold the debounced search text that we use to filter data.
-	const [debouncedSearchText, setDebouncedSearchText] = useState('');
+	const [debouncedSearchText, setDebouncedSearchText] = useState(instance.searchText || '');
 	// State to hold the current sort option
 	const [sortOption, setSortOption] = useState<SearchSchemaSortOrder>(instance.sortOption || SearchSchemaSortOrder.Original);
+	// State for determining if filtering/sort should be disabled when the dataset has too many columns
+	const [disabled, setDisabled] = useState(false);
 
 	/**
-	 * Initialize the search text input when the instance changes.
-	 * This ensures the search text is displayed correctly when switching between tabs.
+	 * useEffect to check if filtering should be disabled when the
+	 * dataset has too many columns, which causes the column selector
+	 * dropdown to be empty due to the layout manager not being unable
+	 * to create an entryMap.
+	 * See https://github.com/posit-dev/positron/issues/9265
+	 */
+	useEffect(() => {
+		const checkBackendState = async () => {
+			const backendState = await context.instance.dataExplorerClientInstance.getBackendState();
+			if (backendState.table_shape.num_columns >= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
+				setDisabled(true);
+			}
+		};
+		checkBackendState();
+	}, [context.instance.dataExplorerClientInstance]);
+
+	/**
+	 * Initialize the search text input and sort option when the instance changes.
+	 * This ensures the search text and sort option are displayed correctly when switching between tabs.
 	 */
 	useEffect(() => {
 		const instanceSearchText = instance.searchText || '';
+		const instanceSortOption = instance.sortOption || SearchSchemaSortOrder.Original;
+
 		setSearchText(instanceSearchText);
+		setDebouncedSearchText(instanceSearchText);
+		setSortOption(instanceSortOption);
+
 		// Update the filter input field
 		if (filterRef.current) {
 			filterRef.current.setFilterText(instanceSearchText);
@@ -55,7 +83,7 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 		}, SEARCH_DEBOUNCE_TIMEOUT);
 
 		return () => clearTimeout(debounce);
-	}, [searchText, instance]);
+	}, [searchText]);
 
 	/**
 	 * Every time the debounced search text changes (every SEARCH_DEBOUNCE_TIMEOUT milliseconds),
@@ -95,12 +123,14 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 					<ActionBarRegion location='left'>
 						<SummaryRowSortDropdown
 							currentSort={sortOption}
+							disabled={disabled}
 							onSortChanged={handleSortChanged}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarFilter
 							ref={filterRef}
+							disabled={disabled}
 							width={140}
 							onFilterTextChanged={filterText => setSearchText(filterText)} />
 					</ActionBarRegion>

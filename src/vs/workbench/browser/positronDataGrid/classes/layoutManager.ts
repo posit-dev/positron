@@ -270,6 +270,10 @@ export class LayoutManager {
 		this._inverseEntryMap.clear();
 
 		// Enable advanced layout capabilities, if we don't have too many entries.
+		// When we have too many entries, we fall back to a simplified layout strategy.
+		// In the case of there being too many rows, not having an entry map means row
+		// resizing will not be supported.
+		// See https://github.com/posit-dev/positron/issues/9265
 		if (this._entryCount <= MAX_ADVANCED_LAYOUT_ENTRY_COUNT) {
 			// Set the entry sizes, if they were provided and are valid (i.e., they have the correct length).
 			// This is unavoidably O(n) over entry sizes.

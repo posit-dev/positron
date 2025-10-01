@@ -17,7 +17,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { PositronConsoleFocused } from '../../../common/contextkeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -33,6 +33,7 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 
 /**
  * Positron console command ID's.
@@ -46,6 +47,7 @@ const enum PositronConsoleCommandId {
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
 	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
+	ShowNotebookConsole = 'workbench.action.positronConsole.showNotebookConsole'
 }
 
 /**
@@ -756,6 +758,60 @@ export function registerPositronConsoleActions() {
 					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
 					sticky: false
 				});
+			}
+		}
+	});
+
+	/**
+	 * Register the action to show the notebook console.
+	 *
+	 * This will create a new console for the notebook if it doesn't have one,
+	 * and will raise and focus the existing console if one exists
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.ShowNotebookConsole,
+				title: {
+					value: localize('workbench.action.positronConsole.showNotebookConsole', "Show Notebook Console"),
+					original: 'Show Notebook Console'
+				},
+				f1: true,
+				category,
+				menu: [
+					{
+						// Add an entry to the notebook toolbar to show the
+						// notebook console
+						id: MenuId.NotebookToolbar,
+						group: 'notebookConsole',
+						when: ContextKeyExpr.equals('config.notebook.globalToolbar', true),
+						order: 1
+					}
+				]
+			});
+		}
+
+		/**
+		 * Runs action and creates the notebook console.
+		 *
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			// Get services
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			const editorService = accessor.get(IEditorService);
+			const notificationService = accessor.get(INotificationService);
+
+			// Figure out the URI of the active notebook and tell the console
+			// service to start a console attached to the appropriate session
+			const context = getContextFromActiveEditor(editorService);
+			if (context) {
+				positronConsoleService.showNotebookConsole(context.notebookEditor.textModel.uri, true);
+			} else {
+				notificationService.info(localize('positron.noActiveNotebook', "No active notebook; run this command with a notebook open in an editor to see its console."));
 			}
 		}
 	});

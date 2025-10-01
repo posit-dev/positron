@@ -6,7 +6,6 @@ import { autorun, autorunDelta, IObservable, observableValueOpts } from '../../.
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { disposableTimeout } from '../../../../base/common/async.js';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',
@@ -108,7 +107,6 @@ export class SelectionStateMachine extends Disposable {
 		equalsFn: isSelectionStateEqual
 	}, { type: SelectionState.NoSelection });
 
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -205,9 +203,7 @@ export class SelectionStateMachine extends Disposable {
 
 		if (state.type === SelectionState.MultiSelection) {
 			const updatedSelection = state.selected.filter(c => c !== cell);
-			// Set focus on the last cell in the selection to avoid confusingly leaving selection
-			// styles on cell just deselected. Not sure if this is the best UX.
-			updatedSelection.at(-1)?.focus();
+			// React will handle focus based on selection state change
 			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
 		}
 
@@ -233,7 +229,7 @@ export class SelectionStateMachine extends Disposable {
 	/**
 	 * Enters the editor for the selected cell.
 	 */
-	enterEditor(): void {
+	async enterEditor(): Promise<void> {
 		const state = this._state.get();
 		if (state.type !== SelectionState.SingleSelection) {
 			return;
@@ -241,10 +237,10 @@ export class SelectionStateMachine extends Disposable {
 
 		const cellToEdit = state.selected[0];
 		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
-		// Timeout here avoids the problem of enter applying to the editor widget itself.
-		this._register(
-			disposableTimeout(async () => await cellToEdit.showEditor(true), 0)
-		);
+		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
+		await cellToEdit.showEditor();
+		// Request editor focus through observable - React will handle it
+		cellToEdit.requestEditorFocus();
 	}
 
 	/**
@@ -253,7 +249,6 @@ export class SelectionStateMachine extends Disposable {
 	exitEditor(): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
-		state.selectedCell.defocusEditor();
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
 
@@ -261,6 +256,7 @@ export class SelectionStateMachine extends Disposable {
 
 
 	//#region Private Methods
+
 	/**
 	 * Updates the selection state when cells change.
 	 *
@@ -408,8 +404,9 @@ export class SelectionStateMachine extends Disposable {
 		// If meta is not held down, we're in single selection mode.
 		this.selectCell(nextCell, CellSelectionType.Normal);
 
-		nextCell.focus();
+		// React will handle focus based on selection state change
 	}
+
 	//#endregion Private Methods
 
 }

@@ -46,6 +46,7 @@ import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
 import { DapComm } from './DapComm';
+import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus.js';
 
 /**
  * The reason for a disconnection event.
@@ -98,9 +99,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** Barrier: opens when the WebSocket is connected and Jupyter messages can
 	 * be sent and received */
 	private _connected: Barrier = new Barrier();
-
-	/** Barrier: opens when the kernel has started up and has a heartbeat */
-	private _ready: Barrier = new Barrier();
 
 	/** Cached exit reason; used to indicate an exit is expected so we can
 	 * distinguish between expected and unexpected exits */
@@ -945,6 +943,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
+		// Save the kernel info
+		this.runtimeInfoFromKernelInfo(session.kernel_info as KernelInfoReply);
+
 		// Open the established barrier so that we can start sending messages
 		this._activeSession = session;
 		this._established.open();
@@ -1128,7 +1129,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// we've restored it (if it's not new).
 		await withTimeout(this._established.wait(), 2000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be established`);
 
-		let runtimeInfo: positron.LanguageRuntimeInfo | undefined;
+		let runtimeInfo: positron.LanguageRuntimeInfo | undefined = this._runtimeInfo;
 
 		// Mark the session as starting
 		this.onStateChange(positron.RuntimeState.Starting, 'invoking start API');
@@ -1181,60 +1182,66 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to session ${this.metadata.sessionId}`);
 
 		if (this._new) {
+			// If it's a new session and we got runtime info from starting it,
+			// we're ready to go.
 			if (runtimeInfo) {
-				// If we got runtime info at startup, open the ready
-				// barrier immediately
 				this.markReady('new session');
-			} else {
-				// If this is a new session without runtime information, wait
-				// for it to be ready instead. This can take some time as it
-				// needs to wait for the kernel to start up.
-				await withTimeout(this._ready.wait(), 10000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be ready`);
 			}
-		} else {
-			if (this._activeSession?.status === Status.Busy) {
-				// If the session is busy, wait for it to become idle before
-				// connecting. This could take some time, so show a progress
-				// notification.
+		} else if (this._activeSession?.status === Status.Busy) {
+			setTimeout(() => {
+				// On the next tick, if we're still in the starting state,
+				// notify the client that we're busy if we're not already in the
+				// busy state. We need to do this on the next tick since the
+				// client doesn't start listening for state changes until after
+				// `start()` returns.
 				//
-				// CONSIDER: This could be a long wait; it would be better
-				// (though it'd require more orchestration) to bring the user
-				// back to the same experience they had before the reconnecting
-				// (i.e. all UI is usable but the busy indicator is shown).
-				vscode.window.withProgress({
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('{0} is busy; waiting for it to become idle before reconnecting.', this.dynState.sessionName),
-					cancellable: true,
-				}, async (progress, token) => {
-					// If the user cancels the progress, we should interrupt the
-					// session. This can be destructive, so we ask the user for
-					// confirmation.
-					//
-					// It'd be nicer to make the progress cancel button read
-					// "Interrupt", but there is no way to do that with the
-					// current API.
-					const disposable = token.onCancellationRequested(() => {
-						this.requestReconnectInterrupt();
-					});
-					try {
-						// Await for the session to become idle. The session
-						// will become idle after the active code execution is
-						// done, or after the user interrupts it.
-						await this.waitForIdle();
-					} finally {
-						disposable.dispose();
+				// An alternative would be to have the reconnect method return
+				// the current state when connecting.
+				if (this._runtimeState === positron.RuntimeState.Starting) {
+					// If we have an active execution, synthesize a busy message
+					// to update the client with the current execution state.
+					const activeExecution =
+						this._activeSession?.execution_queue.active as JupyterMessage;
+					if (activeExecution) {
+						const kernelStatus: JupyterKernelStatus = {
+							execution_state: 'busy'
+						};
+						const statusMessage: JupyterMessage = {
+							header: {
+								msg_id: `status-replay-${createUniqueId()}`,
+								session: activeExecution.header.session,
+								msg_type: JupyterMessageType.Status,
+								username: activeExecution.header.username,
+								version: activeExecution.header.version,
+								date: new Date().toISOString()
+							},
+							channel: JupyterChannel.IOPub,
+							parent_header: activeExecution.header,
+							metadata: {},
+							content: kernelStatus,
+							buffers: []
+						};
+						this._messages.onKernelStatus(statusMessage, kernelStatus);
 					}
-					this.markReady('idle after busy reconnect');
-				});
-			} else {
-				// Enter the ready state immediately if the session is not busy
-				this.markReady('idle after reconnect');
-			}
+					// Notify client that we're busy
+					this.onStateChange(positron.RuntimeState.Busy, 'reconnecting to busy session');
+				}
+			}, 0);
+
+			// Mark ready when the session becomes idle
+			this.waitForIdle().then(() => {
+				this.markReady('idle after busy reconnect');
+			});
+		} else if (runtimeInfo) {
+			// If we got runtime info from the kernel when starting the
+			// session, we're ready to go.
+			this.markReady('reconnecting to idle session');
 		}
 
 		// If we don't have runtime info yet, get it now.
 		if (!runtimeInfo) {
 			runtimeInfo = await this.getKernelInfo();
+			this.markReady('idle after getting kernel info');
 		}
 
 		return runtimeInfo;
@@ -1323,12 +1330,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
-	 * Opens the ready barrier and fires the ready event.
+	 * Fires the ready event.
 	 */
 	private markReady(reason: string) {
-		// Open the ready barrier so that we can start sending messages
-		this._ready.open();
-
 		// Move into the ready state if we're not already there
 		if (this._runtimeState !== positron.RuntimeState.Ready) {
 			this.onStateChange(positron.RuntimeState.Ready, reason);
@@ -1735,10 +1739,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param reason The reason for the state change
 	 */
 	private onStateChange(newState: positron.RuntimeState, reason: string) {
-		// If the kernel is ready, open the ready barrier
 		if (newState === positron.RuntimeState.Ready) {
+			// We're ready now!
 			this.log(`Kernel is ready.`);
-			this._ready.open();
 		}
 		this.log(`State: ${this._runtimeState} => ${newState} (${reason})`, vscode.LogLevel.Debug);
 		if (newState === positron.RuntimeState.Offline) {
@@ -1825,9 +1828,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		});
 		this._pendingUiCommRequests = [];
 
-		// We're no longer ready
-		this._ready = new Barrier();
-
 		// If we don't know the exit reason and there's a nonzero exit code,
 		// consider this exit to be due to an error.
 		if (this._exitReason === positron.RuntimeExitReason.Unknown && exitCode !== 0) {
@@ -1875,10 +1875,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Populate the initial dynamic state with the input and continuation
 		// prompts
-		if (input_prompt) {
+		if (input_prompt && !this.dynState.inputPrompt) {
 			this.dynState.inputPrompt = input_prompt;
 		}
-		if (continuation_prompt) {
+		if (continuation_prompt && !this.dynState.continuationPrompt) {
 			this.dynState.continuationPrompt = continuation_prompt;
 		}
 
@@ -2013,10 +2013,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				}
 			}
 		}
-
-		// Ensure the kernel is ready; otherwise messages will be emitted to the
-		// frontend before the kernel is "started"
-		await this._ready.wait();
 
 		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
 		this._messages.emitJupyter(msg);

@@ -5,7 +5,7 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { IObservable, ISettableObservable } from '../../../../../base/common/observable.js';
+import { IObservable, IObservableSignal, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
@@ -118,21 +118,23 @@ export interface IPositronNotebookCell extends Disposable {
 	isOnlyCell(): boolean;
 
 	/**
-	 * Set focus to this cell
+	 * Signal that fires when the editor should receive focus.
+	 * This is a stateless signal that notifies observers without maintaining state.
 	 */
-	focus(): void;
+	readonly editorFocusRequested: IObservableSignal<void>;
+
+	/**
+	 * Request that the editor receive focus.
+	 * Triggers the editorFocusRequested signal to notify React components.
+	 */
+	requestEditorFocus(): void;
 
 	/**
 	 * Show the cell's editor.
-	 * @param focus Whether to focus the editor after showing it. Default: false.
 	 * @returns Promise that resolves to the editor when it is available, or undefined if the editor could not be shown.
 	 */
-	showEditor(focus?: boolean): Promise<ICodeEditor | undefined>;
+	showEditor(): Promise<ICodeEditor | undefined>;
 
-	/**
-	 * Remove focus from within monaco editor and out to the cell itself
-	 */
-	defocusEditor(): void;
 
 	/**
 	 * Select this cell

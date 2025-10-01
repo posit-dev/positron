@@ -12,6 +12,7 @@ import { IExecutionHistoryEntry } from '../../../positronHistory/common/executio
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../common/positronConsoleCodeExecution.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -143,6 +144,15 @@ export interface IPositronConsoleService {
 	 * Fires when code is executed in any Positron console instance.
 	 */
 	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
+
+	/**
+	 * Shows and focuses the notebook console for the given notebook. If no
+	 * console exists for the notebook, one is created.
+	 *
+	 * @param notebookUri The URI of the notebook.
+	 * @param focus A value which indicates whether to focus the console.
+	 */
+	showNotebookConsole(notebookUri: URI, focus: boolean): void;
 }
 
 /**

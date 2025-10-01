@@ -13,8 +13,8 @@ import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
 
-/** We expect 2 messages by default: 1 for the user's prompt, and 1 containing at least the default context */
-const DEFAULT_EXPECTED_MESSAGE_COUNT = 2;
+/** We expect 3 messages by default: 1 for the system prompt, 1 for the user's prompt, and 1 containing at least the default context */
+const DEFAULT_EXPECTED_MESSAGE_COUNT = 3;
 
 class TestLanguageModelChatResponse implements vscode.LanguageModelChatResponse {
 	stream: AsyncIterable<string> = {

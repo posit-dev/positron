@@ -84,8 +84,7 @@ test.describe('Data Explorer - Python Polars', {
 		const { dataExplorer } = app.workbench;
 
 		// filter table by: foo is not equal to 1
-		const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
-		await dataExplorer.filters.add(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.filters.add({ columnName: 'foo', condition: 'is not equal to', value: '1' });
 		await dataExplorer.grid.verifyTableData([
 			{ 'foo': '2', 'bar': '7.00', 'ham': '2021-03-04' },
 			{ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' }

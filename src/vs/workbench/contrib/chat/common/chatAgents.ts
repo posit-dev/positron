@@ -28,9 +28,10 @@ import { ChatContextKeys } from './chatContextKeys.js';
 import { IChatAgentEditedFileEvent, IChatProgressHistoryResponseContent, IChatRequestVariableData, ISerializableChatAgentData } from './chatModel.js';
 import { IRawChatCommandContribution } from './chatParticipantContribTypes.js';
 import { IChatFollowup, IChatLocationData, IChatProgress, IChatResponseErrorDetails, IChatTaskDto } from './chatService.js';
-import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from './constants.js';
+import { ChatAgentLocation, ChatConfiguration, ChatModeKind, COPILOT_CHAT_EXTENSION_ID } from './constants.js';
 // --- Start Positron ---
 import { ILanguageModelsService } from './languageModels.js';
+import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
 // --- End Positron ---
 
 //#region agent service, commands etc
@@ -264,6 +265,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		// --- Start Positron ---
 		@ILogService private readonly logService: ILogService,
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		@IPositronAssistantConfigurationService private readonly positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 	) {
 		super();
@@ -494,6 +496,33 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	private _agentIsEnabled(idOrAgent: string | IChatAgentEntry): boolean {
 		const entry = typeof idOrAgent === 'string' ? this._agents.get(idOrAgent) : idOrAgent;
+		// --- Start Positron ---
+		// Special handling for Copilot Chat participants
+		const isCopilotParticipant = ExtensionIdentifier.equals(entry?.data.extensionId, COPILOT_CHAT_EXTENSION_ID);
+		if (isCopilotParticipant) {
+			// Disable Copilot Chat agent if Copilot is not enabled
+			const isCopilotEnabled = this.positronAssistantConfigurationService.copilotEnabled;
+			if (!isCopilotEnabled) {
+				return false;
+			}
+
+			const currentProvider = this.languageModelsService.currentProvider;
+			const currentProviderExtensionId = currentProvider ?
+				this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id) :
+				undefined;
+			if (!currentProviderExtensionId) {
+				return false;
+			}
+			const isCurrentProviderCopilot = ExtensionIdentifier.equals(currentProviderExtensionId, COPILOT_CHAT_EXTENSION_ID);
+			if (!isCurrentProviderCopilot) {
+				// Disable Copilot Chat agent if the user has not opted into using Copilot participants for non-Copilot providers
+				const useCopilotParticipantsWithOtherProviders = this.configurationService.getValue<boolean>(ChatConfiguration.UseCopilotParticipantsWithOtherProviders);
+				if (!useCopilotParticipantsWithOtherProviders) {
+					return false;
+				}
+			}
+		}
+		// --- End Positron ---
 		return !entry?.data.when || this.contextKeyService.contextMatchesRules(ContextKeyExpr.deserialize(entry.data.when));
 	}
 

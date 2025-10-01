@@ -132,5 +132,25 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		}));
 	}
 
+	/**
+	 * Gets the scoped context key service for this notebook editor.
+	 * This is the context service that has access to notebook-specific context keys.
+	 * @returns The scoped context key service, or undefined if no container has been set
+	 */
+	getScopedContextKeyService(): IContextKeyService | undefined {
+		return this._scopedContextKeyService;
+	}
+
+	/**
+	 * Manually set the container focused state.
+	 * This is needed because DOM.trackFocus doesn't fire blur events when a child element
+	 * (like a Monaco editor) gets focus. We need to manually coordinate this with the
+	 * cell editing state to ensure the context key is accurate.
+	 * @param focused - Whether the container should be considered focused
+	 */
+	setContainerFocused(focused: boolean): void {
+		this.positronEditorFocus?.set(focused);
+	}
+
 	//#endregion Public Methods
 }

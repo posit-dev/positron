@@ -393,7 +393,8 @@ export class PositronNotebooks extends Notebooks {
 	async getCellContent(cellIndex: number): Promise<string> {
 		const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
 		const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
-		const content = await editor.textContent();
-		return content ?? '';
+		const content = await editor.textContent() ?? '';
+		// Replace the weird ascii space with a proper space
+		return content.replace(/\u00a0/g, ' ');
 	}
 }

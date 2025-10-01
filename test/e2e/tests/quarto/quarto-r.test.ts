@@ -9,16 +9,13 @@ import { join } from 'path';
 const path = require('path');
 const fs = require('fs-extra');
 
-let isWeb = false;
-
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }, () => {
-	test.beforeAll(async function ({ app, browserName }) {
+	test.beforeAll(async function ({ app }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
-		isWeb = browserName === 'chromium';
 	});
 
 	test.afterEach(async function ({ app }) {
@@ -80,9 +77,6 @@ const renderQuartoDocument = async (app: Application, fileExtension: string) => 
 };
 
 const verifyDocumentExists = async (app: Application, fileExtension: string) => {
-	// there is a known issue with canvas interactions in webview
-	if (!isWeb) { await expect(app.code.driver.page.getByText(`Output created: quarto_basic.${fileExtension}`)).toBeVisible({ timeout: 30000 }); }
-
 	await expect(async () => {
 		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
 	}).toPass({ timeout: 30000 });

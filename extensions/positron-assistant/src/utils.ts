@@ -5,10 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import * as positron from 'positron';
 import { JSONTree } from '@vscode/prompt-tsx';
 import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
-import { isLanguageModelImagePart } from './languageModelParts.js';
 import { log } from './extension.js';
 
 /**
@@ -35,6 +33,7 @@ export function toAIMessage(
 
 	// Convert messages from vscode to ai format
 	const aiMessages: ai.CoreMessage[] = [];
+	const systemContent: string[] = [];
 	for (const message of messages) {
 		if (message.role === vscode.LanguageModelChatMessageRole.User) {
 			// VSCode expects tool results to be user messages but
@@ -158,7 +157,36 @@ export function toAIMessage(
 				markBedrockCacheBreakpoint(aiMessage);
 			}
 			aiMessages.push(aiMessage);
+		} else if (message.role === vscode.LanguageModelChatMessageRole.System) {
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					systemContent.push(part.value);
+				} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+					// Convert PromptTSX parts to text
+					const text = promptTsxPartToString(part);
+					systemContent.push(text);
+				} else {
+					// Skip unknown parts.
+					log.warn(`[vercel] Skipping unsupported part type in system message: ${part.constructor.name}`);
+				}
+			}
 		}
+	}
+
+	if (systemContent.length > 0) {
+		// Not all providers support multiple system messages, so we consolidate.
+		const systemMessage: ai.CoreSystemMessage = {
+			role: 'system',
+			content: systemContent.join('\n'),
+		};
+
+		// Add a cache breakpoint for our combined system prompt.
+		// This is only used by the Bedrock provider.
+		if (bedrockCacheBreakpoint) {
+			markBedrockCacheBreakpoint(systemMessage);
+		}
+
+		aiMessages.unshift(systemMessage);
 	}
 
 	// Remove empty messages to keep certain LLM providers happy
@@ -219,11 +247,11 @@ function convertToolResultToAiMessageExperimentalContent(
 						type: 'text',
 						text: content.value,
 					};
-				} else if (isLanguageModelImagePart(content)) {
+				} else if (content instanceof vscode.LanguageModelDataPart && isChatImagePart(content)) {
 					return {
 						type: 'image',
-						data: content.value.base64,
-						mimeType: content.value.mimeType,
+						data: Buffer.from(content.data).toString('base64'),
+						mimeType: content.mimeType,
 					};
 				} else if (content instanceof vscode.LanguageModelPromptTsxPart) {
 					return {
@@ -247,34 +275,42 @@ function convertToolResultToAiMessageExperimentalContent(
 /**
  * Convert a getPlot tool result into a Vercel AI message.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreUserMessage {
-	// Vercel AI doesn't support image tool results. Convert
-	// an image result into a user message containing the image.
-	const imageParts = part.content.filter((content) => isLanguageModelImagePart(content));
-	if (imageParts.length > 0) {
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart2): ai.CoreUserMessage {
+	const isImageDataPart = (content: unknown): content is vscode.LanguageModelDataPart => {
+		return content instanceof vscode.LanguageModelDataPart && isChatImagePart(content);
+	};
+	const imageParts = part.content.filter(isImageDataPart);
+
+	// If there was no image, forward the response as text.
+	if (imageParts.length === 0) {
 		return {
 			role: 'user',
-			content: imageParts.flatMap((content) => ([
+			content: [
 				{
 					type: 'text',
-					text: 'Here is the current active plot:',
+					text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
 				},
-				{
-					type: 'image',
-					image: content.value.base64,
-					mimeType: content.value.mimeType,
-				}])),
+			],
 		};
 	}
-	// If there was no image, forward the response as text.
+
+	// Otherwise, convert to a user message containing the image,
+	// as Vercel AI doesn't support image tool results.
 	return {
 		role: 'user',
-		content: [
+		// We only expect one image part, but just in case,
+		// include all image parts in the message.
+		content: imageParts.flatMap((imgPart) => ([
 			{
 				type: 'text',
-				text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+				text: 'Here is the current active plot:',
 			},
-		],
+			{
+				type: 'image',
+				image: Buffer.from(imgPart.data).toString('base64'),
+				mimeType: imgPart.mimeType,
+			}
+		])),
 	};
 }
 

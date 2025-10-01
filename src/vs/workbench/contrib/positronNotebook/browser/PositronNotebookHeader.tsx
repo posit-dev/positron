@@ -28,6 +28,11 @@ export function PositronNotebookHeader({ notebookInstance }: { notebookInstance:
 			fullLabel={(() => localize('clearAllCellOutputsLong', 'Clear All Cell Outputs'))()}
 			label={(() => localize('clearAllCellOutputsShort', 'Clear Outputs'))()}
 			onClick={() => { notebookInstance.clearAllCellOutputs(); }} />
+		<IconedButton
+			codicon='terminal'
+			fullLabel={(() => localize('showNotebookConsoleLong', 'Create or Focus Notebook Console'))()}
+			label={(() => localize('showNotebookConsole', 'Show Console'))()}
+			onClick={() => { notebookInstance.showNotebookConsole(); }} />
 		<div style={{ marginLeft: 'auto' }}></div>
 		<AddCodeCellButton index={0} notebookInstance={notebookInstance} />
 		<AddMarkdownCellButton index={0} notebookInstance={notebookInstance} />
