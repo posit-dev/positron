@@ -134,6 +134,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					>
 						<VectorHistogram
 							columnHistogram={columnHistogram}
+							displayType={props.columnSchema.type_display}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
 							hoverManager={props.instance.hoverManager}
