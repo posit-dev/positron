@@ -322,13 +322,23 @@ export class DataExplorerClientInstance extends Disposable {
 		// If there are pending tasks, wait for them to complete first
 		if (this._numPendingTasks > 0 && waitForCompletedTasks) {
 			// Wait for the status to become Idle
-			await new Promise<void>(resolve => {
+			await new Promise<void>((resolve, reject) => {
+				const timeout = 30000;
+
 				const disposable = this.onDidStatusUpdate(status => {
 					if (status === DataExplorerClientStatus.Idle) {
 						disposable.dispose();
+						clearTimeout(timeoutHandle);
 						resolve();
 					}
 				});
+
+				// Don't wait indefinitely; reject after timeout
+				const timeoutHandle = setTimeout(() => {
+					disposable.dispose();
+					const timeoutSeconds = Math.round(timeout / 100) / 10;
+					reject(new Error(`Waiting for pending tasks timed out after ${timeoutSeconds} seconds`));
+				}, timeout);
 			});
 		}
 
