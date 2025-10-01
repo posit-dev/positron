@@ -92,8 +92,10 @@ export const ColumnProfileInteger = (props: ColumnProfileIntegerProps) => {
 					<ColumnProfileNullCountValue {...props} />
 					<IntegerStatsValue stats={stats} value={stats?.min_value} />
 					<IntegerStatsValue stats={stats} value={stats?.median} />
+					{/* Use StatsValue for mean to handle cases where mean is not an integer */}
 					<StatsValue stats={stats} value={stats?.mean} />
 					<IntegerStatsValue stats={stats} value={stats?.max_value} />
+					{/* Use StatsValue for stdev to handle cases where stdev is not an integer */}
 					<StatsValue stats={stats} value={stats?.stdev} />
 				</div>
 			</div>
