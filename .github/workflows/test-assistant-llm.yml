@@ -81,7 +81,7 @@ jobs:  # to input into inspect-ai-test job below
         run: |
           cd test/assistant-inspect-ai
           source venv/bin/activate
-          inspect eval json-response-eval.py
+          inspect eval json-response-eval.py  --log-format json --log-dir logs/
 
       - name: Parse results and check threshold
         run: |
