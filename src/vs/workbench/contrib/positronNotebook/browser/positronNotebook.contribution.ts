@@ -289,7 +289,7 @@ registerNotebookCommand({
 		secondary: [KeyCode.KeyK]
 	},
 	metadata: {
-		description: localize('positronNotebook. selectUp', "Move focus up")
+		description: localize('positronNotebook.selectUp', "Move focus up")
 	}
 });
 
