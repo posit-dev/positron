@@ -425,10 +425,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// Limit the number of variables to prevent excessive context size
 					const vars = value.variables.slice(0, MAX_CONTEXT_VARIABLES);
 					const variablesSummary = vars.map((v) => {
-						return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
+						return `${v.display_name}|${v.kind || ''}|${v.display_type}|${v.access_key}`;
 					}).join('\n');
 					sessionContent += '\n' + xml.node('variables', variablesSummary, {
-						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type`.',
+						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type|access_key`.',
 					});
 					sessionPrompts.push(xml.node('session', sessionContent));
 					log.debug(`[context] adding session context for session ${value.activeSession!.identifier}: ${sessionContent.length} characters`);
