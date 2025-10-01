@@ -10,6 +10,8 @@ import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -66,9 +68,9 @@ export interface IPositronNotebookInstance {
 
 	/**
 	 * Sets the DOM element that contains the cells for the notebook.
-	 * @param container The container element to set, or undefined to clear
+	 * @param container The container element to set, or null to clear
 	 */
-	setCellsContainer(container: HTMLElement | undefined): void;
+	setCellsContainer(container: HTMLElement | null): void;
 
 	/**
 	 * Observable array of cells that make up the notebook. Changes to this array
@@ -115,6 +117,12 @@ export interface IPositronNotebookInstance {
 	 * Event that fires when the cells container is scrolled
 	 */
 	readonly onDidScrollCellsContainer: Event<void>;
+
+	/**
+	 * Options for how the notebook should be displayed.
+	 * Provides configuration for layout, styling, and display behavior.
+	 */
+	readonly notebookOptions: NotebookOptions;
 
 	// ===== Methods =====
 	/**
@@ -210,4 +218,22 @@ export interface IPositronNotebookInstance {
 	 * Returns whether there are cells available to paste from the clipboard.
 	 */
 	canPaste(): boolean;
+
+	/**
+	 * Shows or focuses the notebook console for this notebook instance.
+	 */
+	showNotebookConsole(): void;
+
+	/**
+	 * Gets the base cell editor options for the given language.
+	 * If they don't exist yet, they will be created.
+	 * @param language The language to get the options for.
+	 */
+	getBaseCellEditorOptions(language: string): IBaseCellEditorOptions;
+
+	/**
+	 * Fire the scroll event for the cells container.
+	 * Called by React when scroll or DOM mutations occur.
+	 */
+	fireScrollEvent(): void;
 }
