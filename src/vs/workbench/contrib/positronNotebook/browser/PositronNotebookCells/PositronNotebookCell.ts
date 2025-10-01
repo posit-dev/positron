@@ -196,19 +196,18 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		}
 	}
 
+	/**
+	 * Request focus for the cell's editor.
+	 * React will handle the actual focus operation via useLayoutEffect when the editor is mounted.
+	 */
 	requestEditorFocus(): void {
 		this._editorFocusRequested.set(true, undefined);
 	}
 
 	async showEditor(): Promise<ICodeEditor | undefined> {
-		// Remove focus parameter and direct focus call
-		// Focus will be managed by React through the editorFocusRequested observable
+		// Returns the current editor (may be undefined if not yet mounted)
+		// Focus is managed by React through the editorFocusRequested observable
 		return this._editor.get();
-	}
-
-	defocusEditor(): void {
-		// Let React handle focus when selection state changes
-		// This method now just signals state change without direct DOM manipulation
 	}
 
 	deselect(): void {

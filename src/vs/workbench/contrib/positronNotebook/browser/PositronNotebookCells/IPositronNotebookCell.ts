@@ -135,10 +135,6 @@ export interface IPositronNotebookCell extends Disposable {
 	 */
 	showEditor(): Promise<ICodeEditor | undefined>;
 
-	/**
-	 * Remove focus from within monaco editor and out to the cell itself
-	 */
-	defocusEditor(): void;
 
 	/**
 	 * Select this cell

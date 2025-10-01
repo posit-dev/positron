@@ -249,7 +249,6 @@ export class SelectionStateMachine extends Disposable {
 	exitEditor(): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
-		state.selectedCell.defocusEditor();
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
 
