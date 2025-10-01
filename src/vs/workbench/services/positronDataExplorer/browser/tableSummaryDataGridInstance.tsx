@@ -43,7 +43,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * The current column name search filter text.
 	 */
-	private _searchText?: string;
+	private _searchText = '';
 
 	/**
 	 * The current sort option for the summary rows
@@ -516,12 +516,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
 	async setSearchText(searchText: string): Promise<void> {
-		this._searchText = searchText || undefined;
-		await this.updateLayoutEntries();
-		// invalidate the cache when the search and sort is removed
-		await this.fetchData(this.hasNoSearchOrSort());
-		// Force a re-render when the search or sort options change
-		this.fireOnDidUpdateEvent();
+		if (this._searchText !== searchText) {
+			this._searchText = searchText;
+			await this.updateLayoutEntries();
+			// invalidate the cache when the search and sort is removed
+			await this.fetchData(this.hasNoSearchOrSort());
+			// Force a re-render when the search or sort options change
+			this.fireOnDidUpdateEvent();
+		}
 	}
 
 	/**
@@ -529,12 +531,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param sortOption The sort option used to order the rows.
 	 */
 	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
-		this._sortOption = sortOption;
-		await this.updateLayoutEntries();
-		// invalidate the cache when the search and sort is removed
-		await this.fetchData(this.hasNoSearchOrSort());
-		// Force a re-render when the search or sort options change
-		this.fireOnDidUpdateEvent();
+		if (this._sortOption !== sortOption) {
+			this._sortOption = sortOption;
+			await this.updateLayoutEntries();
+			// invalidate the cache when the search and sort is removed
+			await this.fetchData(this.hasNoSearchOrSort());
+			// Force a re-render when the search or sort options change
+			this.fireOnDidUpdateEvent();
+		}
 	}
 
 	//#endregion Public Methods
@@ -547,7 +551,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns A value which indicates whether there is a search or sort option applied.
 	 */
 	private hasNoSearchOrSort(): boolean {
-		return this._searchText === undefined && this._sortOption === SearchSchemaSortOrder.Original;
+		return this._searchText === '' && this._sortOption === SearchSchemaSortOrder.Original;
 	}
 
 	/**
