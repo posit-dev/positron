@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCell, getSelectedCells, OperationSource, OperationType, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -426,14 +426,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._modelStore.clear();
 		this._modelStore.add(model.onDidChangeContent((e) => {
-			// Check if this is an undo/redo operation (not initiated by user)
-			if (!this._isUserOperation) {
-				// This change wasn't initiated by a user operation, so it's likely undo/redo
-				this.selectionStateMachine.setOperationContext(OperationType.Unknown, OperationSource.UndoRedo);
-			}
-			// Reset the flag for the next operation
-			this._isUserOperation = false;
-
 			// Check if cells are in the same order by comparing references
 			const newCells = model.cells;
 
@@ -504,10 +496,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
-
-		// Tag this as a user operation
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Add, OperationSource.User);
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -596,10 +584,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (cellsToDelete.length === 0) {
 			return;
 		}
-
-		// Tag this as a user operation
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Delete, OperationSource.User);
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -806,6 +790,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this.cells.get().map(cell => [cell.cellModel, cell])
 		);
 
+		const newlyAddedCells: IPositronNotebookCell[] = [];
+
 		const cells = modelCells.map(cell => {
 			const existingCell = cellModelToCellMap.get(cell);
 			if (existingCell) {
@@ -814,9 +800,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return existingCell;
 			}
 			const newCell = createNotebookCell(cell, this, this._instantiationService);
+			newlyAddedCells.push(newCell);
 
 			return newCell;
 		});
+
+		if (newlyAddedCells.length === 1) {
+			// If we've only added one cell, we can set it as the selected cell in edit mode.
+			// Must ensure editor is shown before requesting focus.
+			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
+			// Use setTimeout to ensure the editor is mounted in the DOM first
+			setTimeout(async () => {
+				await newlyAddedCells[0].showEditor();
+				newlyAddedCells[0].requestEditorFocus();
+			}, 0);
+		}
 
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
@@ -980,11 +978,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Clipboard Methods
 
 	/**
-	 * Flag to track if the current operation was initiated by the user
-	 */
-	private _isUserOperation: boolean = false;
-
-	/**
 	 * Internal clipboard for storing cells with full fidelity
 	 */
 	private _clipboardCells: ICellDto2[] = [];
@@ -1028,10 +1021,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Tag this as a user operation (cut = delete with special clipboard handling)
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Cut, OperationSource.User);
-
 		// Copy cells first
 		this.copyCells(cellsToCut);
 		this._isClipboardCut = true;
@@ -1050,10 +1039,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._assertTextModel();
-
-		// Tag this as a user operation
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Paste, OperationSource.User);
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';

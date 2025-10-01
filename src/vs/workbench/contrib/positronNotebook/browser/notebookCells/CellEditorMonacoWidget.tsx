@@ -132,6 +132,11 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 				const editor = cell.editor;
 				if (editor) {
 					editor.focus();
+					// Reset the focus request flag after consuming it (one-shot signal)
+					// Use queueMicrotask to avoid modifying observable inside autorun
+					queueMicrotask(() => {
+						cell.editorFocusRequested.set(false, undefined);
+					});
 				}
 			}
 		});

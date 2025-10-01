@@ -198,10 +198,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	requestEditorFocus(): void {
 		this._editorFocusRequested.set(true, undefined);
-		// Auto-reset after a short delay to make it a one-shot signal
-		setTimeout(() => {
-			this._editorFocusRequested.set(false, undefined);
-		}, 100);
 	}
 
 	async showEditor(): Promise<ICodeEditor | undefined> {
