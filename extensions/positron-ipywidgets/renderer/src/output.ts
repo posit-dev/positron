@@ -150,8 +150,21 @@ export class OutputView extends outputBase.OutputView {
 	private _outputView!: OutputArea;
 	override luminoWidget: JupyterLuminoPanelWidget = undefined!;
 
+	constructor(options?: any) {
+		super(options);
+		if (options.model) {
+			this.model = options.model;
+		}
+	}
+
+	private ensureLuminoWidget() {
+		if (!this.luminoWidget) {
+			this.luminoWidget = new JupyterLuminoPanelWidget({ view: this });
+		}
+	}
+
 	override _createElement(_tagName: string): HTMLElement {
-		this.luminoWidget = new JupyterLuminoPanelWidget({ view: this });
+		this.ensureLuminoWidget();
 		return this.luminoWidget.node;
 	}
 
@@ -169,6 +182,7 @@ export class OutputView extends outputBase.OutputView {
 	 */
 	override render(): void {
 		super.render();
+		this.ensureLuminoWidget();
 		this._outputView = new OutputArea({
 			rendermime: this.model.widget_manager.renderMime,
 			contentFactory: OutputArea.defaultContentFactory,
