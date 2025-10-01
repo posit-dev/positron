@@ -57,6 +57,27 @@ async function waitForFocusSettle(app: Application, timeoutMs: number = 500): Pr
 	await app.code.driver.page.waitForTimeout(timeoutMs);
 }
 
+/**
+ * Helper function to check if the Monaco editor in a cell is focused
+ */
+async function isEditorFocused(app: Application, cellIndex: number): Promise<boolean> {
+	const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
+	const editor = cell.locator('.monaco-editor');
+
+	// Check if the monaco editor or any of its children has focus
+	return await editor.evaluate((element) => {
+		return element.contains(document.activeElement);
+	});
+}
+
+/**
+ * Helper function to normalize cell content by replacing non-breaking spaces with regular spaces
+ */
+function normalizeCellContent(content: string): string {
+	// Replace non-breaking spaces (U+00A0) with regular spaces
+	return content.replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ');
+}
+
 // Not running on web due to Positron notebooks being desktop-only
 test.describe('Notebook Focus and Selection', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
@@ -222,6 +243,65 @@ test.describe('Notebook Focus and Selection', {
 		await app.code.driver.page.keyboard.press('ArrowUp');
 		await waitForFocusSettle(app, 150);
 		expect(await getFocusedCellIndex(app)).toBe(2);
+	});
+
+	test('Sanity check: clicking editor focuses it (validates isEditorFocused helper)', async function ({ app }) {
+		// Select cell 1
+		await app.workbench.notebooksPositron.selectCellAtIndex(1);
+		await waitForFocusSettle(app, 200);
+
+		// Press Escape to exit edit mode (selectCellAtIndex may enter edit mode)
+		await app.code.driver.page.keyboard.press('Escape');
+		await waitForFocusSettle(app, 200);
+
+		// Editor should not be focused after pressing Escape
+		expect(await isEditorFocused(app, 1)).toBe(false);
+
+		// Click directly into the Monaco editor
+		const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(1);
+		const editor = cell.locator('.monaco-editor');
+		await editor.click();
+		await waitForFocusSettle(app, 200);
+
+		// Now editor should be focused
+		expect(await isEditorFocused(app, 1)).toBe(true);
+
+		// Type some text to confirm editor is really focused
+		await app.code.driver.page.keyboard.type('# editor good');
+		const cellContent = await app.workbench.notebooksPositron.getCellContent(1);
+		// Normalize content to handle non-breaking spaces
+		const normalizedContent = normalizeCellContent(cellContent);
+		expect(normalizedContent).toContain('# editor good');
+	});
+
+	test('Enter key on selected cell enters edit mode', async function ({ app }) {
+		// Select cell 2
+		await app.workbench.notebooksPositron.selectCellAtIndex(2);
+		await waitForFocusSettle(app, 200);
+
+		// Press Escape to ensure we're not in edit mode
+		await app.code.driver.page.keyboard.press('Escape');
+		await waitForFocusSettle(app, 200);
+
+		// Verify cell is selected (not in edit mode)
+		expect(await isCellSelected(app, 2)).toBe(true);
+		expect(await isEditorFocused(app, 2)).toBe(false);
+
+		// Press Enter to enter edit mode
+		await app.code.driver.page.keyboard.press('Enter');
+		await waitForFocusSettle(app, 300);
+
+		// Verify Monaco editor is now focused
+		expect(await isEditorFocused(app, 2)).toBe(true);
+
+		// Verify we can type in the editor
+		await app.code.driver.page.keyboard.type('# test');
+		await waitForFocusSettle(app, 100);
+
+		// Verify content was added (cell should contain original + new text)
+		const cellContent = await app.workbench.notebooksPositron.getCellContent(2);
+		const normalizedContent = normalizeCellContent(cellContent);
+		expect(normalizedContent).toContain('# test');
 	});
 
 	// The following tests are disabled because they test features that either:
