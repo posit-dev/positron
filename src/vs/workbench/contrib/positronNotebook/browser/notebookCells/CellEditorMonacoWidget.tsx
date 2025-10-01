@@ -125,19 +125,12 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {
-		// Subscribe to focus request observable
+		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
 		const disposable = autorun(reader => {
-			const shouldFocus = cell.editorFocusRequested.read(reader);
-			if (shouldFocus) {
-				const editor = cell.editor;
-				if (editor) {
-					editor.focus();
-					// Reset the focus request flag after consuming it (one-shot signal)
-					// Use queueMicrotask to avoid modifying observable inside autorun
-					queueMicrotask(() => {
-						cell.editorFocusRequested.set(false, undefined);
-					});
-				}
+			cell.editorFocusRequested.read(reader);
+			const editor = cell.editor;
+			if (editor) {
+				editor.focus();
 			}
 		});
 

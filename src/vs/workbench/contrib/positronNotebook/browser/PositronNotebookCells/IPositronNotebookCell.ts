@@ -5,7 +5,7 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { IObservable, ISettableObservable } from '../../../../../base/common/observable.js';
+import { IObservable, IObservableSignal, ISettableObservable } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
@@ -118,14 +118,14 @@ export interface IPositronNotebookCell extends Disposable {
 	isOnlyCell(): boolean;
 
 	/**
-	 * Observable that signals when the editor should receive focus.
-	 * Automatically resets after being consumed (one-shot signal).
+	 * Signal that fires when the editor should receive focus.
+	 * This is a stateless signal that notifies observers without maintaining state.
 	 */
-	readonly editorFocusRequested: IObservable<boolean>;
+	readonly editorFocusRequested: IObservableSignal<void>;
 
 	/**
 	 * Request that the editor receive focus.
-	 * Sets the observable to true, which will be consumed by React.
+	 * Triggers the editorFocusRequested signal to notify React components.
 	 */
 	requestEditorFocus(): void;
 

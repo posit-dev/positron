@@ -13,7 +13,7 @@ import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMark
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -27,11 +27,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	protected readonly _internalMetadata;
-	private readonly _editorFocusRequested = observableValue<boolean>('editorFocusRequested', false);
+	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
-	public readonly editorFocusRequested = this._editorFocusRequested;
+	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
 
 	constructor(
 		public readonly cellModel: NotebookCellTextModel,
@@ -201,7 +201,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	 * React will handle the actual focus operation via useLayoutEffect when the editor is mounted.
 	 */
 	requestEditorFocus(): void {
-		this._editorFocusRequested.set(true, undefined);
+		this._editorFocusRequested.trigger(undefined, undefined);
 	}
 
 	async showEditor(): Promise<ICodeEditor | undefined> {
