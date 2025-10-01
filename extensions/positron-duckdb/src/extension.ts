@@ -1868,7 +1868,17 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
 		}
-		const table = this._uriToTableView.get(rpc.uri.toString()) as DuckDBTableView;
+
+		// Check if table view exists, and recreate it if missing (e.g., after extension host restart)
+		let table = this._uriToTableView.get(rpc.uri.toString());
+		if (!table) {
+			// Recreate the table view by calling openDataset
+			await this.openDataset({ uri: rpc.uri });
+			table = this._uriToTableView.get(rpc.uri.toString());
+			if (!table) {
+				return `Failed to recreate table view for URI: ${rpc.uri}`;
+			}
+		}
 		switch (rpc.method) {
 			case DataExplorerBackendRequest.ExportDataSelection:
 				return table.exportDataSelection(rpc.params as ExportDataSelectionParams);
