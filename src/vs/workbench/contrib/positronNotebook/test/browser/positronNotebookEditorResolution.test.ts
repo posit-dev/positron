@@ -40,9 +40,8 @@ import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/e
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { usingPositronNotebooks } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../common/positronNotebookCommon.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../common/positronNotebookCommon.js';
 
 suite.skip('Positron Notebook Editor Resolution', () => {
 	// Suite skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)

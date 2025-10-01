@@ -34,6 +34,7 @@ import { ICustomEditorLabelService } from '../../../services/editor/common/custo
 // --- Start Positron ---
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
 // --- End Positron ---
 
 export interface NotebookEditorInputOptions {
@@ -419,5 +420,8 @@ export function isCompositeNotebookEditorInput(thing: unknown): thing is ICompos
 export function isNotebookEditorInput(thing: EditorInput | undefined): thing is NotebookEditorInput {
 	return !!thing
 		&& typeof thing === 'object'
-		&& thing.typeId === NotebookEditorInput.ID;
+		// --- Start Positron ---
+		// && thing.typeId === NotebookEditorInput.ID;
+		&& (thing.typeId === NotebookEditorInput.ID || thing.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID);
+	// --- End Positron ---
 }

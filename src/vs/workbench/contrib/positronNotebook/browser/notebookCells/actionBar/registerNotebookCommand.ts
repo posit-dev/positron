@@ -7,9 +7,9 @@ import { IDisposable, DisposableStore } from '../../../../../../base/common/life
 import { ICommandMetadata, CommandsRegistry } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../ContextKeysManager.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from '../../positronNotebookService.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 
 /**

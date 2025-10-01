@@ -11,7 +11,7 @@ import { autorun } from '../../../../../base/common/observable.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CellKind, CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
-import { bindCellContextKeys, resetCellContextKeys } from '../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { bindCellContextKeys, resetCellContextKeys } from '../ContextKeysManager.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 
