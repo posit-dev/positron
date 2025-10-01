@@ -83,6 +83,14 @@ jobs:  # to input into inspect-ai-test job below
           source venv/bin/activate
           inspect eval json-response-eval.py
 
+      - name: Parse results and check threshold
+        run: |
+          # Find the most recent log file in the correct directory
+          LATEST_LOG=$(ls -t test/assistant-inspect-ai/logs/*.json | head -1)
+
+          # Parse results with 80% accuracy threshold
+          python test/assistant-inspect-ai/inspect_result_parser.py "$LATEST_LOG" --threshold 0.8
+
       - name: Upload inspect-ai eval logs
         if: success()
         uses: actions/upload-artifact@v4
