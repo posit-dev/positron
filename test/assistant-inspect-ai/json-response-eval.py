@@ -81,14 +81,8 @@ def json_model_graded_eval():
 	with open(input_filename, "r") as f:
 		data = json.load(f)
 
-	# Extract model and tests from the JSON data
-	model_name = data.get("model", "anthropic/claude-3-5-sonnet-20241022")
-	# Convert model name to inspect AI format if needed
-	if model_name == "Claude 4 Opus":
-		model_name = "anthropic/claude-3-opus-20240229"
-	elif model_name == "Claude 4 Sonnet":
-		model_name = "anthropic/claude-3-5-sonnet-20241022"
 	test_data = data.get("tests", [])
+	model_name = "anthropic/claude-3-7-sonnet-20250219"
 
 	# Create samples from the loaded JSON data
 	samples = [record_to_sample(record) for record in test_data]
