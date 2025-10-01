@@ -6,6 +6,8 @@ import { autorunDelta, IObservable, observableValueOpts } from '../../../../base
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { disposableTimeout } from '../../../../base/common/async.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',
@@ -171,15 +173,11 @@ export class SelectionStateMachine extends Disposable {
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 		if (selectType === CellSelectionType.Normal) {
 			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
-			// Make sure to focus the cell
-			cell.focus();
 			return;
 		}
 
 		if (selectType === CellSelectionType.Edit) {
 			this._setState({ type: SelectionState.EditingSelection, selectedCell: cell });
-			// Make sure to focus the cell
-			cell.focus();
 			return;
 		}
 
@@ -303,11 +301,7 @@ export class SelectionStateMachine extends Disposable {
 		this._register(disposableTimeout(() => {
 			// Use requestAnimationFrame to ensure DOM is fully rendered before focusing
 			mainWindow.requestAnimationFrame(() => {
-				if (operation === 'focus') {
-					cell.focus();
-				} else if (operation === 'enterEditor') {
-					// First focus the cell, then enter the editor
-					cell.focus();
+				if (operation === 'enterEditor') {
 					this.enterEditor();
 				}
 			});

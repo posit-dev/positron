@@ -655,16 +655,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		this._onDidChangeContent.fire();
-
-		// After the content change fires and cells are synced, explicitly set the selection
-		// to maintain focus on the appropriate cell after deletion
-		// React will handle focus based on selection state change
-		if (targetFocusIndex !== null && targetFocusIndex < this.cells.get().length) {
-			const cellToFocus = this.cells.get()[targetFocusIndex];
-			if (cellToFocus) {
-				this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
-			}
-		}
 	}
 
 
@@ -827,17 +817,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 			return newCell;
 		});
-
-		if (newlyAddedCells.length === 1) {
-			// If we've only added one cell, we can set it as the selected cell in edit mode.
-			// Must ensure editor is shown before requesting focus.
-			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-			// Use setTimeout to ensure the editor is mounted in the DOM first
-			setTimeout(async () => {
-				await newlyAddedCells[0].showEditor();
-				newlyAddedCells[0].requestEditorFocus();
-			}, 0);
-		}
 
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
