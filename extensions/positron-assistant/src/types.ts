@@ -81,24 +81,23 @@ export type ContextInfo = {
  * Note that this does not exactly reflect the structure of the reference object
  * that's passed in to the chat request. It would be better if those types were
  * accurately reflected in vscode.d.ts or positron.d.ts.
+ *
+ * TODO: Confirm type definitions, consider contributing to positron.d.ts
  */
 export interface RuntimeSessionReference {
-	readonly value: {
-		activeSession: {
-			identifier: string;
-			language: string;
-			version: string;
-			mode: string;
-			notebookUri?: any;
-			executions: {
-				input: string;
-				output: string;
-				error?: any;
-			}[];
-		};
-		variables: Variable[];
+	activeSession: {
+		identifier: string;
+		language: string;
+		version: string;
+		mode: string;
+		notebookUri?: any;
+		executions: {
+			input: string;
+			output: string;
+			error?: any;
+		}[];
 	};
-
+	variables: Variable[];
 }
 
 /**

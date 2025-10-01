@@ -11,7 +11,7 @@ import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference } from './utils';
-import { ContextInfo, PositronAssistantToolName, RuntimeSessionReference } from './types.js';
+import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -414,16 +414,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		if (request.references.length > 0) {
 			const attachmentPrompts: string[] = [];
 			const sessionPrompts: string[] = [];
-			for (const reference of request.references as Array<vscode.ChatPromptReference | RuntimeSessionReference>) {
+			for (const reference of request.references) {
 				const value = reference.value;
-				if (isRuntimeSessionReference(reference)) {
+				if (isRuntimeSessionReference(value)) {
 					// The user attached a runtime session - usually the active session in the IDE.
-					let sessionContent = JSON.stringify(reference.value.activeSession, null, 2);
+					let sessionContent = JSON.stringify(value.activeSession, null, 2);
 					// Include the session variables in the session content.
 					// In Python, `kind` provides a more accurate type than `display_type`, so
 					// we'll include both.
 					// Limit the number of variables to prevent excessive context size
-					const vars = reference.value.variables.slice(0, MAX_CONTEXT_VARIABLES);
+					const vars = value.variables.slice(0, MAX_CONTEXT_VARIABLES);
 					const variablesSummary = vars.map((v) => {
 						return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
 					}).join('\n');
@@ -431,7 +431,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type`.',
 					});
 					sessionPrompts.push(xml.node('session', sessionContent));
-					log.debug(`[context] adding session context for session ${reference.value.activeSession!.identifier}: ${sessionContent.length} characters`);
+					log.debug(`[context] adding session context for session ${value.activeSession!.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.

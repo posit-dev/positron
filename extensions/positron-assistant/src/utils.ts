@@ -624,11 +624,9 @@ export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart
  * This function validates that the reference object has the expected structure
  * of a RuntimeSessionReference.
  */
-export function isRuntimeSessionReference(reference: unknown): reference is RuntimeSessionReference {
-	return typeof reference === 'object' && reference !== null &&
-		'value' in reference &&
-		typeof reference.value === 'object' && reference.value !== null &&
-		'activeSession' in reference.value &&
-		'variables' in reference.value &&
-		Array.isArray(reference.value.variables);
+export function isRuntimeSessionReference(value: unknown): value is RuntimeSessionReference {
+	return typeof value === 'object' && value !== null &&
+		'activeSession' in value &&
+		'variables' in value &&
+		Array.isArray(value.variables);
 }
