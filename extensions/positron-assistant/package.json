@@ -277,12 +277,17 @@
               "preview"
             ]
           },
-		  "positron.assistant.providerTimeout": {
-			"type": "number",
-			"default": 60,
-			"description": "%configuration.providerTimeout.description%",
-			"minimum": 1
-		  }
+          "positron.assistant.alwaysIncludeCopilotTools": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.alwaysIncludeCopilotTools.description%"
+          },
+          "positron.assistant.providerTimeout": {
+            "type": "number",
+            "default": 60,
+            "description": "%configuration.providerTimeout.description%",
+            "minimum": 1
+          }
         }
       }
     ],
