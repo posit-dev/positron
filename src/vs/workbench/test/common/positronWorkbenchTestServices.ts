@@ -225,7 +225,7 @@ export class TestDirectoryFileService implements IFileService {
 	canDelete(): Promise<true | Error> { return Promise.resolve(true); }
 	exists(): Promise<boolean> { return Promise.resolve(true); }
 	resolve(): Promise<IFileStatWithMetadata> { return this.stat(URI.file('/')); }
-	realpath(): Promise<URI> { return Promise.resolve(URI.file('/')); }
+	realpath(resource: URI): Promise<URI> { return Promise.resolve(resource); }
 	resolveAll(): Promise<any[]> { return Promise.resolve([]); }
 	readFile(): Promise<any> { throw new Error('Not implemented'); }
 	readFileStream(): Promise<any> { throw new Error('Not implemented'); }
