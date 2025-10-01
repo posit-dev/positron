@@ -9,10 +9,10 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as xml from './xml.js';
 
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
+import { MARKDOWN_DIR } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
-import { StreamingTagLexer } from './streamingTagLexer.js';
+import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
@@ -262,9 +262,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const enabledTools = getEnabledTools(request, vscode.lm.tools, this.id);
 		const toolAvailability = new Map(
 			vscode.lm.tools.map(
-				tool => {
-					return [tool.name as PositronAssistantToolName, enabledTools.includes(tool.name as PositronAssistantToolName)]
-				})
+				tool => [tool.name as PositronAssistantToolName, enabledTools.includes(tool.name as PositronAssistantToolName)]
+			)
 		);
 
 		const participant = this;
@@ -641,15 +640,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
-
-				if (textProcessor) {
-					// If there is a text processor, let it process the chunk
-					// and write to the chat response stream.
-					await textProcessor.process(chunk.value);
-				} else {
-					// If there is no text processor, treat the chunk as markdown.
-					response.markdown(chunk.value);
-				}
+				await textProcessor.process(chunk.value);
 			} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
 				toolRequests.push(chunk);
 			}
@@ -706,38 +697,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	 *
 	 * @param request The current chat request.
 	 * @param response The chat response stream to write to.
-	 * @returns A text processor that handles the request, or undefined if no
-	 *  streaming is needed for the request.
+	 * @returns The appropriate processor for the request.
 	 */
-	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor | undefined {
-		// Currently, we only use streaming text processing in the experimental streaming edit mode.
-		if (!isStreamingEditsEnabled() || !isTextEditRequest(request)) {
-			return undefined;
-		}
+	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor {
+		const defaultTextProcessor = new DefaultTextProcessor(response);
 
-		// If the selection is empty, stream string replacements to the document.
-		if (request.location2.selection.isEmpty) {
-			const replaceStringProcessor = new ReplaceStringProcessor(request.location2.document, response);
-			return new StreamingTagLexer({
-				tagNames: ReplaceStringProcessor.TagNames,
-				contentHandler(chunk) {
-					replaceStringProcessor.process(chunk);
-				},
-			});
-		}
-
-		// If the selection is not empty, stream edits to the selection.
-		const replaceSelectionProcessor = new ReplaceSelectionProcessor(
-			request.location2.document.uri,
-			request.location2.selection,
-			response,
-		);
-		return new StreamingTagLexer({
-			tagNames: ReplaceSelectionProcessor.TagNames,
-			contentHandler(chunk) {
-				replaceSelectionProcessor.process(chunk);
+		// Check if streaming edits are enabled and we're in an editor context
+		if (isStreamingEditsEnabled() && isTextEditRequest(request)) {
+			if (request.location2.selection.isEmpty) {
+				// Process streaming edits to the whole document
+				return new ReplaceStringProcessor(request.location2.document, response, defaultTextProcessor);
+			} else {
+				// Process streaming edits to the selected text
+				return new ReplaceSelectionProcessor(request.location2.document.uri, request.location2.selection, response, defaultTextProcessor);
 			}
-		});
+		}
+
+		// Process as default text, which may contain warning blocks
+		return defaultTextProcessor;
 	}
 
 	/** Additional language-specific prompts for active sessions */
@@ -770,7 +747,8 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const ask = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'ask.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		const prompts = [defaultSystem, filepaths, ask, languages];
+		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
+		const prompts = [defaultSystem, filepaths, warning, ask, languages];
 		return prompts.join('\n\n');
 	}
 }
@@ -784,7 +762,8 @@ class PositronAssistantEditParticipant extends PositronAssistantParticipant impl
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const edit = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'edit.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		const prompts = [defaultSystem, filepaths, edit, languages];
+		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
+		const prompts = [defaultSystem, filepaths, warning, edit, languages];
 		return prompts.join('\n\n');
 	}
 }
@@ -798,7 +777,8 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		const prompts = [defaultSystem, filepaths, agent, languages];
+		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
+		const prompts = [defaultSystem, filepaths, warning, agent, languages];
 		return prompts.join('\n\n');
 	}
 }
@@ -808,6 +788,7 @@ class PositronAssistantTerminalParticipant extends PositronAssistantParticipant 
 	id = ParticipantID.Terminal;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		// The terminal prompt includes how to handle warnings in the response.
 		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
 	}
 }
@@ -822,16 +803,21 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		}
 
 		if (isStreamingEditsEnabled()) {
+			const warningStreaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warningStreaming.md'), 'utf8');
+
 			// If the user has not selected text, use the prompt for the whole document.
 			if (request.location2.selection.isEmpty) {
-				return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
+				const editorSteaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
+				return [editorSteaming, warningStreaming].join('\n\n');
 			}
 
 			// If the user has selected text, generate a new version of the selection.
-			return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
+			const selectionStreaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
+			return [selectionStreaming, warningStreaming].join('\n\n');
 		}
 
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
 
 		// Inline editor chats behave as in "Ask" mode
 		const ask = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'ask.md'), 'utf8');
@@ -839,12 +825,12 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
 			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
-			return defaultSystem + '\n\n' + ask + '\n\n' + editor;
+			return [defaultSystem, warning, ask, editor].join('\n\n');
 		}
 
 		// If the user has selected text, generate a new version of the selection.
 		const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
-		return defaultSystem + '\n\n' + ask + '\n\n' + selection;
+		return [defaultSystem, warning, ask, selection].join('\n\n');
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
