@@ -764,7 +764,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                     dtype="complex256",
                 ),
                 "complex256",
-                "number",
+                "floating",
                 None,
             )
         )

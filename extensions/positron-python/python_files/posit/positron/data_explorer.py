@@ -1084,7 +1084,9 @@ def _pandas_temporal_mapper(type_name):
     return None
 
 
-def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
+def _pandas_summarize_number(
+    col: pd.Series, options: FormatOptions, display_type=ColumnDisplayType.Number
+):
     import numpy as np
 
     math_helper = NumPyMathHelper()
@@ -1112,16 +1114,24 @@ def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
                 median_val = float_format(np.median(non_null_values))
                 std_val = float_format(non_null_values.std(ddof=1))
 
-            min_val = float_format(min_val)
-            max_val = float_format(max_val)
+            if display_type == ColumnDisplayType.Floating:
+                min_val = float_format(min_val)
+                max_val = float_format(max_val)
+            else:
+                min_val = str(min_val)
+                max_val = str(max_val)
 
     return _box_number_stats(
-        min_val,
-        max_val,
-        mean_val,
-        median_val,
-        std_val,
+        min_val, max_val, mean_val, median_val, std_val, display_type=display_type
     )
+
+
+def _pandas_summarize_floating(col: pd.Series, options: FormatOptions):
+    return _pandas_summarize_number(col, options, display_type=ColumnDisplayType.Floating)
+
+
+def _pandas_summarize_integer(col: pd.Series, options: FormatOptions):
+    return _pandas_summarize_number(col, options, display_type=ColumnDisplayType.Integer)
 
 
 def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
@@ -1867,8 +1877,8 @@ class PandasView(DataExplorerTableView):
         {
             ColumnDisplayType.Boolean: _pandas_summarize_boolean,
             ColumnDisplayType.Number: _pandas_summarize_number,
-            ColumnDisplayType.Floating: _pandas_summarize_number,
-            ColumnDisplayType.Integer: _pandas_summarize_number,
+            ColumnDisplayType.Floating: _pandas_summarize_floating,
+            ColumnDisplayType.Integer: _pandas_summarize_integer,
             ColumnDisplayType.Decimal: _pandas_summarize_number,
             ColumnDisplayType.String: _pandas_summarize_string,
             ColumnDisplayType.Date: _pandas_summarize_date,
