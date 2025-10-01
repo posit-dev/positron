@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCell, getSelectedCells, OperationSource, OperationType, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -200,41 +200,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Clean up any existing listeners
 		this._cellsContainerListeners.clear();
 
-		if (!container) { return; }
+		if (!container) {
+			this._cellsContainer = undefined;
+			return;
+		}
 
 		this._cellsContainer = container;
+	}
 
-		// Fire initial scroll event after a small delay to ensure layout has settled
-		const initialScrollTimeout = setTimeout(() => {
-			this._onDidScrollCellsContainer.fire();
-		}, 50);
-
-		// Set up scroll listener
-		const scrollListener = DOM.addDisposableListener(container, 'scroll', () => {
-			this._onDidScrollCellsContainer.fire();
-		});
-
-		// Set up mutation observer to watch for DOM changes
-		const observer = new MutationObserver(() => {
-			// Small delay to let the DOM changes settle
-			setTimeout(() => {
-				this._onDidScrollCellsContainer.fire();
-			}, 0);
-		});
-
-		observer.observe(container, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			attributeFilter: ['style', 'class']
-		});
-
-		// Add all the disposables to our store
-		this._cellsContainerListeners.add(toDisposable(() => clearTimeout(initialScrollTimeout)));
-		this._cellsContainerListeners.add(scrollListener);
-		this._cellsContainerListeners.add(toDisposable(() => observer.disconnect()));
-
-		// Fire initial scroll event
+	/**
+	 * Fire the scroll event for the cells container.
+	 * Called by React when scroll or DOM mutations occur.
+	 */
+	fireScrollEvent(): void {
 		this._onDidScrollCellsContainer.fire();
 	}
 
@@ -444,14 +422,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._modelStore.clear();
 		this._modelStore.add(model.onDidChangeContent((e) => {
-			// Check if this is an undo/redo operation (not initiated by user)
-			if (!this._isUserOperation) {
-				// This change wasn't initiated by a user operation, so it's likely undo/redo
-				this.selectionStateMachine.setOperationContext(OperationType.Unknown, OperationSource.UndoRedo);
-			}
-			// Reset the flag for the next operation
-			this._isUserOperation = false;
-
 			// Check if cells are in the same order by comparing references
 			const newCells = model.cells;
 
@@ -522,10 +492,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
-
-		// Tag this as a user operation
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Add, OperationSource.User);
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -614,10 +580,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (cellsToDelete.length === 0) {
 			return;
 		}
-
-		// Tag this as a user operation
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Delete, OperationSource.User);
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -824,6 +786,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this.cells.get().map(cell => [cell.cellModel, cell])
 		);
 
+		const newlyAddedCells: IPositronNotebookCell[] = [];
+
 		const cells = modelCells.map(cell => {
 			const existingCell = cellModelToCellMap.get(cell);
 			if (existingCell) {
@@ -832,10 +796,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return existingCell;
 			}
 			const newCell = createNotebookCell(cell, this, this._instantiationService);
+			newlyAddedCells.push(newCell);
 
 			return newCell;
 		});
 
+		if (newlyAddedCells.length === 1) {
+			// If we've only added one cell, we can set it as the selected cell in edit mode.
+			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
+			// Defer focus request to next tick to allow React to mount the editor component.
+			// Without this, requestEditorFocus() fires before the editor exists, and the
+			// autorun in CellEditorMonacoWidget won't be able to focus a non-existent editor.
+			setTimeout(() => {
+				newlyAddedCells[0].requestEditorFocus();
+			}, 0);
+		}
 
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
@@ -882,9 +857,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Add some keyboard navigation for cases not covered by the keybindings. I'm not sure if
 		// there's a way to do this directly with keybindings but this feels acceptable due to the
 		// ubiquity of the enter key and escape keys for these types of actions.
-		const onKeyDown = ({ key, shiftKey, ctrlKey, metaKey }: KeyboardEvent) => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			const { key, shiftKey, ctrlKey, metaKey } = event;
 			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
-				this.selectionStateMachine.enterEditor();
+				// Prevent the Enter key from being processed by the editor
+				event.preventDefault();
+				event.stopPropagation();
+				this.selectionStateMachine.enterEditor().catch(err => {
+					this._logService.error(this.id, 'Error entering editor:', err);
+				});
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();
 			}
@@ -995,11 +976,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #region Clipboard Methods
 
 	/**
-	 * Flag to track if the current operation was initiated by the user
-	 */
-	private _isUserOperation: boolean = false;
-
-	/**
 	 * Internal clipboard for storing cells with full fidelity
 	 */
 	private _clipboardCells: ICellDto2[] = [];
@@ -1043,10 +1019,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Tag this as a user operation (cut = delete with special clipboard handling)
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Cut, OperationSource.User);
-
 		// Copy cells first
 		this.copyCells(cellsToCut);
 		this._isClipboardCut = true;
@@ -1065,10 +1037,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		this._assertTextModel();
-
-		// Tag this as a user operation
-		this._isUserOperation = true;
-		this.selectionStateMachine.setOperationContext(OperationType.Paste, OperationSource.User);
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';

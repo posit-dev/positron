@@ -123,6 +123,20 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		};
 	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
 
+	// Watch for editor focus requests from the cell
+	React.useLayoutEffect(() => {
+		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
+		const disposable = autorun(reader => {
+			cell.editorFocusRequested.read(reader);
+			const editor = cell.editor;
+			if (editor) {
+				editor.focus();
+			}
+		});
+
+		return () => disposable.dispose();
+	}, [cell]);
+
 	return { editorPartRef };
 }
 
