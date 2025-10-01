@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 export enum ChatConfiguration {
+	// --- Start Positron ---
+	UseCopilotParticipantsWithOtherProviders = 'chat.useCopilotParticipantsWithOtherProviders',
+	// --- End Positron ---
 	UseFileStorage = 'chat.useFileStorage',
 	AgentEnabled = 'chat.agent.enabled',
 	Edits2Enabled = 'chat.edits2.enabled',
@@ -58,3 +61,5 @@ export namespace ChatAgentLocation {
 		return ChatAgentLocation.Panel;
 	}
 }
+
+export const COPILOT_CHAT_EXTENSION_ID = 'github.copilot-chat';
