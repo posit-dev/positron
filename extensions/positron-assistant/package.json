@@ -298,7 +298,15 @@
       {
         "vendor": "anthropic-api",
         "displayName": "Anthropic"
-      }
+      },
+      {
+        "vendor": "openai",
+        "displayName": "OpenAI"
+      },
+	  {
+		"vendor": "openai-compatible",
+		"displayName": "Custom Provider"
+	  }
     ],
     "languageModelTools": [
       {
