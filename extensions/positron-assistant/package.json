@@ -280,7 +280,7 @@
           "positron.assistant.alwaysIncludeCopilotTools": {
             "type": "boolean",
             "default": false,
-            "description": "%configuration.alwaysIncludeCopilotTools.description%"
+            "markdownDescription": "%configuration.alwaysIncludeCopilotTools.description%"
           },
           "positron.assistant.providerTimeout": {
             "type": "number",
