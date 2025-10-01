@@ -428,10 +428,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					const variablesSummary = vars.map((v) => {
 						return `${v.display_name}|${v.kind || ''}|${v.display_type}`;
 					}).join('\n');
-					sessionContent += '\n' + xml.node('variables', variablesSummary);
-					sessionPrompts.push(xml.node('session', sessionContent, {
+					sessionContent += '\n' + xml.node('variables', variablesSummary, {
 						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type`.',
-					}));
+					});
+					sessionPrompts.push(xml.node('session', sessionContent));
 					log.debug(`[context] adding session context for session ${reference.value.activeSession!.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
