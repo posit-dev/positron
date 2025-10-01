@@ -98,3 +98,24 @@ jobs:  # to input into inspect-ai-test job below
           name: inspect-ai-logs
           path: test/assistant-inspect-ai/logs/*
 
+  slack-notify:
+    if: failure()
+    needs:
+      [
+        inspect-ai-test,
+        e2e-electron,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: "failure"
+          include_commit_msg: false
+          include_job_statuses: "on-failure"
+          include_job_durations: false
+          custom_title: "Nightly Inspect AI LLM Evaluation"
+
