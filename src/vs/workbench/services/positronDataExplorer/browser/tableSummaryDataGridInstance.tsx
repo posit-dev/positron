@@ -394,6 +394,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the column schema for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column schema for the specified column index
+	 */
+	getColumnSchema(columnIndex: number) {
+		return this._tableSummaryCache.getColumnSchema(columnIndex);
+	}
+
+	/**
 	 * Gets the column profile null count for the specified column index.
 	 * @param columnIndex The column index.
 	 * @returns The column profile null count for the specified column index

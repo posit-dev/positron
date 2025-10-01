@@ -10,7 +10,7 @@ import './vectorHistogram.css';
 import React, { useState, useRef, useMemo } from 'react';
 
 // Other dependencies.
-import { ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnHistogram, ColumnDisplayType } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
@@ -22,6 +22,7 @@ interface VectorHistogramProps {
 	readonly xAxisHeight: number;
 	readonly columnHistogram: ColumnHistogram;
 	readonly hoverManager: IHoverManager;
+	readonly displayType?: ColumnDisplayType;
 }
 
 /**
@@ -35,6 +36,7 @@ const BinItem = React.memo(({
 	binMin,
 	binStart,
 	binWidth,
+	displayType,
 	graphHeight,
 	hoverManager,
 	xAxisHeight
@@ -46,6 +48,7 @@ const BinItem = React.memo(({
 	binMin: string;
 	binStart: number;
 	binWidth: number;
+	displayType?: ColumnDisplayType;
 	graphHeight: number;
 	hoverManager: IHoverManager;
 	xAxisHeight: number;
@@ -53,14 +56,25 @@ const BinItem = React.memo(({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isHovered, setIsHovered] = useState(false);
 
-	// Format numeric values with 4 significant digits if they're numbers
-	const formatValue = (value: string): string => {
+	// Format numeric values based on display type
+	const formatValue = (value: string, isMin: boolean): string => {
 		const num = parseFloat(value);
-		return !isNaN(num) ? num.toPrecision(4) : value;
+		if (isNaN(num)) {
+			return value;
+		}
+
+		// For integer types, round bin edges appropriately
+		if (displayType === ColumnDisplayType.Integer) {
+			// Round up for lower bound, down for upper bound to ensure integer bins
+			return isMin ? Math.ceil(num).toString() : Math.floor(num).toString();
+		}
+
+		// For other numeric types, use 4 significant digits
+		return num.toPrecision(4);
 	};
 
-	const formattedMin = formatValue(binMin);
-	const formattedMax = formatValue(binMax);
+	const formattedMin = formatValue(binMin, true);
+	const formattedMax = formatValue(binMax, false);
 
 	return (
 		<foreignObject
@@ -219,6 +233,7 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 							binMin={binMin}
 							binStart={x}
 							binWidth={width}
+							displayType={props.displayType}
 							graphHeight={props.graphHeight}
 							hoverManager={props.hoverManager}
 							xAxisHeight={props.xAxisHeight}
