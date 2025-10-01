@@ -37,12 +37,12 @@ const IntegerStatsValue = ({ stats, value }: { stats?: any; value?: number | str
 	if (value === undefined || value === null) {
 		displayValue = positronNA;
 	} else if (typeof value === 'number') {
-		// Round to nearest integer and format with locale-aware thousands separators
-		displayValue = Math.round(value).toLocaleString();
+		// Round to nearest integer and format without thousands separator
+		displayValue = Math.round(value).toString();
 	} else {
 		// Already a string, try to parse and format as integer
 		const num = parseFloat(value);
-		displayValue = isNaN(num) ? value : Math.round(num).toLocaleString();
+		displayValue = isNaN(num) ? value : Math.round(num).toString();
 	}
 
 	// Render value.
