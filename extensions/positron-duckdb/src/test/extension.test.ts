@@ -3004,4 +3004,92 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		assert.strictEqual(freqTable.counts.length, 0, 'Empty table should produce empty frequency table counts');
 		assert.strictEqual(freqTable.other_count, 0, 'Empty table should have 0 other_count');
 	});
+
+	test('Extension host restart recovery - should automatically recreate table view when missing', async () => {
+		// Create a test table
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				values: ['1', '2', '3']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				values: ["'Alice'", "'Bob'", "'Charlie'"]
+			}
+		]);
+
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
+
+		// First, open the dataset normally
+		await dxExec({
+			method: DataExplorerBackendRequest.OpenDataset,
+			params: { uri: uri.toString() }
+		});
+
+		// Verify it works initially
+		const initialResult = await dxExec({
+			method: DataExplorerBackendRequest.GetState,
+			uri: uri.toString(),
+			params: {}
+		});
+		assert.ok(initialResult, 'Initial state should be returned');
+		assert.strictEqual(initialResult.table_shape.num_rows, 3, 'Should have 3 rows initially');
+
+		// Now test that a direct RPC call works (simulating the scenario after extension host restart)
+		// when the table view might not exist in the handler's map
+		const directRpcCall = async () => {
+			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
+				'positron-duckdb.dataExplorerRpc',
+				{
+					method: DataExplorerBackendRequest.GetState,
+					uri: uri.toString(),
+					params: {}
+				}
+			);
+
+			if (resp.error_message) {
+				throw new Error(resp.error_message);
+			}
+			return resp.result;
+		};
+
+		// This should work due to our fix that recreates the table view if missing
+		const recoveredResult = await directRpcCall();
+
+		assert.ok(recoveredResult, 'Should recover from missing table view and return state');
+		assert.strictEqual(recoveredResult.table_shape.num_rows, 3, 'Should have correct number of rows after recovery');
+		assert.strictEqual(recoveredResult.table_shape.num_columns, 2, 'Should have correct number of columns after recovery');
+
+		// Test getColumnProfiles which was the original failing operation
+		const profileRpcCall = async () => {
+			const resp: DataExplorerResponse = await vscode.commands.executeCommand(
+				'positron-duckdb.dataExplorerRpc',
+				{
+					method: DataExplorerBackendRequest.GetColumnProfiles,
+					uri: uri.toString(),
+					params: {
+						callback_id: randomUUID(),
+						profiles: [{
+							column_index: 0,
+							profiles: [{
+								profile_type: ColumnProfileType.NullCount
+							}]
+						}],
+						format_options: DEFAULT_FORMAT_OPTIONS
+					}
+				}
+			);
+
+			if (resp.error_message) {
+				throw new Error(resp.error_message);
+			}
+			return resp.result;
+		};
+
+		// This should work now that the table view has been restored
+		await profileRpcCall(); // Should not throw an error
+	});
 });

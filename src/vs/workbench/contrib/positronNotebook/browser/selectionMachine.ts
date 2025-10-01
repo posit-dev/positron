@@ -2,17 +2,32 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { autorun, autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
+import { autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { disposableTimeout } from '../../../../base/common/async.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',
 	SingleSelection = 'SingleSelection',
 	MultiSelection = 'MultiSelection',
 	EditingSelection = 'EditingSelection'
+}
+
+export enum OperationSource {
+	User = 'user',
+	UndoRedo = 'undoRedo',
+	Unknown = 'unknown'
+}
+
+export enum OperationType {
+	Add = 'add',
+	Delete = 'delete',
+	Cut = 'cut',
+	Paste = 'paste',
+	Unknown = 'unknown'
 }
 
 type SelectionStates =
@@ -108,6 +123,13 @@ export class SelectionStateMachine extends Disposable {
 		equalsFn: isSelectionStateEqual
 	}, { type: SelectionState.NoSelection });
 
+	/**
+	 * Tracks the context of the next operation to determine selection behavior
+	 */
+	private _operationContext?: {
+		type: OperationType;
+		source: OperationSource;
+	};
 
 	//#endregion Private Properties
 
@@ -124,9 +146,8 @@ export class SelectionStateMachine extends Disposable {
 		}));
 
 		// Update the selection state when cells change
-		this._register(autorun(reader => {
-			const cells = this._cells.read(reader);
-			this._setCells(cells);
+		this._register(autorunDelta(this._cells, ({ lastValue, newValue }) => {
+			this._setCells(newValue, lastValue);
 		}));
 	}
 	//#endregion Constructor & Dispose
@@ -152,11 +173,15 @@ export class SelectionStateMachine extends Disposable {
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 		if (selectType === CellSelectionType.Normal) {
 			this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
+			// Make sure to focus the cell
+			cell.focus();
 			return;
 		}
 
 		if (selectType === CellSelectionType.Edit) {
 			this._setState({ type: SelectionState.EditingSelection, selectedCell: cell });
+			// Make sure to focus the cell
+			cell.focus();
 			return;
 		}
 
@@ -257,39 +282,134 @@ export class SelectionStateMachine extends Disposable {
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
 
+	/**
+	 * Sets the context for the next operation to determine selection behavior.
+	 * This should be called before operations that will change cells.
+	 * @param type The type of operation being performed
+	 * @param source Whether this is user-initiated or from undo/redo
+	 */
+	setOperationContext(type: OperationType, source: OperationSource): void {
+		this._operationContext = { type, source };
+	}
+
 	//#endregion Public Methods
 
 
 	//#region Private Methods
+
+	/**
+	 * Handles selection or entering of editor for a cell.
+	 * Because these operations work on the dom, we need to wait for the dom to be updated before performing the operation.
+	 * @param cell The cell to handle.
+	 * @param operation The operation to perform.
+	 */
+	private _handleCellOperation(cell: IPositronNotebookCell, operation: 'focus' | 'enterEditor'): void {
+		this._register(disposableTimeout(() => {
+			// Use requestAnimationFrame to ensure DOM is fully rendered before focusing
+			mainWindow.requestAnimationFrame(() => {
+				if (operation === 'focus') {
+					cell.focus();
+				} else if (operation === 'enterEditor') {
+					// First focus the cell, then enter the editor
+					cell.focus();
+					this.enterEditor();
+				}
+			});
+		}, 0));
+	}
+
 	/**
 	 * Updates the selection state when cells change.
 	 *
 	 * @param cells The new cells to set.
+	 * @param previousCells The previous cells array (undefined on initial call).
 	 */
-	private _setCells(cells: IPositronNotebookCell[]): void {
+	private _setCells(cells: IPositronNotebookCell[], previousCells?: IPositronNotebookCell[]): void {
+		// Handle initial case where there are no previous cells
+		if (!previousCells) {
+			return;
+		}
+
+		// Early exit if no changes
+		if (cells.length === previousCells.length && cells.every((cell, i) => cell === previousCells[i])) {
+			return;
+		}
+
+		// Determine the source of the operation
+		const operationSource = this._operationContext?.source ?? OperationSource.Unknown;
+		// Note: operationType is available via this._operationContext?.type if needed in the future
+
+		// Clear the operation context after reading it
+		this._operationContext = undefined;
+
 		const state = this._state.get();
+		const hasSelection = state.type !== SelectionState.NoSelection;
 
-		if (state.type === SelectionState.NoSelection) {
+		// Detect changes
+		const newlyAddedCells = cells.filter(cell => !previousCells.includes(cell));
+		const deletedCells = previousCells.filter(cell => !cells.includes(cell));
+
+		const singleCellAdded = newlyAddedCells.length === 1;
+		const cellsWereDeleted = hasSelection && deletedCells.length > 0;
+
+		// Early exit if no selection and no cells added to handle
+		if (!hasSelection && newlyAddedCells.length === 0) {
 			return;
 		}
 
-		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
-		// If it isn't we need to reset the selection.
-		if (state.type === SelectionState.EditingSelection) {
-			if (!cells.includes(state.selectedCell)) {
-				this._setState({ type: SelectionState.NoSelection });
-				return;
+		// Determine if we should use aggressive selection (auto-edit) based on source
+		const useAggressiveSelection = operationSource === OperationSource.User;
+
+		// Handle cell additions
+		if (newlyAddedCells.length > 0) {
+			if (singleCellAdded) {
+				// For single cell addition, decide between edit mode or normal selection
+				if (useAggressiveSelection) {
+					// First select the cell (SingleSelection state), then transition to edit mode
+					// This must be SingleSelection for enterEditor() to work correctly
+					this._setState({ type: SelectionState.SingleSelection, selected: [newlyAddedCells[0]] });
+					// Defer focus and entering the editor until DOM is ready
+					this._handleCellOperation(newlyAddedCells[0], 'enterEditor');
+				} else {
+					// Conservative selection for undo/redo - just select, don't edit
+					// Set state immediately but defer focus until DOM is ready
+					this._setState({ type: SelectionState.SingleSelection, selected: [newlyAddedCells[0]] });
+					this._handleCellOperation(newlyAddedCells[0], 'focus');
+				}
+			} else {
+				// Multiple cells added - select the first one
+				// Set state immediately but defer focus until DOM is ready
+				this._setState({ type: SelectionState.SingleSelection, selected: [newlyAddedCells[0]] });
+				this._handleCellOperation(newlyAddedCells[0], 'focus');
 			}
-			return;
+		} else if (cellsWereDeleted) {
+			// Handle deletions the same way regardless of source
+			const deletedCellsIndices = deletedCells.map(c => previousCells.indexOf(c));
+			this._handleCellDeletion(deletedCells, deletedCellsIndices, previousCells.length);
+		} else {
+			// Maintain existing selection, filtering out cells that no longer exist
+			this._maintainSelectionAfterChange(cells);
 		}
+	}
 
-		const newSelection = state.selected.filter(c => cells.includes(c));
-		if (newSelection.length === 0) {
-			this._setState({ type: SelectionState.NoSelection });
-			return;
+	/**
+	 * Maintains selection after cells change, filtering out cells that no longer exist
+	 */
+	private _maintainSelectionAfterChange(cells: IPositronNotebookCell[]): void {
+		const currentState = this._state.get();
+		if (currentState.type !== SelectionState.NoSelection) {
+			const selectedCells = currentState.type === SelectionState.EditingSelection
+				? [currentState.selectedCell]
+				: currentState.selected;
+			const newSelection = selectedCells.filter(c => cells.includes(c));
+
+			if (newSelection.length > 0) {
+				this._setState({
+					type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection,
+					selected: newSelection
+				});
+			}
 		}
-
-		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: newSelection });
 	}
 
 	private _setState(state: SelectionStates) {
@@ -410,6 +530,79 @@ export class SelectionStateMachine extends Disposable {
 
 		nextCell.focus();
 	}
+
+	/**
+	 * Handles the deletion of cells from the notebook.
+	 * Manages selection state when selected cells are deleted.
+	 *
+	 * @param deletedCells Array of cells that were deleted
+	 * @param startingCellCount The number of cells before deletion
+	 */
+	private _handleCellDeletion(deletedCells: IPositronNotebookCell[], deletedCellIndices: number[], startingCellCount: number): void {
+		if (deletedCells.length === 0) {
+			return;
+		}
+
+		const selectedCells = getSelectedCells(this._state.get());
+		const deletedSelectedCells = deletedCells.filter(deletedCell =>
+			selectedCells.some(selectedCell => selectedCell === deletedCell)
+		);
+
+		if (deletedSelectedCells.length === 0) {
+			// No selected cells were deleted, nothing to do
+			return;
+		}
+
+		// Check if there will be no selected cells left after deletion
+		const remainingSelectedCells = selectedCells.filter(selectedCell =>
+			!deletedCells.includes(selectedCell)
+		);
+
+		if (remainingSelectedCells.length === 0) {
+			// Use the helper method to determine where selection should be placed
+			const suggestedFocusIndex = this._determineFocusAfterDeletion(deletedCellIndices, startingCellCount);
+
+			// Set focus on the suggested cell after sync completes
+			if (suggestedFocusIndex !== null && suggestedFocusIndex < this._cells.get().length) {
+				const cellToFocus = this._cells.get()[suggestedFocusIndex];
+				if (cellToFocus) {
+					this.selectCell(cellToFocus, CellSelectionType.Normal);
+					this._handleCellOperation(cellToFocus, 'focus');
+				}
+			} else {
+				// No cells remain, clear selection
+				this._setState({ type: SelectionState.NoSelection });
+			}
+		}
+		// If some selected cells remain, the existing _setCells logic will handle updating the selection
+	}
+
+	/**
+	 * Determines which cell should receive focus after deleting the specified cell indices.
+	 * @param cellIndices Array of cell indices being deleted (assumed to be sorted)
+	 * @param originalCellCount Total number of cells before deletion
+	 * @returns The index of the cell that should receive focus, or null if no cells remain
+	 */
+	private _determineFocusAfterDeletion(cellIndices: number[], originalCellCount: number): number | null {
+		const lowestDeletedIndex = Math.min(...cellIndices);
+		const totalCellsToDelete = cellIndices.length;
+		const newCellCount = originalCellCount - totalCellsToDelete;
+
+		// Determine the index of the cell that should receive focus after deletion
+		let targetFocusIndex: number | null = null;
+		if (newCellCount > 0) {
+			if (lowestDeletedIndex < newCellCount) {
+				// Focus on the cell that takes the place of the first deleted cell
+				targetFocusIndex = lowestDeletedIndex;
+			} else {
+				// We deleted from the end, focus on the last remaining cell
+				targetFocusIndex = newCellCount - 1;
+			}
+		}
+
+		return targetFocusIndex;
+	}
+
 	//#endregion Private Methods
 
 }

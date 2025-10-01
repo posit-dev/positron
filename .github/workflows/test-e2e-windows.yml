@@ -36,7 +36,7 @@ on:
         required: false
         description: "Whether or not to report results to Currents."
         type: boolean
-        default: true
+        default: false
       upload_logs:
         required: false
         description: "Whether or not to upload e2e test logs."

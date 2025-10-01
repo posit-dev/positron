@@ -20,6 +20,7 @@ from positron.utils import var_guid
 from .conftest import DummyComm, PositronShell
 from .test_data_explorer import (
     COMPARE_OPS,
+    SIMPLE_DATA,
     SIMPLE_PANDAS_DF,
     DataExplorerFixture,
     _between_filter,
@@ -42,8 +43,13 @@ try:
 except ImportError:
     has_sqlalchemy = False
 
+try:
+    import pyarrow
 
-SIMPLE_POLARS_DF = pl.DataFrame(SIMPLE_PANDAS_DF.drop(columns=["f"]))
+    SIMPLE_POLARS_DF = pl.DataFrame(SIMPLE_PANDAS_DF.drop(columns=["f"]))
+except ImportError:
+    pyarrow = None
+    SIMPLE_POLARS_DF = pl.DataFrame({k: v for k, v in SIMPLE_DATA.items() if k != "f"})
 
 
 # ruff: noqa: E712
@@ -655,7 +661,7 @@ def test_convert_polars_filter_compare(dxf: DataExplorerConvertFixture):
 def test_convert_polars_filter_datetimetz(dxf: DataExplorerConvertFixture):
     test_df = pl.DataFrame(
         {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern").to_list(),
         }
     )
     tz = pytz.timezone("US/Eastern")
@@ -692,6 +698,7 @@ def test_convert_polars_sort_and_filter(dxf: DataExplorerConvertFixture):
     )
 
 
+@pytest.mark.skipif(pyarrow is None, reason="pyarrow is not installed")
 def test_convert_polars_sort_to_pandas(dxf: DataExplorerConvertFixture):
     # Test that we can convert a sort operation to pandas
     test_df = SIMPLE_POLARS_DF

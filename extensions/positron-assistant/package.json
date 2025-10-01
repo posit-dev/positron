@@ -271,11 +271,22 @@
           },
           "positron.assistant.consoleActions.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "description": "%configuration.consoleActions.enable.description%",
             "tags": [
-              "experimental"
+              "preview"
             ]
+          },
+          "positron.assistant.alwaysIncludeCopilotTools": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.alwaysIncludeCopilotTools.description%"
+          },
+          "positron.assistant.providerTimeout": {
+            "type": "number",
+            "default": 60,
+            "description": "%configuration.providerTimeout.description%",
+            "minimum": 1
           }
         }
       }
@@ -292,7 +303,15 @@
       {
         "vendor": "anthropic-api",
         "displayName": "Anthropic"
-      }
+      },
+      {
+        "vendor": "openai",
+        "displayName": "OpenAI"
+      },
+	  {
+		"vendor": "openai-compatible",
+		"displayName": "Custom Provider"
+	  }
     ],
     "languageModelTools": [
       {

@@ -139,8 +139,13 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	const sources = [...getLanguageModels(), ...completionModels]
 		.map((provider) => {
 			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
-			provider.source.signedIn = !!isRegistered;
-			return provider.source;
+			return {
+				...provider.source,
+				signedIn: !!isRegistered,
+				defaults: isRegistered
+					? { ...provider.source.defaults, ...isRegistered }
+					: provider.source.defaults
+			};
 		})
 		.filter((source) => {
 			// If no specific set of providers was specified, include all
@@ -152,7 +157,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				const envVarName = (source.defaults as any).apiKeyEnvVar.key;
 				const envVarValue = process.env[envVarName];
 
-				source = {
+				return {
 					...source,
 					defaults: {
 						...source.defaults,
@@ -234,7 +239,7 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 		[...existingConfigs, newConfig]
 	);
 
-	// Register the new model
+	// Register the new model FIRST, before saving configuration
 	try {
 		await registerModel(newConfig, context, storage);
 

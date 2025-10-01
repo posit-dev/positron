@@ -150,6 +150,11 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 		const binCounts = props.columnHistogram.bin_counts;
 		const numBins = binCounts.length;
 
+		// Return empty path if no bins or maxBinCount is 0
+		if (numBins === 0 || maxBinCount === 0) {
+			return path;
+		}
+
 		for (let i = 0; i < numBins; i++) {
 			const binHeight = (binCounts[i] / maxBinCount) * props.graphHeight;
 			const x = (i / numBins) * props.graphWidth;
@@ -193,7 +198,7 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 					d={buildHistogramPath()}
 					fill='var(--vscode-positronDataExplorer-sparklineFill)'
 				/>
-				{props.columnHistogram.bin_counts.map((binCount, binCountIndex) => {
+				{maxBinCount > 0 && props.columnHistogram.bin_counts.map((binCount, binCountIndex) => {
 					const binCountHeight = (binCount / maxBinCount) * props.graphHeight;
 					const binMin = props.columnHistogram.bin_edges[binCountIndex];
 					const binMax = props.columnHistogram.bin_edges[binCountIndex + 1];

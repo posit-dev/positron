@@ -53,7 +53,7 @@ test.describe('Cell Deletion Action Bar Behavior', {
 		await app.workbench.notebooksPositron.selectCellAtIndex(2);
 
 		// Verify cell 2 has correct content before deletion
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 2');
+		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 2');
 
 		// Delete the selected cell using action bar
 		await app.workbench.notebooksPositron.deleteCellWithActionBar(2);
@@ -62,7 +62,7 @@ test.describe('Cell Deletion Action Bar Behavior', {
 		expect(await getCellCount(app)).toBe(5);
 
 		// Verify what was cell 3 is now at index 2
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 3');
+		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 3');
 
 		// ========================================
 		// Test 2: Delete another cell (cell 3, originally cell 4)
@@ -71,7 +71,7 @@ test.describe('Cell Deletion Action Bar Behavior', {
 		await app.workbench.notebooksPositron.selectCellAtIndex(3);
 
 		// Verify cell 3 has correct content before deletion
-		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 4');
+		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 4');
 
 		// Delete the selected cell using action bar
 		await app.workbench.notebooksPositron.deleteCellWithActionBar(3);
@@ -80,16 +80,16 @@ test.describe('Cell Deletion Action Bar Behavior', {
 		expect(await getCellCount(app)).toBe(4);
 
 		// Verify the remaining cells are correct
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 3');
-		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 5');
+		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
+		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
+		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 3');
+		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 5');
 
 		// ========================================
 		// Test 3: Delete last cell (cell 3, contains '# Cell 5')
 		// ========================================
 		// Verify we're at the last cell with correct content
-		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 5');
+		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 5');
 
 		// Delete the last cell using action bar
 		await app.workbench.notebooksPositron.deleteCellWithActionBar(3);
@@ -98,15 +98,15 @@ test.describe('Cell Deletion Action Bar Behavior', {
 		expect(await getCellCount(app)).toBe(3);
 
 		// Verify remaining cells
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 3');
+		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
+		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
+		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 3');
 
 		// ========================================
 		// Test 4: Delete first cell (cell 0)
 		// ========================================
 		// Verify we're at the first cell with correct content
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
+		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
 
 		// Delete the first cell using action bar
 		await app.workbench.notebooksPositron.deleteCellWithActionBar(0);
@@ -115,8 +115,8 @@ test.describe('Cell Deletion Action Bar Behavior', {
 		expect(await getCellCount(app)).toBe(2);
 
 		// Verify what was cell 1 is now at index 0
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 1');
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 3');
+		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 1');
+		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 3');
 
 		// ========================================
 		// Test 5: Delete remaining cells
@@ -132,7 +132,7 @@ test.describe('Cell Deletion Action Bar Behavior', {
 
 		// Verify we have exactly one cell remaining with the correct content
 		expect(await getCellCount(app)).toBe(1);
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 3');
+		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 3');
 
 		// ========================================
 		// Cleanup

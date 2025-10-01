@@ -14,7 +14,6 @@ from importlib.metadata import version
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
-import ibis
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -58,6 +57,11 @@ from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
 from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
+
+try:
+    import ibis
+except ImportError:
+    ibis = None
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -122,7 +126,7 @@ SIMPLE_DATA = {
     "a": [1, 2, 3, 4, 5],
     "b": [True, False, True, None, True],
     "c": ["foo", "bar", None, "bar", "None"],
-    "d": [0, 1.2, -4.5, 6, np.nan],
+    "d": [0.0, 1.2, -4.5, 6, np.nan],
     "e": pd.to_datetime(
         [
             "2024-01-01 00:00:00",
@@ -139,13 +143,16 @@ SIMPLE_DATA = {
 
 SIMPLE_PANDAS_DF = pd.DataFrame(SIMPLE_DATA)
 
-SIMPLE_IBIS_DF = ibis.memtable(
-    {
-        "a": [1, 2, 3, 4, 5],
-        "b": [True, False, True, None, True],
-        "c": ["foo", "bar", None, "bar", "None"],
-    }
-)
+if ibis:
+    SIMPLE_IBIS_DF = ibis.memtable(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": [True, False, True, None, True],
+            "c": ["foo", "bar", None, "bar", "None"],
+        }
+    )
+else:
+    SIMPLE_IBIS_DF = None
 
 
 def test_service_properties(de_service: DataExplorerService):
@@ -3413,7 +3420,7 @@ def test_profile_histogram_windows_int32_bug():
     )
     result = _get_histogram_numpy(arr, 10, method="fd")[0]
     expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
-    assert (result == expected).all()
+    assert result == expected
 
 
 def test_histogram_single_value_special_case():
@@ -4211,6 +4218,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
+@pytest.mark.skipif(ibis is None, reason="ibis is not available")
 def test_ibis_supported_features(dxf: DataExplorerFixture):
     dxf.register_table("example", SIMPLE_IBIS_DF)
     features = dxf.get_state("example")["supported_features"]
@@ -4247,3 +4255,85 @@ def test_ibis_supported_features(dxf: DataExplorerFixture):
         assert tp in column_profiles["supported_types"]
 
     assert features["convert_to_code"]["support_status"] == SupportStatus.Unsupported
+
+
+def test_histogram_edge_cases_empty_and_single_row(dxf: DataExplorerFixture):
+    """Test histogram behavior for 0-row and 1-row DataFrames."""
+    # Test 0-row DataFrames
+    empty_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([], dtype="float64"),
+            "integers": pd.Series([], dtype="int64"),
+        }
+    )
+    empty_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([], dtype=pl.Float64),
+            "integers": pl.Series([], dtype=pl.Int64),
+        }
+    )
+
+    dxf.register_table("empty_pd", empty_pd)
+    dxf.register_table("empty_pl", empty_pl)
+
+    # Test 1-row DataFrames
+    single_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([42.5], dtype="float64"),
+            "integers": pd.Series([7], dtype="int64"),
+        }
+    )
+    single_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([42.5], dtype=pl.Float64),
+            "integers": pl.Series([7], dtype=pl.Int64),
+        }
+    )
+
+    dxf.register_table("single_pd", single_pd)
+    dxf.register_table("single_pl", single_pl)
+
+    # Test histogram profiles for empty DataFrames
+    for table_name in ["empty_pd", "empty_pl"]:
+        # Test numeric column histogram
+        hist_profiles = [_get_histogram(0, bins=10, method="fixed")]  # numbers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        assert histogram_result["bin_counts"] == []
+        assert histogram_result["bin_edges"] == ["0.00", "1.00"]  # Default empty histogram range
+
+        # Test different histogram methods with empty data
+        for method in ["sturges", "freedman_diaconis", "scott"]:
+            hist_profiles = [_get_histogram(0, bins=10, method=method)]
+            results = dxf.get_column_profiles(table_name, hist_profiles)
+            histogram_result = results[0]["small_histogram"]
+            assert histogram_result["bin_counts"] == []
+            assert histogram_result["bin_edges"] == ["0.00", "1.00"]
+
+    # Test histogram profiles for single-row DataFrames
+    for table_name in ["single_pd", "single_pl"]:
+        # Test numeric column histogram - should create single bin with same min/max
+        hist_profiles = [_get_histogram(0, bins=10, method="fixed")]  # numbers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        # For single values, should create single bin with identical edges
+        assert histogram_result["bin_counts"] == [1]
+        assert histogram_result["bin_edges"] == ["42.50", "42.50"]
+
+        # Test integer column histogram
+        hist_profiles = [_get_histogram(1, bins=10, method="fixed")]  # integers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        assert histogram_result["bin_counts"] == [1]
+        assert histogram_result["bin_edges"] == ["7", "7"]
+
+        # Test different histogram methods with single values
+        for method in ["sturges", "freedman_diaconis", "scott"]:
+            hist_profiles = [_get_histogram(0, bins=10, method=method)]
+            results = dxf.get_column_profiles(table_name, hist_profiles)
+            histogram_result = results[0]["small_histogram"]
+            assert histogram_result["bin_counts"] == [1]
+            assert histogram_result["bin_edges"] == ["42.50", "42.50"]

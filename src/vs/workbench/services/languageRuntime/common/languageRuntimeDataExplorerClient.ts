@@ -414,17 +414,11 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	/**
-	 * This is the new search method that is used by the summary panel
-	 * as part of the enhancement work behind the  `dataExplorer.summaryPanelEnhancements`
-	 * feature flag.
+	 * This is the new search method that is used by the summary panel.
 	 *
 	 * This method utilizes the backend search_schema method and is intentionally
-	 * kept separate from the existing searchSchema method to avoid breaking the column
-	 * filtering functionality that is currently implemented.
-	 *
-	 * We will want to rename this method or the other method once unknowns for
-	 * implementing search and sort are resolved. TBD on what changes, if any,
-	 * the column filtering will need to go through.
+	 * kept separate from the existing searchSchema method to avoid changing the
+	 * column filtering functionality that is currently implemented.
 	 *
 	 * @param options The search options.
 	 * @param options.searchText The search text, if any, to filter the schema by.

@@ -42,7 +42,7 @@ export const uvInterpretersToDropdownItems = (
 					preferred: false,
 					runtimeId: version,
 					languageName: 'Python',
-					languageVersion: version,
+					languageVersion: version === '3.14' ? `${version} (preview)` : version,
 					runtimePath: '',
 					runtimeSource: PythonEnvironmentProvider.Uv,
 				},
