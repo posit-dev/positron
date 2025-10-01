@@ -10,6 +10,7 @@ import './languageModelModalDialog.css';
 import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
@@ -85,6 +86,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	// UI State
 	const [showProgress, setShowProgress] = useState(false);
+	const [progressValue, setProgressValue] = useState(0);
 	const [errorMessage, setErrorMessage] = useState<string>();
 
 	// List of provider sources, which is updated when the service emits a change to a language model config.
@@ -124,6 +126,34 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			setSelectedProvider(updatedSource);
 		}
 	}, [providerSources, selectedProvider.provider.id]);
+
+	// Progress tracking based on timeout setting
+	useEffect(() => {
+		if (!showProgress) {
+			setProgressValue(0);
+			return;
+		}
+
+		// Get the timeout value from configuration (in seconds, convert to milliseconds)
+		const timeoutSeconds = props.renderer.services.configurationService.getValue<number>('positron.assistant.providerTimeout');
+		const timeoutMs = timeoutSeconds * 1000;
+
+		const startTime = Date.now();
+		const updateInterval = 100; // Update every 100ms for smooth progress
+		const targetWindow = DOM.getActiveWindow();
+
+		const interval = targetWindow.setInterval(() => {
+			const elapsed = Date.now() - startTime;
+			const progress = Math.min((elapsed / timeoutMs) * 100, 100);
+			setProgressValue(progress);
+
+			if (progress >= 100 || !showProgress) {
+				targetWindow.clearInterval(interval);
+			}
+		}, updateInterval);
+
+		return () => targetWindow.clearInterval(interval);
+	}, [showProgress, props.renderer.services.configurationService]);
 
 	/** Check if the current provider is one of the signed in providers */
 	const isSignedIn = () => {
@@ -215,55 +245,47 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 		setShowProgress(true);
 		setErrorMessage(undefined);
-		if (providerConfig) {
+
+		try {
+			if (!providerConfig) {
+				setErrorMessage(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
+				return;
+			}
+
+			// Handle the main chat/completion model configuration
 			switch (getAuthMethod()) {
 				case AuthMethod.NONE:
 				// Use the same actions as API_KEY
 				case AuthMethod.API_KEY:
-					await props.onAction(providerConfig, isSignedIn() ? 'delete' : 'save')
-						.catch((e) => {
-							setErrorMessage(e.message);
-						}).finally(() => {
-							setShowProgress(false);
-						});
+					await props.onAction(providerConfig, isSignedIn() ? 'delete' : 'save');
 					break;
 				case AuthMethod.OAUTH:
-					await props.onAction(providerConfig, isSignedIn() ? 'oauth-signout' : 'oauth-signin')
-						.catch((e) => {
-							setErrorMessage(e.message);
-						}).finally(() => {
-							setShowProgress(false);
-						});
+					await props.onAction(providerConfig, isSignedIn() ? 'oauth-signout' : 'oauth-signin');
 					break;
 				default:
-					setShowProgress(false);
 					setErrorMessage(localize('positron.languageModelProviderModalDialog.unsupportedAuthMethod', 'Unsupported authentication method.'));
-					break;
+					return;
 			}
-		} else {
-			setShowProgress(false);
-			setErrorMessage(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
-		}
 
-		if (providerConfig.completions) {
-			setShowProgress(true);
-			// Assume a completion source exists with the same provider ID and compatible auth details
-			const completionSource = allProviders.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
-			const completionConfig = {
-				provider: providerConfig.provider,
-				type: PositronLanguageModelType.Completion,
-				...completionSource.defaults,
-				apiKey: providerConfig.apiKey,
-				oauth: providerConfig.oauth,
+			// Handle completion model if needed
+			if (providerConfig.completions) {
+				// Assume a completion source exists with the same provider ID and compatible auth details
+				const completionSource = allProviders.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
+				const completionConfig = {
+					provider: providerConfig.provider,
+					type: PositronLanguageModelType.Completion,
+					...completionSource.defaults,
+					apiKey: providerConfig.apiKey,
+					oauth: providerConfig.oauth,
+				}
+				await props.onAction(
+					completionConfig,
+					selectedProvider.signedIn ? 'delete' : 'save');
 			}
-			await props.onAction(
-				completionConfig,
-				selectedProvider.signedIn ? 'delete' : 'save')
-				.catch((e) => {
-					setErrorMessage(e.message);
-				}).finally(() => {
-					setShowProgress(false);
-				});
+		} catch (e) {
+			setErrorMessage(e instanceof Error ? e.message : String(e));
+		} finally {
+			setShowProgress(false);
 		}
 	}
 
@@ -294,7 +316,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	];
 
 	return <OKModalDialog
-		height={400}
+		height={450}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
 		renderer={props.renderer}
 		title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
@@ -349,7 +371,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				onSignIn={onSignIn}
 			/>
 			{showProgress &&
-				<ProgressBar />
+				<ProgressBar value={progressValue} />
 			}
 			{errorMessage &&
 				<div className='language-model-error error error-msg'>{errorMessage}</div>

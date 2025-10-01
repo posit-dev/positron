@@ -120,6 +120,12 @@ export interface ActiveSession {
      */
     'status': Status;
     /**
+     * The kernel information, as returned by the kernel_info_request message
+     * @type {object}
+     * @memberof ActiveSession
+     */
+    'kernel_info': object;
+    /**
      * The number of seconds the session has been idle, or 0 if the session is busy
      * @type {number}
      * @memberof ActiveSession

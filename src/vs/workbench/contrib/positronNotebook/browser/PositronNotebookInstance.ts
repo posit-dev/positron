@@ -39,6 +39,7 @@ import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -343,6 +344,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 	) {
@@ -931,6 +933,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (!skipContentEvent) {
 			this._onDidChangeContent.fire();
 		}
+	}
+
+	/**
+	 * Show a notebook console for this instance.
+	 */
+	showNotebookConsole(): void {
+		this._positronConsoleService.showNotebookConsole(this.uri, true);
 	}
 
 	/**

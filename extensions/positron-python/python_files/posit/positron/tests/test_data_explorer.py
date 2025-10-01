@@ -14,7 +14,6 @@ from importlib.metadata import version
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
-import ibis
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -58,6 +57,11 @@ from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
 from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
+
+try:
+    import ibis
+except ImportError:
+    ibis = None
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -122,7 +126,7 @@ SIMPLE_DATA = {
     "a": [1, 2, 3, 4, 5],
     "b": [True, False, True, None, True],
     "c": ["foo", "bar", None, "bar", "None"],
-    "d": [0, 1.2, -4.5, 6, np.nan],
+    "d": [0.0, 1.2, -4.5, 6, np.nan],
     "e": pd.to_datetime(
         [
             "2024-01-01 00:00:00",
@@ -139,13 +143,16 @@ SIMPLE_DATA = {
 
 SIMPLE_PANDAS_DF = pd.DataFrame(SIMPLE_DATA)
 
-SIMPLE_IBIS_DF = ibis.memtable(
-    {
-        "a": [1, 2, 3, 4, 5],
-        "b": [True, False, True, None, True],
-        "c": ["foo", "bar", None, "bar", "None"],
-    }
-)
+if ibis:
+    SIMPLE_IBIS_DF = ibis.memtable(
+        {
+            "a": [1, 2, 3, 4, 5],
+            "b": [True, False, True, None, True],
+            "c": ["foo", "bar", None, "bar", "None"],
+        }
+    )
+else:
+    SIMPLE_IBIS_DF = None
 
 
 def test_service_properties(de_service: DataExplorerService):
@@ -2343,7 +2350,7 @@ def _pandas_export_table(x, fmt):
     """Helper to export pandas DataFrame to various formats with proper line ending handling."""
     buf = StringIO()
     if fmt == "csv":
-        x.to_csv(buf, index=False)
+        x.to_csv(buf, index=False, sep=",")
     elif fmt == "tsv":
         x.to_csv(buf, sep="\t", index=False)
     elif fmt == "html":
@@ -2456,6 +2463,146 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 filt_result = dxf.export_data_selection(f"{name}_filtered", rpc_selection, fmt)
                 filt_expected = export_table(filtered_selected, fmt)
                 assert filt_result["data"] == filt_expected
+
+
+def test_export_data_selection_with_sort(dxf: DataExplorerFixture):
+    """Test that export_data_selection respects sort order for column selections."""
+    # Create test DataFrames
+    df_pandas = pd.DataFrame(
+        {"A": [3, 1, 2, 5, 4], "B": ["c", "a", "b", "e", "d"], "C": [30, 10, 20, 50, 40]}
+    )
+
+    df_polars = pl.DataFrame(
+        {"A": [3, 1, 2, 5, 4], "B": ["c", "a", "b", "e", "d"], "C": [30, 10, 20, 50, 40]}
+    )
+
+    # Register tables
+    dxf.register_table("pandas_sorted", df_pandas)
+    dxf.register_table("polars_sorted", df_polars)
+
+    # Test cases: (table_name, sort_keys, expected_column_B_values)
+    test_cases = [
+        # Sort by column A ascending
+        ("pandas_sorted", [{"column_index": 0, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        ("polars_sorted", [{"column_index": 0, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        # Sort by column A descending
+        ("pandas_sorted", [{"column_index": 0, "ascending": False}], ["e", "d", "c", "b", "a"]),
+        ("polars_sorted", [{"column_index": 0, "ascending": False}], ["e", "d", "c", "b", "a"]),
+        # Sort by column C ascending
+        ("pandas_sorted", [{"column_index": 2, "ascending": True}], ["a", "b", "c", "d", "e"]),
+        ("polars_sorted", [{"column_index": 2, "ascending": True}], ["a", "b", "c", "d", "e"]),
+    ]
+
+    for table_name, sort_keys, expected_b_values in test_cases:
+        # Apply sort
+        dxf.set_sort_columns(table_name, sort_keys)
+
+        # Export column B (whole column selection using ColumnIndices)
+        selection = _select_column_indices([1])
+        result = dxf.export_data_selection(table_name, selection, "csv")
+
+        # Parse the CSV result to get the values
+        lines = result["data"].splitlines()
+        header = lines[0]
+        values = [line.strip() for line in lines[1:] if line.strip()]
+
+        # Check that values are in expected sorted order
+        assert header == "B", f"Expected header 'B', got '{header}'"
+        assert values == expected_b_values, (
+            f"Table {table_name} with sort {sort_keys}: Expected {expected_b_values}, got {values}"
+        )
+
+        # Also test ColumnRange selection (columns B and C)
+        selection_range = _select_column_range(1, 2)
+        result_range = dxf.export_data_selection(table_name, selection_range, "csv")
+
+        # Parse the CSV result
+        lines_range = result_range["data"].splitlines()
+        header_range = lines_range[0]
+        values_range = [line.split(",")[0] for line in lines_range[1:] if line.strip()]
+
+        assert "B,C" in header_range or "B\tC" in header_range, (
+            f"Expected 'B,C' in header, got '{header_range}'"
+        )
+        assert values_range == expected_b_values, (
+            f"Table {table_name} column range with sort {sort_keys}: Expected {expected_b_values}, got {values_range}"
+        )
+
+    # Test with filters and sort
+    schema = dxf.get_schema("pandas_sorted")
+    # Filter: A > 2
+    filter_params = [_compare_filter(schema[0], ">", "2")]
+
+    dxf.set_row_filters("pandas_sorted", filter_params)
+    # Sort by C ascending (filtered rows: A=[3,5,4], B=['c','e','d'], C=[30,50,40])
+    # After sort by C: B=['c','d','e']
+    dxf.set_sort_columns("pandas_sorted", [{"column_index": 2, "ascending": True}])
+
+    selection = _select_column_indices([1])
+    result = dxf.export_data_selection("pandas_sorted", selection, "csv")
+
+    lines = result["data"].splitlines()
+    values = [line.strip() for line in lines[1:] if line.strip()]
+    expected_filtered_sorted = ["c", "d", "e"]
+
+    assert values == expected_filtered_sorted, (
+        f"Filtered and sorted export: Expected {expected_filtered_sorted}, got {values}"
+    )
+
+
+def test_export_data_selection_cell_indices_with_sort(dxf: DataExplorerFixture):
+    """Test that CellIndices selection respects table sort order."""
+    # Create test DataFrames with clear sort order differences
+    df_pandas = pd.DataFrame(
+        {
+            "sort_col": [3, 1, 4, 2, 5],
+            "id": [300, 100, 400, 200, 500],
+            "data": ["row3", "row1", "row4", "row2", "row5"],
+        }
+    )
+
+    df_polars = pl.DataFrame(
+        {
+            "sort_col": [3, 1, 4, 2, 5],
+            "id": [300, 100, 400, 200, 500],
+            "data": ["row3", "row1", "row4", "row2", "row5"],
+        }
+    )
+
+    # Register tables
+    dxf.register_table("pandas_cell_indices", df_pandas)
+    dxf.register_table("polars_cell_indices", df_polars)
+
+    for table_name in ["pandas_cell_indices", "polars_cell_indices"]:
+        # Sort by sort_col ascending - should reorder to: 1,2,3,4,5
+        # Original indices: [1,3,0,2,4] -> rows with IDs: [100,200,300,400,500]
+        dxf.set_sort_columns(table_name, [{"column_index": 0, "ascending": True}])
+
+        # Test CellIndices selection: rows 0,1 from sorted view should be rows with IDs 100,200
+        selection = _select_cell_indices([0, 1], [1, 2])  # id and data columns
+        result = dxf.export_data_selection(table_name, selection, "csv")
+
+        lines = result["data"].splitlines()
+        header = lines[0]
+        values = [line.strip() for line in lines[1:] if line.strip()]
+
+        # Should get first two rows from sorted table: ID 100,200 with data row1,row2
+        assert header == "id,data", f"Expected header 'id,data', got '{header}'"
+        assert values == ["100,row1", "200,row2"], (
+            f"CellIndices with sort on {table_name}: Expected ['100,row1', '200,row2'], got {values}"
+        )
+
+        # Test reverse order selection to ensure selection order is preserved
+        selection_reverse = _select_cell_indices([2, 0], [0, 1])  # sort_col and id columns
+        result_reverse = dxf.export_data_selection(table_name, selection_reverse, "csv")
+
+        lines_reverse = result_reverse["data"].splitlines()
+        values_reverse = [line.strip() for line in lines_reverse[1:] if line.strip()]
+
+        # Should get rows 2,0 from sorted view: (3,300) then (1,100)
+        assert values_reverse == ["3,300", "1,100"], (
+            f"CellIndices reverse order on {table_name}: Expected ['3,300', '1,100'], got {values_reverse}"
+        )
 
 
 def _profile_request(column_index, profiles):
@@ -3273,7 +3420,7 @@ def test_profile_histogram_windows_int32_bug():
     )
     result = _get_histogram_numpy(arr, 10, method="fd")[0]
     expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
-    assert (result == expected).all()
+    assert result == expected
 
 
 def test_histogram_single_value_special_case():
@@ -4071,6 +4218,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
+@pytest.mark.skipif(ibis is None, reason="ibis is not available")
 def test_ibis_supported_features(dxf: DataExplorerFixture):
     dxf.register_table("example", SIMPLE_IBIS_DF)
     features = dxf.get_state("example")["supported_features"]
@@ -4107,3 +4255,85 @@ def test_ibis_supported_features(dxf: DataExplorerFixture):
         assert tp in column_profiles["supported_types"]
 
     assert features["convert_to_code"]["support_status"] == SupportStatus.Unsupported
+
+
+def test_histogram_edge_cases_empty_and_single_row(dxf: DataExplorerFixture):
+    """Test histogram behavior for 0-row and 1-row DataFrames."""
+    # Test 0-row DataFrames
+    empty_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([], dtype="float64"),
+            "integers": pd.Series([], dtype="int64"),
+        }
+    )
+    empty_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([], dtype=pl.Float64),
+            "integers": pl.Series([], dtype=pl.Int64),
+        }
+    )
+
+    dxf.register_table("empty_pd", empty_pd)
+    dxf.register_table("empty_pl", empty_pl)
+
+    # Test 1-row DataFrames
+    single_pd = pd.DataFrame(
+        {
+            "numbers": pd.Series([42.5], dtype="float64"),
+            "integers": pd.Series([7], dtype="int64"),
+        }
+    )
+    single_pl = pl.DataFrame(
+        {
+            "numbers": pl.Series([42.5], dtype=pl.Float64),
+            "integers": pl.Series([7], dtype=pl.Int64),
+        }
+    )
+
+    dxf.register_table("single_pd", single_pd)
+    dxf.register_table("single_pl", single_pl)
+
+    # Test histogram profiles for empty DataFrames
+    for table_name in ["empty_pd", "empty_pl"]:
+        # Test numeric column histogram
+        hist_profiles = [_get_histogram(0, bins=10, method="fixed")]  # numbers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        assert histogram_result["bin_counts"] == []
+        assert histogram_result["bin_edges"] == ["0.00", "1.00"]  # Default empty histogram range
+
+        # Test different histogram methods with empty data
+        for method in ["sturges", "freedman_diaconis", "scott"]:
+            hist_profiles = [_get_histogram(0, bins=10, method=method)]
+            results = dxf.get_column_profiles(table_name, hist_profiles)
+            histogram_result = results[0]["small_histogram"]
+            assert histogram_result["bin_counts"] == []
+            assert histogram_result["bin_edges"] == ["0.00", "1.00"]
+
+    # Test histogram profiles for single-row DataFrames
+    for table_name in ["single_pd", "single_pl"]:
+        # Test numeric column histogram - should create single bin with same min/max
+        hist_profiles = [_get_histogram(0, bins=10, method="fixed")]  # numbers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        # For single values, should create single bin with identical edges
+        assert histogram_result["bin_counts"] == [1]
+        assert histogram_result["bin_edges"] == ["42.50", "42.50"]
+
+        # Test integer column histogram
+        hist_profiles = [_get_histogram(1, bins=10, method="fixed")]  # integers column
+        results = dxf.get_column_profiles(table_name, hist_profiles)
+
+        histogram_result = results[0]["small_histogram"]
+        assert histogram_result["bin_counts"] == [1]
+        assert histogram_result["bin_edges"] == ["7", "7"]
+
+        # Test different histogram methods with single values
+        for method in ["sturges", "freedman_diaconis", "scott"]:
+            hist_profiles = [_get_histogram(0, bins=10, method=method)]
+            results = dxf.get_column_profiles(table_name, hist_profiles)
+            histogram_result = results[0]["small_histogram"]
+            assert histogram_result["bin_counts"] == [1]
+            assert histogram_result["bin_edges"] == ["42.50", "42.50"]

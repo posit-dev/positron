@@ -6,7 +6,7 @@
 import { AsyncIterableObject } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -15,9 +15,10 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
-import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -95,11 +96,6 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	private _pendingExecutionsByNotebookUri = new ResourceMap<RuntimeNotebookCellExecution>();
 
 	/**
-	 * A map of active sessions, keyed by notebook URI.
-	 */
-	private _sessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
-
-	/**
 	 * An event that fires when the kernel executes code.
 	 */
 	private readonly _didExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
@@ -114,6 +110,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IProgressService private readonly _progressService: IProgressService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
 		super();
 	}
@@ -168,10 +166,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			}
 
 			// Get the notebook's session.
-			let session = this._sessionsByNotebookUri.get(notebookUri);
+			let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 			if (!session) {
 				// There's no active session for the notebook, start one.
-				session = await this._progressService.withProgress({
+				await this._progressService.withProgress({
 					location: ProgressLocation.Notification,
 					title: localize(
 						"positron.notebook.kernel.starting",
@@ -180,11 +178,18 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						notebookUri.fsPath,
 					),
 				}, async () => {
-					return await this.selectRuntime(
+					return await this.ensureSessionStarted(
 						notebookUri,
 						`Runtime kernel ${this.id} executed cells for notebook`,
 					);
 				});
+				session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+				if (!session) {
+					// We shouldn't get here since ensureSessionStarted should
+					// notify and throw if it fails, but just in case...
+					this._logService.error(`Failed to start runtime session for notebook '${notebookUri.toString()}'`);
+					return;
+				}
 			}
 
 			// Queue the cell executions.
@@ -207,7 +212,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				);
 				const executionPromise = this._notebookExecutionSequencer.queue(
 					notebookUri,
-					() => this.executeCell(cell, notebook, session),
+					() => this.executeCell(cell, notebook, session!),
 				);
 				executionPromises.push(executionPromise);
 			}
@@ -250,6 +255,11 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		const cellExecution = this._notebookExecutionStateService.getCellExecution(cell.uri);
 		if (!cellExecution) {
 			throw new Error(`No execution for cell '${cell.uri.toString()}'`);
+		}
+
+		// Ensure we have a session.
+		if (!session) {
+			throw new Error(`No active interpreter session for notebook '${notebook.uri.toString()}'`);
 		}
 
 		// Determine error behavior based on cell metadata tags
@@ -310,47 +320,58 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	/**
-	 * Select a runtime for a notebook.
+	 * Ensure a session is running for the given notebook
 	 *
-	 * @param notebookUri The URI of the notebook.
-	 * @param source The source of the request to select the runtime, for debugging purposes.
-	 * @returns A promise that resolves with the selected runtime session.
+	 * @param notebookUri The notebook URI
+	 * @param source The source of the request
 	 */
-	public async selectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
-		// Select the runtime for the notebook.
-		const session = await this.doSelectRuntime(notebookUri, source);
+	public async ensureSessionStarted(notebookUri: URI, source: string) {
+		// If we've already got a session going, no need to do anything
+		const session = this._runtimeSessionService
+			.getNotebookSessionForNotebookUri(notebookUri);
+		if (session) {
+			return;
+		}
 
-		// Add the session to the sessions map.
-		this._sessionsByNotebookUri.set(notebookUri, session);
-
-		const disposables = this._register(new DisposableStore());
-
-		/** Dispose event listeners and remove the session from the map. */
-		const dispose = () => {
-			disposables.dispose();
-			this._sessionsByNotebookUri.delete(notebookUri);
-		};
-
-		// Dispose when the session ends.
-		disposables.add(session.onDidEndSession(() => {
-			dispose();
-		}));
-
-		// Dispose when the session enters an exiting/exited state.
-		disposables.add(session.onDidChangeRuntimeState(state => {
-			if (state === RuntimeState.Exiting ||
-				state === RuntimeState.Exited ||
-				state === RuntimeState.Restarting ||
-				state === RuntimeState.Uninitialized) {
-				dispose();
+		// If the runtime startup phase isn't complete, it is possible that the
+		// runtime we need for this notebook is in the process of being
+		// restored. If that's the case, wait to see if it will start before
+		// starting a new instance.
+		const phase = this._languageRuntimeService.startupPhase;
+		if (phase !== RuntimeStartupPhase.Complete) {
+			// Get the set of sessions that will be restored and find a session
+			// for the notebook we're interested in
+			const restoredSessions = await this._runtimeStartupService.getRestoredSessions();
+			let hasSession = false;
+			for (const session of restoredSessions) {
+				if (session.runtimeMetadata.runtimeId === this.runtime.runtimeId &&
+					session.metadata.notebookUri?.toString() === notebookUri.toString()
+				) {
+					this._logService.debug(
+						`[RuntimeNotebookKernel] Waiting for session to be restored ` +
+						`for notebook ${notebookUri.fsPath}`
+					);
+					hasSession = true;
+					break;
+				}
 			}
-		}));
 
-		return session;
-	}
+			// If we have a session that might be restored, wait for startup to
+			// complete and try again
+			if (hasSession) {
+				return new Promise<void>(resolve => {
+					const disposable =
+						this._languageRuntimeService.onDidChangeRuntimeStartupPhase(async (e) => {
+							if (e === RuntimeStartupPhase.Complete) {
+								disposable.dispose();
+								await this.ensureSessionStarted(notebookUri, source);
+								resolve();
+							}
+						});
+				});
+			}
+		}
 
-	/** Internal method to actually select a runtime for a notebook. */
-	private async doSelectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
 		try {
 			// Select the runtime for the notebook.
 			await this._runtimeSessionService.selectRuntime(

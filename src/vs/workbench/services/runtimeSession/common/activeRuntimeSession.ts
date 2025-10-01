@@ -15,6 +15,7 @@ import { RuntimeClientState } from '../../languageRuntime/common/languageRuntime
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
+import { IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, RuntimeClientType } from './runtimeSessionService.js';
 
 /**
@@ -50,16 +51,33 @@ export class ActiveRuntimeSession extends Disposable {
 	constructor(
 		public session: ILanguageRuntimeSession,
 		public manager: ILanguageRuntimeSessionManager,
-		private readonly _commandService: ICommandService,
-		private readonly _logService: ILogService,
-		private readonly _openerService: IOpenerService,
-		private readonly _configurationService: IConfigurationService,
-		private readonly _environmentService: IWorkbenchEnvironmentService
+		public hasConsole: boolean,
+		@ICommandService private readonly _commandService: ICommandService,
+		@ILogService private readonly _logService: ILogService,
+		@IOpenerService private readonly _openerService: IOpenerService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService
 	) {
 		super();
 
 		// Get the initial state from the session.
 		this.state = session.getRuntimeState();
+
+		// If a console starts for this session, remember that it happened so we
+		// can restore the console when the session is restored.  This primarily
+		// exists to support notebook consoles since they may not initially be
+		// shown.
+		//
+		// Many tests run without a console service, so only register the listener
+		// if we have one.
+		if (this._consoleService) {
+			this._register(this._consoleService.onDidStartPositronConsoleInstance(e => {
+				if (e.sessionId === session.sessionId) {
+					this.hasConsole = true;
+				}
+			}));
+		}
 	}
 
 	/// An event that fires when a runtime receives a global event.

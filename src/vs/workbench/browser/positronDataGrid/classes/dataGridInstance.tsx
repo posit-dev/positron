@@ -1581,6 +1581,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the sorting has completed.
 	 */
 	async setColumnSortKey(columnIndex: number, ascending: boolean): Promise<void> {
+		// Clear pinned rows whenever a sort is applied to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Get the column sort key for the column index.
 		const columnSortKey = this._columnSortKeys.get(columnIndex);
 
@@ -1623,6 +1628,11 @@ export abstract class DataGridInstance extends Disposable {
 
 		// If there is a column sort key, remove it.
 		if (columnSortKey) {
+			// Clear pinned rows whenever the sort state changes to avoid
+			// the bug where pinned row data is in the wrong position.
+			// See https://github.com/posit-dev/positron/issues/9344
+			this.clearPinnedRows();
+
 			// Remove the column sort key.
 			this._columnSortKeys.delete(columnIndex);
 
@@ -1653,6 +1663,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the sorting has completed.
 	 */
 	async clearColumnSortKeys(): Promise<void> {
+		// Clear pinned rows whenever the sort state changes to avoid
+		// the bug where pinned row data is in the wrong position.
+		// See https://github.com/posit-dev/positron/issues/9344
+		this.clearPinnedRows();
+
 		// Clear column sort keys.
 		this._columnSortKeys.clear();
 
@@ -1910,6 +1925,18 @@ export abstract class DataGridInstance extends Disposable {
 	unpinRow(rowIndex: number) {
 		// If row pinning is enabled, unpin the row.
 		if (this._rowPinning && this._rowLayoutManager.unpinIndex(rowIndex)) {
+			this.clearSelection();
+			this.fireOnDidUpdateEvent();
+		}
+	}
+
+	/**
+	 * Clears all pinned rows.
+	 */
+	clearPinnedRows() {
+		// If row pinning is enabled and there are pinned rows, clear them.
+		if (this._rowPinning && this._rowLayoutManager.pinnedIndexesCount > 0) {
+			this._rowLayoutManager.setPinnedIndexes([]);
 			this.clearSelection();
 			this.fireOnDidUpdateEvent();
 		}

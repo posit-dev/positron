@@ -10,8 +10,8 @@ import { ModelConfig } from './config';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
-import { availableModels } from './models.js';
 import { TokenUsage } from './tokens.js';
+import { availableModels } from './models.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -38,6 +38,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	maxInputTokens: number;
 	maxOutputTokens: number;
 	tokenCount: number = 0;
+	modelListing: vscode.LanguageModelChatInformation[];
 
 	capabilities = {
 		vision: true,
@@ -79,12 +80,17 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this.version = '';
 		this.maxInputTokens = _config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT;
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+		this.modelListing = [];
 	}
 
-	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		const models = availableModels.get(this.provider);
+	async prepareLanguageModelChat(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		log.trace('Preparing Anthropic language model');
 
-		if (!models || models.length === 0) {
+		await this.resolveModels(token);
+
+		if (this.modelListing.length > 0) {
+			return this.modelListing;
+		} else {
 			return [
 				{
 					id: this.id,
@@ -94,24 +100,11 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					maxInputTokens: this.maxInputTokens,
 					maxOutputTokens: this.maxOutputTokens,
 					capabilities: this.capabilities,
-
+					isDefault: true,
+					isUserSelectable: true,
 				}
 			];
 		}
-
-		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
-			id: model.identifier,
-			name: model.name,
-			family: this._config.provider,
-			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
-			maxInputTokens: model.maxInputTokens ?? this.maxInputTokens,
-			maxOutputTokens: model.maxOutputTokens ?? this.maxOutputTokens,
-			capabilities: this.capabilities,
-			isDefault: model === models[0],
-			isUserSelectable: true,
-		}));
-
-		return languageModels;
 	}
 
 	async provideLanguageModelChatResponse(
@@ -126,9 +119,15 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			: undefined;
 		const tools = options.tools && toAnthropicTools(options.tools);
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
-		const system = options.modelOptions?.system &&
-			toAnthropicSystem(options.modelOptions.system, cacheControlOptions?.system);
-		const anthropicMessages = toAnthropicMessages(messages);
+
+		const systemMessages = messages.filter(m => m.role === vscode.LanguageModelChatMessageRole.System);
+		const otherMessages = messages.filter(m => m.role !== vscode.LanguageModelChatMessageRole.System);
+
+		// Convert messages with system role into a anthropic system prompt
+		const system = toAnthropicSystem(systemMessages, cacheControlOptions?.system, options.modelOptions?.system);
+
+		// Convert the remaining messages into anthropic user and assistant messages.
+		const anthropicMessages = toAnthropicMessages(otherMessages);
 
 		const body: Anthropic.MessageStreamParams = {
 			model: model.id,
@@ -293,11 +292,56 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		const cfg = vscode.workspace.getConfiguration('positron.assistant');
+		const timeoutMs = cfg.get<number>('providerTimeout', 60) * 1000;
 		try {
-			await this._client.models.list();
+			await this._client.withOptions({ timeout: timeoutMs }).models.list();
 		} catch (error) {
 			return error as Error;
 		}
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		const modelListing: vscode.LanguageModelChatInformation[] = [];
+		const knownAnthropicModels = availableModels.get(this.provider);
+		const userSetMaxOutputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
+		let hasMore = true;
+		let nextPageToken: string | undefined;
+		let isFirst = true;
+
+		log.trace(`Fetching models from Anthropic API for provider ${this.provider}`);
+
+		while (hasMore) {
+			const modelsPage = nextPageToken
+				? await this._client.models.list({ after_id: nextPageToken })
+				: await this._client.models.list();
+
+			modelsPage.data.forEach(model => {
+				const knownModelMaxOutputTokens = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier))?.maxOutputTokens;
+				const maxOutputTokens = userSetMaxOutputTokens[model.id] ?? knownModelMaxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+				modelListing.push({
+					id: model.id,
+					name: model.display_name,
+					family: this.provider,
+					version: model.created_at,
+					maxInputTokens: 0,
+					maxOutputTokens: maxOutputTokens,
+					capabilities: {},
+					isDefault: isFirst,
+					isUserSelectable: true,
+				});
+				isFirst = false;
+			});
+
+			hasMore = modelsPage.has_more;
+			if (hasMore && modelsPage.data.length > 0) {
+				nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
+			}
+		}
+
+		this.modelListing = modelListing;
+
+		return modelListing;
 	}
 }
 
@@ -335,9 +379,8 @@ function toAnthropicMessage(message: vscode.LanguageModelChatMessage2, source: s
 			return toAnthropicAssistantMessage(message, source);
 		case vscode.LanguageModelChatMessageRole.User:
 			return toAnthropicUserMessage(message, source);
-		case vscode.LanguageModelChatMessageRole.System:
-			return toAnthropicSystemMessage(message, source);
 		default:
+			// System messages should be filtered and instead handled elsewhere.
 			throw new Error(`Unsupported message role: ${message.role}`);
 	}
 }
@@ -391,33 +434,15 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 	};
 }
 
-function toAnthropicSystemMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
-	const content: Anthropic.ContentBlockParam[] = [];
-	for (let i = 0; i < message.content.length; i++) {
-		const [part, nextPart] = [message.content[i], message.content[i + 1]];
-		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
-		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, source, dataPart, true));
-		} else {
-			throw new Error('Unsupported part type on system message');
-		}
-	}
-	return {
-		role: 'user',
-		content,
-	};
-}
-
 function toAnthropicTextBlock(
 	part: vscode.LanguageModelTextPart,
 	source: string,
 	dataPart?: vscode.LanguageModelDataPart,
-	system: boolean = false,
 ): Anthropic.TextBlockParam {
 	return withCacheControl(
 		{
 			type: 'text',
-			text: system ? `<system>\n${part.value}\n</system>` : part.value,
+			text: part.value,
 		},
 		source,
 		dataPart,
@@ -559,38 +584,53 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 	}
 }
 
-function toAnthropicSystem(system: unknown, cacheSystem = true): Anthropic.MessageCreateParams['system'] {
-	if (typeof system === 'string') {
-		const anthropicSystem: Anthropic.MessageCreateParams['system'] = [{
-			type: 'text',
-			text: system,
-		}];
-
-		if (cacheSystem) {
-			// Add a cache breakpoint to the last system prompt block.
-			const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
-			lastSystemBlock.cache_control = { type: 'ephemeral' };
-			log.debug(`[anthropic] Adding cache breakpoint to system prompt`);
-		}
-
-		return anthropicSystem;
+/*
+ * Convert a set of system messages into an anthropic system prompt.
+ */
+function toAnthropicSystem(
+	messages: vscode.LanguageModelChatMessage2[],
+	cacheSystem = true,
+	system?: string | vscode.LanguageModelTextPart[],
+): Anthropic.MessageCreateParams['system'] {
+	// Append system prompt from `modelOptions.system`, if provided.
+	// TODO: Once extensions such as databot no longer use `modelOptions.system`,
+	// we can remove the `system` parameter and use the given system messages only.
+	if (system) {
+		messages.push(
+			new vscode.LanguageModelChatMessage2(vscode.LanguageModelChatMessageRole.System, system)
+		);
 	}
 
-	// Check if it's an array of parts.
-	if (Array.isArray(system) && system.every(part => (part instanceof vscode.LanguageModelTextPart) ||
-		(part instanceof vscode.LanguageModelDataPart))) {
-		const anthropicSystem: Anthropic.MessageCreateParams['system'] = [];
-		for (let i = 0; i < system.length; i++) {
-			const [part, nextPart] = [system[i], system[i + 1]];
-			const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
-			if (part instanceof vscode.LanguageModelTextPart) {
-				anthropicSystem.push(toAnthropicTextBlock(part, 'System prompt', dataPart));
-			}
-		}
-		return anthropicSystem;
+	// Convert each system message to anthropic text blocks
+	const anthropicSystem = messages.flatMap((message, idx) => {
+		return toAnthropicSystemParts(message, `System message ${idx}`);
+	});
+
+	if (anthropicSystem.length === 0) {
+		return undefined;
+	} else if (cacheSystem) {
+		// Add a cache breakpoint to the last system prompt block.
+		const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
+		lastSystemBlock.cache_control = { type: 'ephemeral' };
+		log.debug(`[anthropic] Adding cache breakpoint to system prompt`);
 	}
 
-	throw new Error(`Unexpected system prompt value`);
+	return anthropicSystem;
+}
+
+function toAnthropicSystemParts(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.TextBlockParam[] {
+	const content: Anthropic.TextBlockParam[] = [];
+	for (let i = 0; i < message.content.length; i++) {
+		const part = message.content[i];
+		if (part instanceof vscode.LanguageModelTextPart) {
+			content.push(toAnthropicTextBlock(part, source));
+		} else if (part instanceof vscode.LanguageModelPromptTsxPart) {
+			content.push(languageModelPromptTsxPartToAnthropicBlock(part, source));
+		} else {
+			throw new Error('Unsupported part type on system message');
+		}
+	}
+	return content;
 }
 
 function isCacheControlOptions(options: unknown): options is CacheControlOptions {

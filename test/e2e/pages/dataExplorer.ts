@@ -6,6 +6,7 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
+import { MetricTargetType, RecordMetric } from '../utils/metrics/metric-base.js';
 
 const HEADER_TITLES = '.data-grid-column-header .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows-container';
@@ -33,7 +34,7 @@ export class DataExplorer {
 	private _summaryPanel: SummaryPanel;
 
 	constructor(private code: Code, private workbench: Workbench) {
-		this._filters = new Filters(this.code);
+		this._filters = new Filters(this.code, this.workbench);
 		this._editorActionBar = new EditorActionBar(this.code, this.workbench);
 		this._dataGrid = new DataGrid(this.code, this);
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
@@ -63,7 +64,7 @@ export class DataExplorer {
 		});
 	}
 
-	async expectStatusBarToHaveText(expectedText: string, timeout = 60000): Promise<void> {
+	async expectStatusBarToHaveText(expectedText: string | RegExp, timeout = 15000): Promise<void> {
 		await test.step(`Expect status bar text: ${expectedText}`, async () => {
 			await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
 		});
@@ -145,7 +146,7 @@ export class Filters {
 	// private filteringMenu: Locator;
 	// private menuItemClearFilters: Locator;
 
-	constructor(private code: Code) {
+	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
 		this.clearFilterButton = this.code.driver.page.locator(CLEAR_FILTER_BUTTON);
 		this.addFilterButton = this.code.driver.page.getByRole('button', { name: 'Add Filter' });
@@ -159,10 +160,12 @@ export class Filters {
 
 	// --- Actions ---
 
-	/*
-	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
+	/**
+	 * Add a filter to the data explorer. Only works for a single filter at the moment. Optionally record metric.
+	 * @param options Object containing filter parameters
 	 */
-	async add(columnName: string, condition: string, value?: string) {
+	async add(options: { columnName: string; condition: string; value?: string; metricRecord?: RecordMetric; metricTargetType?: MetricTargetType }): Promise<void> {
+		const { columnName, condition, value, metricRecord, metricTargetType } = options;
 		await test.step(`Add filter: ${columnName} ${condition} ${value}`, async () => {
 			await this.addFilterButton.click();
 
@@ -179,7 +182,15 @@ export class Filters {
 				await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(value);
 			}
 
-			await this.applyFilterButton.click();
+			// record metric only for loading after apply
+			if (metricRecord && metricTargetType) {
+				await metricRecord.dataExplorer.filter(async () => {
+					await this.applyFilterButton.click();
+					await this.workbench.dataExplorer.waitForIdle();
+				}, metricTargetType);
+			} else {
+				await this.applyFilterButton.click();
+			}
 		});
 	}
 
@@ -199,7 +210,7 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private rowHeaders = this.code.driver.page.locator('.data-grid-row-headers');
+	private rowHeader = this.code.driver.page.locator('.data-grid-row-header');
 	private columnHeaders = this.code.driver.page.locator(HEADER_TITLES);
 	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
 	private cellByPosition = (rowIndex: number, columnIndex: number) => this.code.driver.page.locator(
@@ -310,15 +321,23 @@ export class DataGrid {
 	}
 
 	/**
+	 * Copy a column by its position
+	 * @param colPosition (position is 0-based)
+	 */
+	async copyColumn(colPosition: number) {
+		await test.step(`Copy column at 0-based position: ${colPosition}`, async () => {
+			await this.jumpToStart(); // make sure we are at the start so our index is accurate
+			await this.selectColumnAction(colPosition + 1, 'Copy Column'); // selectColumnAction is 1-based
+		});
+	}
+
+	/**
 	 * Pin a row by its position
 	 * @param rowPosition (position is 0-based)
 	 */
 	async pinRow(rowPosition: number) {
 		await test.step(`Pin row at 0-based position: ${rowPosition}`, async () => {
-			await this.code.driver.page
-				// rowPosition is 0-based, nth-child is 1-based
-				.locator(`.data-grid-row-headers > div:nth-child(${rowPosition + 1})`)
-				.click({ button: 'right' });
+			await this.rowHeader.nth(rowPosition).click({ button: 'right' });
 			await this.code.driver.page.getByRole('button', { name: 'Pin Row' }).click();
 		});
 	}
@@ -352,20 +371,21 @@ export class DataGrid {
 	/**
 	 * Click a column header by its title
 	 * @param columnTitle The exact title of the column to click
+	 * @param options Optional parameters (e.g., right-click)
 	 */
-	async clickColumnHeader(columnTitle: string) {
+	async clickColumnHeader(columnTitle: string, options?: { button: 'left' | 'right' }) {
 		await test.step(`Click column header: ${columnTitle}`, async () => {
-			await this.columnHeaders.getByText(columnTitle).click();
+			await this.columnHeaders.getByText(columnTitle).click({ button: options?.button ?? 'left' });
 		});
 	}
 
 	/**
-	 * Click a row header by its visual position
+	 * Click a row header by its position
 	 * Index is 1-based to match UI
 	 **/
 	async clickRowHeader(rowIndex: number) {
 		await test.step(`Click row header: ${rowIndex}`, async () => {
-			await this.rowHeaders.getByText(rowIndex.toString(), { exact: true }).click();
+			await this.rowHeader.nth(rowIndex).click();
 		});
 	}
 
@@ -496,14 +516,16 @@ export class DataGrid {
 		});
 	}
 
-	async expectLastCellContentToBe(columnName: string, expectedContent: string, rowAtIndex = -1): Promise<void> {
-		await test.step(`Verify last cell content: ${expectedContent}`, async () => {
-			await expect(async () => {
-				const tableData = await this.getData();
-				const lastRow = tableData.at(rowAtIndex);
-				const lastHour = lastRow![columnName];
-				expect(lastHour).toBe(expectedContent);
-			}, 'Verify last hour cell content').toPass();
+	/**
+	 * Verify that the nth cell (default: last) has the expected content.
+	 * @param expectedContent The expected text content of the cell
+	 * @param cellIndex The index of the cell to check (default: last)
+	 */
+	async expectCellContentAtIndexToBe(expectedContent: string, cellIndex?: number): Promise<void> {
+		await test.step(`Verify cell content at index ${cellIndex ?? 'last'}: ${expectedContent}`, async () => {
+			const cells = this.code.driver.page.locator('.data-grid-row-cell');
+			const cell = cellIndex !== undefined ? cells.nth(cellIndex) : cells.last();
+			await expect(cell).toHaveText(expectedContent);
 		});
 	}
 
@@ -951,4 +973,4 @@ export interface ColumnProfile {
 
 export type CellPosition = { row: number; col: number };
 
-export type ColumnRightMenuOption = 'Copy' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';
+export type ColumnRightMenuOption = 'Copy Column' | 'Select Column' | 'Pin Column' | 'Unpin Column' | 'Sort Ascending' | 'Sort Descending' | 'Clear Sorting' | 'Add Filter';

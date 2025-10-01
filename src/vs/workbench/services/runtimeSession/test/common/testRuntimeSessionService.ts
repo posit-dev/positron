@@ -26,13 +26,14 @@ import { IPositronModalDialogsService } from '../../../positronModalDialogs/comm
 import { RuntimeSessionService } from '../../common/runtimeSession.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
-import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService } from '../../../../test/common/positronWorkbenchTestServices.js';
+import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService, TestPathService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService, TestContextService } from '../../../../test/common/workbenchTestServices.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IPathService } from '../../../path/common/pathService.js';
 
 export function createRuntimeServices(
 	instantiationService: TestInstantiationService,
@@ -48,6 +49,7 @@ export function createRuntimeServices(
 	instantiationService.stub(IWorkspaceContextService, new TestContextService());
 	instantiationService.stub(IConfigurationResolverService, new TestConfigurationResolverService());
 	instantiationService.stub(IFileService, disposables.add(new TestDirectoryFileService()));
+	instantiationService.stub(IPathService, new TestPathService());
 	instantiationService.stub(ILanguageRuntimeService, disposables.add(instantiationService.createInstance(LanguageRuntimeService)));
 	instantiationService.stub(IPositronModalDialogsService, new TestPositronModalDialogService());
 	instantiationService.stub(ICommandService, new TestCommandService(instantiationService));

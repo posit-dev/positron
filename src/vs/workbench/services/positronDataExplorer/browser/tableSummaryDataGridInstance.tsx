@@ -19,10 +19,8 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
-import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
+import { BackendState, ColumnDisplayType, ColumnProfileType, SearchSchemaSortOrder, SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -45,7 +43,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * The current column name search filter text.
 	 */
-	private _searchText?: string;
+	private _searchText = '';
 
 	/**
 	 * The current sort option for the summary rows
@@ -345,10 +343,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 
 		// Return the summary stats support status.
-		return dataExplorerExperimentalFeatureEnabled(
-			summaryStatsSupportStatus.support_status,
-			this.configurationService
-		);
+		return summaryStatsSupportStatus.support_status === SupportStatus.Supported;
 	}
 
 	/**
@@ -521,12 +516,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
 	async setSearchText(searchText: string): Promise<void> {
-		this._searchText = searchText || undefined;
-		await this.updateLayoutEntries();
-		// invalidate the cache when the search and sort is removed
-		await this.fetchData(this.hasNoSearchOrSort());
-		// Force a re-render when the search or sort options change
-		this.fireOnDidUpdateEvent();
+		if (this._searchText !== searchText) {
+			this._searchText = searchText;
+			await this.updateLayoutEntries();
+			// invalidate the cache when the search and sort is removed
+			await this.fetchData(this.hasNoSearchOrSort());
+			// Force a re-render when the search or sort options change
+			this.fireOnDidUpdateEvent();
+		}
 	}
 
 	/**
@@ -534,12 +531,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param sortOption The sort option used to order the rows.
 	 */
 	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
-		this._sortOption = sortOption;
-		await this.updateLayoutEntries();
-		// invalidate the cache when the search and sort is removed
-		await this.fetchData(this.hasNoSearchOrSort());
-		// Force a re-render when the search or sort options change
-		this.fireOnDidUpdateEvent();
+		if (this._sortOption !== sortOption) {
+			this._sortOption = sortOption;
+			await this.updateLayoutEntries();
+			// invalidate the cache when the search and sort is removed
+			await this.fetchData(this.hasNoSearchOrSort());
+			// Force a re-render when the search or sort options change
+			this.fireOnDidUpdateEvent();
+		}
 	}
 
 	//#endregion Public Methods
@@ -552,7 +551,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns A value which indicates whether there is a search or sort option applied.
 	 */
 	private hasNoSearchOrSort(): boolean {
-		return this._searchText === undefined && this._sortOption === SearchSchemaSortOrder.Original;
+		return this._searchText === '' && this._sortOption === SearchSchemaSortOrder.Original;
 	}
 
 	/**
@@ -560,9 +559,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param state The backend state, if known; otherwise, undefined.
 	 */
 	private async updateLayoutEntries(state?: BackendState) {
-		const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(this._services.configurationService);
-
-		if (!showSummaryPanelEnhancements || this.hasNoSearchOrSort()) {
+		if (this.hasNoSearchOrSort()) {
 			// When there is no search or sort option, we need to tell the layout manager
 			// to use the original table shape and render all the data
 			if (!state) {

@@ -133,9 +133,9 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			]);
 
 			// add filters
-			await dataExplorer.filters.add('status', 'is equal to', 'active');            // Alice & Charlie
-			await dataExplorer.filters.add('score', 'is greater than or equal to', '85'); // Alice (89.5), Charlie (95.0)
-			await dataExplorer.filters.add('is_student', 'is false');					  // Charlie only
+			await dataExplorer.filters.add({ columnName: 'status', condition: 'is equal to', value: 'active' });            // Alice & Charlie
+			await dataExplorer.filters.add({ columnName: 'score', condition: 'is greater than or equal to', value: '85' }); // Alice (89.5), Charlie (95.0)
+			await dataExplorer.filters.add({ columnName: 'is_student', condition: 'is false', value: '' });					// Charlie only
 
 			await metric.dataExplorer.toCode(async () => {
 				// copy code and verify result is accurate
@@ -146,7 +146,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 				// verify the generated code is correct and has syntax highlights
 				// Use normalized code for UI text comparison (no newlines)
 				await expect(dataExplorer.convertToCodeModal.codeBox).toContainText(normalizeCodeForDisplay(expectedGeneratedCode));
-				if (environment != 'DuckDB') await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
+				if (environment !== 'DuckDB') { await dataExplorer.convertToCodeModal.expectSyntaxHighlighting(); }
 
 				// verify copy to clipboard behavior
 				await dataExplorer.convertToCodeModal.clickOK();

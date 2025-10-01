@@ -1661,7 +1661,7 @@ class PandasView(DataExplorerTableView):
         buf = StringIO()
 
         if fmt == ExportFormat.Csv:
-            to_export.to_csv(buf, index=False)
+            to_export.to_csv(buf, index=False, sep=",")
         elif fmt == ExportFormat.Tsv:
             to_export.to_csv(buf, sep="\t", index=False)
         elif fmt == ExportFormat.Html:
