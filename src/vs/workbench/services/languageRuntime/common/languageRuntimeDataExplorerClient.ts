@@ -292,16 +292,16 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Get the current active state of the data explorer backend.
 	 * @returns A promise that resolves to the current backend state.
 	 */
-	async getBackendState(): Promise<BackendState> {
+	async getBackendState(waitForCompletedTasks?: boolean): Promise<BackendState> {
 		if (this._backendPromise) {
 			// If there is a request for the state pending
 			return this._backendPromise;
 		} else if (this.cachedBackendState === undefined) {
 			// The state is being requested for the first time
 			return this.updateBackendState();
-		} else if (this._numPendingTasks > 0) {
+		} else if (this._numPendingTasks > 0 && waitForCompletedTasks) {
 			// There are pending tasks, so refresh the state
-			return this.updateBackendState();
+			return this.updateBackendState(waitForCompletedTasks);
 		}
 		else {
 			// The state was previously computed
@@ -314,13 +314,13 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Ensures all in-flight backend tasks complete before getting the state.
 	 * @returns A promise that resolves to the latest table state.
 	 */
-	async updateBackendState(): Promise<BackendState> {
+	async updateBackendState(waitForCompletedTasks?: boolean): Promise<BackendState> {
 		if (this._backendPromise) {
 			return this._backendPromise;
 		}
 
 		// If there are pending tasks, wait for them to complete first
-		if (this._numPendingTasks > 0) {
+		if (this._numPendingTasks > 0 && waitForCompletedTasks) {
 			// Wait for the status to become Idle
 			await new Promise<void>(resolve => {
 				const disposable = this.onDidStatusUpdate(status => {
@@ -582,7 +582,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A promise that resolves to the converted code.
 	 */
 	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<ConvertedCode> {
-		const state = await this.getBackendState();
+		const state = await this.getBackendState(true);
 		await this.isSyntaxSupported(desiredSyntax, state);
 
 		const columnFilters: Array<ColumnFilter> = state.column_filters;
