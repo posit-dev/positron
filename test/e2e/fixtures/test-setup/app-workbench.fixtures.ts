@@ -27,16 +27,28 @@ export async function WorkbenchApp(
 
 	const start = async () => {
 		await app.connectToExternalServer();
+
+		// Workbench: Login to Posit Workbench
 		await app.positWorkbench.auth.signIn();
 		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
 		await app.positWorkbench.dashboard.openSession('qa-example-content');
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60_000 });
+
+		// Wait for Positron to be ready
+		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 		await app.workbench.hotKeys.closeAllEditors();
 	};
 
 	const stop = async () => {
+		// Exit Posit Workbench session
+		try {
+			await app.positWorkbench.dashboard.goTo();
+			await app.positWorkbench.dashboard.quitSession('qa-example-content');
+		} catch (error) {
+			console.warn('Failed to quit workbench session:', error);
+		}
+
 		await app.stopExternalServer();
 	}
 

@@ -25,7 +25,7 @@ import { runDockerCommand } from '../fixtures/test-setup/app-workbench.fixtures.
 
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
-let fixtureScreenshot: Buffer | undefined;
+let appFixtureScreenshot: Buffer | undefined;
 let renamedLogsPath = 'not-set';
 
 // Currents fixtures
@@ -119,7 +119,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			try {
 				const page = app.code?.driver?.page;
 				if (page) {
-					fixtureScreenshot = await page.screenshot({ path: screenshotPath });
+					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
 				}
 			} catch {
 				// ignore
@@ -309,9 +309,9 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 
 	if (appFixtureFailed) {
 		try {
-			if (fixtureScreenshot) {
+			if (appFixtureScreenshot) {
 				await testInfo.attach('app-start-failure', {
-					body: fixtureScreenshot,
+					body: appFixtureScreenshot,
 					contentType: 'image/png',
 				});
 			}
@@ -327,7 +327,7 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 		}
 
 		appFixtureFailed = false;
-		fixtureScreenshot = undefined;
+		appFixtureScreenshot = undefined;
 	}
 });
 
