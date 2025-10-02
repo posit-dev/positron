@@ -44,8 +44,8 @@ export async function startWorkbenchApp(fixtureOptions: AppFixtureOptions): Prom
 	// Return the app, but also throw the error asynchronously
 	// so that the test runner sees the failure
 	if (error) {
-		// Throw after returning, so the test runner sees the error
-		setTimeout(() => { throw error; }, 0);
+		// Throw after returning, so we have time to capture screenshot and trace
+		setTimeout(() => { throw error; }, 1000);
 	}
 
 	return app;

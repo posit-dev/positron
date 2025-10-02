@@ -8,7 +8,7 @@ import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
-import path, { join } from 'path';
+import { join } from 'path';
 
 // Local imports
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
