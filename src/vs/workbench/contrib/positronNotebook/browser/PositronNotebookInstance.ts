@@ -25,7 +25,7 @@ import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebook
 import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, IRuntimeDisplayInfo, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
@@ -236,6 +236,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	runtimeSession;
 
 	/**
+	 * Rich runtime information for display in UI elements.
+	 * Aggregates metadata from the runtime session for easy access.
+	 */
+	runtimeInfo;
+
+	/**
 	 * Language for the notebook.
 	 */
 	private _language;
@@ -435,6 +441,58 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		this.kernelStatus = _kernelStatus;
+
+		// Create observable for runtime display information
+		// This aggregates key metadata from the runtime session for easy UI consumption
+		const _runtimeInfo = observableValue<IRuntimeDisplayInfo | undefined>('positronNotebookRuntimeInfo', undefined);
+
+		// Use autorun to reactively update runtime info when session changes or state changes
+		this._register(autorun(reader => {
+			const session = this.runtimeSession.read(reader);
+
+			if (!session) {
+				_runtimeInfo.set(undefined, undefined);
+				return;
+			}
+
+			// Helper to update runtime info from current session state
+			const updateRuntimeInfo = () => {
+				const info: IRuntimeDisplayInfo = {
+					sessionName: session.dynState.sessionName,
+					sessionId: session.sessionId,
+					runtimeName: session.runtimeMetadata.runtimeName,
+					runtimePath: session.runtimeMetadata.runtimePath,
+					runtimeSource: session.runtimeMetadata.runtimeSource,
+					languageName: session.runtimeMetadata.languageName,
+					languageVersion: session.runtimeMetadata.languageVersion,
+					state: session.getRuntimeState(),
+					implementationVersion: session.runtimeInfo?.implementation_version,
+					banner: session.runtimeInfo?.banner,
+				};
+				_runtimeInfo.set(info, undefined);
+			};
+
+			// Set initial runtime info
+			updateRuntimeInfo();
+
+			// Subscribe to runtime state changes to keep info current
+			const stateListener = session.onDidChangeRuntimeState(() => {
+				updateRuntimeInfo();
+			});
+
+			// Subscribe to startup completion to capture runtimeInfo fields
+			const startupListener = session.onDidCompleteStartup(() => {
+				updateRuntimeInfo();
+			});
+
+			// Clean up listeners when session changes
+			return () => {
+				stateListener.dispose();
+				startupListener.dispose();
+			};
+		}));
+
+		this.runtimeInfo = _runtimeInfo;
 
 		// Derive the notebook language from the selected kernel
 		this._language = this.kernel.map(

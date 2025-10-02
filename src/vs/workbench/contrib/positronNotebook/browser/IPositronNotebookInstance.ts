@@ -30,6 +30,42 @@ export enum KernelStatus {
 }
 
 /**
+ * Rich runtime information for display in UI elements like tooltips and modals.
+ * Aggregates key metadata from both ILanguageRuntimeMetadata and ILanguageRuntimeInfo.
+ */
+export interface IRuntimeDisplayInfo {
+	/** User-facing session name */
+	sessionName: string;
+
+	/** Unique session identifier (useful for debugging) */
+	sessionId: string;
+
+	/** Fully qualified runtime name (e.g., "Python 3.12.0 (System)") */
+	runtimeName: string;
+
+	/** Full path to the runtime executable */
+	runtimePath: string;
+
+	/** Source or origin of the runtime (e.g., "System", "Conda", "PyEnv") */
+	runtimeSource: string;
+
+	/** Language name (e.g., "Python", "R") */
+	languageName: string;
+
+	/** Language version string (e.g., "3.12.0", "4.3.1") */
+	languageVersion: string;
+
+	/** Current runtime state (from RuntimeState enum) */
+	state: string;
+
+	/** Implementation version (post-startup info, may be undefined) */
+	implementationVersion?: string;
+
+	/** Startup banner text (post-startup info, may be undefined) */
+	banner?: string;
+}
+
+/**
  * Interface defining the public API for interacting with a Positron notebook instance.
  * This interface abstracts away the complexity of notebook management and provides
  * a clean contract for the React UI layer to interact with notebook functionality.
@@ -89,6 +125,16 @@ export interface IPositronNotebookInstance {
 	 * This manages the connection to the kernel and execution environment.
 	 */
 	readonly runtimeSession: IObservable<ILanguageRuntimeSession | undefined>;
+
+	/**
+	 * Observable containing rich runtime information for UI display.
+	 * This aggregates key metadata about the current runtime session, making it easy
+	 * to show runtime details in tooltips, badges, and modals without accessing
+	 * the session object directly.
+	 *
+	 * Returns undefined when no runtime session is active.
+	 */
+	readonly runtimeInfo: IObservable<IRuntimeDisplayInfo | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.

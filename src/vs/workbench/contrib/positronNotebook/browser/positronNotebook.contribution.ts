@@ -709,8 +709,10 @@ registerNotebookAction({
 			controlType: 'button',
 			displayTitle: true
 		}
+	},
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 	}
-	// Future keybinding: primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 });
 
 // Clear All Outputs - Clears outputs from all cells
