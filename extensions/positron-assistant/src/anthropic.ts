@@ -304,6 +304,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		const modelListing: vscode.LanguageModelChatInformation[] = [];
 		const knownAnthropicModels = availableModels.get(this.provider);
+		const userSetMaxInputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxInputTokens', {});
 		const userSetMaxOutputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
 		let hasMore = true;
 		let nextPageToken: string | undefined;
@@ -317,14 +318,20 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 				: await this._client.models.list();
 
 			modelsPage.data.forEach(model => {
-				const knownModelMaxOutputTokens = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier))?.maxOutputTokens;
+				const knownModel = knownAnthropicModels?.find(m => model.id.startsWith(m.identifier));
+
+				const knownModelMaxInputTokens = knownModel?.maxInputTokens;
+				const maxInputTokens = userSetMaxInputTokens[model.id] ?? knownModelMaxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT;
+
+				const knownModelMaxOutputTokens = knownModel?.maxOutputTokens;
 				const maxOutputTokens = userSetMaxOutputTokens[model.id] ?? knownModelMaxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+
 				modelListing.push({
 					id: model.id,
 					name: model.display_name,
 					family: this.provider,
 					version: model.created_at,
-					maxInputTokens: 0,
+					maxInputTokens: maxInputTokens,
 					maxOutputTokens: maxOutputTokens,
 					capabilities: {},
 					isDefault: isFirst,
