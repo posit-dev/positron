@@ -212,6 +212,11 @@ configurationRegistry.registerConfiguration({
 			default: 8192, // 8k characters
 			minimum: 1024,
 		},
+		'chat.useCopilotParticipantsWithOtherProviders': {
+			type: 'boolean',
+			markdownDescription: nls.localize('chat.useCopilotParticipantsWithOtherProviders', "Allow any model in Positron Assistant to use chat participants provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider**.\n\n See also: `#positron.assistant.alwaysIncludeCopilotTools#`"),
+			default: false
+		},
 		// --- End Positron ---
 		'chat.editing.autoAcceptDelay': {
 			type: 'number',

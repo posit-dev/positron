@@ -41,10 +41,11 @@ const commsFiles = comms.map(comm => comm + '.json');
 /// The directory to write the generated Typescript files to
 const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntime/common`;
 
-/// The directory to write the generated Rust files to (note that this presumes
-/// that the ark repo is cloned into the same parent directory as the
-/// positron repo)
-const rustOutputDir = `${__dirname}/../../../ark/crates/amalthea/src/comm`;
+/// The directory to write the generated Rust files to
+/// By default, presumes that the ark repo is cloned into the same parent directory as the
+/// positron repo. Can be overridden with the ARK_DIRECTORY environment variable.
+const arkDirectory = process.env.ARK_DIRECTORY || `${__dirname}/../../../ark`;
+const rustOutputDir = `${arkDirectory}/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
 const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/posit/positron`;
@@ -1756,7 +1757,9 @@ async function createCommInterface() {
 // Check that the ark repo is cloned
 if (!existsSync(rustOutputDir)) {
 	console.error('The ark repo must be cloned into the same parent directory as the ' +
-		'Positron rep, so that Rust output types can be written.');
+		'Positron repo, or the ARK_DIRECTORY environment variable must be set to the path ' +
+		'of the ark repo, so that Rust output types can be written.\n' +
+		`Expected Rust output directory: ${rustOutputDir}`);
 	process.exit(1);
 }
 

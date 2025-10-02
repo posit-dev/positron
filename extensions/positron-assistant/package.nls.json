@@ -32,5 +32,7 @@
 	"configuration.maxInputTokens.description": "Override the maximum input tokens for specific language models. The key selects a model ID (partial match supported); the value is the maximum input tokens for that model.",
 	"configuration.maxOutputTokens.description": "Override the maximum output tokens for specific language models. The key selects a model ID (partial match supported); the value is the maximum output tokens for that model.",
 	"configuration.followups.enable.description": "Enable suggested followup prompts after chat responses.",
-	"configuration.consoleActions.enable.description": "Enable Positron Assistant console actions, such as Fix and Explain."
+	"configuration.consoleActions.enable.description": "Enable Positron Assistant console actions, such as Fix and Explain.",
+	"configuration.providerTimeout.description": "Specifies the timeout in seconds when signing in to a provider.",
+	"configuration.alwaysIncludeCopilotTools.description": "Allow any model in Positron Assistant to use tools provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider**.\n\nSee also: `#chat.useCopilotParticipantsWithOtherProviders#`"
 }

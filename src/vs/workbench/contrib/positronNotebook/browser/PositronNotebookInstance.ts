@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -22,12 +22,11 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
-import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
-import { disposableTimeout } from '../../../../base/common/async.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernel, INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
@@ -201,41 +200,19 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Clean up any existing listeners
 		this._cellsContainerListeners.clear();
 
-		if (!container) { return; }
+		if (!container) {
+			this._cellsContainer = undefined;
+			return;
+		}
 
 		this._cellsContainer = container;
+	}
 
-		// Fire initial scroll event after a small delay to ensure layout has settled
-		const initialScrollTimeout = setTimeout(() => {
-			this._onDidScrollCellsContainer.fire();
-		}, 50);
-
-		// Set up scroll listener
-		const scrollListener = DOM.addDisposableListener(container, 'scroll', () => {
-			this._onDidScrollCellsContainer.fire();
-		});
-
-		// Set up mutation observer to watch for DOM changes
-		const observer = new MutationObserver(() => {
-			// Small delay to let the DOM changes settle
-			setTimeout(() => {
-				this._onDidScrollCellsContainer.fire();
-			}, 0);
-		});
-
-		observer.observe(container, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			attributeFilter: ['style', 'class']
-		});
-
-		// Add all the disposables to our store
-		this._cellsContainerListeners.add(toDisposable(() => clearTimeout(initialScrollTimeout)));
-		this._cellsContainerListeners.add(scrollListener);
-		this._cellsContainerListeners.add(toDisposable(() => observer.disconnect()));
-
-		// Fire initial scroll event
+	/**
+	 * Fire the scroll event for the cells container.
+	 * Called by React when scroll or DOM mutations occur.
+	 */
+	fireScrollEvent(): void {
 		this._onDidScrollCellsContainer.fire();
 	}
 
@@ -403,6 +380,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
 		);
 
+		this._register(autorun(reader => {
+			const state = this.selectionStateMachine.state.read(reader);
+			const isEditing = state.type === SelectionState.EditingSelection;
+			this.contextManager.setContainerFocused(!isEditing);
+		}));
+
 		this._webviewPreloadService.attachNotebookInstance(this);
 
 		this._logService.info(this.id, 'constructor');
@@ -452,6 +435,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return;
 			}
 
+			// Fire content change event before syncing
 			this._onDidChangeContent.fire();
 		}));
 
@@ -508,14 +492,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const synchronous = true;
-		const pushUndoStop = true;
 		const endSelections: ISelectionState = { kind: SelectionStateType.Index, focus: { start: index, end: index + 1 }, selections: [{ start: index, end: index + 1 }] };
 		const focusAfterInsertion = {
 			start: index,
 			end: index + 1
 		};
-		this.textModel.applyEdits([
+		textModel.applyEdits([
 			{
 				editType: CellEditType.Replace,
 				index,
@@ -538,7 +524,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				focus: focusAfterInsertion,
 				selections: [focusAfterInsertion]
 			},
-			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
+			() => endSelections,
+			undefined,
+			computeUndoRedo
 		);
 
 		this._onDidChangeContent.fire();
@@ -581,6 +569,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.deleteCells([cell]);
 	}
 
+
 	/**
 	 * Deletes multiple cells from the notebook.
 	 * @param cellsToDelete Array of cells to delete
@@ -593,9 +582,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const textModel = this.textModel;
-		// TODO: Hook up readOnly to the notebook actual value
-		const readOnly = false;
-		const computeUndoRedo = !readOnly || textModel.viewType === 'interactive';
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 
 		// Get indices and sort in descending order to avoid index shifting
 		const cellIndices = cellsToDelete
@@ -609,21 +596,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Calculate where focus should go after deletion
 		const lowestDeletedIndex = Math.min(...cellIndices);
-		const totalCellsToDelete = cellIndices.length;
-		const originalCellCount = textModel.cells.length;
-		const newCellCount = originalCellCount - totalCellsToDelete;
-
-		// Determine the index of the cell that should receive focus after deletion
-		let targetFocusIndex: number | null = null;
-		if (newCellCount > 0) {
-			if (lowestDeletedIndex < newCellCount) {
-				// Focus on the cell that takes the place of the first deleted cell
-				targetFocusIndex = lowestDeletedIndex;
-			} else {
-				// We deleted from the end, focus on the last remaining cell
-				targetFocusIndex = newCellCount - 1;
-			}
-		}
 
 		// Create delete edits for each cell
 		const edits: ICellReplaceEdit[] = cellIndices.map(index => ({
@@ -640,36 +612,29 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			end: lowestDeletedIndex + 1
 		};
 
-		textModel.applyEdits(edits, true, { kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] }, () => {
-			if (nextCellAfterContainingSelection) {
-				const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
-				return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
-			} else {
-				if (textModel.length) {
-					const lastCellIndex = textModel.length - 1;
-					return { kind: SelectionStateType.Index, focus: { start: lastCellIndex, end: lastCellIndex + 1 }, selections: [{ start: lastCellIndex, end: lastCellIndex + 1 }] };
-
+		textModel.applyEdits(
+			edits,
+			true,
+			{ kind: SelectionStateType.Index, focus: focusRange, selections: [focusRange] },
+			() => {
+				if (nextCellAfterContainingSelection) {
+					const cellIndex = textModel.cells.findIndex(cell => cell.handle === nextCellAfterContainingSelection.handle);
+					return { kind: SelectionStateType.Index, focus: { start: cellIndex, end: cellIndex + 1 }, selections: [{ start: cellIndex, end: cellIndex + 1 }] };
 				} else {
-					return { kind: SelectionStateType.Index, focus: { start: 0, end: 0 }, selections: [{ start: 0, end: 0 }] };
-				}
-			}
-		}, undefined, computeUndoRedo);
+					if (textModel.length) {
+						const lastCellIndex = textModel.length - 1;
+						return { kind: SelectionStateType.Index, focus: { start: lastCellIndex, end: lastCellIndex + 1 }, selections: [{ start: lastCellIndex, end: lastCellIndex + 1 }] };
 
-		this._onDidChangeContent.fire();
-
-		// After the content change fires and cells are synced, explicitly set the selection
-		// to maintain focus on the appropriate cell after deletion
-		if (targetFocusIndex !== null) {
-			this._register(disposableTimeout(() => {
-				if (targetFocusIndex !== null && targetFocusIndex < this.cells.get().length) {
-					const cellToFocus = this.cells.get()[targetFocusIndex];
-					if (cellToFocus) {
-						this.selectionStateMachine.selectCell(cellToFocus, CellSelectionType.Normal);
-						cellToFocus.focus();
+					} else {
+						return { kind: SelectionStateType.Index, focus: { start: 0, end: 0 }, selections: [{ start: 0, end: 0 }] };
 					}
 				}
-			}, 0));
-		}
+			},
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
 	}
 
 
@@ -837,11 +802,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		});
 
 		if (newlyAddedCells.length === 1) {
-			// If we've only added one cell, we can set it as the selected cell.
-			this._register(disposableTimeout(async () => {
-				this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-				await newlyAddedCells[0].showEditor(true);
-			}, 0));
+			// If we've only added one cell, we can set it as the selected cell in edit mode.
+			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
+			// Defer focus request to next tick to allow React to mount the editor component.
+			// Without this, requestEditorFocus() fires before the editor exists, and the
+			// autorun in CellEditorMonacoWidget won't be able to focus a non-existent editor.
+			setTimeout(() => {
+				newlyAddedCells[0].requestEditorFocus();
+			}, 0);
 		}
 
 		// Dispose of any cells that were not reused.
@@ -889,9 +857,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Add some keyboard navigation for cases not covered by the keybindings. I'm not sure if
 		// there's a way to do this directly with keybindings but this feels acceptable due to the
 		// ubiquity of the enter key and escape keys for these types of actions.
-		const onKeyDown = ({ key, shiftKey, ctrlKey, metaKey }: KeyboardEvent) => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			const { key, shiftKey, ctrlKey, metaKey } = event;
 			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
-				this.selectionStateMachine.enterEditor();
+				// Prevent the Enter key from being processed by the editor
+				event.preventDefault();
+				event.stopPropagation();
+				this.selectionStateMachine.enterEditor().catch(err => {
+					this._logService.error(this.id, 'Error entering editor:', err);
+				});
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();
 			}
@@ -1064,12 +1038,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._assertTextModel();
 
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const pasteIndex = index ?? this.getInsertionIndex();
 		const cellCount = this._clipboardCells.length;
 
 		// Use textModel.applyEdits to properly create and register cells
 		const synchronous = true;
-		const pushUndoStop = true;
 		const endSelections: ISelectionState = {
 			kind: SelectionStateType.Index,
 			focus: { start: pasteIndex, end: pasteIndex + cellCount },
@@ -1080,7 +1055,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			end: pasteIndex + cellCount
 		};
 
-		this.textModel.applyEdits([
+		textModel.applyEdits([
 			{
 				editType: CellEditType.Replace,
 				index: pasteIndex,
@@ -1094,7 +1069,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				focus: focusAfterInsertion,
 				selections: [focusAfterInsertion]
 			},
-			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
+			() => endSelections, undefined, computeUndoRedo
 		);
 
 		// If this was a cut operation, clear the clipboard

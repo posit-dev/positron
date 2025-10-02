@@ -5,12 +5,12 @@
 
 import { CommandsRegistry, ICommandMetadata } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from '../../positronNotebookService.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../ContextKeysManager.js';
 import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { getSelectedCell, getSelectedCells, getEditingCell } from '../../selectionMachine.js';
@@ -128,11 +128,11 @@ export function registerCellCommand({
 	if (keybinding) {
 		// Determine the when condition based on edit mode
 		const defaultCondition = editMode ?
-			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED :
-			ContextKeyExpr.and( // When the command is not an "editMode" command, don't let it run when the cell editor is focused
+			ContextKeyExpr.or(
 				POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
-				POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
-			);
+				POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+			) :
+			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED;
 
 		// Combine top-level `when` with keybinding.when (or default) using AND when both exist
 		const combinedKbWhen = when ? ContextKeyExpr.and(when, defaultCondition) : defaultCondition;

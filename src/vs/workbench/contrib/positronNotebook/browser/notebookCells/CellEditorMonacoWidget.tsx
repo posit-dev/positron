@@ -22,7 +22,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun } from '../../../../../base/common/observable.js';
-import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 
 /**
  *
@@ -122,6 +122,20 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			cell.detachEditor();
 		};
 	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
+
+	// Watch for editor focus requests from the cell
+	React.useLayoutEffect(() => {
+		// Subscribe to focus request signal - triggers whenever requestEditorFocus() is called
+		const disposable = autorun(reader => {
+			cell.editorFocusRequested.read(reader);
+			const editor = cell.editor;
+			if (editor) {
+				editor.focus();
+			}
+		});
+
+		return () => disposable.dispose();
+	}, [cell]);
 
 	return { editorPartRef };
 }

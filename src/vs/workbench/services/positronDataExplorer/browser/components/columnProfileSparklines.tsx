@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { VectorHistogram } from './vectorHistogram.js';
 import { VectorFrequencyTable } from './vectorFrequencyTable.js';
-import { ColumnFrequencyTable, ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnFrequencyTable, ColumnHistogram, ColumnDisplayType } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
@@ -28,6 +28,7 @@ const X_AXIS_HEIGHT = 0.5;
 interface ColumnProfileSparklineHistogramProps {
 	readonly columnHistogram: ColumnHistogram;
 	readonly hoverManager: IHoverManager;
+	readonly displayType?: ColumnDisplayType;
 }
 
 /**
@@ -37,7 +38,8 @@ interface ColumnProfileSparklineHistogramProps {
  */
 export const ColumnProfileSparklineHistogram = ({
 	columnHistogram,
-	hoverManager
+	hoverManager,
+	displayType
 }: ColumnProfileSparklineHistogramProps) => {
 	// Render.
 	return (
@@ -50,6 +52,7 @@ export const ColumnProfileSparklineHistogram = ({
 		>
 			<VectorHistogram
 				columnHistogram={columnHistogram}
+				displayType={displayType}
 				graphHeight={GRAPH_HEIGHT}
 				graphWidth={GRAPH_WIDTH}
 				hoverManager={hoverManager}

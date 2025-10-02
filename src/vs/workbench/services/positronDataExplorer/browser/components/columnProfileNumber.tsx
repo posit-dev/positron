@@ -38,11 +38,13 @@ export const ColumnProfileNumber = (props: ColumnProfileNumberProps) => {
 	// Render.
 	const columnHistogram = props.instance.getColumnProfileLargeHistogram(props.columnIndex);
 	const stats = props.instance.getColumnProfileSummaryStats(props.columnIndex)?.number_stats;
+	const columnSchema = props.instance.getColumnSchema(props.columnIndex);
 	return (
 		<div className='column-profile-info'>
 			{columnHistogram &&
 				<ColumnProfileSparklineHistogram
 					columnHistogram={columnHistogram}
+					displayType={columnSchema?.type_display}
 					hoverManager={props.instance.hoverManager}
 				/>
 			}

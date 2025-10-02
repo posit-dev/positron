@@ -1104,8 +1104,8 @@ export interface DataSelectionCellRange {
 }
 
 /**
- * A selection that for a rectangle of data cells defined by arrays of
- * row and column indices
+ * A rectangular cell selection defined by arrays of row and column
+ * indices
  */
 export interface DataSelectionCellIndices {
 	/**
@@ -1206,7 +1206,10 @@ export enum ColumnDisplayType {
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',
-	Unknown = 'unknown'
+	Unknown = 'unknown',
+	Floating = 'floating',
+	Integer = 'integer',
+	Decimal = 'decimal'
 }
 
 /**

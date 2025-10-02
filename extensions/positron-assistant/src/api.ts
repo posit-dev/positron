@@ -13,6 +13,7 @@ import { PositronAssistantToolName } from './types.js';
 import path = require('path');
 import fs = require('fs');
 import { log } from './extension.js';
+import { CopilotService } from './copilot.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -106,7 +107,7 @@ export class PositronAssistantApi {
 	 */
 	public notifySignIn(provider: string) {
 		log.info(`[Assistant API] Provider signed in: ${provider}`);
-		this._signInEmitter.fire(provider)
+		this._signInEmitter.fire(provider);
 	}
 
 	/**
@@ -271,9 +272,32 @@ export function getEnabledTools(
 				break;
 		}
 
-		// Final check: if we're in agent mode, or the tool is marked for use with
-		// Assistant, include the tool
-		if (isAgentMode || tool.tags.includes('positron-assistant')) {
+		// Check that the request is using a Copilot model.
+		const usingCopilotModel = request.model.family === 'copilot';
+		// Check if the user has opted-in to always include Copilot tools.
+		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
+		// Check if the tool is provided by Copilot.
+		const copilotTool = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
+		// Check if the user is signed into Copilot.
+		let copilotEnabled;
+		try {
+			copilotEnabled = CopilotService.instance().isSignedIn;
+		} catch {
+			// Ignore errors
+			copilotEnabled = false;
+		}
+		// We should include Copilot tools if we're using a Copilot model,
+		// or if the user is signed into Copilot and has opted-in to always
+		// include Copilot tools.
+		const shouldIncludeCopilotTools = (usingCopilotModel || copilotEnabled && alwaysIncludeCopilotTools);
+
+		// Enable Copilot tools only if shouldIncludeCopilotTools is true; otherwise, enable if agent mode or tool is tagged 'positron-assistant'.
+		const enableTool = copilotTool
+			? shouldIncludeCopilotTools
+			: (isAgentMode || tool.tags.includes('positron-assistant'));
+
+		// If we've decided to enable the tool, add it to the list.
+		if (enableTool) {
 			enabledTools.push(tool.name);
 		}
 	}

@@ -2,11 +2,10 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { autorun, autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
+import { autorunDelta, IObservable, observableValueOpts } from '../../../../base/common/observable.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { disposableTimeout } from '../../../../base/common/async.js';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',
@@ -108,7 +107,6 @@ export class SelectionStateMachine extends Disposable {
 		equalsFn: isSelectionStateEqual
 	}, { type: SelectionState.NoSelection });
 
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -124,9 +122,10 @@ export class SelectionStateMachine extends Disposable {
 		}));
 
 		// Update the selection state when cells change
-		this._register(autorun(reader => {
-			const cells = this._cells.read(reader);
-			this._setCells(cells);
+		this._register(autorunDelta(this._cells, ({ lastValue, newValue }) => {
+			if (lastValue !== undefined) {
+				this._setCells(newValue, lastValue);
+			}
 		}));
 	}
 	//#endregion Constructor & Dispose
@@ -205,9 +204,7 @@ export class SelectionStateMachine extends Disposable {
 
 		if (state.type === SelectionState.MultiSelection) {
 			const updatedSelection = state.selected.filter(c => c !== cell);
-			// Set focus on the last cell in the selection to avoid confusingly leaving selection
-			// styles on cell just deselected. Not sure if this is the best UX.
-			updatedSelection.at(-1)?.focus();
+			// React will handle focus based on selection state change
 			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
 		}
 
@@ -233,7 +230,7 @@ export class SelectionStateMachine extends Disposable {
 	/**
 	 * Enters the editor for the selected cell.
 	 */
-	enterEditor(): void {
+	async enterEditor(): Promise<void> {
 		const state = this._state.get();
 		if (state.type !== SelectionState.SingleSelection) {
 			return;
@@ -241,10 +238,10 @@ export class SelectionStateMachine extends Disposable {
 
 		const cellToEdit = state.selected[0];
 		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
-		// Timeout here avoids the problem of enter applying to the editor widget itself.
-		this._register(
-			disposableTimeout(async () => await cellToEdit.showEditor(true), 0)
-		);
+		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
+		await cellToEdit.showEditor();
+		// Request editor focus through observable - React will handle it
+		cellToEdit.requestEditorFocus();
 	}
 
 	/**
@@ -253,7 +250,6 @@ export class SelectionStateMachine extends Disposable {
 	exitEditor(): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
-		state.selectedCell.defocusEditor();
 		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
 	}
 
@@ -261,12 +257,14 @@ export class SelectionStateMachine extends Disposable {
 
 
 	//#region Private Methods
+
 	/**
 	 * Updates the selection state when cells change.
 	 *
-	 * @param cells The new cells to set.
+	 * @param cells The new cells array.
+	 * @param previousCells The previous cells array.
 	 */
-	private _setCells(cells: IPositronNotebookCell[]): void {
+	private _setCells(cells: IPositronNotebookCell[], previousCells: IPositronNotebookCell[]): void {
 		const state = this._state.get();
 
 		if (state.type === SelectionState.NoSelection) {
@@ -274,10 +272,17 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
-		// If it isn't we need to reset the selection.
+		// If it isn't we need to select an appropriate neighboring cell.
 		if (state.type === SelectionState.EditingSelection) {
 			if (!cells.includes(state.selectedCell)) {
-				this._setState({ type: SelectionState.NoSelection });
+				// Find the index where the deleted cell was in the previous array
+				const deletedCellIndex = previousCells.indexOf(state.selectedCell);
+				const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
+				if (cellToSelect) {
+					this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
+				} else {
+					this._setState({ type: SelectionState.NoSelection });
+				}
 				return;
 			}
 			return;
@@ -285,11 +290,39 @@ export class SelectionStateMachine extends Disposable {
 
 		const newSelection = state.selected.filter(c => cells.includes(c));
 		if (newSelection.length === 0) {
-			this._setState({ type: SelectionState.NoSelection });
+			// Cells were removed - select an appropriate neighboring cell
+			// Use the index of the first selected cell that was removed in the previous array
+			const deletedCellIndex = previousCells.indexOf(state.selected[0]);
+			const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
+			if (cellToSelect) {
+				this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
+			} else {
+				this._setState({ type: SelectionState.NoSelection });
+			}
 			return;
 		}
 
 		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: newSelection });
+	}
+
+	/**
+	 * Selects an appropriate neighboring cell when the current selection is removed.
+	 * @param cells The current cells array
+	 * @param deletedIndex The index where the deleted cell was
+	 * @returns The cell to select, or null if no cells remain
+	 */
+	private _selectNeighboringCell(cells: IPositronNotebookCell[], deletedIndex: number): IPositronNotebookCell | null {
+		if (cells.length === 0) {
+			return null;
+		}
+
+		// If there's a cell at the same index (the cell that took the deleted cell's place), select it
+		if (deletedIndex < cells.length) {
+			return cells[deletedIndex];
+		}
+
+		// Otherwise, select the last cell
+		return cells[cells.length - 1];
 	}
 
 	private _setState(state: SelectionStates) {
@@ -408,8 +441,9 @@ export class SelectionStateMachine extends Disposable {
 		// If meta is not held down, we're in single selection mode.
 		this.selectCell(nextCell, CellSelectionType.Normal);
 
-		nextCell.focus();
+		// React will handle focus based on selection state change
 	}
+
 	//#endregion Private Methods
 
 }

@@ -37,7 +37,8 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from './ContextKeysManager.js';
+import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 
@@ -281,26 +282,26 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 //#region Notebook Commands
 registerNotebookCommand({
-	commandId: 'positronNotebook.focusUp',
+	commandId: 'positronNotebook.selectUp',
 	handler: (notebook) => notebook.selectionStateMachine.moveUp(false),
 	keybinding: {
 		primary: KeyCode.UpArrow,
 		secondary: [KeyCode.KeyK]
 	},
 	metadata: {
-		description: localize('positronNotebook.focusUp', "Move focus up")
+		description: localize('positronNotebook.selectUp', "Move focus up")
 	}
 });
 
 registerNotebookCommand({
-	commandId: 'positronNotebook.focusDown',
+	commandId: 'positronNotebook.selectDown',
 	handler: (notebook) => notebook.selectionStateMachine.moveDown(false),
 	keybinding: {
 		primary: KeyCode.DownArrow,
 		secondary: [KeyCode.KeyJ]
 	},
 	metadata: {
-		description: localize('positronNotebook.focusDown', "Move focus down")
+		description: localize('positronNotebook. selectDown', "Move focus down")
 	}
 });
 
@@ -594,10 +595,12 @@ registerCellCommand({
 		// If this is the last cell, insert a new cell below of the same type
 		if (cell.isLastCell()) {
 			notebook.addCell(cell.kind, cell.index + 1);
+			// Don't call moveDown - addCell triggers SelectionStateMachine._setCells()
+			// which already handles selection and focus of the new cell in Edit mode
+		} else {
+			// Only move down if we didn't add a cell
+			notebook.selectionStateMachine.moveDown(false);
 		}
-
-		// Move to the next cell
-		notebook.selectionStateMachine.moveDown(false);
 	},
 	editMode: true,  // Allow execution from edit mode
 	keybinding: {
