@@ -2666,7 +2666,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			errorBehavior
 		});
 
-		// If there is a pending input runtime item, we need to recreate it with the concatenated code.
+		// Only create/update visual pending input for interactive mode.
+		if (mode === RuntimeCodeExecutionMode.Silent) {
+			// Silent code should not be displayed, so we're done.
+			return;
+		}
+
+		// If there is a pending input runtime item, we need to recreate it with the concatenated code
+		// of all interactive items.
 		if (this._runtimeItemPendingInput) {
 			// Remove the old pending input runtime item.
 			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
@@ -2674,25 +2681,26 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this._runtimeItems.splice(index, 1);
 			}
 
-			// Concatenate the new code with the old code.
-			const concatenatedCode = this._runtimeItemPendingInput.code + '\n' + code;
+			// Concatenate only the interactive code fragments from the queue.
+			const interactiveCode = this._pendingCodeQueue
+				.filter(item => item.mode === RuntimeCodeExecutionMode.Interactive)
+				.map(item => item.code)
+				.join('\n');
 
-			// Create a new pending input runtime item with the concatenated code.
+			// Create a new pending input runtime item with the concatenated interactive code.
 			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 				generateUuid(),
 				this._session?.dynState.inputPrompt ?? '',
 				attribution,
 				executionId,
-				concatenatedCode,
+				interactiveCode,
 				mode
 			);
 
-			// Add it back to the runtime items (only if mode is not silent).
-			if (mode !== RuntimeCodeExecutionMode.Silent) {
-				this.addRuntimeItem(this._runtimeItemPendingInput);
-			}
-		} else if (mode !== RuntimeCodeExecutionMode.Silent) {
-			// Create the pending input runtime item for interactive mode.
+			// Add it back to the runtime items.
+			this.addRuntimeItem(this._runtimeItemPendingInput);
+		} else {
+			// Create the pending input runtime item for the first interactive code fragment.
 			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 				generateUuid(),
 				this._session?.dynState.inputPrompt ?? '',
