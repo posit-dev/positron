@@ -124,7 +124,22 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await hotKeys.toggleBottomPanel();
 
-		await app.code.wait(2000);
+		await expect(async () => {
+			try {
+				const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
+				const dynamicTomlLineRegex = 'tips.csv';
+				const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
+
+				await expect(targetLine).toBeVisible({ timeout: 5000 });
+			} catch (e) {
+				const filenames = await app.workbench.editor.getMonacoFilenames();
+				await hotKeys.closeAllEditors();
+				const file = `workspaces/shiny-py-example/.posit/publish/${filenames.find(f => f.startsWith('shiny-py-example'))}`;
+				console.log(`Retrying to open file ${file} in editor`);
+				await openFile(file);
+				throw e;
+			}
+		}).toPass({ timeout: 60000 });
 
 		await app.workbench.positConnect.setPythonVersion(pythonVersion);
 
@@ -134,11 +149,9 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await hotKeys.toggleBottomPanel();
 
-		await test.step('Click on Deploy Your Project button', async () => {
-			await deployButton.click();
-		});
+		await deployButton.click({ timeout: 5000 });
 
-		await app.workbench.toasts.awaitToastDisappearance(120000);
+		await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
 
 		await hotKeys.closeSecondarySidebar();
 
