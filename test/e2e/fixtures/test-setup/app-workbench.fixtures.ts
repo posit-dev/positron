@@ -13,42 +13,34 @@ import { AppFixtureOptions } from './app.fixtures';
 import { ROOT_PATH } from './constants';
 
 /**
- * Start Workbench Positron session (Docker on port 8787)
+ * Workbench Positron session (Docker on port 8787)
  * Projects: e2e-workbench
  */
-export async function startWorkbenchApp(fixtureOptions: AppFixtureOptions): Promise<Application> {
-	const { options, } = fixtureOptions;
-	let error: unknown = undefined;
 
+export async function WorkbenchApp(
+	fixtureOptions: AppFixtureOptions
+): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
+	const { options } = fixtureOptions;
 	const { workspacePath } = await setupWorkbenchEnvironment();
+
 	const app = createApp({ ...options, workspacePath });
 
-	try {
+	const start = async () => {
 		await app.connectToExternalServer();
-
-		// Workbench: Login to Posit Workbench
 		await app.positWorkbench.auth.signIn();
 		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
 		await app.positWorkbench.dashboard.openSession('qa-example-content');
-
-		// Wait for Positron to be ready
-		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60_000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 		await app.workbench.hotKeys.closeAllEditors();
-	} catch (err) {
-		console.error('Error during app start:', err);
-		error = err;
+	};
+
+	const stop = async () => {
+		await app.stopExternalServer();
 	}
 
-	// Return the app, but also throw the error asynchronously
-	// so that the test runner sees the failure
-	if (error) {
-		// Throw after returning, so we have time to capture screenshot and trace
-		setTimeout(() => { throw error; }, 1000);
-	}
-
-	return app;
+	return { app, start, stop };
 }
 
 /**

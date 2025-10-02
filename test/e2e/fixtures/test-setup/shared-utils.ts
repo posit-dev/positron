@@ -73,14 +73,14 @@ export async function copyUserSettings(userDir: string): Promise<string> {
  * @param workerInfo Information about the worker process.
  * @returns A promise that resolves when the operation is complete.
  */
-export async function renameTempLogsDir(logger: MultiLogger, logsPath: string, workerInfo: any) {
+export async function renameTempLogsDir(logger: MultiLogger, logsPath: string, workerInfo: any): Promise<string> {
 	const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
 
 	try {
 		await access(logsPath, constants.F_OK);
 	} catch {
 		console.error(`moveAndOverwrite: source path does not exist: ${logsPath}`);
-		return;
+		return 'unable to rename temp logs dir';
 	}
 
 	// check if the destination exists and delete it if so
@@ -101,4 +101,5 @@ export async function renameTempLogsDir(logger: MultiLogger, logsPath: string, w
 	} catch (err) {
 		logger.log(`moveAndOverwrite: failed to move ${logsPath} to ${specLogsPath}:`, err);
 	}
+	return specLogsPath
 }

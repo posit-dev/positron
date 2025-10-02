@@ -7,29 +7,24 @@ import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
 
 /**
- * Start a managed Positron app (Electron or browser-based)
+ * Managed Positron app (Electron or browser-based)
  * Projects: e2e-electron, e2e-chromium/firefox/webkit/edge (port 9000)
  */
-export async function startManagedApp(fixtureOptions: AppFixtureOptions): Promise<Application> {
+export async function ManagedApp(
+	fixtureOptions: AppFixtureOptions
+): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
 	const { options } = fixtureOptions;
-	let error: unknown = undefined;
 
 	const app = createApp(options);
 
-	try {
+	const start = async () => {
 		await app.start();
-		throw new Error('OOPS!');
 		await app.workbench.sessions.expectNoStartUpMessaging();
-	}
-	catch (err) {
-		console.error('Error during app start or session check:', err);
-		error = err;
+	};
+
+	const stop = async () => {
+		await app.stop();
 	}
 
-	if (error) {
-		// Throw after returning, so we have time to capture screenshot and trace
-		setTimeout(() => { throw error; }, 1000);
-	}
-
-	return app;
+	return { app, start, stop };
 }

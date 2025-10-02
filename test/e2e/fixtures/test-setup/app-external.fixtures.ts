@@ -11,17 +11,17 @@ import { AppFixtureOptions } from './app.fixtures';
 import { copyUserSettings, } from './shared-utils';
 
 /**
- * Start and connect to an external Positron server (port 8080)
+ * External Positron Server (port 8080)
  * Projects: e2e-server
  */
-export async function startExternalPositronServerApp(fixtureOptions: AppFixtureOptions): Promise<Application> {
+export async function ExternalPositronServerApp(
+	fixtureOptions: AppFixtureOptions
+): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
 	const { options } = fixtureOptions;
-	let error: unknown = undefined;
 
 	const app = createApp(options);
 
-	try {
-		// For external server mode, use the server's actual user data directory
+	const start = async () => {
 		const serverUserDataDir = join(os.homedir(), '.positron-e2e-test');
 		const userDir = join(serverUserDataDir, 'User');
 		await mkdir(userDir, { recursive: true });
@@ -35,15 +35,11 @@ export async function startExternalPositronServerApp(fixtureOptions: AppFixtureO
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.hotKeys.closeAllEditors();
 		await app.workbench.sessions.deleteAll();
-	} catch (err) {
-		console.error('Error during app start or session check:', err);
-		error = err;
+	};
+
+	const stop = async () => {
+		await app.stopExternalServer();
 	}
 
-	if (error) {
-		// Throw after returning, so we have time to capture screenshot and trace
-		setTimeout(() => { throw error; }, 1000);
-	}
-
-	return app;
+	return { app, start, stop };
 }

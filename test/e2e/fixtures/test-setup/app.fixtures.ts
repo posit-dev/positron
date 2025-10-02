@@ -5,9 +5,9 @@
 
 import * as playwright from '@playwright/test';
 import { Application, ApplicationOptions, MultiLogger } from '../../infra';
-import { startManagedApp } from './app-managed.fixtures';
-import { startExternalPositronServerApp } from './app-external.fixtures';
-import { startWorkbenchApp } from './app-workbench.fixtures';
+import { ManagedApp } from './app-managed.fixtures';
+import { ExternalPositronServerApp } from './app-external.fixtures';
+import { WorkbenchApp } from './app-workbench.fixtures';
 
 export interface AppFixtureOptions {
 	options: ApplicationOptions;
@@ -19,19 +19,19 @@ export interface AppFixtureOptions {
 /**
  * Main app fixture that routes to the appropriate implementation based on configuration
  */
-export async function AppFixture(fixtureOptions: AppFixtureOptions): Promise<Application> {
+export async function AppFixture(fixtureOptions: AppFixtureOptions): Promise<{
+	app: Application;
+	start: () => Promise<void>;
+	stop: () => Promise<void>;
+}> {
 	const project = fixtureOptions.workerInfo.project.name;
 
-	// Start the appropriate app based on the project name
-	// e2e-workbench -> Workbench (Docker)
-	// e2e-server -> External Positron server
-	// All others -> Managed (Electron or browser-based)
 	if (project === 'e2e-workbench') {
-		return await startWorkbenchApp(fixtureOptions);
+		return await WorkbenchApp(fixtureOptions);
 	} else if (project.includes('server')) {
-		return await startExternalPositronServerApp(fixtureOptions);
+		return await ExternalPositronServerApp(fixtureOptions);
 	} else {
-		return await startManagedApp(fixtureOptions);
+		return await ManagedApp(fixtureOptions);
 	}
 }
 
