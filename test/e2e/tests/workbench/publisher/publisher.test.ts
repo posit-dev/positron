@@ -165,7 +165,16 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await app.code.driver.page.goto('http://localhost:3939');
 
-		await app.code.wait(60000);
+		await app.code.driver.page.locator('[data-automation="signin"]').click();
+
+		await app.code.driver.page.fill('input[name="username"]', 'user1');
+		await app.code.driver.page.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
+		await app.code.driver.page.locator('[data-automation="login-panel-submit"]').click();
+
+		await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
+
+		const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
+		await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
 
 	});
 });
