@@ -91,7 +91,8 @@ export const ColumnProfileInteger = (props: ColumnProfileIntegerProps) => {
 				<div className='values'>
 					<ColumnProfileNullCountValue {...props} />
 					<IntegerStatsValue stats={stats} value={stats?.min_value} />
-					<IntegerStatsValue stats={stats} value={stats?.median} />
+					{/* Use StatsValue for median since it can be a decimal for even-length sequences */}
+					<StatsValue stats={stats} value={stats?.median} />
 					{/* Use StatsValue for mean to handle cases where mean is not an integer */}
 					<StatsValue stats={stats} value={stats?.mean} />
 					<IntegerStatsValue stats={stats} value={stats?.max_value} />
