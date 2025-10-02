@@ -71,10 +71,10 @@ test.describe('Data Explorer - Python Polars', {
 
 		// Verify all column profile data
 		await dataExplorer.summaryPanel.verifyColumnData([
-			{ column: 1, expected: { 'Missing': '0', 'Min': '1', 'Median': '2', 'Mean': '2.00', 'Max': '3', 'SD': '1.00' } },
+			{ column: 1, expected: { 'Missing': '0', 'Min': '1', 'Median': '2.00', 'Mean': '2.00', 'Max': '3', 'SD': '1.00' } },
 			{ column: 2, expected: { 'Missing': '0', 'Min': '6.00', 'Median': '7.00', 'Mean': '7.00', 'Max': '8.00', 'SD': '1.00' } },
 			{ column: 3, expected: { 'Missing': '0', 'Min': '2020-01-02', 'Median': '2021-03-04', 'Max': '2022-05-06' } },
-			{ column: 4, expected: { 'Missing': '1', 'Min': '2', 'Median': '3', 'Mean': '2.50', 'Max': '3', 'SD': '0.7071' } },
+			{ column: 4, expected: { 'Missing': '1', 'Min': '2', 'Median': '2.50', 'Mean': '2.50', 'Max': '3', 'SD': '0.7071' } },
 			{ column: 5, expected: { 'Missing': '1', 'Min': '0.5000', 'Median': '1.50', 'Mean': '1.50', 'Max': '2.50', 'SD': '1.41' } },
 			{ column: 6, expected: { 'Missing': '1', 'True': '1', 'False': '1' } }
 		]);
