@@ -9,8 +9,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as xml from './xml.js';
 
-import { MARKDOWN_DIR } from './constants';
-import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
+import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
+import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -415,18 +415,23 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			const attachmentPrompts: string[] = [];
 			const sessionPrompts: string[] = [];
 			for (const reference of request.references) {
-				const value = reference.value as any;
-				if (value.activeSession) {
+				const value = reference.value;
+				if (isRuntimeSessionReference(value)) {
 					// The user attached a runtime session - usually the active session in the IDE.
-					const sessionSummary = JSON.stringify(value.activeSession, null, 2);
-					let sessionContent = sessionSummary;
-					if (value.variables) {
-						// Include the session variables in the session content.
-						const variablesSummary = JSON.stringify(value.variables, null, 2);
-						sessionContent += '\n' + xml.node('variables', variablesSummary);
-					}
+					let sessionContent = JSON.stringify(value.activeSession, null, 2);
+					// Include the session variables in the session content.
+					// In Python, `kind` provides a more accurate type than `display_type`, so
+					// we'll include both.
+					// Limit the number of variables to prevent excessive context size
+					const vars = value.variables.slice(0, MAX_CONTEXT_VARIABLES);
+					const variablesSummary = vars.map((v) => {
+						return `${v.display_name}|${v.kind || ''}|${v.display_type}|${v.access_key}`;
+					}).join('\n');
+					sessionContent += '\n' + xml.node('variables', variablesSummary, {
+						description: 'Variables defined in the current session, in a pipe-delimited format, where each line is `name|kind|display_type|access_key`.',
+					});
 					sessionPrompts.push(xml.node('session', sessionContent));
-					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionContent.length} characters`);
+					log.debug(`[context] adding session context for session ${value.activeSession!.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.
