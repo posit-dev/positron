@@ -1160,7 +1160,10 @@ export enum ColumnDisplayType {
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',
-	Unknown = 'unknown'
+	Unknown = 'unknown',
+	Floating = 'floating',
+	Integer = 'integer',
+	Decimal = 'decimal'
 }
 
 /**

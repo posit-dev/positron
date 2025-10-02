@@ -67,6 +67,9 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 		// Determine the alignment based on type.
 		switch (this.columnSchema.type_display) {
 			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return DataColumnAlignment.Right;
 
 			case ColumnDisplayType.Boolean:

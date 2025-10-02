@@ -45,10 +45,10 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 		}
 	}
 
-	override async showEditor(focus = false): Promise<ICodeEditor | undefined> {
+	override async showEditor(): Promise<ICodeEditor | undefined> {
 		this.editorShown.set(true, undefined);
 		await waitForState(this._editor, (editor) => editor !== undefined);
-		return super.showEditor(focus);
+		return super.showEditor();
 	}
 
 	override run(): void {

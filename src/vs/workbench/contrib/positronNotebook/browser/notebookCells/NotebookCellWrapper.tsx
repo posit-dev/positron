@@ -21,6 +21,7 @@ import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
+import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
 export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	cell: IPositronNotebookCell;
@@ -41,11 +42,43 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 		}
 	}, [cell, cellRef]);
 
+	// Focus management based on selection status
+	React.useLayoutEffect(() => {
+		if (!cellRef.current) {
+			return;
+		}
+
+		const status = selectionStatus;
+
+		if (status === CellSelectionStatus.Selected) {
+			// Cell is selected (not editing) - focus the cell container
+			cellRef.current.focus();
+		}
+	}, [selectionStatus, cellRef]);
+
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
+
+	// State for ARIA announcements
+	const [announcement, setAnnouncement] = React.useState<string>('');
+
+	// Announce selection changes for screen readers
+	React.useLayoutEffect(() => {
+		const cellIndex = cell.index;
+		const totalCells = notebookInstance.cells.get().length;
+
+		if (selectionStatus === CellSelectionStatus.Selected) {
+			setAnnouncement(`Cell ${cellIndex + 1} of ${totalCells} selected`);
+		} else if (selectionStatus === CellSelectionStatus.Editing) {
+			setAnnouncement(`Editing cell ${cellIndex + 1} of ${totalCells}`);
+		} else if (selectionStatus === CellSelectionStatus.Unselected) {
+			// Clear announcement when unselected
+			setAnnouncement('');
+		}
+	}, [selectionStatus, cell.index, notebookInstance]);
 
 	return <div
 		ref={cellRef}
@@ -91,5 +124,8 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			</NotebookCellActionBar>
 			{children}
 		</CellScopedContextKeyServiceProvider>
+		<ScreenReaderOnly>
+			{announcement}
+		</ScreenReaderOnly>
 	</div>;
 }

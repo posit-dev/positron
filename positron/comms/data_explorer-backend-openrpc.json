@@ -504,7 +504,10 @@
 					"object",
 					"array",
 					"struct",
-					"unknown"
+					"unknown",
+					"floating",
+					"integer",
+					"decimal"
 				]
 			},
 			"column_schema": {

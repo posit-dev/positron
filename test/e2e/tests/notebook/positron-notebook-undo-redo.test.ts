@@ -91,7 +91,7 @@ test.describe('Notebook Cell Undo-Redo Behavior', {
 		expect(await getCellCount(app)).toBe(1);
 		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Initial Cell');
 
-		// Redo the add cell operation
+		// Redo the add cell operation to add back cell
 		await redoWithKeyboard(app);
 		expect(await getCellCount(app)).toBe(2);
 		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Second Cell');

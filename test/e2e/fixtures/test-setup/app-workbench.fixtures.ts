@@ -64,7 +64,8 @@ async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; use
 	const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 	const DEFAULT_WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 	const WORKBENCH_WORKSPACE_PATH = '/home/user1/qa-example-content/'
-	const WORKBENCH_USER_DATA_DIR = '/home/user1/.positron-server/User/';
+	const WORKBENCH_USER_SERVER_DIR = '/home/user1/.positron-server/';
+	const WORKBENCH_USER_DATA_DIR = `${WORKBENCH_USER_SERVER_DIR}User/`;
 
 	// Create workspace and settings directories
 	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
@@ -78,7 +79,7 @@ async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; use
 	await copyKeyBindingsToContainer();
 
 	// Fix permissions
-	await runDockerCommand(`docker exec test chown -R user1:user1g ${WORKBENCH_USER_DATA_DIR}`, 'Set ownership of settings directory');
+	await runDockerCommand(`docker exec test chown -R user1:user1g ${WORKBENCH_USER_SERVER_DIR}`, 'Set ownership of server directory');
 	await runDockerCommand(`docker exec test chown -R user1 ${WORKBENCH_WORKSPACE_PATH}`, 'Set ownership of workspace directory');
 	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_USER_DATA_DIR}`, 'Set permissions of settings directory');
 	await runDockerCommand(`docker exec test chmod -R 755 ${WORKBENCH_WORKSPACE_PATH}`, 'Set permissions of workspace directory');

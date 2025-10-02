@@ -13,7 +13,7 @@ import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMark
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, observableFromEvent, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -27,9 +27,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	protected readonly _internalMetadata;
+	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
+	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
 
 	constructor(
 		public readonly cellModel: NotebookCellTextModel,
@@ -183,30 +185,29 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 
 	async setEditorOptions(options: ITextEditorOptions | undefined): Promise<void> {
 		if (options) {
-			const editor = await this.showEditor(!(options.preserveFocus ?? true));
+			const editor = await this.showEditor();
+			if (editor && !(options.preserveFocus ?? true)) {
+				// Request focus through the observable if preserveFocus is false
+				this.requestEditorFocus();
+			}
 			if (editor) {
 				applyTextEditorOptions(options, editor, ScrollType.Immediate);
 			}
 		}
 	}
 
-	focus(): void {
-		if (this._container) {
-			this._container.focus();
-		}
+	/**
+	 * Request focus for the cell's editor.
+	 * React will handle the actual focus operation via useLayoutEffect when the editor is mounted.
+	 */
+	requestEditorFocus(): void {
+		this._editorFocusRequested.trigger(undefined, undefined);
 	}
 
-	async showEditor(focus = false): Promise<ICodeEditor | undefined> {
-		const editor = this._editor.get();
-		if (editor && focus) {
-			editor.focus();
-		}
-		return editor;
-	}
-
-	defocusEditor(): void {
-		// Send focus to the enclosing cell itself to blur the editor
-		this.focus();
+	async showEditor(): Promise<ICodeEditor | undefined> {
+		// Returns the current editor (may be undefined if not yet mounted)
+		// Focus is managed by React through the editorFocusRequested observable
+		return this._editor.get();
 	}
 
 	deselect(): void {
