@@ -1,0 +1,175 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.kernel-status-tooltip {
+	position: absolute;
+	z-index: 1000;
+	background: var(--vscode-editorHoverWidget-background);
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	padding: 8px 12px;
+	min-width: 300px;
+	max-width: 500px;
+	font-size: 12px;
+	color: var(--vscode-editorHoverWidget-foreground);
+
+	/* Smooth fade-in animation */
+	animation: tooltipFadeIn 150ms ease-out;
+
+	/* Prevent text selection in tooltip */
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/* Position tooltip below badge by default */
+.kernel-status-tooltip.below {
+	top: calc(100% + 8px);
+	left: 0;
+}
+
+/* Position tooltip above badge when space is limited */
+.kernel-status-tooltip.above {
+	bottom: calc(100% + 8px);
+	left: 0;
+}
+
+@keyframes tooltipFadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.kernel-status-tooltip .tooltip-content {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Header styling */
+.kernel-status-tooltip .tooltip-header {
+	font-weight: 600;
+	font-size: 13px;
+	color: var(--vscode-editorHoverWidget-foreground);
+	margin-bottom: 2px;
+}
+
+/* Divider line */
+.kernel-status-tooltip .tooltip-divider {
+	height: 1px;
+	background: var(--vscode-editorHoverWidget-border);
+	margin: 4px 0;
+}
+
+/* Row layout for label-value pairs */
+.kernel-status-tooltip .tooltip-row {
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
+}
+
+.kernel-status-tooltip .tooltip-label {
+	flex-shrink: 0;
+	min-width: 90px;
+	color: var(--vscode-descriptionForeground);
+	font-weight: 500;
+}
+
+.kernel-status-tooltip .tooltip-value {
+	flex: 1;
+	color: var(--vscode-editorHoverWidget-foreground);
+	word-break: break-word;
+}
+
+/* Monospace font for technical values */
+.kernel-status-tooltip .tooltip-monospace {
+	font-family: var(--monaco-monospace-font);
+	font-size: 11px;
+}
+
+/* Path truncation with ellipsis */
+.kernel-status-tooltip .tooltip-path {
+	font-size: 11px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 350px;
+}
+
+/* State indicator with colored dot */
+.kernel-status-tooltip .state-indicator {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 500;
+}
+
+.kernel-status-tooltip .state-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	display: inline-block;
+	flex-shrink: 0;
+}
+
+/* State-specific colors */
+.kernel-status-tooltip .state-ready .state-dot {
+	background-color: #4caf50; /* Green for idle/ready */
+	box-shadow: 0 0 4px rgba(76, 175, 80, 0.6);
+}
+
+.kernel-status-tooltip .state-busy .state-dot {
+	background-color: #ff9800; /* Orange for busy */
+	box-shadow: 0 0 4px rgba(255, 152, 0, 0.6);
+	animation: pulseBusy 1.5s ease-in-out infinite;
+}
+
+.kernel-status-tooltip .state-starting .state-dot {
+	background-color: #2196f3; /* Blue for starting */
+	box-shadow: 0 0 4px rgba(33, 150, 243, 0.6);
+	animation: pulseStarting 1s ease-in-out infinite;
+}
+
+.kernel-status-tooltip .state-offline .state-dot {
+	background-color: #f44336; /* Red for offline/disconnected */
+	box-shadow: 0 0 4px rgba(244, 67, 54, 0.6);
+}
+
+.kernel-status-tooltip .state-unknown .state-dot {
+	background-color: #9e9e9e; /* Gray for unknown */
+}
+
+/* Pulsing animation for busy state */
+@keyframes pulseBusy {
+	0%, 100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.6;
+		transform: scale(1.1);
+	}
+}
+
+/* Pulsing animation for starting state */
+@keyframes pulseStarting {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* Theme overrides for high contrast themes */
+.hc-black .kernel-status-tooltip,
+.hc-light .kernel-status-tooltip {
+	border-width: 2px;
+}

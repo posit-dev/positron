@@ -4,30 +4,50 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-notebook-kernel-status-badge {
+	position: relative; /* Needed for tooltip positioning */
 	font-size: 12px;
 	color: var(--vscode-positronNotebook-deemphasized-foreground);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	max-width: 200px;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 3px;
+
+	/* Subtle hover effect */
+	&:hover {
+		background-color: var(--vscode-toolbar-hoverBackground);
+	}
+
+	/* Focus outline for accessibility */
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 1px;
+	}
 
 	& span.kernel-status {
 		font-weight: bold;
+		margin-left: 4px;
 	}
 
 	& .Uninitialized {
-		color: grey;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	& .Connected {
-		color: forestgreen;
+		color: #4caf50; /* Green - matches tooltip state color */
 	}
 
 	& .Disconnected {
-		color: red;
+		color: #f44336; /* Red - matches tooltip state color */
 	}
 
 	& .Connecting {
-		color: orange;
+		color: #ff9800; /* Orange - matches tooltip state color */
+	}
+
+	& .Errored {
+		color: #f44336; /* Red for errors */
 	}
 }
