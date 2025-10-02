@@ -2204,8 +2204,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				);
 			}
 
-			// Check if this is a silent execution. If so, skip creating the UI element.
+			// Check if this is a silent execution. If so, skip creating the UI element
+			// and remove it from the tracking set.
 			if (this._silentExecutionIds.has(languageRuntimeMessageInput.parent_id)) {
+				this._silentExecutionIds.delete(languageRuntimeMessageInput.parent_id);
 				return;
 			}
 
@@ -2260,11 +2262,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				);
 			}
 
-			// Skip prompts for silent executions
-			if (this._silentExecutionIds.has(languageRuntimeMessagePrompt.parent_id)) {
-				return;
-			}
-
 			// Set the active activity item prompt.
 			this._activeActivityItemPrompt = new ActivityItemPrompt(
 				languageRuntimeMessagePrompt.id,
@@ -2292,11 +2289,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					);
 				}
 
-				// Skip output for silent executions
-				if (this._silentExecutionIds.has(languageRuntimeMessageOutput.parent_id)) {
-					return;
-				}
-
 				// Create an activity item representing the message.
 				const activityItemOutput = this.createActivityItemOutput(languageRuntimeMessageOutput);
 				if (!activityItemOutput) {
@@ -2322,11 +2314,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
 					`\nStream ${languageRuntimeMessageStream.name}: "${traceOutput}" ${formattedLength(languageRuntimeMessageStream.text.length)}`
 				);
-			}
-
-			// Skip stream output for silent executions
-			if (this._silentExecutionIds.has(languageRuntimeMessageStream.parent_id)) {
-				return;
 			}
 
 			// Handle stdout and stderr.
@@ -2367,11 +2354,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						languageRuntimeMessageError.message +
 						formatTraceback(languageRuntimeMessageError.traceback)
 					);
-				}
-
-				// Skip errors for silent executions
-				if (this._silentExecutionIds.has(languageRuntimeMessageError.parent_id)) {
-					return;
 				}
 
 				// Add or update the runtime item activity.
@@ -2428,8 +2410,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 						// This external execution ID has completed, so we can remove it.
 						this._externalExecutionIds.delete(languageRuntimeMessageState.parent_id);
-						// This silent execution ID has completed, so we can remove it.
-						this._silentExecutionIds.delete(languageRuntimeMessageState.parent_id);
 						break;
 					}
 				}
