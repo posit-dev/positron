@@ -31,6 +31,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernel, INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, observableValue } from '../../../../base/common/observable.js';
@@ -355,11 +356,85 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		}));
 
-		// Derive the kernel connection status
-		this.kernelStatus = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookKernelStatus */ kernel ? KernelStatus.Connected : KernelStatus.Disconnected
-		);
+		// Derive the kernel connection status from the runtime session state.
+		// This ensures the badge reflects the actual runtime connection, not just kernel selection.
+		//
+		// ARCHITECTURE NOTE: We use `derived()` instead of `.map()` because:
+		// 1. We need reactive updates when runtime state changes within the same session
+		// 2. The mapping logic requires reading both the session observable and runtime state events
+		// 3. This pattern matches how PositronNotebookCell tracks execution status
+		//
+		// IMPLEMENTATION: We subscribe to runtime state changes within an autorun to update
+		// an observable value that the UI can track. This ensures we react to:
+		// - Session changes (different runtime starts/stops)
+		// - State changes within the same session (idle -> busy -> idle)
+		//
+		// FUTURE EXTENSIBILITY: To add more detailed kernel status information:
+		// 1. Expand KernelStatus enum in IPositronNotebookInstance.ts with additional states
+		// 2. Add more granular state mappings in the switch statement below
+		// 3. Consider adding session.runtimeInfo fields for kernel metadata
+		// 4. Hook into session.onDidReceiveRuntimeMessageState for real-time updates
+		// 5. Add observable for kernel selection details (session.runtimeMetadata)
+		//
+		// Related components that may need updates for verbose kernel info:
+		// - KernelStatusBadge.tsx: Update UI to show additional details
+		// - SelectPositronNotebookKernelAction.ts: Enhance kernel picker with status
+		// - NotebookContextKeys: Add context keys for kernel state (busy/idle/offline)
+
+		// Helper function to map RuntimeState to KernelStatus
+		const mapRuntimeStateToKernelStatus = (state: RuntimeState): KernelStatus => {
+			switch (state) {
+				case RuntimeState.Ready:
+				case RuntimeState.Idle:
+				case RuntimeState.Busy:
+					return KernelStatus.Connected;
+
+				case RuntimeState.Starting:
+				case RuntimeState.Initializing:
+				case RuntimeState.Restarting:
+					return KernelStatus.Connecting;
+
+				case RuntimeState.Offline:
+				case RuntimeState.Exited:
+					return KernelStatus.Disconnected;
+
+				case RuntimeState.Exiting:
+				case RuntimeState.Interrupting:
+					// Still connected, just in transition
+					return KernelStatus.Connected;
+
+				default:
+					this._logService.warn(this.id, `Unknown runtime state: ${state}`);
+					return KernelStatus.Errored;
+			}
+		};
+
+		// Create an observable value to track kernel status
+		const _kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
+
+		// Use autorun to reactively update kernel status when session or its state changes
+		this._register(autorun(reader => {
+			const session = this.runtimeSession.read(reader);
+
+			if (!session) {
+				_kernelStatus.set(KernelStatus.Uninitialized, undefined);
+				return;
+			}
+
+			// Set initial status based on current runtime state
+			const state = session.getRuntimeState();
+			_kernelStatus.set(mapRuntimeStateToKernelStatus(state), undefined);
+
+			// Subscribe to runtime state changes within this session
+			const stateListener = session.onDidChangeRuntimeState(newState => {
+				_kernelStatus.set(mapRuntimeStateToKernelStatus(newState), undefined);
+			});
+
+			// Clean up the listener when the session changes or ends
+			return () => stateListener.dispose();
+		}));
+
+		this.kernelStatus = _kernelStatus;
 
 		// Derive the notebook language from the selected kernel
 		this._language = this.kernel.map(
