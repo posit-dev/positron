@@ -12,9 +12,9 @@ import { AppFixtureOptions } from './app.fixtures';
  */
 export async function startManagedApp(fixtureOptions: AppFixtureOptions): Promise<Application> {
 	const { options } = fixtureOptions;
-	const app = createApp(options);
-
 	let error: unknown = undefined;
+
+	const app = createApp(options);
 
 	try {
 		await app.start();

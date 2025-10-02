@@ -31,8 +31,6 @@ import {
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
 
-let SPEC_NAME = '';
-
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
 	...currentsFixtures.baseFixtures,
@@ -118,8 +116,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			}
 
 			// rename the temp logs dir to the spec name (if available)
-			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
-			await renameTempLogsDir(logger, logsPath, specLogsPath);
+			await renameTempLogsDir(logger, logsPath, workerInfo);
 		}
 	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
@@ -228,7 +225,6 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { auto: true }],
 
 	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
-		console.log('!!!! attachLogs')
 		const attachLogsFixture = AttachLogsToReportFixture();
 		await attachLogsFixture({ suiteId, logsPath, testInfo }, use);
 	}, { auto: true }],
