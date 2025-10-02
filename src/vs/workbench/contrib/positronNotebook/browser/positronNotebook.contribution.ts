@@ -27,6 +27,7 @@ import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { checkPositronNotebookEnabled } from './positronNotebookExperimentalConfig.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { isEqual } from '../../../../base/common/resources.js';
@@ -52,7 +53,8 @@ class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IFileService private readonly fileService: IFileService
 	) {
 		super();
 
@@ -77,8 +79,11 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Support both file:// and untitled:// schemes
-					return resource.scheme === Schemas.file || resource.scheme === Schemas.untitled;
+					// Support untitled notebooks and any file system that has a provider
+					// This handles: file://, vscode-remote://, vscode-userdata://, etc.
+					return resource.scheme === Schemas.untitled ||
+						resource.scheme === Schemas.vscodeNotebookCell ||
+						this.fileService.hasProvider(resource);
 				}
 			},
 			{
