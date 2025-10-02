@@ -737,7 +737,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Check to see if we have a session to back this console
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
-			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()))
+			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()));
 			return;
 		}
 
@@ -1601,7 +1601,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
 		if (this._runtimeItemPendingInput) {
-			this.addPendingInput(code, attribution, executionId);
+			this.addPendingInput(code, attribution, executionId, mode);
 			return;
 		}
 
@@ -1610,7 +1610,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// time the runtime becomes idle.
 		const runtimeState = this.session?.getRuntimeState() || RuntimeState.Uninitialized;
 		if (!(runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready)) {
-			this.addPendingInput(code, attribution, executionId);
+			this.addPendingInput(code, attribution, executionId, mode);
 			return;
 		}
 
@@ -2621,10 +2621,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code for the pending input.
 	 * @param attribution The attribution for the pending input.
 	 * @param executionId The execution ID for the pending input.
+	 * @param mode The code execution mode.
 	 */
 	private addPendingInput(code: string,
 		attribution: IConsoleCodeAttribution,
-		executionId?: string) {
+		executionId?: string,
+		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive) {
 		// If there is a pending input runtime item, remove it.
 		if (this._runtimeItemPendingInput) {
 			// Get the index of the pending input runtime item.
@@ -2646,11 +2648,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._session?.dynState.inputPrompt ?? '',
 			attribution,
 			executionId,
-			code
+			code,
+			mode
 		);
 
-		// Add the pending input runtime item.
-		this.addRuntimeItem(this._runtimeItemPendingInput);
+		// Add the pending input runtime item only if it's not a silent execution.
+		if (mode !== RuntimeCodeExecutionMode.Silent) {
+			this.addRuntimeItem(this._runtimeItemPendingInput);
+		}
 	}
 
 	/**
@@ -2871,21 +2876,30 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Create the ID for the code fragment that will be executed.
 		const id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
 
-		// Add the provisional ActivityItemInput for the code fragment.
-		const runtimeItemActivity = new RuntimeItemActivity(
-			id,
-			new ActivityItemInput(
+		// Get the mode from the pending input item.
+		const mode = this._runtimeItemPendingInput.mode;
+
+		// Add the provisional ActivityItemInput for the code fragment only if it's not a silent execution.
+		if (mode !== RuntimeCodeExecutionMode.Silent) {
+			const runtimeItemActivity = new RuntimeItemActivity(
 				id,
-				id,
-				new Date(),
-				ActivityItemInputState.Provisional,
-				this._session.dynState.inputPrompt,
-				this._session.dynState.continuationPrompt,
-				code
-			)
-		);
-		this._runtimeItems.push(runtimeItemActivity);
-		this._runtimeItemActivities.set(id, runtimeItemActivity);
+				new ActivityItemInput(
+					id,
+					id,
+					new Date(),
+					ActivityItemInputState.Provisional,
+					this._session.dynState.inputPrompt,
+					this._session.dynState.continuationPrompt,
+					code
+				)
+			);
+			this._runtimeItems.push(runtimeItemActivity);
+			this._runtimeItemActivities.set(id, runtimeItemActivity);
+		} else {
+			// Track silent executions so we can skip creating UI elements
+			// when the runtime rebroadcasts the input message.
+			this._silentExecutionIds.add(id);
+		}
 
 		// If there are remaining pending input lines, add them in a new pending input
 		// runtime item so they are processed the next time the runtime becomes idle.
@@ -2894,17 +2908,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		if (nCodeLines < nPendingLines) {
 			// Create the new pending input runtime item, preserving the
-			// attribution and the execution ID.
+			// attribution, the execution ID, and the mode.
 			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 				generateUuid(),
 				this._session.dynState.inputPrompt,
 				attribution,
 				id,
 				pendingInputLines.slice(nCodeLines).join('\n'),
+				mode
 			);
 
-			// Add the pending input runtime item.
-			this._runtimeItems.push(this._runtimeItemPendingInput);
+			// Add the pending input runtime item only if it's not a silent execution.
+			if (mode !== RuntimeCodeExecutionMode.Silent) {
+				this._runtimeItems.push(this._runtimeItemPendingInput);
+			}
 		} else if (nCodeLines === nPendingLines) {
 			// We are about to execute everything available, so there isn't a new pending input item.
 			this._runtimeItemPendingInput = undefined;
@@ -2916,7 +2933,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// Execute the code fragment.
-		const mode = RuntimeCodeExecutionMode.Interactive;
 		const errorBehavior = RuntimeErrorBehavior.Continue;
 
 		this._session.execute(
