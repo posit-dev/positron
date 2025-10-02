@@ -8,7 +8,7 @@ import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
-import { join } from 'path';
+import path, { join } from 'path';
 
 // Local imports
 import { Application, createLogger, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, MultiLogger, VscodeSettings } from '../infra';
@@ -17,7 +17,7 @@ import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
-	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName
+	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
@@ -31,6 +31,7 @@ import {
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
 
+let SPEC_NAME = '';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -102,8 +103,24 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'test', timeout: 60000 }],
 
 	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
-		const appFixture = AppFixture();
-		await appFixture({ options, logsPath, logger, workerInfo }, use);
+		let appInstance: Application | undefined = undefined;
+
+		try {
+			appInstance = await AppFixture({ options, logsPath, logger, workerInfo });
+			await use(appInstance);
+		} catch (error) {
+			throw error; // re-throw the error to ensure test failure
+		} finally {
+			if (appInstance) {
+				['e2e-server', 'e2e-workbench'].includes(workerInfo.project.name)
+					? await appInstance.stopExternalServer()
+					: await appInstance.stop();
+			}
+
+			// rename the temp logs dir to the spec name (if available)
+			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
+			await renameTempLogsDir(logger, logsPath, specLogsPath);
+		}
 	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
 	sessions: [
@@ -211,6 +228,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { auto: true }],
 
 	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
+		console.log('!!!! attachLogs')
 		const attachLogsFixture = AttachLogsToReportFixture();
 		await attachLogsFixture({ suiteId, logsPath, testInfo }, use);
 	}, { auto: true }],
@@ -279,10 +297,6 @@ test.afterAll(async function ({ logger }, testInfo) {
 		logger.log('');
 	} catch (error) {
 		// ignore
-	}
-
-	if (fixtureScreenshot) {
-		await testInfo.attach('on-fixture-fail', { body: fixtureScreenshot, contentType: 'image/png' });
 	}
 });
 

@@ -5,29 +5,33 @@
 
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils.js';
 
 /**
- * App fixture for managed servers (both Electron and browser-based apps)
+ * Start a managed Positron app (Electron or browser-based)
  * Projects: e2e-electron, e2e-chromium/firefox/webkit/edge (port 9000)
  */
-export function ManagedAppFixture() {
-	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
-		const { options, logsPath, logger, workerInfo } = fixtureOptions;
+export async function startManagedApp(fixtureOptions: AppFixtureOptions): Promise<Application> {
+	const { options } = fixtureOptions;
+	const app = createApp(options);
 
-		const app = createApp(options);
+	let error: unknown = undefined;
 
-		try {
-			await app.start();
-			await app.workbench.sessions.expectNoStartUpMessaging();
+	try {
+		await app.start();
+		throw new Error('OOPS!');
+		await app.workbench.sessions.expectNoStartUpMessaging();
+	}
+	catch (err) {
+		console.error('Error during app start or session check:', err);
+		error = err;
+	}
 
-			await use(app);
-		} catch (error) {
-			await captureScreenshotOnError(app, logsPath, error);
-			throw error; // re-throw the error to ensure test failure
-		} finally {
-			await app.stop();
-			await renameTempLogsDir(logger, logsPath, workerInfo);
-		}
-	};
+	// Return the app, but also throw the error asynchronously
+	// so that the test runner sees the failure
+	if (error) {
+		// Throw after returning, so the test runner sees the error
+		setTimeout(() => { throw error; }, 0);
+	}
+
+	return app;
 }

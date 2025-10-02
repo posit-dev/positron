@@ -8,16 +8,19 @@ import { mkdir } from 'fs/promises';
 import * as os from 'os';
 import { Application, createApp, copyFixtureFile } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { renameTempLogsDir, copyUserSettings, captureScreenshotOnError } from './shared-utils';
+import { copyUserSettings, } from './shared-utils';
 
 /**
- * External Positron server fixture (port 8080)
+ * Start and connect to an external Positron server (port 8080)
  * Projects: e2e-server
  */
-export function ExternalPositronServerFixture() {
-	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
-		const { options, logsPath, logger, workerInfo } = fixtureOptions;
+export async function startExternalPositronServerApp(fixtureOptions: AppFixtureOptions): Promise<Application> {
+	const { options } = fixtureOptions;
+	let error: unknown = undefined;
 
+	const app = createApp(options);
+
+	try {
 		// For external server mode, use the server's actual user data directory
 		const serverUserDataDir = join(os.homedir(), '.positron-e2e-test');
 		const userDir = join(serverUserDataDir, 'User');
@@ -27,21 +30,22 @@ export function ExternalPositronServerFixture() {
 		await copyFixtureFile('keybindings.json', userDir, true);
 		await copyUserSettings(userDir);
 
-		const app = createApp(options);
+		// Start the app and connect to the external server
+		await app.connectToExternalServer();
+		await app.workbench.sessions.expectNoStartUpMessaging();
+		await app.workbench.hotKeys.closeAllEditors();
+		await app.workbench.sessions.deleteAll();
+	} catch (err) {
+		console.error('Error during app start or session check:', err);
+		error = err;
+	}
 
-		try {
-			await app.connectToExternalServer();
-			await app.workbench.sessions.expectNoStartUpMessaging();
-			await app.workbench.hotKeys.closeAllEditors();
-			await app.workbench.sessions.deleteAll();
+	// Return the app, but also throw the error asynchronously
+	// so that the test runner sees the failure
+	if (error) {
+		// Throw after returning, so the test runner sees the error
+		setTimeout(() => { throw error; }, 0);
+	}
 
-			await use(app);
-		} catch (error) {
-			await captureScreenshotOnError(app, logsPath, error);
-			throw error; // re-throw the error to ensure test failure
-		} finally {
-			await app.stopExternalServer();
-			await renameTempLogsDir(logger, logsPath, workerInfo);
-		}
-	};
+	return app;
 }

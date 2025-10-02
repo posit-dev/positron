@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
-import { ApplicationOptions, MultiLogger } from '../../infra';
-import { ManagedAppFixture } from './app-managed.fixtures';
-import { ExternalPositronServerFixture } from './app-external.fixtures';
-import { WorkbenchAppFixture } from './app-workbench.fixtures';
+import { Application, ApplicationOptions, MultiLogger } from '../../infra';
+import { startManagedApp } from './app-managed.fixtures';
+import { startExternalPositronServerApp } from './app-external.fixtures';
+import { startWorkbenchApp } from './app-workbench.fixtures';
 
 export interface AppFixtureOptions {
 	options: ApplicationOptions;
@@ -19,19 +19,20 @@ export interface AppFixtureOptions {
 /**
  * Main app fixture that routes to the appropriate implementation based on configuration
  */
-export function AppFixture() {
-	return async (fixtureOptions: AppFixtureOptions, use: (arg0: any) => Promise<void>) => {
-		const project = fixtureOptions.workerInfo.project.name;
+export async function AppFixture(fixtureOptions: AppFixtureOptions): Promise<Application> {
+	const project = fixtureOptions.workerInfo.project.name;
 
-		// Route to the appropriate fixture based on configuration
-		if (project === 'e2e-workbench') {
-			return await WorkbenchAppFixture()(fixtureOptions, use);
-		} else if (project.includes('server')) {
-			return await ExternalPositronServerFixture()(fixtureOptions, use);
-		} else {
-			return await ManagedAppFixture()(fixtureOptions, use);
-		}
-	};
+	// Start the appropriate app based on the project name
+	// e2e-workbench -> Workbench (Docker)
+	// e2e-server -> External Positron server
+	// All others -> Managed (Electron or browser-based)
+	if (project === 'e2e-workbench') {
+		return await startWorkbenchApp(fixtureOptions);
+	} else if (project.includes('server')) {
+		return await startExternalPositronServerApp(fixtureOptions);
+	} else {
+		return await startManagedApp(fixtureOptions);
+	}
 }
 
 // Re-export the options fixtures for convenience
