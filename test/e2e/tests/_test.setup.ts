@@ -17,11 +17,16 @@ import {
 	FileOperationsFixture, SettingsFixture, MetricsFixture,
 	AttachScreenshotsToReportFixture, AttachLogsToReportFixture,
 	TracingFixture, AppFixture, UserDataDirFixture, OptionsFixture,
-	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, fixtureScreenshot, setSpecName
+	CustomTestOptions, TEMP_DIR, LOGS_ROOT_PATH, setSpecName, renameTempLogsDir
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
 import { runDockerCommand } from '../fixtures/test-setup/app-workbench.fixtures.js';
+
+// used specifically for app fixture error handling in test.afterAll
+let appFixtureFailed = false;
+let appFixtureScreenshot: Buffer | undefined;
+let renamedLogsPath = 'not-set';
 
 // Currents fixtures
 import {
@@ -30,7 +35,6 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -102,9 +106,31 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'test', timeout: 60000 }],
 
 	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
-		const appFixture = AppFixture();
-		await appFixture({ options, logsPath, logger, workerInfo }, use);
-	}, { scope: 'worker', auto: true, timeout: 80000 }],
+		const { app, start, stop } = await AppFixture({ options, logsPath, logger, workerInfo });
+
+		try {
+			await start();
+
+			await use(app);
+		} catch (error) {
+			appFixtureFailed = true;
+
+			const screenshotPath = join(logsPath, 'app-start-failure.png');
+			try {
+				const page = app.code?.driver?.page;
+				if (page) {
+					appFixtureScreenshot = await page.screenshot({ path: screenshotPath });
+				}
+			} catch {
+				// ignore
+			}
+
+			throw error; // re-throw the error to ensure test failure
+		} finally {
+			await stop();
+			renamedLogsPath = await renameTempLogsDir(logger, logsPath, workerInfo);
+		}
+	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -272,7 +298,7 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	logger.log('');
 });
 
-test.afterAll(async function ({ logger }, testInfo) {
+test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 	try {
 		logger.log('');
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
@@ -281,8 +307,27 @@ test.afterAll(async function ({ logger }, testInfo) {
 		// ignore
 	}
 
-	if (fixtureScreenshot) {
-		await testInfo.attach('on-fixture-fail', { body: fixtureScreenshot, contentType: 'image/png' });
+	if (appFixtureFailed) {
+		try {
+			if (appFixtureScreenshot) {
+				await testInfo.attach('app-start-failure', {
+					body: appFixtureScreenshot,
+					contentType: 'image/png',
+				});
+			}
+		} catch (e) {
+			console.log(e);
+		}
+
+		try {
+			const attachLogs = AttachLogsToReportFixture();
+			await attachLogs({ suiteId, logsPath: renamedLogsPath, testInfo }, async () => { /* no-op */ });
+		} catch (e) {
+			console.log(e);
+		}
+
+		appFixtureFailed = false;
+		appFixtureScreenshot = undefined;
 	}
 });
 

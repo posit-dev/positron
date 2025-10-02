@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
-import { ApplicationOptions, MultiLogger } from '../../infra';
-import { ManagedAppFixture } from './app-managed.fixtures';
-import { ExternalPositronServerFixture } from './app-external.fixtures';
-import { WorkbenchAppFixture } from './app-workbench.fixtures';
+import { Application, ApplicationOptions, MultiLogger } from '../../infra';
+import { ManagedApp } from './app-managed.fixtures';
+import { ExternalPositronServerApp } from './app-external.fixtures';
+import { WorkbenchApp } from './app-workbench.fixtures';
 
 export interface AppFixtureOptions {
 	options: ApplicationOptions;
@@ -19,19 +19,20 @@ export interface AppFixtureOptions {
 /**
  * Main app fixture that routes to the appropriate implementation based on configuration
  */
-export function AppFixture() {
-	return async (fixtureOptions: AppFixtureOptions, use: (arg0: any) => Promise<void>) => {
-		const project = fixtureOptions.workerInfo.project.name;
+export async function AppFixture(fixtureOptions: AppFixtureOptions): Promise<{
+	app: Application;
+	start: () => Promise<void>;
+	stop: () => Promise<void>;
+}> {
+	const project = fixtureOptions.workerInfo.project.name;
 
-		// Route to the appropriate fixture based on configuration
-		if (project === 'e2e-workbench') {
-			return await WorkbenchAppFixture()(fixtureOptions, use);
-		} else if (project.includes('server')) {
-			return await ExternalPositronServerFixture()(fixtureOptions, use);
-		} else {
-			return await ManagedAppFixture()(fixtureOptions, use);
-		}
-	};
+	if (project === 'e2e-workbench') {
+		return await WorkbenchApp(fixtureOptions);
+	} else if (project.includes('server')) {
+		return await ExternalPositronServerApp(fixtureOptions);
+	} else {
+		return await ManagedApp(fixtureOptions);
+	}
 }
 
 // Re-export the options fixtures for convenience

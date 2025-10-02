@@ -10,51 +10,49 @@ import { join } from 'path';
 import { execSync } from 'child_process';
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils';
 import { ROOT_PATH } from './constants';
 
 /**
- * Posit Workbench fixture (Docker on port 8787)
+ * Workbench Positron session (Docker on port 8787)
  * Projects: e2e-workbench
  */
-export function WorkbenchAppFixture() {
-	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
-		const { options, logsPath, logger, workerInfo } = fixtureOptions;
 
-		const { workspacePath } = await setupWorkbenchEnvironment();
-		const app = createApp({ ...options, workspacePath });
+export async function WorkbenchApp(
+	fixtureOptions: AppFixtureOptions
+): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
+	const { options } = fixtureOptions;
+	const { workspacePath } = await setupWorkbenchEnvironment();
 
-		try {
-			await app.connectToExternalServer();
+	const app = createApp({ ...options, workspacePath });
 
-			// Workbench: Login to Posit Workbench
-			await app.positWorkbench.auth.signIn();
-			await app.positWorkbench.dashboard.expectHeaderToBeVisible();
-			await app.positWorkbench.dashboard.openSession('qa-example-content');
+	const start = async () => {
+		await app.connectToExternalServer();
 
-			// Wait for Positron to be ready
-			await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
-			await app.workbench.sessions.expectNoStartUpMessaging();
-			await app.workbench.sessions.deleteAll();
-			await app.workbench.hotKeys.closeAllEditors();
+		// Workbench: Login to Posit Workbench
+		await app.positWorkbench.auth.signIn();
+		await app.positWorkbench.dashboard.expectHeaderToBeVisible();
+		await app.positWorkbench.dashboard.openSession('qa-example-content');
 
-			await use(app);
-
-			// Exit Posit Workbench session
-			try {
-				await app.positWorkbench.dashboard.goTo();
-				await app.positWorkbench.dashboard.quitSession('qa-example-content');
-			} catch (error) {
-				console.warn('Failed to quit workbench session:', error);
-			}
-		} catch (error) {
-			await captureScreenshotOnError(app, logsPath, error);
-			throw error;
-		} finally {
-			await app.stopExternalServer();
-			await renameTempLogsDir(logger, logsPath, workerInfo);
-		}
+		// Wait for Positron to be ready
+		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
+		await app.workbench.sessions.expectNoStartUpMessaging();
+		await app.workbench.sessions.deleteAll();
+		await app.workbench.hotKeys.closeAllEditors();
 	};
+
+	const stop = async () => {
+		// Exit Posit Workbench session
+		try {
+			await app.positWorkbench.dashboard.goTo();
+			await app.positWorkbench.dashboard.quitSession('qa-example-content');
+		} catch (error) {
+			console.warn('Failed to quit workbench session:', error);
+		}
+
+		await app.stopExternalServer();
+	}
+
+	return { app, start, stop };
 }
 
 /**

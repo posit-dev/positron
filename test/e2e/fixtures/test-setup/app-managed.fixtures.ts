@@ -5,29 +5,26 @@
 
 import { Application, createApp } from '../../infra';
 import { AppFixtureOptions } from './app.fixtures';
-import { renameTempLogsDir, captureScreenshotOnError } from './shared-utils.js';
 
 /**
- * App fixture for managed servers (both Electron and browser-based apps)
+ * Managed Positron app (Electron or browser-based)
  * Projects: e2e-electron, e2e-chromium/firefox/webkit/edge (port 9000)
  */
-export function ManagedAppFixture() {
-	return async (fixtureOptions: AppFixtureOptions, use: (arg0: Application) => Promise<void>) => {
-		const { options, logsPath, logger, workerInfo } = fixtureOptions;
+export async function ManagedApp(
+	fixtureOptions: AppFixtureOptions
+): Promise<{ app: Application; start: () => Promise<void>; stop: () => Promise<void> }> {
+	const { options } = fixtureOptions;
 
-		const app = createApp(options);
+	const app = createApp(options);
 
-		try {
-			await app.start();
-			await app.workbench.sessions.expectNoStartUpMessaging();
-
-			await use(app);
-		} catch (error) {
-			await captureScreenshotOnError(app, logsPath, error);
-			throw error; // re-throw the error to ensure test failure
-		} finally {
-			await app.stop();
-			await renameTempLogsDir(logger, logsPath, workerInfo);
-		}
+	const start = async () => {
+		await app.start();
+		await app.workbench.sessions.expectNoStartUpMessaging();
 	};
+
+	const stop = async () => {
+		await app.stop();
+	}
+
+	return { app, start, stop };
 }
