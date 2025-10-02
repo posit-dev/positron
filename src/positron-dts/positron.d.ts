@@ -2082,9 +2082,6 @@ declare module 'positron' {
 
 			providerName: string;
 
-			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
-			onDidChange?: vscode.Event<void>;
-
 			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
 
 			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
