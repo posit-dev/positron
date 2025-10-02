@@ -6,8 +6,8 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../../../common/contributions.js';
 import { UndoCommand, RedoCommand } from '../../../../../../editor/browser/editorExtensions.js';
-import { IPositronNotebookService } from '../../../../../services/positronNotebook/browser/positronNotebookService.js';
-import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { IPositronNotebookService } from '../../positronNotebookService.js';
+import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
 import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/undoRedo.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 

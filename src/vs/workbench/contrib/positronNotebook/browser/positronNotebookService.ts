@@ -8,8 +8,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
-import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookUtils.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { isEqual } from '../../../../base/common/resources.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
