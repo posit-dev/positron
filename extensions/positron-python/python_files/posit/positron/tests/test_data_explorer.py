@@ -2782,7 +2782,7 @@ def _assert_close(expected, actual):
 
 
 def assert_summary_stats_equal(display_type, result, ex_result):
-    if display_type == ColumnDisplayType.Number:
+    if display_type == ColumnDisplayType.Floating:
         _assert_numeric_stats_equal(ex_result, result["number_stats"])
     elif display_type == ColumnDisplayType.String:
         _assert_string_stats_equal(ex_result, result["string_stats"])

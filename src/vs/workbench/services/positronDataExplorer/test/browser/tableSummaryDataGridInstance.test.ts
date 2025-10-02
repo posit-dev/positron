@@ -171,13 +171,13 @@ suite('TableSummaryDataGridInstance', () => {
 	});
 
 	test('canToggleColumnExpansion should return true for supported column types when feature is enabled', () => {
-		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Number);
+		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Floating);
 		getColumnSchemaStub.returns(supportedColumnSchema);
 		assert.strictEqual(instance.canToggleColumnExpansion(0), true);
 	});
 
 	test('toggleExpandColumn should update row layout manager', async () => {
-		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Number);
+		const supportedColumnSchema = getColumnSchema('test', 0, 'number', ColumnDisplayType.Floating);
 		getColumnSchemaStub.returns(supportedColumnSchema);
 		await instance.toggleExpandColumn(0);
 		assert(toggleExpandColumnStub.calledWith(0));

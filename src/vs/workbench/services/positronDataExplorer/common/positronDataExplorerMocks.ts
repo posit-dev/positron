@@ -18,10 +18,10 @@ import {
 } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 const exampleTypes: [string, ColumnDisplayType, object][] = [
-	['int64', ColumnDisplayType.Number, {}],
+	['int64', ColumnDisplayType.Integer, {}],
 	['string', ColumnDisplayType.String, {}],
 	['boolean', ColumnDisplayType.Boolean, {}],
-	['double', ColumnDisplayType.Number, {}],
+	['double', ColumnDisplayType.Floating, {}],
 	['timestamp', ColumnDisplayType.Datetime, { timezone: 'America/New_York' }]
 ];
 

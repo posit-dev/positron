@@ -759,8 +759,8 @@ function getNumericDisplayType(duckdbName: string): ColumnDisplayType {
 	} else if (duckdbName.startsWith('DECIMAL')) {
 		return ColumnDisplayType.Decimal;
 	} else {
-		// Fallback to Number for any other numeric type
-		return ColumnDisplayType.Number;
+		// Fallback to Floating for any other numeric type
+		return ColumnDisplayType.Floating;
 	}
 }
 
