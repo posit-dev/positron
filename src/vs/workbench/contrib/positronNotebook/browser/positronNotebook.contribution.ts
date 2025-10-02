@@ -22,6 +22,7 @@ import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorResolverService, RegisteredEditorInfo, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
+import { NotebookDiffEditorInput } from '../../notebook/common/notebookDiffEditorInput.js';
 
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -54,7 +55,8 @@ class PositronNotebookContribution extends Disposable {
 		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IFileService private readonly fileService: IFileService
+		@IFileService private readonly fileService: IFileService,
+		@INotebookService private readonly notebookService: INotebookService
 	) {
 		super();
 
@@ -107,6 +109,39 @@ class PositronNotebookContribution extends Disposable {
 						undefined,
 					);
 					return { editor: notebookEditorInput, options };
+				},
+				// Positron notebook editor doesn't support diff views, so delegate to VSCode's notebook diff editor
+				createDiffEditorInput: ({ original, modified, label, description }, group) => {
+					if (!modified.resource || !original.resource) {
+						throw new Error('Cannot create notebook diff editor without resources');
+					}
+
+					// Determine the notebook view type for the resource
+					// First try to get it from an existing model
+					let viewType = this.notebookService.getNotebookTextModel(modified.resource)?.viewType;
+
+					// If no model exists, find matching contributed notebook types
+					if (!viewType) {
+						const providers = this.notebookService.getContributedNotebookTypes(modified.resource);
+						// Use exclusive or default provider, or fall back to first available
+						viewType = providers.find(p => p.priority === 'exclusive')?.id
+							|| providers.find(p => p.priority === 'default')?.id
+							|| providers[0]?.id;
+					}
+
+					if (!viewType) {
+						throw new Error(`Cannot determine notebook view type for resource: ${modified.resource}`);
+					}
+
+					const diffInput = NotebookDiffEditorInput.create(
+						this.instantiationService,
+						modified.resource,
+						label,
+						description,
+						original.resource,
+						viewType
+					);
+					return { editor: diffInput };
 				}
 			},
 		));
