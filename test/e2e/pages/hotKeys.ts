@@ -7,7 +7,7 @@ import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
 
 /**
- * Provides hotkey shortcuts for common operations.
+ * Provides hotkey shortcuts for common operations. References the keybindings defined in `test/e2e/fixtures/keybindings.json`.
  */
 export class HotKeys {
 	constructor(private code: Code) { }
@@ -166,6 +166,10 @@ export class HotKeys {
 
 	public async minimizeBottomPanel() {
 		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
+	}
+
+	public async restoreBottomPanel() {
+		await this.pressHotKeys('Cmd+J V', 'Restore bottom panel');
 	}
 
 	// -------------------------
