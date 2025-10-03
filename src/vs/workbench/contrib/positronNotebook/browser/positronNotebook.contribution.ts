@@ -32,17 +32,18 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { isEqual } from '../../../../base/common/resources.js';
-import { CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
+import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
-import { registerNotebookCommand } from './notebookCells/actionBar/registerNotebookCommand.js';
+import { registerNotebookAction } from './registerNotebookAction.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
-import { registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { registerAction2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 
 
 /**
@@ -321,7 +322,7 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 
 
 //#region Notebook Commands
-registerNotebookCommand({
+registerNotebookAction({
 	commandId: 'positronNotebook.selectUp',
 	handler: (notebook) => notebook.selectionStateMachine.moveUp(false),
 	keybinding: {
@@ -333,7 +334,7 @@ registerNotebookCommand({
 	}
 });
 
-registerNotebookCommand({
+registerNotebookAction({
 	commandId: 'positronNotebook.selectDown',
 	handler: (notebook) => notebook.selectionStateMachine.moveDown(false),
 	keybinding: {
@@ -345,7 +346,7 @@ registerNotebookCommand({
 	}
 });
 
-registerNotebookCommand({
+registerNotebookAction({
 	commandId: 'positronNotebook.addSelectionDown',
 	handler: (notebook) => notebook.selectionStateMachine.moveDown(true),
 	keybinding: {
@@ -357,7 +358,7 @@ registerNotebookCommand({
 	}
 });
 
-registerNotebookCommand({
+registerNotebookAction({
 	commandId: 'positronNotebook.addSelectionUp',
 	handler: (notebook) => notebook.selectionStateMachine.moveUp(true),
 	keybinding: {
@@ -729,6 +730,107 @@ registerCellCommand({
 
 
 //#endregion Cell Commands
+
+//#region Notebook Header Actions
+// Register notebook-level actions that appear in the editor action bar
+
+// Run All Cells - Executes all code cells in the notebook
+registerNotebookAction({
+	commandId: 'positronNotebook.runAllCells',
+	handler: (notebook) => notebook.runAllCells(),
+	menu: {
+		id: MenuId.EditorActionsLeft,
+		group: 'navigation',
+		order: 10,
+		title: { value: localize('runAllCells', 'Run All'), original: 'Run All' },
+		icon: ThemeIcon.fromId('notebook-execute-all'),
+		positronActionBarOptions: {
+			controlType: 'button',
+			displayTitle: true
+		}
+	},
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+	}
+});
+
+// Clear All Outputs - Clears outputs from all cells
+registerNotebookAction({
+	commandId: 'positronNotebook.clearAllOutputs',
+	handler: (notebook) => notebook.clearAllCellOutputs(),
+	menu: {
+		id: MenuId.EditorActionsLeft,
+		group: 'navigation',
+		order: 20,
+		title: { value: localize('clearAllOutputs', 'Clear Outputs'), original: 'Clear Outputs' },
+		icon: ThemeIcon.fromId('positron-clean'),
+		positronActionBarOptions: {
+			controlType: 'button',
+			displayTitle: true
+		}
+	},
+	keybinding: {
+		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyK
+	}
+});
+
+// Show Console - Opens or focuses the notebook console
+registerNotebookAction({
+	commandId: 'positronNotebook.showConsole',
+	handler: (notebook) => notebook.showNotebookConsole(),
+	menu: {
+		id: MenuId.EditorActionsLeft,
+		group: 'navigation',
+		order: 30,
+		title: { value: localize('showConsole', 'Show Console'), original: 'Show Console' },
+		icon: ThemeIcon.fromId('terminal'),
+		positronActionBarOptions: {
+			controlType: 'button',
+			displayTitle: true
+		}
+	}
+});
+
+// Add Code Cell at End - Inserts a new code cell at the end of the notebook
+registerNotebookAction({
+	commandId: 'positronNotebook.addCodeCellAtEnd',
+	handler: (notebook) => {
+		const cellCount = notebook.cells.get().length;
+		notebook.addCell(CellKind.Code, cellCount);
+	},
+	menu: {
+		id: MenuId.EditorActionsRight,
+		group: 'navigation',
+		order: 10,
+		title: { value: localize('addCodeCell', 'Code'), original: 'Code' },
+		icon: ThemeIcon.fromId('add'),
+		positronActionBarOptions: {
+			controlType: 'button',
+			displayTitle: true
+		}
+	}
+});
+
+// Add Markdown Cell at End - Inserts a new markdown cell at the end of the notebook
+registerNotebookAction({
+	commandId: 'positronNotebook.addMarkdownCellAtEnd',
+	handler: (notebook) => {
+		const cellCount = notebook.cells.get().length;
+		notebook.addCell(CellKind.Markup, cellCount);
+	},
+	menu: {
+		id: MenuId.EditorActionsRight,
+		group: 'navigation',
+		order: 20,
+		title: { value: localize('addMarkdownCell', 'Markdown'), original: 'Markdown' },
+		icon: ThemeIcon.fromId('add'),
+		positronActionBarOptions: {
+			controlType: 'button',
+			displayTitle: true
+		}
+	}
+});
+//#endregion Notebook Header Actions
 
 // Register actions
 registerAction2(ExecuteSelectionInConsoleAction);
