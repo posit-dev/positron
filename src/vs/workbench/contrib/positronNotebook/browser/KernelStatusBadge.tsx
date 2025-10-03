@@ -12,24 +12,21 @@ import React from 'react';
 // Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
-import { ActionButton } from './utilityComponents/ActionButton.js';
-import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
-// This component will eventually be much more complicated and used to
-// control the kernel choice etc. For now, it just displays the kernel status.
+/**
+ * KernelStatusBadge - A presentational component that displays the current kernel status.
+ *
+ * The widget simply displays the kernel status using the notebook instance from context.
+ * All interaction logic is handled by the action bar widget system.
+ */
 export function KernelStatusBadge() {
 	const notebookInstance = useNotebookInstance();
 	const kernelStatus = useObservedValue(notebookInstance.kernelStatus);
-	const services = usePositronReactServicesContext();
 
-	return <ActionButton
-		className='positron-notebook-kernel-status-badge'
-		onPressed={() => services.commandService.executeCommand(SELECT_KERNEL_ID_POSITRON, { forceDropdown: true })}
-	>
-		<div aria-label='Notebook kernel status'>
+	return (
+		<div className='positron-notebook-kernel-status-badge'>
 			Kernel
 			<span className={`kernel-status ${kernelStatus}`}>{' ' + kernelStatus}</span>
 		</div>
-	</ActionButton>;
+	);
 }

@@ -5,11 +5,13 @@
 
 .positron-notebook-kernel-status-badge {
 	font-size: 12px;
-	cursor: pointer;
 	color: var(--vscode-positronNotebook-deemphasized-foreground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 200px;
 
 	& span.kernel-status {
-		cursor: pointer;
 		font-weight: bold;
 	}
 
