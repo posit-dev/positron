@@ -15,7 +15,6 @@ import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { localize } from '../../../../nls.js';
-import { PositronNotebookHeader } from './PositronNotebookHeader.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
@@ -66,7 +65,6 @@ export function PositronNotebookComponent() {
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
-			<PositronNotebookHeader notebookInstance={notebookInstance} />
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				{notebookCells.length ? notebookCells.map((cell, index) => <>
 					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
