@@ -24,7 +24,7 @@ export function KernelStatusBadge() {
 	const kernelStatus = useObservedValue(notebookInstance.kernelStatus);
 
 	return (
-		<div className='positron-notebook-kernel-status-badge'>
+		<div className='positron-notebook-kernel-status-badge' data-testid='notebook-kernel-status'>
 			Kernel
 			<span className={`kernel-status ${kernelStatus}`}>{' ' + kernelStatus}</span>
 		</div>
