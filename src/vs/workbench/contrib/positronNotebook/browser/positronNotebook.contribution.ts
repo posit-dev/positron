@@ -39,7 +39,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
@@ -366,6 +366,41 @@ registerNotebookCommand({
 	},
 	metadata: {
 		description: localize('positronNotebook.addSelectionUp', "Extend selection up")
+	}
+});
+
+// Enter key: Enter edit mode when cell is selected but NOT editing
+registerNotebookCommand({
+	commandId: 'positronNotebook.cell.edit',
+	handler: (notebook) => {
+		notebook.selectionStateMachine.enterEditor().catch(err => {
+			console.error('Error entering editor:', err);
+		});
+	},
+	keybinding: {
+		primary: KeyCode.Enter,
+		when: ContextKeyExpr.and(
+			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+		)
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.edit', "Enter cell edit mode")
+	}
+});
+
+// Escape key: Exit edit mode when cell editor is focused
+registerNotebookCommand({
+	commandId: 'positronNotebook.cell.quitEdit',
+	handler: (notebook) => {
+		notebook.selectionStateMachine.exitEditor();
+	},
+	keybinding: {
+		primary: KeyCode.Escape,
+		when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.quitEdit', "Exit cell edit mode")
 	}
 });
 
