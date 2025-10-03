@@ -6,19 +6,13 @@
 .positron-notebook-header {
 	font-size: 12px;
 	color: var(--vscode-positronNotebook-deemphasized-foreground);
-	height: var(--vscode-positronNotebook-header-h);
+	height: 0;
 	gap: 2px;
-	padding-inline: calc(var(--vscode-positronNotebook-header-h) / 4);
+	padding-inline: 8px;
 	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	border-bottom: 1px solid var(--vscode-positronNotebook-header-border);
-
-	.positron-notebook-header-divider {
-		height: calc(var(--vscode-positronNotebook-header-h) / 2);
-		width: 1px;
-		background-color: var(--vscode-positronNotebook-header-border);
-	}
-
+	/* Right align content */
+	justify-content: flex-end;
+	align-items: flex-start;
+	z-index: 100;
 }
 

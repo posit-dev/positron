@@ -725,8 +725,6 @@
 		"--vscode-positronNotebook-deemphasized-foreground",
 		"--vscode-positronNotebook-error-color",
 		"--vscode-positronNotebook-foreground",
-		"--vscode-positronNotebook-header-border",
-		"--vscode-positronNotebook-header-h",
 		"--vscode-positronNotebook-img-placeholder-background",
 		"--vscode-positronNotebook-output-background",
 		"--vscode-positronNotebook-text-output-font-family",
