@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as React from 'react';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IDisposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICommandActionTitle, PositronActionBarOptions } from '../../../../platform/action/common/action.js';
@@ -11,10 +12,12 @@ import { ICommandMetadata, CommandsRegistry } from '../../../../platform/command
 import { ContextKeyExpr, ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 
 /**
  * Keybinding configuration for notebook actions.
@@ -74,25 +77,114 @@ interface INotebookCommandOptions {
 	 */
 	when?: ContextKeyExpression;
 
-	/** Widgets will come later, so we don't need to support them yet */
+	/** Ensure widget properties are not mixed with commands */
 	widget?: never;
 	id?: never;
 }
 
 /**
- * Type for registering notebook actions.
+ * Options for registering a notebook widget (React component without command).
  */
-export type IRegisterNotebookActionOptions = INotebookCommandOptions;
+interface INotebookWidgetOptions {
+	/**
+	 * Unique identifier for this widget.
+	 * Used for React keying and error reporting.
+	 */
+	id: string;
+
+	/**
+	 * Widget definition.
+	 * The component will be automatically wrapped in a NotebookInstanceProvider,
+	 * so it can use the useNotebookInstance() hook to access the active notebook.
+	 */
+	widget: {
+		component: React.ComponentType;
+		/**
+		 * Optional command to execute when widget is clicked.
+		 * If specified, the widget becomes a command-driven button:
+		 * - Widget component is purely presentational
+		 * - Button wrapper provides accessibility
+		 * - Cannot be used with selfContained
+		 */
+		commandId?: string;
+		/**
+		 * Optional arguments to pass to the command when executed.
+		 * Only used if commandId is specified.
+		 */
+		commandArgs?: unknown;
+		/**
+		 * Optional ARIA label for the widget button.
+		 * Required if commandId is specified.
+		 */
+		ariaLabel?: string;
+		/**
+		 * Optional tooltip for the widget button.
+		 */
+		tooltip?: string;
+		/**
+		 * If true, widget manages its own interaction and accessibility.
+		 * Use for complex widgets with custom interactions.
+		 * Cannot be used with commandId.
+		 * Default: false
+		 */
+		selfContained?: boolean;
+	};
+
+	/**
+	 * Menu location and visibility configuration (required for widgets).
+	 */
+	menu: {
+		/**
+		 * MenuId location where widget should appear.
+		 * Typically MenuId.EditorActionsLeft or MenuId.EditorActionsRight.
+		 */
+		id: MenuId;
+
+		/**
+		 * Sort order within the menu.
+		 * Widgets and actions share the same order space and will be intermixed.
+		 */
+		order: number;
+	};
+
+	/**
+	 * Visibility condition using context keys (optional).
+	 * Defaults to `activeEditor === POSITRON_NOTEBOOK_EDITOR_ID`.
+	 */
+	when?: ContextKeyExpression;
+
+	/** Ensure command properties are not mixed with widgets */
+	commandId?: never;
+	handler?: never;
+	metadata?: never;
+	keybinding?: never;
+}
 
 /**
- * Helper function to register notebook-level actions.
+ * Unified type for registering notebook actions.
+ * Can be either a command (with optional UI) or a widget (UI only).
+ */
+export type IRegisterNotebookActionOptions =
+	| INotebookCommandOptions
+	| INotebookWidgetOptions;
+
+/**
+ * Unified helper function to register notebook-level actions.
  *
- * Registers a command that operates on the notebook instance:
- * - Automatically gets the active notebook from IPositronNotebookService
- * - Optionally registers menu contribution (for editor action bar)
- * - Optionally registers keybinding (for keyboard shortcuts)
+ * This function handles two distinct use cases:
+ *
+ * 1. **Commands** - Register a command that operates on the notebook instance
+ *    - Automatically gets the active notebook from IPositronNotebookService
+ *    - Optionally registers menu contribution (for editor action bar)
+ *    - Optionally registers keybinding (for keyboard shortcuts)
+ *
+ * 2. **Widgets** - Register a React component for the notebook action bar
+ *    - Automatically wraps component in NotebookInstanceProvider
+ *    - Component can use useNotebookInstance() hook
+ *    - No command registration (UI only)
  *
  * Features:
+ * - Type-safe discriminated union prevents mixing incompatible options
  * - Unified `when` clause controls both menu and keybinding visibility
  * - Default context conditions for menus and keybindings
  * - Follows established patterns from registerCellCommand
@@ -125,10 +217,30 @@ export type IRegisterNotebookActionOptions = INotebookCommandOptions;
  * });
  * ```
  *
- * @param options Configuration for the notebook action
+ * @example Widget (React component)
+ * ```typescript
+ * registerNotebookAction({
+ *   id: 'positronNotebook.kernelStatus',
+ *   widget: {
+ *     component: KernelStatusBadge
+ *   },
+ *   menu: {
+ *     id: MenuId.EditorActionsRight,
+ *     order: 100
+ *   }
+ * });
+ * ```
+ *
+ * @param options Configuration for the notebook action (command or widget)
  * @returns Disposable to unregister the action
  */
 export function registerNotebookAction(options: IRegisterNotebookActionOptions): IDisposable {
+	// Type narrowing: check if this is a widget registration
+	if ('widget' in options && options.widget) {
+		return registerNotebookWidgetInternal(options);
+	}
+
+	// Otherwise, it's a command registration
 	return registerNotebookCommandInternal(options);
 }
 
@@ -200,4 +312,59 @@ function registerNotebookCommandInternal(options: INotebookCommandOptions): IDis
 	}
 
 	return disposables;
+}
+
+/**
+ * Internal implementation for registering notebook widgets.
+ */
+function registerNotebookWidgetInternal(options: INotebookWidgetOptions): IDisposable {
+	// Validate that commandId and selfContained are not used together
+	if (options.widget.commandId && options.widget.selfContained) {
+		throw new Error(`Widget '${options.id}' cannot specify both commandId and selfContained`);
+	}
+
+	// Validate that commandId requires ariaLabel
+	if (options.widget.commandId && !options.widget.ariaLabel) {
+		throw new Error(`Widget '${options.id}' with commandId must specify ariaLabel`);
+	}
+
+	return PositronActionBarWidgetRegistry.registerWidget({
+		id: options.id,
+		menuId: options.menu.id,
+		order: options.menu.order,
+		// Default when clause: only show when Positron notebook is the active editor
+		when: options.when ?? ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+
+		// Pass through command options
+		commandId: options.widget.commandId,
+		commandArgs: options.widget.commandArgs,
+		ariaLabel: options.widget.ariaLabel,
+		tooltip: options.widget.tooltip,
+		selfContained: options.widget.selfContained,
+
+		// Factory that wraps the component in NotebookInstanceProvider
+		componentFactory: (accessor) => {
+			// Return a wrapper component that provides notebook context
+			return () => {
+				// Get the active notebook instance from the service
+				const notebookService = accessor.get(IPositronNotebookService);
+				const notebook = notebookService.getActiveInstance();
+
+				// If no active notebook, don't render anything
+				if (!notebook) {
+					return null;
+				}
+
+				// Get the user's component
+				const Component = options.widget.component;
+
+				// Wrap in NotebookInstanceProvider so useNotebookInstance() hook works
+				return (
+					<NotebookInstanceProvider instance={notebook} >
+						<Component />
+					</NotebookInstanceProvider>
+				);
+			};
+		}
+	});
 }
