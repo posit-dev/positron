@@ -157,6 +157,10 @@ export class Variables {
 		return group;
 	}
 
+	/**
+	 * Select a session in the variables pane.
+	 * @param name the name of the session to select
+	 */
 	async selectSession(name: string) {
 		await this.contextMenu.triggerAndClick({
 			menuTrigger: this.code.driver.page.locator('.positron-variables .positron-action-bar').nth(1).locator('button'),
@@ -238,9 +242,4 @@ export class Variables {
 			await expect(this.interpreterLocator).toHaveText(sessionName);
 		});
 	}
-
-	async waitForVariableNotebookConnection() {
-		await expect(this.code.driver.page.getByText('No variables have been created')).toBeVisible();
-	}
-
 }
