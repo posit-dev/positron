@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
+
+const FILENAME = 'Untitled-1.ipynb';
 
 test.use({
 	suiteId: __filename
@@ -16,81 +18,59 @@ test.afterEach(async function ({ app }) {
 test.describe('Variables Pane - Notebook', {
 	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOKS]
 }, () => {
-	test('Python - Verify Variables pane basic function for notebook', async function ({ app, python }) {
-		await app.workbench.notebooks.createNewNotebook();
-
-		// workaround issue where starting multiple interpreters in quick succession can cause startup failure
-		await app.code.wait(1000);
-
-		await app.workbench.notebooks.selectInterpreter('Python');
-		await app.workbench.notebooks.addCodeToCellAtIndex('y = [2, 3, 4, 5]');
-		await app.workbench.notebooks.executeCodeInCell();
-
-		const filename = 'Untitled-1.ipynb';
-
-		const interpreter = app.workbench.variables.interpreterLocator;
-		await expect(interpreter).toBeVisible();
-		await expect(interpreter).toHaveText(filename);
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-
-		await expect(async () => {
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get('y')).toStrictEqual({ value: '[2, 3, 4, 5]', type: 'list [4]' });
-		}).toPass({ timeout: 60000 });
-	});
-
-	test('Python - Verify Variables available after reload', async function ({ app, runCommand, sessions }) {
-		await app.workbench.notebooks.createNewNotebook();
-		await app.code.wait(1000);
-
-		// Create a variable
-		await app.workbench.notebooks.selectInterpreter('Python');
-		await app.workbench.notebooks.addCodeToCellAtIndex('dict = [{"a":1,"b":2},{"a":3,"b":4}]');
-		await app.workbench.notebooks.executeCodeInCell();
-
-		const filename = 'Untitled-1.ipynb';
-
-		const interpreter = app.workbench.variables.interpreterLocator;
-		await expect(interpreter).toBeVisible();
-		await expect(interpreter).toHaveText(filename);
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-
-		// Ensure the variable is present
-		await expect(async () => {
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get('dict')).toStrictEqual({ value: `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, type: 'list [2]' });
-		}).toPass({ timeout: 30000 });
-
-		// Reload window
-		await runCommand('workbench.action.reloadWindow');
-		await sessions.expectAllSessionsToBeReady();
-
-		// Get the variable again and ensure it's still present
-		await expect(async () => {
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get('dict')).toStrictEqual({ value: `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`, type: 'list [2]' });
-		}).toPass({ timeout: 30000 });
-
-	});
-
 	test('R - Verify Variables pane basic function for notebook', {
 		tag: [tags.ARK]
-	}, async function ({ app, r }) {
-		await app.workbench.notebooks.createNewNotebook();
+	}, async function ({ app, hotKeys }) {
+		const { notebooks, variables } = app.workbench;
 
-		await app.workbench.notebooks.selectInterpreter('R');
-		await app.workbench.notebooks.addCodeToCellAtIndex('y <- c(2, 3, 4, 5)');
-		await app.workbench.notebooks.executeCodeInCell();
+		// Create a variable via a notebook
+		await notebooks.createNewNotebook();
+		await notebooks.selectInterpreter('R');
+		await notebooks.addCodeToCellAtIndex('y <- c(2, 3, 4, 5)');
+		await notebooks.executeCodeInCell();
 
-		const interpreter = app.workbench.variables.interpreterLocator;
-		await expect(interpreter).toBeVisible();
-		await expect(interpreter).toHaveText('Untitled-1.ipynb');
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		// Verify the interpreter and var in the variable pane
+		await hotKeys.fullSizeSecondarySidebar();
+		await variables.expectSessionToBe('Untitled-1.ipynb');
+		await variables.expectVariableToBe('y', '2 3 4 5');
+	});
 
-		await expect(async () => {
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get('y')).toStrictEqual({ value: '2 3 4 5', type: 'dbl [4]' });
-		}).toPass({ timeout: 60000 });
+	test('Python - Verify Variables pane basic function for notebook', async function ({ app }) {
+		const { notebooks, variables, hotKeys } = app.workbench;
+
+		// Create a variable via a notebook
+		await notebooks.createNewNotebook();
+		await notebooks.selectInterpreter('Python');
+		await notebooks.addCodeToCellAtIndex('y = [2, 3, 4, 5]');
+		await notebooks.executeCodeInCell();
+
+		// Verify the interpreter and var in the variable pane
+		await hotKeys.fullSizeSecondarySidebar();
+		await variables.expectSessionToBe(FILENAME);
+		await variables.expectVariableToBe('y', '[2, 3, 4, 5]');
+	});
+
+	test('Python - Verify Variables available after reload', async function ({ app, sessions, hotKeys }) {
+		const { notebooks, variables } = app.workbench;
+
+		// Create a variable via a notebook
+		await notebooks.createNewNotebook();
+		await notebooks.selectInterpreter('Python');
+		await notebooks.addCodeToCellAtIndex('dict = [{"a":1,"b":2},{"a":3,"b":4}]');
+		await notebooks.executeCodeInCell();
+
+		// Verify the interpreter and var in the variable pane
+		await hotKeys.fullSizeSecondarySidebar();
+		await variables.expectSessionToBe(FILENAME);
+		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
+
+		// Reload window
+		await hotKeys.reloadWindow();
+		await sessions.expectAllSessionsToBeReady();
+
+		// Ensure the variable is still present
+		await variables.selectSession(FILENAME);
+		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
 	});
 });
 
