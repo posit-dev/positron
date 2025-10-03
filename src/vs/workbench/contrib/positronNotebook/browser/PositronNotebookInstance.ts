@@ -190,13 +190,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Sets the DOM element that contains the cells for the notebook.
-	 * @param container The container element to set, or undefined to clear
+	 * @param container The container element to set, or null to clear
 	 */
-	/**
-	 * Sets the DOM element that contains the cells for the notebook.
-	 * @param container The container element to set, or undefined to clear
-	 */
-	setCellsContainer(container: HTMLElement | undefined | null): void {
+	setCellsContainer(container: HTMLElement | null): void {
 		// Clean up any existing listeners
 		this._cellsContainerListeners.clear();
 

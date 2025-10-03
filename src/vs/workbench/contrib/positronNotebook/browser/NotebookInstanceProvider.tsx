@@ -7,12 +7,12 @@
 import React from 'react';
 
 // Other dependencies.
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 /**
  * Context to be used by React components to get access to the notebook instance for given notebook provided by the extension host.
  */
-export const NotebookInstanceContext = React.createContext<PositronNotebookInstance | undefined>(undefined);
+export const NotebookInstanceContext = React.createContext<IPositronNotebookInstance | undefined>(undefined);
 
 /**
  * Hook to be used by React components to get access to the instance for notebook
@@ -20,7 +20,7 @@ export const NotebookInstanceContext = React.createContext<PositronNotebookInsta
 export function NotebookInstanceProvider({
 	instance,
 	children
-}: { instance: PositronNotebookInstance; children: React.ReactNode }) {
+}: { instance: IPositronNotebookInstance; children: React.ReactNode }) {
 	return <NotebookInstanceContext.Provider value={instance}>{children}</NotebookInstanceContext.Provider>;
 }
 
