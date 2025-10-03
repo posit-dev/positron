@@ -18,8 +18,6 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 
-		// await app.code.driver.page.setViewportSize({ width: 2560, height: 1440 });
-
 		// Read previously bootstrapped token from the shared volume
 		const { stdout } = await runDockerCommand(
 			`docker exec test bash -lc 'set -euo pipefail; [ -s /tokens/connect_bootstrap_token ] && cat /tokens/connect_bootstrap_token'`,
@@ -124,70 +122,79 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 
 		await hotKeys.toggleBottomPanel();
 
-		await expect(async () => {
-			try {
-				const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
-				const dynamicTomlLineRegex = 'tips.csv';
-				const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
+		await test.step('Ensure toml file is ready for update', async () => {
+			await expect(async () => {
+				try {
+					const editorContainer = app.code.driver.page.locator('[id="workbench.parts.editor"]');
+					const dynamicTomlLineRegex = 'tips.csv';
+					const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 
-				await expect(targetLine).toBeVisible({ timeout: 5000 });
-			} catch (e) {
-				const filenames = await app.workbench.editor.getMonacoFilenames();
-				await hotKeys.closeAllEditors();
-				const file = `workspaces/shiny-py-example/.posit/publish/${filenames.find(f => f.startsWith('shiny-py-example'))}`;
-				console.log(`Retrying to open file ${file} in editor`);
-				await openFile(file);
-				throw e;
-			}
-		}).toPass({ timeout: 60000 });
+					await expect(targetLine).toBeVisible({ timeout: 10000 });
+				} catch (e) {
+					const filenames = await app.workbench.editor.getMonacoFilenames();
+					await hotKeys.closeAllEditors();
+					const file = `workspaces/shiny-py-example/.posit/publish/${filenames.find(f => f.startsWith('shiny-py-example'))}`;
+					console.log(`Retrying to open file ${file} in editor`);
+					await openFile(file);
+					throw e;
+				}
+			}).toPass({ timeout: 60000 });
+		});
 
-		await app.workbench.positConnect.setPythonVersion(pythonVersion);
+		await test.step('Update toml file', async () => {
+			await app.workbench.positConnect.setPythonVersion(pythonVersion);
 
-		await hotKeys.save();
+			await hotKeys.save();
 
-		await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
+			await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
+		});
 
 		await hotKeys.toggleBottomPanel();
 
-		await deployButton.click({ timeout: 5000 });
+		let appGuid;
+		await test.step('Deploy, await completion and get appGuid', async () => {
+			await deployButton.click({ timeout: 5000 });
 
-		await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
+			await expect(app.code.driver.page.locator('text=Deployment was successful').first()).toBeVisible({ timeout: 200000 });
 
-		await hotKeys.closeSecondarySidebar();
+			await hotKeys.closeSecondarySidebar();
 
-		await app.code.driver.page.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
+			await app.code.driver.page.locator('.monaco-action-bar .action-label', { hasText: 'Publisher' }).click({ timeout: 60000 });
 
-		const deployedLocator = app.code.driver.page.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
+			const deployedLocator = app.code.driver.page.locator('.monaco-tl-row .monaco-highlighted-label', { hasText: 'Successfully deployed at' });
 
-		const deploymentText = await deployedLocator.textContent();
+			const deploymentText = await deployedLocator.textContent();
 
-		const appGuid = extractGuid(deploymentText || '');
+			appGuid = extractGuid(deploymentText || '');
+		});
 
-		console.log(appGuid);
+		await test.step('Grant permission to connect user', async () => {
+			const payload: PermissionPayload = {
+				principal_guid: userId,
+				principal_type: 'user',
+				role: 'viewer',
+			};
 
-		const payload: PermissionPayload = {
-			principal_guid: userId,
-			principal_type: 'user',
-			role: 'viewer',
-		};
+			await app.workbench.positConnect.setContentPermission(
+				appGuid!,
+				payload,
+			);
+		});
 
-		await app.workbench.positConnect.setContentPermission(
-			appGuid!,
-			payload,
-		);
+		await test.step('Ensure connect user can access content', async () => {
+			await app.code.driver.page.goto('http://localhost:3939');
 
-		await app.code.driver.page.goto('http://localhost:3939');
+			await app.code.driver.page.locator('[data-automation="signin"]').click();
 
-		await app.code.driver.page.locator('[data-automation="signin"]').click();
+			await app.code.driver.page.fill('input[name="username"]', 'user1');
+			await app.code.driver.page.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
+			await app.code.driver.page.locator('[data-automation="login-panel-submit"]').click();
 
-		await app.code.driver.page.fill('input[name="username"]', 'user1');
-		await app.code.driver.page.fill('input[name="password"]', process.env.POSIT_WORKBENCH_PASSWORD!);
-		await app.code.driver.page.locator('[data-automation="login-panel-submit"]').click();
+			await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
 
-		await app.code.driver.page.locator('[data-automation="content-table__row__display-name"]').first().click();
-
-		const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
-		await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
+			const headerLocator = app.code.driver.page.frameLocator('#contentIFrame').locator('h1');
+			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
+		});
 
 	});
 });
