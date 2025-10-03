@@ -41,8 +41,6 @@ class ColumnDisplayType(str, enum.Enum):
     Possible values for ColumnDisplayType
     """
 
-    Number = "number"
-
     Boolean = "boolean"
 
     String = "string"

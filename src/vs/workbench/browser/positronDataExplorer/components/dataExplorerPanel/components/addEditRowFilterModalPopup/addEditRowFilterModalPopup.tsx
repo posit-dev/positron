@@ -51,7 +51,6 @@ const validateRowFilterValue = (columnSchema: ColumnSchema, value: string) => {
 	// Validate the row filter value that was supplied based on the column schema type.
 	switch (columnSchema.type_display) {
 		// Number (including all numeric subtypes).
-		case ColumnDisplayType.Number:
 		case ColumnDisplayType.Floating:
 		case ColumnDisplayType.Integer:
 		case ColumnDisplayType.Decimal:
@@ -302,7 +301,6 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is less than / is greater than conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Decimal:
@@ -346,7 +344,6 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is equal to, is not equal to conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Decimal:
@@ -396,7 +393,6 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 		// Add is between / is not between conditions.
 		switch (selectedColumnSchema.type_display) {
-			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Decimal:

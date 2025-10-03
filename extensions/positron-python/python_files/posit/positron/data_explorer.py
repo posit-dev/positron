@@ -855,7 +855,7 @@ class DataExplorerTableView:
 
 
 def _box_number_stats(
-    min_val, max_val, mean_val, median_val, std_val, display_type=ColumnDisplayType.Number
+    min_val, max_val, mean_val, median_val, std_val, display_type=ColumnDisplayType.Floating
 ):
     return ColumnSummaryStats(
         type_display=display_type,
@@ -1066,7 +1066,6 @@ def _get_float_formatter(options: FormatOptions) -> Callable:
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
-    ColumnDisplayType.Number,
     ColumnDisplayType.Floating,
     ColumnDisplayType.Integer,
     ColumnDisplayType.Decimal,
@@ -1085,7 +1084,7 @@ def _pandas_temporal_mapper(type_name):
 
 
 def _pandas_summarize_number(
-    col: pd.Series, options: FormatOptions, display_type=ColumnDisplayType.Number
+    col: pd.Series, options: FormatOptions, display_type=ColumnDisplayType.Floating
 ):
     import numpy as np
 
@@ -1876,7 +1875,6 @@ class PandasView(DataExplorerTableView):
     _SUMMARIZERS = MappingProxyType(
         {
             ColumnDisplayType.Boolean: _pandas_summarize_boolean,
-            ColumnDisplayType.Number: _pandas_summarize_number,
             ColumnDisplayType.Floating: _pandas_summarize_floating,
             ColumnDisplayType.Integer: _pandas_summarize_integer,
             ColumnDisplayType.Decimal: _pandas_summarize_number,
@@ -2701,7 +2699,6 @@ class PolarsView(DataExplorerTableView):
     _SUMMARIZERS = MappingProxyType(
         {
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
-            ColumnDisplayType.Number: _polars_summarize_number,
             ColumnDisplayType.Floating: _polars_summarize_number,
             ColumnDisplayType.Integer: _polars_summarize_number,
             ColumnDisplayType.Decimal: _polars_summarize_number,
@@ -2822,7 +2819,6 @@ def _polars_dtype_from_display(display_type):
     import polars as pl
 
     return {
-        ColumnDisplayType.Number: pl.Float64,
         ColumnDisplayType.Floating: pl.Float64,
         ColumnDisplayType.Integer: pl.Int64,
         ColumnDisplayType.Decimal: pl.Float64,  # Polars doesn't have a separate decimal type

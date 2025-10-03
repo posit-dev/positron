@@ -60,7 +60,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		// Determines whether a sparkline is expected for this column type
 		const shouldShowSparkline = () => {
 			switch (props.columnSchema.type_display) {
-				case ColumnDisplayType.Number:
 				case ColumnDisplayType.Floating:
 				case ColumnDisplayType.Integer:
 				case ColumnDisplayType.Decimal:
@@ -113,7 +112,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		// Render.
 		switch (props.columnSchema.type_display) {
 			// Column display types that render a histogram sparkline.
-			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Decimal: {
@@ -376,7 +374,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				return <ColumnProfileInteger columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Other numeric types
-			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Decimal:
 				return <ColumnProfileNumber columnIndex={props.columnIndex} instance={props.instance} />;
@@ -422,7 +419,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
 			// Number (including all numeric subtypes).
-			case ColumnDisplayType.Number:
 			case ColumnDisplayType.Floating:
 			case ColumnDisplayType.Integer:
 			case ColumnDisplayType.Decimal:

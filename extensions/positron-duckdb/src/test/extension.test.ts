@@ -1362,7 +1362,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['1', '2', '3', '4', '5']
 			},
 			{
@@ -1374,7 +1374,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'value',
 				type: 'DOUBLE',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Floating,
 				values: ['10.5', '20.75', '30.25', '40.5', '50.0']
 			}
 		]);

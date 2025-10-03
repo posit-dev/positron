@@ -494,7 +494,6 @@
 				"type": "string",
 				"description": "Canonical Positron display name of data type",
 				"enum": [
-					"number",
 					"boolean",
 					"string",
 					"date",
