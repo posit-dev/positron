@@ -120,7 +120,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(deployButton).toBeVisible();
 		});
 
-		await hotKeys.toggleBottomPanel();
+		await hotKeys.minimizeBottomPanel();
 
 		await test.step('Ensure toml file is ready for update', async () => {
 			await expect(async () => {
@@ -149,7 +149,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
 		});
 
-		await hotKeys.toggleBottomPanel();
+		await hotKeys.restoreBottomPanel();
 
 		let appGuid;
 		await test.step('Deploy, await completion and get appGuid', async () => {
