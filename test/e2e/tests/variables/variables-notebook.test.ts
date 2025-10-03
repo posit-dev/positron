@@ -18,22 +18,6 @@ test.afterEach(async function ({ app }) {
 test.describe('Variables Pane - Notebook', {
 	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOKS]
 }, () => {
-	test('R - Verify Variables pane basic function for notebook', {
-		tag: [tags.ARK]
-	}, async function ({ app, hotKeys }) {
-		const { notebooks, variables } = app.workbench;
-
-		// Create a variable via a notebook
-		await notebooks.createNewNotebook();
-		await notebooks.selectInterpreter('R');
-		await notebooks.addCodeToCellAtIndex('y <- c(2, 3, 4, 5)');
-		await notebooks.executeCodeInCell();
-
-		// Verify the interpreter and var in the variable pane
-		await hotKeys.fullSizeSecondarySidebar();
-		await variables.expectSessionToBe('Untitled-1.ipynb');
-		await variables.expectVariableToBe('y', '2 3 4 5');
-	});
 
 	test('Python - Verify Variables pane basic function for notebook', async function ({ app }) {
 		const { notebooks, variables, hotKeys } = app.workbench;
@@ -71,6 +55,23 @@ test.describe('Variables Pane - Notebook', {
 		// Ensure the variable is still present
 		await variables.selectSession(FILENAME);
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
+	});
+
+	test('R - Verify Variables pane basic function for notebook', {
+		tag: [tags.ARK]
+	}, async function ({ app, hotKeys }) {
+		const { notebooks, variables } = app.workbench;
+
+		// Create a variable via a notebook
+		await notebooks.createNewNotebook();
+		await notebooks.selectInterpreter('R');
+		await notebooks.addCodeToCellAtIndex('y <- c(2, 3, 4, 5)');
+		await notebooks.executeCodeInCell();
+
+		// Verify the interpreter and var in the variable pane
+		await hotKeys.fullSizeSecondarySidebar();
+		await variables.expectSessionToBe('Untitled-1.ipynb');
+		await variables.expectVariableToBe('y', '2 3 4 5');
 	});
 });
 
