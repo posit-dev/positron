@@ -26,6 +26,8 @@ import { ActionBarCommandButton } from '../../../../platform/positronActionBar/b
 import { ActionBarActionCheckbox } from '../../../../platform/positronActionBar/browser/components/actionBarActionCheckbox.js';
 import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { isPositronActionBarCheckboxOptions, isPositronActionBarButtonOptions, isPositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
+import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
+import { ActionBarWidget } from '../../../../platform/positronActionBar/browser/components/actionBarWidget.js';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -465,6 +467,13 @@ export class EditorActionBarFactory extends Disposable {
 
 			// Process the action.
 			processAction(action);
+		}
+		// Get widgets for this menu location and add them to action bar elements.
+		// Widgets are custom React components (like status indicators) that appear alongside actions.
+		// They are filtered by context keys and sorted by order number.
+		const widgets = PositronActionBarWidgetRegistry.getWidgets(menuId, this._contextKeyService);
+		for (const widget of widgets) {
+			actionBarElements.push(<ActionBarWidget key={widget.id} descriptor={widget} />);
 		}
 
 		// If there are secondary actions, add the more actions button. Note that the normal

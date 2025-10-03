@@ -44,6 +44,7 @@ import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { KernelStatusBadge } from './KernelStatusBadge.js';
 
 
 /**
@@ -830,6 +831,24 @@ registerNotebookAction({
 		}
 	}
 });
+
+// Kernel Status Widget - Shows live kernel connection status at far right of action bar
+// Widget is command-driven: clicking opens the kernel picker dropdown
+registerNotebookAction({
+	id: 'positronNotebook.kernelStatus',
+	widget: {
+		component: KernelStatusBadge,
+		commandId: 'positronNotebook.selectKernel',
+		commandArgs: { forceDropdown: true },
+		ariaLabel: 'Select notebook kernel',
+		tooltip: 'Click to select a kernel'
+	},
+	menu: {
+		id: MenuId.EditorActionsRight,
+		order: 100  // High order to appear after other actions
+	}
+});
+
 //#endregion Notebook Header Actions
 
 // Register actions
