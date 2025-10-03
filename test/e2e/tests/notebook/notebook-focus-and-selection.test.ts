@@ -361,7 +361,8 @@ test.describe('Notebook Focus and Selection', {
 		// Get initial content
 		const initialContent = await app.workbench.notebooksPositron.getCellContent(1);
 		const normalizedInitial = normalizeCellContent(initialContent);
-		expect(normalizedInitial).toBe('print("Cell 1")');
+		const lineText = 'print("Cell 1")';
+		expect(normalizedInitial).toBe(lineText);
 
 		// Get cell and editor locators for line counting
 		const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(1);
@@ -371,7 +372,8 @@ test.describe('Notebook Focus and Selection', {
 		// Position cursor in the MIDDLE of the text (after "print(")
 		// This avoids any trailing newline trimming issues
 		await app.code.driver.page.keyboard.press('Home');
-		for (let i = 0; i < 6; i++) { // Move past "print("
+		const middleIndex = Math.floor(lineText.length / 2);
+		for (let i = 0; i < middleIndex; i++) { // move to middle of line
 			await app.code.driver.page.keyboard.press('ArrowRight');
 		}
 		await waitForFocusSettle(app, 100);
