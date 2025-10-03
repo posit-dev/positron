@@ -860,12 +860,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const onKeyDown = (event: KeyboardEvent) => {
 			const { key, shiftKey, ctrlKey, metaKey } = event;
 			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
-				// Prevent the Enter key from being processed by the editor
-				event.preventDefault();
-				event.stopPropagation();
-				this.selectionStateMachine.enterEditor().catch(err => {
-					this._logService.error(this.id, 'Error entering editor:', err);
-				});
+				// Only intercept Enter if we're NOT already in edit mode
+				// When already editing, let the event pass through to Monaco
+				const currentState = this.selectionStateMachine.state.get();
+				if (currentState.type !== SelectionState.EditingSelection) {
+					event.preventDefault();
+					event.stopPropagation();
+					this.selectionStateMachine.enterEditor().catch(err => {
+						this._logService.error(this.id, 'Error entering editor:', err);
+					});
+				}
 			} else if (key === 'Escape') {
 				this.selectionStateMachine.exitEditor();
 			}
