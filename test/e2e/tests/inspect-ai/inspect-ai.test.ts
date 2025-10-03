@@ -118,7 +118,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 
 		// Extract model and tests from the JSON data
 		const dataset = datasetJson.tests || [];
-		const modelName = datasetJson.model || 'Claude 4 Opus';
+		const modelName = datasetJson.model || 'Claude Sonnet 4';
 
 		// Start a Python Session
 		const [pySession] = await sessions.start(['python']);
