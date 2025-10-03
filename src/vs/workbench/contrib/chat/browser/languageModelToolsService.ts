@@ -23,6 +23,7 @@ import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../pl
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import * as JSONContributionRegistry from '../../../../platform/jsonschemas/common/jsonContributionRegistry.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -35,6 +36,7 @@ import { ChatModel } from '../common/chatModel.js';
 import { ChatToolInvocation } from '../common/chatProgressTypes/chatToolInvocation.js';
 import { IChatService } from '../common/chatService.js';
 import { ChatConfiguration } from '../common/constants.js';
+import { ILanguageModelsService } from '../common/languageModels.js';
 import { CountTokensCallback, createToolSchemaUri, ILanguageModelToolsService, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, IToolResultInputOutputDetails, ToolSet, stringifyPromptTsxPart, ToolDataSource } from '../common/languageModelToolsService.js';
 import { getToolConfirmationAlert } from './chatAccessibilityProvider.js';
 
@@ -79,7 +81,8 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService
+		@IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService,
+		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 	) {
 		super();
 
@@ -100,6 +103,12 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 		}));
 
 		this._ctxToolsCount = ChatContextKeys.Tools.toolsCount.bindTo(_contextKeyService);
+		// --- Start Positron ---
+		this._register(this._languageModelsService.onDidChangeCurrentProvider(() => {
+			// Handle changes to the current provider
+			this._onDidChangeTools.fire();
+		}));
+		// --- End Positron ---
 	}
 	override dispose(): void {
 		super.dispose();
@@ -172,6 +181,13 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 			toolData => {
 				const satisfiesWhenClause = includeDisabled || !toolData.when || this._contextKeyService.contextMatchesRules(toolData.when);
 				const satisfiesExternalToolCheck = toolData.source.type !== 'extension' || !!extensionToolsEnabled;
+				// --- Start Positron ---
+				const isCopilotProvider = this._languageModelsService.currentProvider?.id === 'copilot';
+				const isCopilotTool = toolData.source.type === 'extension' && ExtensionIdentifier.equals(toolData.source.extensionId, 'github.copilot-chat');
+				if (isCopilotTool && !isCopilotProvider) {
+					return this._configurationService.getValue<boolean>('positron.assistant.tools.enableCopilot') && satisfiesWhenClause && satisfiesExternalToolCheck;
+				}
+				// --- End Positron ---
 				return satisfiesWhenClause && satisfiesExternalToolCheck;
 			});
 	}
