@@ -224,4 +224,24 @@ export class Editor {
 			await this.code.driver.page.keyboard.type(replaceWith);
 		});
 	}
+
+	async getMonacoFilenames(): Promise<string[]> {
+		const loc = this.code.driver.page.locator('.monaco-editor[data-uri]');
+		const uris = await loc.evaluateAll(els =>
+			els.map(el => el.getAttribute('data-uri') ?? '')
+		);
+
+		const names = uris
+			.map(u => {
+				// drop query/hash and decode
+				const clean = decodeURIComponent(u.split('#')[0].split('?')[0]);
+				// take last path-ish segment (handles file:///… , /…, untitled:…, etc.)
+				const segs = clean.split(/[\\/:\u2215]/); // handle /, \, :
+				return segs[segs.length - 1] || '';
+			})
+			.filter(Boolean);
+
+		// if you only want unique filenames:
+		return [...new Set(names)];
+	}
 }

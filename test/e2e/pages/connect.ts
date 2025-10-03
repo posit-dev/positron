@@ -5,68 +5,203 @@
 
 import { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
+
+type CreateUserBody = {
+	email: string;
+	first_name: string;
+	last_name: string;
+	password: string;
+	user_role: 'viewer' | 'publisher' | 'administrator';
+	username: string;
+};
+
+type CreateUserResponse = {
+	email: string;
+	username: string;
+	first_name: string;
+	last_name: string;
+	user_role: string;
+	created_time: string;
+	updated_time: string;
+	active_time: string | null;
+	confirmed: boolean;
+	locked: boolean;
+	guid: string;
+};
+
+type ServerSettingsResponse = {
+	installations?: Array<{ version?: string }>;
+	api_enabled?: boolean;
+};
+
+type ConnectUser = {
+	email: string;
+	username: string;
+	first_name: string;
+	last_name: string;
+	user_role: string;
+	created_time: string;
+	updated_time: string;
+	active_time: string | null;
+	confirmed: boolean;
+	locked: boolean;
+	guid: string;
+};
+
+type UsersResponse = {
+	results: ConnectUser[];
+	current_page: number;
+	total: number;
+};
+
+export interface PermissionPayload {
+	principal_guid: string;
+	principal_type: 'user' | 'group' | string;
+	role: 'viewer' | 'publisher' | 'admin' | string;
+}
+
+interface PermissionResponse {
+	// Shape depends on your API; widen as needed
+	success?: boolean;
+	[key: string]: unknown;
+}
+
+const apiServer = 'http://localhost:3939/__api__/v1/';
+
 export class PositConnect {
 
-	private connectApiUrl: string;
 	private headers: Record<string, string>;
+	private connectApiKey: string;
 
 	constructor(private code: Code) {
 		this.code = code;
-		this.connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
-		this.headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
-
+		this.headers = {};
+		this.connectApiKey = '';
 	}
-	async deleteUserContent() {
-		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
-			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
+
+	setConnectApiKey(key: string) {
+		this.connectApiKey = key;
+		this.headers['Authorization'] = `Key ${this.connectApiKey}`;
+	}
+
+	getConnectApiKey() {
+		return this.connectApiKey;
+	}
+
+	// Create a new user and return the user guid
+	// Note: This function does not check for existing users with the same username/email
+	// It is the caller's responsibility to ensure uniqueness if needed
+
+	async createUser(): Promise<string> {
+		const body: CreateUserBody = {
+			email: 'john_doe@posit.co',
+			first_name: 'John',
+			last_name: 'Doe',
+			password: process.env.POSIT_WORKBENCH_PASSWORD || 'dummy',
+			user_role: 'viewer',
+			username: 'user1',
+		};
+
+		const res = await fetch(`${apiServer}users`, {
+			method: 'POST',
+			headers: this.headers,
+			body: JSON.stringify(body),
+		});
+
+		if (!res.ok) {
+			const text = await res.text().catch(() => '');
+			throw new Error(`Request failed: ${res.status} ${res.statusText}\n${text}`);
 		}
 
-		const userGuid = await this.getUser();
+		// If the server returns JSON, this will parse it.
+		const data = (await res.json()) as CreateUserResponse;
 
-		const appInfo = await (await fetch(this.connectApiUrl + `content?owner_guid=${userGuid}`, { headers: this.headers })).json();
+		// Return the guid
+		return data.guid;
+	}
 
-		for (const app of appInfo) {
-			const guid = app.guid as string;
 
-			const response = await fetch(`${this.connectApiUrl}content/${guid}`, {
-				method: 'DELETE',
+	async getPythonVersions(): Promise<string[]> {
+		const res = await fetch(`${apiServer}server_settings/python`, {
+			headers: this.headers
+		});
+		if (!res.ok) { throw new Error(`HTTP ${res.status} ${res.statusText}`); }
+
+		const data = (await res.json()) as ServerSettingsResponse;
+		return Array.from(
+			new Set((data.installations ?? []).map(i => i.version).filter((v): v is string => !!v))
+		);
+	}
+
+	async getUserId(username: string): Promise<string | undefined> {
+		const controller = new AbortController();
+		const t = setTimeout(() => controller.abort(), 10_000);
+
+		try {
+			const res = await fetch(`${apiServer}users`, {
+				method: 'GET',
 				headers: this.headers,
+				redirect: 'error', // mirrors --max-redirs 0 + --fail behavior
+				signal: controller.signal,
 			});
 
-			if (response.status !== 204) {
-				throw new Error(`Failed to delete content with GUID: ${guid}`);
+			if (!res.ok) {
+				const text = await res.text().catch(() => '');
+				throw new Error(`GET /users failed: ${res.status} ${res.statusText}${text ? ` — ${text}` : ''}`);
 			}
+
+			const data = (await res.json()) as UsersResponse;
+
+			const user1 = data.results.find(u => u.username === username);
+			return user1?.guid; // undefined if not found
+		} finally {
+			clearTimeout(t);
 		}
 	}
 
-	async getUser(): Promise<string> {
-		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
-			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
-		}
-
-		const userGuid = (await (await fetch(this.connectApiUrl + 'user', { headers: this.headers })).json()).guid;
-		return userGuid;
-	}
-
-	// To prevent flakiness, this function always add the file name after app.py, which is guaranteed to be present
-	async selectFilesForDeploy(files: string[]) {
+	async setPythonVersion(version: string) {
 		const editorContainer = this.code.driver.page.locator('[id="workbench.parts.editor"]');
-		const dynamicTomlLineRegex = 'app.py';
+		const dynamicTomlLineRegex = '[python]';
 		const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 
-		await targetLine.scrollIntoViewIfNeeded({ timeout: 20000 });
 		await expect(targetLine).toBeVisible({ timeout: 10000 });
 
 		await targetLine.click();
 		await this.code.driver.page.keyboard.press('End');
+		await this.code.driver.page.keyboard.press('Enter');
 
-		for (let i = 0; i < files.length; i++) {
-			if (i > 0) {
-				await this.code.driver.page.keyboard.press('Enter');
+		await this.code.driver.page.keyboard.type(`version = '${version}'`, { delay: 50 });
+	}
+
+
+	async setContentPermission(
+		contentGuid: string,
+		payload: PermissionPayload,
+	): Promise<PermissionResponse> {
+		const url = `${apiServer}content/${contentGuid}/permissions`;
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 15_000);
+
+		try {
+			const res = await fetch(url, {
+				method: 'POST',
+				headers: this.headers,
+				body: JSON.stringify(payload),
+				redirect: 'follow',
+				signal: controller.signal,
+			});
+
+			if (!res.ok) {
+				const text = await res.text().catch(() => '');
+				throw new Error(`HTTP ${res.status} ${res.statusText} — ${text}`);
 			}
-			await this.code.driver.page.keyboard.type(`'/${files[i]}',`);
+			// If the API returns JSON, parse it; otherwise return empty object
+			const contentType = res.headers.get('content-type') || '';
+			return contentType.includes('application/json')
+				? ((await res.json()) as PermissionResponse)
+				: {};
+		} finally {
+			clearTimeout(timeout);
 		}
-		const saveButton = this.code.driver.page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
-		await saveButton.click();
 	}
 }

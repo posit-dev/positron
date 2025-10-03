@@ -21,7 +21,7 @@ import {
 } from '../fixtures/test-setup';
 import { loadEnvironmentVars, validateEnvironmentVars } from '../fixtures/load-environment-vars.js';
 import { RecordMetric } from '../utils/metrics/metric-base.js';
-import { runDockerCommand } from '../fixtures/test-setup/app-workbench.fixtures.js';
+import { runDockerCommand, RunResult } from '../fixtures/test-setup/app-workbench.fixtures.js';
 
 // used specifically for app fixture error handling in test.afterAll
 let appFixtureFailed = false;
@@ -196,7 +196,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			if (testInfo.project.name !== 'e2e-workbench') {
 				throw new Error('runDockerCommand is only available in the e2e-workbench project');
 			}
-			await runDockerCommand(command, description);
+			return runDockerCommand(command, description); // <-- return result
 		});
 	},
 
@@ -350,7 +350,7 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
-	runDockerCommand: (command: string, description: string) => Promise<void>;
+	runDockerCommand: (command: string, description: string) => Promise<RunResult>;
 	executeCode: (language: 'Python' | 'R', code: string, options?: {
 		timeout?: number;
 		waitForReady?: boolean;

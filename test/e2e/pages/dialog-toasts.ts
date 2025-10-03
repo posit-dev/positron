@@ -87,4 +87,9 @@ export class Toasts {
 			await this.code.driver.page.waitForTimeout(1000);
 		}
 	}
+
+	async awaitToastDisappearance(timeoutMs = 3000) {
+		await expect(this.toastNotification).toHaveCount(0, { timeout: timeoutMs });
+	}
+
 }
