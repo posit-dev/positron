@@ -432,7 +432,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		let defaultValue: string | undefined;
 		const notebookParent = URI.joinPath(notebookUri, '..');
 		if (await this.isValidDirectory(notebookParent)) {
-			defaultValue = notebookParent.fsPath;
+			defaultValue = notebookParent.scheme === Schemas.file ? notebookParent.fsPath : notebookParent.path;
 		}
 
 		const configValue = this._configurationService.getValue<string>(
@@ -458,7 +458,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Check if the result is a directory that exists
 		let resolvedValueUri: URI;
 		try {
-			resolvedValueUri = notebookUri.with({ path: resolvedValue });
+			resolvedValueUri = URI.from({ scheme: this._pathService.defaultUriScheme, path: resolvedValue });
 		} catch (error) {
 			this._logService.warn(`${NotebookSetting.workingDirectory}: Invalid path '${resolvedValue}'. Using default: '${defaultValue}'`, error);
 			return defaultValue;
@@ -2432,7 +2432,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Then try to resolve symlinks
 		try {
-			const pathUri = userHome.with({ path: untildifiedPath });
+			const pathUri = URI.from({ scheme: this._pathService.defaultUriScheme, path: untildifiedPath });
 			const realpath = await this._fileService.realpath(pathUri);
 			return realpath ? (realpath.scheme === Schemas.file ? realpath.fsPath : realpath.path) : untildifiedPath;
 		} catch (error) {
@@ -2477,7 +2477,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				if (!workspaceFolder) {
 					return p;
 				}
-				const relativePath = path.relative(workspaceFolder.uri.fsPath, p);
+				const workspaceFolderPath = workspaceFolder.uri.scheme === Schemas.file ? workspaceFolder.uri.fsPath : workspaceFolder.uri.path;
+				const relativePath = path.relative(workspaceFolderPath, p);
 				if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
 					return p;
 				}
