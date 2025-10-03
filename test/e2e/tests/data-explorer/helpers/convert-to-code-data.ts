@@ -101,3 +101,31 @@ score = c(89.5, NA, 95.0, 76.0),
 grade = c("B+", "A", "A+", NA),
 status = factor(c("active", "inactive", "active", "on leave")),
 )`;
+
+export const dplyrScript = `
+library(dplyr)
+
+df <- data.frame(
+name = c("Alice", "Bob", "Charlie", "Diana"),
+age = c(25, 35, 40, NA),
+city = c("Austin", "Dallas", "Austin", "Houston"),
+state = c("Texas", "Texas", "Texas", "Texas"),
+is_student = c(TRUE, FALSE, FALSE, TRUE),
+enrollment_date = as.Date(c("2023-01-01", NA, "2021-07-15", "2022-09-30")),
+score = c(89.5, NA, 95.0, 76.0),
+grade = c("B+", "A", "A+", NA),
+status = factor(c("active", "inactive", "active", "on leave")),
+stringsAsFactors = FALSE
+) %>%
+as_tibble()`;
+
+
+/**
+ * Helper function to normalize code for UI text comparison
+ * @param code The code string to normalize
+ * @returns The normalized code with consistent whitespace
+ */
+export const normalizeCodeForDisplay = (code: string): string => {
+	// Replace newlines with spaces for UI component text comparison
+	return code.replace(/\n/g, '');
+};
