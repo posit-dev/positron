@@ -81,12 +81,6 @@ test.use({
 
 test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] }, () => {
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'dataExplorer.convertToCode': true
-		});
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
