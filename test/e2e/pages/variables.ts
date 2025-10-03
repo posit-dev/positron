@@ -220,4 +220,8 @@ export class Variables {
 		});
 	}
 
+	async waitForVariableNotebookConnection() {
+		await expect(this.code.driver.page.getByText('No variables have been created')).toBeVisible();
+	}
+
 }
