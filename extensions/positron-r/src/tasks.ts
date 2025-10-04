@@ -88,10 +88,12 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 				{ env: taskEnv }
 			);
 		} else {
-			// The explicit quoting treatment here is also motivated by PowerShell, so make sure to
-			// test any changes on Windows.
+			// The explicit quoting treatment here is motivated by problems on
+			// both bash and PowerShell, on Windows, so make sure to test any
+			// changes on Windows.
+			// https://github.com/posit-dev/positron/issues/9216
 			exec = new vscode.ShellExecution(
-				binpath,
+				{ value: binpath, quoting: vscode.ShellQuoting.Strong },
 				['--quiet', '--no-restore', '--no-save', '-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
 				{ env: taskEnv }
 			);

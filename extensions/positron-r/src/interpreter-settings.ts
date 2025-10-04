@@ -21,7 +21,7 @@ export function userRHeadquarters(): string[] {
 		return [];
 	}
 	const userHqDirs = customRootFolders
-		.map((item) => untildify(item))
+		.map((item) => path.normalize(untildify(item)))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -46,7 +46,7 @@ export function userRBinaries(): string[] {
 		return [];
 	}
 	const userBinaries = customBinaries
-		.map((item) => untildify(item))
+		.map((item) => path.normalize(untildify(item)))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -72,7 +72,7 @@ function getExcludedInstallations(): string[] {
 		return [];
 	}
 	const excludedPaths = interpretersExclude
-		.map((item) => untildify(item))
+		.map((item) => path.normalize(untildify(item)))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -100,7 +100,7 @@ export function getInterpreterOverridePaths(): string[] {
 		return [];
 	}
 	const overridePaths = interpretersOverride
-		.map((item) => untildify(item))
+		.map((item) => path.normalize(untildify(item)))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -149,7 +149,7 @@ export function getDefaultInterpreterPath(): string | undefined {
 	const config = vscode.workspace.getConfiguration('positron.r');
 	let defaultInterpreterPath = config.get<string>('interpreters.default');
 	if (defaultInterpreterPath) {
-		defaultInterpreterPath = untildify(defaultInterpreterPath);
+		defaultInterpreterPath = path.normalize(untildify(defaultInterpreterPath));
 		if (path.isAbsolute(defaultInterpreterPath)) {
 			LOGGER.info(`Default R interpreter path specified in 'positron.r.interpreters.default': ${defaultInterpreterPath}`);
 			return defaultInterpreterPath;

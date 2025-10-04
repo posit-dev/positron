@@ -146,6 +146,8 @@ export class RInstallation {
 		current: boolean = false,
 		reasonDiscovered: ReasonDiscovered[] | null = null
 	) {
+		pth = path.normalize(pth);
+
 		LOGGER.info(`Candidate R binary at ${pth}`);
 
 		this.binpath = pth;
