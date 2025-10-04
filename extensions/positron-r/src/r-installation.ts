@@ -146,10 +146,6 @@ export class RInstallation {
 		current: boolean = false,
 		reasonDiscovered: ReasonDiscovered[] | null = null
 	) {
-		// Normalize path separators on Windows to insulate us against path
-		// separator choices made by users/admins
-		// Avoids issues with possible downstream shell execution using this path
-		// https://github.com/posit-dev/positron/issues/9216
 		pth = path.normalize(pth);
 
 		LOGGER.info(`Candidate R binary at ${pth}`);
