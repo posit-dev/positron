@@ -405,6 +405,13 @@ export class LanguageModelsService implements ILanguageModelsService {
 					continue;
 				}
 
+				// --- Start Positron ---
+				// Don't include BYOK model providers from copilot-chat extension
+				if (extension.description.id === 'GitHub.copilot-chat' && extension.value && Array.isArray(extension.value)) {
+					extension.value = extension.value.filter(v => v.vendor === 'copilot');
+				}
+				// --- End Positron ---
+
 				for (const item of Iterable.wrap(extension.value)) {
 					if (this._vendors.has(item.vendor)) {
 						extension.collector.error(localize('vscode.extension.contributes.languageModels.vendorAlreadyRegistered', "The vendor '{0}' is already registered and cannot be registered twice", item.vendor));
