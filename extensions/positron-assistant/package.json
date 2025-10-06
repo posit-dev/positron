@@ -287,6 +287,16 @@
             "default": 60,
             "description": "%configuration.providerTimeout.description%",
             "minimum": 1
+          },
+          "positron.assistant.filterModels": {
+            "type": "array",
+            "default": [
+              "**/*"
+            ],
+            "markdownDescription": "%configuration.filterModels.description%",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

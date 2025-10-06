@@ -21,6 +21,11 @@ import { IExtensionService, isProposedApiEnabled } from '../../../services/exten
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
 import { ChatContextKeys } from './chatContextKeys.js';
 
+// --- Start Positron ---
+import { match } from '../../../../base/common/glob.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
+
 export const enum ChatMessageRole {
 	System,
 	User,
@@ -372,7 +377,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IContextKeyService _contextKeyService: IContextKeyService
+		@IContextKeyService _contextKeyService: IContextKeyService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(_contextKeyService);
 		this._modelPickerUserPreferences = this._storageService.getObject<Record<string, boolean>>('chatModelPickerPreferences', StorageScope.PROFILE, this._modelPickerUserPreferences);
@@ -628,6 +636,19 @@ export class LanguageModelsService implements ILanguageModelsService {
 						this._logService.warn(`[LM] Model ${modelAndIdentifier.identifier} is already registered. Skipping.`);
 						continue;
 					}
+
+					// --- Start Positron ---
+					// Get and apply LLM allow filters from configuration.
+					const _config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
+					this._logService.trace('[LM] Applying model filters:', _config.filterModels);
+					if (_config.filterModels.length > 0 && !_config.filterModels.some(pattern =>
+						match(pattern, modelAndIdentifier.metadata.id) ||
+						match(pattern, modelAndIdentifier.metadata.name))
+					) {
+						continue;
+					}
+					// --- End Positron ---
+
 					this._modelCache.set(modelAndIdentifier.identifier, modelAndIdentifier.metadata);
 				}
 				this._logService.trace(`[LM] Resolved language models for vendor ${vendor}`, modelsAndIdentifiers);
