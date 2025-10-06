@@ -118,6 +118,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _cellsContainerListeners = this._register(new DisposableStore());
 
 	/**
+	 * Callback to clear the keyboard navigation listeners. Set when listeners are attached.
+	 */
+	private _clearKeyboardNavigation: (() => void) | undefined = undefined;
+
+	/**
 	 * Key-value map of language to base cell editor options for cells of that language.
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
@@ -663,6 +668,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._container = container;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
+		this._setupKeyboardNavigation(container);
 		this._logService.info(this.id, 'attachView');
 	}
 
@@ -710,6 +716,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	detachView(): void {
 		this._container = undefined;
 		this._logService.info(this.id, 'detachView');
+		this._clearKeyboardNavigation?.();
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
 	}
@@ -837,6 +844,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		await this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel), this._contextKeyService);
 	}
 
+
+	/**
+	 * Setup keyboard navigation for the current notebook.
+	 * @param container The main containing node the notebook is rendered into
+	 */
+	private _setupKeyboardNavigation(container: HTMLElement) {
+		// Add some keyboard navigation for cases not covered by the keybindings. I'm not sure if
+		// there's a way to do this directly with keybindings but this feels acceptable due to the
+		// ubiquity of the enter key and escape keys for these types of actions.
+		const onKeyDown = (event: KeyboardEvent) => {
+			const { key, shiftKey, ctrlKey, metaKey } = event;
+			if (key === 'Enter' && !(ctrlKey || metaKey || shiftKey)) {
+				// Prevent the Enter key from being processed by the editor
+				event.preventDefault();
+				event.stopPropagation();
+				this.selectionStateMachine.enterEditor().catch(err => {
+					this._logService.error(this.id, 'Error entering editor:', err);
+				});
+			} else if (key === 'Escape') {
+				this.selectionStateMachine.exitEditor();
+			}
+		};
+
+		this._container?.addEventListener('keydown', onKeyDown);
+
+		this._clearKeyboardNavigation = () => {
+			this._container?.removeEventListener('keydown', onKeyDown);
+		};
+	}
 
 	/**
 	 * Clears the output of a specific cell in the notebook.
