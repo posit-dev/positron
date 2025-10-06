@@ -297,6 +297,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "positron.assistant.preferredModel": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.preferredModel.description%"
           }
         }
       }

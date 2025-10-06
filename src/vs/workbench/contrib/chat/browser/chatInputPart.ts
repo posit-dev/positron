@@ -536,7 +536,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		this._register(this.languageModelsService.onDidChangeCurrentProvider((provider) => {
 			// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
-			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.family !== provider) {
+			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.vendor !== provider) {
 				const models = this.getModels();
 				if (models.length > 0) {
 					this.setCurrentLanguageModel(models[0]);
@@ -561,7 +561,18 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			persistedSelection = persistedSelection.replace('github.copilot-chat/', 'copilot/');
 			this.storageService.store(this.getSelectedModelStorageKey(), persistedSelection, StorageScope.APPLICATION, StorageTarget.USER);
 		}
+		// --- Start Positron ---
+		// Allow user to override application persisted model with config setting
+		/*
 		const persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
+		*/
+		let persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
+		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
+		if (config.preferredModel) {
+			persistedSelection = config.preferredModel;
+			persistedAsDefault = false;
+		}
+		// --- End Positron ---
 
 		if (persistedSelection) {
 			const model = this.languageModelsService.lookupLanguageModel(persistedSelection);
@@ -573,7 +584,25 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				}
 			} else {
 				this._waitForPersistedLanguageModel.value = this.languageModelsService.onDidChangeLanguageModels(e => {
+					// --- Start Positron ---
+					// Also search for the model partially and by name.
+					/*
 					const persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
+					*/
+
+					let persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
+					if (!persistedModel) {
+						const allModels = this.languageModelsService.getLanguageModelIds();
+						for (const modelId of allModels) {
+							const model = this.languageModelsService.lookupLanguageModel(modelId);
+							if (model && (model.id.includes(persistedSelection) || model.name.includes(persistedSelection))) {
+								persistedModel = model;
+								break;
+							}
+						}
+					}
+					// --- End Positron ---
+
 					if (persistedModel) {
 						this._waitForPersistedLanguageModel.clear();
 
@@ -714,6 +743,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	private setCurrentLanguageModel(model: ILanguageModelChatMetadataAndIdentifier) {
 		this._currentLanguageModel = model;
+
+		// --- Start Positron ---
+		// If we're switching to a model from another provider, change the provider too
+		if (model && model.metadata.vendor !== this.languageModelsService.currentProvider?.id) {
+			const modelProvider = this.languageModelsService.getLanguageModelProviders().find(p => p.id === model.metadata.vendor);
+			this.languageModelsService.currentProvider = modelProvider;
+		}
+		// --- End Positron ---
 
 		if (this.cachedDimensions) {
 			// For quick chat and editor chat, relayout because the input may need to shrink to accomodate the model name
