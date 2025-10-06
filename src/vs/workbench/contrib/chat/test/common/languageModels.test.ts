@@ -18,6 +18,7 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { Event } from '../../../../../base/common/event.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 
 suite('LanguageModels', function () {
 
@@ -37,7 +38,8 @@ suite('LanguageModels', function () {
 			},
 			new NullLogService(),
 			new TestStorageService(),
-			new MockContextKeyService()
+			new MockContextKeyService(),
+			new TestConfigurationService(),
 		);
 
 		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelExtensionPoint.name)!;
