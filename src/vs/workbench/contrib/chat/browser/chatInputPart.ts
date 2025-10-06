@@ -597,6 +597,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 							const model = this.languageModelsService.lookupLanguageModel(modelId);
 							if (model && (model.id.includes(persistedSelection) || model.name.includes(persistedSelection))) {
 								persistedModel = model;
+							}
+							if (model && (model.id === persistedSelection || model.name === persistedSelection)) {
 								break;
 							}
 						}
