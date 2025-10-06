@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
-import { arePathsSame, isParentPath, untildify } from './path-utils';
+import { arePathsSame, isParentPath, normalizeUserPath } from './path-utils';
 
 /**
  * Directory(ies) where this user keeps R installations.
@@ -21,7 +21,7 @@ export function userRHeadquarters(): string[] {
 		return [];
 	}
 	const userHqDirs = customRootFolders
-		.map((item) => path.normalize(untildify(item)))
+		.map((item) => normalizeUserPath(item))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -46,7 +46,7 @@ export function userRBinaries(): string[] {
 		return [];
 	}
 	const userBinaries = customBinaries
-		.map((item) => path.normalize(untildify(item)))
+		.map((item) => normalizeUserPath(item))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -72,7 +72,7 @@ function getExcludedInstallations(): string[] {
 		return [];
 	}
 	const excludedPaths = interpretersExclude
-		.map((item) => path.normalize(untildify(item)))
+		.map((item) => normalizeUserPath(item))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -100,7 +100,7 @@ export function getInterpreterOverridePaths(): string[] {
 		return [];
 	}
 	const overridePaths = interpretersOverride
-		.map((item) => path.normalize(untildify(item)))
+		.map((item) => normalizeUserPath(item))
 		.filter((item) => {
 			if (path.isAbsolute(item)) {
 				return true;
@@ -149,7 +149,7 @@ export function getDefaultInterpreterPath(): string | undefined {
 	const config = vscode.workspace.getConfiguration('positron.r');
 	let defaultInterpreterPath = config.get<string>('interpreters.default');
 	if (defaultInterpreterPath) {
-		defaultInterpreterPath = path.normalize(untildify(defaultInterpreterPath));
+		defaultInterpreterPath = normalizeUserPath(defaultInterpreterPath);
 		if (path.isAbsolute(defaultInterpreterPath)) {
 			LOGGER.info(`Default R interpreter path specified in 'positron.r.interpreters.default': ${defaultInterpreterPath}`);
 			return defaultInterpreterPath;
