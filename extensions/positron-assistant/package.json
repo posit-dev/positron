@@ -293,25 +293,25 @@
     ],
     "languageModels": [
       {
-        "vendor": "echo",
-        "displayName": "Echo"
-      },
-      {
         "vendor": "amazon-bedrock",
-        "displayName": "Amazon Bedrock"
+        "displayName": "Amazon Bedrock",
+        "managementCommand": "positron-assistant.configureModels"
       },
       {
         "vendor": "anthropic-api",
-        "displayName": "Anthropic"
+        "displayName": "Anthropic",
+        "managementCommand": "positron-assistant.configureModels"
       },
       {
         "vendor": "openai",
-        "displayName": "OpenAI"
+        "displayName": "OpenAI",
+        "managementCommand": "positron-assistant.configureModels"
       },
-	  {
-		"vendor": "openai-compatible",
-		"displayName": "Custom Provider"
-	  }
+      {
+        "vendor": "openai-compatible",
+        "displayName": "Custom Provider",
+        "managementCommand": "positron-assistant.configureModels"
+      }
     ],
     "languageModelTools": [
       {
