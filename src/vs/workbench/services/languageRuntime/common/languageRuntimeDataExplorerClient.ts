@@ -284,6 +284,13 @@ export class DataExplorerClientInstance extends Disposable {
 		return this._backendClient.clientId;
 	}
 
+	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions(): FormatOptions {
+		return this._profileFormatOptions;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Methods
