@@ -22,7 +22,7 @@ async function getCellCount(app: Application): Promise<number> {
 
 
 test.describe('Cell Deletion Action Bar Behavior', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test('Cell deletion using action bar', async function ({ app, settings }) {

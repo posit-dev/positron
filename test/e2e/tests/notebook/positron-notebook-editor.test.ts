@@ -14,7 +14,7 @@ test.use({
 
 
 test.describe('Positron notebook opening and saving', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
