@@ -186,7 +186,14 @@
         "title": "%commands.toggleInlineCompletions.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
-      }
+      },
+	  {
+		"command": "positron-assistant.clearModelProviders",
+		"title": "%commands.clearModelProviders.title%",
+		"category": "%commands.category%",
+		"enablement": "config.positron.assistant.enable",
+		"icon": "$(trash)"
+	  }
     ],
     "configuration": [
       {

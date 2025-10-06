@@ -11,6 +11,7 @@
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",
+	"commands.clearModelProviders.title": "Clear Positron Assistant Configuration",
 	"chatParticipants.fullName": "Positron Assistant",
 	"chatParticipants.ask.description": "Ask Assistant",
 	"chatParticipants.agent.description": "Complete tasks in your workspace",

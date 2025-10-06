@@ -307,7 +307,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerParticipantDetectionProvider();
 
 	// Register chat commands
-	registerAssistantCommands();
+	registerAssistantCommands(context, storage);
 
 	// Dispose cleanup
 	context.subscriptions.push({

@@ -9,6 +9,8 @@ import { registerFixCommand } from './fix.js';
 import { registerQuartoCommand } from './quarto.js';
 import { registerExplainCommand } from './explain.js';
 import { registerDocCommand } from './doc.js';
+import { registerConfigurationCommands } from './config.js';
+import { SecretStorage } from '../config.js';
 
 /**
  * A function that handles chat requests.
@@ -29,9 +31,10 @@ export interface IChatRequestHandler {
 	): Promise<vscode.ChatResult | void>;
 }
 
-export function registerAssistantCommands() {
+export function registerAssistantCommands(context: vscode.ExtensionContext, storage: SecretStorage) {
 	registerFixCommand();
 	registerExplainCommand();
 	registerQuartoCommand();
 	registerDocCommand();
+	registerConfigurationCommands(context, storage);
 }
