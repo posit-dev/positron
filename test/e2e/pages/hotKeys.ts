@@ -69,7 +69,7 @@ export class HotKeys {
 	}
 
 	public async save() {
-		await this.pressHotKeys('Cmd+S', 'Save', true);
+		await this.pressHotKeys('Cmd+S', 'Save');
 	}
 
 	// -------------------------
@@ -77,7 +77,7 @@ export class HotKeys {
 	// -------------------------
 
 	public async closeAllEditors() {
-		await this.pressHotKeys('Cmd+K Cmd+W', 'Close all editors', true);
+		await this.pressHotKeys('Cmd+K Cmd+W', 'Close all editors');
 		if (this.isExternalBrowser()) {
 			const dontSaveButton = this.code.driver.page.getByRole('button', { name: 'Don\'t Save' });
 			if (await dontSaveButton.isVisible()) {
@@ -141,7 +141,7 @@ export class HotKeys {
 	}
 
 	public async closeSecondarySidebar() {
-		await this.pressHotKeys('Cmd+J A', 'Hide secondary sidebar', true);
+		await this.pressHotKeys('Cmd+J A', 'Hide secondary sidebar');
 	}
 
 	public async fullSizeSecondarySidebar() {
@@ -149,7 +149,7 @@ export class HotKeys {
 	}
 
 	public async stackedLayout() {
-		await this.pressHotKeys('Cmd+J H', 'Stacked layout', true);
+		await this.pressHotKeys('Cmd+J H', 'Stacked layout');
 	}
 
 	public async toggleBottomPanel() {
@@ -165,11 +165,11 @@ export class HotKeys {
 	}
 
 	public async minimizeBottomPanel() {
-		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel', true);
+		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
 	}
 
 	public async restoreBottomPanel() {
-		await this.pressHotKeys('Cmd+J V', 'Restore bottom panel', true);
+		await this.pressHotKeys('Cmd+J V', 'Restore bottom panel');
 	}
 
 	// -------------------------
