@@ -308,6 +308,11 @@
     ],
     "languageModels": [
       {
+        "vendor": "echo",
+        "displayName": "Echo",
+        "managementCommand": "positron-assistant.configureModels"
+      },
+      {
         "vendor": "amazon-bedrock",
         "displayName": "Amazon Bedrock",
         "managementCommand": "positron-assistant.configureModels"
