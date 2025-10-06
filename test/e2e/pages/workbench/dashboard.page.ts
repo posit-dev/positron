@@ -55,7 +55,7 @@ export class DashboardPage {
 		await this.sessionNameInput.fill(folderToOpen);
 		await this.launchButton.click();
 		await this.code.driver.page.getByRole('button', { name: 'Open Folder', exact: true }).click();
-		await this.quickInput.waitForQuickInputOpened()
+		await this.quickInput.waitForQuickInputOpened();
 		await this.quickInput.selectQuickInputElementContaining(folderToOpen);
 		await this.quickInput.clickOkButton();
 	}

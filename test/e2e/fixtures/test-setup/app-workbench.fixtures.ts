@@ -46,6 +46,12 @@ export async function WorkbenchApp(
 		await app.code.driver.page.waitForSelector('.monaco-workbench', { timeout: 60000 });
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
+
+		// handle erroneous flask warning
+		try {
+			await app.code.driver.page.locator('.monaco-dialog-box').getByText('Ok').click({ timeout: 10000 });
+		} catch { }
+
 		await app.workbench.hotKeys.closeAllEditors();
 	};
 
