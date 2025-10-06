@@ -960,7 +960,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'amazon-bedrock',
-			displayName: 'AWS Bedrock'
+			displayName: 'Amazon Bedrock'
 		},
 		supportedOptions: ['toolCalls'],
 		defaults: {
@@ -1011,7 +1011,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
 		}
 
-		return vscode.l10n.t(`AWS Bedrock error: {0}`, message);
+		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
 	}
 }
 
