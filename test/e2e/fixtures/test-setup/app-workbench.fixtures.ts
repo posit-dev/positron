@@ -158,8 +158,24 @@ async function copyUserSettingsToContainer(): Promise<void> {
 	}
 }
 
-async function copyKeyBindingsToContainer(): Promise<void> {
+export async function copyKeyBindingsToContainer(): Promise<void> {
 	const fixturesDir = path.join(ROOT_PATH, 'test/e2e/fixtures');
-	const keybindingsFile = path.join(fixturesDir, 'keybindings.json');
-	await runDockerCommand(`docker cp ${keybindingsFile} test:/home/user1/.positron-server/User/keybindings.json`, 'Copy keybindings to container');
+	const src = path.join(fixturesDir, 'keybindings.json');
+
+	const original = await fs.promises.readFile(src, 'utf8');
+	const modifier = process.platform === 'darwin' ? 'cmd' : 'ctrl';
+	const adjusted = original.replace(/cmd/gi, modifier);
+
+	const tmpFile = path.join(os.tmpdir(), `keybindings.${Date.now()}.json`);
+	await fs.promises.writeFile(tmpFile, adjusted, 'utf8');
+
+	const containerPath = '/home/user1/.positron-server/User/keybindings.json';
+	
+	await runDockerCommand(
+		`docker cp "${tmpFile}" test:"${containerPath}"`,
+		'Copy keybindings to container'
+	);
+
+	// Cleanup
+	await fs.promises.unlink(tmpFile);
 }
