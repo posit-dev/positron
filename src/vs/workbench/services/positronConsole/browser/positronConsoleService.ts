@@ -737,7 +737,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Check to see if we have a session to back this console
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
-			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()))
+			this._notificationService.warn(localize('positron.noNotebookSession', "No session is running for notebook {0}", notebookUri.toString()));
 			return;
 		}
 
@@ -936,8 +936,19 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 }
 
 /**
-* PositronConsoleInstance class.
-*/
+ * Pending code fragment with its execution metadata.
+ */
+interface IPendingCodeFragment {
+	code: string;
+	attribution: IConsoleCodeAttribution;
+	executionId: string | undefined;
+	mode: RuntimeCodeExecutionMode;
+	errorBehavior: RuntimeErrorBehavior;
+}
+
+/**
+ * PositronConsoleInstance class.
+ */
 class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
 	//#region Private Properties
 
@@ -954,6 +965,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * in the console.
 	 */
 	private _externalExecutionIds: Set<string> = new Set<string>();
+
+	/**
+	 * Queue of pending code fragments waiting to be executed.
+	 */
+	private _pendingCodeQueue: IPendingCodeFragment[] = [];
 
 	/**
 	 * Gets or sets the session, if attached.
@@ -1592,7 +1608,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
 		if (this._runtimeItemPendingInput) {
-			this.addPendingInput(code, attribution, executionId);
+			this.addPendingInput(
+				code,
+				attribution,
+				executionId,
+				mode ?? RuntimeCodeExecutionMode.Interactive,
+				errorBehavior ?? RuntimeErrorBehavior.Continue
+			);
 			return;
 		}
 
@@ -1601,7 +1623,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// time the runtime becomes idle.
 		const runtimeState = this.session?.getRuntimeState() || RuntimeState.Uninitialized;
 		if (!(runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready)) {
-			this.addPendingInput(code, attribution, executionId);
+			this.addPendingInput(
+				code,
+				attribution,
+				executionId,
+				mode ?? RuntimeCodeExecutionMode.Interactive,
+				errorBehavior ?? RuntimeErrorBehavior.Continue
+			);
 			return;
 		}
 
@@ -2582,42 +2610,79 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code for the pending input.
 	 * @param attribution The attribution for the pending input.
 	 * @param executionId The execution ID for the pending input.
+	 * @param mode The code execution mode.
+	 * @param errorBehavior The error behavior.
 	 */
 	private addPendingInput(code: string,
 		attribution: IConsoleCodeAttribution,
-		executionId?: string) {
-		// If there is a pending input runtime item, remove it.
-		if (this._runtimeItemPendingInput) {
-			// Get the index of the pending input runtime item.
-			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+		executionId: string | undefined,
+		mode: RuntimeCodeExecutionMode,
+		errorBehavior: RuntimeErrorBehavior) {
+		// Add to the pending code queue.
+		this._pendingCodeQueue.push({
+			code,
+			attribution,
+			executionId,
+			mode,
+			errorBehavior
+		});
 
-			// This index should always be > -1, but be defensive. Remove the pending input runtime
-			// item.
+		// Only create/update visual pending input for interactive mode.
+		if (mode === RuntimeCodeExecutionMode.Silent) {
+			// Silent code should not be displayed, so we're done.
+			return;
+		}
+
+		// If there is a pending input runtime item, we need to recreate it with the concatenated code
+		// of all interactive items.
+		if (this._runtimeItemPendingInput) {
+			// Remove the old pending input runtime item.
+			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
 			if (index > -1) {
 				this._runtimeItems.splice(index, 1);
 			}
 
-			// Set the code.
-			code = this._runtimeItemPendingInput.code + '\n' + code;
+			// Concatenate only the interactive code fragments from the queue.
+			const interactiveCode = this._pendingCodeQueue
+				.filter(item => item.mode === RuntimeCodeExecutionMode.Interactive)
+				.map(item => item.code)
+				.join('\n');
+
+			// Create a new pending input runtime item with the concatenated interactive code.
+			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+				generateUuid(),
+				this._session?.dynState.inputPrompt ?? '',
+				attribution,
+				executionId,
+				interactiveCode,
+				mode
+			);
+
+			// Add it back to the runtime items.
+			this.addRuntimeItem(this._runtimeItemPendingInput);
+		} else {
+			// Create the pending input runtime item for the first interactive code fragment.
+			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+				generateUuid(),
+				this._session?.dynState.inputPrompt ?? '',
+				attribution,
+				executionId,
+				code,
+				mode
+			);
+
+			// Add the pending input runtime item.
+			this.addRuntimeItem(this._runtimeItemPendingInput);
 		}
-
-		// Create the pending input runtime item.
-		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-			generateUuid(),
-			this._session?.dynState.inputPrompt ?? '',
-			attribution,
-			executionId,
-			code
-		);
-
-		// Add the pending input runtime item.
-		this.addRuntimeItem(this._runtimeItemPendingInput);
 	}
 
 	/**
 	 * Clears pending input.
 	 */
 	private clearPendingInput() {
+		// Clear the pending code queue.
+		this._pendingCodeQueue = [];
+
 		// If there is a pending input runtime item, remove it.
 		if (this._runtimeItemPendingInput) {
 			// Get the index of the pending input runtime item.
@@ -2753,148 +2818,124 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	private async processPendingInputImpl(): Promise<void> {
-		// If there isn't a pending input runtime item, return.
-		if (!this._runtimeItemPendingInput) {
+		// If there isn't a pending code queue or it's empty, return.
+		if (this._pendingCodeQueue.length === 0) {
 			return;
 		}
 
-		// If there's no session, return
+		// If there's no session, return.
 		if (!this._session) {
 			return;
 		}
 
-		// Save the attribution
-		const attribution = this._runtimeItemPendingInput.attribution;
+		// Process the first item in the queue.
+		const pendingItem = this._pendingCodeQueue[0];
 
-		// Find a complete code fragment to execute.
-		let code = undefined;
-		const codeLines: string[] = [];
+		// Check if the code fragment is complete.
+		const codeFragmentStatus = await this._session.isCodeFragmentComplete(pendingItem.code);
 
-		// Get the pending input lines. We keep this up to date at every iteration so it always
-		// reflects the current state of the pending input, even after an `await`, which may have
-		// allowed the user to append more pending input code.
-		let pendingInputLines = this._runtimeItemPendingInput.code.split('\n');
-
-		for (let i = 0; i < pendingInputLines.length; i++) {
-			// Push the pending input line to the code lines.
-			codeLines.push(pendingInputLines[i]);
-
-			// Determine whether the code lines are a complete code fragment.
-			const codeFragment = codeLines.join('\n');
-			const codeFragmentStatus = await this._session.isCodeFragmentComplete(codeFragment);
-
-			// If we have been interrupted, then `clearPendingInput()` has reset
-			// `_runtimeItemPendingInput` and there is nothing for us to do.
-			if (this._pendingInputState === 'Interrupted') {
-				return;
-			}
-
-			// SAFETY: We expect that `this._runtimeItemPendingInput.code` will only ever grow.
-			// Also, the update of `pendingInputLines` must happen before we break, because we use
-			// it below.
-			pendingInputLines = this._runtimeItemPendingInput.code.split('\n');
-
-			if (codeFragmentStatus === RuntimeCodeFragmentStatus.Complete) {
-				code = codeFragment;
-				break;
-			}
+		// If we have been interrupted, then `clearPendingInput()` has cleared the queue.
+		if (this._pendingInputState === 'Interrupted') {
+			return;
 		}
 
-		// Get the index of the pending input runtime item.
-		const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+		// If the code fragment is not complete, wait for more input.
+		// Move the incomplete code to pending code for user editing.
+		if (codeFragmentStatus !== RuntimeCodeFragmentStatus.Complete) {
+			// Remove the item from the queue.
+			this._pendingCodeQueue.shift();
 
-		// Remove the current pending input runtime item. We are either done with it entirely, or
-		// we are going to update it with a new one if we have remaining pending lines.
-		// This index should always be > -1, but be defensive.
-		if (index > -1) {
-			this._runtimeItems.splice(index, 1);
-		}
+			// Remove the pending input visual item if it exists.
+			if (this._runtimeItemPendingInput) {
+				const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+				if (index > -1) {
+					this._runtimeItems.splice(index, 1);
+				}
+				this._onDidChangeRuntimeItemsEmitter.fire();
+			}
 
-		// If we didn't find a complete fragment, set the pending code to everything in the
-		// (possibly updated) pending input item and let the pending code path handle it.
-		if (code === undefined) {
-			// We removed the pending input runtime item, so emit the change.
-			this._onDidChangeRuntimeItemsEmitter.fire();
+			// Set as pending code for user to complete.
+			this.setPendingCode(pendingItem.code, pendingItem.executionId);
 
-			// The pending input line(s) now become the pending code.
-			// This fires an event allowing the `ConsoleInput` to update its code editor widget,
-			// allowing the user to keep typing to eventually generate a complete code chunk.
-			this.setPendingCode(
-				this._runtimeItemPendingInput.code,
-				this._runtimeItemPendingInput.executionId);
-
-			// And we no longer have a pending input item.
+			// Clear the pending input item.
 			this._runtimeItemPendingInput = undefined;
 
 			return;
 		}
 
-		// Create the ID for the code fragment that will be executed.
-		const id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
+		// The code is complete, so execute it.
+		const id = pendingItem.executionId || this.generateExecutionId(pendingItem.code);
 
-		// Add the provisional ActivityItemInput for the code fragment.
-		const runtimeItemActivity = new RuntimeItemActivity(
-			id,
-			new ActivityItemInput(
+		// Add the provisional ActivityItemInput for the code fragment only if it's not a silent execution.
+		if (pendingItem.mode !== RuntimeCodeExecutionMode.Silent) {
+			const runtimeItemActivity = new RuntimeItemActivity(
 				id,
-				id,
-				new Date(),
-				ActivityItemInputState.Provisional,
-				this._session.dynState.inputPrompt,
-				this._session.dynState.continuationPrompt,
-				code
-			)
-		);
-		this._runtimeItems.push(runtimeItemActivity);
-		this._runtimeItemActivities.set(id, runtimeItemActivity);
-
-		// If there are remaining pending input lines, add them in a new pending input
-		// runtime item so they are processed the next time the runtime becomes idle.
-		const nCodeLines = codeLines.length;
-		const nPendingLines = pendingInputLines.length;
-
-		if (nCodeLines < nPendingLines) {
-			// Create the new pending input runtime item, preserving the
-			// attribution and the execution ID.
-			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
-				generateUuid(),
-				this._session.dynState.inputPrompt,
-				attribution,
-				id,
-				pendingInputLines.slice(nCodeLines).join('\n'),
+				new ActivityItemInput(
+					id,
+					id,
+					new Date(),
+					ActivityItemInputState.Provisional,
+					this._session.dynState.inputPrompt,
+					this._session.dynState.continuationPrompt,
+					pendingItem.code
+				)
 			);
-
-			// Add the pending input runtime item.
-			this._runtimeItems.push(this._runtimeItemPendingInput);
-		} else if (nCodeLines === nPendingLines) {
-			// We are about to execute everything available, so there isn't a new pending input item.
-			this._runtimeItemPendingInput = undefined;
-		} else {
-			throw new Error('Unexpected state. Can\'t have more code lines than pending lines.');
+			this._runtimeItems.push(runtimeItemActivity);
+			this._runtimeItemActivities.set(id, runtimeItemActivity);
 		}
 
-		// Fire the runtime items changed event once, now, after everything is set up.
+		// Remove the processed item from the queue.
+		this._pendingCodeQueue.shift();
+
+		// Remove the pending input visual item if this was the last item or update it for remaining items.
+		if (this._runtimeItemPendingInput) {
+			const index = this.runtimeItems.indexOf(this._runtimeItemPendingInput);
+			if (index > -1) {
+				this._runtimeItems.splice(index, 1);
+			}
+
+			if (this._pendingCodeQueue.length > 0) {
+				// There are more items in the queue, create a new pending input visual
+				// for the next item if it's not silent.
+				const nextItem = this._pendingCodeQueue[0];
+				if (nextItem.mode !== RuntimeCodeExecutionMode.Silent) {
+					this._runtimeItemPendingInput = new RuntimeItemPendingInput(
+						generateUuid(),
+						this._session.dynState.inputPrompt,
+						nextItem.attribution,
+						nextItem.executionId,
+						nextItem.code,
+						nextItem.mode
+					);
+					this._runtimeItems.push(this._runtimeItemPendingInput);
+				} else {
+					this._runtimeItemPendingInput = undefined;
+				}
+			} else {
+				// No more items in the queue.
+				this._runtimeItemPendingInput = undefined;
+			}
+		}
+
+		// Fire the runtime items changed event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// Execute the code fragment.
-		const mode = RuntimeCodeExecutionMode.Interactive;
-		const errorBehavior = RuntimeErrorBehavior.Continue;
-
 		this._session.execute(
-			code,
+			pendingItem.code,
 			id,
-			mode,
-			errorBehavior,
+			pendingItem.mode,
+			pendingItem.errorBehavior,
 		);
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
 			executionId: id,
 			sessionId: this._session.sessionId,
-			code,
-			mode,
-			attribution,
-			errorBehavior,
+			code: pendingItem.code,
+			mode: pendingItem.mode,
+			attribution: pendingItem.attribution,
+			errorBehavior: pendingItem.errorBehavior,
 			languageId: this._session.runtimeMetadata.languageId,
 			runtimeName: this._session.runtimeMetadata.runtimeName
 		};

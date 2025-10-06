@@ -9,86 +9,70 @@ Summary:
 - Ensures basic filters (e.g. "is not null", "contains") are applied correctly across supported data frame types.
 - Confirms the filtered result is exported in the correct syntax for each language/library combination.
 
- * |Type              |Language |Variable                                   |Expected Code Style     |
+ * |Type/Class        |Language |Variable                                   |Expected Code Style     |
  * |------------------|---------|-------------------------------------------|------------------------|
+ * |DuckDB            |DuckDB   |n/a       									|SQL                     |
  * |pandas.DataFrame  |Python   |<class 'pandas.core.frame.DataFrame'>      |Pandas                  |
  * |polars.DataFrame  |Python   |<class 'polars.dataframe.frame.DataFrame'> |Polars                  |
- * |data.frame        |R        |<data.frame>                               |Tidyverse (or Base R)   |
- * |tibble            |R        |<tbl_df>                                   |Tidyverse               |
- * |data.table        |R        |<data.table>                               |data.table              |
- * |dplyr             |R        |<dplyr>                                    |dplyr                   |
+ * |tibble/tibble_df  |R        |c("tbl_df","tbl","data.frame")             |Tidyverse (dplyr)       |
+ * |data.frame        |R        |data.frame		                            |Tidyverse (or Base R)   |
+ * |data.table        |R        |c("data.table","data.frame")               |data.table              |
  */
 
 import { MetricTargetType } from '../../utils/metrics/metric-base.js';
 import { test, tags, expect } from '../_test.setup';
-import { pandasDataFrameScript, polarsDataFrameScript } from './helpers/convert-to-code-data.js';
-
-/**
- * Helper function to normalize code for UI text comparison
- * @param code The code string to normalize
- * @returns The normalized code with consistent whitespace
- */
-const normalizeCodeForDisplay = (code: string): string => {
-	// Replace newlines with spaces for UI component text comparison
-	return code.replace(/\n/g, '');
-};
+import { pandasDataFrameScript, polarsDataFrameScript, dplyrScript, normalizeCodeForDisplay } from './helpers/convert-to-code-data.js';
 
 const testCases: {
 	environment: 'Python' | 'R' | 'DuckDB';
 	data: string;
-	expectedCodeStyle: string;
-	dataFrameType: MetricTargetType;
+	expectedCodeStyle: 'SQL' | 'Pandas' | 'Polars' | 'dplyr';
+	dataObjectType: MetricTargetType;
 	expectedGeneratedCode: string;
 }[] = [
+		{
+			environment: 'DuckDB',
+			data: 'data-files/convert-to-code/simple-student-data.csv',
+			expectedCodeStyle: 'SQL',
+			dataObjectType: 'file.csv',
+			expectedGeneratedCode: 'SELECT * \nFROM "simple-student-data"\nWHERE "status" = \'active\' AND "score" >= 85 AND "is_student" = false'
+		},
 		{
 			environment: 'Python',
 			data: pandasDataFrameScript,
 			expectedCodeStyle: 'Pandas',
-			dataFrameType: 'py.pandas.DataFrame',
+			dataObjectType: 'py.pandas.DataFrame',
 			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)\ndf[filter_mask]'
 		},
 		{
 			environment: 'Python',
 			data: polarsDataFrameScript,
 			expectedCodeStyle: 'Polars',
-			dataFrameType: 'py.polars.DataFrame',
+			dataObjectType: 'py.polars.DataFrame',
 			expectedGeneratedCode: "filter_expr = (pl.col('status') == 'active') & (pl.col('score') >= 85) & (pl.col('is_student') == False)\ndf.filter(filter_expr)"
 		},
+
 		{
-			environment: 'DuckDB',
-			data: 'data-files/convert-to-code/simple-student-data.csv',
-			expectedCodeStyle: 'SQL',
-			dataFrameType: 'file.csv',
-			expectedGeneratedCode: 'SELECT * \nFROM "simple-student-data"\nWHERE "status" = \'active\' AND "score" >= 85 AND "is_student" = false'
+			environment: 'R',
+			data: dplyrScript,
+			expectedCodeStyle: 'dplyr',
+			dataObjectType: 'r.tibble',
+			expectedGeneratedCode: 'library(dplyr)\n\ndf |>\n  filter(\n    status == "active",\n    score >= 85,\n    !is_student\n  )'
 		},
 		// {
-		// 	environment: 'R',
-		// 	dataScript: rDataFrameScript,
-		// 	expectedCodeStyle: 'Tidyverse',
-		// 	dataFrameType: 'r.data.frame'
-		//   expectedGeneratedCode: 'tbd'
+		//   environment: 'R',
+		//   data: rDataFrameScript,
+		//   expectedCodeStyle: 'Base R',
+		//   dataObjectType: 'r.data.frame',
+		//   expectedGeneratedCode: 'df[df$status == "active" & df$score >= 85 & !df$is_student, ]'
 		// },
 		// {
-		// 	environment: 'R',
-		// 	dataScript: tibbleScript,
-		// 	expectedCodeStyle: 'Tidyverse',
-		// 	dataFrameType: 'r.tibble',
-		// 	expectedGeneratedCode: 'tbd'
-		// },
-		// {
-		// 	environment: 'R',
-		// 	dataScript: dataTableScript,
-		// 	expectedCodeStyle: 'data.table',
-		// 	dataFrameType: 'r.data.table',
-		// 	expectedGeneratedCode: 'tbd'
-		// },
-		// {
-		// 	environment: 'R',
-		// 	dataScript: dplyrScript,
-		// 	expectedCodeStyle: 'dplyr',
-		// 	dataFrameType: 'r.dplyr',
-		// 	expectedGeneratedCode: 'tbd'
-		// },
+		//   environment: 'R',
+		//   data: dataTableScript,
+		//   expectedCodeStyle: 'data.table',
+		//   dataObjectType: 'r.data.table',
+		//   expectedGeneratedCode: 'df[status == "active" & score >= 85 & !is_student]'
+		// }
 	];
 
 test.use({
@@ -97,19 +81,13 @@ test.use({
 
 test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] }, () => {
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'dataExplorer.convertToCode': true
-		});
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
-	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataFrameType, expectedGeneratedCode }) => {
+	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataObjectType, expectedGeneratedCode }) => {
 
-		test(`${environment} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
+		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric, openDataFile }) {
 			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
 
 			if (environment === 'DuckDB') {
@@ -143,27 +121,19 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 				await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
 				await dataExplorer.convertToCodeModal.expectToBeVisible();
 
-				// verify the generated code is correct and has syntax highlights
-				// Use normalized code for UI text comparison (no newlines)
+				// verify the generated code is correct - use normalized code (no newlines)
 				await expect(dataExplorer.convertToCodeModal.codeBox).toContainText(normalizeCodeForDisplay(expectedGeneratedCode));
-				if (environment !== 'DuckDB') { await dataExplorer.convertToCodeModal.expectSyntaxHighlighting(); }
+			}, dataObjectType);
 
-				// verify copy to clipboard behavior
-				await dataExplorer.convertToCodeModal.clickOK();
-				// When checking clipboard text, use the original expected code with newlines
-				await clipboard.expectClipboardTextToBe(expectedGeneratedCode);
-				await toasts.expectToBeVisible('Copied to clipboard');
-			}, dataFrameType);
+			// verify syntax highlighting
+			if (environment !== 'DuckDB') {
+				await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
+			}
+
+			// verify copy to clipboard behavior - use un-normalized code (with newlines)
+			await dataExplorer.convertToCodeModal.clickOK();
+			await clipboard.expectClipboardTextToBe(expectedGeneratedCode);
+			await toasts.expectToBeVisible('Copied to clipboard');
 		});
 	});
-
-
-	// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
-	// });
-
-	// test('R - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
-	// });
-
-	// test('R - Verify copy code with changed default', async function ({ app, r, openDataFile }) {
-	// });
 });
