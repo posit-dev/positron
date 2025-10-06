@@ -555,12 +555,19 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	getLanguageModelIdsForCurrentProvider() {
 		const currentProvider = this._currentProvider;
+		this._logService.debug('LanguageModelsService.getLanguageModelIdsForCurrentProvider: Current provider is', currentProvider?.id ?? 'undefined');
 		if (!currentProvider) {
-			return Array.from(this._modelCache.keys());
+			const modelIds = Array.from(this._modelCache.keys());
+			this._logService.debug(`LanguageModelsService.getLanguageModelIdsForCurrentProvider: No current provider, returning all ${modelIds.length} models`);
+			return modelIds;
 		}
-		return Array.from(this._modelCache.entries())
+
+		const modelIds = Array.from(this._modelCache.entries())
 			.filter(([, model]) => model.vendor === currentProvider.id)
 			.map(([modelId,]) => modelId);
+
+		this._logService.debug(`LanguageModelsService.getLanguageModelIdsForCurrentProvider: Found ${modelIds.length} models for provider ${currentProvider.id}`);
+		return modelIds;
 	}
 
 	get currentProvider(): IPositronChatProvider | undefined {

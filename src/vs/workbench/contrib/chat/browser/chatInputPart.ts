@@ -685,6 +685,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// --- Start Positron ---
 		// Restrict models to the current provider.
 		// const models = this.languageModelsService.getLanguageModelIds()
+		this.logService.debug('ChatInputPart.getModels: Getting models for current provider');
 		const models = this.languageModelsService.getLanguageModelIdsForCurrentProvider()
 			// --- End Positron ---
 			.map(modelId => ({ identifier: modelId, metadata: this.languageModelsService.lookupLanguageModel(modelId)! }))
