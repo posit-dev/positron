@@ -374,13 +374,13 @@ export class LanguageModelsService implements ILanguageModelsService {
 	readonly onDidChangeLanguageModels: Event<void> = this._onLanguageModelChange.event;
 
 	constructor(
-		@IExtensionService private readonly _extensionService: IExtensionService,
-		@ILogService private readonly _logService: ILogService,
-		@IStorageService private readonly _storageService: IStorageService,
-		@IContextKeyService _contextKeyService: IContextKeyService,
 		// --- Start Positron ---
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		// --- End Positron ---
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILogService private readonly _logService: ILogService,
+		@IStorageService private readonly _storageService: IStorageService,
+		@IContextKeyService _contextKeyService: IContextKeyService
 	) {
 		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(_contextKeyService);
 		this._modelPickerUserPreferences = this._storageService.getObject<Record<string, boolean>>('chatModelPickerPreferences', StorageScope.PROFILE, this._modelPickerUserPreferences);
