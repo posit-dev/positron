@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.5",
+			"version": "1.23.9",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -242,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.124.0",
-			"sha256sum": "f6ae217213fef18d59483cf7ae53765afe3e3d1cf06701d7378dc94bbd747259",
+			"version": "1.125.0",
+			"sha256sum": "6bfa70195d98e8be609c7d4639ad94d0393252a4d8838cc2bdeeb59c8001cf23",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
