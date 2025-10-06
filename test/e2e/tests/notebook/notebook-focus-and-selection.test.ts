@@ -350,4 +350,53 @@ test.describe('Notebook Focus and Selection', {
 		expect(normalizedContent).toContain('new cell content');
 	});
 
+	test('Enter key in edit mode adds newline within cell', async function ({ app }) {
+		// Select cell 1 and enter edit mode
+		await app.workbench.notebooksPositron.selectCellAtIndex(1);
+		await waitForFocusSettle(app, 200);
+		await app.code.driver.page.keyboard.press('Enter');
+		await waitForFocusSettle(app, 300);
+		expect(await isEditorFocused(app, 1)).toBe(true);
+
+		// Get initial content
+		const initialContent = await app.workbench.notebooksPositron.getCellContent(1);
+		const normalizedInitial = normalizeCellContent(initialContent);
+		const lineText = 'print("Cell 1")';
+		expect(normalizedInitial).toBe(lineText);
+
+		// Get cell and editor locators for line counting
+		const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(1);
+		const editor = cell.locator('.positron-cell-editor-monaco-widget');
+		const viewLines = editor.locator('.view-line');
+
+		// Position cursor in the MIDDLE of the text (after "print(")
+		// This avoids any trailing newline trimming issues
+		await app.code.driver.page.keyboard.press('Home');
+		const middleIndex = Math.floor(lineText.length / 2);
+		for (let i = 0; i < middleIndex; i++) { // move to middle of line
+			await app.code.driver.page.keyboard.press('ArrowRight');
+		}
+		await waitForFocusSettle(app, 100);
+
+		// Sanity check: Get initial line count before pressing Enter
+		const initialLineCount = await viewLines.count();
+
+		// Press Enter to split the line in the middle
+		await app.code.driver.page.keyboard.press('Enter');
+		await waitForFocusSettle(app, 200);
+
+		// Verify the line count increased by counting Monaco's .view-line elements
+		// Note: getCellContent uses .textContent() which strips newlines, so we count line elements directly
+		const lineCount = await viewLines.count();
+
+		// Line count should have increased by 1 after pressing Enter
+		expect(lineCount).toBe(initialLineCount + 1);
+
+		// Verify we're still in the same cell (cell count unchanged)
+		expect(await getCellCount(app)).toBe(5);
+
+		// Verify we're still in edit mode in cell 1
+		expect(await isEditorFocused(app, 1)).toBe(true);
+	});
+
 });
