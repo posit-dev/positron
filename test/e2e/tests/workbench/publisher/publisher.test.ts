@@ -120,9 +120,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(deployButton).toBeVisible();
 		});
 
-		// not working:
-		// await hotKeys.minimizeBottomPanel();
-		await app.workbench.quickaccess.runCommand('workbench.action.minimizePanel');
+		await hotKeys.minimizeBottomPanel();
 
 		await test.step('Ensure toml file is ready for update', async () => {
 			await expect(async () => {
@@ -138,6 +136,8 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 					const file = `workspaces/shiny-py-example/.posit/publish/${filenames.find(f => f.startsWith('shiny-py-example'))}`;
 					console.log(`Retrying to open file ${file} in editor`);
 					await openFile(file);
+					await hotKeys.stackedLayout();
+					await hotKeys.minimizeBottomPanel();
 					throw e;
 				}
 			}).toPass({ timeout: 60000 });
@@ -151,9 +151,7 @@ test.describe('Publisher - Positron', { tag: [tags.WORKBENCH, tags.PUBLISHER] },
 			await expect(app.workbench.topActionBar.saveAllButton).not.toBeEnabled({ timeout: 10000 });
 		});
 
-		// not working:
-		// await hotKeys.restoreBottomPanel();
-		await app.workbench.quickaccess.runCommand('workbench.action.restorePanel');
+		await hotKeys.restoreBottomPanel();
 
 		let appGuid;
 		await test.step('Deploy, await completion and get appGuid', async () => {
