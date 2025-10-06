@@ -9,6 +9,7 @@ import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
+import { time } from 'console';
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -16,25 +17,34 @@ const DEFAULT_TIMEOUT = 10000;
  * Notebooks functionality exclusive to Positron notebooks.
  */
 export class PositronNotebooks extends Notebooks {
-	positronNotebook: Locator;
+	positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
+	newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	runCellAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
+	spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
+	cellExecutionInfoAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell execution info/i);
+	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
+	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
+	kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
+	deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
+
 
 	// Selector constants for Positron notebook elements
-	private static readonly RUN_CELL_LABEL = /execute cell/i;
-	private static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
-	private static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
-	private static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
-	private static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
-	private static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
-	private static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
-	private static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
-	private static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
-	private static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
-	private static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
+	// private static readonly RUN_CELL_LABEL = /execute cell/i;
+	// private static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
+	// private static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
+	// private static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
+	// private static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
+	// private static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
+	// private static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
+	// private static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
+	// private static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
+	// private static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
+	// private static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
-
-		this.positronNotebook = this.code.driver.page.locator(PositronNotebooks.POSITRON_NOTEBOOK_SELECTOR).first();
 	}
 
 	// -- Actions --
@@ -51,51 +61,47 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Override selectCellAtIndex to use Positron-specific selectors
+	 * Action: Select a cell at the specified index.
 	 */
 	async selectCellAtIndex(cellIndex: number): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}`, async () => {
-			// Use semantic selector
-			await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex).click();
+			await this.cell.nth(cellIndex).click();
 		});
 	}
 
 	/**
-	 * Get the current number of cells in the notebook
+	 * Action: Create a new code cell at the END of the notebook.
 	 */
-	private async getCellCount(): Promise<number> {
-		return await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count();
-	}
+	private async createNewCodeCell(): Promise<void> {
+		await test.step(`Create new code cell`, async () => {
+			const newCellButtonCount = await this.newCellButton.count();
 
-	/**
-	 * Create a new code cell at the specified index
-	 */
-	private async createNewCodeCell(index: number): Promise<void> {
-		await test.step(`Create new code cell at index ${index}`, async () => {
-			// Find all "New Code Cell" buttons - they appear between cells
-			const addCellButtons = this.code.driver.page.getByLabel(PositronNotebooks.NEW_CODE_CELL_LABEL);
-			const buttonCount = await addCellButtons.count();
-
-			if (buttonCount === 0) {
+			if (newCellButtonCount === 0) {
 				throw new Error('No "New Code Cell" buttons found');
 			}
 
 			// Click the last button (which adds a cell at the end)
 			// Note: This assumes we're always adding at the end, which matches the validation in addCodeToCellAtIndex
-			await addCellButtons.last().click();
+			await this.newCellButton.last().click();
 
 			// Wait for the new cell to appear
-			await expect(this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(index)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			await expect(this.cell).toHaveCount(newCellButtonCount + 1, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
 	/**
-	 * Override addCodeToCellAtIndex to use Positron-specific selectors and Monaco editor
+	 * Action: Add code to a cell at the specified index.
+	 * If the cell does not exist, it creates it at the end of the notebook.
+	 * Throws an error if trying to create a cell beyond the next sequential index.
+	 *
+	 * @param code - The code to add to the cell.
+	 * @param cellIndex - The index of the cell to add code to (default: 0).
+	 * @param delay - Optional delay between keystrokes for typing simulation (default: 0, meaning no delay).
 	 */
 	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0): Promise<void> {
 		await test.step('Add code to Positron cell', async () => {
 			// Check if the cell exists
-			const currentCellCount = await this.getCellCount();
+			const currentCellCount = await this.cell.count();
 
 			if (cellIndex >= currentCellCount) {
 				// Cell doesn't exist, need to create it
@@ -105,22 +111,18 @@ export class PositronNotebooks extends Notebooks {
 				}
 
 				// Create the new cell
-				await this.createNewCodeCell(cellIndex);
+				await this.createNewCodeCell();
 			}
 
 			// Now select and fill the cell (existing logic)
 			await this.selectCellAtIndex(cellIndex);
 
-			// Get the specific cell's editor
-			const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
-			const editor = cell.locator(PositronNotebooks.MONACO_EDITOR_SELECTOR);
-
 			// Ensure editor is focused and type/fill the code
-			await editor.focus();
+			await this.editorAtIndex(cellIndex).focus();
 			if (delay) {
-				await editor.pressSequentially(code, { delay });
+				await this.editorAtIndex(cellIndex).pressSequentially(code, { delay });
 			} else {
-				await editor.fill(code);
+				await this.editorAtIndex(cellIndex).fill(code);
 			}
 		});
 	}
@@ -130,17 +132,12 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async executeCodeInCell(cellIndex = 0): Promise<void> {
 		await test.step('Execute code in Positron notebook cell', async () => {
-			// Select the cell first
+
 			await this.selectCellAtIndex(cellIndex);
-
-			// Find and click the run button for this specific cell
-			const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
-			const runButton = cell.getByLabel(PositronNotebooks.RUN_CELL_LABEL);
-
-			await runButton.click();
+			await this.runCellAtIndex(cellIndex).click();
 
 			// Wait for execution to complete by checking the execution spinner is gone
-			const spinner = cell.getByLabel(PositronNotebooks.CELL_EXECUTING_LABEL);
+			const spinner = this.spinnerAtIndex(cellIndex);
 
 			// Wait for spinner to appear (cell is executing)
 			await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
@@ -157,14 +154,8 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async startExecutingCodeInCell(cellIndex = 0): Promise<void> {
 		await test.step('Start executing code in Positron notebook cell', async () => {
-			// Select the cell first
 			await this.selectCellAtIndex(cellIndex);
-
-			// Find and click the run button for this specific cell
-			const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
-			const runButton = cell.getByLabel(PositronNotebooks.RUN_CELL_LABEL);
-
-			await runButton.click();
+			await this.runCellAtIndex(cellIndex).click();
 		});
 	}
 
@@ -176,7 +167,7 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCellAndRun(code: string, cellIndex = 0, delay = 0): Promise<Locator> {
 		return await test.step(`Add code and run cell ${cellIndex}`, async () => {
 			// Check if the cell exists
-			const currentCellCount = await this.getCellCount();
+			const currentCellCount = await this.cell.count();
 
 			if (cellIndex >= currentCellCount) {
 				// Cell doesn't exist, need to create it
@@ -185,18 +176,13 @@ export class PositronNotebooks extends Notebooks {
 					throw new Error(`Cannot create cell at index ${cellIndex}. Current cell count is ${currentCellCount}. Can only add cells sequentially.`);
 				}
 
-				// Create the new cell
-				await this.createNewCodeCell(cellIndex);
+				await this.createNewCodeCell();
 			}
 
-			// Get the cell once and reuse the reference
-			const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
-
-			// Select the cell
-			await cell.click();
+			await this.cell.nth(cellIndex).click()
 
 			// Find and fill the Monaco editor
-			const editor = cell.locator(PositronNotebooks.MONACO_EDITOR_SELECTOR);
+			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
 			if (delay) {
@@ -206,8 +192,7 @@ export class PositronNotebooks extends Notebooks {
 			}
 
 			// Find and click the run button
-			const runButton = cell.getByLabel(PositronNotebooks.RUN_CELL_LABEL);
-			await runButton.click();
+			await this.runCellAtIndex(cellIndex).click();
 
 			// // Wait for execution to complete
 			// const spinner = cell.getByLabel('Cell is executing');
@@ -219,16 +204,53 @@ export class PositronNotebooks extends Notebooks {
 
 			// // Wait for spinner to disappear (execution complete)
 			// await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
-			return cell;
+			return this.cell.nth(cellIndex);
 		});
 	}
+
+	/**
+	 * Helper function to copy cells using keyboard shortcut
+	 */
+	async copyCellsWithKeyboard(): Promise<void> {
+		// We need to press escape to get the focus out of the cell editor itself
+		await this.code.driver.page.keyboard.press('Escape');
+		await this.hotKeys.copy();
+	}
+
+	async cutCellsWithKeyboard(): Promise<void> {
+		// We need to press escape to get the focus out of the cell editor itself
+		await this.code.driver.page.keyboard.press('Escape');
+		await this.hotKeys.cut();
+	}
+
+	async pasteCellsWithKeyboard(): Promise<void> {
+		// We need to press escape to get the focus out of the cell editor itself
+		await this.code.driver.page.keyboard.press('Escape');
+		await this.hotKeys.paste();
+	}
+
+	async expectCellCountToBe(expectedCount: number): Promise<void> {
+		await test.step(`Expect cell count to be ${expectedCount}`, async () => {
+			await expect(this.cell).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string): Promise<void> {
+		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
+			const actualContent = await this.getCellContent(cellIndex);
+			await expect(async () => {
+				expect(actualContent).toBe(expectedContent);
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
 
 	/**
 	 * Get execution info icon for a specific cell
 	 */
 	getExecutionInfoIcon(cellIndex = 0): Locator {
-		const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
-		return cell.getByLabel(PositronNotebooks.CELL_EXECUTION_INFO_LABEL);
+		return this.cellExecutionInfoAtIndex(cellIndex);
+		// return this.cell.nth(cellIndex).getByLabel(/cell execution info/i);
 	}
 
 
@@ -243,7 +265,7 @@ export class PositronNotebooks extends Notebooks {
 	/**
 	 * Wait for execution info icon to be visible after cell execution
 	 */
-	async waitForExecutionInfoIcon(cellIndex = 0, timeout = DEFAULT_TIMEOUT): Promise<void> {
+	async expectExecutionInfoIconToBeVisible(cellIndex = 0, timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Wait for execution info icon in cell ${cellIndex}`, async () => {
 			const icon = this.getExecutionInfoIcon(cellIndex);
 			await expect(icon).toBeVisible({ timeout });
@@ -266,16 +288,15 @@ export class PositronNotebooks extends Notebooks {
 			await this.expectToBeVisible();
 
 			// Wait for kernel detection to complete
-			await expect(this.code.driver.page.locator(PositronNotebooks.CELL_STATUS_SYNC_SELECTOR)).not.toBeVisible({ timeout: 30000 });
-			await expect(this.code.driver.page.getByText(PositronNotebooks.DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
+			await expect(this.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
+			await expect(this.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
 
 			// Get the kernel status badge using data-testid
-			const kernelStatusBadge = this.code.driver.page.getByTestId(PositronNotebooks.NOTEBOOK_KERNEL_STATUS_TESTID);
-			await expect(kernelStatusBadge).toBeVisible({ timeout: 5000 });
+			await expect(this.kernelStatusBadge).toBeVisible({ timeout: 5000 });
 
 			try {
 				// Check if the desired kernel is already selected
-				const currentKernelText = await kernelStatusBadge.textContent();
+				const currentKernelText = await this.kernelStatusBadge.textContent();
 				if (currentKernelText && currentKernelText.includes(desiredKernel) && currentKernelText.includes('Connected')) {
 					this.code.logger.log(`Kernel already selected and connected: ${desiredKernel}`);
 					return;
@@ -288,7 +309,7 @@ export class PositronNotebooks extends Notebooks {
 			try {
 				// Click on kernel status badge to open selection
 				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
-				await kernelStatusBadge.click();
+				await this.kernelStatusBadge.click();
 
 				// Wait for kernel selection UI to appear
 				await this.quickinput.waitForQuickInputOpened();
@@ -304,7 +325,7 @@ export class PositronNotebooks extends Notebooks {
 			}
 
 			// Wait for the kernel status to show "Connected"
-			await expect(kernelStatusBadge).toContainText('Connected', { timeout: 30000 });
+			await expect(this.kernelStatusBadge).toContainText('Connected', { timeout: 30000 });
 			this.code.logger.log('Kernel is connected and ready');
 		});
 	}
@@ -362,25 +383,16 @@ export class PositronNotebooks extends Notebooks {
 	async deleteCellWithActionBar(cellIndex = 0): Promise<void> {
 		await test.step(`Delete cell ${cellIndex} using action bar`, async () => {
 			// Get the current cell count before deletion
-			const initialCount = await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count();
-
-			// Get the specific cell
-			const cell = this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).nth(cellIndex);
+			const initialCount = await this.cell.count();
 
 			// Click on the cell to make the action bar visible
-			await cell.click();
-
-			// Find and click the delete button in the action bar
-			const deleteButton = cell.getByRole('button', { name: PositronNotebooks.DELETE_CELL_LABEL });
-
-			// Wait for the delete button to be visible
-			await expect(deleteButton).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			await this.cell.nth(cellIndex).click();
 
 			// Click the delete button
-			await deleteButton.click();
+			await this.deleteCellButton.click();
 
 			// Wait for the deletion to complete by checking cell count decreased
-			await expect(this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR)).toHaveCount(initialCount - 1, { timeout: DEFAULT_TIMEOUT });
+			await expect(this.cell).toHaveCount(initialCount - 1, { timeout: DEFAULT_TIMEOUT });
 
 			// Give a small delay for focus to settle
 			await this.code.driver.page.waitForTimeout(100);
