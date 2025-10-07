@@ -10,7 +10,6 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { selectKernelIcon } from '../../notebook/browser/notebookIcons.js';
 import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 
@@ -46,7 +45,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 			return false;
 		}
 
-		const notebook = (activeNotebook as PositronNotebookInstance).textModel;
+		const notebook = activeNotebook.textModel.get();
 		if (!notebook) {
 			return false;
 		}
