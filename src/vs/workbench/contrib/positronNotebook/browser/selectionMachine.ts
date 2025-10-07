@@ -9,12 +9,8 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 
 /**
- * STATE MACHINE SPECIFICATION
- * ===========================
- *
- * This file implements a selection state machine for Positron notebooks.
- *
- **/
+ * Represents the possible selection states for the notebook.
+ */
 export enum SelectionState {
 	NoCells = 'NoCells',
 	SingleSelection = 'SingleSelection',
@@ -22,20 +18,30 @@ export enum SelectionState {
 	EditingSelection = 'EditingSelection'
 }
 
-type NonEmptyArray<T> = [T, ...T[]];
-
-function assertNonEmptyArray<T>(array: T[]): asserts array is NonEmptyArray<T> {
-	if (array.length === 0) {
-		throw new Error('Array must be non-empty');
+/**
+ * Selection state discriminated union.
+ */
+type SelectionStates =
+	| {
+		type: SelectionState.NoCells;
 	}
-}
+	| {
+		type: SelectionState.SingleSelection;
+		selected: IPositronNotebookCell;
+	}
+	| {
+		type: SelectionState.MultiSelection;
+		selected: NonEmptyArray<IPositronNotebookCell>;
+	}
+	| {
+		type: SelectionState.EditingSelection;
+		selected: IPositronNotebookCell;
+	};
 
-function verifyNonEmptyArray<T>(array: T[]): NonEmptyArray<T> {
-	assertNonEmptyArray(array);
-	return array as NonEmptyArray<T>;
-}
 
-// Valid selection state transitions
+/**
+ * Valid selection state transitions.
+ */
 const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> = {
 	[SelectionState.NoCells]: [
 		SelectionState.NoCells,          // Can stay in NoCells
@@ -60,41 +66,35 @@ const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> =
 	],
 };
 
-/**
- * Selection state discriminated union.
- *
- * Design rationale for field types:
- * - SingleSelection uses `selected: IPositronNotebookCell` (singular) for type safety,
- *   ensuring compile-time enforcement that exactly one cell is selected.
- * - MultiSelection uses `selected: NonEmptyArray<IPositronNotebookCell>` (array) to ensure
- *   at least one cell is selected and enable filtering and equality checks.
- * - EditingSelection uses `selected: IPositronNotebookCell` (singular) for type safety,
- *   ensuring compile-time enforcement that exactly one cell is being edited.
- *
- * This design provides type safety while maintaining clear distinctions between
- * single and multi-cell selection states.
- */
-type SelectionStates =
-	| {
-		type: SelectionState.NoCells;
-	}
-	| {
-		type: SelectionState.SingleSelection;
-		selected: IPositronNotebookCell;
-	}
-	| {
-		type: SelectionState.MultiSelection;
-		selected: NonEmptyArray<IPositronNotebookCell>;
-	}
-	| {
-		type: SelectionState.EditingSelection;
-		selected: IPositronNotebookCell;
-	};
 
+/**
+ * Defines the different modes of cell selection operations in the notebook.
+ * Used to specify how a cell selection should be applied when selecting cells.
+ */
 export enum CellSelectionType {
+	/** Adds a cell to the current selection (enables multi-selection mode) */
 	Add = 'Add',
+	/** Selects a cell and immediately enters edit mode */
 	Edit = 'Edit',
+	/** Performs a normal selection, replacing any current selection with the specified cell */
 	Normal = 'Normal'
+}
+
+/**
+ * A non-empty array type.
+ */
+type NonEmptyArray<T> = [T, ...T[]];
+
+/**
+ * Verifies that an array is non-empty and returns a non-empty array.
+ * @param array The array to verify.
+ * @returns The non-empty array.
+ */
+function verifyNonEmptyArray<T>(array: T[]): NonEmptyArray<T> {
+	if (array.length === 0) {
+		throw new Error('Array must be non-empty');
+	}
+	return array as NonEmptyArray<T>;
 }
 
 /**
