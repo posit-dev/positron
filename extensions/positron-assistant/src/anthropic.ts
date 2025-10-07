@@ -12,6 +12,7 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.j
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { availableModels } from './models.js';
+import { LanguageModelDataPartMimeType } from './types.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -429,10 +430,12 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
 			} else {
 				// Skip other data parts.
-				log.debug(`[anthropic] Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
+				if (part.mimeType !== LanguageModelDataPartMimeType.CacheControl) {
+					log.debug(`[anthropic] Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
+				}
 			}
 		} else {
-			throw new Error('Unsupported part type on user message');
+			throw new Error(`Unsupported part type on user message: ${JSON.stringify(part, null, 2)}`);
 		}
 	}
 	return {
