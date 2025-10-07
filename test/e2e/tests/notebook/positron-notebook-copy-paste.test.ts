@@ -13,13 +13,22 @@ test.use({
 });
 
 /**
+ * Clipboard operations (copy/cut) are asynchronous OS-level operations that may not complete
+ * immediately after the keyboard shortcut is pressed. On slower CI environments (especially Ubuntu),
+ * the clipboard may not be populated by the time the next operation (paste) executes, causing
+ * race conditions. This delay ensures the clipboard operation has time to propagate.
+ */
+const CLIPBOARD_OPERATION_DELAY_MS = 100;
+
+/**
  * Helper function to copy cells using keyboard shortcut
  */
 async function copyCellsWithKeyboard(app: Application): Promise<void> {
 	// We need to press escape to get the focus out of the cell editor itself
 	await app.code.driver.page.keyboard.press('Escape');
-	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-	await app.code.driver.page.keyboard.press(`${modifierKey}+KeyC`);
+	await app.code.driver.page.keyboard.press('ControlOrMeta+C');
+	// Wait for clipboard operation to complete
+	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
 }
 
 /**
@@ -28,8 +37,9 @@ async function copyCellsWithKeyboard(app: Application): Promise<void> {
 async function cutCellsWithKeyboard(app: Application): Promise<void> {
 	// We need to press escape to get the focus out of the cell editor itself
 	await app.code.driver.page.keyboard.press('Escape');
-	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-	await app.code.driver.page.keyboard.press(`${modifierKey}+KeyX`);
+	await app.code.driver.page.keyboard.press('ControlOrMeta+X');
+	// Wait for clipboard operation to complete
+	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
 }
 
 /**
@@ -38,8 +48,7 @@ async function cutCellsWithKeyboard(app: Application): Promise<void> {
 async function pasteCellsWithKeyboard(app: Application): Promise<void> {
 	// We need to press escape to get the focus out of the cell editor itself
 	await app.code.driver.page.keyboard.press('Escape');
-	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-	await app.code.driver.page.keyboard.press(`${modifierKey}+KeyV`);
+	await app.code.driver.page.keyboard.press('ControlOrMeta+V');
 }
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
