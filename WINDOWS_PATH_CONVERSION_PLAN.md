@@ -19,23 +19,26 @@ After reviewing RStudio's source code (`AceEditorWidget.java`), we discovered RS
 
 ### What Gets Converted
 ✅ **Convert these** (files copied from file manager):
-- **Single file**: Copy file from Windows Explorer → `"C:/Users/file.txt"`
-- **Multiple files**: Copy multiple files → `c("C:/Users/file1.txt", "C:/Users/file2.txt")`
+- **Single drive-letter file**: Copy file from Windows Explorer → `"C:/Users/file.txt"`
+- **Multiple drive-letter files**: Copy multiple files → `c("C:/Users/file1.txt", "C:/Users/file2.txt")`
 - **Files with spaces**: `"C:/Users/My Documents/file.txt"`
 - **Files with quotes in name**: `"C:/Users/My \"Special\" File.txt"` (escaped)
 
 ❌ **Leave these alone**:
+- **UNC paths**: `\\server\share\file.txt` (skip conversion entirely)
+- **Mixed scenarios**: If any UNC paths present, skip conversion for all files
 - `C:\Users\file.txt` typed or pasted as text (not file clipboard)
 - `Please load C:\file.txt` (text content, not files)
 - Text paths from any source (not matching RStudio behavior)
 
 ### Key Design Decisions
 1. **File-based detection**: Only convert when actual files are in clipboard
-2. **Exact RStudio compatibility**: Match `formatDesktopPath()` behavior exactly
-3. **Always quote and escape**: `"C:/path"` format with escaped internal quotes
-4. **Multiple file support**: R vector format `c("file1", "file2")`
-5. **Platform agnostic**: Works on any platform, detects file clipboard content
-6. **User controllable**: Single boolean setting, defaults to enabled
+2. **UNC path avoidance**: Skip conversion entirely if any UNC paths detected
+3. **RStudio compatibility**: Match `formatDesktopPath()` behavior for drive-letter paths
+4. **Always quote and escape**: `"C:/path"` format with escaped internal quotes
+5. **Multiple file support**: R vector format `c("file1", "file2")`
+6. **Platform agnostic**: Works on any platform, detects file clipboard content
+7. **User controllable**: Single boolean setting, defaults to enabled
 
 ## Implementation Plan
 
@@ -46,34 +49,37 @@ After reviewing RStudio's source code (`AceEditorWidget.java`), we discovered RS
 
 **File Detection Logic**:
 ```typescript
-// Detect files in clipboard (matches RStudio's approach)
+// Detect files in clipboard (improved over RStudio's approach)
 export function convertClipboardFiles(dataTransfer: DataTransfer): string | null {
+  let filePaths: string[] = [];
+
   // Check for file URI list (primary method)
   const uriList = dataTransfer.getData('text/uri-list');
   if (uriList) {
-    const fileUris = uriList.split('\n')
+    filePaths = uriList.split('\n')
       .filter(line => line.startsWith('file://'))
       .map(uri => decodeURIComponent(uri.replace('file:///', '')));
-
-    if (fileUris.length === 1) {
-      return formatDesktopPath(fileUris[0]);
-    } else if (fileUris.length > 1) {
-      return formatMultipleFiles(fileUris);
-    }
+  } else if (dataTransfer.files && dataTransfer.files.length > 0) {
+    // Fallback: Check for files property
+    filePaths = Array.from(dataTransfer.files).map(file => file.path || file.name);
   }
 
-  // Fallback: Check for files property
-  if (dataTransfer.files && dataTransfer.files.length > 0) {
-    const filePaths = Array.from(dataTransfer.files).map(file => file.path || file.name);
-
-    if (filePaths.length === 1) {
-      return formatDesktopPath(filePaths[0]);
-    } else {
-      return formatMultipleFiles(filePaths);
-    }
+  if (filePaths.length === 0) {
+    return null; // No files detected
   }
 
-  return null; // No files detected
+  // Skip conversion entirely if ANY paths are UNC paths
+  const hasUncPaths = filePaths.some(path => path.startsWith('\\\\'));
+  if (hasUncPaths) {
+    return null; // Let normal paste behavior handle UNC paths
+  }
+
+  // Only convert regular drive-letter paths
+  if (filePaths.length === 1) {
+    return formatDesktopPath(filePaths[0]);
+  } else {
+    return formatMultipleFiles(filePaths);
+  }
 }
 ```
 
@@ -237,6 +243,17 @@ convertClipboardFiles(createDataTransfer(['file:///C:/Users/My%20"Special"%20Fil
 convertClipboardFiles(createDataTransfer(['file:///C:\\Users\\file.txt']))
 // → `"C:/Users/file.txt"`
 
+// Should NOT convert (UNC paths - skip entirely)
+convertClipboardFiles(createDataTransfer(['file:///\\\\server\\share\\file.txt']))
+// → null
+
+// Should NOT convert (mixed UNC and regular - skip all)
+convertClipboardFiles(createDataTransfer([
+  'file:///C:/Users/file1.txt',
+  'file:///\\\\server\\share\\file2.txt'
+]))
+// → null
+
 // Should NOT convert (no files in clipboard)
 convertClipboardFiles(createDataTransfer([], 'C:\\Users\\file.txt'))
 // → null
@@ -250,6 +267,8 @@ convertClipboardFiles(createDataTransfer([], 'regular text'))
 - **Copy single file** from Windows Explorer → Paste into R console → should become `"C:/Users/Test/file.csv"`
 - **Copy multiple files** from Windows Explorer → Paste into R console → should become `c("C:/Users/file1.csv", "C:/Users/file2.csv")`
 - **Copy file** from Windows Explorer → Paste into R editor → should become `"C:/Users/Test/file.csv"`
+- **Copy UNC file** from network location → Paste into R console → should paste as normal file operation (no conversion)
+- **Copy mixed local and UNC files** → Paste into R console → should paste as normal file operation (no conversion for any)
 - **Copy file** from Windows Explorer → Paste into Python console → should remain as original file operation (no conversion)
 - **Type text path** `C:\Users\file.txt` → should remain unchanged (not file clipboard)
 - **Test with setting disabled** → files should paste as normal file operation
