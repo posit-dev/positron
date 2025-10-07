@@ -48,7 +48,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			initGitRepo: true,
 			status: 'new',
 			pythonEnv: 'venv',
-			interpreterPath: (await sessions.getSelectedSessionInfo()).path,
+			interpreterPath: (await sessions.getSelectedSessionInfo()).path, // remove when https://github.com/posit-dev/positron/issues/9365 is fixed
 			createPyprojectToml: true,
 		});
 
