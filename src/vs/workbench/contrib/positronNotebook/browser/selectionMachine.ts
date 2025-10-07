@@ -39,14 +39,15 @@ function verifyNonEmptyArray<T>(array: T[]): NonEmptyArray<T> {
  * Selection state discriminated union.
  *
  * Design rationale for field types:
- * - SingleSelection and MultiSelection use `selected: IPositronNotebookCell[]` (array)
- *   to enable uniform handling: filtering, equality checks, and automatic transitions
- *   based on array.length.
+ * - SingleSelection uses `selected: IPositronNotebookCell` (singular) for type safety,
+ *   ensuring compile-time enforcement that exactly one cell is selected.
+ * - MultiSelection uses `selected: NonEmptyArray<IPositronNotebookCell>` (array) to ensure
+ *   at least one cell is selected and enable filtering and equality checks.
  * - EditingSelection uses `selected: IPositronNotebookCell` (singular) for type safety,
  *   ensuring compile-time enforcement that exactly one cell is being edited.
  *
- * This design provides API consistency (all states use `selected`) while leveraging
- * TypeScript's discriminated unions to enforce different constraints per state.
+ * This design provides type safety while maintaining clear distinctions between
+ * single and multi-cell selection states.
  */
 type SelectionStates =
 	| {
@@ -54,7 +55,7 @@ type SelectionStates =
 	}
 	| {
 		type: SelectionState.SingleSelection;
-		selected: NonEmptyArray<IPositronNotebookCell>;
+		selected: IPositronNotebookCell;
 	}
 	| {
 		type: SelectionState.MultiSelection;
@@ -81,6 +82,7 @@ export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[
 		case SelectionState.NoCells:
 			return [];
 		case SelectionState.SingleSelection:
+			return [state.selected];
 		case SelectionState.MultiSelection:
 			return state.selected;
 		case SelectionState.EditingSelection:
@@ -94,7 +96,7 @@ export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[
  */
 export function getSelectedCell(state: SelectionStates): IPositronNotebookCell | null {
 	if (state.type === SelectionState.SingleSelection) {
-		return state.selected[0];
+		return state.selected;
 	}
 	return null;
 }
@@ -119,6 +121,8 @@ function isSelectionStateEqual(a: SelectionStates, b: SelectionStates): boolean 
 		case SelectionState.NoCells:
 			return a.type === b.type;
 		case SelectionState.SingleSelection:
+			return a.type === b.type &&
+				a.selected === (b as typeof a).selected;
 		case SelectionState.MultiSelection:
 			return a.type === b.type &&
 				a.selected.length === (b as typeof a).selected.length &&
@@ -207,7 +211,7 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		const deselectingCurrentSelection =
-			(state.type === SelectionState.SingleSelection && state.selected[0] === cell) ||
+			(state.type === SelectionState.SingleSelection && state.selected === cell) ||
 			(state.type === SelectionState.EditingSelection && state.selected === cell);
 
 		if (deselectingCurrentSelection) {
@@ -215,15 +219,29 @@ export class SelectionStateMachine extends Disposable {
 			// If cells still exist, select the first one
 			const cells = this._cells.get();
 			if (cells.length > 0) {
-				this._setState({ type: SelectionState.SingleSelection, selected: [cells[0]] });
+				this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
 			}
 			return;
 		}
 
 		if (state.type === SelectionState.MultiSelection) {
-			const updatedSelection = verifyNonEmptyArray(state.selected.filter(c => c !== cell));
+			const updatedSelection = state.selected.filter(c => c !== cell);
+			if (updatedSelection.length === 0) {
+				// All cells deselected - let invariant enforcement handle transition to NoCells
+				// If cells still exist, select the first one
+				const cells = this._cells.get();
+				if (cells.length > 0) {
+					this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
+				}
+				return;
+			}
+			const verifiedSelection = verifyNonEmptyArray(updatedSelection);
 			// React will handle focus based on selection state change
-			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
+			if (verifiedSelection.length === 1) {
+				this._setState({ type: SelectionState.SingleSelection, selected: verifiedSelection[0] });
+			} else {
+				this._setState({ type: SelectionState.MultiSelection, selected: verifiedSelection });
+			}
 		}
 
 		// If the cell is not in the selection, do nothing.
@@ -254,7 +272,7 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		const cellToEdit = state.selected[0];
+		const cellToEdit = state.selected;
 		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
 		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
 		await cellToEdit.showEditor();
@@ -268,7 +286,7 @@ export class SelectionStateMachine extends Disposable {
 	exitEditor(): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
-		this._setState({ type: SelectionState.SingleSelection, selected: [state.selected] });
+		this._setState({ type: SelectionState.SingleSelection, selected: state.selected });
 	}
 
 	//#endregion Public Methods
@@ -281,7 +299,7 @@ export class SelectionStateMachine extends Disposable {
 	 * @param cell The cell to select.
 	 */
 	private _selectCellNormal(cell: IPositronNotebookCell): void {
-		this._setState({ type: SelectionState.SingleSelection, selected: [cell] });
+		this._setState({ type: SelectionState.SingleSelection, selected: cell });
 	}
 
 	/**
@@ -320,11 +338,12 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		// Check if cell is already selected
-		if (state.selected.includes(cell)) {
+		const selectedCells = state.type === SelectionState.SingleSelection ? [state.selected] : state.selected;
+		if (selectedCells.includes(cell)) {
 			return;
 		}
 
-		this._setState({ type: SelectionState.MultiSelection, selected: [...state.selected, cell] });
+		this._setState({ type: SelectionState.MultiSelection, selected: verifyNonEmptyArray([...selectedCells, cell]) });
 	}
 
 	/**
@@ -349,7 +368,7 @@ export class SelectionStateMachine extends Disposable {
 				const deletedCellIndex = previousCells.indexOf(state.selected);
 				const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
 				if (cellToSelect) {
-					this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
+					this._setState({ type: SelectionState.SingleSelection, selected: cellToSelect });
 				}
 				// If no cell to select, invariant enforcement will handle transition to NoCells
 				return;
@@ -357,20 +376,25 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		const newSelection = state.selected.filter(c => cells.includes(c));
+		const currentSelection = getSelectedCells(state);
+		const newSelection = currentSelection.filter(c => cells.includes(c));
 		if (newSelection.length === 0) {
 			// Cells were removed - select an appropriate neighboring cell
 			// Use the index of the first selected cell that was removed in the previous array
-			const deletedCellIndex = previousCells.indexOf(state.selected[0]);
+			const deletedCellIndex = previousCells.indexOf(currentSelection[0]);
 			const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
 			if (cellToSelect) {
-				this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
+				this._setState({ type: SelectionState.SingleSelection, selected: cellToSelect });
 			}
 			// If no cell to select, invariant enforcement will handle transition to NoCells
 			return;
 		}
 
-		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: verifyNonEmptyArray(newSelection) });
+		if (newSelection.length === 1) {
+			this._setState({ type: SelectionState.SingleSelection, selected: newSelection[0] });
+		} else {
+			this._setState({ type: SelectionState.MultiSelection, selected: verifyNonEmptyArray(newSelection) });
+		}
 	}
 
 	/**
@@ -410,7 +434,7 @@ export class SelectionStateMachine extends Disposable {
 			this._logService.debug('SelectionMachine: Auto-selecting first cell (cells appeared)');
 			this._setState({
 				type: SelectionState.SingleSelection,
-				selected: [cells[0]]
+				selected: cells[0]
 			});
 		}
 	}
@@ -542,8 +566,10 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		// Direct access is safe because NonEmptyArray guarantees at least one element
-		const edgeCell = state.selected[up ? 0 : state.selected.length - 1];
+		// Direct access is safe because state invariants guarantee at least one element
+		const edgeCell = state.type === SelectionState.SingleSelection
+			? state.selected
+			: state.selected[up ? 0 : state.selected.length - 1];
 		const indexOfEdgeCell = edgeCell.index;
 		const nextCell = cells[indexOfEdgeCell + (up ? -1 : 1)];
 
@@ -557,7 +583,8 @@ export class SelectionStateMachine extends Disposable {
 				// Already at the edge of the cells.
 				return;
 			}
-			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...state.selected] : [...state.selected, nextCell]);
+			const currentSelection = getSelectedCells(state);
+			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
 			this._setState({
 				type: SelectionState.MultiSelection,
 				selected: newSelection
