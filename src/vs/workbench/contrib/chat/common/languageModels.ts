@@ -624,6 +624,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			}
 			try {
 				const modelsAndIdentifiers = await provider.prepareLanguageModelChat({ silent }, CancellationToken.None);
+				const includedModels = [];
 				for (const modelAndIdentifier of modelsAndIdentifiers) {
 					if (this._modelCache.has(modelAndIdentifier.identifier)) {
 						this._logService.warn(`[LM] Model ${modelAndIdentifier.identifier} is already registered. Skipping.`);
@@ -632,19 +633,26 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 					// --- Start Positron ---
 					// Get and apply LLM allow filters from configuration.
-					const _config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
-					this._logService.trace('[LM] Applying model filters:', _config.filterModels);
-					if (_config.filterModels.length > 0 && !_config.filterModels.some(pattern =>
+					const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
+					this._logService.trace('[LM] Applying model filters:', config.filterModels);
+					if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
 						match(pattern, modelAndIdentifier.metadata.id) ||
 						match(pattern, modelAndIdentifier.metadata.name))
 					) {
 						continue;
 					}
+					includedModels.push(modelAndIdentifier.identifier);
 					// --- End Positron ---
 
 					this._modelCache.set(modelAndIdentifier.identifier, modelAndIdentifier.metadata);
 				}
 				this._logService.trace(`[LM] Resolved language models for vendor ${vendor}`, modelsAndIdentifiers);
+
+				// --- Start Positron ---
+				if (modelsAndIdentifiers.length > 0 && modelsAndIdentifiers.length !== includedModels.length) {
+					this._logService.trace(`[LM] Filtered out ${modelsAndIdentifiers.length - includedModels.length} models by configuration for vendor ${vendor}. Included models:`, includedModels);
+				}
+				// --- End Positron ---
 			} catch (error) {
 				this._logService.error(`[LM] Error resolving language models for vendor ${vendor}:`, error);
 			}

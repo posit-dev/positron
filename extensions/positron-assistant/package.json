@@ -296,12 +296,25 @@
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
               "type": "string"
-            }
+            },
+            "examples": [
+              [
+                "Claude*",
+                "GPT-5"
+              ],
+              [
+                "**/google/gemini*"
+              ]
+            ]
           },
           "positron.assistant.preferredModel": {
             "type": "string",
             "default": "",
-            "markdownDescription": "%configuration.preferredModel.description%"
+            "markdownDescription": "%configuration.preferredModel.description%",
+            "examples": [
+              "Claude Sonnet 4.5",
+              "GPT-5"
+            ]
           }
         }
       }
