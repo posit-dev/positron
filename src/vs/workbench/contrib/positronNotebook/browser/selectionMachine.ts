@@ -159,7 +159,6 @@ export class SelectionStateMachine extends Disposable {
 		this._register(autorunDelta(this._cells, ({ lastValue, newValue }) => {
 			if (lastValue !== undefined) {
 				this._setCells(newValue, lastValue);
-				// Enforce invariant after cell changes
 				this._enforceInvariant(newValue);
 			}
 		}));
@@ -215,19 +214,18 @@ export class SelectionStateMachine extends Disposable {
 			(state.type === SelectionState.EditingSelection && state.selected === cell);
 
 		if (deselectingCurrentSelection) {
-			// Don't manually set NoCells - let invariant enforcement handle it
 			// If cells still exist, select the first one
-			const cells = this._cells.get();
-			if (cells.length > 0) {
-				this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
-			}
+			this._selectFirstCell();
+			// Don't manually set NoCells - let invariant enforcement handle it
 			return;
 		}
 
 		if (state.type === SelectionState.MultiSelection) {
 			const updatedSelection = state.selected.filter(c => c !== cell);
 			if (updatedSelection.length === 0) {
-				// All cells deselected - let invariant enforcement handle transition
+				// All cells deselected - if cells still exist, select the first one
+				this._selectFirstCell();
+				// If no cells exist, invariant enforcement will handle transition to NoCells
 				return;
 			}
 			const verifiedSelection = verifyNonEmptyArray(updatedSelection);
@@ -336,7 +334,11 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Updates the selection state when cells change.
+	 * Updates the selection state when cells change (Phase 1 of cell updates).
+	 *
+	 * Handles selection updates when cells are added/removed but cells still exist.
+	 * Intentionally delegates boundary conditions (transitions to/from NoCells state)
+	 * to _enforceInvariant, which is always called immediately after this method.
 	 *
 	 * @param cells The new cells array.
 	 * @param previousCells The previous cells array.
@@ -387,6 +389,19 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
+	 * Selects the first cell if cells exist, transitioning to SingleSelection state.
+	 * @returns True if a cell was selected, false if no cells exist
+	 */
+	private _selectFirstCell(): boolean {
+		const cells = this._cells.get();
+		if (cells.length > 0) {
+			this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
+			return true;
+		}
+		return false;
+	}
+
+	/**
 	 * Selects an appropriate neighboring cell when the current selection is removed.
 	 * @param cells The current cells array
 	 * @param deletedIndex The index where the deleted cell was
@@ -407,8 +422,15 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Enforces the invariant: NoCells ↔ cells.length === 0
-	 * Called automatically when cells array changes
+	 * Enforces the invariant: NoCells ↔ cells.length === 0 (Phase 2 of cell updates).
+	 *
+	 * Invariants in state machines are conditions that must always be true regardless of state transitions.
+	 * This invariant ensures the selection state accurately reflects cell existence - we cannot be
+	 * in NoCells state when cells exist, and we cannot have a selection when no cells exist.
+	 *
+	 * This method handles boundary conditions when transitioning between empty/non-empty cell arrays.
+	 * Always called after _setCells to maintain separation of concerns: _setCells handles selection
+	 * logic for existing cells, this method handles the boundary enforcement.
 	 */
 	private _enforceInvariant(cells: IPositronNotebookCell[]): void {
 		const currentState = this._state.get();
@@ -421,10 +443,7 @@ export class SelectionStateMachine extends Disposable {
 		else if (cells.length > 0 && currentState.type === SelectionState.NoCells) {
 			// Cells appeared → automatically select first cell
 			this._logService.debug('SelectionMachine: Auto-selecting first cell (cells appeared)');
-			this._setState({
-				type: SelectionState.SingleSelection,
-				selected: cells[0]
-			});
+			this._selectFirstCell();
 		}
 	}
 
