@@ -238,6 +238,15 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			// --- End PWB ---
 		}
 
+		// --- Start PWB: Server proxy support ---
+		if (pathname) {
+			if (this._webClientServer && kProxyRegex.test(pathname)) {
+				this._webClientServer.handleUpgrade(req, socket, upgradeHead, pathname);
+				return;
+			}
+		}
+		// --- End PWB ---
+
 		const upgraded = upgradeToISocket(req, socket, {
 			debugLabel: `server-connection-${reconnectionToken}`,
 			skipWebSocketFrames,
@@ -247,15 +256,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		if (!upgraded) {
 			return;
 		}
-
-		// --- Start PWB: Server proxy support ---
-		if (pathname) {
-			if (this._webClientServer && kProxyRegex.test(pathname)) {
-				this._webClientServer.handleUpgrade(req, socket, upgradeHead, pathname);
-				return;
-			}
-		}
-		// --- End PWB ---
 
 		this._handleWebSocketConnection(upgraded, isReconnection, reconnectionToken);
 	}
