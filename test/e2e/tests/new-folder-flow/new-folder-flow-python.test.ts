@@ -38,7 +38,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 
 	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
 	// passing in python to ensure a valid version is used
-	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings, python }) {
+	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings, python, sessions }) {
 		const folderName = addRandomNumSuffix('git-init');
 		await settings.set({ 'files.exclude': { '**/.git': false, '**/.gitignore': false } }, { waitMs: 1000 });
 
@@ -48,6 +48,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			initGitRepo: true,
 			status: 'new',
 			pythonEnv: 'venv',
+			interpreterPath: (await sessions.getSelectedSessionInfo()).path,
 			createPyprojectToml: true,
 		});
 
