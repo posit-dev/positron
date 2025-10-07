@@ -6,17 +6,11 @@
 import { Application } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
+import { PositronNotebooks } from '../../pages/notebooksPositron.js';
 
 test.use({
 	suiteId: __filename
 });
-
-/**
- * Helper function to get cell count
- */
-async function getCellCount(app: Application): Promise<number> {
-	return await app.code.driver.page.locator('[data-testid="notebook-cell"]').count();
-}
 
 /**
  * Helper function to copy cells using keyboard shortcut
@@ -73,7 +67,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell 4', 4);
 
 		// Verify we have 5 cells
-		expect(await getCellCount(app)).toBe(5);
+		await app.workbench.notebooksPositron.expectCellCount(5);
 
 		// ========================================
 		// Test 1: Copy single cell and paste at end
@@ -91,7 +85,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await pasteCellsWithKeyboard(app);
 
 		// Verify cell count increased
-		expect(await getCellCount(app)).toBe(6);
+		await app.workbench.notebooksPositron.expectCellCount(6);
 
 		// Verify the pasted cell has the correct content (should be at index 5)
 		expect(await app.workbench.notebooksPositron.getCellContent(5)).toBe('# Cell 2');
@@ -108,7 +102,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await cutCellsWithKeyboard(app);
 
 		// Verify cell count decreased
-		expect(await getCellCount(app)).toBe(5);
+		await app.workbench.notebooksPositron.expectCellCount(5);
 
 		// Verify what was cell 2 is now at index 1
 		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 2');
@@ -118,7 +112,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await pasteCellsWithKeyboard(app);
 
 		// Verify cell count is back to 6
-		expect(await getCellCount(app)).toBe(6);
+		await app.workbench.notebooksPositron.expectCellCount(6);
 
 		// Verify the pasted cell has correct content at index 4
 		expect(await app.workbench.notebooksPositron.getCellContent(4)).toBe('# Cell 1');
@@ -137,7 +131,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await pasteCellsWithKeyboard(app);
 
 		// Verify first paste
-		expect(await getCellCount(app)).toBe(7);
+		await app.workbench.notebooksPositron.expectCellCount(7);
 		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 0');
 
 		// Paste again at position 5
@@ -145,7 +139,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await pasteCellsWithKeyboard(app);
 
 		// Verify second paste
-		expect(await getCellCount(app)).toBe(8);
+		await app.workbench.notebooksPositron.expectCellCount(8);
 		expect(await app.workbench.notebooksPositron.getCellContent(6)).toBe('# Cell 0');
 
 		// ========================================
@@ -159,7 +153,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await cutCellsWithKeyboard(app);
 
 		// Verify cell removed
-		expect(await getCellCount(app)).toBe(7);
+		await app.workbench.notebooksPositron.expectCellCount(7);
 
 		// Move to first cell and paste
 		// Note: Paste typically inserts after the current cell
@@ -167,7 +161,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		await pasteCellsWithKeyboard(app);
 
 		// Verify cell count restored
-		expect(await getCellCount(app)).toBe(8);
+		await app.workbench.notebooksPositron.expectCellCount(8);
 
 		// Verify pasted cell is at index 1 (pasted after cell 0)
 		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe(cellToMoveContent);
@@ -176,19 +170,19 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 		// Test 5: Cut all cells and verify notebook can be empty
 		// ========================================
 		// Delete cells until only one remains
-		while (await getCellCount(app) > 1) {
+		while ((await app.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count()) > 1) {
 			await app.workbench.notebooksPositron.selectCellAtIndex(0);
 			await cutCellsWithKeyboard(app);
 		}
 
 		// Verify we have exactly one cell
-		expect(await getCellCount(app)).toBe(1);
+		await app.workbench.notebooksPositron.expectCellCount(1);
 
 		// Cut the last cell - in Positron notebooks, this may be allowed
 		await cutCellsWithKeyboard(app);
 
 		// Check if notebook can be empty (Positron may allow 0 cells)
-		const finalCount = await getCellCount(app);
+		const finalCount = await app.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count();
 		expect(finalCount).toBeLessThanOrEqual(1);
 
 		// ========================================

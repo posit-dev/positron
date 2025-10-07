@@ -19,17 +19,17 @@ export class PositronNotebooks extends Notebooks {
 	positronNotebook: Locator;
 
 	// Selector constants for Positron notebook elements
-	private static readonly RUN_CELL_LABEL = /execute cell/i;
-	private static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
-	private static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
-	private static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
-	private static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
-	private static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
-	private static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
-	private static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
-	private static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
-	private static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
-	private static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
+	public static readonly RUN_CELL_LABEL = /execute cell/i;
+	public static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
+	public static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
+	public static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
+	public static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
+	public static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
+	public static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
+	public static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
+	public static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
+	public static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
+	public static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -65,6 +65,10 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	private async getCellCount(): Promise<number> {
 		return await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count();
+	}
+
+	async expectCellCount(expectedCount: number, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await expect(this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR)).toHaveCount(expectedCount, { timeout });
 	}
 
 	/**
