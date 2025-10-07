@@ -11,14 +11,13 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostContext, ExtHostNotebookEditorsShape, INotebookDocumentShowOptions, INotebookEditorPropertiesChangeData, INotebookEditorViewColumnInfo, MainThreadNotebookEditorsShape, NotebookEditorRevealType } from '../../common/extHost.protocol.js';
 import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
-import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/PositronNotebookInstance.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { getSelectedCells, SelectionStates } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { equals } from '../../../../base/common/objects.js';
 import { UriComponents } from '../../../../base/common/uri.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IEditorPane } from '../../../common/editor.js';
-import { PositronNotebookEditor } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { getNotebookInstanceFromEditorPane, PositronNotebookEditor } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
 
 //#region MainThreadPositronNotebookInstance
 /**

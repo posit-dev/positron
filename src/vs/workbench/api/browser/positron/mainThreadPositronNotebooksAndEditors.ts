@@ -13,11 +13,11 @@ import { ExtHostContext, ExtHostNotebookShape, INotebookDocumentsAndEditorsDelta
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
-import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/PositronNotebookInstance.js';
 import { MainThreadPositronNotebookInstance, MainThreadPositronNotebookEditors, IMainThreadPositronNotebookInstanceLocator } from './mainThreadPositronNotebookEditors.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { MainPositronContext } from '../../common/positron/extHost.positron.protocol.js';
 import { autorun } from '../../../../base/common/observable.js';
+import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
 
 /**
  * This module implements an alternative of MainThreadNotebooksAndEditors for IPositronNotebookInstance
