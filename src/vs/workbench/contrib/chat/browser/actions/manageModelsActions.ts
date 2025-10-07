@@ -51,7 +51,7 @@ export class ManageModelsAction extends Action2 {
 		const providers = languageModelsService.getLanguageModelProviders();
 		const allVendors = languageModelsService.getVendors();
 		const vendors = allVendors
-			.filter(vendor => providers.some(provider => provider.displayName === vendor.displayName));
+			.filter(vendor => providers.some(provider => provider.id === vendor.vendor));
 		// --- End Positron ---
 		const store = new DisposableStore();
 
