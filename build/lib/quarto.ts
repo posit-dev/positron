@@ -36,7 +36,15 @@ function getQuartoWindows(version: string): Stream {
 		verbose: true,
 		timeoutSeconds: 90,
 	})
-		.pipe(unzip({ keepEmpty: true }));
+		.pipe(unzip({ keepEmpty: true }))
+		// Add a debug step to log all files, including empty ones
+		.pipe(es.through(function (file) {
+			const size = file.contents ? file.contents.length : 0;
+			if (size === 0) {
+				fancyLog(`Empty file detected: ${file.path}`);
+			}
+			this.emit('data', file);
+		}));
 }
 
 /**
