@@ -52,6 +52,16 @@ async function getCellCount(app: Application): Promise<number> {
 }
 
 /**
+ * Wait for at least one cell to exist in the DOM
+ */
+async function waitForCellsInDOM(app: Application, timeoutMs: number = 2000): Promise<void> {
+	await app.code.driver.page.locator('[data-testid="notebook-cell"]').first().waitFor({
+		state: 'visible',
+		timeout: timeoutMs
+	});
+}
+
+/**
  * Wait for focus to settle (useful after DOM changes)
  * Waits until any notebook cell has focus (or until timeout)
  */
@@ -59,10 +69,7 @@ async function waitForFocusSettle(app: Application, timeoutMs: number = 2000): P
 	const page = app.code.driver.page;
 
 	// First, ensure at least one cell exists in the DOM
-	await page.locator('[data-testid="notebook-cell"]').first().waitFor({
-		state: 'attached',
-		timeout: timeoutMs
-	});
+	await waitForCellsInDOM(app, timeoutMs);
 
 	// Now wait for one of them to have focus
 	await page.waitForFunction(() => {
@@ -359,7 +366,7 @@ test.describe('Notebook Focus and Selection', {
 		await app.workbench.notebooksPositron.expectToBeVisible();
 
 		// Wait for cells to be in DOM and for initial focus to settle
-		await app.code.driver.page.locator('[data-testid="notebook-cell"]').first().waitFor({ state: 'visible', timeout: 5000 });
+		await waitForCellsInDOM(app, 5000);
 		await waitForFocusSettle(app);
 
 		// EXPECTED: First cell should be automatically selected without any user interaction
