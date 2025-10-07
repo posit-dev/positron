@@ -39,9 +39,22 @@ export function arePathsSame(path1: string, path2: string): boolean {
 
 /**
  * Copied from the function of the same name in extensions/positron-python/src/client/common/helpers.ts.
+ * NOTE: We do not export this since in all known cases, normalizeUserPath()
+ * is the better choice.
  */
-export function untildify(path: string): string {
+function untildify(path: string): string {
 	return path.replace(/^~($|\/|\\)/, `${os.homedir()}$1`);
+}
+
+/**
+ * Normalizes a user-provided path (e.g., from settings) by expanding tilde (~) to the home
+ * directory, normalizing path separators, and resolving `.` and `..`. This leaves us with
+ * more robust and predictable paths in, e.g., the R installation metadata.
+ * @param filepath The user-provided path to normalize
+ * @returns The normalized, tilde-expanded, absolute path
+ */
+export function normalizeUserPath(filepath: string): string {
+	return path.normalize(untildify(filepath));
 }
 
 /**
