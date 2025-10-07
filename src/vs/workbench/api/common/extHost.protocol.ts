@@ -2812,6 +2812,10 @@ export interface INotebookEditorAddData {
 	visibleRanges: ICellRange[];
 	viewColumn?: number;
 	viewType: string;
+	// --- Start Positron ---
+	/** Whether this represents a Positron notebook editor. */
+	isPositron?: boolean;
+	// --- End Positron ---
 }
 
 export interface INotebookDocumentsAndEditorsDelta {

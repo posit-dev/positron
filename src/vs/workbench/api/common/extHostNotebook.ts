@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { MainPositronContext } from './positron/extHost.positron.protocol.js';
+// --- End Positron ---
 import { localize } from '../../../nls.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
@@ -42,6 +45,9 @@ import { ILogService } from '../../../platform/log/common/log.js';
 export class ExtHostNotebookController implements ExtHostNotebookShape {
 	private static _notebookStatusBarItemProviderHandlePool: number = 0;
 
+	// --- Start Positron ---
+	private readonly _positronNotebookInstancesProxy: MainThreadNotebookEditorsShape;
+	// --- End Positron ---
 	private readonly _notebookProxy: MainThreadNotebookShape;
 	private readonly _notebookDocumentsProxy: MainThreadNotebookDocumentsShape;
 	private readonly _notebookEditorsProxy: MainThreadNotebookEditorsShape;
@@ -82,6 +88,9 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 		private _extHostSearch: IExtHostSearch,
 		private _logService: ILogService
 	) {
+		// --- Start Positron ---
+		this._positronNotebookInstancesProxy = mainContext.getProxy(MainPositronContext.MainThreadPositronNotebookEditors);
+		// --- End Positron ---
 		this._notebookProxy = mainContext.getProxy(MainContext.MainThreadNotebook);
 		this._notebookDocumentsProxy = mainContext.getProxy(MainContext.MainThreadNotebookDocuments);
 		this._notebookEditorsProxy = mainContext.getProxy(MainContext.MainThreadNotebookEditors);
@@ -231,14 +240,6 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 		if (editor) {
 			return editor;
 		}
-		// --- Start Positron ---
-		// Positron notebooks don't implement INotebookEditor yet, so mock the result.
-		// This will lead to unexpected errors in extensions that use this API
-		// until we implement INotebookEditor (https://github.com/posit-dev/positron/issues/9440).
-		if (editorId.startsWith('positron-notebook-')) {
-			return {} as any;
-		}
-		// --- End Positron ---
 
 		if (editorId) {
 			throw new Error(`Could NOT open editor for "${notebook.uri.toString()}" because another editor opened in the meantime.`);
@@ -596,7 +597,11 @@ export class ExtHostNotebookController implements ExtHostNotebookShape {
 
 		const editor = new ExtHostNotebookEditor(
 			editorId,
-			this._notebookEditorsProxy,
+			// --- Start Positron ---
+			// If it's a Positron notebook, use the Positron notebook instances proxy
+			// this._notebookEditorsProxy,
+			data.isPositron ? this._positronNotebookInstancesProxy : this._notebookEditorsProxy,
+			// --- End Positron ---
 			document,
 			data.visibleRanges.map(typeConverters.NotebookRange.to),
 			data.selections.map(typeConverters.NotebookRange.to),
