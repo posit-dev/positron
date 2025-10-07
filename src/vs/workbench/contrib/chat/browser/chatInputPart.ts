@@ -535,11 +535,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// }));
 
 		this._register(this.languageModelsService.onDidChangeCurrentProvider((provider) => {
-			// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
+			// if the current provider is not the same as the current model's provider, determine the model to pre-select for the new provider
 			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.vendor !== provider) {
-				const models = this.getModels();
-				if (models.length > 0) {
-					this.setCurrentLanguageModel(models[0]);
+				const selectedModel = this.determineSelectedModel();
+				if (selectedModel) {
+					this.setCurrentLanguageModel(selectedModel);
 				}
 			}
 		}));
@@ -553,6 +553,48 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private getSelectedModelIsDefaultStorageKey(): string {
 		return `chat.currentLanguageModel.${this.location}.isDefault`;
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Determine the model to select for the current provider.
+	 * Order of precedence:
+	 * 1. TODO: Last used model for the provider (persisted in storage)
+	 * 2. Preferred model from configuration (if set and available)
+	 * 3. TODO: Default model for the provider (if set in settings)
+	 * 4. First available model from the provider
+	 * @returns The model to select for the current provider, or undefined if no models are available.
+	 */
+	private determineSelectedModel(): ILanguageModelChatMetadataAndIdentifier | undefined {
+		const models = this.getModels();
+		if (models.length === 0) {
+			this.logService.debug('ChatInputPart#determineSelectedModel: No models available from current provider');
+			return undefined;
+		}
+
+		// TODO: if the user has manually changed the model previously, use that model if it is still available
+
+		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
+
+		// Try to get the preferred model from the configuration
+		if (config.preferredModel) {
+			const preferredModel = models.find(m =>
+				m.identifier === config.preferredModel ||
+				m.metadata.id.includes(config.preferredModel) ||
+				m.metadata.name.includes(config.preferredModel)
+			);
+			if (preferredModel) {
+				this.logService.debug(`ChatInputPart#determineSelectedModel: Using preferred model from config: ${JSON.stringify(preferredModel, null, 2)}`);
+				return preferredModel;
+			}
+		}
+
+		// TODO: Get the default model for the provider from settings
+
+		// Fallback to the first model
+		this.logService.debug(`ChatInputPart#determineSelectedModel: Falling back to first available model: ${JSON.stringify(models[0], null, 2)}`);
+		return models[0];
+	}
+	// --- End Positron ---
 
 	private initSelectedModel() {
 		let persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
