@@ -18,18 +18,18 @@ test.describe('Large R Notebook', {
 
 	test('R - Large notebook execution', {
 		tag: [tags.ARK]
-	}, async function ({ app, r }) {
+	}, async function ({ app, openDataFile, runCommand, r }) {
 		test.slow();
-		const notebooks = app.workbench.notebooks;
+		const { notebooks, layouts } = app.workbench;
 
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
+		// open the large R notebook and run all cells
+		await openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('R');
-
 		await notebooks.runAllCells(120000);
 
-		await app.workbench.layouts.enterLayout('notebook');
-
-		await app.workbench.quickaccess.runCommand('notebook.focusTop');
+		// scroll through the notebook and count unique plot outputs
+		await layouts.enterLayout('notebook');
+		await runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'library(dplyr)' }).locator('span').first().click();
 
 		const allFigures: any[] = [];

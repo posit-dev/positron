@@ -70,7 +70,6 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 		// ========================================
 		// Test 2: Delete another cell (cell 3, originally cell 4)
 		// ========================================
-
 		await test.step('Test 2: Delete another cell (cell 3, originally cell 4)', async () => {
 			// Select cell 3 for deletion
 			await notebooksPositron.selectCellAtIndex(3);

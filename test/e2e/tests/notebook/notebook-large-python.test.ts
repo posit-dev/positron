@@ -16,22 +16,21 @@ test.describe('Large Python Notebook', {
 }, () => {
 
 	test.afterAll(async function ({ hotKeys }) {
-		// If we don't close the editor, the test teardown fails
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Large notebook execution', async function ({ app, python }) {
+	test('Python - Large notebook execution', async function ({ app, openDataFile, runCommand, python }) {
 		test.slow();
-		const notebooks = app.workbench.notebooks;
+		const { notebooks, layouts } = app.workbench;
 
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
+		// open the large Python notebook and run all cells
+		await openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python');
-
 		await notebooks.runAllCells(120000);
 
-		await app.workbench.layouts.enterLayout('notebook');
-
-		await app.workbench.quickaccess.runCommand('notebook.focusTop');
+		// scroll through the notebook and count unique plot outputs
+		await layouts.enterLayout('notebook');
+		await runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
 		const allFigures: any[] = [];

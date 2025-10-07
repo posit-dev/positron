@@ -85,7 +85,6 @@ test.describe('Notebook Focus and Selection', {
 			await app.code.driver.page.keyboard.press('ArrowDown');
 			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 
-			// Navigate down once more
 			await app.code.driver.page.keyboard.press('ArrowDown');
 			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: false });
 
