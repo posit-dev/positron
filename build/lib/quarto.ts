@@ -11,8 +11,6 @@ import gulp = require('gulp');
 import util = require('./util');
 import rename = require('gulp-rename');
 import path = require('path');
-import fs = require('fs');
-import os = require('os');
 
 /**
  * Get the base URL for the quarto download
@@ -30,118 +28,21 @@ function getBaseUrl(version: string): string {
  * @param version The version of quarto to download
  * @returns A stream
  */
-/**
- * Check if specific files exist in a ZIP buffer directly without using gulp-unzip
- *
- * @param zipBuffer The ZIP file as a Buffer
- * @param filesToCheck Array of file paths to check for
- */
-function checkZipContents(zipBuffer: Buffer, filesToCheck: string[]): void {
-	// Use the yauzl module for unzipping
-	const yauzl = require('yauzl');
-
-	const tempPath = path.join(os.tmpdir(), `quarto-check-${Date.now()}.zip`);
-
-	try {
-		// Write the buffer to a temp file
-		fs.writeFileSync(tempPath, zipBuffer);
-
-		// Open the ZIP file
-		yauzl.open(tempPath, { lazyEntries: true }, (err: Error | null, zipfile: any) => {
-			if (err) {
-				fancyLog(`Error checking ZIP contents: ${err}`);
-				return;
-			}
-
-			fancyLog(`Checking ZIP file contents directly (bypassing gulp-unzip)`);
-
-			// Track files we find
-			const foundFiles = new Set<string>();
-
-			zipfile.on('entry', (entry: any) => {
-				const fileName = entry.fileName;
-				const fileSize = entry.uncompressedSize;
-
-				// Check if this is one of our tracked files
-				for (const fileToCheck of filesToCheck) {
-					if (fileName.endsWith(fileToCheck)) {
-						fancyLog(`DIRECT ZIP CHECK - FOUND: ${fileName}, size: ${fileSize} bytes`);
-						foundFiles.add(fileToCheck);
-					}
-				}
-
-				// Continue reading entries
-				zipfile.readEntry();
-			});
-
-			zipfile.on('end', () => {
-				// Check for files that weren't found
-				for (const fileToCheck of filesToCheck) {
-					if (!foundFiles.has(fileToCheck)) {
-						fancyLog(`DIRECT ZIP CHECK - NOT FOUND: ${fileToCheck}`);
-					}
-				}
-
-				// Clean up
-				try {
-					fs.unlinkSync(tempPath);
-				} catch (e) {
-					// Ignore errors during cleanup
-				}
-			});
-
-			// Start reading entries
-			zipfile.readEntry();
-		});
-	} catch (err) {
-		fancyLog(`Error in checkZipContents: ${err}`);
-	}
-}
-
 function getQuartoWindows(version: string): Stream {
 	const unzip = require('gulp-unzip');
 	const basename = `quarto-${version}-win`;
-
-	// Files we want to track
-	const filesToTrack = [
-		'share/formats/pdf/pandoc/after-body.tex',
-		'share/formats/pdf/pandoc/before-bib.tex',
-		'share/formats/pdf/pandoc/before-title.tex'
-	];
-
-	// Get the fetch stream
-	const fetchStream = fetchUrls([`${basename}.zip`], {
+	return fetchUrls([`${basename}.zip`], {
 		base: getBaseUrl(version),
 		verbose: true,
 		timeoutSeconds: 90,
-	});
-
-	// Add logging to check raw ZIP content before unzipping
-	const preUnzipStream = fetchStream.pipe(es.through(function (file) {
-		fancyLog(`Received ZIP file: ${file.path}, size: ${file.contents ? file.contents.length : 0} bytes`);
-
-		// Check ZIP contents directly if we have file contents
-		if (file.contents) {
-			checkZipContents(file.contents, filesToTrack);
-		}
-
-		this.emit('data', file);
-	}));
-
-	// Unzip with keepEmpty option and add detailed logging
-	return preUnzipStream
+	})
 		.pipe(unzip({ keepEmpty: true }))
+		// Add a debug step to log all files, including empty ones
 		.pipe(es.through(function (file) {
-			// Log all files
-			fancyLog(`Extracted file: ${file.path}, size: ${file.contents ? file.contents.length : 0} bytes`);
-
-			// Check specifically for our tracked files
-			for (const trackFile of filesToTrack) {
-				if (file.path.endsWith(trackFile)) {
-					fancyLog(`FOUND TRACKED FILE: ${file.path}, size: ${file.contents ? file.contents.length : 0} bytes`);
-				}
+			const size = file.contents ? file.contents.length : 0;
+			if (size === 0) {
+				fancyLog(`Empty file detected: ${file.path}`);
 			}
-
 			this.emit('data', file);
 		}));
 }
