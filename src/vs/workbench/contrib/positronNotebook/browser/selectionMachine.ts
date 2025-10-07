@@ -14,109 +14,7 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
  *
  * This file implements a selection state machine for Positron notebooks.
  *
- * STATES:
- * -------
- * - NoCells: No cells exist in the notebook
- * - SingleSelection: Exactly one cell is selected (not editing)
- * - MultiSelection: Multiple cells are selected
- * - EditingSelection: One cell is selected and its editor is focused
- *
- * STATE TRANSITIONS:
- * ------------------
- * Valid transitions between states:
- *
- * 1. NoCells → SingleSelection
- *    Trigger: Cells appear in notebook (automatic via _enforceInvariant)
- *    Guard: cells.length > 0
- *    Result: First cell is automatically selected
- *
- * 2. SingleSelection → NoCells
- *    Trigger: All cells removed (automatic via _enforceInvariant)
- *    Guard: cells.length === 0
- *    Result: Selection cleared
- *
- * 3. NoCells → EditingSelection
- *    Trigger: selectCell(cell, CellSelectionType.Edit) when a cell is created in an empty notebook
- *    Guard: None (valid whenever transitioning from empty notebook to editing)
- *    Result: Cell is created and immediately enters edit mode without intermediate selection state
- *
- * 4. SingleSelection → EditingSelection
- *    Trigger: enterEditor() called or selectCell(cell, CellSelectionType.Edit)
- *    Guard: Must be in SingleSelection state
- *    Result: Cell editor is shown and focused
- *
- * 5. SingleSelection → MultiSelection
- *    Trigger: selectCell(cell, CellSelectionType.Add) or moveUp/moveDown(addMode: true)
- *    Guard: Must have at least one cell already selected
- *    Result: Additional cell added to selection
- *
- * 6. SingleSelection → SingleSelection
- *    Trigger: selectCell(cell, CellSelectionType.Normal) or moveUp/moveDown(addMode: false)
- *    Guard: None
- *    Result: New cell becomes the only selected cell
- *
- * 7. EditingSelection → SingleSelection
- *    Trigger: exitEditor() called
- *    Guard: Must be in EditingSelection state
- *    Result: Editor focus removed, cell remains selected
- *
- * 8. EditingSelection → NoCells
- *    Trigger: Cell being edited is removed (automatic via _setCells)
- *    Guard: cells.length === 0
- *    Result: Selection cleared
- *
- * 9. MultiSelection → SingleSelection
- *    Trigger: deselectCell() reduces to 1 cell, or selectCell(cell, CellSelectionType.Normal)
- *    Guard: None
- *    Result: Single cell selected
- *
- * 10. MultiSelection → MultiSelection
- *     Trigger: selectCell(cell, CellSelectionType.Add), deselectCell(), or moveUp/moveDown(addMode: true)
- *     Guard: Result must have >= 2 cells selected
- *     Result: Selection modified but remains multi-cell
- *
- * 11. MultiSelection → NoCells
- *     Trigger: All selected cells removed (automatic via _setCells)
- *     Guard: cells.length === 0
- *     Result: Selection cleared
- *
- * INVARIANTS:
- * -----------
- * 1. NoCells ↔ cells.length === 0
- *    Enforced by: _enforceInvariant() called on every cell array change
- *
- * 2. If cells exist, something must be selected
- *    Enforced by: Automatic transition to SingleSelection when cells appear
- *
- * 3. EditingSelection requires exactly one cell
- *    Enforced by: enterEditor() guard and type system
- *
- * 4. SingleSelection.selected and MultiSelection.selected arrays are never empty
- *    Enforced by: Type system and transition logic
- *
- * STATE GUARDS (conditions that must be true for transitions):
- * -------------------------------------------------------------
- * - enterEditor(): Current state must be SingleSelection
- * - exitEditor(): Current state must be EditingSelection
- * - selectCell(Add): Current state must not be NoCells
- * - moveUp/moveDown: Current state must not be EditingSelection or NoCells
- *
- * AUTOMATIC TRANSITIONS:
- * ----------------------
- * Some transitions happen automatically without explicit method calls:
- * - Any state → NoCells: When cells array becomes empty
- * - NoCells → SingleSelection: When cells array becomes non-empty
- * - Any state → SingleSelection: When selected cells are removed, selects neighboring cell
- *
- * METHODS BY STATE:
- * -----------------
- * Available operations depend on current state:
- * - NoCells: No operations available (guards prevent all actions)
- * - SingleSelection: selectCell, deselectCell, moveUp, moveDown, enterEditor
- * - MultiSelection: selectCell, deselectCell, moveUp, moveDown
- * - EditingSelection: exitEditor (movement and selection operations blocked by guards)
- */
-
+ **/
 export enum SelectionState {
 	NoCells = 'NoCells',
 	SingleSelection = 'SingleSelection',
@@ -163,7 +61,6 @@ export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[
 			return [state.selectedCell];
 	}
 }
-
 
 /**
  * Get the selected cell if there is exactly one selected.
@@ -213,7 +110,6 @@ export class SelectionStateMachine extends Disposable {
 		debugName: 'selectionState',
 		equalsFn: isSelectionStateEqual
 	}, { type: SelectionState.NoCells });
-
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
