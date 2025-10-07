@@ -560,7 +560,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	 * Order of precedence:
 	 * 1. TODO: Last used model for the provider (persisted in storage)
 	 * 2. Preferred model from configuration (if set and available)
-	 * 3. TODO: Default model for the provider (if set in settings)
+	 * 3. Default model for the provider (inherited from default model config in Positron Assistant extension, or if set in settings)
 	 * 4. First available model from the provider
 	 * @returns The model to select for the current provider, or undefined if no models are available.
 	 */
@@ -571,7 +571,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			return undefined;
 		}
 
-		// TODO: if the user has manually changed the model previously, use that model if it is still available
+		// TODO: if the user has manually changed the model previously, use that model if it is still available.
+		// When the user switches the provider, instead of using the last used model for that provider,
+		// we always use the preferred model from config or the default model for the provider, falling back to
+		// the first available model.
+		// We'd need to persist the last used model per provider in storage or in memory, and then look that up here.
+		// See https://github.com/posit-dev/positron/issues/9829 for more details.
 
 		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
 
