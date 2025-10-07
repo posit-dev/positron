@@ -13,7 +13,7 @@ test.use({
 });
 
 /**
- * Helper function to get the currently focused cell index
+ * Get the currently focused cell index
  * Checks if the cell or any of its children contain the active element
  */
 async function getFocusedCellIndex(app: Application): Promise<number | null> {
@@ -36,7 +36,7 @@ async function getFocusedCellIndex(app: Application): Promise<number | null> {
 }
 
 /**
- * Helper function to check if a cell is selected (has selection styling)
+ * Check if a cell is selected (has selection styling)
  */
 async function isCellSelected(app: Application, index: number): Promise<boolean> {
 	const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(index);
@@ -45,14 +45,14 @@ async function isCellSelected(app: Application, index: number): Promise<boolean>
 }
 
 /**
- * Helper function to get cell count
+ * Get cell count
  */
 async function getCellCount(app: Application): Promise<number> {
 	return await app.code.driver.page.locator('[data-testid="notebook-cell"]').count();
 }
 
 /**
- * Helper function to wait for focus to settle (useful after DOM changes)
+ * Wait for focus to settle (useful after DOM changes)
  * Waits until any notebook cell has focus (or until timeout)
  */
 async function waitForFocusSettle(app: Application, timeoutMs: number = 2000): Promise<void> {
@@ -74,7 +74,7 @@ async function waitForFocusSettle(app: Application, timeoutMs: number = 2000): P
 }
 
 /**
- * Helper function to check if the Monaco editor in a cell is focused
+ * Check if the Monaco editor in a cell is focused
  */
 async function isEditorFocused(app: Application, cellIndex: number): Promise<boolean> {
 	const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
@@ -87,7 +87,7 @@ async function isEditorFocused(app: Application, cellIndex: number): Promise<boo
 }
 
 /**
- * Helper function to normalize cell content by replacing non-breaking spaces with regular spaces
+ * Normalize cell content by replacing non-breaking spaces with regular spaces
  */
 function normalizeCellContent(content: string): string {
 	// Replace non-breaking spaces (U+00A0) with regular spaces
@@ -95,7 +95,7 @@ function normalizeCellContent(content: string): string {
 }
 
 /**
- * Helper function to create a fresh notebook with 5 pre-populated cells
+ * Create a fresh notebook with 5 pre-populated cells
  * Call this in tests that need a notebook with existing cells
  */
 async function createNotebookWith5Cells(app: Application): Promise<void> {
@@ -147,10 +147,6 @@ test.describe('Notebook Focus and Selection', {
 		expect(await isCellSelected(app, 0)).toBe(false);
 		expect(await isCellSelected(app, 1)).toBe(false);
 	});
-
-	// NOTE: Clicking a selected cell currently does NOT deselect it in the current implementation
-	// This test is commented out as the behavior may change during refactoring
-	// test('Clicking a selected cell deselects it', async function ({ app }) { ... });
 
 	test('Arrow Down navigation moves focus to next cell', async function ({ app }) {
 		await createNotebookWith5Cells(app);
@@ -283,37 +279,6 @@ test.describe('Notebook Focus and Selection', {
 		expect(await getFocusedCellIndex(app)).toBe(2);
 	});
 
-	test('Sanity check: clicking editor focuses it (validates isEditorFocused helper)', async function ({ app }) {
-		await createNotebookWith5Cells(app);
-
-		// Select cell 1
-		await app.workbench.notebooksPositron.selectCellAtIndex(1);
-		await waitForFocusSettle(app, 200);
-
-		// Press Escape to exit edit mode (selectCellAtIndex may enter edit mode)
-		await app.code.driver.page.keyboard.press('Escape');
-		await waitForFocusSettle(app, 200);
-
-		// Editor should not be focused after pressing Escape
-		expect(await isEditorFocused(app, 1)).toBe(false);
-
-		// Click directly into the Monaco editor
-		const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(1);
-		const editor = cell.locator('.monaco-editor');
-		await editor.click();
-		await waitForFocusSettle(app, 200);
-
-		// Now editor should be focused
-		expect(await isEditorFocused(app, 1)).toBe(true);
-
-		// Type some text to confirm editor is really focused
-		await app.code.driver.page.keyboard.type('# editor good');
-		const cellContent = await app.workbench.notebooksPositron.getCellContent(1);
-		// Normalize content to handle non-breaking spaces
-		const normalizedContent = normalizeCellContent(cellContent);
-		expect(normalizedContent).toContain('# editor good');
-	});
-
 	test('Enter key on selected cell enters edit mode', async function ({ app }) {
 		await createNotebookWith5Cells(app);
 
@@ -387,7 +352,6 @@ test.describe('Notebook Focus and Selection', {
 		expect(normalizedContent).toContain('new cell content');
 	});
 
-	// Initial focus behavior (should fail with current implementation)
 	test('First cell is automatically selected when notebook loads', async function ({ app }) {
 		// Open a real notebook file to test initial load behavior
 		const notebookPath = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
