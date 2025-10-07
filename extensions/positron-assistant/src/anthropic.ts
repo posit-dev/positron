@@ -333,7 +333,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					version: model.created_at,
 					maxInputTokens: maxInputTokens,
 					maxOutputTokens: maxOutputTokens,
-					capabilities: {},
+					capabilities: this.capabilities,
 					isDefault: isFirst,
 					isUserSelectable: true,
 				});
