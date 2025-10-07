@@ -12,21 +12,24 @@ test.use({
 	suiteId: __filename
 });
 
-
-test.describe('Positron notebook opening and saving', {
+test.describe('Positron Notebooks: Open & Save', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'default',
+			reload: true,
+		});
 	});
 
 	test.beforeEach(async function ({ app, settings }) {
 		// Reset editor associations to default state before each test
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'default',
+		});
 	});
 
-	test.afterEach(async function ({ app, hotKeys, settings }) {
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
@@ -40,7 +43,9 @@ test.describe('Positron notebook opening and saving', {
 
 		// Configure Positron as the default notebook editor
 		// This sets workbench.editorAssociations to map *.ipynb files to the Positron notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'positron',
+		});
 
 		// Verify that newly opened notebooks now use the Positron editor
 		// The same notebook file should now open with the Positron interface instead of VS Code
@@ -50,7 +55,9 @@ test.describe('Positron notebook opening and saving', {
 		// Reset to default configuration and verify VS Code editor is used again
 		// Close all editors first to ensure a clean state for the next test
 		await hotKeys.closeAllEditors();
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'default',
+		});
 
 		// Confirm that removing the association restores VS Code notebook editor
 		// This ensures the configuration change is properly applied and the fallback works
@@ -63,7 +70,9 @@ test.describe('Positron notebook opening and saving', {
 		const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'positron',
+		});
 
 		// Create a new untitled notebook
 		await notebooks.createNewNotebook();
@@ -95,7 +104,9 @@ test.describe('Positron notebook opening and saving', {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await notebooksPositron.setNotebookEditor(settings, 'positron');
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'positron',
+		});
 
 		// Create a new notebook (which starts dirty)
 		await notebooks.createNewNotebook();
@@ -109,10 +120,7 @@ test.describe('Positron notebook opening and saving', {
 		test.expect(tabsBefore).toBe(1);
 
 		// Reload the window to simulate restart
-		await hotKeys.reloadWindow();
-		// Wait for the reload to complete
-		await app.code.driver.page.waitForTimeout(3000);
-		await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await hotKeys.reloadWindow(true);
 
 		// After reload, check for the ghost editor issue
 		// The bug would cause both a Positron notebook AND a VS Code notebook to be visible

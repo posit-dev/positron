@@ -9,7 +9,21 @@ import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
-import { time } from 'console';
+import { app } from 'electron';
+
+type SettingsFixture = {
+	set: (
+		settings: Record<string, unknown>,
+		options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
+	) => Promise<void>;
+};
+
+type ConfigureNotebookEditorOptions = {
+	editor: 'positron' | 'default';
+	reload?: boolean | 'web';
+	waitMs?: number;
+};
+
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -21,27 +35,20 @@ export class PositronNotebooks extends Notebooks {
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
-	runCellAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
+	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
+	spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	cellExecutionInfoAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell execution info/i);
+	executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
 	kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
 	deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
-
-
-	// Selector constants for Positron notebook elements
-	// private static readonly RUN_CELL_LABEL = /execute cell/i;
-	// private static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
-	// private static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
-	// private static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
-	// private static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
-	// private static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
-	// private static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
-	// private static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
-	// private static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
-	// private static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
-	// private static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
+	cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
+	cellInfoToolTipStatus = this.cellInfoToolTip.getByLabel('Execution status');
+	cellInfoToolTipDuration = this.cellInfoToolTip.getByLabel('Execution duration');
+	cellInfoToolTipOrder = this.cellInfoToolTip.getByLabel('Execution order');
+	cellInfoToolTipCompleted = this.cellInfoToolTip.getByLabel('Execution completed');
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -50,9 +57,29 @@ export class PositronNotebooks extends Notebooks {
 	// -- Actions --
 
 	/**
+	 * Action: Enable the Positron Notebooks feature
+	 * @param settings - The settings fixture.
+	 * @param options - Configuration options for enabling the feature.
+	 */
+	async enableFeature(
+		settings: SettingsFixture,
+		{ editor, reload = false, waitMs = 800 }: ConfigureNotebookEditorOptions
+	): Promise<void> {
+		const associations = editor === 'positron'
+			? { '*.ipynb': 'workbench.editor.positronNotebook' }
+			: {};
+
+		await settings.set(
+			{
+				'positron.notebook.enabled': true,
+				'workbench.editorAssociations': associations,
+			},
+			{ reload, waitMs, waitForReady: true }
+		);
+	}
+
+	/**
 	 * Action: Open a Positron notebook.
-	 * It does not check for an active cell, as Positron notebooks do not have the same cell structure as VS Code notebooks.
-	 *
 	 * @param path - The path to the notebook to open.
 	 */
 	async openNotebook(path: string): Promise<void> {
@@ -61,80 +88,48 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * @override
 	 * Action: Select a cell at the specified index.
+	 * @param cellIndex - The index of the cell to select.
 	 */
-	async selectCellAtIndex(cellIndex: number): Promise<void> {
+	async selectCellAtIndex(cellIndex: number, { exitEditMode = false }: { exitEditMode?: boolean } = {}): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}`, async () => {
 			await this.cell.nth(cellIndex).click();
+
+			await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
+
+			if (exitEditMode) {
+				await this.code.driver.page.keyboard.press('Escape');
+				await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false });
+			}
 		});
 	}
 
 	/**
 	 * Action: Create a new code cell at the END of the notebook.
 	 */
-	private async createNewCodeCell(): Promise<void> {
-		await test.step(`Create new code cell`, async () => {
+	private async addCodeCellToEnd(): Promise<void> {
+		await test.step(`Create new code cell at end:`, async () => {
 			const newCellButtonCount = await this.newCellButton.count();
 
 			if (newCellButtonCount === 0) {
 				throw new Error('No "New Code Cell" buttons found');
 			}
 
-			// Click the last button (which adds a cell at the end)
-			// Note: This assumes we're always adding at the end, which matches the validation in addCodeToCellAtIndex
+			// Click the last "New Code Cell" button to add a cell at the end
 			await this.newCellButton.last().click();
-
-			// Wait for the new cell to appear
 			await expect(this.cell).toHaveCount(newCellButtonCount + 1, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
 	/**
-	 * Action: Add code to a cell at the specified index.
-	 * If the cell does not exist, it creates it at the end of the notebook.
-	 * Throws an error if trying to create a cell beyond the next sequential index.
-	 *
-	 * @param code - The code to add to the cell.
-	 * @param cellIndex - The index of the cell to add code to (default: 0).
-	 * @param delay - Optional delay between keystrokes for typing simulation (default: 0, meaning no delay).
+	 * Action: Run the code in the cell at the specified index.
 	 */
-	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0): Promise<void> {
-		await test.step('Add code to Positron cell', async () => {
-			// Check if the cell exists
-			const currentCellCount = await this.cell.count();
-
-			if (cellIndex >= currentCellCount) {
-				// Cell doesn't exist, need to create it
-				// Verify we're only adding one cell at the end
-				if (cellIndex > currentCellCount) {
-					throw new Error(`Cannot create cell at index ${cellIndex}. Current cell count is ${currentCellCount}. Can only add cells sequentially.`);
-				}
-
-				// Create the new cell
-				await this.createNewCodeCell();
-			}
-
-			// Now select and fill the cell (existing logic)
-			await this.selectCellAtIndex(cellIndex);
-
-			// Ensure editor is focused and type/fill the code
-			await this.editorAtIndex(cellIndex).focus();
-			if (delay) {
-				await this.editorAtIndex(cellIndex).pressSequentially(code, { delay });
-			} else {
-				await this.editorAtIndex(cellIndex).fill(code);
-			}
-		});
-	}
-
-	/**
-	 * Execute code in the current cell by clicking the run button
-	 */
-	async executeCodeInCell(cellIndex = 0): Promise<void> {
+	async runCodeAtIndex(cellIndex = 0): Promise<void> {
 		await test.step('Execute code in Positron notebook cell', async () => {
 
 			await this.selectCellAtIndex(cellIndex);
-			await this.runCellAtIndex(cellIndex).click();
+			await this.runCellButtonAtIndex(cellIndex).click();
 
 			// Wait for execution to complete by checking the execution spinner is gone
 			const spinner = this.spinnerAtIndex(cellIndex);
@@ -150,38 +145,41 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Start executing code in the current cell by clicking the run button without waiting for completion
+	 * Action: Move the mouse away from the notebook area to close any open tooltips/popups.
 	 */
-	async startExecutingCodeInCell(cellIndex = 0): Promise<void> {
-		await test.step('Start executing code in Positron notebook cell', async () => {
-			await this.selectCellAtIndex(cellIndex);
-			await this.runCellAtIndex(cellIndex).click();
-		});
-	}
+	async moveMouseAway(): Promise<void> {
+		await this.code.driver.page.mouse.move(0, 0);
+	};
 
 	/**
-	 * Add code to a cell and run it - combined operation for efficiency.
-	 * This avoids repeatedly finding the same cell and provides better performance.
-	 * Returns the cell locator for further operations.
+	 * Action: Add code to a cell at the specified index and run it.
+	 *
+	 * @param code - The code to add to the cell.
+	 * @param cellIndex - The index of the cell to add code to (default: 0).
+	 * @param options - Options to control behavior:
+	 * delay: Optional delay between keystrokes for typing simulation (default: 0, meaning no delay).
+	 * run: Whether to run the cell after adding code (default: false).
+	 * waitForSpinner: Whether to wait for the execution spinner to appear and disappear (default: false).
+	 * waitForPopup: Whether to wait for the execution info popup to appear after running (default: false).
 	 */
-	async addCodeToCellAndRun(code: string, cellIndex = 0, delay = 0): Promise<Locator> {
+	async addCodeToCell(
+		cellIndex: number,
+		code: string,
+		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; waitForPopup?: boolean }
+	): Promise<Locator> {
+		const { delay = 0, run = false, waitForSpinner = false, waitForPopup = false } = options ?? {};
 		return await test.step(`Add code and run cell ${cellIndex}`, async () => {
-			// Check if the cell exists
 			const currentCellCount = await this.cell.count();
 
 			if (cellIndex >= currentCellCount) {
-				// Cell doesn't exist, need to create it
-				// Verify we're only adding one cell at the end
 				if (cellIndex > currentCellCount) {
 					throw new Error(`Cannot create cell at index ${cellIndex}. Current cell count is ${currentCellCount}. Can only add cells sequentially.`);
 				}
-
-				await this.createNewCodeCell();
+				await this.addCodeCellToEnd();
 			}
 
-			await this.cell.nth(cellIndex).click()
+			await this.cell.nth(cellIndex).click();
 
-			// Find and fill the Monaco editor
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
@@ -191,85 +189,94 @@ export class PositronNotebooks extends Notebooks {
 				await editor.fill(code);
 			}
 
-			// Find and click the run button
-			await this.runCellAtIndex(cellIndex).click();
+			if (run) {
+				await this.runCellButtonAtIndex(cellIndex).click();
 
-			// // Wait for execution to complete
-			// const spinner = cell.getByLabel('Cell is executing');
+				if (waitForSpinner) {
+					const spinner = this.spinnerAtIndex(cellIndex);
+					await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
+						// Spinner might not appear for very fast executions, that's okay
+					});
+					await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
+				}
 
-			// // Wait for spinner to appear (cell is executing)
-			// await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
-			// 	// Spinner might not appear for very fast executions, that's okay
-			// });
+				if (waitForPopup) {
+					// const infoPopup = this.cell.nth(cellIndex).getByRole('tooltip', { name: /cell execution details/i });
+					await expect(this.cellInfoToolTip).toBeVisible();
+				}
+			}
 
-			// // Wait for spinner to disappear (execution complete)
-			// await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
 			return this.cell.nth(cellIndex);
 		});
 	}
 
 	/**
-	 * Helper function to copy cells using keyboard shortcut
+	 * Action: Perform a cell action using keyboard shortcuts.
+	 * @param action - The action to perform: 'copy', 'cut', 'paste', 'undo', 'redo', 'addCellBelow'.
 	 */
-	async copyCellsWithKeyboard(): Promise<void> {
-		// We need to press escape to get the focus out of the cell editor itself
+	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow'): Promise<void> {
+		// Press escape to ensure focus is out of the cell editor
 		await this.code.driver.page.keyboard.press('Escape');
-		await this.hotKeys.copy();
-	}
 
-	async cutCellsWithKeyboard(): Promise<void> {
-		// We need to press escape to get the focus out of the cell editor itself
-		await this.code.driver.page.keyboard.press('Escape');
-		await this.hotKeys.cut();
-	}
-
-	async pasteCellsWithKeyboard(): Promise<void> {
-		// We need to press escape to get the focus out of the cell editor itself
-		await this.code.driver.page.keyboard.press('Escape');
-		await this.hotKeys.paste();
-	}
-
-	async expectCellCountToBe(expectedCount: number): Promise<void> {
-		await test.step(`Expect cell count to be ${expectedCount}`, async () => {
-			await expect(this.cell).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
-		});
-	}
-
-	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string): Promise<void> {
-		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
-			const actualContent = await this.getCellContent(cellIndex);
-			await expect(async () => {
-				expect(actualContent).toBe(expectedContent);
-			}).toPass({ timeout: DEFAULT_TIMEOUT });
-		});
+		switch (action) {
+			case 'copy':
+				await this.hotKeys.copy();
+				break;
+			case 'cut':
+				await this.hotKeys.cut();
+				break;
+			case 'paste':
+				await this.hotKeys.paste();
+				break;
+			case 'undo':
+				await this.hotKeys.undo();
+				break;
+			case 'redo':
+				await this.hotKeys.redo();
+				break;
+			case 'delete':
+				await this.code.driver.page.keyboard.press('Backspace');
+				break;
+			case 'addCellBelow':
+				await this.code.driver.page.keyboard.press('KeyB');
+				break;
+			default:
+				throw new Error(`Unknown cell action: ${action}`);
+		}
 	}
 
 
 	/**
-	 * Get execution info icon for a specific cell
+	 * Helper function to delete cell using action bar delete button
 	 */
-	getExecutionInfoIcon(cellIndex = 0): Locator {
-		return this.cellExecutionInfoAtIndex(cellIndex);
-		// return this.cell.nth(cellIndex).getByLabel(/cell execution info/i);
-	}
+	async deleteCellWithActionBar(cellIndex = 0): Promise<void> {
+		await test.step(`Delete cell ${cellIndex} using action bar`, async () => {
+			// Get the current cell count before deletion
+			const initialCount = await this.cell.count();
 
+			// Click on the cell to make the action bar visible
+			await this.cell.nth(cellIndex).click();
 
-	/**
-	 * Get the execution status for a specific cell
-	 */
-	async getExecutionStatus(cellIndex = 0): Promise<string | null> {
-		const icon = this.getExecutionInfoIcon(cellIndex);
-		return await icon.getAttribute('data-execution-status');
-	}
+			// Click the delete button
+			await this.deleteCellButton.click();
 
-	/**
-	 * Wait for execution info icon to be visible after cell execution
-	 */
-	async expectExecutionInfoIconToBeVisible(cellIndex = 0, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Wait for execution info icon in cell ${cellIndex}`, async () => {
-			const icon = this.getExecutionInfoIcon(cellIndex);
-			await expect(icon).toBeVisible({ timeout });
+			// Wait for the deletion to complete by checking cell count decreased
+			await expect(this.cell).toHaveCount(initialCount - 1, { timeout: DEFAULT_TIMEOUT });
+
+			// Give a small delay for focus to settle
+			await this.code.driver.page.waitForTimeout(100);
 		});
+	}
+
+	/**
+	 * Get cell content for identification
+	 */
+	async getCellContent(cellIndex: number): Promise<string> {
+		const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
+		const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
+		const content = await editor.textContent() ?? '';
+		// Replace the weird ascii space with a proper space
+		return content.replace(/\u00a0/g, ' ');
 	}
 
 	/**
@@ -341,72 +348,272 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-
 	/**
-	 * Helper function to set notebook editor associations
-	 * @param settings - The settings fixture
-	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
-	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
-	 */
-	async setNotebookEditor(
-		settings: {
-			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		},
-		editor: 'positron' | 'default',
-		waitMs = 800
-	) {
-		await settings.set({
-			'positron.notebook.enabled': true,
-			'workbench.editorAssociations': editor === 'positron'
-				? { '*.ipynb': 'workbench.editor.positronNotebook' }
-				: {}
-		}, { waitMs });
-	}
-
-	/**
-	 * Helper function to enable Positron notebooks with reload
-	 * @param settings - The settings fixture
-	 */
-	async enablePositronNotebooks(
-		settings: {
-			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
-		}
-	) {
-		await settings.set({
-			'positron.notebook.enabled': true,
-		}, { reload: true });
-	}
-
-	/**
-	 * Helper function to delete cell using action bar delete button
-	 */
-	async deleteCellWithActionBar(cellIndex = 0): Promise<void> {
-		await test.step(`Delete cell ${cellIndex} using action bar`, async () => {
-			// Get the current cell count before deletion
-			const initialCount = await this.cell.count();
-
-			// Click on the cell to make the action bar visible
-			await this.cell.nth(cellIndex).click();
-
-			// Click the delete button
-			await this.deleteCellButton.click();
-
-			// Wait for the deletion to complete by checking cell count decreased
-			await expect(this.cell).toHaveCount(initialCount - 1, { timeout: DEFAULT_TIMEOUT });
-
-			// Give a small delay for focus to settle
-			await this.code.driver.page.waitForTimeout(100);
+ * Verify: Cell count matches expected count.
+ * @param expectedCount - The expected number of cells.
+ */
+	async expectCellCountToBe(expectedCount: number): Promise<void> {
+		await test.step(`Expect cell count to be ${expectedCount}`, async () => {
+			await expect(this.cell).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
 	/**
-	 * Get cell content for identification
+	 * Verify: Cell content at specified index matches expected content.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param expectedContent - The expected content of the cell.
 	 */
-	async getCellContent(cellIndex: number): Promise<string> {
-		const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
-		const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
-		const content = await editor.textContent() ?? '';
-		// Replace the weird ascii space with a proper space
-		return content.replace(/\u00a0/g, ' ');
+	async expectCellContentAtIndexToBe(cellIndex: number, expectedContent: string): Promise<void> {
+		await test.step(`Expect cell ${cellIndex} content to be: ${expectedContent}`, async () => {
+			const actualContent = await this.getCellContent(cellIndex);
+			await expect(async () => {
+				expect(actualContent).toBe(expectedContent);
+			}).toPass({ timeout: DEFAULT_TIMEOUT });
+		});
 	}
+
+	/**
+	 * Verify: Cell content at specified index contains expected substring.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param expectedSubstring - The substring expected to be contained in the cell content.
+	 */
+	/**
+	 * Verify: Cell content at specified index contains expected substring or matches RegExp.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param expected - The substring or RegExp expected to be contained in the cell content.
+	 */
+	async expectCellContentAtIndexToContain(cellIndex: number, expected: string | RegExp): Promise<void> {
+		await test.step(
+			`Expect cell ${cellIndex} content to contain: ${expected instanceof RegExp ? expected.toString() : expected}`,
+			async () => {
+				const actualContent = await this.getCellContent(cellIndex);
+				await expect(async () => {
+					if (expected instanceof RegExp) {
+						expect(actualContent).toMatch(expected);
+					} else {
+						expect(actualContent).toContain(expected);
+					}
+				}).toPass({ timeout: DEFAULT_TIMEOUT });
+			}
+		);
+	}
+
+	/**
+	 * Verify: Cell info tooltip contains expected content.
+	 * @param expectedContent - Object with expected content to verify.
+	 *                          Use RegExp for fields where exact match is not feasible (e.g., duration, completed time).
+	 */
+	async expectToolTipToContain(expectedContent: { order?: number; duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp }): Promise<void> {
+		await test.step(`Expect cell info tooltip to contain: ${JSON.stringify(expectedContent)}`, async () => {
+			await expect(this.cellInfoToolTip).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+
+			const labelMap: Record<keyof typeof expectedContent, string> = {
+				order: 'Execution Order',
+				duration: 'Duration',
+				status: 'Status',
+				completed: 'Completed'
+			};
+
+			const getValueLocator = (label: string) =>
+				this.code.driver.page
+					.locator('.popup-label-text', { hasText: label })
+					.locator('..')
+					.locator('.popup-value-text');
+
+			for (const key of Object.keys(expectedContent) as (keyof typeof expectedContent)[]) {
+				const expectedValue = expectedContent[key];
+				if (expectedValue !== undefined) {
+					if (key === 'status' && expectedValue === 'Currently running...') {
+						// Special case when cell is actively running: check for label, not value
+						const labelLocator = this.code.driver.page.locator('.popup-label', { hasText: 'Currently running...' });
+						await expect(labelLocator).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+					} else {
+						const valueLocator = getValueLocator(labelMap[key]);
+						const expectedText = expectedValue instanceof RegExp ? expectedValue : expectedValue.toString();
+						await expect(valueLocator).toContainText(expectedText, { timeout: DEFAULT_TIMEOUT });
+					}
+				}
+			}
+		});
+	}
+
+
+	/**
+	 * Verify: Cell execution status matches expected status.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param expectedStatus - The expected execution status of the cell.
+	 * @param timeout - The timeout for the expectation.
+	 */
+	async expectExecutionStatusToBe(cellIndex: number, expectedStatus: 'running' | 'idle' | 'failed' | 'success', timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect execution status to be: ${expectedStatus}`, async () => {
+			await expect(this.executionStatusAtIndex(cellIndex)).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
+		});
+	}
+
+
+	async expectSpinnerAtIndex(cellIndex: number, visible = true, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect spinner to be ${visible ? 'visible' : 'hidden'} in cell ${cellIndex}`, async () => {
+			if (visible) {
+				await expect(this.spinnerAtIndex(cellIndex)).toBeVisible({ timeout });
+			} else {
+				await expect(this.spinnerAtIndex(cellIndex)).toHaveCount(0, { timeout });
+			}
+		});
+	}
+
+	async expectNoActiveSpinners(timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step('Expect no active spinners in notebook', async () => {
+			await expect(this.spinner).toHaveCount(0, { timeout });
+		});
+	}
+
+	/**
+	 * Verify: Cell info tooltip visibility.
+	 * @param visible - Whether the tooltip should be visible.
+	 * @param timeout - Timeout for the expectation.
+	 */
+	async expectToolTipVisible(visible: boolean, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect cell info tooltip to be ${visible ? 'visible' : 'hidden'}`, async () => {
+			const assertion = expect(this.cellInfoToolTip);
+			if (visible) {
+				await assertion.toBeVisible({ timeout });
+			} else {
+				await assertion.not.toBeVisible({ timeout });
+			}
+		});
+	}
+
+	/**
+	 * Get the index of the currently focused cell.
+	 * @returns The index of the focused cell, or null if no cell is focused.
+	 */
+	async getFocusedCellIndex(): Promise<number | null> {
+		const cells = this.cell;
+		const cellCount = await cells.count();
+
+		for (let i = 0; i < cellCount; i++) {
+			const cell = cells.nth(i);
+			const isFocused = await cell.evaluate((element) => {
+				// Check if this cell or any descendant has focus
+				return element.contains(document.activeElement) ||
+					element === document.activeElement;
+			});
+
+			if (isFocused) {
+				return i;
+			}
+		}
+		return null;
+	}
+
+	// /**
+	//  * Verify: the focused cell index is (or is not) the expected index.
+	//  * @param expectedIndex - The expected index of the focused cell, or null if no cell should be focused.
+	//  * @param timeout - Timeout for the expectation.
+	//  * @param shouldBeFocused - If true, checks that the cell is focused; if false, checks that it is not focused.
+	//  */
+	// async expectCellIndexToBeFocused(
+	// 	expectedIndex: number | null,
+	// 	shouldBeFocused = true,
+	// 	timeout = 1000000,
+	// ): Promise<void> {
+	// 	await test.step(
+	// 		`Expect focused cell index to be${shouldBeFocused ? '' : ' not'}: ${expectedIndex}`,
+	// 		async () => {
+	// 			await expect(async () => {
+	// 				const actualIndex = await this.getFocusedCellIndex();
+	// 				shouldBeFocused
+	// 					? expect(actualIndex).toBe(expectedIndex)
+	// 					: expect(actualIndex).not.toBe(expectedIndex);
+	// 			}).toPass({ timeout });
+	// 		}
+	// 	);
+	// }
+
+	/**
+	 * Verify: the cell at the specified index is (or is not) selected,
+	 * and optionally, whether it is in edit mode.
+	 * @param expectedIndex - The index of the cell to check.
+	 * @param options - Options to specify selection and edit mode expectations.
+	 */
+	async expectCellIndexToBeSelected(
+		expectedIndex: number,
+		options?: { isSelected?: boolean; inEditMode?: boolean; timeout?: number }
+	): Promise<void> {
+		const {
+			isSelected = true,
+			inEditMode = undefined,
+			timeout = DEFAULT_TIMEOUT
+		} = options ?? {};
+
+		await test.step(
+			`Expect cell at index ${expectedIndex} to be${isSelected ? '' : ' not'} selected`
+			+ (inEditMode !== undefined ? ` and${inEditMode ? '' : ' not'} in edit mode` : ''),
+			async () => {
+				await expect(async () => {
+					const cells = this.cell;
+					const cellCount = await cells.count();
+					const selectedIndices: number[] = [];
+
+					for (let i = 0; i < cellCount; i++) {
+						const cell = cells.nth(i);
+						const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
+						if (isSelected) {
+							selectedIndices.push(i);
+						}
+					}
+
+					isSelected
+						? expect(selectedIndices).toContain(expectedIndex)
+						: expect(selectedIndices).not.toContain(expectedIndex);
+
+					if (inEditMode !== undefined) {
+						const ta = this.editorAtIndex(expectedIndex);
+						const isEditing = await ta.evaluate(el => el === document.activeElement);
+						inEditMode
+							? expect(isEditing).toBe(true)
+							: expect(isEditing).toBe(false);
+					}
+				}).toPass({ timeout });
+			}
+		);
+	}
+
+	// 	/**
+	//  * Return the index of the cell that is in EDIT MODE (i.e., Monaco textarea is focused).
+	//  * @returns index or null if none are in edit mode.
+	//  */
+	// 	async getEditingCellIndex(): Promise<number | null> {
+	// 		const cells = this.cell;
+	// 		const count = await cells.count();
+
+	// 		for (let i = 0; i < count; i++) {
+	// 			const ta = this.editorAtIndex(i); // '.positron-cell-editor-monaco-widget textarea'
+	// 			// Check the textarea is the active element (edit mode).
+	// 			const isEditing = await ta.evaluate((el) => el === document.activeElement);
+	// 			if (isEditing) return i;
+	// 		}
+	// 		return null;
+	// 	}
+
+	// /**
+	//  * Verify a specific cell IS / IS NOT in edit mode.
+	//  * Edit mode is defined as the Monaco textarea being focused.
+	//  */
+	// async expectCellEditModeAtIndex(
+	// 	index: number,
+	// 	shouldBeEditing = true,
+	// 	timeout = DEFAULT_TIMEOUT
+	// ): Promise<void> {
+	// 	await test.step(`Expect cell ${index} to be${shouldBeEditing ? '' : ' not'} in edit mode`, async () => {
+	// 		const ta = this.editorAtIndex(index);
+	// 		if (shouldBeEditing) {
+	// 			await expect(ta).toBeFocused({ timeout });
+	// 		} else {
+	// 			await expect(ta).not.toBeFocused({ timeout });
+	// 		}
+	// 	});
+	// }
 }
+
+

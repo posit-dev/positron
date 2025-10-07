@@ -56,7 +56,7 @@ test.describe('Notebook Debugging', {
 			'print(message)'
 		].join('\n');
 
-		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
+		await app.workbench.notebooks.addCodeToCellAtIndex(0, code);
 
 		// Set BPs
 		await app.workbench.debug.setBreakpointOnLine(5); // intermediate calculation

@@ -11,38 +11,38 @@ test.use({
 });
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
-test.describe('Notebook Cell Copy-Paste Behavior', {
+test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 
-	test.beforeAll(async function ({ settings }) {
-		await settings.set({
-			'positron.notebook.enabled': true,
-			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
-		}, { reload: true })
+	test.beforeAll(async ({ app, settings }) => {
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'positron',
+			reload: true,
+		});
 	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
-	})
+	});
 
-	test('Cell copy-paste behavior - comprehensive test', async function ({ app }) {
+	test('Should correctly copy and paste cell content in various scenarios', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// ========================================
 		// Setup: Create notebook with 5 cells and distinct content
 		// ========================================
-		await test.step(' Test Setup: Create notebook and add cells', async () => {
+		await test.step('Test Setup: Create notebook and add cells', async () => {
 			// Setup: Create notebook and select kernel once
 			await notebooksPositron.createNewNotebook();
 			await notebooksPositron.expectToBeVisible();
 
 			// Setup: Create 5 cells with distinct content
-			await notebooksPositron.addCodeToCellAtIndex('# Cell 0', 0);
-			await notebooksPositron.addCodeToCellAtIndex('# Cell 1', 1);
-			await notebooksPositron.addCodeToCellAtIndex('# Cell 2', 2);
-			await notebooksPositron.addCodeToCellAtIndex('# Cell 3', 3);
-			await notebooksPositron.addCodeToCellAtIndex('# Cell 4', 4);
+			await notebooksPositron.addCodeToCell(0, '# Cell 0');
+			await notebooksPositron.addCodeToCell(1, '# Cell 1');
+			await notebooksPositron.addCodeToCell(2, '# Cell 2');
+			await notebooksPositron.addCodeToCell(3, '# Cell 3');
+			await notebooksPositron.addCodeToCell(4, '# Cell 4');
 
 			// Verify we have 5 cells
 			await notebooksPositron.expectCellCountToBe(5);
@@ -58,11 +58,11 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
 
 			// Copy the cell
-			await notebooksPositron.copyCellsWithKeyboard();
+			await notebooksPositron.performCellAction('copy');
 
 			// Move to last cell and paste after it
 			await notebooksPositron.selectCellAtIndex(4);
-			await notebooksPositron.pasteCellsWithKeyboard();
+			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count increased
 			await notebooksPositron.expectCellCountToBe(6);
@@ -81,7 +81,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
 
 			// Cut the cell
-			await notebooksPositron.cutCellsWithKeyboard();
+			await notebooksPositron.performCellAction('cut');
 
 			// Verify cell count decreased
 			await notebooksPositron.expectCellCountToBe(5);
@@ -91,7 +91,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 			// Move to index 3 and paste
 			await notebooksPositron.selectCellAtIndex(3);
-			await notebooksPositron.pasteCellsWithKeyboard();
+			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count is back to 6
 			await notebooksPositron.expectCellCountToBe(6);
@@ -108,11 +108,11 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 			// Copy cell 0
 			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-			await notebooksPositron.copyCellsWithKeyboard();
+			await notebooksPositron.performCellAction('copy');
 
 			// Paste at position 2
 			await notebooksPositron.selectCellAtIndex(2);
-			await notebooksPositron.pasteCellsWithKeyboard();
+			await notebooksPositron.performCellAction('paste');
 
 			// Verify first paste
 			await notebooksPositron.expectCellCountToBe(7);
@@ -120,13 +120,12 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 
 			// Paste again at position 5
 			await notebooksPositron.selectCellAtIndex(5);
-			await notebooksPositron.pasteCellsWithKeyboard();
+			await notebooksPositron.performCellAction('paste');
 
 			// Verify second paste
 			await notebooksPositron.expectCellCountToBe(8);
 			await notebooksPositron.expectCellContentAtIndexToBe(6, '# Cell 0');
 		});
-
 
 		// ========================================
 		// Test 4: Cut and paste at beginning of notebook
@@ -137,7 +136,7 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 			const cellToMoveContent = await notebooksPositron.getCellContent(4);
 
 			// Cut the cell
-			await notebooksPositron.cutCellsWithKeyboard();
+			await notebooksPositron.performCellAction('cut');
 
 			// Verify cell removed
 			await notebooksPositron.expectCellCountToBe(7);
@@ -145,14 +144,14 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 			// Move to first cell and paste
 			// Note: Paste typically inserts after the current cell
 			await notebooksPositron.selectCellAtIndex(0);
-			await notebooksPositron.pasteCellsWithKeyboard();
+			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count restored
 			await notebooksPositron.expectCellCountToBe(8);
 
 			// Verify pasted cell is at index 1 (pasted after cell 0)
 			await notebooksPositron.expectCellContentAtIndexToBe(1, cellToMoveContent);
-		})
+		});
 
 		// ========================================
 		// Test 5: Cut all cells and verify notebook can be empty
@@ -161,18 +160,18 @@ test.describe('Notebook Cell Copy-Paste Behavior', {
 			// Delete cells until only one remains
 			while (await notebooksPositron.cell.count() > 1) {
 				await notebooksPositron.selectCellAtIndex(0);
-				await notebooksPositron.cutCellsWithKeyboard();
+				await notebooksPositron.performCellAction('cut');
 			}
 
 			// Verify we have exactly one cell
 			await notebooksPositron.expectCellCountToBe(1);
 
 			// Cut the last cell - in Positron notebooks, this may be allowed
-			await notebooksPositron.cutCellsWithKeyboard();
+			await notebooksPositron.performCellAction('cut');
 
 			// Check if notebook can be empty (Positron may allow 0 cells)
 			const finalCount = await notebooksPositron.cell.count();
 			expect(finalCount).toBeLessThanOrEqual(1);
-		})
+		});
 	});
 });

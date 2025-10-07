@@ -201,8 +201,12 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J K', 'Open workspace settings JSON', true);
 	}
 
-	public async reloadWindow() {
+	public async reloadWindow(waitForReady = false) {
 		await this.pressHotKeys('Cmd+R R', 'Reload window');
+		if (waitForReady) {
+			await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+
+		}
 	}
 
 	public async openWelcomeWalkthrough() {

@@ -74,7 +74,7 @@ env_vars = ['PATH', 'HOME', 'USER']
 for var in env_vars:
     value = os.environ.get(var, 'Not set')
 print(f"{var}: {value[:50]}..." if len(str(value)) > 50 else f"{var}: {value}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(envCode);
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, envCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('Python version:');
 			await app.workbench.notebooks.assertCellOutput('Platform:');
@@ -90,7 +90,7 @@ data_dict = {'name': 'test', 'value': 42}
 print(f"Global variable: {global_var}")
 print(f"Numbers list: {numbers}")
 print(f"Data dictionary: {data_dict}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(variableCode);
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, variableCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.insertNotebookCell('code');
 			const useVariableCode = `# Use variables from previous cell
@@ -104,7 +104,7 @@ data_dict['new_key'] = 'new_value'
 
 print(f"Modified numbers: {numbers}")
 print(f"Modified dictionary: {data_dict}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(useVariableCode, 1);
+			await app.workbench.notebooks.addCodeToCellAtIndex(1, useVariableCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('Hello from first cell', 0);
 			await app.workbench.notebooks.assertCellOutput('Sum of numbers: 15');
@@ -151,7 +151,7 @@ print(f"Trigonometry (45 degrees):")
 print(f"sin: {sin_val:.3f}")
 print(f"cos: {cos_val:.3f}")
 print(f"tan: {tan_val:.3f}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(mathCode);
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, mathCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.insertNotebookCell('code');
 			const advancedMathCode = `# Logarithms and exponentials
@@ -172,7 +172,7 @@ square_root = math.sqrt(16)
 cube_root = 27 ** (1/3)
 print(f"sqrt(16) = {square_root}")
 print(f"cbrt(27) = {cube_root:.1f}")`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(advancedMathCode, 1);
+			await app.workbench.notebooks.addCodeToCellAtIndex(1, advancedMathCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('Sum: 55');
 			await app.workbench.notebooks.assertCellOutput('Mean: 5.5');
@@ -210,7 +210,7 @@ df <- data.frame(
 cat("Dataset dimensions:", dim(df), "\n")
 cat("Column names:", names(df), "\n")
 print(head(df, 3))`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(rDataCode);
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, rDataCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.insertNotebookCell('code');
 			const aggregationCode = `# Group by operations
@@ -222,7 +222,7 @@ print(agg_stats)
 max_values <- aggregate(cbind(value1, value2) ~ group, data = df, FUN = max)
 cat("\nMax values per group:\n")
 print(max_values)`;
-			await app.workbench.notebooks.addCodeToCellAtIndex(aggregationCode, 1);
+			await app.workbench.notebooks.addCodeToCellAtIndex(1, aggregationCode);
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('Dataset dimensions: 20 4');
 			await app.workbench.notebooks.assertCellOutput('Column names: id group value1 value2');

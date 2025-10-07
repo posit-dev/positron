@@ -40,7 +40,7 @@ test.describe('Notebooks', {
 		});
 
 		test('Python - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToCellAtIndex('eval("8**2")');
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, 'eval("8**2")');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('64');
 		});
@@ -62,7 +62,7 @@ test.describe('Notebooks', {
 			await runCommand('workbench.action.toggleAuxiliaryBar');
 
 			// First, create and execute a cell to verify initial session
-			await notebooks.addCodeToCellAtIndex('foo = "bar"');
+			await notebooks.addCodeToCellAtIndex(0, 'foo = "bar"');
 
 			await expect.poll(
 				async () => {
@@ -102,7 +102,7 @@ test.describe('Notebooks', {
 
 			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
-			await notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
+			await notebooks.addCodeToCellAtIndex(1, 'baz = "baz"');
 			await expect(async () => {
 				await notebooks.selectCellAtIndex(1);
 				await notebooks.executeActiveCell();
@@ -114,11 +114,11 @@ test.describe('Notebooks', {
 
 			await app.workbench.notebooks.insertNotebookCell('code');
 
-			await app.workbench.notebooks.addCodeToCellAtIndex('import torch');
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, 'import torch');
 
 			await app.workbench.notebooks.insertNotebookCell('code');
 
-			await app.workbench.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
+			await app.workbench.notebooks.addCodeToCellAtIndex(1, 'torch.rand(10)');
 
 			// toPass block seems to be needed on Ubuntu
 			await expect(async () => {
@@ -148,7 +148,7 @@ test.describe('Notebooks', {
 		});
 
 		test('R - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToCellAtIndex('eval(parse(text="8**2"))');
+			await app.workbench.notebooks.addCodeToCellAtIndex(0, 'eval(parse(text="8**2"))');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('[1] 64');
 		});
