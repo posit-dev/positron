@@ -85,12 +85,6 @@ export class ManageModelsAction extends Action2 {
 						identifier: modelIdentifier,
 					};
 				}));
-				// --- Start Positron ---
-				// Show model configuration if no models are registered for this vendor yet
-				if (models.length === 0 && selectedItem.managementCommand === 'positron-assistant.configureModels') {
-					commandService.executeCommand(selectedItem.managementCommand);
-				}
-				// --- End Positron ---
 				await this.showModelSelectorQuickpick(models, quickInputService, languageModelsService);
 			}
 		}));
