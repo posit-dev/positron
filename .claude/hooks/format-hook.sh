@@ -22,6 +22,7 @@ if [[ ! "$FILE_PATH" =~ \.(ts|tsx|js|jsx|mjs|cjs|py)$ ]]; then
 fi
 
 # Change to project directory
+echo "DEBUG: CLAUDE_PROJECT_DIR='$CLAUDE_PROJECT_DIR'"
 cd "$CLAUDE_PROJECT_DIR"
 
 # Check if file exists
