@@ -22,6 +22,19 @@ export enum SelectionState {
 	EditingSelection = 'EditingSelection'
 }
 
+type NonEmptyArray<T> = [T, ...T[]];
+
+function assertNonEmptyArray<T>(array: T[]): asserts array is NonEmptyArray<T> {
+	if (array.length === 0) {
+		throw new Error('Array must be non-empty');
+	}
+}
+
+function verifyNonEmptyArray<T>(array: T[]): NonEmptyArray<T> {
+	assertNonEmptyArray(array);
+	return array as NonEmptyArray<T>;
+}
+
 /**
  * Selection state discriminated union.
  *
@@ -41,11 +54,11 @@ type SelectionStates =
 	}
 	| {
 		type: SelectionState.SingleSelection;
-		selected: IPositronNotebookCell[];
+		selected: NonEmptyArray<IPositronNotebookCell>;
 	}
 	| {
 		type: SelectionState.MultiSelection;
-		selected: IPositronNotebookCell[];
+		selected: NonEmptyArray<IPositronNotebookCell>;
 	}
 	| {
 		type: SelectionState.EditingSelection;
@@ -208,7 +221,7 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		if (state.type === SelectionState.MultiSelection) {
-			const updatedSelection = state.selected.filter(c => c !== cell);
+			const updatedSelection = verifyNonEmptyArray(state.selected.filter(c => c !== cell));
 			// React will handle focus based on selection state change
 			this._setState({ type: updatedSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: updatedSelection });
 		}
@@ -357,7 +370,7 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: newSelection });
+		this._setState({ type: newSelection.length === 1 ? SelectionState.SingleSelection : SelectionState.MultiSelection, selected: verifyNonEmptyArray(newSelection) });
 	}
 
 	/**
@@ -529,7 +542,8 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		const edgeCell = state.selected.at(up ? 0 : -1)!;
+		// Direct access is safe because NonEmptyArray guarantees at least one element
+		const edgeCell = state.selected[up ? 0 : state.selected.length - 1];
 		const indexOfEdgeCell = edgeCell.index;
 		const nextCell = cells[indexOfEdgeCell + (up ? -1 : 1)];
 
@@ -543,7 +557,7 @@ export class SelectionStateMachine extends Disposable {
 				// Already at the edge of the cells.
 				return;
 			}
-			const newSelection = up ? [nextCell, ...state.selected] : [...state.selected, nextCell];
+			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...state.selected] : [...state.selected, nextCell]);
 			this._setState({
 				type: SelectionState.MultiSelection,
 				selected: newSelection
