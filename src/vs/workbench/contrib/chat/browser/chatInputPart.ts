@@ -535,10 +535,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// }));
 
 		this._register(this.languageModelsService.onDidChangeCurrentProvider((provider) => {
-			// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
+			// if the current provider is not the same as the current model's provider, change the current model to a model of the new provider
 			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.vendor !== provider) {
 				const models = this.getModels();
-				if (models.length > 0) {
+				const defaultModel = models.find(m => m.metadata.isDefault);
+				if (defaultModel) {
+					this.setCurrentLanguageModel(defaultModel);
+				} else if (models.length > 0) {
 					this.setCurrentLanguageModel(models[0]);
 				}
 			}
@@ -1300,7 +1303,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					// --- Start Positron ---
 					const models = this.getModels();
 					if (!this._currentLanguageModel && models.length > 0) {
-						this.setCurrentLanguageModel(models[0]);
+						const defaultModel = models.find(m => m.metadata.isDefault);
+						if (defaultModel) {
+							this.setCurrentLanguageModel(defaultModel);
+						} else if (models.length > 0) {
+							this.setCurrentLanguageModel(models[0]);
+						}
 					}
 					// --- End Positron ---
 

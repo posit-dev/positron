@@ -302,6 +302,14 @@
             "type": "string",
             "default": "",
             "markdownDescription": "%configuration.preferredModel.description%"
+          },
+          "positron.assistant.defaultModels": {
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "string"
+            },
+            "markdownDescription": "%configuration.defaultModels.description%"
           }
         }
       }
