@@ -17,7 +17,9 @@ export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
 
 	// Determine the alignment based on type.
 	switch (columnSchema.type_display) {
-		case ColumnDisplayType.Number:
+		case ColumnDisplayType.Floating:
+		case ColumnDisplayType.Integer:
+		case ColumnDisplayType.Decimal:
 			return 'codicon-positron-data-type-number';
 
 		case ColumnDisplayType.Boolean:

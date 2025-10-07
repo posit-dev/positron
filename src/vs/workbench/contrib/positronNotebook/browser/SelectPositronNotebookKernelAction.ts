@@ -11,7 +11,7 @@ import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickin
 import { selectKernelIcon } from '../../notebook/browser/notebookIcons.js';
 import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from './positronNotebookService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 
 export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';

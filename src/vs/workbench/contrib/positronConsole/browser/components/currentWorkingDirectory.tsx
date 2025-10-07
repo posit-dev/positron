@@ -11,6 +11,8 @@ import React, { MouseEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { toSlashes } from '../../../../../base/common/extpath.js';
+import { isWindows } from '../../../../../base/common/platform.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
@@ -113,7 +115,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 		>
 			<span className='codicon codicon-folder' role='presentation' />
 			<span className='label'>
-				{props.directoryLabel}
+				{isWindows ? toSlashes(props.directoryLabel) : props.directoryLabel}
 			</span>
 		</div>
 	);

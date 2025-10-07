@@ -19,10 +19,6 @@
 		orangered
 	);
 	--vscode-positronNotebook-border-color: var(--vscode-button-border, grey);
-	--vscode-positronNotebook-header-border: var(
-		--vscode-positronDataExplorer-border,
-		var(--vscode-positronNotebook-border-color)
-	);
 	/* In the small animation we use to indicate a cell is calculating, this is the secondary color
 	used to give the spinning effect */
 	--vscode-positronNotebook-border-color-offset: var(
@@ -43,7 +39,6 @@
 	);
 
 	/* Size variables used throughout notebooks */
-	--vscode-positronNotebook-header-h: 30px;
 	--vscode-positronNotebook-cell-radius: 8px;
 	--vscode-positronNotebook-action-bar-h: 22px;
 	--vscode-positronNotebook-action-bar-inset: calc(

@@ -41,8 +41,6 @@ class ColumnDisplayType(str, enum.Enum):
     Possible values for ColumnDisplayType
     """
 
-    Number = "number"
-
     Boolean = "boolean"
 
     String = "string"
@@ -62,6 +60,12 @@ class ColumnDisplayType(str, enum.Enum):
     Struct = "struct"
 
     Unknown = "unknown"
+
+    Floating = "floating"
+
+    Integer = "integer"
+
+    Decimal = "decimal"
 
 
 @enum.unique

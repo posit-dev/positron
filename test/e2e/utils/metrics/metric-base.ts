@@ -72,6 +72,7 @@ export type MetricTargetType =
 	// In-memory data structures
 	| 'r.data.frame'          // Base R data.frame
 	| 'r.tibble'              // R tibble (tbl_df)
+	| 'r.dplyr'               // R dplyr (tbl_dplyr)
 	| 'r.data.table'          // R data.table
 	| 'py.pandas.DataFrame'   // Python pandas DataFrame
 	| 'py.polars.DataFrame'   // Python polars DataFrame

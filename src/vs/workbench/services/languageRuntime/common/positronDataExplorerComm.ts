@@ -1150,7 +1150,6 @@ export enum SearchSchemaSortOrder {
  * Possible values for ColumnDisplayType
  */
 export enum ColumnDisplayType {
-	Number = 'number',
 	Boolean = 'boolean',
 	String = 'string',
 	Date = 'date',
@@ -1160,7 +1159,10 @@ export enum ColumnDisplayType {
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',
-	Unknown = 'unknown'
+	Unknown = 'unknown',
+	Floating = 'floating',
+	Integer = 'integer',
+	Decimal = 'decimal'
 }
 
 /**

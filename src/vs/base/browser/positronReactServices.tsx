@@ -30,7 +30,7 @@ import { IEditorService } from '../../workbench/services/editor/common/editorSer
 import { INotificationService } from '../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
-import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServiceIdentifier } from '../../platform/instantiation/common/instantiation.js';
 import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
 import { IPreferencesService } from '../../workbench/services/preferences/common/preferences.js';
 import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
@@ -136,4 +136,14 @@ export class PositronReactServices {
 		@IWorkspacesService public readonly workspacesService: IWorkspacesService,
 		@IWorkspaceTrustManagementService public readonly workspaceTrustManagementService: IWorkspaceTrustManagementService
 	) { }
+
+	/**
+	 * Get a service by its identifier.
+	 * Makes PositronReactServices compatible with ServicesAccessor interface.
+	 * @param id Service identifier
+	 * @returns The requested service
+	 */
+	get<T>(id: ServiceIdentifier<T>): T {
+		return this.instantiationService.invokeFunction(accessor => accessor.get(id));
+	}
 }

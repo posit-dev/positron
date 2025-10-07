@@ -23,8 +23,8 @@ import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
-import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -190,13 +190,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Sets the DOM element that contains the cells for the notebook.
-	 * @param container The container element to set, or undefined to clear
+	 * @param container The container element to set, or null to clear
 	 */
-	/**
-	 * Sets the DOM element that contains the cells for the notebook.
-	 * @param container The container element to set, or undefined to clear
-	 */
-	setCellsContainer(container: HTMLElement | undefined | null): void {
+	setCellsContainer(container: HTMLElement | null): void {
 		// Clean up any existing listeners
 		this._cellsContainerListeners.clear();
 

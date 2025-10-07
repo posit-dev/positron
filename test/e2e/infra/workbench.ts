@@ -99,7 +99,7 @@ export class Workbench {
 		this.toasts = new Toasts(code);
 		this.popups = new Popups(code);
 		this.contextMenu = new ContextMenu(code);
-		this.variables = new Variables(code, this.hotKeys);
+		this.variables = new Variables(code, this.hotKeys, this.contextMenu);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code, this.contextMenu);

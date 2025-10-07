@@ -15,21 +15,14 @@ jobs:
   RequireCLA:
     runs-on: ubuntu-latest
     steps:
-      - name: "Generate random delimiter for heredocs"
-        id: random_delimiter
-        run: |
-          echo -n "value=" >> $GITHUB_OUTPUT
-          tr -dc A-Za-z0-9 </dev/urandom | head -c 60 >> $GITHUB_OUTPUT
-          echo >> $GITHUB_OUTPUT
-
       - name: "Strip whitespace from comment body"
         id: strip_whitespace
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          echo "body<<${{ steps.random_delimiter.outputs.value }}" >> $GITHUB_OUTPUT
-          cat << "${{ steps.random_delimiter.outputs.value }}" | sed '/^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' >> $GITHUB_OUTPUT
-          ${{ github.event.comment.body }}
-          ${{ steps.random_delimiter.outputs.value }}
-          echo "${{ steps.random_delimiter.outputs.value }}" >> $GITHUB_OUTPUT
+          printf 'body=%s\n' "$COMMENT_BODY" |
+            sed '/^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' |
+            head -n 1 >> $GITHUB_OUTPUT
 
       - name: "Generate access token"
         id: access-token

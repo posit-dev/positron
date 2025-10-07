@@ -2,7 +2,7 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2025.10.0",
+	"positronVersion": "2025.11.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.20",
+			"version": "1.6.21",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "cfc8d2b15f991047a6169c422002505cc93aa04f33e2986319ef2d168a11a49c",
+			"sha256": "878607672a1b38cefb34508b022c720255455c939b44c5496572f3925bc703ae",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.5",
+			"version": "1.23.9",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -242,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.124.0",
-			"sha256sum": "f6ae217213fef18d59483cf7ae53765afe3e3d1cf06701d7378dc94bbd747259",
+			"version": "1.125.0",
+			"sha256sum": "6bfa70195d98e8be609c7d4639ad94d0393252a4d8838cc2bdeeb59c8001cf23",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",

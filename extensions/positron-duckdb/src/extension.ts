@@ -151,21 +151,20 @@ const SENTINEL_INF = 10;
 const SENTINEL_NEGINF = 11;
 
 // TODO
-// - Decimal
 // - Nested types
 // - JSON
 const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['BOOLEAN', ColumnDisplayType.Boolean],
-	['UTINYINT', ColumnDisplayType.Number],
-	['TINYINT', ColumnDisplayType.Number],
-	['USMALLINT', ColumnDisplayType.Number],
-	['SMALLINT', ColumnDisplayType.Number],
-	['UINTEGER', ColumnDisplayType.Number],
-	['INTEGER', ColumnDisplayType.Number],
-	['UBIGINT', ColumnDisplayType.Number],
-	['BIGINT', ColumnDisplayType.Number],
-	['FLOAT', ColumnDisplayType.Number],
-	['DOUBLE', ColumnDisplayType.Number],
+	['UTINYINT', ColumnDisplayType.Integer],
+	['TINYINT', ColumnDisplayType.Integer],
+	['USMALLINT', ColumnDisplayType.Integer],
+	['SMALLINT', ColumnDisplayType.Integer],
+	['UINTEGER', ColumnDisplayType.Integer],
+	['INTEGER', ColumnDisplayType.Integer],
+	['UBIGINT', ColumnDisplayType.Integer],
+	['BIGINT', ColumnDisplayType.Integer],
+	['FLOAT', ColumnDisplayType.Floating],
+	['DOUBLE', ColumnDisplayType.Floating],
 	['VARCHAR', ColumnDisplayType.String],
 	['UUID', ColumnDisplayType.String],
 	['DATE', ColumnDisplayType.Date],
@@ -175,7 +174,7 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIME', ColumnDisplayType.Time],
 	['INTERVAL', ColumnDisplayType.Interval],
-	['DECIMAL', ColumnDisplayType.Number]
+	['DECIMAL', ColumnDisplayType.Decimal]
 ]);
 
 function formatLiteral(value: string, schema: ColumnSchema) {
@@ -613,7 +612,7 @@ class ColumnProfileEvaluator {
 
 		if (isNumeric(columnSchema.column_type)) {
 			return {
-				type_display: ColumnDisplayType.Number,
+				type_display: getNumericDisplayType(columnSchema.column_type),
 				number_stats: {
 					min_value: formatNumber(getStat('min')),
 					max_value: formatNumber(getStat('max')),
@@ -624,7 +623,7 @@ class ColumnProfileEvaluator {
 			};
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			return {
-				type_display: ColumnDisplayType.Number,
+				type_display: ColumnDisplayType.Decimal,
 				number_stats: {
 					min_value: getStat('string_min'),
 					max_value: getStat('string_max'),
@@ -727,9 +726,13 @@ class ColumnProfileEvaluator {
 
 function isInteger(duckdbName: string) {
 	switch (duckdbName) {
+		case 'UTINYINT':
 		case 'TINYINT':
+		case 'USMALLINT':
 		case 'SMALLINT':
+		case 'UINTEGER':
 		case 'INTEGER':
+		case 'UBIGINT':
 		case 'BIGINT':
 			return true;
 		default:
@@ -737,12 +740,28 @@ function isInteger(duckdbName: string) {
 	}
 }
 
+function isFloating(duckdbName: string) {
+	return duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
+}
+
 function isNumeric(duckdbName: string) {
 	return (
 		isInteger(duckdbName) ||
-		duckdbName === 'FLOAT' ||
-		duckdbName === 'DOUBLE'
+		isFloating(duckdbName)
 	);
+}
+
+function getNumericDisplayType(duckdbName: string): ColumnDisplayType {
+	if (isInteger(duckdbName)) {
+		return ColumnDisplayType.Integer;
+	} else if (isFloating(duckdbName)) {
+		return ColumnDisplayType.Floating;
+	} else if (duckdbName.startsWith('DECIMAL')) {
+		return ColumnDisplayType.Decimal;
+	} else {
+		// Fallback to Floating for any other numeric type
+		return ColumnDisplayType.Floating;
+	}
 }
 
 /**
@@ -811,9 +830,9 @@ export class DuckDBTableView {
 					type_display = ColumnDisplayType.Unknown;
 				}
 
-				// If entry.column_type is like DECIMAL($p,$s), set type_display to Number
+				// If entry.column_type is like DECIMAL($p,$s), set type_display to Decimal
 				if (entry.column_type.startsWith('DECIMAL')) {
-					type_display = ColumnDisplayType.Number;
+					type_display = ColumnDisplayType.Decimal;
 				}
 
 				return {
@@ -849,7 +868,7 @@ export class DuckDBTableView {
 					displayType = ColumnDisplayType.Unknown;
 				}
 				if (columnType.startsWith('DECIMAL')) {
-					displayType = ColumnDisplayType.Number;
+					displayType = ColumnDisplayType.Decimal;
 				}
 
 				// Apply each filter
@@ -1348,8 +1367,11 @@ END`;
 	 */
 	private createEmptySummaryStats(columnSchema: SchemaEntry): ColumnSummaryStats {
 		if (isNumeric(columnSchema.column_type) || columnSchema.column_type.startsWith('DECIMAL')) {
+			const displayType = columnSchema.column_type.startsWith('DECIMAL')
+				? ColumnDisplayType.Decimal
+				: getNumericDisplayType(columnSchema.column_type);
 			return {
-				type_display: ColumnDisplayType.Number,
+				type_display: displayType,
 				number_stats: {}
 			};
 		} else if (columnSchema.column_type === 'VARCHAR') {

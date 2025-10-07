@@ -142,7 +142,7 @@ import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetada
 import { NotebookOutputEditor } from './outputEditor/notebookOutputEditor.js';
 import { NotebookOutputEditorInput } from './outputEditor/notebookOutputEditorInput.js';
 // --- Start Positron ---
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 // --- End Positron ---
 
 /*--------------------------------------------------------------------------------------------- */

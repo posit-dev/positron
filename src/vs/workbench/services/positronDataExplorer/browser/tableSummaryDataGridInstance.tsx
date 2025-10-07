@@ -297,6 +297,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return this._hoverManager;
 	}
 
+	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions() {
+		return this._dataExplorerClientInstance.profileFormatOptions;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Methods
@@ -352,7 +359,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		let summaryStatsSupported;
 		switch (columnSchema.type_display) {
-			case ColumnDisplayType.Number:
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 			case ColumnDisplayType.Boolean:
 			case ColumnDisplayType.String:
 			case ColumnDisplayType.Date:
@@ -388,6 +397,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._rowLayoutManager.setSizeOverride(columnIndex, this.expandedRowHeight(columnIndex));
 		}
 		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
+	}
+
+	/**
+	 * Gets the column schema for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column schema for the specified column index
+	 */
+	getColumnSchema(columnIndex: number) {
+		return this._tableSummaryCache.getColumnSchema(columnIndex);
 	}
 
 	/**
@@ -631,8 +649,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 		// Return the row height.
 		switch (columnSchema.type_display) {
-			// Number.
-			case ColumnDisplayType.Number:
+			// Number (including all numeric subtypes).
+			case ColumnDisplayType.Floating:
+			case ColumnDisplayType.Integer:
+			case ColumnDisplayType.Decimal:
 				return rowHeight(true, COLUMN_PROFILE_NUMBER_LINE_COUNT);
 
 			// Boolean.

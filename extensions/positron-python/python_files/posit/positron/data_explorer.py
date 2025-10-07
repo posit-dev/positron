@@ -854,9 +854,11 @@ class DataExplorerTableView:
     )
 
 
-def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
+def _box_number_stats(
+    min_val, max_val, mean_val, median_val, std_val, display_type=ColumnDisplayType.Floating
+):
     return ColumnSummaryStats(
-        type_display=ColumnDisplayType.Number,
+        type_display=display_type,
         number_stats=SummaryStatsNumber(
             min_value=min_val,
             max_value=max_val,
@@ -1064,7 +1066,9 @@ def _get_float_formatter(options: FormatOptions) -> Callable:
 
 
 _FILTER_RANGE_COMPARE_SUPPORTED = {
-    ColumnDisplayType.Number,
+    ColumnDisplayType.Floating,
+    ColumnDisplayType.Integer,
+    ColumnDisplayType.Decimal,
     ColumnDisplayType.Date,
     ColumnDisplayType.Datetime,
     ColumnDisplayType.Time,
@@ -1079,7 +1083,9 @@ def _pandas_temporal_mapper(type_name):
     return None
 
 
-def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
+def _pandas_summarize_number(
+    col: pd.Series, options: FormatOptions, display_type=ColumnDisplayType.Floating
+):
     import numpy as np
 
     math_helper = NumPyMathHelper()
@@ -1107,16 +1113,24 @@ def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
                 median_val = float_format(np.median(non_null_values))
                 std_val = float_format(non_null_values.std(ddof=1))
 
-            min_val = float_format(min_val)
-            max_val = float_format(max_val)
+            if display_type == ColumnDisplayType.Floating:
+                min_val = float_format(min_val)
+                max_val = float_format(max_val)
+            else:
+                min_val = str(min_val)
+                max_val = str(max_val)
 
     return _box_number_stats(
-        min_val,
-        max_val,
-        mean_val,
-        median_val,
-        std_val,
+        min_val, max_val, mean_val, median_val, std_val, display_type=display_type
     )
+
+
+def _pandas_summarize_floating(col: pd.Series, options: FormatOptions):
+    return _pandas_summarize_number(col, options, display_type=ColumnDisplayType.Floating)
+
+
+def _pandas_summarize_integer(col: pd.Series, options: FormatOptions):
+    return _pandas_summarize_number(col, options, display_type=ColumnDisplayType.Integer)
 
 
 def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
@@ -1485,27 +1499,27 @@ class PandasView(DataExplorerTableView):
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
         {
-            "integer": "number",
-            "int8": "number",
-            "int16": "number",
-            "int32": "number",
-            "int64": "number",
-            "uint8": "number",
-            "uint16": "number",
-            "uint32": "number",
-            "uint64": "number",
-            "floating": "number",
-            "float16": "number",
-            "float32": "number",
-            "float64": "number",
-            "complex64": "number",
-            "complex128": "number",
-            "complex256": "number",
+            "integer": "integer",
+            "int8": "integer",
+            "int16": "integer",
+            "int32": "integer",
+            "int64": "integer",
+            "uint8": "integer",
+            "uint16": "integer",
+            "uint32": "integer",
+            "uint64": "integer",
+            "floating": "floating",
+            "float16": "floating",
+            "float32": "floating",
+            "float64": "floating",
+            "complex64": "floating",
+            "complex128": "floating",
+            "complex256": "floating",
             "mixed-integer": "object",
             "mixed-integer-float": "object",
             "mixed": "object",
-            "decimal": "number",
-            "complex": "number",
+            "decimal": "decimal",
+            "complex": "floating",
             "bool": "boolean",
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
@@ -1517,16 +1531,16 @@ class PandasView(DataExplorerTableView):
             "bytes": "string",
             "empty": "unknown",
             # NA-enabled numeric data types
-            "Int8": "number",
-            "Int16": "number",
-            "Int32": "number",
-            "Int64": "number",
-            "UInt8": "number",
-            "UInt16": "number",
-            "UInt32": "number",
-            "UInt64": "number",
-            "Float32": "number",
-            "Float64": "number",
+            "Int8": "integer",
+            "Int16": "integer",
+            "Int32": "integer",
+            "Int64": "integer",
+            "UInt8": "integer",
+            "UInt16": "integer",
+            "UInt32": "integer",
+            "UInt64": "integer",
+            "Float32": "floating",
+            "Float64": "floating",
             # NA-enabled bool
             "boolean": "boolean",
             # NA-enabled string
@@ -1861,7 +1875,9 @@ class PandasView(DataExplorerTableView):
     _SUMMARIZERS = MappingProxyType(
         {
             ColumnDisplayType.Boolean: _pandas_summarize_boolean,
-            ColumnDisplayType.Number: _pandas_summarize_number,
+            ColumnDisplayType.Floating: _pandas_summarize_floating,
+            ColumnDisplayType.Integer: _pandas_summarize_integer,
+            ColumnDisplayType.Decimal: _pandas_summarize_number,
             ColumnDisplayType.String: _pandas_summarize_string,
             ColumnDisplayType.Date: _pandas_summarize_date,
             ColumnDisplayType.Datetime: _pandas_summarize_datetime,
@@ -2348,23 +2364,23 @@ class PolarsView(DataExplorerTableView):
     TYPE_DISPLAY_MAPPING = MappingProxyType(
         {
             "Boolean": "boolean",
-            "Int8": "number",
-            "Int16": "number",
-            "Int32": "number",
-            "Int64": "number",
-            "UInt8": "number",
-            "UInt16": "number",
-            "UInt32": "number",
-            "UInt64": "number",
-            "Float32": "number",
-            "Float64": "number",
+            "Int8": "integer",
+            "Int16": "integer",
+            "Int32": "integer",
+            "Int64": "integer",
+            "UInt8": "integer",
+            "UInt16": "integer",
+            "UInt32": "integer",
+            "UInt64": "integer",
+            "Float32": "floating",
+            "Float64": "floating",
             "Binary": "string",
             "String": "string",
             "Date": "date",
             "Datetime": "datetime",
             "Time": "time",
             "Duration": "interval",
-            "Decimal": "number",
+            "Decimal": "decimal",
             "Object": "object",
             "List": "array",
             "Struct": "struct",
@@ -2683,7 +2699,9 @@ class PolarsView(DataExplorerTableView):
     _SUMMARIZERS = MappingProxyType(
         {
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
-            ColumnDisplayType.Number: _polars_summarize_number,
+            ColumnDisplayType.Floating: _polars_summarize_number,
+            ColumnDisplayType.Integer: _polars_summarize_number,
+            ColumnDisplayType.Decimal: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
             ColumnDisplayType.Object: _polars_summarize_object,
             ColumnDisplayType.Date: _polars_summarize_date,
@@ -2800,7 +2818,11 @@ class PolarsView(DataExplorerTableView):
 def _polars_dtype_from_display(display_type):
     import polars as pl
 
-    return {ColumnDisplayType.Number: pl.Float64}.get(display_type)
+    return {
+        ColumnDisplayType.Floating: pl.Float64,
+        ColumnDisplayType.Integer: pl.Int64,
+        ColumnDisplayType.Decimal: pl.Float64,  # Polars doesn't have a separate decimal type
+    }.get(display_type)
 
 
 class PyArrowView(DataExplorerTableView):

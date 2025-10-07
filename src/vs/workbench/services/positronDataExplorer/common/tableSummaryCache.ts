@@ -339,8 +339,10 @@ export class TableSummaryCache extends Disposable {
 
 			// Determine whether to load the histogram or the frequency table for the column.
 			switch (columnSchema?.type_display) {
-				// Number.
-				case ColumnDisplayType.Number: {
+				// Number (including all numeric subtypes).
+				case ColumnDisplayType.Floating:
+				case ColumnDisplayType.Integer:
+				case ColumnDisplayType.Decimal: {
 					// If histograms are supported, load them.
 					if (histogramSupported) {
 						// Load the small histogram.

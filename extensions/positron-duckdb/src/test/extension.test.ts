@@ -303,24 +303,24 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		});
 
 		const schemaEntries: Array<[string, string, ColumnDisplayType]> = [
-			['year', 'SMALLINT', ColumnDisplayType.Number],
-			['month', 'TINYINT', ColumnDisplayType.Number],
-			['day', 'TINYINT', ColumnDisplayType.Number],
-			['dep_time', 'SMALLINT', ColumnDisplayType.Number],
-			['sched_dep_time', 'SMALLINT', ColumnDisplayType.Number],
-			['dep_delay', 'SMALLINT', ColumnDisplayType.Number],
-			['arr_time', 'SMALLINT', ColumnDisplayType.Number],
-			['sched_arr_time', 'SMALLINT', ColumnDisplayType.Number],
-			['arr_delay', 'SMALLINT', ColumnDisplayType.Number],
+			['year', 'SMALLINT', ColumnDisplayType.Integer],
+			['month', 'TINYINT', ColumnDisplayType.Integer],
+			['day', 'TINYINT', ColumnDisplayType.Integer],
+			['dep_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['sched_dep_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['dep_delay', 'SMALLINT', ColumnDisplayType.Integer],
+			['arr_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['sched_arr_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['arr_delay', 'SMALLINT', ColumnDisplayType.Integer],
 			['carrier', 'VARCHAR', ColumnDisplayType.String],
-			['flight', 'SMALLINT', ColumnDisplayType.Number],
+			['flight', 'SMALLINT', ColumnDisplayType.Integer],
 			['tailnum', 'VARCHAR', ColumnDisplayType.String],
 			['origin', 'VARCHAR', ColumnDisplayType.String],
 			['dest', 'VARCHAR', ColumnDisplayType.String],
-			['air_time', 'SMALLINT', ColumnDisplayType.Number],
-			['distance', 'SMALLINT', ColumnDisplayType.Number],
-			['hour', 'TINYINT', ColumnDisplayType.Number],
-			['minute', 'TINYINT', ColumnDisplayType.Number],
+			['air_time', 'SMALLINT', ColumnDisplayType.Integer],
+			['distance', 'SMALLINT', ColumnDisplayType.Integer],
+			['hour', 'TINYINT', ColumnDisplayType.Integer],
+			['minute', 'TINYINT', ColumnDisplayType.Integer],
 			['time_hour', 'TIMESTAMP_NS', ColumnDisplayType.Datetime],
 		];
 
@@ -437,25 +437,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'TINYINT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['127', '-128', '0', 'NULL']
 					},
 					{
 						name: '"b"',
 						type: 'SMALLINT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['32767', '-32768', '0', 'NULL']
 					},
 					{
 						name: '"c"',
 						type: 'INTEGER',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['2147483647', '-2147483648', '0', 'NULL']
 					},
 					{
 						name: '"d"',
 						type: 'BIGINT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Integer,
 						values: ['9223372036854775807', '-9223372036854775808', '0', 'NULL']
 					},
 				],
@@ -483,7 +483,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'DOUBLE',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'0', '1.125', '0.12345', 'NULL', '\'NaN\'',
 							'\'Infinity\'', '\'-Infinity\'',
@@ -492,7 +492,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"b"',
 						type: 'FLOAT',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'0', '1.115', '0.12366', 'NULL', '\'NaN\'',
 							'\'Infinity\'', '\'-Infinity\'',
@@ -511,7 +511,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'DOUBLE',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'123456789.78', '456789.78'
 						]
@@ -535,7 +535,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"a"',
 						type: 'DOUBLE',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Floating,
 						values: [
 							'155500', '150000', '15000'
 						]
@@ -608,19 +608,19 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: '"decimal_default"',
 						type: 'DECIMAL',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Decimal,
 						values: ['1.23', '45.67', '89.01', 'NULL']
 					},
 					{
 						name: '"decimal_precision"',
 						type: 'DECIMAL(10)', // same as DECIMAL(10,0)
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Decimal,
 						values: ['123456', '987654', '555555', 'NULL']
 					},
 					{
 						name: '"decimal_precision_scale"',
 						type: 'DECIMAL(10,2)',
-						display_type: ColumnDisplayType.Number,
+						display_type: ColumnDisplayType.Decimal,
 						values: ['123.456', '789.012', '345.678', 'NULL']
 					}
 				],
@@ -1362,7 +1362,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['1', '2', '3', '4', '5']
 			},
 			{
@@ -1374,7 +1374,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'value',
 				type: 'DOUBLE',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Floating,
 				values: ['10.5', '20.75', '30.25', '40.5', '50.0']
 			}
 		]);
@@ -1987,7 +1987,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const tableName = await createSummaryStatsTestTable(
 			'"numeric_column"', // Quoted field name
 			'DOUBLE',
-			ColumnDisplayType.Number,
+			ColumnDisplayType.Floating,
 			(i) => `${i * 2.5}`, // Values 0, 2.5, 5.0, 7.5, ... 247.5
 			100
 		);
@@ -2001,7 +2001,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify the summary stats
 		assert.ok(summaryStats, 'Summary stats should be returned');
-		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Number, 'Type display should be Number');
+		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Floating, 'Type display should be Floating');
 		assert.ok(summaryStats.number_stats, 'Number stats should be present');
 
 		const numberStats = summaryStats.number_stats!;
@@ -2147,7 +2147,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const tableName = await createSummaryStatsTestTable(
 			'"null_column"', // Quoted field name
 			'INTEGER',
-			ColumnDisplayType.Number,
+			ColumnDisplayType.Integer,
 			() => 'NULL', // All NULL values
 			20
 		);
@@ -2161,7 +2161,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify the summary stats for all null values
 		assert.ok(summaryStats, 'Summary stats should be returned');
-		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Number, 'Type display should be Number');
+		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Integer, 'Type display should be Integer');
 		assert.ok(summaryStats.number_stats, 'Number stats should be present even for all null values');
 
 		const numberStats = summaryStats.number_stats!;
@@ -2180,13 +2180,13 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['1', '2', '3'],
 			},
 			{
 				name: 'user_id',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['101', '102', '103'],
 			},
 			{
@@ -2210,7 +2210,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'age',
 				type: 'INTEGER',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Integer,
 				values: ['25', '30', '35'],
 			},
 			{
@@ -2260,7 +2260,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'salary',
 				type: 'DOUBLE',
-				display_type: ColumnDisplayType.Number,
+				display_type: ColumnDisplayType.Floating,
 				values: ['50000.0', '60000.0', '70000.0'],
 			},
 		]);
@@ -2375,10 +2375,22 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 				// Type filter tests
 				{
-					filters: [typeFilter(ColumnDisplayType.Number)],
+					filters: [typeFilter(ColumnDisplayType.Integer)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 1, 5],
+					description: 'Integer columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Floating)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [12],
+					description: 'Floating columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Integer, ColumnDisplayType.Floating)],
 					sortOrder: SearchSchemaSortOrder.Original,
 					expected: [0, 1, 5, 12],
-					description: 'Number columns',
+					description: 'Integer and Floating columns',
 				},
 				{
 					filters: [typeFilter(ColumnDisplayType.String)],
@@ -2408,11 +2420,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				{
 					filters: [
 						textFilter(TextSearchType.Contains, 'a'),
-						typeFilter(ColumnDisplayType.Number),
+						typeFilter(ColumnDisplayType.Integer, ColumnDisplayType.Floating),
 					],
 					sortOrder: SearchSchemaSortOrder.Original,
 					expected: [5, 12],
-					description: 'Contains "a" AND Number type',
+					description: 'Contains "a" AND Integer/Floating type',
 				},
 
 				// Sort order tests - by name
@@ -2449,10 +2461,10 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					description: 'Descending by type',
 				},
 				{
-					filters: [typeFilter(ColumnDisplayType.Number)],
+					filters: [typeFilter(ColumnDisplayType.Integer, ColumnDisplayType.Floating)],
 					sortOrder: SearchSchemaSortOrder.AscendingType,
 					expected: [12, 0, 1, 5],
-					description: 'Number columns by type',
+					description: 'Integer/Floating columns by type',
 				},
 
 				// Case sensitivity tests
@@ -2486,7 +2498,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const tableName = await createSummaryStatsTestTable(
 			'"single_value_column"', // Quoted field name
 			'INTEGER',
-			ColumnDisplayType.Number,
+			ColumnDisplayType.Integer,
 			() => '42', // All values are 42
 			15
 		);
@@ -2500,7 +2512,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		// Verify the summary stats for a single value
 		assert.ok(summaryStats, 'Summary stats should be returned');
-		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Number, 'Type display should be Number');
+		assert.strictEqual(summaryStats.type_display, ColumnDisplayType.Integer, 'Type display should be Integer');
 		assert.ok(summaryStats.number_stats, 'Number stats should be present');
 
 		const numberStats = summaryStats.number_stats!;

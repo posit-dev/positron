@@ -25,7 +25,7 @@ export class PositronNotebooks extends Notebooks {
 	private static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
 	private static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
 	private static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
-	private static readonly NOTEBOOK_KERNEL_STATUS_LABEL = /notebook kernel status/i;
+	private static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
 	private static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
 	private static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
 	private static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
@@ -269,8 +269,8 @@ export class PositronNotebooks extends Notebooks {
 			await expect(this.code.driver.page.locator(PositronNotebooks.CELL_STATUS_SYNC_SELECTOR)).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.getByText(PositronNotebooks.DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
-			// Get the kernel status badge using aria-label
-			const kernelStatusBadge = this.code.driver.page.getByLabel(PositronNotebooks.NOTEBOOK_KERNEL_STATUS_LABEL);
+			// Get the kernel status badge using data-testid
+			const kernelStatusBadge = this.code.driver.page.getByTestId(PositronNotebooks.NOTEBOOK_KERNEL_STATUS_TESTID);
 			await expect(kernelStatusBadge).toBeVisible({ timeout: 5000 });
 
 			try {
