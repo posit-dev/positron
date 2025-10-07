@@ -227,12 +227,7 @@ export class SelectionStateMachine extends Disposable {
 		if (state.type === SelectionState.MultiSelection) {
 			const updatedSelection = state.selected.filter(c => c !== cell);
 			if (updatedSelection.length === 0) {
-				// All cells deselected - let invariant enforcement handle transition to NoCells
-				// If cells still exist, select the first one
-				const cells = this._cells.get();
-				if (cells.length > 0) {
-					this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
-				}
+				// All cells deselected - let invariant enforcement handle transition
 				return;
 			}
 			const verifiedSelection = verifyNonEmptyArray(updatedSelection);
@@ -304,12 +299,6 @@ export class SelectionStateMachine extends Disposable {
 
 	/**
 	 * Selects a cell for editing - enters edit mode with the specified cell.
-	 *
-	 * Note: This method supports the NoCells → EditingSelection transition for cases where
-	 * a cell is created in an empty notebook and immediately entered for editing (e.g., notebook
-	 * initialization, or adding a cell after deleting all cells). This avoids forcing a two-step
-	 * transition (NoCells → SingleSelection → EditingSelection) which would trigger unnecessary
-	 * intermediate state updates and side effects.
 	 *
 	 * @param cell The cell to select and edit.
 	 */
