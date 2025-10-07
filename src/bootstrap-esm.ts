@@ -10,6 +10,11 @@ import './bootstrap-node.js';
 import * as performance from './vs/base/common/performance.js';
 import { INLSConfiguration } from './vs/nls.js';
 
+// --- Start Positron ---
+// Create a synchronous require function for use in the global accessor
+import { createRequire } from 'node:module';
+// --- End Positron ---
+
 // Install a hook to module resolution to map 'fs' to 'original-fs'
 if (process.env['ELECTRON_RUN_AS_NODE'] || process.versions['electron']) {
 	const jsCode = `
@@ -42,8 +47,10 @@ globalThis._VSCODE_FILE_ROOT = import.meta.dirname;
 // @ts-ignore
 globalThis.acquirePositronApi = function () {
 	try {
+		const require = createRequire(import.meta.url);
 		return require('positron');
 	} catch (err) {
+		console.error(`Error loading Positron API: ${err}`);
 		return undefined;
 	}
 };
