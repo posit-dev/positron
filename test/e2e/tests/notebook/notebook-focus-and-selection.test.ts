@@ -378,8 +378,7 @@ test.describe('Notebook Focus and Selection', {
 		const editor = cell.locator('.positron-cell-editor-monaco-widget');
 		const viewLines = editor.locator('.view-line');
 
-		// Position cursor in the MIDDLE of the text (after "print(")
-		// This avoids any trailing newline trimming issues
+		// Position cursor in the middle of the cells contents to avoid any trailing newline trimming issues
 		await app.code.driver.page.keyboard.press('Home');
 		const middleIndex = Math.floor(lineText.length / 2);
 		for (let i = 0; i < middleIndex; i++) { // move to middle of line
