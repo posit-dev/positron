@@ -36,7 +36,7 @@ function getQuartoWindows(version: string): Stream {
 		verbose: true,
 		timeoutSeconds: 90,
 	})
-		.pipe(unzip());
+		.pipe(unzip({ keepEmpty: true }));
 }
 
 /**
