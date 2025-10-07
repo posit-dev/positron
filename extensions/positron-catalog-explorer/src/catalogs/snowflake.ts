@@ -2,17 +2,17 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import {
 	CatalogNode,
 	CatalogProvider,
 	CatalogProviderRegistration,
 	CatalogProviderRegistry,
-} from "../catalog";
+} from '../catalog';
 
 const registration: CatalogProviderRegistration = {
-	label: "Snowflake",
-	detail: "Explore tables and stages in a Snowflake account",
+	label: 'Snowflake',
+	detail: 'Explore tables and stages in a Snowflake account',
 	addProvider: registerSnowflakeCatalog,
 	listProviders: getSnowflakeCatalogs,
 };
@@ -21,7 +21,7 @@ export function registerSnowflakeProvider(
 	registry: CatalogProviderRegistry,
 ): vscode.Disposable {
 	vscode.authentication.onDidChangeSessions((e) => {
-		if (e.provider.id === "snowflake") {
+		if (e.provider.id === 'snowflake') {
 		}
 	});
 	return registry.register(registration);
@@ -42,24 +42,18 @@ async function registerSnowflakeCatalog(
 		const session = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: "Checking for existing Snowflake OAuth2 sessions...",
+				title: 'Checking for existing Snowflake OAuth2 sessions...',
 			},
 			() => {
-				return vscode.authentication.getSession(
-					"snowflake",
-					[],
-					{
-						createIfNone: true,
-						clearSessionPreference: true,
-					},
-				);
+				return vscode.authentication.getSession('snowflake', [], {
+					createIfNone: true,
+					clearSessionPreference: true,
+				});
 			},
 		);
 		return new SnowflakeCatalogProvider(session);
 	} catch (_error) {
-		vscode.window.showErrorMessage(
-			"No Snowflake OAuth2 credentials found.",
-		);
+		vscode.window.showErrorMessage('No Snowflake OAuth2 credentials found.');
 		return undefined;
 	}
 }
@@ -72,20 +66,16 @@ async function getSnowflakeCatalogs(
 ): Promise<CatalogProvider[]> {
 	let accounts;
 	try {
-		accounts = await vscode.authentication.getAccounts("snowflake");
+		accounts = await vscode.authentication.getAccounts('snowflake');
 	} catch (_error) {
 		return Promise.resolve([]);
 	}
 	const sessions = await Promise.all(
 		accounts.map(async (account) => {
-			return await vscode.authentication.getSession(
-				"snowflake",
-				[],
-				{
-					account: account,
-					silent: true,
-				},
-			);
+			return await vscode.authentication.getSession('snowflake', [], {
+				account: account,
+				silent: true,
+			});
 		}),
 	);
 	return sessions
@@ -117,7 +107,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		item.iconPath = registration.iconPath;
 		item.tooltip = registration.label;
 		item.description = this.session.account.label;
-		item.contextValue = "provider";
+		item.contextValue = 'provider';
 		return item;
 	}
 

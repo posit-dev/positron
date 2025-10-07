@@ -2,18 +2,18 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import {
 	CatalogNode,
 	CatalogProvider,
 	CatalogProviderRegistration,
 	CatalogProviderRegistry,
-} from "../catalog";
+} from '../catalog';
 
 const registration: CatalogProviderRegistration = {
-	label: "Azure Data Lake Storage",
-	detail: "Explore tables and files in Azure Data Lake Storage",
-	iconPath: new vscode.ThemeIcon("azure"),
+	label: 'Azure Data Lake Storage',
+	detail: 'Explore tables and files in Azure Data Lake Storage',
+	iconPath: new vscode.ThemeIcon('azure'),
 	addProvider: registerAzureCatalog,
 	listProviders: getAzureCatalogs,
 };
@@ -34,8 +34,8 @@ async function registerAzureCatalog(
 	_context: vscode.ExtensionContext,
 ): Promise<CatalogProvider | undefined> {
 	const session = await vscode.authentication.getSession(
-		"microsoft",
-		["https://storage.azure.com/.default"],
+		'microsoft',
+		['https://storage.azure.com/.default'],
 		{
 			createIfNone: true,
 			clearSessionPreference: true,
@@ -52,12 +52,12 @@ async function getAzureCatalogs(
 ): Promise<CatalogProvider[]> {
 	// TODO: Support blocklisting Microsoft accounts when dismissing
 	// providers in the UI.
-	const accounts = await vscode.authentication.getAccounts("microsoft");
+	const accounts = await vscode.authentication.getAccounts('microsoft');
 	const sessions = await Promise.all(
 		accounts.map(async (account) => {
 			return await vscode.authentication.getSession(
-				"microsoft",
-				["https://storage.azure.com/.default"],
+				'microsoft',
+				['https://storage.azure.com/.default'],
 				{
 					account: account,
 					silent: true,
@@ -94,7 +94,7 @@ class AzureCatalogProvider implements CatalogProvider {
 		item.iconPath = registration.iconPath;
 		item.tooltip = registration.label;
 		item.description = this.session.account.label;
-		item.contextValue = "provider";
+		item.contextValue = 'provider';
 		return item;
 	}
 

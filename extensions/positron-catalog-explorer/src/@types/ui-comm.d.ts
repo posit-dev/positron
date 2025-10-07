@@ -30,7 +30,6 @@ export interface EditorContext {
 	 * The selections in this text editor.
 	 */
 	selections: Array<Selection>;
-
 }
 
 /**
@@ -76,7 +75,6 @@ export interface TextDocument {
 	 * Version number of the document
 	 */
 	version: number;
-
 }
 
 /**
@@ -92,7 +90,6 @@ export interface Position {
 	 * The zero-based line value.
 	 */
 	line: number;
-
 }
 
 /**
@@ -118,5 +115,4 @@ export interface Selection {
 	 * Text of the selection
 	 */
 	text: string;
-
 }

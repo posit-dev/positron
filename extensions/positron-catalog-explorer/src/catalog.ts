@@ -2,7 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
 /**
  * High-level interface for arbitrary backends that provide a hierarchical
@@ -25,10 +25,7 @@ export interface CatalogProvider extends vscode.Disposable {
 	 */
 	getChildren(node?: CatalogNode): Promise<CatalogNode[]>;
 
-	getCode?(
-		languageId: string,
-		node: CatalogNode,
-	): Promise<string | undefined>;
+	getCode?(languageId: string, node: CatalogNode): Promise<string | undefined>;
 
 	openInSession?(node: CatalogNode): Promise<void>;
 
@@ -38,15 +35,15 @@ export interface CatalogProvider extends vscode.Disposable {
 }
 
 export type CatalogNodeType =
-	| "provider"
-	| "catalog"
-	| "schema"
-	| "namespace" // Iceberg terminology for a generalized catalog/schema hierarchy.
-	| "table"
-	| "view"
-	| "volume" // Unity Catalog terminology. Also called a "bucket" or "container".
-	| "directory"
-	| "file"; // Also called an "object".
+	| 'provider'
+	| 'catalog'
+	| 'schema'
+	| 'namespace' // Iceberg terminology for a generalized catalog/schema hierarchy.
+	| 'table'
+	| 'view'
+	| 'volume' // Unity Catalog terminology. Also called a "bucket" or "container".
+	| 'directory'
+	| 'file'; // Also called an "object".
 
 export class CatalogNode {
 	constructor(
@@ -71,7 +68,7 @@ export class CatalogNode {
 	async getCode(languageId: string): Promise<string | undefined> {
 		if (!this.provider.getCode) {
 			vscode.window.showErrorMessage(
-				"Code generation is not supported by this provider.",
+				'Code generation is not supported by this provider.',
 			);
 			return Promise.resolve(undefined);
 		}
@@ -91,7 +88,7 @@ export async function registerTreeViewProvider(
 	registry: CatalogProviderRegistry,
 ): Promise<vscode.Disposable> {
 	return vscode.window.registerTreeDataProvider(
-		"catalog-explorer",
+		'catalog-explorer',
 		await CatalogTreeDataProvider.from(context, registry),
 	);
 }
@@ -126,19 +123,14 @@ class CatalogTreeDataProvider
 			if (!p.onDidChange) {
 				continue;
 			}
-			this.listeners.push(
-				p.onDidChange(() => this.emitter.fire()),
-			);
+			this.listeners.push(p.onDidChange(() => this.emitter.fire()));
 		}
 	}
 
 	onDidChangeTreeData = this.emitter.event;
 
 	dispose() {
-		vscode.Disposable.from(
-			...this.providers,
-			...this.listeners,
-		).dispose();
+		vscode.Disposable.from(...this.providers, ...this.listeners).dispose();
 	}
 
 	getTreeItem(element: CatalogElement): vscode.TreeItem {
@@ -165,23 +157,23 @@ class CatalogTreeDataProvider
 }
 
 const DEFAULT_PROVIDER_ICON = new vscode.ThemeIcon(
-	"symbol-class",
-	new vscode.ThemeColor("symbolIcon.methodForeground"),
+	'symbol-class',
+	new vscode.ThemeColor('symbolIcon.methodForeground'),
 );
 
 const CATALOG_ICON = new vscode.ThemeIcon(
-	"library",
-	new vscode.ThemeColor("symbolIcon.classForeground"),
+	'library',
+	new vscode.ThemeColor('symbolIcon.classForeground'),
 );
 
 const NAMESPACE_ICON = new vscode.ThemeIcon(
-	"bracket",
-	new vscode.ThemeColor("symbolIcon.namespaceForeground"),
+	'bracket',
+	new vscode.ThemeColor('symbolIcon.namespaceForeground'),
 );
 
 const TABLE_ICON = new vscode.ThemeIcon(
-	"database",
-	new vscode.ThemeColor("symbolIcon.fieldForeground"),
+	'database',
+	new vscode.ThemeColor('symbolIcon.fieldForeground'),
 );
 
 class CatalogItem extends vscode.TreeItem {
@@ -189,39 +181,35 @@ class CatalogItem extends vscode.TreeItem {
 		if (node.resourceUri) {
 			super(node.resourceUri);
 		} else {
-			super(node.path.split(".").pop() || node.path);
+			super(node.path.split('.').pop() || node.path);
 		}
 		this.contextValue = node.type;
 		switch (node.type) {
-			case "provider":
+			case 'provider':
 				this.iconPath = DEFAULT_PROVIDER_ICON;
 				// Expand only "provider" entries by default.
-				this.collapsibleState =
-					vscode.TreeItemCollapsibleState.Expanded;
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 				break;
-			case "catalog":
+			case 'catalog':
 				this.iconPath = CATALOG_ICON;
-				this.collapsibleState =
-					vscode.TreeItemCollapsibleState.Collapsed;
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				break;
-			case "schema":
-			case "namespace":
+			case 'schema':
+			case 'namespace':
 				this.iconPath = NAMESPACE_ICON;
-				this.collapsibleState =
-					vscode.TreeItemCollapsibleState.Collapsed;
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				break;
-			case "volume":
-			case "directory":
+			case 'volume':
+			case 'directory':
 				this.iconPath = vscode.ThemeIcon.Folder;
-				this.collapsibleState =
-					vscode.TreeItemCollapsibleState.Collapsed;
+				this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
 				break;
-			case "file":
+			case 'file':
 				this.iconPath = vscode.ThemeIcon.File;
 				if (this.resourceUri) {
 					this.command = {
-						title: "Open",
-						command: "vscode.open",
+						title: 'Open',
+						command: 'vscode.open',
 						arguments: [this.resourceUri],
 					};
 				}
@@ -240,9 +228,7 @@ export interface CatalogProviderRegistration {
 	addProvider(
 		context: vscode.ExtensionContext,
 	): Promise<CatalogProvider | undefined>;
-	listProviders(
-		context: vscode.ExtensionContext,
-	): Promise<CatalogProvider[]>;
+	listProviders(context: vscode.ExtensionContext): Promise<CatalogProvider[]>;
 }
 
 export class CatalogProviderRegistry {
@@ -276,7 +262,7 @@ export class CatalogProviderRegistry {
 
 	async addProvider(context: vscode.ExtensionContext): Promise<void> {
 		const item = await vscode.window.showQuickPick(this.registry, {
-			title: "Choose a Catalog Provider",
+			title: 'Choose a Catalog Provider',
 		});
 		if (!item) {
 			return;
@@ -299,7 +285,7 @@ export function registerCatalogCommands(
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.openWith",
+			'posit.catalog-explorer.openWith',
 			async (node: CatalogNode) => {
 				if (!node.resourceUri) {
 					return;
@@ -307,33 +293,30 @@ export function registerCatalogCommands(
 				// Delegate to the existing File Explorer
 				// command.
 				await vscode.commands.executeCommand(
-					"explorer.openWith",
+					'explorer.openWith',
 					node.resourceUri,
 				);
 			},
 		),
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.copyPath",
+			'posit.catalog-explorer.copyPath',
 			async (node: CatalogNode) => {
 				if (!node.resourceUri) {
 					return;
 				}
 				// Delegate to the existing copyFilePath
 				// command, as used by the File Explorer.
-				await vscode.commands.executeCommand(
-					"copyFilePath",
-					node.resourceUri,
-				);
+				await vscode.commands.executeCommand('copyFilePath', node.resourceUri);
 			},
 		),
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.openInSession",
+			'posit.catalog-explorer.openInSession',
 			async (node: CatalogNode) => await node.openInSession(),
 		),
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.copyPythonCode",
+			'posit.catalog-explorer.copyPythonCode',
 			async (node: CatalogNode) => {
-				const code = await node.getCode("python");
+				const code = await node.getCode('python');
 				if (!code) {
 					return;
 				}
@@ -341,9 +324,9 @@ export function registerCatalogCommands(
 			},
 		),
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.copyRCode",
+			'posit.catalog-explorer.copyRCode',
 			async (node: CatalogNode) => {
-				const code = await node.getCode("r");
+				const code = await node.getCode('r');
 				if (!code) {
 					return;
 				}
@@ -351,11 +334,11 @@ export function registerCatalogCommands(
 			},
 		),
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.refresh",
+			'posit.catalog-explorer.refresh',
 			(provider: CatalogProvider) => provider.refresh?.(),
 		),
 		vscode.commands.registerCommand(
-			"posit.catalog-explorer.addCatalogProvider",
+			'posit.catalog-explorer.addCatalogProvider',
 			async () => await registry.addProvider(context),
 		),
 	);

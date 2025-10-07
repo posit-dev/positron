@@ -2,9 +2,9 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from "vscode";
-import { basename } from "path";
-import { DatabricksCredentialProvider } from "../credentials";
+import * as vscode from 'vscode';
+import { basename } from 'path';
+import { DatabricksCredentialProvider } from '../credentials';
 
 /**
  * Registers a filesystem provider for the Databricks Unity Catalog.
@@ -61,7 +61,7 @@ export class DatabricksFileProvider implements vscode.FileSystemProvider {
 		},
 	): vscode.Disposable {
 		// TODO: Implement a basic polling approach.
-		throw new Error("Method not implemented.");
+		throw new Error('Method not implemented.');
 	}
 
 	async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
@@ -76,16 +76,12 @@ export class DatabricksFileProvider implements vscode.FileSystemProvider {
 		};
 	}
 
-	async readDirectory(
-		uri: vscode.Uri,
-	): Promise<[string, vscode.FileType][]> {
+	async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
 		const client = await this.getFilesClient(uri.authority);
 		const contents = await client.listContents(uri.path);
 		return contents.map((f) => [
 			f.name,
-			f.is_directory
-				? vscode.FileType.Directory
-				: vscode.FileType.File,
+			f.is_directory ? vscode.FileType.Directory : vscode.FileType.File,
 		]);
 	}
 
@@ -111,13 +107,10 @@ export class DatabricksFileProvider implements vscode.FileSystemProvider {
 		await client.uploadFile(uri.path, content, options.overwrite);
 	}
 
-	async delete(
-		uri: vscode.Uri,
-		_options: { readonly recursive: boolean },
-	) {
+	async delete(uri: vscode.Uri, _options: { readonly recursive: boolean }) {
 		const client = await this.getFilesClient(uri.authority);
 		// TODO: Should we use the DBFS API instead?
-		if (uri.path.endsWith("/")) {
+		if (uri.path.endsWith('/')) {
 			// TODO: Recursive deletion.
 			await client.deleteDirectory(uri.path);
 		} else {
@@ -132,7 +125,7 @@ export class DatabricksFileProvider implements vscode.FileSystemProvider {
 	) {
 		// This isn't supported by the Databricks Files API.
 		// TODO: Use the DBFS API.
-		throw new vscode.FileSystemError("Operation not supported");
+		throw new vscode.FileSystemError('Operation not supported');
 	}
 
 	private async getFilesClient(
@@ -158,11 +151,11 @@ export class DatabricksFilesClient {
 	 * Create a new Databricks Files client.
 	 */
 	constructor(uri: string, token: string, timeout?: number) {
-		this.uri = uri.endsWith("/") ? uri.slice(0, -1) : uri;
-		this.uri += "/api/2.0";
+		this.uri = uri.endsWith('/') ? uri.slice(0, -1) : uri;
+		this.uri += '/api/2.0';
 		this.timeout = timeout || 30000;
 		this.headers = {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`,
 		};
 	}
@@ -189,7 +182,7 @@ export class DatabricksFilesClient {
 	 */
 	async createDirectory(path: string) {
 		return await this.fetch(this.url(`fs/directories${path}`), {
-			method: "PUT",
+			method: 'PUT',
 		});
 	}
 
@@ -198,7 +191,7 @@ export class DatabricksFilesClient {
 	 */
 	async deleteDirectory(path: string) {
 		return await this.fetch(this.url(`fs/directories${path}`), {
-			method: "DELETE",
+			method: 'DELETE',
 		});
 	}
 
@@ -206,16 +199,13 @@ export class DatabricksFilesClient {
 	 * Get file metadata.
 	 */
 	async getFile(path: string): Promise<DirectoryEntry> {
-		const response = await this.fetchRaw(
-			this.url(`fs/files${path}`),
-			{
-				method: "HEAD",
-			},
-		);
-		const length = response.headers.get("content-length");
-		const lastModified = response.headers.get("last-modified");
+		const response = await this.fetchRaw(this.url(`fs/files${path}`), {
+			method: 'HEAD',
+		});
+		const length = response.headers.get('content-length');
+		const lastModified = response.headers.get('last-modified');
 		if (!length || !lastModified) {
-			throw new Error("Malformed response headers.");
+			throw new Error('Malformed response headers.');
 		}
 		return {
 			file_size: Number(length),
@@ -230,16 +220,13 @@ export class DatabricksFilesClient {
 	 * Download a file.
 	 */
 	async downloadFile(path: string): Promise<Uint8Array> {
-		const response = await this.fetchRaw(
-			this.url(`fs/files${path}`),
-			{
-				// TODO: Is it sensible to expose If-Unmodified-Since
-				// and Range support?
-				headers: {
-					Accept: "application/octet-stream",
-				},
+		const response = await this.fetchRaw(this.url(`fs/files${path}`), {
+			// TODO: Is it sensible to expose If-Unmodified-Since
+			// and Range support?
+			headers: {
+				Accept: 'application/octet-stream',
 			},
-		);
+		});
 		return new Uint8Array(await response.arrayBuffer());
 	}
 
@@ -252,10 +239,9 @@ export class DatabricksFilesClient {
 				overwrite: String(overwrite),
 			}),
 			{
-				method: "PUT",
+				method: 'PUT',
 				headers: {
-					"Content-Type":
-						"application/octet-stream",
+					'Content-Type': 'application/octet-stream',
 				},
 				body: content,
 			},
@@ -267,7 +253,7 @@ export class DatabricksFilesClient {
 	 */
 	async deleteFile(path: string) {
 		return await this.fetch(this.url(`fs/files${path}`), {
-			method: "DELETE",
+			method: 'DELETE',
 		});
 	}
 
@@ -287,10 +273,7 @@ export class DatabricksFilesClient {
 	/**
 	 * Fetch the given URL and parse the JSON response as T.
 	 */
-	private async fetch<T>(
-		url: string,
-		options: RequestInit = {},
-	): Promise<T> {
+	private async fetch<T>(url: string, options: RequestInit = {}): Promise<T> {
 		const response = await this.fetchRaw(url, options);
 		if (response.status === 204) {
 			return {} as T;
@@ -307,10 +290,7 @@ export class DatabricksFilesClient {
 	): Promise<Response> {
 		// TODO: Is this really a good timeout mechanism?
 		const controller = new AbortController();
-		const timeoutId = setTimeout(
-			() => controller.abort(),
-			this.timeout,
-		);
+		const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 		try {
 			const fetchOptions: RequestInit = {
 				...options,
@@ -323,19 +303,12 @@ export class DatabricksFilesClient {
 			const response = await fetch(url, fetchOptions);
 			// TODO: Error handling, translate e.g. 404 and 403 to filesystem errors.
 			if (!response.ok) {
-				throw new Error(
-					`Request failed with status ${response.status}`,
-				);
+				throw new Error(`Request failed with status ${response.status}`);
 			}
 			return response;
 		} catch (error) {
-			if (
-				error instanceof Error &&
-				error.name === "AbortError"
-			) {
-				throw new Error(
-					`Request timed out after ${this.timeout}ms`,
-				);
+			if (error instanceof Error && error.name === 'AbortError') {
+				throw new Error(`Request timed out after ${this.timeout}ms`);
 			}
 			throw error;
 		} finally {
@@ -357,4 +330,4 @@ interface ListContentsResponse {
 	next_page_token?: string;
 }
 
-const DBFS_SCHEME = "dbfs";
+const DBFS_SCHEME = 'dbfs';

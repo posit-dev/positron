@@ -2,7 +2,7 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 
 export interface DatabricksCredentialProvider {
 	getToken(workspace: string): Promise<string | undefined>;
@@ -23,12 +23,12 @@ export class DefaultDatabricksCredentialProvider
 				return;
 			}
 			const newValue = await this.store.get(e.key);
-			this.cache.set(e.key, newValue ?? "");
+			this.cache.set(e.key, newValue ?? '');
 		});
 	}
 
 	async getToken(workspace: string): Promise<string | undefined> {
-		const key = workspace.startsWith("https://")
+		const key = workspace.startsWith('https://')
 			? workspace
 			: `https://${workspace}`;
 		const cached = this.cache.get(key);

@@ -2,24 +2,24 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 import {
 	CatalogNode,
 	CatalogNodeType,
 	CatalogProvider,
 	CatalogProviderRegistration,
 	CatalogProviderRegistry,
-} from "../catalog";
-import { UnityCatalogClient } from "./unityCatalogClient";
-import { DatabricksFilesClient, dbfsUri, dbfsVolumeUri } from "../fs/dbfs";
-import { resourceUri } from "../resources";
-import { DefaultDatabricksCredentialProvider } from "../credentials";
-import { ensureDependencies, getPositronAPI } from "../positron";
-import path from "path";
+} from '../catalog';
+import { UnityCatalogClient } from './unityCatalogClient';
+import { DatabricksFilesClient, dbfsUri, dbfsVolumeUri } from '../fs/dbfs';
+import { resourceUri } from '../resources';
+import { DefaultDatabricksCredentialProvider } from '../credentials';
+import { ensureDependencies, getPositronAPI } from '../positron';
+import path from 'path';
 
 const registration: CatalogProviderRegistration = {
-	label: "Databricks",
-	detail: "Explore tables, volumes, and files in the Unity Catalog",
+	label: 'Databricks',
+	detail: 'Explore tables, volumes, and files in the Unity Catalog',
 	addProvider: registerDatabricksCatalog,
 	listProviders: getDatabricksCatalogs,
 };
@@ -30,8 +30,8 @@ export function registerDatabricksProvider(
 	// We have to do this lazily due to paths not being available until
 	// after initialisation.
 	registration.iconPath = {
-		light: resourceUri("light", "databricks.svg"),
-		dark: resourceUri("dark", "databricks.svg"),
+		light: resourceUri('light', 'databricks.svg'),
+		dark: resourceUri('dark', 'databricks.svg'),
 	};
 	return registry.register(registration);
 }
@@ -44,17 +44,16 @@ async function registerDatabricksCatalog(
 	context: vscode.ExtensionContext,
 ): Promise<CatalogProvider | undefined> {
 	const workspace = await vscode.window.showInputBox({
-		title: "Databricks Workspace",
+		title: 'Databricks Workspace',
 		// Users will likely be copy & pasting this value.
 		ignoreFocusOut: true,
 		validateInput: (value: string) => {
-			if (value.startsWith("https://")) {
+			if (value.startsWith('https://')) {
 				return undefined;
 			}
 			return {
 				message: `Workspace URLs must begin with "https://".`,
-				severity: vscode.InputBoxValidationSeverity
-					.Error,
+				severity: vscode.InputBoxValidationSeverity.Error,
 			};
 		},
 	});
@@ -62,17 +61,16 @@ async function registerDatabricksCatalog(
 		return;
 	}
 	const token = await vscode.window.showInputBox({
-		title: "Personal Access Token",
+		title: 'Personal Access Token',
 		ignoreFocusOut: true,
 		password: true,
 		validateInput: (value: string) => {
-			if (value.startsWith("dapi")) {
+			if (value.startsWith('dapi')) {
 				return undefined;
 			}
 			return {
 				message: `Unrecognized token format. Tokens should start with "dapi".`,
-				severity: vscode.InputBoxValidationSeverity
-					.Warning,
+				severity: vscode.InputBoxValidationSeverity.Warning,
 			};
 		},
 	});
@@ -134,8 +132,11 @@ class DatabricksCatalogProvider implements CatalogProvider {
 	private workspace: string;
 	private warehousePath: string | undefined;
 
-	constructor(workspace: string, private token: string) {
-		this.workspace = workspace.startsWith("https://")
+	constructor(
+		workspace: string,
+		private token: string,
+	) {
+		this.workspace = workspace.startsWith('https://')
 			? workspace.substring(8)
 			: workspace;
 		this.catalogClient = new UnityCatalogClient(
@@ -165,7 +166,7 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		item.iconPath = registration.iconPath;
 		item.tooltip = registration.label;
 		item.description = this.workspace;
-		item.contextValue = "provider";
+		item.contextValue = 'provider';
 		return item;
 	}
 
@@ -173,10 +174,10 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		if (!node) {
 			return Promise.resolve(undefined);
 		}
-		if (node.type === "catalog") {
+		if (node.type === 'catalog') {
 			return Promise.resolve(`Catalog: ${node.path}`);
 		}
-		if (node.type === "schema") {
+		if (node.type === 'schema') {
 			return Promise.resolve(`Schema: ${node.path}`);
 		}
 		return Promise.resolve(undefined);
@@ -184,40 +185,27 @@ class DatabricksCatalogProvider implements CatalogProvider {
 
 	async getChildren(node?: CatalogNode): Promise<CatalogNode[]> {
 		if (!node) {
-			const catalogs =
-				await this.catalogClient.listCatalogs();
+			const catalogs = await this.catalogClient.listCatalogs();
 			return catalogs.map((c) => {
-				return new CatalogNode(c.name, "catalog", this);
+				return new CatalogNode(c.name, 'catalog', this);
 			});
 		}
-		if (node.type === "catalog") {
-			const schemas = await this.catalogClient.listSchemas(
-				node.path,
-			);
+		if (node.type === 'catalog') {
+			const schemas = await this.catalogClient.listSchemas(node.path);
 			return schemas.map((s) => {
-				return new CatalogNode(
-					`${node.path}.${s.name}`,
-					"schema",
-					this,
-				);
+				return new CatalogNode(`${node.path}.${s.name}`, 'schema', this);
 			});
 		}
-		if (node.type === "schema") {
-			const fqn = node.path.split(".");
-			const tables = await this.catalogClient.listTables(
-				fqn[0],
-				fqn[1],
-			);
-			const volumes = await this.catalogClient.listVolumes(
-				fqn[0],
-				fqn[1],
-			);
+		if (node.type === 'schema') {
+			const fqn = node.path.split('.');
+			const tables = await this.catalogClient.listTables(fqn[0], fqn[1]);
+			const volumes = await this.catalogClient.listVolumes(fqn[0], fqn[1]);
 			return [
 				...tables.map((t) => {
 					const path = `${node.path}.${t.name}`;
 					return new CatalogNode(
 						path,
-						"table",
+						'table',
 						this,
 						databricksTableUri(
 							this.workspace,
@@ -231,7 +219,7 @@ class DatabricksCatalogProvider implements CatalogProvider {
 				...volumes.map((t) => {
 					return new CatalogNode(
 						`${node.path}.${t.name}`,
-						"volume",
+						'volume',
 						this,
 						dbfsVolumeUri(
 							this.workspace,
@@ -243,14 +231,12 @@ class DatabricksCatalogProvider implements CatalogProvider {
 				}),
 			];
 		}
-		if (node.type === "volume" && node.resourceUri) {
-			const contents = await this.fsClient.listContents(
-				node.resourceUri.path,
-			);
+		if (node.type === 'volume' && node.resourceUri) {
+			const contents = await this.fsClient.listContents(node.resourceUri.path);
 			return contents.map((e) => {
 				return new CatalogNode(
 					e.name,
-					e.is_directory ? "directory" : "file",
+					e.is_directory ? 'directory' : 'file',
 					this,
 					dbfsUri(this.workspace, e.path),
 				);
@@ -306,15 +292,12 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		if (!node.resourceUri) {
 			return;
 		}
-		if (node.type === "table") {
+		if (node.type === 'table') {
 			await this.chooseWarehouse();
 			if (!this.warehousePath) {
 				return;
 			}
-			return withHttpPath(
-				node.resourceUri,
-				this.warehousePath,
-			);
+			return withHttpPath(node.resourceUri, this.warehousePath);
 		}
 		return node.resourceUri;
 	}
@@ -323,10 +306,7 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		if (this.warehousePath) {
 			return;
 		}
-		const warehouses = await getSqlWarehouses(
-			this.workspace,
-			this.token,
-		);
+		const warehouses = await getSqlWarehouses(this.workspace, this.token);
 		const items = warehouses.map((v) => {
 			return {
 				item: v,
@@ -336,7 +316,7 @@ class DatabricksCatalogProvider implements CatalogProvider {
 			};
 		});
 		const choice = await vscode.window.showQuickPick(items, {
-			title: "Choose an SQL Warehouse for the Connection",
+			title: 'Choose an SQL Warehouse for the Connection',
 		});
 		if (!choice) {
 			return undefined;
@@ -350,14 +330,14 @@ function getCodeForUri(
 	uri: vscode.Uri,
 	type: CatalogNodeType,
 ): { code: string; dependencies: string[] } {
-	switch (languageId + "_" + type) {
-		case "python_file":
+	switch (languageId + '_' + type) {
+		case 'python_file':
 			return getPythonCodeForFile(uri);
-		case "python_table":
+		case 'python_table':
 			return getPythonCodeForTable(uri);
-		case "r_file":
+		case 'r_file':
 			return getRCodeForFile(uri);
-		case "r_table":
+		case 'r_table':
 			return getRCodeForTable(uri);
 		default:
 			throw new Error(
@@ -370,11 +350,9 @@ function getPythonCodeForFile(uri: vscode.Uri): {
 	code: string;
 	dependencies: string[];
 } {
-	const dependencies = ["databricks-sdk", "pandas"];
+	const dependencies = ['databricks-sdk', 'pandas'];
 	const ext = path.extname(uri.path);
-	const varname = nameToIdentifier(
-		path.basename(uri.path).replace(ext, ""),
-	);
+	const varname = nameToIdentifier(path.basename(uri.path).replace(ext, ''));
 	const code = `import pandas as pd
 from databricks.sdk import WorkspaceClient
 from io import BytesIO
@@ -392,14 +370,14 @@ function getPythonCodeForTable(uri: vscode.Uri): {
 	dependencies: string[];
 } {
 	const params = new URLSearchParams(uri.query);
-	const catalog = params.get("catalog");
-	const schema = params.get("schema");
-	const table = uri.path.replace(/^\//, "");
-	const httpPath = params.get("http_path");
+	const catalog = params.get('catalog');
+	const schema = params.get('schema');
+	const table = uri.path.replace(/^\//, '');
+	const httpPath = params.get('http_path');
 	if (!catalog || !schema || !httpPath) {
-		throw new Error("Malformed Databricks table URI");
+		throw new Error('Malformed Databricks table URI');
 	}
-	const dependencies = ["databricks-sql-connector", "pyarrow", "pandas"];
+	const dependencies = ['databricks-sql-connector', 'pyarrow', 'pandas'];
 	const varname = nameToIdentifier(table);
 	const code = `import pandas as pd
 from databricks import sql
@@ -420,17 +398,15 @@ function getRCodeForFile(uri: vscode.Uri): {
 	code: string;
 	dependencies: string[];
 } {
-	const dependencies = ["brickster"];
+	const dependencies = ['brickster'];
 	const ext = path.extname(uri.path);
-	const varname = nameToIdentifier(
-		path.basename(uri.path).replace(ext, ""),
-	);
+	const varname = nameToIdentifier(path.basename(uri.path).replace(ext, ''));
 	let code: string;
 	switch (ext) {
 		// Special handling for the common case of CSV files.
-		case ".csv":
-		case ".tsv":
-			dependencies.push("readr");
+		case '.csv':
+		case '.tsv':
+			dependencies.push('readr');
 			code = `${varname} <- readr::read_csv(
   brickster::db_volume_read(
     "${uri.path}",
@@ -455,14 +431,14 @@ function getRCodeForTable(uri: vscode.Uri): {
 	dependencies: string[];
 } {
 	const params = new URLSearchParams(uri.query);
-	const catalog = params.get("catalog");
-	const schema = params.get("schema");
-	const table = uri.path.replace(/^\//, "");
-	const httpPath = params.get("http_path");
+	const catalog = params.get('catalog');
+	const schema = params.get('schema');
+	const table = uri.path.replace(/^\//, '');
+	const httpPath = params.get('http_path');
 	if (!catalog || !schema || !httpPath) {
-		throw new Error("Malformed Databricks table URI");
+		throw new Error('Malformed Databricks table URI');
 	}
-	const dependencies = ["odbc", "dplyr"];
+	const dependencies = ['odbc', 'dplyr'];
 	const varname = nameToIdentifier(table);
 	const code = `conn <- DBI::dbConnect(
   odbc::databricks(),
@@ -476,7 +452,7 @@ ${varname} <- dplyr::tbl(conn, I("${catalog}.${schema}.${table}"))
 
 function nameToIdentifier(name: string): string {
 	// TODO: More escaping.
-	return name.replace("-", "_");
+	return name.replace('-', '_');
 }
 
 /**
@@ -492,9 +468,9 @@ export function databricksTableUri(
 	httpPath: string | undefined,
 ): vscode.Uri {
 	return vscode.Uri.from({
-		scheme: "databricks",
+		scheme: 'databricks',
 		authority: workspace,
-		path: "/" + table,
+		path: '/' + table,
 		query: new URLSearchParams({
 			catalog,
 			schema,
@@ -511,7 +487,7 @@ export function databricksTableUri(
  */
 function withHttpPath(uri: vscode.Uri, httpPath: string): vscode.Uri {
 	const params = new URLSearchParams(uri.query);
-	params.set("http_path", httpPath);
+	params.set('http_path', httpPath);
 	return uri.with({ query: params.toString() });
 }
 
@@ -525,20 +501,15 @@ async function getSqlWarehouses(
 	workspace: string,
 	token: string,
 ): Promise<Warehouse[]> {
-	const response = await fetch(
-		`https://${workspace}/api/2.0/sql/warehouses`,
-		{
-			headers: {
-				Accept: "application/json",
-				Authorization: `Bearer ${token}`,
-			},
+	const response = await fetch(`https://${workspace}/api/2.0/sql/warehouses`, {
+		headers: {
+			Accept: 'application/json',
+			Authorization: `Bearer ${token}`,
 		},
-	);
+	});
 	// TODO: More precise error handling.
 	if (!response.ok) {
-		throw new Error(
-			`Request failed with status ${response.status}`,
-		);
+		throw new Error(`Request failed with status ${response.status}`);
 	}
 	interface ListWarehousesReponse {
 		warehouses: Array<Warehouse>;
@@ -557,4 +528,4 @@ interface Warehouse {
 	};
 }
 
-const STATE_KEY = "databricksWorkspaces";
+const STATE_KEY = 'databricksWorkspaces';

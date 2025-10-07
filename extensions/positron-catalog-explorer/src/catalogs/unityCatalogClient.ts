@@ -219,7 +219,7 @@ export interface CreateSchemaRequest {
  * Error specialization for the Unity Catalog REST API.
  */
 export class UnityCatalogError extends Error {
-	name = "UnityCatalogAPIError";
+	name = 'UnityCatalogAPIError';
 	public readonly type: string;
 	public readonly code: number;
 
@@ -234,7 +234,7 @@ export class UnityCatalogError extends Error {
 		} catch (_e) {
 			return new UnityCatalogError(
 				`Non-JSON response with status ${response.status}`,
-				"Unknown",
+				'Unknown',
 				response.status,
 			);
 		}
@@ -270,11 +270,11 @@ export class UnityCatalogClient {
 	 * Create a new Unity Catalog client.
 	 */
 	constructor(uri: string, token: string, timeout?: number) {
-		this.uri = uri.endsWith("/") ? uri.slice(0, -1) : uri;
-		this.uri += "/api/2.1/unity-catalog";
+		this.uri = uri.endsWith('/') ? uri.slice(0, -1) : uri;
+		this.uri += '/api/2.1/unity-catalog';
 		this.timeout = timeout || 30000;
 		this.headers = {
-			"Content-Type": "application/json",
+			'Content-Type': 'application/json',
 			Authorization: `Bearer ${token}`,
 		};
 	}
@@ -284,7 +284,7 @@ export class UnityCatalogClient {
 	 */
 	async listCatalogs(): Promise<Catalog[]> {
 		const response: ListCatalogsResponse = await this.fetch(
-			this.url("catalogs"),
+			this.url('catalogs'),
 		);
 		return response.catalogs;
 	}
@@ -304,8 +304,8 @@ export class UnityCatalogClient {
 	 * @param request Catalog creation request
 	 */
 	async createCatalog(request: CreateCatalogRequest): Promise<Catalog> {
-		return await this.fetch(this.url("catalogs"), {
-			method: "POST",
+		return await this.fetch(this.url('catalogs'), {
+			method: 'POST',
 			body: JSON.stringify(request),
 		});
 	}
@@ -321,7 +321,7 @@ export class UnityCatalogClient {
 		updates: Partial<Catalog>,
 	): Promise<Catalog> {
 		return await this.fetch(this.url(`catalogs/${name}`), {
-			method: "PATCH",
+			method: 'PATCH',
 			body: JSON.stringify(updates),
 		});
 	}
@@ -332,16 +332,13 @@ export class UnityCatalogClient {
 	 * @param name Catalog name
 	 * @param force Whether to forcibly delete the catalog even if it's not empty
 	 */
-	async deleteCatalog(
-		name: string,
-		force: boolean = false,
-	): Promise<void> {
+	async deleteCatalog(name: string, force: boolean = false): Promise<void> {
 		await this.fetch(
 			this.url(`catalogs/${name}`, {
 				force: force.toString(),
 			}),
 			{
-				method: "DELETE",
+				method: 'DELETE',
 			},
 		);
 	}
@@ -353,7 +350,7 @@ export class UnityCatalogClient {
 	 */
 	async listSchemas(catalog: string): Promise<Schema[]> {
 		const response: ListSchemasResponse = await this.fetch(
-			this.url("schemas", { catalog_name: catalog }),
+			this.url('schemas', { catalog_name: catalog }),
 		);
 		return response.schemas;
 	}
@@ -364,14 +361,9 @@ export class UnityCatalogClient {
 	 * @param catalogName Catalog name
 	 * @param schemaName Schema name
 	 */
-	async getSchema(
-		catalogName: string,
-		schemaName: string,
-	): Promise<Schema> {
+	async getSchema(catalogName: string, schemaName: string): Promise<Schema> {
 		return await this.fetch(
-			this.url(
-				`catalogs/${catalogName}/schemas/${schemaName}`,
-			),
+			this.url(`catalogs/${catalogName}/schemas/${schemaName}`),
 		);
 	}
 
@@ -384,7 +376,7 @@ export class UnityCatalogClient {
 		return await this.fetch(
 			this.url(`catalogs/${request.catalog_name}/schemas`),
 			{
-				method: "POST",
+				method: 'POST',
 				body: JSON.stringify(request),
 			},
 		);
@@ -403,11 +395,9 @@ export class UnityCatalogClient {
 		updates: Partial<Schema>,
 	): Promise<Schema> {
 		return await this.fetch(
-			this.url(
-				`catalogs/${catalogName}/schemas/${schemaName}`,
-			),
+			this.url(`catalogs/${catalogName}/schemas/${schemaName}`),
 			{
-				method: "PATCH",
+				method: 'PATCH',
 				body: JSON.stringify(updates),
 			},
 		);
@@ -426,12 +416,11 @@ export class UnityCatalogClient {
 		force: boolean = false,
 	): Promise<void> {
 		await this.fetch(
-			this.url(
-				`catalogs/${catalogName}/schemas/${schemaName}`,
-				{ force: force.toString() },
-			),
+			this.url(`catalogs/${catalogName}/schemas/${schemaName}`, {
+				force: force.toString(),
+			}),
 			{
-				method: "DELETE",
+				method: 'DELETE',
 			},
 		);
 	}
@@ -443,7 +432,7 @@ export class UnityCatalogClient {
 	 */
 	async listTables(catalog: string, schema: string): Promise<Table[]> {
 		const response: ListTablesResponse = await this.fetch(
-			this.url("tables", {
+			this.url('tables', {
 				catalog_name: catalog,
 				schema_name: schema,
 			}),
@@ -481,7 +470,7 @@ export class UnityCatalogClient {
 				`catalogs/${request.catalog_name}/schemas/${request.schema_name}/tables`,
 			),
 			{
-				method: "POST",
+				method: 'POST',
 				body: JSON.stringify(request),
 			},
 		);
@@ -506,7 +495,7 @@ export class UnityCatalogClient {
 				`catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}`,
 			),
 			{
-				method: "PATCH",
+				method: 'PATCH',
 				body: JSON.stringify(updates),
 			},
 		);
@@ -528,7 +517,7 @@ export class UnityCatalogClient {
 			this.url(
 				`catalogs/${catalogName}/schemas/${schemaName}/tables/${tableName}`,
 			),
-			{ method: "DELETE" },
+			{ method: 'DELETE' },
 		);
 	}
 
@@ -539,7 +528,7 @@ export class UnityCatalogClient {
 	 */
 	async listVolumes(catalog: string, schema: string): Promise<Volume[]> {
 		const response: ListVolumesResponse = await this.fetch(
-			this.url("volumes", {
+			this.url('volumes', {
 				catalog_name: catalog,
 				schema_name: schema,
 			}),
@@ -577,7 +566,7 @@ export class UnityCatalogClient {
 				`catalogs/${request.catalog_name}/schemas/${request.schema_name}/volumes`,
 			),
 			{
-				method: "POST",
+				method: 'POST',
 				body: JSON.stringify(request),
 			},
 		);
@@ -602,7 +591,7 @@ export class UnityCatalogClient {
 				`catalogs/${catalogName}/schemas/${schemaName}/volumes/${volumeName}`,
 			),
 			{
-				method: "PATCH",
+				method: 'PATCH',
 				body: JSON.stringify(updates),
 			},
 		);
@@ -624,7 +613,7 @@ export class UnityCatalogClient {
 			this.url(
 				`catalogs/${catalogName}/schemas/${schemaName}/volumes/${volumeName}`,
 			),
-			{ method: "DELETE" },
+			{ method: 'DELETE' },
 		);
 	}
 
@@ -644,15 +633,9 @@ export class UnityCatalogClient {
 	/**
 	 * Fetch the given URL and parse the JSON response as T.
 	 */
-	private async fetch<T>(
-		url: string,
-		options: RequestInit = {},
-	): Promise<T> {
+	private async fetch<T>(url: string, options: RequestInit = {}): Promise<T> {
 		const controller = new AbortController();
-		const timeoutId = setTimeout(
-			() => controller.abort(),
-			this.timeout,
-		);
+		const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 		try {
 			const fetchOptions: RequestInit = {
 				...options,
@@ -671,13 +654,8 @@ export class UnityCatalogClient {
 			}
 			return (await response.json()) as T;
 		} catch (error) {
-			if (
-				error instanceof Error &&
-				error.name === "AbortError"
-			) {
-				throw new Error(
-					`Request timed out after ${this.timeout}ms`,
-				);
+			if (error instanceof Error && error.name === 'AbortError') {
+				throw new Error(`Request timed out after ${this.timeout}ms`);
 			}
 			throw error;
 		} finally {
@@ -693,7 +671,7 @@ export class UnityCatalogClient {
  * @returns Parsed namespaced identifier
  */
 export function parseFullName(fullName: string): NamespacedIdentifier {
-	const parts = fullName.split(".");
+	const parts = fullName.split('.');
 	if (parts.length !== 3) {
 		throw new Error(
 			`Invalid full name: ${fullName}. Expected format: catalog.schema.name`,

@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 declare module 'positron' {
-
 	import * as vscode from 'vscode';
 
 	/**
@@ -123,7 +122,7 @@ declare module 'positron' {
 		Invalid = 'invalid',
 
 		/** It was not possible to ascertain the code fragment's status */
-		Unknown = 'unknown'
+		Unknown = 'unknown',
 	}
 
 	/**
@@ -137,7 +136,7 @@ declare module 'positron' {
 		Transient = 'transient',
 
 		/** The code execution should be fully silent, neither displayed to the user nor stored in history. */
-		Silent = 'silent'
+		Silent = 'silent',
 	}
 
 	/**
@@ -249,8 +248,7 @@ declare module 'positron' {
 	 * LanguageRuntimeResult is a LanguageRuntimeOutput representing the computational result of a
 	 * runtime execution.
 	 */
-	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {
-	}
+	export interface LanguageRuntimeResult extends LanguageRuntimeOutput {}
 
 	/**
 	 * The set of possible output locations for a LanguageRuntimeOutput.
@@ -283,7 +281,7 @@ declare module 'positron' {
 	 */
 	export enum LanguageRuntimeStreamName {
 		Stdout = 'stdout',
-		Stderr = 'stderr'
+		Stderr = 'stderr',
 	}
 
 	/**
@@ -360,7 +358,8 @@ declare module 'positron' {
 	 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
 	 * for more.
 	 */
-	export interface LanguageRuntimeMessageIPyWidget extends LanguageRuntimeMessage {
+	export interface LanguageRuntimeMessageIPyWidget
+		extends LanguageRuntimeMessage {
 		/** The original runtime message that was intercepted by an IPyWidget */
 		original_message: LanguageRuntimeMessage;
 	}
@@ -492,7 +491,6 @@ declare module 'positron' {
 		Background = 'background',
 	}
 
-
 	/**
 	 * LanguageRuntimeDynState contains information about a language runtime that may
 	 * change after a runtime has started.
@@ -529,7 +527,7 @@ declare module 'positron' {
 		 * starts automatically, even if the run time is affiliated to the
 		 * workspace.
 		 */
-		Manual = 'manual'
+		Manual = 'manual',
 	}
 
 	/**
@@ -746,7 +744,9 @@ declare module 'positron' {
 		 * right away, or any other value to save the runtime as the project
 		 * default without starting it.
 		 */
-		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
+		recommendedWorkspaceRuntime(): Thenable<
+			LanguageRuntimeMetadata | undefined
+		>;
 
 		/**
 		 * An optional event that fires when a new runtime is discovered.
@@ -771,8 +771,9 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves with an updated version of the
 		 *   metadata.
 		 */
-		validateMetadata?(metadata: LanguageRuntimeMetadata):
-			Thenable<LanguageRuntimeMetadata>;
+		validateMetadata?(
+			metadata: LanguageRuntimeMetadata,
+		): Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * An optional session validation function. If provided, Positron will
@@ -794,9 +795,10 @@ declare module 'positron' {
 		 *
 		 * @returns A Thenable that resolves with the new session, or rejects with an error.
 		 */
-		createSession(runtimeMetadata: LanguageRuntimeMetadata,
-			sessionMetadata: RuntimeSessionMetadata):
-			Thenable<LanguageRuntimeSession>;
+		createSession(
+			runtimeMetadata: LanguageRuntimeMetadata,
+			sessionMetadata: RuntimeSessionMetadata,
+		): Thenable<LanguageRuntimeSession>;
 
 		/**
 		 * Reconnects to a runtime session using the given metadata.
@@ -812,9 +814,10 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves with the reconnected session, or
 		 * rejects with an error.
 		 */
-		restoreSession?(runtimeMetadata: LanguageRuntimeMetadata,
-			sessionMetadata: RuntimeSessionMetadata):
-			Thenable<LanguageRuntimeSession>;
+		restoreSession?(
+			runtimeMetadata: LanguageRuntimeMetadata,
+			sessionMetadata: RuntimeSessionMetadata,
+		): Thenable<LanguageRuntimeSession>;
 	}
 
 	/**
@@ -828,7 +831,7 @@ declare module 'positron' {
 		InvalidParams = -32602,
 		InternalError = -32603,
 		ServerErrorStart = -32000,
-		ServerErrorEnd = -32099
+		ServerErrorEnd = -32099,
 	}
 
 	/**
@@ -867,7 +870,6 @@ declare module 'positron' {
 	 * execution, LSP implementation, and plotting.
 	 */
 	export interface LanguageRuntimeSession extends vscode.Disposable {
-
 		/** An object supplying immutable metadata about this specific session */
 		readonly metadata: RuntimeSessionMetadata;
 
@@ -905,10 +907,12 @@ declare module 'positron' {
 		 * @param errorBehavior The code execution error behavior
 		 * Note: The errorBehavior parameter is currently ignored by kernels
 		 */
-		execute(code: string,
+		execute(
+			code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
-			errorBehavior: RuntimeErrorBehavior): void;
+			errorBehavior: RuntimeErrorBehavior,
+		): void;
 
 		/**
 		 * Calls a method in the runtime and returns the result.
@@ -934,7 +938,12 @@ declare module 'positron' {
 		 * @param params A set of parameters to pass to the client; specific to the client type
 		 * @param metadata A set of metadata to pass to the client; specific to the client type
 		 */
-		createClient(id: string, type: RuntimeClientType, params: any, metadata?: any): Thenable<void>;
+		createClient(
+			id: string,
+			type: RuntimeClientType,
+			params: any,
+			metadata?: any,
+		): Thenable<void>;
 
 		/**
 		 * List all clients, optionally filtered by type.
@@ -952,7 +961,11 @@ declare module 'positron' {
 		 * will be sent back to the client via the `onDidReceiveRuntimeMessage` event, with
 		 * the `parent_id` field set to the `message_id` given here.
 		 */
-		sendClientMessage(client_id: string, message_id: string, message: any): void;
+		sendClientMessage(
+			client_id: string,
+			message_id: string,
+			message: any,
+		): void;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
@@ -1023,7 +1036,6 @@ declare module 'positron' {
 		showProfile?(): Thenable<void>;
 	}
 
-
 	/**
 	 * A data structure that describes a handler for a runtime client instance,
 	 * and is called when an instance is created.
@@ -1034,7 +1046,8 @@ declare module 'positron' {
 	 */
 	export type RuntimeClientHandlerCallback = (
 		client: RuntimeClientInstance,
-		params: Object,) => boolean;
+		params: Object,
+	) => boolean;
 
 	/**
 	 * A data structure that describes a handler for a runtime client instance.
@@ -1191,9 +1204,11 @@ declare module 'positron' {
 		 * @param token A cancellation token.
 		 * @return The range of the statement at the given position.
 		 */
-		provideStatementRange(document: vscode.TextDocument,
+		provideStatementRange(
+			document: vscode.TextDocument,
 			position: vscode.Position,
-			token: vscode.CancellationToken): vscode.ProviderResult<StatementRange>;
+			token: vscode.CancellationToken,
+		): vscode.ProviderResult<StatementRange>;
 	}
 
 	/**
@@ -1209,7 +1224,6 @@ declare module 'positron' {
 		 * The code for this statement range, if different from the document contents at this range.
 		 */
 		readonly code?: string;
-
 	}
 
 	export interface HelpTopicProvider {
@@ -1224,9 +1238,11 @@ declare module 'positron' {
 		 * @return A string containing the help topic relevant to the cursor
 		 *   position
 		 */
-		provideHelpTopic(document: vscode.TextDocument,
+		provideHelpTopic(
+			document: vscode.TextDocument,
 			position: vscode.Position,
-			token: vscode.CancellationToken): vscode.ProviderResult<string>;
+			token: vscode.CancellationToken,
+		): vscode.ProviderResult<string>;
 	}
 
 	export interface Console {
@@ -1255,7 +1271,7 @@ declare module 'positron' {
 		/**
 		 * Options, if the input type is an option.
 		 */
-		options?: { 'identifier': string; 'title': string }[];
+		options?: { identifier: string; title: string }[];
 		/**
 		 * The default value for the input.
 		 */
@@ -1332,7 +1348,8 @@ declare module 'positron' {
 		 */
 		export function registerStatementRangeProvider(
 			selector: vscode.DocumentSelector,
-			provider: StatementRangeProvider): vscode.Disposable;
+			provider: StatementRangeProvider,
+		): vscode.Disposable;
 
 		/**
 		 * Register a help topic provider.
@@ -1343,7 +1360,8 @@ declare module 'positron' {
 		 */
 		export function registerHelpTopicProvider(
 			selector: vscode.DocumentSelector,
-			provider: HelpTopicProvider): vscode.Disposable;
+			provider: HelpTopicProvider,
+		): vscode.Disposable;
 	}
 
 	namespace window {
@@ -1356,7 +1374,12 @@ declare module 'positron' {
 		 *
 		 * @return New preview panel.
 		 */
-		export function createPreviewPanel(viewType: string, title: string, preserveFocus?: boolean, options?: PreviewOptions): PreviewPanel;
+		export function createPreviewPanel(
+			viewType: string,
+			title: string,
+			preserveFocus?: boolean,
+			options?: PreviewOptions,
+		): PreviewPanel;
 
 		/**
 		 * Create and show a new preview panel for a URL. This is a convenience
@@ -1392,7 +1415,9 @@ declare module 'positron' {
 		 *
 		 * @return New log output channel.
 		 */
-		export function createRawLogOutputChannel(name: string): vscode.OutputChannel;
+		export function createRawLogOutputChannel(
+			name: string,
+		): vscode.OutputChannel;
 
 		/**
 		 * Create and show a simple modal dialog prompt.
@@ -1405,10 +1430,12 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves to true if the user clicked OK, or false
 		 *   if the user clicked Cancel.
 		 */
-		export function showSimpleModalDialogPrompt(title: string,
+		export function showSimpleModalDialogPrompt(
+			title: string,
 			message: string,
 			okButtonTitle?: string,
-			cancelButtonTitle?: string): Thenable<boolean>;
+			cancelButtonTitle?: string,
+		): Thenable<boolean>;
 
 		/**
 		 * Create and show a different simple modal dialog prompt.
@@ -1419,9 +1446,11 @@ declare module 'positron' {
 		 *
 		 * @returns A Thenable that resolves when the user clicks OK.
 		 */
-		export function showSimpleModalDialogMessage(title: string,
+		export function showSimpleModalDialogMessage(
+			title: string,
 			message: string,
-			okButtonTitle?: string): Thenable<null>;
+			okButtonTitle?: string,
+		): Thenable<null>;
 
 		/**
 		 * Get the `Console` for a runtime `languageId`
@@ -1431,7 +1460,9 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves to a `Console` or `undefined` if no `Console` for
 		 *   that `languageId` exists.
 		 */
-		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
+		export function getConsoleForLanguage(
+			languageId: string,
+		): Thenable<Console | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as
@@ -1549,13 +1580,15 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves with the result of the code execution,
 		 *  as a map of MIME types to values.
 		 */
-		export function executeCode(languageId: string,
+		export function executeCode(
+			languageId: string,
 			code: string,
 			focus: boolean,
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
-			observer?: ExecutionObserver): Thenable<Record<string, any>>;
+			observer?: ExecutionObserver,
+		): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -1564,19 +1597,26 @@ declare module 'positron' {
 		 * @returns A disposable that unregisters the manager when disposed.
 		 *
 		 */
-		export function registerLanguageRuntimeManager(languageId: string, manager: LanguageRuntimeManager): vscode.Disposable;
+		export function registerLanguageRuntimeManager(
+			languageId: string,
+			manager: LanguageRuntimeManager,
+		): vscode.Disposable;
 
 		/**
 		 * List all registered runtimes.
 		 */
-		export function getRegisteredRuntimes(): Thenable<LanguageRuntimeMetadata[]>;
+		export function getRegisteredRuntimes(): Thenable<
+			LanguageRuntimeMetadata[]
+		>;
 
 		/**
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
 		 */
-		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
+		export function getPreferredRuntime(
+			languageId: string,
+		): Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * List all active sessions.
@@ -1586,14 +1626,18 @@ declare module 'positron' {
 		/**
 		 * Get the active foreground session, if any.
 		 */
-		export function getForegroundSession(): Thenable<LanguageRuntimeSession | undefined>;
+		export function getForegroundSession(): Thenable<
+			LanguageRuntimeSession | undefined
+		>;
 
 		/**
 		 * Get the session corresponding to a notebook, if any.
 		 *
 		 * @param notebookUri The URI of the notebook.
 		 */
-		export function getNotebookSession(notebookUri: vscode.Uri): Thenable<LanguageRuntimeSession | undefined>;
+		export function getNotebookSession(
+			notebookUri: vscode.Uri,
+		): Thenable<LanguageRuntimeSession | undefined>;
 
 		/**
 		 * Select and start a runtime previously registered with Positron. Any
@@ -1613,9 +1657,11 @@ declare module 'positron' {
 		 *
 		 * Returns a Thenable that resolves with the newly created session.
 		 */
-		export function startLanguageRuntime(runtimeId: string,
+		export function startLanguageRuntime(
+			runtimeId: string,
 			sessionName: string,
-			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri,
+		): Thenable<LanguageRuntimeSession>;
 
 		/**
 		 * Restart a running session.
@@ -1636,7 +1682,9 @@ declare module 'positron' {
 		 *
 		 * @param handler A handler for runtime client instances
 		 */
-		export function registerClientHandler(handler: RuntimeClientHandler): vscode.Disposable;
+		export function registerClientHandler(
+			handler: RuntimeClientHandler,
+		): vscode.Disposable;
 
 		/**
 		 * Register a runtime client instance. Registering the instance
@@ -1644,7 +1692,9 @@ declare module 'positron' {
 		 * messages the instance receives do not need to be forwarded to the
 		 * Positron core.
 		 */
-		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
+		export function registerClientInstance(
+			clientInstanceId: string,
+		): vscode.Disposable;
 
 		/**
 		 * An event that fires when a new runtime is registered.
@@ -1686,7 +1736,10 @@ declare module 'positron' {
 		 * @param method The method name.
 		 * @param params An object of named parameters for `method`.
 		 */
-		export function call(method: string, params: Record<string, any>): Thenable<any>;
+		export function call(
+			method: string,
+			params: Record<string, any>,
+		): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.
@@ -1706,7 +1759,12 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves to true if the user clicked OK, or false
 		 *   if the user clicked Cancel.
 		 */
-		export function showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Thenable<boolean>;
+		export function showQuestion(
+			title: string,
+			message: string,
+			okButtonTitle: string,
+			cancelButtonTitle: string,
+		): Thenable<boolean>;
 
 		/**
 		 * Create and show a different simple modal dialog prompt.
@@ -1717,8 +1775,6 @@ declare module 'positron' {
 		 * @returns A Thenable that resolves when the user dismisses the dialog.
 		 */
 		export function showDialog(title: string, message: string): Thenable<null>;
-
-
 	}
 
 	/**
@@ -1741,7 +1797,9 @@ declare module 'positron' {
 		 *
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
-		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
+		export function getEnvironmentContributions(): Thenable<
+			Record<string, EnvironmentVariableAction[]>
+		>;
 	}
 
 	/**
@@ -1755,7 +1813,9 @@ declare module 'positron' {
 		 * @param driver The connection driver to register
 		 * @returns A disposable that unregisters the driver when disposed
 		 */
-		export function registerConnectionDriver(driver: ConnectionsDriver): vscode.Disposable;
+		export function registerConnectionDriver(
+			driver: ConnectionsDriver,
+		): vscode.Disposable;
 	}
 
 	/**
@@ -1793,14 +1853,19 @@ declare module 'positron' {
 			/**
 			 * Calculate the token count for a given string.
 			 */
-			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
+			provideTokenCount(
+				text: string | vscode.LanguageModelChatMessage,
+				token: vscode.CancellationToken,
+			): Thenable<number>;
 
 			/**
 			 * Tests the connection to the language model provider.
 			 *
 			 * Returns an error if the connection fails.
 			 */
-			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+			resolveConnection(
+				token: vscode.CancellationToken,
+			): Thenable<Error | undefined>;
 		}
 
 		/**
@@ -1819,7 +1884,11 @@ declare module 'positron' {
 				isSticky?: boolean;
 			}[];
 			locations: PositronChatAgentLocation[];
-			disambiguation: { category: string; description: string; examples: string[] }[];
+			disambiguation: {
+				category: string;
+				description: string;
+				examples: string[];
+			}[];
 		}
 
 		/**
@@ -1833,7 +1902,9 @@ declare module 'positron' {
 		 * Register a chat agent dynamically, without requiring registration in `package.json`.
 		 * This allows for dynamic chat agent commands in Positron.
 		 */
-		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
+		export function registerChatAgent(
+			agentData: ChatAgentData,
+		): Thenable<vscode.Disposable>;
 
 		/**
 		 * Positron Language Model source, used for user configuration of language models.
@@ -1841,9 +1912,14 @@ declare module 'positron' {
 		export interface LanguageModelSource {
 			type: PositronLanguageModelType;
 			provider: { id: string; displayName: string };
-			supportedOptions: Exclude<{
-				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
-			}[keyof LanguageModelConfig], undefined>[];
+			supportedOptions: Exclude<
+				{
+					[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K]
+						? K
+						: never;
+				}[keyof LanguageModelConfig],
+				undefined
+			>[];
 			defaults: LanguageModelConfigOptions;
 			signedIn?: boolean;
 			authMethods?: string[];
@@ -1881,22 +1957,30 @@ declare module 'positron' {
 		/**
 		 * Get Positron global context information to be included with every request.
 		 */
-		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
+		export function getPositronChatContext(
+			request: vscode.ChatRequest,
+		): Thenable<ChatContext>;
 
 		/**
 		 * Send a progress response to the chat response stream.
 		 */
-		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
-			// vscode.ChatResponseConfirmationPart
-			title: string;
-			message: string;
-			data: any;
-			buttons?: string[];
-		} | {
-			// vscode.ChatResponseTextEditPart
-			uri: vscode.Uri;
-			edits: vscode.TextEdit[];
-		}): void;
+		export function responseProgress(
+			token: unknown,
+			part:
+				| vscode.ChatResponsePart
+				| {
+						// vscode.ChatResponseConfirmationPart
+						title: string;
+						message: string;
+						data: any;
+						buttons?: string[];
+				  }
+				| {
+						// vscode.ChatResponseTextEditPart
+						uri: vscode.Uri;
+						edits: vscode.TextEdit[];
+				  },
+		): void;
 
 		export function getSupportedProviders(): Thenable<string[]>;
 
@@ -1913,9 +1997,7 @@ declare module 'positron' {
 		 * @param id the model id
 		 * @param config the model config
 		 */
-		export function addLanguageModelConfig(
-			source: LanguageModelSource,
-		): void;
+		export function addLanguageModelConfig(source: LanguageModelSource): void;
 
 		/**
 		 * Removes the model from the service's known configurations and notifies its listeners.
