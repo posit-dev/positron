@@ -297,6 +297,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return this._hoverManager;
 	}
 
+	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions() {
+		return this._dataExplorerClientInstance.profileFormatOptions;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Methods

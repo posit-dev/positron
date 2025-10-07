@@ -45,6 +45,7 @@ export const ColumnProfileNumber = (props: ColumnProfileNumberProps) => {
 				<ColumnProfileSparklineHistogram
 					columnHistogram={columnHistogram}
 					displayType={columnSchema?.type_display}
+					formatOptions={props.instance.profileFormatOptions}
 					hoverManager={props.instance.hoverManager}
 				/>
 			}

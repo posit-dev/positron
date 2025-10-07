@@ -382,6 +382,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the profile format options.
+	 */
+	get profileFormatOptions() {
+		return this._dataExplorerClientInstance.profileFormatOptions;
+	}
+
+	/**
 	 * Gets a data cell.
 	 * @param columnIndex The column index.
 	 * @param rowIndex The row index.
