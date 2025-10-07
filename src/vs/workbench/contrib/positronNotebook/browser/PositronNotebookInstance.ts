@@ -40,10 +40,6 @@ import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
-interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
-	textModel: NotebookTextModel;
-}
-
 /**
  * Implementation of IPositronNotebookInstance that handles the core notebook functionality
  * and state management. This class serves as the bridge between the UI and the underlying
@@ -135,7 +131,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Model for the notebook contents.
 	 */
-	private readonly _textModel = observableValue<NotebookTextModel | undefined>('positronNotebookTextModel', undefined);
+	public readonly textModel = observableValue<NotebookTextModel | undefined>('positronNotebookTextModel', undefined);
 
 	/**
 	 * Internal event emitter for when the editor's options change.
@@ -143,12 +139,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _onDidChangeOptions = this._register(new Emitter<void>());
 
 	// #region NotebookModel
-	/**
-	 * Model for the notebook contents. Note the difference between the NotebookTextModel and the
-	 * NotebookViewModel.
-	 */
-	readonly onDidChangeModel = Event.fromObservable(this._textModel, this._store);
-
 	/**
 	 * Options for how the notebook should be displayed. Currently not really used but will be as
 	 * notebook gets fleshed out.
@@ -256,13 +246,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._input.resource;
 	}
 
-	/**
-	 * Get the current `NotebookTextModel` for the editor.
-	 */
-	get textModel() {
-		return this._textModel.get();
-	}
-
 
 	get isReadOnly(): boolean {
 		return this._creationOptions?.isReadOnly ?? false;
@@ -348,8 +331,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Track the current selected kernel for this notebook
 		this.kernel = observableValue<INotebookKernel | undefined>('positronNotebookKernel', undefined);
 		this._register(this.notebookKernelService.onDidChangeSelectedNotebooks(e => {
-			if (e && this._isThisNotebook(e.notebook) && this.textModel) {
-				const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
+			const textModel = this.textModel.get();
+			if (e && this._isThisNotebook(e.notebook) && textModel) {
+				const matching = this.notebookKernelService.getMatchingKernel(textModel);
 				const kernel = matching.all.find(k => k.id === e.newKernel);
 				this.kernel.set(kernel, undefined);
 			}
@@ -414,7 +398,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * setting up the initial state of the notebook.
 	 */
 	setModel(model: NotebookTextModel, viewState?: INotebookEditorViewState): void {
-		this._textModel.set(model, undefined);
+		this.textModel.set(model, undefined);
 
 		this._modelStore.clear();
 		this._modelStore.add(model.onDidChangeContent((e) => {
@@ -483,13 +467,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @throws Error if no language is set for the notebook
 	 */
 	addCell(type: CellKind, index: number): void {
-		this._assertTextModel();
+		const textModel = this._getAndAssertTextModel();
 
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
 
-		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const synchronous = true;
 		const endSelections: ISelectionState = { kind: SelectionStateType.Index, focus: { start: index, end: index + 1 }, selections: [{ start: index, end: index + 1 }] };
@@ -535,9 +518,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
 		let index: number | undefined;
-
-		this._assertTextModel();
-
 		if (referenceCell) {
 			const cellIndex = referenceCell.index;
 			index = cellIndex >= 0 ? cellIndex : undefined;
@@ -571,13 +551,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param cellsToDelete Array of cells to delete
 	 */
 	deleteCells(cellsToDelete: IPositronNotebookCell[]): void {
-		this._assertTextModel();
+		const textModel = this._getAndAssertTextModel();
 
 		if (cellsToDelete.length === 0) {
 			return;
 		}
 
-		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 
 		// Get indices and sort in descending order to avoid index shifting
@@ -685,7 +664,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const options = new BaseCellEditorOptions({
-			onDidChangeModel: this.onDidChangeModel,
+			onDidChangeModel: Event.fromObservable(this.textModel, this._store),
 			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this.textModel)),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
@@ -736,10 +715,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 
-	private _assertTextModel(): asserts this is IPositronNotebookInstanceRequiredTextModel {
-		if (this.textModel === undefined) {
+	private _getAndAssertTextModel() {
+		const textModel = this.textModel.get();
+		if (textModel === undefined) {
 			throw new Error('No text model for notebook');
 		}
+		return textModel;
 	}
 
 	/**
@@ -775,8 +756,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Method to sync the editor cells with the current cells in the model.
 	 */
 	private _syncCells() {
-		this._assertTextModel();
-		const modelCells = this.textModel.cells;
+		const modelCells = this._getAndAssertTextModel().cells;
 
 		const cellModelToCellMap = new Map(
 			this.cells.get().map(cell => [cell.cellModel, cell])
@@ -822,7 +802,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
 		this._logService.info(this.id, '_runCells');
 
-		this._assertTextModel();
+		const textModel = this._getAndAssertTextModel();
 
 		// Make sure we have a kernel to run the cells.
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
@@ -837,11 +817,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel));
+			this.notebookExecutionService.cancelNotebookCells(textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel));
 			return;
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel), this._contextKeyService);
+		await this.notebookExecutionService.executeNotebookCells(textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel), this._contextKeyService);
 	}
 
 
@@ -880,7 +860,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
 	 */
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
-		this._assertTextModel();
+		const textModel = this._getAndAssertTextModel();
 
 		const targetCell = cell ?? getSelectedCell(this.selectionStateMachine.state.get());
 		if (!targetCell) {
@@ -893,7 +873,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 
 		const computeUndoRedo = !this.isReadOnly;
-		this.textModel.applyEdits([{
+		textModel.applyEdits([{
 			editType: CellEditType.Output,
 			index: cellIndex,
 			outputs: [],
@@ -916,18 +896,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Clears the outputs of all cells in the notebook.
 	 */
 	clearAllCellOutputs(): void {
-		this._assertTextModel();
+		const textModel = this._getAndAssertTextModel();
 
 		try {
 			const computeUndoRedo = !this.isReadOnly;
 
 			// Clear outputs from all cells
-			this.textModel.cells.forEach((cell, index) => {
+			textModel.cells.forEach((cell, index) => {
 				this.clearCellOutput(this.cells.get()[index], true);
 			});
 
 			// Clear execution metadata for non-executing cells
-			const clearExecutionMetadataEdits = this.textModel.cells.map((cell, index) => {
+			const clearExecutionMetadataEdits = textModel.cells.map((cell, index) => {
 				const runState = this.notebookExecutionStateService.getCellExecution(cell.uri)?.state;
 				if (runState !== NotebookCellExecutionState.Executing) {
 					return {
@@ -956,7 +936,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			} => !!edit);
 
 			if (clearExecutionMetadataEdits.length) {
-				this.textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);
+				textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);
 			}
 
 		} finally {
@@ -1032,9 +1012,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this._assertTextModel();
+		const textModel = this._getAndAssertTextModel();
 
-		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const pasteIndex = index ?? this.getInsertionIndex();
 		const cellCount = this._clipboardCells.length;
