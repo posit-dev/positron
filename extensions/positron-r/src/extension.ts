@@ -15,6 +15,7 @@ import { registerUriHandler } from './uri-handler';
 import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
+import { RFilePasteProvider } from './languageFeatures/rFilePasteProvider.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -53,6 +54,19 @@ export function activate(context: vscode.ExtensionContext) {
 			refreshTestExplorer(context);
 		}
 	});
+
+	// Register R file paste provider for automatic file path conversion
+	const rFilePasteProvider = new RFilePasteProvider();
+	context.subscriptions.push(
+		vscode.languages.registerDocumentPasteEditProvider(
+			{ language: 'r' },
+			rFilePasteProvider,
+			{
+				pasteMimeTypes: ['text/uri-list'],
+				providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Text]
+			}
+		)
+	);
 }
 
 export async function supervisorApi(): Promise<PositronSupervisorApi> {

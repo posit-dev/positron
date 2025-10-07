@@ -469,6 +469,7 @@ import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
 import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js';
 import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
 import './contrib/positronKeybindings/browser/positronKeybindings.contribution.js';
+import './contrib/positronPathUtils/common/pathConversion.contribution.js';
 
 // Workbench services
 import './services/languageRuntime/common/languageRuntime.js';
