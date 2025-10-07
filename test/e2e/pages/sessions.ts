@@ -29,8 +29,8 @@ export class Sessions {
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
+	private deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -146,6 +146,7 @@ export class Sessions {
 				await this.console.focus();
 
 				if (await this.getSessionCount() === 1) {
+					// Only one session: Use the delete button in the action bar
 					const currentSessionId = await this.getCurrentSessionId();
 					if (currentSessionId === sessionId) {
 						await this.page.getByTestId('trash-session').click();
@@ -158,11 +159,9 @@ export class Sessions {
 						}
 					}
 				} else {
-					const sessionTab = this.getSessionTab(sessionId);
-
-					await sessionTab.click();
-					await sessionTab.hover();
-					await this.sessionTrashButton(sessionId).click();
+					// More that one session: Delete via the context menu. (The trash icon
+					// is not visible if the tab list is too narrow.)
+					await this.deleteViaUI(sessionId);
 				}
 
 				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
@@ -740,6 +739,24 @@ export class Sessions {
 			await expect(sessionTab.getByRole('textbox')).toBeVisible();
 			await this.page.keyboard.type(newName);
 			await this.page.keyboard.press('Enter');
+		});
+	}
+
+	/**
+	 * Action: Delete a session via UI
+	 *
+	 * @param sessionId - the id of the session
+	 */
+	async deleteViaUI(sessionId: string): Promise<void> {
+		await test.step(`Delete session: ${sessionId}`, async () => {
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionId);
+
+			// open the context menu and select "Delete"
+			await sessionTab.click({ button: 'right' });
+			await this.deleteMenuItem.hover();
+			await this.page.waitForTimeout(500);
+			await this.deleteMenuItem.click();
 		});
 	}
 
