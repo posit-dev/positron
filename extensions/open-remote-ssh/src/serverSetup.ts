@@ -293,14 +293,13 @@ case $ARCH in
         SERVER_ARCH="riscv64"
         ARCH_LONG="riscv64"
         ;;
-    riscv64)
-        SERVER_ARCH="riscv64"
-        ;;
     loongarch64)
         SERVER_ARCH="loong64"
+        ARCH_LONG="loong64"
         ;;
     s390x)
         SERVER_ARCH="s390x"
+        ARCH_LONG="s390x"
         ;;
     *)
         echo "Error architecture not supported: $ARCH"
