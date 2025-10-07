@@ -22,6 +22,19 @@ export enum SelectionState {
 	EditingSelection = 'EditingSelection'
 }
 
+/**
+ * Selection state discriminated union.
+ *
+ * Design rationale for field types:
+ * - SingleSelection and MultiSelection use `selected: IPositronNotebookCell[]` (array)
+ *   to enable uniform handling: filtering, equality checks, and automatic transitions
+ *   based on array.length.
+ * - EditingSelection uses `selected: IPositronNotebookCell` (singular) for type safety,
+ *   ensuring compile-time enforcement that exactly one cell is being edited.
+ *
+ * This design provides API consistency (all states use `selected`) while leveraging
+ * TypeScript's discriminated unions to enforce different constraints per state.
+ */
 type SelectionStates =
 	| {
 		type: SelectionState.NoCells;
@@ -36,7 +49,7 @@ type SelectionStates =
 	}
 	| {
 		type: SelectionState.EditingSelection;
-		selectedCell: IPositronNotebookCell;
+		selected: IPositronNotebookCell;
 	};
 
 export enum CellSelectionType {
@@ -58,7 +71,7 @@ export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[
 		case SelectionState.MultiSelection:
 			return state.selected;
 		case SelectionState.EditingSelection:
-			return [state.selectedCell];
+			return [state.selected];
 	}
 }
 
@@ -82,7 +95,7 @@ export function getEditingCell(state: SelectionStates): IPositronNotebookCell | 
 	if (state.type !== SelectionState.EditingSelection) {
 		return null;
 	}
-	return state.selectedCell;
+	return state.selected;
 }
 
 /**
@@ -99,7 +112,7 @@ function isSelectionStateEqual(a: SelectionStates, b: SelectionStates): boolean 
 				a.selected.every(cell => (b as typeof a).selected.includes(cell));
 		case SelectionState.EditingSelection:
 			return a.type === b.type &&
-				a.selectedCell === (b as typeof a).selectedCell;
+				a.selected === (b as typeof a).selected;
 	}
 }
 
@@ -182,7 +195,7 @@ export class SelectionStateMachine extends Disposable {
 
 		const deselectingCurrentSelection =
 			(state.type === SelectionState.SingleSelection && state.selected[0] === cell) ||
-			(state.type === SelectionState.EditingSelection && state.selectedCell === cell);
+			(state.type === SelectionState.EditingSelection && state.selected === cell);
 
 		if (deselectingCurrentSelection) {
 			// Don't manually set NoCells - let invariant enforcement handle it
@@ -229,7 +242,7 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		const cellToEdit = state.selected[0];
-		this._setState({ type: SelectionState.EditingSelection, selectedCell: cellToEdit });
+		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
 		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
 		await cellToEdit.showEditor();
 		// Request editor focus through observable - React will handle it
@@ -242,7 +255,7 @@ export class SelectionStateMachine extends Disposable {
 	exitEditor(): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
-		this._setState({ type: SelectionState.SingleSelection, selected: [state.selectedCell] });
+		this._setState({ type: SelectionState.SingleSelection, selected: [state.selected] });
 	}
 
 	//#endregion Public Methods
@@ -270,7 +283,7 @@ export class SelectionStateMachine extends Disposable {
 	 * @param cell The cell to select and edit.
 	 */
 	private _selectCellEdit(cell: IPositronNotebookCell): void {
-		this._setState({ type: SelectionState.EditingSelection, selectedCell: cell });
+		this._setState({ type: SelectionState.EditingSelection, selected: cell });
 	}
 
 	/**
@@ -318,9 +331,9 @@ export class SelectionStateMachine extends Disposable {
 		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
 		// If it isn't we need to select an appropriate neighboring cell.
 		if (state.type === SelectionState.EditingSelection) {
-			if (!cells.includes(state.selectedCell)) {
+			if (!cells.includes(state.selected)) {
 				// Find the index where the deleted cell was in the previous array
-				const deletedCellIndex = previousCells.indexOf(state.selectedCell);
+				const deletedCellIndex = previousCells.indexOf(state.selected);
 				const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
 				if (cellToSelect) {
 					this._setState({ type: SelectionState.SingleSelection, selected: [cellToSelect] });
