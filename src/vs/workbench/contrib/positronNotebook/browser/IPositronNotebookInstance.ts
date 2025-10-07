@@ -13,6 +13,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -53,6 +54,12 @@ export interface IPositronNotebookInstance {
 	 * for the notebook's content on disk.
 	 */
 	get uri(): URI;
+
+	/**
+	 * The underlying notebook text model, if loaded.
+	 * Contains the actual notebook data (cells, metadata, etc.).
+	 */
+	readonly textModel: IObservable<NotebookTextModel | undefined>;
 
 	/**
 	 * Indicates whether this notebook instance is currently connected to a view/editor.
