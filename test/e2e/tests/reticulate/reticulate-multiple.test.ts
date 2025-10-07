@@ -17,17 +17,6 @@ test.use({
 test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB, tags.ARK],
 }, () => {
-	test.beforeAll(async function ({ app, settings }) {
-		try {
-			await settings.set({
-				'positron.reticulate.enabled': true
-			}, { 'reload': 'web' });
-
-		} catch (e) {
-			await app.code.driver.takeScreenshot('reticulateSetup');
-			throw e;
-		}
-	});
 
 	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python() with multiple sessions', async function ({ app, sessions, logger }) {
 
