@@ -315,6 +315,14 @@
               "Claude Sonnet 4.5",
               "GPT-5"
             ]
+          },
+          "positron.assistant.defaultModels": {
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "string"
+            },
+            "markdownDescription": "%configuration.defaultModels.description%"
           }
         }
       }

@@ -588,7 +588,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			}
 		}
 
-		// TODO: Get the default model for the provider from settings
+		// Get the default model for the provider from settings
+		const defaultModel = models.find(m => m.metadata.isDefault);
+		if (defaultModel) {
+			this.logService.debug(`ChatInputPart#determineSelectedModel: Using default model for provider: ${JSON.stringify(defaultModel, null, 2)}`);
+			return defaultModel;
+		}
 
 		// Fallback to the first model
 		this.logService.debug(`ChatInputPart#determineSelectedModel: Falling back to first available model: ${JSON.stringify(models[0], null, 2)}`);
@@ -1342,7 +1347,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					// --- Start Positron ---
 					const models = this.getModels();
 					if (!this._currentLanguageModel && models.length > 0) {
-						this.setCurrentLanguageModel(models[0]);
+						const defaultModel = models.find(m => m.metadata.isDefault);
+						if (defaultModel) {
+							this.setCurrentLanguageModel(defaultModel);
+						} else if (models.length > 0) {
+							this.setCurrentLanguageModel(models[0]);
+						}
 					}
 					// --- End Positron ---
 

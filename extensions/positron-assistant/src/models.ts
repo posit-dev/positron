@@ -18,7 +18,7 @@ import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provide
 import { markBedrockCacheBreakpoint, processMessages, toAIMessage } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { AnthropicLanguageModel } from './anthropic';
+import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
@@ -347,7 +347,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		}
 
 		// Return the available models for this provider
-		// The first model is the default model
 		const languageModels: vscode.LanguageModelChatInformation[] = models.map((m, index) => {
 			const modelId = 'identifier' in m ? m.identifier : m.id;
 			const aiModel = this.aiProvider(modelId);
@@ -359,11 +358,18 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 				maxInputTokens: this.getMaxTokens(aiModel.modelId, 'input'),
 				maxOutputTokens: this.getMaxTokens(aiModel.modelId, 'output'),
 				capabilities: this.capabilities,
-				// is default if it's the first model out of models
-				isDefault: index === 0,
+				isDefault: this.isDefaultUserModel(modelId, m.name),
 				isUserSelectable: true,
 			};
 		});
+
+		// If no models match the default ID, make the first model the default.
+		if (languageModels.length > 0 && !languageModels.some(m => m.isDefault)) {
+			languageModels[0] = {
+				...languageModels[0],
+				isDefault: true,
+			};
+		}
 
 		return languageModels;
 	}
@@ -429,8 +435,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = (options.modelOptions as any)?.requestId;
 
-		log.info(`[vercel] Start request ${requestId} to ${this._config.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
-		log.debug(`[${this._config.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
+		log.info(`[vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		log.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
 			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
 		}
@@ -456,7 +462,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		const flushAccumulatedTextDeltas = () => {
 			if (accumulatedTextDeltas.length > 0) {
 				const combinedText = accumulatedTextDeltas.join('');
-				log.trace(`[${this._config.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
+				log.trace(`[${model.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
 				accumulatedTextDeltas = [];
 			}
 		};
@@ -468,7 +474,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 			if (part.type === 'reasoning') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
+				log.trace(`[${model.name}] RECV reasoning: ${part.textDelta}`);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelTextPart(part.textDelta)
@@ -485,7 +491,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
+				log.trace(`[${model.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
@@ -494,7 +500,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
-				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
+				log.warn(`[${model.name}] RECV error: ${JSON.stringify(part.error)}`);
 
 				const providerErrorMessage = this.parseProviderError(part.error);
 				if (providerErrorMessage) {
@@ -515,7 +521,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		result.warnings.then((warnings) => {
 			if (warnings) {
 				for (const warning of warnings) {
-					log.warn(`[${aiModel.modelId}] (${this.id}) warn: ${warning}`);
+					log.warn(`[${aiModel.modelId}] (${this.provider}) warn: ${warning}`);
 				}
 			}
 		});
@@ -545,7 +551,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 			progress.report({ index: 0, part: part });
 
 			// Log the Bedrock usage
-			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
+			log.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
 		}
 
 		if (requestId) {
@@ -605,13 +611,24 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 					maxInputTokens: 0,
 					maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
 					capabilities: this.capabilities,
-					isDefault: false,
+					isDefault: this.isDefaultUserModel(model.identifier, model.name),
 					isUserSelectable: true,
 				} satisfies vscode.LanguageModelChatInformation)));
 			} else {
 				resolve(undefined);
 			}
 		});
+	}
+
+	protected isDefaultUserModel(id: string, name?: string): boolean {
+		const config = vscode.workspace.getConfiguration('positron.assistant');
+		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
+		if (this.provider in defaultModels) {
+			if (id.includes(defaultModels[this.provider]) || name?.includes(defaultModels[this.provider])) {
+				return true;
+			}
+		}
+		return this._config.model === id;
 	}
 }
 
@@ -629,8 +646,8 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		},
 		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
-			model: 'claude-3-5-sonnet-latest',
+			name: DEFAULT_ANTHROPIC_MODEL_NAME,
+			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
 			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
@@ -964,13 +981,19 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		},
 		supportedOptions: ['toolCalls'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2 Bedrock',
-			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+			name: 'Claude 4 Sonnet Bedrock',
+			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
 		},
 	};
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		// Update a stale model configuration to the latest defaults
+		const models = availableModels.get('amazon-bedrock')?.map(m => m.identifier) || [];
+		if (!(_config.model in models)) {
+			_config.name = AWSLanguageModel.source.defaults.name;
+			_config.model = AWSLanguageModel.source.defaults.model;
+		}
 		super(_config, _context);
 
 		this.aiProvider = createAmazonBedrock({
