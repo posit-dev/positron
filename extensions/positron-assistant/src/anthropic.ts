@@ -14,8 +14,8 @@ import { TokenUsage } from './tokens.js';
 import { availableModels } from './models.js';
 import { LanguageModelDataPartMimeType } from './types.js';
 
-export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4.5';
-export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4-5';
+export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
+export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
