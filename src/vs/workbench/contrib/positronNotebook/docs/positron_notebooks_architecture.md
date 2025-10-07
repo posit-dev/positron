@@ -4,20 +4,18 @@
 
 1. [Executive Summary](#executive-summary)
 2. [Quick Start for Contributors](#quick-start-for-contributors)
-3. [Practical Development Guides](#practical-development-guides)
-4. [Architecture Overview](#architecture-overview)
-5. [System Components](#system-components)
-6. [Accessibility Implementation](#accessibility-implementation)
-7. [Kernel Protocol and Integration](#kernel-protocol-and-integration)
-8. [Positron Service Integrations](#positron-service-integrations)
-9. [Testing and Debugging](#testing-and-debugging)
-10. [Performance Optimization](#performance-optimization)
-11. [File Organization](#file-organization)
-12. [Current Status and Considerations](#current-status-and-considerations)
+3. [Architecture Overview](#architecture-overview)
+4. [System Components](#system-components)
+5. [Accessibility Implementation](#accessibility-implementation)
+6. [Kernel Protocol and Integration](#kernel-protocol-and-integration)
+7. [Positron Service Integrations](#positron-service-integrations)
+8. [Testing and Debugging](#testing-and-debugging)
+9. [File Organization](#file-organization)
+10. [Current Status and Considerations](#current-status-and-considerations)
 
 ## Executive Summary
 
-Positron Notebooks is a feature-flagged notebook editor that ships alongside the standard VS Code notebook experience. When `positron.notebook.enabled` is true the editor registers as an optional handler for `.ipynb` resources while continuing to reuse VS Code's notebook models, kernel selection, execution, and working copy services. The user interface is implemented in React through `PositronNotebookEditor`, `PositronNotebookInstance`, and a set of observable-backed cell components. The implementation coexists with the built-in notebook editor: users can opt into Positron via `Open With…` or by configuring an editor association, and the feature can be disabled without impacting the standard experience.
+Positron Notebooks is a feature-flagged notebook editor that ships alongside the standard VS Code notebook experience. When `positron.notebook.enabled` is true, the editor registers as an optional handler for `.ipynb` resources while reusing VS Code's notebook models, kernel selection, execution, and working copy services. The user interface is implemented in React with observable-backed components. The implementation coexists with the built-in notebook editor: users can opt into Positron Notebooks via the `Open With…` menu or by configuring an editor association, and the feature can be disabled without impacting the standard experience.
 
 ## Quick Start for Contributors
 
@@ -37,29 +35,13 @@ Positron Notebooks is a feature-flagged notebook editor that ships alongside the
     }
 }
 ```
-Alternatively you can right click a notebook `Open With…` -> `Configure Default editor...` -> `Positron Notebook` to avoid messing with json.
+Alternatively, you can right-click a notebook, select `Open With…` -> `Configure Default editor...` -> `Positron Notebook` to avoid editing JSON directly.
 
-Without this association the Positron editor remains available in the `Open With…` menu.
+Without this association, the Positron editor remains available in the `Open With…` menu.
 
-3. Open or create an `.ipynb`. The resolver constructs a `PositronNotebookEditorInput`, resolves the backing notebook model, and instantiates `PositronNotebookEditor`.
+3. Open or create an `.ipynb` file. The editor resolver constructs the necessary editor input, resolves the backing notebook model, and instantiates the Positron notebook editor.
 
-Remove the feature flag (and association if set) to fall back to the standard VS Code notebook editor.
-
-### Key files to understand
-
-- `src/vs/workbench/contrib/positronNotebook/browser/positronNotebookExperimentalConfig.ts` – feature flag definition and registration.
-- `src/vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution.ts` – editor registration, cell URI resolver, working copy handler, and command wiring.
-- `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput.ts` – VS Code `EditorInput` that resolves notebook models and owns a `PositronNotebookInstance`.
-- `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance.ts` – central state manager (cells, kernel selection, runtime session, selection machine, context keys).
-- `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditor.tsx` – `AbstractEditorWithViewState` implementation that renders the React tree.
-- `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorControl.ts` – `ICompositeCodeEditor` adapter surfaced through `getControl()` so shared features (inline chat, debugging) can reach the active cell editor.
-- `src/vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent.tsx` and `src/vs/workbench/contrib/positronNotebook/browser/notebookCells/*` – React view hierarchy, cell wrappers, action bars, and output rendering.
-- `src/vs/workbench/contrib/positronNotebook/browser/ContextKeysManager.ts` and `src/vs/workbench/contrib/positronNotebook/browser/notebookCells/useCellContextKeys.ts` – notebook and cell scoped context keys that drive commands and toolbar affordances.
-- `src/vs/workbench/contrib/positronNotebook/browser/selectionMachine.ts` – finite-state selection machine shared between the instance and UI.
-- `src/vs/workbench/services/positronNotebook/browser/positronNotebookService.ts` – global registry for active notebook instances.
-- `src/vs/workbench/contrib/runtimeNotebookKernel/browser/runtimeNotebookKernel.ts` – runtime-backed kernel implementation used by Positron notebooks.
-
-## Practical Development Guides
+To revert to the standard VS Code notebook editor, remove the feature flag (and association if set).
 
 ## Architecture Overview
 
@@ -68,108 +50,64 @@ Core design principles:
 1. **Feature flagged** – all contributions check `positron.notebook.enabled`, allowing the editor to ship disabled by default.
 2. **Parallel implementation** – registration priority is `RegisteredEditorPriority.option`; the built-in editor remains the default unless the user opts in.
 3. **Shared infrastructure** – notebook models, kernel discovery, execution, diffing, and working copy management all use VS Code services.
-4. **Observable state + React view** – notebook state lives in observables on `PositronNotebookInstance`, consumed via `useObservedValue`.
-5. **Context-key driven UX** – notebook and cell behaviours (command availability, toolbar icons) are controlled through scoped context keys.
-6. **Explicit selection machine** – `SelectionStateMachine` governs focus, editing, and multi-select states consistently across the UI and command layer.
-7. **Action registry** – cell toolbars and menus are sourced from `NotebookCellActionBarRegistry` so contributions can add actions declaratively.
+4. **Observable state + React view** – notebook state lives in observables, consumed by React components.
+5. **Context-key driven UX** – notebook and cell behaviors are controlled through scoped context keys that determine command availability and toolbar visibility.
+6. **Explicit selection machine** – a finite state machine governs focus, editing, and multi-select states consistently across the UI and command layer.
+7. **Action registry** – cell toolbars and menus use a registry pattern so contributions can add actions declaratively.
 
 ## System Components
 
-### Configuration layer
+### Configuration layer (`browser/positronNotebookExperimentalConfig.ts`)
 
 - `positronNotebookExperimentalConfig.ts` registers the `positron.notebook.enabled` setting (machine-overridable, hidden, defaults to `false`).
 - `workbench.editorAssociations` remains the mechanism for making Positron the default `.ipynb` editor. `usingPositronNotebooks()` in `common/positronNotebookCommon.ts` encapsulates the check.
 
-### Editor registration and resolution
+### Editor registration and resolution (`browser/positronNotebook.contribution.ts`)
 
-`positronNotebook.contribution.ts` only registers editors when the feature flag is enabled:
+The contribution file registers editors only when the feature flag is enabled. Key responsibilities include:
 
-```typescript
-if (checkPositronNotebookEnabled(configurationService)) {
-	editorResolverService.registerEditor('*.ipynb', notebookEditorInfo, { ... }, { createEditorInput: ... });
-	editorResolverService.registerEditor(`${Schemas.vscodeNotebookCell}:/**/*.ipynb`, { ...priority: RegisteredEditorPriority.exclusive }, ...);
-}
-```
-
-Key responsibilities:
-
-- Registers `PositronNotebookEditor` as an optional handler for `.ipynb` resources and for `vscode-notebook-cell` URIs.
-- Provides `createUntitledEditorInput` support for untitled notebooks.
-- Registers `PositronNotebookWorkingCopyEditorHandler` so backup restoration rehydrates Positron editors.
-- Registers an editor serializer (`PositronNotebookEditorSerializer`) for hot-exit scenarios.
-- Installs notebook-level and cell-level commands (`registerNotebookAction`, `registerCellCommand`), including execution controls, selection navigation, and markdown toggles.
-- Adds the `ExecuteSelectionInConsoleAction`, surfacing notebook selection execution in the console.
+- Registering the Positron notebook editor as an optional handler for `.ipynb` resources and notebook cell URIs.
+- Providing support for untitled notebooks.
+- Registering a working copy handler for backup restoration and an editor serializer for hot-exit scenarios.
+- Installing notebook-level and cell-level commands, including execution controls, selection navigation, and markdown toggles.
+- Adding an action to execute notebook selections in the console.
 
 ### Core architecture components
 
 #### PositronNotebookEditorInput (`browser/PositronNotebookEditorInput.ts`)
 
-- Caches a `PositronNotebookInstance` via `PositronNotebookInstance.getOrCreate`.
-- Resolves notebook models through `INotebookEditorModelResolverService`.
-- Implements save / revert / dirty state using VS Code working copy APIs.
-- Annotates each input with a `uniqueId` for tracing and sets `viewType` to `jupyter-notebook`.
+The editor input manages the lifecycle of a notebook instance. It resolves notebook models through VS Code's services and implements save/revert/dirty state using working copy APIs. Each input is annotated with a unique ID for tracing.
 
 #### PositronNotebookInstance (`browser/PositronNotebookInstance.ts`)
 
-- Singleton per notebook URI (`ResourceMap` backed `_instanceMap`).
-- Observables:
-  - `cells` – array of `IPositronNotebookCell`.
-  - `runtimeSession` – current `ILanguageRuntimeSession`.
-  - `kernel` / `kernelStatus` – current `INotebookKernel` selection (connected/disconnected at present).
-  - `language` – derived from the selected kernel.
-- Integrates with:
-  - `INotebookExecutionService` & `INotebookExecutionStateService` for execution.
-  - `INotebookKernelService` for kernel selection and tracking.
-  - `IRuntimeSessionService` events to keep the runtime session observable in sync.
-  - `IPositronWebviewPreloadService` for rich outputs.
-  - `IPositronConsoleService` for console interactions and clipboard operations.
-  - `PositronNotebookContextKeyManager` and `SelectionStateMachine`.
-- Manages view attachment/detachment, keyboard navigation (Enter/Escape), cell syncing (`_syncCells` reuses existing cell instances when possible), and clipboard actions. This is where most logic that is not directly UI goes.
+The instance is a singleton per notebook URI and serves as the central state manager. It maintains observables for cells, the runtime session, kernel selection and status, and the current language. The instance integrates with VS Code's notebook execution and kernel services, as well as Positron-specific runtime and console services. It manages view attachment/detachment, keyboard navigation, cell synchronization (reusing cell instances when possible), and clipboard actions. This is where most non-UI logic resides.
 
+#### PositronNotebookService (`src/vs/workbench/services/positronNotebook/browser/positronNotebookService.ts`)
 
-#### PositronNotebookService (`services/positronNotebook/browser/positronNotebookService.ts`)
-
-- Global registry for active `IPositronNotebookInstance` objects.
-- Provides `getActiveInstance`, lookup by URI, and `usingPositronNotebooks()` (delegates to `workbench.editorAssociations`).
-
+A global registry for active notebook instances, providing lookup by URI and methods to check if Positron Notebooks is in use.
 
 #### PositronNotebookEditor (`browser/PositronNotebookEditor.tsx`)
 
-- Extends `AbstractEditorWithViewState<INotebookEditorViewState>`.
-- Provides view-state persistence keyed by notebook URI.
-- Creates a `PositronNotebookEditorControl` before delegating to the base `setInput`.
-- Renders the React tree via `PositronReactRenderer`, wrapping the app with:
-  - `NotebookVisibilityProvider` (`observableValue<boolean>`).
-  - `NotebookInstanceProvider` (instance context).
-  - `EnvironmentProvider` (editor size, scoped context key factory).
-- Cleans up scoped context keys and the React renderer on dispose.
+The editor component extends VS Code's view state management and provides persistence keyed by notebook URI. It renders the React component tree with context providers for visibility, the notebook instance, and the editor environment. The editor cleans up resources on dispose.
 
 #### PositronNotebookEditorControl (`browser/PositronNotebookEditorControl.ts`)
 
-- Implements `ICompositeCodeEditor`.
-- Tracks the selected cell via an `autorun` on the selection machine and exposes the active cell's `ICodeEditor`.
-- Enables shared workbench features (e.g. inline chat, debug UI) that rely on `getControl().activeCodeEditor`.
+An adapter that implements the composite code editor interface. It tracks the currently selected cell and exposes its Monaco editor, enabling shared workbench features like inline chat and debugging that expect access to a code editor.
 
 
-#### Context key management
+#### Context key management (`browser/ContextKeysManager.ts`)
 
-- `PositronNotebookContextKeyManager` scopes notebook-level keys (container focused vs. editor focused).
-- `POS...` constants in `ContextKeysManager.ts` define per-cell keys (isCode, isRunning, markdown editor open, etc.).
-- `CellContextKeyServiceProvider` and `useCellContextKeys` bind these keys to each cell's DOM subtree so `registerCellCommand` when-clauses work as expected.
+Context keys are scoped at both the notebook and cell levels. Notebook-level keys track whether the container or editor is focused. Cell-level keys track properties like cell type, execution state, and whether a markdown editor is open. These keys are bound to each cell's DOM subtree to enable context-sensitive commands and menu items.
 
-#### Webview preload integration
+#### Webview preload integration (`browser/notebookCells/hooks/useWebviewMount.ts`)
 
-- `PositronNotebookInstance` registers itself with `IPositronWebviewPreloadService`.
-- `PositronNotebookCodeCell` inspects outputs, determines preload needs via `getWebviewMessageType`, and claims outputs through the preload service.
-- `hooks/useWebviewMount.ts` coordinates mounting `INotebookOutputWebview`s, claiming/releasing them on visibility changes, and limiting height via `MAX_OUTPUT_HEIGHT`.
+The notebook instance registers with the webview preload service. Code cells inspect their outputs to determine preload requirements and claim outputs through the service. A React hook coordinates mounting output webviews, managing their lifecycle based on visibility, and constraining their height.
 
-#### Execution services & kernel selection
+#### Execution services & kernel selection (`src/vs/workbench/contrib/runtimeNotebookKernel/browser/runtimeNotebookKernel*.ts`)
 
-- `PositronNotebookInstance._runCells` cancels running executions if re-triggered and delegates to `INotebookExecutionService.executeNotebookCells`.
-- Kernel selection uses `INotebookKernelService.getMatchingKernel` and persists `viewState.selectedKernelId` when available.
-- `RuntimeNotebookKernel` implements `INotebookKernel`, orchestrates runtime startup (`IRuntimeStartupService`), and ensures sequential execution through `NotebookExecutionQueue`.
+Cell execution cancels any running executions before delegating to VS Code's notebook execution service. Kernel selection leverages VS Code's kernel service and persists the selected kernel in view state. The runtime-backed kernel implementation orchestrates runtime startup and ensures sequential execution through a queue.
 
-### Cell architecture
+### Cell architecture (`browser/PositronNotebookCells/`)
 
 ```
 IPositronNotebookCell
@@ -180,40 +118,38 @@ IPositronNotebookCell
 
 Key pieces:
 
-- `PositronNotebookCellGeneral` provides shared behaviour (execution observables, container/editor attachment, selection helpers).
-- `PositronNotebookCodeCell` parses outputs (`parseOutputData`, `pickPreferredOutputItem`), integrates with the preload service, and exposes execution metadata (duration, order, success).
-- `PositronNotebookMarkdownCell` renders markdown using `Markdown.tsx` (with `DeferredImage` for local assets).
-- React layer:
-  - `NotebookCellWrapper` handles focus, screen-reader announcements, per-cell context keys, and delegates to `NotebookCellActionBar`.
-  - `CellEditorMonacoWidget` owns the Monaco editor embedding, synchronises layout, and forwards focus events.
-  - `CellLeftActionMenu` + `ExecutionStatusBadge` + `CellExecutionInfoPopup` show execution progress and provide execution commands.
-  - `NotebookCellActionBar` sources actions from `NotebookCellActionBarRegistry` (`useActionsForCell` filters by context).
-  - `AddCellButtons` inserts quick actions between cells.
-  - `KernelStatusBadge` surfaces kernel state in the toolbar.
+- The general cell implementation provides shared functionality like execution observables, editor attachment, and selection helpers.
+- Code cells parse outputs, integrate with the preload service for rich output rendering, and expose execution metadata such as duration and success status.
+- Markdown cells render using a markdown component with support for deferred image loading of local assets.
+- React layer components:
+  - Cell wrappers handle focus management, screen-reader announcements, and per-cell context keys.
+  - Monaco editor widgets embed the code editor, synchronize layout, and forward focus events.
+  - Execution status components show execution progress and provide execution commands.
+  - The cell action bar sources actions from a registry and filters them by context.
+  - Quick action buttons enable inserting cells between existing cells.
+  - A kernel status badge surfaces kernel state in the toolbar.
 
 ### Selection state management (`browser/selectionMachine.ts`)
 
-- Encapsulates all the logic related to cell selection. E.g. selecting a cell, moving selection up or down, multi-selection, etc..
-- Defines `SelectionState` variants: `NoSelection`, `SingleSelection`, `MultiSelection`, `EditingSelection`.
-- Supports keyboard navigation (arrow keys, Shift+arrow), editor entry/exit, and selection toggling.
-- `PositronNotebookInstance` listens for selection changes to keep context keys accurate and to set the notebook container focus state.
+The selection machine encapsulates all cell selection logic, including selecting cells, moving selection up or down, and multi-selection. It defines distinct selection states (no selection, single selection, multi-selection, and editing selection) and supports keyboard navigation with arrow keys and shift modifiers, editor entry/exit, and selection toggling. The notebook instance listens for selection changes to update context keys and manage focus state.
 
 ### Startup and integration flow
 
-1. Feature flag check via `checkPositronNotebookEnabled`.
-2. `IEditorResolverService` chooses Positron when configured or when explicitly requested.
-3. `PositronNotebookEditorInput.getOrCreate` retrieves/creates an instance and resolves the notebook model (including untitled support).
-4. `PositronNotebookEditor` initialises the editor control, renders the React tree, and attaches the instance to the DOM with a scoped context key service.
-5. Cell components attach to the instance, establish context keys, and begin observing state.
-6. Kernel selection is hydrated from view state or suggestions; runtime session events wire up via observables.
-7. Working copy integration ensures dirty state/backup handling through `PositronNotebookWorkingCopyEditorHandler`.
+1. The feature flag is checked to determine if Positron Notebooks should be registered.
+2. The editor resolver chooses Positron Notebooks when configured or explicitly requested.
+3. An editor input is retrieved or created, resolving the notebook model (including untitled notebook support).
+4. The editor initializes its control, renders the React component tree, and attaches the notebook instance with a scoped context key service.
+5. Cell components attach to the instance, establish their context keys, and begin observing state.
+6. Kernel selection is restored from view state or determined from suggestions; runtime session events are wired up via observables.
+7. Working copy integration ensures dirty state and backup handling.
 
 ### Integration with VS Code systems
 
-- Notebook services: `INotebookService`, `INotebookEditorModelResolverService`, `INotebookKernelService`, `INotebookExecutionService`, `INotebookExecutionStateService`.
-- Editor platform: `IEditorResolverService`, `IEditorPaneRegistry`, `IEditorFactoryRegistry`, `IWorkingCopyEditorService`.
-- Command and keybinding infrastructure: `registerNotebookAction`, `registerCellCommand`, `executeIcon`, context expressions from `ContextKeyExpr`.
-- Runtime services: `IRuntimeSessionService`, `ILanguageRuntimeService`, `IRuntimeStartupService`, `IPositronConsoleService`, `IPositronWebviewPreloadService`.
+Positron Notebooks integrates with:
+- **Notebook services** for model resolution, kernel management, and execution.
+- **Editor platform** for editor resolution, registration, and working copy management.
+- **Command and keybinding infrastructure** for notebook and cell actions.
+- **Runtime services** for session management, language runtime integration, console interactions, and webview preloads.
 
 ### Key technical decisions
 
@@ -228,125 +164,44 @@ Key pieces:
 
 ## Accessibility Implementation
 
-### Current accessibility features
-
-- **Keyboard navigation**: Arrow keys and Shift+arrow are wired through `registerNotebookAction`. `PositronNotebookInstance` handles Enter/Escape to enter/exit edit mode.
-- **Focus management**: `NotebookCellWrapper` sets `tabIndex`, `aria-label`, and `aria-selected`; focus automatically returns to the cell container when leaving edit mode.
-- **Screen reader announcements**:
-  - Per-cell (`NotebookCellWrapper`) announcements for selection and editing via `ScreenReaderOnly`.
-  - Notebook-level announcements (`PositronNotebookComponent`) for cell insertion/removal counts.
-  - Execution status updates expose `role="status"` with `aria-live="polite"` in `CellLeftActionMenu`.
-- **Accessible outputs**: `DeferredImage` provides `aria-label` when loading or failing to convert images; text outputs are rendered as semantic HTML.
-- **Kernel state**: `KernelStatusBadge` surfaces connection status textually.
+Positron Notebooks implements accessibility features including keyboard navigation (arrow keys, Shift+arrow for multi-selection, Enter/Escape for edit mode), focus management with ARIA attributes, screen reader announcements for state changes, and accessible output rendering. See individual component files for implementation details.
 
 ## Kernel Protocol and Integration
 
-- `PositronNotebookInstance` selects kernels via `INotebookKernelService.selectKernelForNotebook`, falling back to suggestions when no explicit choice exists.
-- `RuntimeNotebookKernel` implements VS Code's `INotebookKernel`:
-  - Starts runtime sessions through `IRuntimeStartupService` / `IRuntimeSessionService`.
-  - Serialises execution with `NotebookExecutionQueue`.
-  - Emits execution telemetry via `_didExecuteCodeEmitter` for downstream services (variables, console).
-- Execution flow:
+The notebook instance selects kernels using VS Code's kernel service, falling back to suggestions when no explicit choice exists. The runtime-backed kernel implementation handles runtime session startup and serializes execution through a queue. It emits execution events for downstream services like the variables panel and console.
 
-```typescript
-async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
-	const notebook = _notebookService.getNotebookTextModel(notebookUri);
-	let session = _runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-	if (!session) {
-		await ensureSessionStarted(...);
-		session = _runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-	}
-	_notebookExecutionSequencer.enqueue(notebookUri, cellHandles, execution => execution.start(...));
-}
-```
-
-- Cancellation is forwarded to `INotebookExecutionService.cancelNotebookCells`.
-- `ExecuteSelectionInConsoleAction` reuses the runtime session associated with the notebook to run ad-hoc code in the console.
+The execution flow retrieves or starts a runtime session, then enqueues cell execution requests. Cancellation requests are forwarded to the notebook execution service. The "Execute Selection in Console" action reuses the notebook's runtime session to run ad-hoc code in the Positron console.
 
 ## Positron Service Integrations
 
-- **Runtime session service (`IRuntimeSessionService`)** – lifecycle of interpreter sessions, events consumed by `PositronNotebookInstance`.
-- **Console service (`IPositronConsoleService`)** – shared console integration (execution of selections, output display).
-- **Webview preload service (`IPositronWebviewPreloadService`)** – coordinates widget and rich output messaging.
-- **Plots & data explorer (`IPositronPlotsService`, `mainThreadLanguageRuntime`)** – runtime events update the plots and variables panels.
-- **Notebook service (`IPositronNotebookService`)** – tracks active notebooks for other Positron UI (e.g. `KernelStatusBadge` host).
+- **Runtime session service** – manages interpreter session lifecycle; events are consumed by the notebook instance.
+- **Console service** – enables shared console integration for executing selections and displaying output.
+- **Webview preload service** – coordinates widget and rich output messaging.
+- **Plots & data explorer** – runtime events update the plots and variables panels.
+- **Notebook service** – tracks active notebooks for other Positron UI components.
 
 ## Testing and Debugging
 
 ### Test coverage
 
-We have more e2e tests than unit tests due to the end product being a very visual system.
+The test suite includes more end-to-end tests than unit tests due to the visual nature of the system.
 
-- **End-to-end tests** (`test/e2e/tests/notebook`)
-- **Unit tests** (`src/vs/workbench/contrib/positronNotebook/test/browser`)
+- **End-to-end tests** in `test/e2e/tests/notebook`
+- **Unit tests** in `src/vs/workbench/contrib/positronNotebook/test/browser`
 
 ### Debugging strategies
 
-- Use `ILogService` messages emitted from `PositronNotebookEditorInput`, `PositronNotebookInstance`, and `RuntimeNotebookKernel` to trace lifecycle events (constructor, attachView, execution).
-- Inspect `NotebookCellActionBarRegistry` if toolbar actions fail to appear; verify context keys and `when` clauses.
-- Webview issues: enable `webviewDeveloperTools` and inspect messages emitted via `useWebviewMount`.
-- Selection / focus bugs: log the `SelectionStateMachine.state` observable and confirm `PositronNotebookContextKeyManager` updates the container focus key.
-
-
-## File Organization
-
-```
-src/vs/workbench/contrib/positronNotebook/
-├── browser/
-│   ├── positronNotebookExperimentalConfig.ts
-│   ├── positronNotebook.contribution.ts
-│   ├── ExecuteSelectionInConsoleAction.ts
-│   ├── KernelStatusBadge.tsx
-│   ├── PositronNotebookEditorInput.ts
-│   ├── PositronNotebookEditor.tsx
-│   ├── PositronNotebookEditorControl.ts
-│   ├── PositronNotebookInstance.ts
-│   ├── PositronNotebookComponent.tsx
-│   ├── NotebookInstanceProvider.tsx
-│   ├── EnvironmentProvider.tsx
-│   ├── NotebookVisibilityContext.tsx
-│   ├── useObservedValue.tsx / useDisposableStore.tsx
-│   ├── PositronNotebookCells/
-│   │   ├── IPositronNotebookCell.ts
-│   │   ├── PositronNotebookCell.ts
-│   │   ├── PositronNotebookCodeCell.ts
-│   │   ├── PositronNotebookMarkdownCell.ts
-│   │   └── createNotebookCell.ts
-│   └── notebookCells/
-│       ├── NotebookCodeCell.tsx / NotebookMarkdownCell.tsx
-│       ├── NotebookCellWrapper.tsx
-│       ├── CellEditorMonacoWidget.tsx
-│       ├── CellLeftActionMenu.tsx
-│       ├── CellExecutionInfoPopup.tsx
-│       ├── ExecutionStatusBadge.tsx
-│       ├── NotebookCellActionBar.tsx and actionBar/*
-│       ├── DeferredImage.tsx
-│       ├── PreloadMessageOutput.tsx
-│       └── hooks/useWebviewMount.ts
-├── common/
-│   └── positronNotebookCommon.ts
-├── docs/
-│   └── positron_notebooks_architecture.md
-└── test/
-    └── browser/
-        ├── positronNotebookConfigurationHandling.test.ts
-        ├── positronNotebookEditorResolution.test.ts
-        └── testUtils.ts
-```
-
-Related services:
-
-```
-src/vs/workbench/services/positronNotebook/browser/positronNotebookService.ts
-src/vs/workbench/contrib/runtimeNotebookKernel/browser/runtimeNotebookKernel*.ts
-```
+- Use log service messages to trace lifecycle events throughout the editor, instance, and kernel components.
+- If toolbar actions fail to appear, inspect the action registry and verify context keys and conditional clauses.
+- For webview issues, enable developer tools and inspect messages.
+- For selection or focus bugs, log the selection state machine's state and verify context key updates.
 
 ## Current Status and Considerations
 
-- The feature flag defaults to off; enabling requires a restart because contributions register during workbench startup.
-- Positron notebooks support `.ipynb` view type (`jupyter-notebook`). Diffing still delegates to VS Code's built-in diff editor.
-- Untitled notebooks are supported through the resolver and working copy handler.
-- Extension compatibility: kernel-level extensions continue to work (shared kernel APIs), but DOM-dependent notebook extensions will not integrate with the React UI.
-- Large notebooks render all cells; virtualization and range rendering remain future work.
-- Rich outputs depend on the preload service and overlay webviews; ensure widget providers cooperate with `useWebviewMount`.
-- Testing coverage spans configuration, resolver behaviour, and core flows, but new features should add corresponding unit / E2E tests.
+- The feature flag defaults to off. Enabling it requires a restart because contributions register during workbench startup.
+- Positron Notebooks supports the Jupyter notebook format (`.ipynb`). Diffing delegates to VS Code's built-in diff editor.
+- Untitled notebooks are fully supported through the resolver and working copy handler.
+- **Extension compatibility**: Kernel-level extensions continue to work due to shared kernel APIs, but DOM-dependent notebook extensions will not integrate with the React-based UI.
+- **Performance**: Large notebooks currently render all cells. Virtualization and range rendering are potential future optimizations.
+- **Rich outputs**: Rich output rendering depends on the preload service and webview coordination. Widget providers must cooperate with the webview lifecycle management.
+- **Testing**: Coverage spans configuration, resolver behavior, and core flows. New features should include corresponding unit and end-to-end tests.
