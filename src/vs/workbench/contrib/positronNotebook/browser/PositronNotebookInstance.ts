@@ -39,6 +39,9 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IEditorPane } from '../../../common/editor.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 
 /**
  * Implementation of IPositronNotebookInstance that handles the core notebook functionality
@@ -1090,3 +1093,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// #endregion
 }
+
+export function getNotebookInstanceFromEditorPane(editorPane?: IEditorPane): IPositronNotebookInstance | undefined {
+	if (editorPane &&
+		editorPane.getId() === POSITRON_NOTEBOOK_EDITOR_ID &&
+		editorPane instanceof PositronNotebookEditor) {
+		return editorPane.notebookInstance;
+	}
+	return undefined;
+}
+
