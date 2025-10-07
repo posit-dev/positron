@@ -159,7 +159,6 @@ export class SelectionStateMachine extends Disposable {
 		this._register(autorunDelta(this._cells, ({ lastValue, newValue }) => {
 			if (lastValue !== undefined) {
 				this._setCells(newValue, lastValue);
-				this._enforceInvariant(newValue);
 			}
 		}));
 	}
@@ -334,11 +333,10 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Updates the selection state when cells change (Phase 1 of cell updates).
+	 * Updates the selection state when cells change.
 	 *
-	 * Handles selection updates when cells are added/removed but cells still exist.
-	 * Intentionally delegates boundary conditions (transitions to/from NoCells state)
-	 * to _enforceInvariant, which is always called immediately after this method.
+	 * Computes the intended selection state based on which cells were added/removed,
+	 * then delegates to _setState which handles invariant enforcement.
 	 *
 	 * @param cells The new cells array.
 	 * @param previousCells The previous cells array.
@@ -346,41 +344,39 @@ export class SelectionStateMachine extends Disposable {
 	private _setCells(cells: IPositronNotebookCell[], previousCells: IPositronNotebookCell[]): void {
 		const state = this._state.get();
 
-		// Let invariant enforcement handle NoCells transitions
-		if (state.type === SelectionState.NoCells) {
+		// If no cells existed and none exist now, nothing to do
+		if (state.type === SelectionState.NoCells && cells.length === 0) {
 			return;
 		}
 
-		// If we're editing a cell when setCells is called. We need to check if the cell is still in the new cells.
-		// If it isn't we need to select an appropriate neighboring cell.
+		// If we went from NoCells to having cells, _setState will auto-select first cell
+		if (state.type === SelectionState.NoCells && cells.length > 0) {
+			// Delegate to _setState with any valid state - it will correct to SingleSelection
+			this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
+			return;
+		}
+
+		// If we're editing a cell when cells change, check if that cell still exists
 		if (state.type === SelectionState.EditingSelection) {
 			if (!cells.includes(state.selected)) {
-				// Find the index where the deleted cell was in the previous array
-				const deletedCellIndex = previousCells.indexOf(state.selected);
-				const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
-				if (cellToSelect) {
-					this._setState({ type: SelectionState.SingleSelection, selected: cellToSelect });
-				}
-				// If no cell to select, invariant enforcement will handle transition to NoCells
-				return;
+				// Cell being edited was removed - handle selection removal
+				this._handleSelectionRemoved(state.selected, cells, previousCells);
 			}
+			// Cell still exists, keep current state
 			return;
 		}
 
+		// Filter current selection to only include cells that still exist
 		const currentSelection = getSelectedCells(state);
 		const newSelection = currentSelection.filter(c => cells.includes(c));
+
 		if (newSelection.length === 0) {
-			// Cells were removed - select an appropriate neighboring cell
-			// Use the index of the first selected cell that was removed in the previous array
-			const deletedCellIndex = previousCells.indexOf(currentSelection[0]);
-			const cellToSelect = this._selectNeighboringCell(cells, deletedCellIndex);
-			if (cellToSelect) {
-				this._setState({ type: SelectionState.SingleSelection, selected: cellToSelect });
-			}
-			// If no cell to select, invariant enforcement will handle transition to NoCells
+			// All selected cells were removed - handle selection removal
+			this._handleSelectionRemoved(currentSelection[0], cells, previousCells);
 			return;
 		}
 
+		// Update selection with remaining cells
 		if (newSelection.length === 1) {
 			this._setState({ type: SelectionState.SingleSelection, selected: newSelection[0] });
 		} else {
@@ -422,30 +418,25 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Enforces the invariant: NoCells ↔ cells.length === 0 (Phase 2 of cell updates).
-	 *
-	 * Invariants in state machines are conditions that must always be true regardless of state transitions.
-	 * This invariant ensures the selection state accurately reflects cell existence - we cannot be
-	 * in NoCells state when cells exist, and we cannot have a selection when no cells exist.
-	 *
-	 * This method handles boundary conditions when transitioning between empty/non-empty cell arrays.
-	 * Always called after _setCells to maintain separation of concerns: _setCells handles selection
-	 * logic for existing cells, this method handles the boundary enforcement.
+	 * Handles the case where the current selection (editing or otherwise) is removed due to cell deletion.
+	 * Selects a neighboring cell if possible, or transitions to NoCells state if none remain.
+	 * @param removedCell The cell that was deleted (or first of current selection)
+	 * @param cells The new array of cells
+	 * @param previousCells The previous array of cells
 	 */
-	private _enforceInvariant(cells: IPositronNotebookCell[]): void {
-		const currentState = this._state.get();
-
-		if (cells.length === 0 && currentState.type !== SelectionState.NoCells) {
-			// Cells disappeared → force NoCells state
-			this._logService.debug('SelectionMachine: Enforcing NoCells state (no cells exist)');
+	private _handleSelectionRemoved(removedCell: IPositronNotebookCell | undefined, cells: IPositronNotebookCell[], previousCells: IPositronNotebookCell[]): void {
+		if (!removedCell) {
+			this._setState({ type: SelectionState.NoCells });
+			return;
+		}
+		const removedCellIndex = previousCells.indexOf(removedCell);
+		const cellToSelect = this._selectNeighboringCell(cells, removedCellIndex);
+		if (cellToSelect) {
+			this._setState({ type: SelectionState.SingleSelection, selected: cellToSelect });
+		} else {
 			this._setState({ type: SelectionState.NoCells });
 		}
-		else if (cells.length > 0 && currentState.type === SelectionState.NoCells) {
-			// Cells appeared → automatically select first cell
-			this._logService.debug('SelectionMachine: Auto-selecting first cell (cells appeared)');
-			this._selectFirstCell();
-		}
-	}
+	};
 
 	/**
 	 * Validates whether a transition from one state to another is valid.
@@ -482,10 +473,46 @@ export class SelectionStateMachine extends Disposable {
 		return validTransitions[from].includes(to);
 	}
 
+	/**
+	 * Validates and corrects state to maintain invariants.
+	 *
+	 * This is the single source of truth for what constitutes a valid state.
+	 * All state changes MUST go through this validation to ensure invariants.
+	 *
+	 * Core invariant: NoCells ↔ cells.length === 0
+	 *
+	 * @param intended The state that was requested
+	 * @param cells The current cells array
+	 * @returns A valid state (either the intended state or a corrected version)
+	 */
+	private _validateAndCorrect(
+		intended: SelectionStates,
+		cells: IPositronNotebookCell[]
+	): SelectionStates {
+		// Invariant: NoCells ↔ cells.length === 0
+		if (cells.length === 0) {
+			// No cells exist → MUST be NoCells
+			if (intended.type !== SelectionState.NoCells) {
+				this._logService.debug('SelectionMachine: Auto-correcting to NoCells (no cells exist)');
+			}
+			return { type: SelectionState.NoCells };
+		}
+
+		if (intended.type === SelectionState.NoCells) {
+			// NoCells but cells exist → MUST select something
+			this._logService.debug('SelectionMachine: Auto-correcting from NoCells (cells exist)');
+			return { type: SelectionState.SingleSelection, selected: cells[0] };
+		}
+
+		// State is valid
+		return intended;
+	}
+
 	private _setState(state: SelectionStates) {
 		const currentState = this._state.get();
+		const cells = this._cells.get();
 
-		// Validate transition
+		// Step 1: Validate transition is legal
 		if (!this._isValidTransition(currentState.type, state.type)) {
 			const message = `SelectionMachine: Invalid state transition from ${currentState.type} to ${state.type}`;
 
@@ -494,12 +521,16 @@ export class SelectionStateMachine extends Disposable {
 				throw new Error(message);
 			}
 
-			// In production, log a warning but allow the transition
+			// In production, log a warning but don't apply invalid transition
 			this._logService.warn(message);
+			return;
 		}
 
-		// Alert the observable that the state has changed.
-		this._state.set(state, undefined);
+		// Step 2: Validate and correct state to maintain invariants
+		const correctedState = this._validateAndCorrect(state, cells);
+
+		// Step 3: Apply the corrected state
+		this._state.set(correctedState, undefined);
 	}
 
 	/**
