@@ -35,6 +35,31 @@ function verifyNonEmptyArray<T>(array: T[]): NonEmptyArray<T> {
 	return array as NonEmptyArray<T>;
 }
 
+// Valid selection state transitions
+const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> = {
+	[SelectionState.NoCells]: [
+		SelectionState.NoCells,          // Can stay in NoCells
+		SelectionState.SingleSelection,  // Cells appear → select first
+		SelectionState.EditingSelection, // Cell created in empty notebook and immediately edited
+	],
+	[SelectionState.SingleSelection]: [
+		SelectionState.SingleSelection,  // Select different cell
+		SelectionState.MultiSelection,   // Add cell to selection
+		SelectionState.EditingSelection, // Enter edit mode
+		SelectionState.NoCells,          // All cells removed
+	],
+	[SelectionState.MultiSelection]: [
+		SelectionState.MultiSelection,   // Modify selection
+		SelectionState.SingleSelection,  // Reduce to single cell
+		SelectionState.NoCells,          // All cells removed
+	],
+	[SelectionState.EditingSelection]: [
+		SelectionState.EditingSelection, // Can stay in editing (same cell)
+		SelectionState.SingleSelection,  // Exit editor
+		SelectionState.NoCells,          // Cell being edited removed
+	],
+};
+
 /**
  * Selection state discriminated union.
  *
@@ -439,41 +464,6 @@ export class SelectionStateMachine extends Disposable {
 	};
 
 	/**
-	 * Validates whether a transition from one state to another is valid.
-	 * @param from The source state
-	 * @param to The destination state
-	 * @returns True if the transition is valid, false otherwise
-	 */
-	private _isValidTransition(from: SelectionState, to: SelectionState): boolean {
-		// Define valid transitions as a map
-		const validTransitions: Record<SelectionState, SelectionState[]> = {
-			[SelectionState.NoCells]: [
-				SelectionState.NoCells,          // Can stay in NoCells
-				SelectionState.SingleSelection,  // Cells appear → select first
-				SelectionState.EditingSelection, // Cell created in empty notebook and immediately edited
-			],
-			[SelectionState.SingleSelection]: [
-				SelectionState.SingleSelection,  // Select different cell
-				SelectionState.MultiSelection,   // Add cell to selection
-				SelectionState.EditingSelection, // Enter edit mode
-				SelectionState.NoCells,          // All cells removed
-			],
-			[SelectionState.MultiSelection]: [
-				SelectionState.MultiSelection,   // Modify selection
-				SelectionState.SingleSelection,  // Reduce to single cell
-				SelectionState.NoCells,          // All cells removed
-			],
-			[SelectionState.EditingSelection]: [
-				SelectionState.EditingSelection, // Can stay in editing (same cell)
-				SelectionState.SingleSelection,  // Exit editor
-				SelectionState.NoCells,          // Cell being edited removed
-			],
-		};
-
-		return validTransitions[from].includes(to);
-	}
-
-	/**
 	 * Validates and corrects state to maintain invariants.
 	 *
 	 * This is the single source of truth for what constitutes a valid state.
@@ -513,7 +503,7 @@ export class SelectionStateMachine extends Disposable {
 		const cells = this._cells.get();
 
 		// Step 1: Validate transition is legal
-		if (!this._isValidTransition(currentState.type, state.type)) {
+		if (!ValidSelectionStateTransitions[currentState.type].includes(state.type)) {
 			const message = `SelectionMachine: Invalid state transition from ${currentState.type} to ${state.type}`;
 
 			// In development mode, throw an error to catch bugs early
