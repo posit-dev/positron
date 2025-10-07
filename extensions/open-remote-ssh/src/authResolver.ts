@@ -46,6 +46,7 @@ interface SSHKey {
 	fingerprint: string;
 	agentSupport?: boolean;
 	isPrivate?: boolean;
+	certificate?: Buffer;
 }
 
 export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode.Disposable {
@@ -72,7 +73,7 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 			throw new Error(`Invalid authority type for SSH resolver: ${type}`);
 		}
 
-		this.logger.info(`Resolving ssh remote authority '${authority}' (attemp #${context.resolveAttempt})`);
+		this.logger.info(`Resolving ssh remote authority '${authority}' (attempt #${context.resolveAttempt})`);
 
 		const sshDest = SSHDestination.parseEncoded(dest);
 
@@ -356,11 +357,18 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 					});
 				}
 				if (identityKey.isPrivate) {
-					return callback({
+					const authResult: ssh2.AuthHandlerResult = {
 						type: 'publickey',
 						username: sshUser,
 						key: identityKey.parsedKey
-					});
+					};
+					
+					// If we have a certificate, include it in the authentication
+					if (identityKey.certificate) {
+						(authResult as any).cert = identityKey.certificate;
+					}
+					
+					return callback(authResult);
 				}
 				if (!await fileExists(identityKey.filename)) {
 					// Try next identity file
@@ -390,11 +398,18 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 				}
 
 				const key = Array.isArray(result) ? result[0] : result;
-				return callback({
+				const authResult: ssh2.AuthHandlerResult = {
 					type: 'publickey',
 					username: sshUser,
 					key
-				});
+				};
+				
+				// If we have a certificate, include it in the authentication
+				if (identityKey.certificate) {
+					(authResult as any).cert = identityKey.certificate;
+				}
+				
+				return callback(authResult);
 			}
 			if (methodsLeft.includes('password') && passwordRetryCount > 0 && preferredAuthentications.includes('password')) {
 				if (passwordRetryCount === PASSWORD_RETRY_COUNT) {
