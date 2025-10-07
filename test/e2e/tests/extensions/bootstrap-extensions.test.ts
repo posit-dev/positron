@@ -13,7 +13,7 @@ test.use({
 
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN, tags.WORKBENCH],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
 
 	test.beforeAll('Skip during main run', async function () {
@@ -22,15 +22,9 @@ test.describe('Bootstrap Extensions', {
 		}
 	});
 
-	test('Verify All Bootstrap extensions are installed', async function ({ options, runDockerCommand }, testInfo) {
+	test('Verify All Bootstrap extensions are installed', async function ({ options }) {
 		const extensions = readProductJson();
-		const isWorkbench = testInfo.project.name === 'e2e-workbench';
-		const containerExtensionsPath = '/home/user1/.positron-server/extensions';
-		await waitForExtensions(
-			extensions,
-			isWorkbench ? containerExtensionsPath : options.extensionsPath,
-			isWorkbench ? runDockerCommand : undefined
-		);
+		await waitForExtensions(extensions, options.extensionsPath);
 	});
 });
 
@@ -53,34 +47,10 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
+function getInstalledExtensions(extensionsDir: string): Map<string, string> {
 	const installed = new Map<string, string>();
-
-	// Workbench: read extensions from Docker container
-	if (runDockerCommand) {
-		try {
-			const { stdout } = await runDockerCommand(`docker exec test bash -lc "ls -1 ${extensionsDir} || true"`, 'List extensions in container');
-			const dirs = stdout.split('\n').map(s => s.trim()).filter(Boolean);
-			for (const extDir of dirs) {
-				try {
-					const remotePkgPath = `${extensionsDir}/${extDir}/package.json`;
-					const { stdout: pkgStr } = await runDockerCommand(`docker exec test cat "${remotePkgPath}"`, `Read package.json for ${extDir}`);
-					const pkg = JSON.parse(pkgStr);
-					if (pkg.name && pkg.version) {
-						installed.set(pkg.name, pkg.version);
-					}
-				} catch {
-					// ignore dirs without package.json or unreadable files
-				}
-			}
-		} catch {
-			// If listing fails, treat as no installed extensions
-		}
-		return installed;
-	}
-
-	// Default: read from local filesystem
 	if (!fs.existsSync(extensionsDir)) { return installed; }
+
 	for (const extDir of fs.readdirSync(extensionsDir)) {
 		const packageJsonPath = path.join(extensionsDir, extDir, 'package.json');
 		if (fs.existsSync(packageJsonPath)) {
@@ -90,15 +60,16 @@ async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: 
 			}
 		}
 	}
+
 	return installed;
 }
 
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>) {
+async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 
 	while (missing.size > 0) {
-		const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
+		const installed = getInstalledExtensions(extensionsPath);
 
 		for (const ext of extensions) {
 			if (!missing.has(ext.fullName)) { continue; }
