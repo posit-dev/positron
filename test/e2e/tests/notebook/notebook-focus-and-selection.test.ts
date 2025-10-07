@@ -394,10 +394,9 @@ test.describe('Notebook Focus and Selection', {
 		await app.workbench.notebooks.openNotebook(notebookPath, false);
 		await app.workbench.notebooksPositron.expectToBeVisible();
 
-		// Wait for cells to be in DOM
+		// Wait for cells to be in DOM and for initial focus to settle
 		await app.code.driver.page.locator('[data-testid="notebook-cell"]').first().waitFor({ state: 'visible', timeout: 5000 });
-		// Give a moment for initial selection to happen
-		await app.code.driver.page.waitForTimeout(500);
+		await waitForFocusSettle(app);
 
 		// EXPECTED: First cell should be automatically selected without any user interaction
 		const focusedIndex = await getFocusedCellIndex(app);
@@ -408,23 +407,23 @@ test.describe('Notebook Focus and Selection', {
 	test('Keyboard navigation works immediately without clicking any cell', async function ({ app }) {
 		await createNotebookWith5Cells(app);
 
-		// Give time for initial selection to happen (or not, if bug exists)
-		await app.code.driver.page.waitForTimeout(300);
+		// Wait for initial selection to settle
+		await waitForFocusSettle(app);
 
 		// Press Escape first to ensure we're not in edit mode
 		await app.code.driver.page.keyboard.press('Escape');
-		await app.code.driver.page.waitForTimeout(100);
+		await waitForFocusSettle(app, 500);
 
 		// Press Arrow Down - EXPECTED: should move from cell 0 to cell 1
 		await app.code.driver.page.keyboard.press('ArrowDown');
-		await app.code.driver.page.waitForTimeout(200);
+		await waitForFocusSettle(app, 500);
 
 		expect(await getFocusedCellIndex(app)).toBe(1);
 		expect(await isCellSelected(app, 1)).toBe(true);
 
 		// Arrow Down again should move to cell 2
 		await app.code.driver.page.keyboard.press('ArrowDown');
-		await app.code.driver.page.waitForTimeout(200);
+		await waitForFocusSettle(app, 500);
 
 		expect(await getFocusedCellIndex(app)).toBe(2);
 		expect(await isCellSelected(app, 2)).toBe(true);
@@ -444,15 +443,13 @@ test.describe('Notebook Focus and Selection', {
 
 		// Create a new untitled file (switches editor focus away)
 		await app.workbench.quickaccess.runCommand('workbench.action.files.newUntitledFile');
-		await app.code.driver.page.waitForTimeout(500);
 
 		// Switch back to notebook using Ctrl/Cmd+Tab (or keyboard navigation)
 		// Use Cmd+Shift+P to open command palette, then navigate back
 		await app.workbench.quickaccess.runCommand('workbench.action.previousEditor');
-		await app.code.driver.page.waitForTimeout(500);
 
 		// EXPECTED: Cell 2 should still be selected and focused
-		await waitForFocusSettle(app, 300);
+		await waitForFocusSettle(app, 1000);
 		expect(await getFocusedCellIndex(app)).toBe(2);
 		expect(await isCellSelected(app, 2)).toBe(true);
 
