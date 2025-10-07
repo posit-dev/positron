@@ -387,11 +387,8 @@ test.describe('Notebook Focus and Selection', {
 		expect(normalizedContent).toContain('new cell content');
 	});
 
-	// NEW TESTS: Initial focus behavior (should fail with current implementation)
-	test('First cell is automatically selected when notebook loads', async function ({ app, hotKeys }) {
-		// Close the notebook from beforeEach to avoid focus contamination
-		await hotKeys.closeAllEditors();
-
+	// Initial focus behavior (should fail with current implementation)
+	test('First cell is automatically selected when notebook loads', async function ({ app }) {
 		// Open a real notebook file to test initial load behavior
 		const notebookPath = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
 		await app.workbench.notebooks.openNotebook(notebookPath, false);
