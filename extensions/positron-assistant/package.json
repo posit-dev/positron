@@ -322,7 +322,12 @@
             "additionalProperties": {
               "type": "string"
             },
-            "markdownDescription": "%configuration.defaultModels.description%"
+            "markdownDescription": "%configuration.defaultModels.description%",
+            "examples": [
+              {
+                "anthropic-api": "Claude Sonnet 4.5"
+              }
+            ]
           }
         }
       }
