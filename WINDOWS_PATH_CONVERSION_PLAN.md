@@ -164,3 +164,7 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 **Multiple files**: Copy multiple files → Paste in R → `c("C:/file1.csv", "C:/file2.csv")`
 **UNC paths**: Network paths remain unchanged (no conversion applied)
 **Non-R contexts**: Python console unaffected
+
+## Testing/Debugging
+
+**To see the paste provider title**: Copy files from file manager, then use **"Paste As"** from the Command Palette (Ctrl+Shift+P) in an R file. This shows the picker with "Insert file path(s)" option.
