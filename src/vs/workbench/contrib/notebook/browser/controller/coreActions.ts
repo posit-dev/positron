@@ -3,6 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { getNotebookInstanceFromEditorPane } from '../../../positronNotebook/browser/PositronNotebookEditor.js';
+import { toPositronNotebookCommand } from '../../../positronNotebook/browser/toPositronNotebookCommand.js';
+// --- End Positron ---
 import { URI, UriComponents } from '../../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { Action2, IAction2Options, MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
@@ -247,6 +252,16 @@ export abstract class NotebookMultiCellAction extends Action2 {
 				selectedCells: cellRangeToViewCells(editor, selectedCellRange)
 			});
 		}
+		// --- Start Positron ---
+		// If the active editor is a Positron notebook, reroute to the corresponding Positron command.
+		const notebookInstance = getNotebookInstanceFromEditorPane(accessor.get(IEditorService).activeEditorPane);
+		if (notebookInstance) {
+			const id = toPositronNotebookCommand(this.desc.id);
+			if (id) {
+				return accessor.get(ICommandService).executeCommand(id);
+			}
+		}
+		// --- End Positron ---
 	}
 }
 
