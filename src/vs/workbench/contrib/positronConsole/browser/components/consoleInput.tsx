@@ -49,7 +49,6 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../serv
 import { localize } from '../../../../../nls.js';
 import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { CopyPasteController } from '../../../../../editor/contrib/dropOrPasteInto/browser/copyPasteController.js';
 
 // Position enumeration.
 const enum Position {
@@ -804,7 +803,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					MarkerController.ID,
 					ParameterHintsController.ID,
 					FormatOnType.ID,
-					CopyPasteController.ID,
 				])
 			}
 		);
@@ -1107,7 +1105,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidgetRef.current.focus();
 		}
 	};
-
 
 	// If it's visible, anchor the history browser to the physical location of
 	// the code editor. The history browser has to have a fixed position so it

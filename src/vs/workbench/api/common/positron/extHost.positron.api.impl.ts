@@ -35,6 +35,7 @@ import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
+import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 
 /**
@@ -264,6 +265,33 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const paths: typeof positron.paths = {
+			/**
+			 * Extract file paths from clipboard for use in data analysis code.
+			 */
+			async extractClipboardFilePaths(dataTransfer: vscode.DataTransfer): Promise<string[] | null> {
+				// Convert VS Code DataTransfer to browser-compatible format
+				const uriListItem = dataTransfer.get('text/uri-list');
+				if (!uriListItem) {
+					return null;
+				}
+
+				const uriList = await uriListItem.asString();
+				if (!uriList) {
+					return null;
+				}
+
+				// Create mock DataTransfer for the core utility
+				const mockDataTransfer: Pick<DataTransfer, 'getData' | 'types'> = {
+					getData: (format: string) => format === 'text/uri-list' ? uriList : '',
+					types: ['text/uri-list']
+				};
+
+				// Use the core utility directly
+				return convertClipboardFiles(mockDataTransfer as DataTransfer);
+			}
+		};
+
 		const ai: typeof positron.ai = {
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
@@ -317,6 +345,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			languages,
 			methods,
 			environment,
+			paths,
 			connections,
 			ai,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,

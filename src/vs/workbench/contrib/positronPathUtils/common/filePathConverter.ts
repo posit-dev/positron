@@ -3,97 +3,66 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { isUNC } from '../../../../base/common/extpath.js';
+import { isUNC, toSlashes } from '../../../../base/common/extpath.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
- * File path conversion utilities for R contexts.
- * Matches RStudio's formatDesktopPath behavior exactly for drive-letter paths,
- * while safely avoiding conversion of UNC paths.
+ * Utilities for getting file paths when files (yes, actual files, not paths)
+ * are on the clipboard
  */
 
 /**
- * Converts clipboard files to R file path format (matches RStudio behavior).
+ * Converts clipboard files to forward-slash, quoted file paths.
  *
  * @param dataTransfer The clipboard DataTransfer object
- * @returns Formatted R file path string, or null if no conversion should be applied
+ * @returns Array of forward-slash file paths, or null if no conversion should be applied
  */
-export function convertClipboardFiles(dataTransfer: DataTransfer): string | null {
+export function convertClipboardFiles(dataTransfer: DataTransfer): string[] | null {
 	let filePaths: string[] = [];
 
-	// Check for file URI list (primary method)
+	// Check for file URI list from clipboard
 	const uriList = dataTransfer.getData('text/uri-list');
 	if (uriList) {
 		const fileUris = uriList.split('\n')
 			.filter(line => line.trim().startsWith('file://'));
 
-		// Check for UNC paths BEFORE decoding URIs
-		// UNC paths in URIs look like: file://server/share/path (not file:///server/share)
-		const hasUncUris = fileUris.some(uri => {
-			const trimmed = uri.trim();
-			// UNC URIs have the pattern: file://server/share (only 2 slashes after file:)
-			return trimmed.match(/^file:\/\/[^\/]+\/[^\/]+/);
-		});
-
-		if (hasUncUris) {
-			return null; // Skip conversion for UNC paths
-		}
-
 		filePaths = fileUris.map(uri => {
-			// Handle file:/// format and decode URI components
-			const cleanUri = uri.trim().replace(/^file:\/\/\//, '');
-			return decodeURIComponent(cleanUri);
+			// Convert file URIs (file:///C:/path or file://server/share) to filesystem paths
+			return URI.parse(uri.trim()).fsPath;
 		});
 	}
-	// Note: dataTransfer.files doesn't provide full file paths in browsers for security reasons,
-	// so we rely solely on the text/uri-list method which does provide full paths
 
 	if (filePaths.length === 0) {
-		return null; // No files detected
+		return null;
 	}
 
-	// Skip conversion entirely if ANY paths are UNC paths
-	// This is safer than RStudio's approach which would corrupt UNC paths
+	// Err on the side of caution and skip conversion entirely if ANY paths are
+	// UNC paths
 	const hasUncPaths = filePaths.some(path => isUNC(path));
 	if (hasUncPaths) {
-		return null; // Let normal paste behavior handle UNC paths
+		return null;
 	}
 
-	// Only convert regular drive-letter paths
-	if (filePaths.length === 1) {
-		return formatDesktopPath(filePaths[0]);
-	} else {
-		return formatMultipleFiles(filePaths);
-	}
+	return filePaths.map(formatForwardSlashPath);
 }
 
 /**
- * Formats a single desktop file path for R (matches RStudio's formatDesktopPath).
+ * Formats a file path to forward-slash format with proper quoting.
  *
  * @param filePath The file path to format
- * @returns Formatted path: "C:/path/file.txt"
+ * @returns Forward-slash path: "C:/path/file.txt"
  */
-function formatDesktopPath(filePath: string): string {
+function formatForwardSlashPath(filePath: string): string {
 	if (!filePath) {
 		return '';
 	}
 
-	// Normalize slashes (\ → /) - matches RStudio's normalizeSlashes
-	const normalized = filePath.replace(/\\/g, '/');
+	// Convert backslashes to forward slashes
+	const normalized = toSlashes(filePath);
 
-	// Escape existing quotes - matches RStudio's quote escaping
+	// Escape existing quotes
 	const escaped = normalized.replace(/"/g, '\\"');
 
-	// Wrap in quotes - matches RStudio's behavior
+	// Wrap in quotes for safe usage
 	return `"${escaped}"`;
-}
-
-/**
- * Formats multiple desktop file paths as an R vector (matches RStudio's multi-file behavior).
- *
- * @param filePaths Array of file paths to format
- * @returns Formatted R vector: c("C:/path/file1.txt", "C:/path/file2.txt")
- */
-function formatMultipleFiles(filePaths: string[]): string {
-	const formattedPaths = filePaths.map(formatDesktopPath);
-	return `c(${formattedPaths.join(', ')})`;
 }
