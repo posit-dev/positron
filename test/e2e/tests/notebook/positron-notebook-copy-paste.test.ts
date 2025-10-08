@@ -50,7 +50,7 @@ async function pasteCellsWithKeyboard(app: Application): Promise<void> {
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
 test.describe('Notebook Cell Copy-Paste Behavior', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
