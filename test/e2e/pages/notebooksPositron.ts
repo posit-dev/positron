@@ -17,24 +17,19 @@ const DEFAULT_TIMEOUT = 10000;
  * Notebooks functionality exclusive to Positron notebooks.
  */
 export class PositronNotebooks extends Notebooks {
-	positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
-	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
-	newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	private cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
+	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
+	private editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
-	spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
-	cellExecutionInfoAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell execution info/i);
-	executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
-	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
-	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
-	kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
-	deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
-	cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
-	cellInfoToolTipStatus = this.cellInfoToolTip.getByLabel('Execution status');
-	cellInfoToolTipDuration = this.cellInfoToolTip.getByLabel('Execution duration');
-	cellInfoToolTipOrder = this.cellInfoToolTip.getByLabel('Execution order');
-	cellInfoToolTipCompleted = this.cellInfoToolTip.getByLabel('Execution completed');
+	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
+	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
+	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
+	private detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
+	private cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
+	private kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
+	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
+	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -151,7 +146,6 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * @override
 	 * Action: Select a cell at the specified index.
 	 * @param cellIndex - The index of the cell to select.
 	 */
