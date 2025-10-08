@@ -2069,6 +2069,21 @@ declare module 'positron' {
 	}
 
 	/**
+	 * File path utilities for data analysis code.
+	 */
+	namespace paths {
+		/**
+		 * Extract file paths from clipboard for use in data analysis code.
+		 * Detects files copied from file manager and returns their paths for insertion into scripts.
+		 * Should not modify UNC paths.
+		 *
+		 * @param dataTransfer The clipboard DataTransfer object
+		 * @returns A Thenable that resolves to an array of file paths, or null if no files or UNC paths detected
+		 */
+		export function extractClipboardFilePaths(dataTransfer: vscode.DataTransfer): Thenable<string[] | null>;
+	}
+
+	/**
 	 * Experimental AI features.
 	 */
 	namespace ai {
