@@ -497,6 +497,30 @@ export class LanguageModelsService implements ILanguageModelsService {
 			// Mark the end of initial setup since we have a stored provider
 			this._isInitialSetup = false;
 		}
+
+		// Listen for changes to the filterModels configuration
+		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('positron.assistant.filterModels')) {
+				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
+				// Re-resolve all registered providers to apply new filters
+				const allVendors = Array.from(this._vendors.keys());
+				if (allVendors.length > 0) {
+					this.resolveLanguageModels(allVendors, true).then(() => {
+						// if the current provider is now filtered out, switch to another available provider
+						const currentProvider = this._currentProvider;
+						const availableProviders = this.getLanguageModelProviders();
+						if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
+							this._logService.trace('[LM] Current provider was filtered out, switching to next available', currentProvider.id);
+							if (availableProviders.length > 0) {
+								this.currentProvider = availableProviders[0];
+							} else {
+								this.currentProvider = undefined;
+							}
+						}
+					});
+				}
+			}
+		}));
 		// --- End Positron ---
 	}
 
