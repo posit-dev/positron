@@ -423,13 +423,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.execShinyInTerminal",
-                "icon": "$(play)",
-                "title": "%python.command.python.execShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny"
-            },
-            {
-                "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -468,13 +461,6 @@
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugGradioInTerminal.title%",
                 "enablement": "pythonAppFramework == gradio"
-            },
-            {
-                "category": "Python",
-                "command": "python.debugShinyInTerminal",
-                "icon": "$(debug-alt)",
-                "title": "%python.command.python.debugShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny"
             },
             {
                 "category": "Python",
@@ -1717,11 +1703,6 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
-                    "command": "python.execShinyInTerminal",
-                    "group": "Python",
-                    "when": "pythonAppFramework == shiny"
-                },
-                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "Python",
                     "when": "pythonAppFramework == streamlit"
@@ -1779,12 +1760,6 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
-                    "command": "python.execShinyInTerminal",
-                    "group": "navigation@0",
-                    "title": "%python.command.python.execShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny"
-                },
-                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -1813,12 +1788,6 @@
                     "group": "navigation@3",
                     "title": "%python.command.python.debugGradioInTerminal.title%",
                     "when": "pythonAppFramework == gradio"
-                },
-                {
-                    "command": "python.debugShinyInTerminal",
-                    "group": "navigation@3",
-                    "title": "%python.command.python.debugShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny"
                 },
                 {
                     "command": "python.debugFastAPIInTerminal",
