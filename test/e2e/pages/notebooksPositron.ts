@@ -90,14 +90,30 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Exit edit mode by pressing Escape and waiting for focus to settle on a cell.
+	 * Exit edit mode by pressing Escape and waiting for focus to leave the Monaco editor.
 	 * This ensures we're actually in selection mode before proceeding with keyboard shortcuts.
 	 */
 	async exitEditMode(): Promise<void> {
 		await test.step('Exit edit mode', async () => {
 			await this.code.driver.page.keyboard.press('Escape');
-			// Wait for focus to settle on a cell (not in Monaco editor)
-			await this.waitForFocusSettle();
+
+			// Wait for focus to leave the Monaco editor textarea AND settle on a cell
+			// This is critical for ensuring keyboard shortcuts work correctly
+			await this.code.driver.page.waitForFunction(() => {
+				const activeElement = document.activeElement;
+
+				// Check if focus is on a Monaco editor textarea (edit mode)
+				const isMonacoTextarea = activeElement?.classList.contains('inputarea') &&
+					activeElement?.closest('.monaco-editor') !== null;
+
+				// Check if focus is on a notebook cell or its focusable container
+				const isOnCell = activeElement?.closest('[data-testid="notebook-cell"]') !== null;
+
+				// We want to wait until:
+				// 1. Focus is NOT in Monaco editor textarea
+				// 2. Focus IS on a cell (somewhere)
+				return !isMonacoTextarea && isOnCell;
+			}, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
 
