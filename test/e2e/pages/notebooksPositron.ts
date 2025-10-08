@@ -146,6 +146,7 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < numCellsToAdd; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 			}
+			await this.selectCellAtIndex(0, { exitEditMode: true });
 		}
 	}
 
@@ -207,7 +208,7 @@ export class PositronNotebooks extends Notebooks {
 	async moveMouseAway(): Promise<void> {
 		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.mouse.move(0, 0);
-	};
+	}
 
 	/**
 	 * Action: Add code to a cell at the specified index and run it.
