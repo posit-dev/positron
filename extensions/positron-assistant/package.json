@@ -287,6 +287,47 @@
             "default": 60,
             "description": "%configuration.providerTimeout.description%",
             "minimum": 1
+          },
+          "positron.assistant.filterModels": {
+            "type": "array",
+            "default": [
+              "**/*"
+            ],
+            "markdownDescription": "%configuration.filterModels.description%",
+            "items": {
+              "type": "string"
+            },
+            "examples": [
+              [
+                "Claude*",
+                "GPT-5"
+              ],
+              [
+                "**/google/gemini*"
+              ]
+            ]
+          },
+          "positron.assistant.preferredModel": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%configuration.preferredModel.description%",
+            "examples": [
+              "Claude Sonnet 4.5",
+              "GPT-5"
+            ]
+          },
+          "positron.assistant.defaultModels": {
+            "type": "object",
+            "default": {},
+            "additionalProperties": {
+              "type": "string"
+            },
+            "markdownDescription": "%configuration.defaultModels.description%",
+            "examples": [
+              {
+                "anthropic-api": "Claude Sonnet 4.5"
+              }
+            ]
           }
         }
       }
@@ -294,24 +335,29 @@
     "languageModelChatProviders": [
       {
         "vendor": "echo",
-        "displayName": "Echo"
+        "displayName": "Echo",
+        "managementCommand": "positron-assistant.configureModels"
       },
       {
         "vendor": "amazon-bedrock",
-        "displayName": "Amazon Bedrock"
+        "displayName": "Amazon Bedrock",
+        "managementCommand": "positron-assistant.configureModels"
       },
       {
         "vendor": "anthropic-api",
-        "displayName": "Anthropic"
+        "displayName": "Anthropic",
+        "managementCommand": "positron-assistant.configureModels"
       },
       {
         "vendor": "openai",
-        "displayName": "OpenAI"
+        "displayName": "OpenAI",
+        "managementCommand": "positron-assistant.configureModels"
       },
-	  {
-		"vendor": "openai-compatible",
-		"displayName": "Custom Provider"
-	  }
+      {
+        "vendor": "openai-compatible",
+        "displayName": "Custom Provider",
+        "managementCommand": "positron-assistant.configureModels"
+      }
     ],
     "languageModelTools": [
       {
