@@ -535,11 +535,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// }));
 
 		this._register(this.languageModelsService.onDidChangeCurrentProvider((provider) => {
-			// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
-			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.family !== provider) {
-				const models = this.getModels();
-				if (models.length > 0) {
-					this.setCurrentLanguageModel(models[0]);
+			// if the current provider is not the same as the current model's provider, determine the model to pre-select for the new provider
+			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.vendor !== provider) {
+				const selectedModel = this.determineSelectedModel();
+				if (selectedModel) {
+					this.setCurrentLanguageModel(selectedModel);
 				}
 			}
 		}));
@@ -554,6 +554,58 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return `chat.currentLanguageModel.${this.location}.isDefault`;
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Determine the model to select for the current provider.
+	 * Order of precedence:
+	 * 1. TODO: Last used model for the provider (persisted in storage)
+	 * 2. Preferred model from configuration (if set and available)
+	 * 3. Default model for the provider (inherited from default model config in Positron Assistant extension, or if set in settings)
+	 * 4. First available model from the provider
+	 * @returns The model to select for the current provider, or undefined if no models are available.
+	 */
+	private determineSelectedModel(): ILanguageModelChatMetadataAndIdentifier | undefined {
+		const models = this.getModels();
+		if (models.length === 0) {
+			this.logService.debug('ChatInputPart#determineSelectedModel: No models available from current provider');
+			return undefined;
+		}
+
+		// TODO: if the user has manually changed the model previously, use that model if it is still available.
+		// When the user switches the provider, instead of using the last used model for that provider,
+		// we always use the preferred model from config or the default model for the provider, falling back to
+		// the first available model.
+		// We'd need to persist the last used model per provider in storage or in memory, and then look that up here.
+		// See https://github.com/posit-dev/positron/issues/9829 for more details.
+
+		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
+
+		// Try to get the preferred model from the configuration
+		if (config.preferredModel) {
+			const preferredModel = models.find(m =>
+				m.identifier === config.preferredModel ||
+				m.metadata.id.includes(config.preferredModel) ||
+				m.metadata.name.includes(config.preferredModel)
+			);
+			if (preferredModel) {
+				this.logService.debug(`ChatInputPart#determineSelectedModel: Using preferred model from config: ${JSON.stringify(preferredModel, null, 2)}`);
+				return preferredModel;
+			}
+		}
+
+		// Get the default model for the provider from settings
+		const defaultModel = models.find(m => m.metadata.isDefault);
+		if (defaultModel) {
+			this.logService.debug(`ChatInputPart#determineSelectedModel: Using default model for provider: ${JSON.stringify(defaultModel, null, 2)}`);
+			return defaultModel;
+		}
+
+		// Fallback to the first model
+		this.logService.debug(`ChatInputPart#determineSelectedModel: Falling back to first available model: ${JSON.stringify(models[0], null, 2)}`);
+		return models[0];
+	}
+	// --- End Positron ---
+
 	private initSelectedModel() {
 		let persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
 		if (persistedSelection && persistedSelection.startsWith('github.copilot-chat/')) {
@@ -561,7 +613,18 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			persistedSelection = persistedSelection.replace('github.copilot-chat/', 'copilot/');
 			this.storageService.store(this.getSelectedModelStorageKey(), persistedSelection, StorageScope.APPLICATION, StorageTarget.USER);
 		}
+		// --- Start Positron ---
+		// Allow user to override application persisted model with config setting
+		/*
 		const persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
+		*/
+		let persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
+		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
+		if (config.preferredModel) {
+			persistedSelection = config.preferredModel;
+			persistedAsDefault = false;
+		}
+		// --- End Positron ---
 
 		if (persistedSelection) {
 			const model = this.languageModelsService.lookupLanguageModel(persistedSelection);
@@ -573,7 +636,27 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				}
 			} else {
 				this._waitForPersistedLanguageModel.value = this.languageModelsService.onDidChangeLanguageModels(e => {
+					// --- Start Positron ---
+					// Also search for the model partially and by name.
+					/*
 					const persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
+					*/
+
+					let persistedModel = this.languageModelsService.lookupLanguageModel(persistedSelection);
+					if (!persistedModel) {
+						const allModels = this.languageModelsService.getLanguageModelIds();
+						for (const modelId of allModels) {
+							const model = this.languageModelsService.lookupLanguageModel(modelId);
+							if (model && (model.id.includes(persistedSelection) || model.name.includes(persistedSelection))) {
+								persistedModel = model;
+							}
+							if (model && (model.id === persistedSelection || model.name === persistedSelection)) {
+								break;
+							}
+						}
+					}
+					// --- End Positron ---
+
 					if (persistedModel) {
 						this._waitForPersistedLanguageModel.clear();
 
@@ -714,6 +797,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	private setCurrentLanguageModel(model: ILanguageModelChatMetadataAndIdentifier) {
 		this._currentLanguageModel = model;
+
+		// --- Start Positron ---
+		// If we're switching to a model from another provider, change the provider too
+		if (model && model.metadata.vendor !== this.languageModelsService.currentProvider?.id) {
+			const modelProvider = this.languageModelsService.getLanguageModelProviders().find(p => p.id === model.metadata.vendor);
+			this.languageModelsService.currentProvider = modelProvider;
+		}
+		// --- End Positron ---
 
 		if (this.cachedDimensions) {
 			// For quick chat and editor chat, relayout because the input may need to shrink to accomodate the model name
@@ -1261,7 +1352,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					// --- Start Positron ---
 					const models = this.getModels();
 					if (!this._currentLanguageModel && models.length > 0) {
-						this.setCurrentLanguageModel(models[0]);
+						const defaultModel = models.find(m => m.metadata.isDefault);
+						if (defaultModel) {
+							this.setCurrentLanguageModel(defaultModel);
+						} else if (models.length > 0) {
+							this.setCurrentLanguageModel(models[0]);
+						}
 					}
 					// --- End Positron ---
 
