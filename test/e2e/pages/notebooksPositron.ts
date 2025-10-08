@@ -218,10 +218,10 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; waitForPopup?: boolean }
+		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false, waitForPopup = true } = options ?? {};
-		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}, waitForPopup: ${waitForPopup}`, async () => {
+		const { delay = 0, run = false, waitForSpinner = false } = options ?? {};
+		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}`, async () => {
 			const currentCellCount = await this.getCellCount();
 
 			if (cellIndex >= currentCellCount) {
@@ -251,10 +251,6 @@ export class PositronNotebooks extends Notebooks {
 						// Spinner might not appear for very fast executions, that's okay
 					});
 					await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
-				}
-
-				if (waitForPopup) {
-					await expect(this.cellInfoToolTip).toBeVisible();
 				}
 			}
 
