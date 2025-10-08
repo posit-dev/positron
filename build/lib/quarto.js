@@ -73,7 +73,7 @@ function getQuartoWindows(version) {
         verbose: true,
         timeoutSeconds: 90,
     })
-        .pipe(unzip());
+        .pipe(unzip({ keepEmpty: true }));
 }
 /**
  * Gets a stream that downloads and unpacks the quarto executable for macOS
