@@ -41,6 +41,7 @@ export enum TestTags {
 	MODAL = '@:modal',
 	NEW_FOLDER_FLOW = '@:new-folder-flow',
 	NOTEBOOKS = '@:notebooks',
+	POSITRON_NOTEBOOKS = '@:positron-notebooks',
 	OUTLINE = '@:outline',
 	OUTPUT = '@:output',
 	PLOTS = '@:plots',
