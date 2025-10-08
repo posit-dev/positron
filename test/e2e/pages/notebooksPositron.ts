@@ -220,7 +220,7 @@ export class PositronNotebooks extends Notebooks {
 		code: string,
 		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; waitForPopup?: boolean }
 	): Promise<Locator> {
-		const { delay = 0, run = false, waitForSpinner = false, waitForPopup = false } = options ?? {};
+		const { delay = 0, run = false, waitForSpinner = false, waitForPopup = true } = options ?? {};
 		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}, waitForPopup: ${waitForPopup}`, async () => {
 			const currentCellCount = await this.getCellCount();
 
@@ -244,7 +244,6 @@ export class PositronNotebooks extends Notebooks {
 
 			if (run) {
 				await this.runCellButtonAtIndex(cellIndex).click();
-				await expect(this.code.driver.page.locator('.notification-toast').getByText(/Starting.*interpreter/)).not.toBeVisible({ timeout: 30000 });
 
 				if (waitForSpinner) {
 					const spinner = this.spinnerAtIndex(cellIndex);
@@ -255,7 +254,6 @@ export class PositronNotebooks extends Notebooks {
 				}
 
 				if (waitForPopup) {
-					// const infoPopup = this.cell.nth(cellIndex).getByRole('tooltip', { name: /cell execution details/i });
 					await expect(this.cellInfoToolTip).toBeVisible();
 				}
 			}
