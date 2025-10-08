@@ -19,9 +19,6 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from './positronConsoleIdentifiers.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
-import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { PositronConsolePasteProvider } from './positronConsolePasteProvider.js';
 
 // The Positron console view icon.
 const positronConsoleViewIcon = registerIcon(
@@ -113,7 +110,3 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 
 // Register all the Positron console actions.
 registerPositronConsoleActions();
-
-// Register the console paste provider for file path conversion
-Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench)
-	.registerWorkbenchContribution(PositronConsolePasteProvider, LifecyclePhase.Restored);
