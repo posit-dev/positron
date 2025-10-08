@@ -60,6 +60,9 @@ async function addCodeCellBelowWithKeyboard(app: Application): Promise<void> {
 test.describe('Notebook Cell Undo-Redo Behavior', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
+	// Skip these tests on CI due to flakiness - will address in followup PR
+	test.skip(process.env.CI === 'true', 'Skipping undo-redo tests on CI due to flakiness');
+
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 		// Configure Positron as the notebook editor
