@@ -22,8 +22,8 @@ async function getCellCount(app: Application): Promise<number> {
  * Helper function to perform undo using keyboard shortcut
  */
 async function undoWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
 	await app.code.driver.page.keyboard.press(`${modifierKey}+KeyZ`);
 }
@@ -32,8 +32,8 @@ async function undoWithKeyboard(app: Application): Promise<void> {
  * Helper function to perform redo using keyboard shortcut
  */
 async function redoWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
 	await app.code.driver.page.keyboard.press(`${modifierKey}+Shift+KeyZ`);
 }
@@ -42,8 +42,8 @@ async function redoWithKeyboard(app: Application): Promise<void> {
  * Helper function to delete a cell using keyboard shortcut
  */
 async function deleteCellWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	await app.code.driver.page.keyboard.press('Backspace');
 }
 
@@ -51,8 +51,8 @@ async function deleteCellWithKeyboard(app: Application): Promise<void> {
  * Helper function to add a code cell below using keyboard shortcut
  */
 async function addCodeCellBelowWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	await app.code.driver.page.keyboard.press('KeyB');
 }
 

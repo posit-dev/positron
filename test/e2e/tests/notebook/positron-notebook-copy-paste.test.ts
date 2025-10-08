@@ -24,8 +24,8 @@ const CLIPBOARD_OPERATION_DELAY_MS = 100;
  * Helper function to copy cells using keyboard shortcut
  */
 async function copyCellsWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	await app.code.driver.page.keyboard.press('ControlOrMeta+C');
 	// Wait for clipboard operation to complete
 	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
@@ -35,8 +35,8 @@ async function copyCellsWithKeyboard(app: Application): Promise<void> {
  * Helper function to cut cells using keyboard shortcut
  */
 async function cutCellsWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	await app.code.driver.page.keyboard.press('ControlOrMeta+X');
 	// Wait for clipboard operation to complete
 	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
@@ -46,9 +46,11 @@ async function cutCellsWithKeyboard(app: Application): Promise<void> {
  * Helper function to paste cells using keyboard shortcut
  */
 async function pasteCellsWithKeyboard(app: Application): Promise<void> {
-	// We need to press escape to get the focus out of the cell editor itself
-	await app.code.driver.page.keyboard.press('Escape');
+	// Exit edit mode and wait for focus to leave Monaco editor
+	await app.workbench.notebooksPositron.exitEditMode();
 	await app.code.driver.page.keyboard.press('ControlOrMeta+V');
+	// Wait for paste operation to complete before asserting results
+	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
 }
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193

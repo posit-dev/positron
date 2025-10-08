@@ -61,6 +61,47 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Wait for at least one cell to exist in the DOM
+	 */
+	async waitForCellsInDOM(timeoutMs: number = 2000): Promise<void> {
+		await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).first().waitFor({
+			state: 'visible',
+			timeout: timeoutMs
+		});
+	}
+
+	/**
+	 * Wait for focus to settle on a notebook cell
+	 * Waits until any notebook cell has focus (or until timeout)
+	 */
+	async waitForFocusSettle(timeoutMs: number = 2000): Promise<void> {
+		const page = this.code.driver.page;
+
+		// First, ensure at least one cell exists in the DOM
+		await this.waitForCellsInDOM(timeoutMs);
+
+		// Now wait for one of them to have focus
+		await page.waitForFunction(() => {
+			const cells = Array.from(document.querySelectorAll('[data-testid="notebook-cell"]'));
+			return cells.some(cell =>
+				cell.contains(document.activeElement) || cell === document.activeElement
+			);
+		}, { timeout: timeoutMs });
+	}
+
+	/**
+	 * Exit edit mode by pressing Escape and waiting for focus to settle on a cell.
+	 * This ensures we're actually in selection mode before proceeding with keyboard shortcuts.
+	 */
+	async exitEditMode(): Promise<void> {
+		await test.step('Exit edit mode', async () => {
+			await this.code.driver.page.keyboard.press('Escape');
+			// Wait for focus to settle on a cell (not in Monaco editor)
+			await this.waitForFocusSettle();
+		});
+	}
+
+	/**
 	 * Get the current number of cells in the notebook
 	 */
 	private async getCellCount(): Promise<number> {
