@@ -24,7 +24,7 @@ test.describe('Large Python Notebook', {
 		const { notebooks, layouts } = app.workbench;
 
 		// open the large Python notebook and run all cells
-		await openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
+		await openDataFile(join('workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python');
 		await notebooks.runAllCells(120000);
 

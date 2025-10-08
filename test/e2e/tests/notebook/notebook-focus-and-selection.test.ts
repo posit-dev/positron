@@ -23,17 +23,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test.beforeEach(async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-
-		// Create a fresh notebook with 5 cells for each test
-		await notebooksPositron.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
-
-		// Add 5 cells with distinct content
-		await notebooksPositron.addCodeToCell(0, 'print("Cell 0")');
-		await notebooksPositron.addCodeToCell(1, 'print("Cell 1")');
-		await notebooksPositron.addCodeToCell(2, 'print("Cell 2")');
-		await notebooksPositron.addCodeToCell(3, 'print("Cell 3")');
-		await notebooksPositron.addCodeToCell(4, 'print("Cell 4")');
+		await notebooksPositron.newNotebook(5);
 		await notebooksPositron.expectCellCountToBe(5);
 	});
 
@@ -41,7 +31,7 @@ test.describe('Notebook Focus and Selection', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Keyboard behavior with notebook cells', async function ({ app }) {
+	test('Notebook keyboard behavior with cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		await test.step('Test 1: Arrow Down navigation moves focus to next cell', async () => {
@@ -92,7 +82,7 @@ test.describe('Notebook Focus and Selection', {
 			await app.code.driver.page.keyboard.press('ArrowUp');
 			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 		});
-	})
+	});
 
 	test('Editor mode behavior with notebook cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
@@ -104,7 +94,7 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true, inEditMode: true });
 			await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: false, inEditMode: false });
 			await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: false, inEditMode: false });
-			await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: false, inEditMode: false })
+			await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: false, inEditMode: false });
 
 			// Verify we can type into the editor after clicking
 			await app.code.driver.page.keyboard.type('# editor good');
@@ -148,7 +138,4 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellContentAtIndexToContain(5, 'new cell content');
 		});
 	});
-
-
-
 });

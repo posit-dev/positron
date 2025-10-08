@@ -7,6 +7,7 @@ import { Notebooks } from './notebooks';
 import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
+import { Clipboard } from './clipboard.js';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 
@@ -49,7 +50,7 @@ export class PositronNotebooks extends Notebooks {
 	cellInfoToolTipOrder = this.cellInfoToolTip.getByLabel('Execution order');
 	cellInfoToolTipCompleted = this.cellInfoToolTip.getByLabel('Execution completed');
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard) {
 		super(code, quickinput, quickaccess, hotKeys);
 	}
 
@@ -125,6 +126,20 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Create a new Positron notebook.
+	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
+	 */
+	async newNotebook(numCellsToAdd = 0): Promise<void> {
+		await this.createNewNotebook();
+		await this.expectToBeVisible();
+		if (numCellsToAdd > 0) {
+			for (let i = 0; i < numCellsToAdd; i++) {
+				await this.addCodeToCell(i, `# Cell ${i}`);
+			}
+		}
+	}
+
+	/**
 	 * @override
 	 * Action: Select a cell at the specified index.
 	 * @param cellIndex - The index of the cell to select.
@@ -180,6 +195,7 @@ export class PositronNotebooks extends Notebooks {
 	 * Action: Move the mouse away from the notebook area to close any open tooltips/popups.
 	 */
 	async moveMouseAway(): Promise<void> {
+		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.mouse.move(0, 0);
 	};
 
@@ -252,13 +268,13 @@ export class PositronNotebooks extends Notebooks {
 
 		switch (action) {
 			case 'copy':
-				await this.hotKeys.copy();
+				await this.clipboard.copy();
 				break;
 			case 'cut':
-				await this.hotKeys.cut();
+				await this.clipboard.cut();
 				break;
 			case 'paste':
-				await this.hotKeys.paste();
+				await this.clipboard.paste();
 				break;
 			case 'undo':
 				await this.hotKeys.undo();

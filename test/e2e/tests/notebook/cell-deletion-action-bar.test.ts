@@ -26,23 +26,13 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 	});
 
 	test('Cell deletion using action bar', async function ({ app, settings }) {
-		const { notebooks, notebooksPositron } = app.workbench;
+		const { notebooksPositron } = app.workbench;
 
 		// ========================================
 		// Setup: Create 6 cells with distinct content
 		// ========================================
 		await test.step(' Test Setup: Create notebook', async () => {
-			await notebooks.createNewNotebook();
-			await notebooksPositron.expectToBeVisible();
-
-			await notebooksPositron.addCodeToCell(0, '# Cell 0');
-			await notebooksPositron.addCodeToCell(1, '# Cell 1');
-			await notebooksPositron.addCodeToCell(2, '# Cell 2');
-			await notebooksPositron.addCodeToCell(3, '# Cell 3');
-			await notebooksPositron.addCodeToCell(4, '# Cell 4');
-			await notebooksPositron.addCodeToCell(5, '# Cell 5');
-
-			// Verify we have 6 cells
+			await notebooksPositron.newNotebook(6);
 			await notebooksPositron.expectCellCountToBe(6);
 		});
 
@@ -88,7 +78,7 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
 			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 3');
 			await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 5');
-		})
+		});
 
 		// ========================================
 		// Test 3: Delete last cell (cell 3, contains '# Cell 5')
@@ -107,7 +97,7 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
 			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
 			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 3');
-		})
+		});
 
 		// ========================================
 		// Test 4: Delete first cell (cell 0)
@@ -125,7 +115,7 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 			// Verify what was cell 1 is now at index 0
 			expect(await notebooksPositron.getCellContent(0)).toBe('# Cell 1');
 			expect(await notebooksPositron.getCellContent(1)).toBe('# Cell 3');
-		})
+		});
 
 		// ========================================
 		// Test 5: Delete remaining cells
@@ -143,6 +133,6 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 			// Verify we have exactly one cell remaining with the correct content
 			await notebooksPositron.expectCellCountToBe(1);
 			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 3');
-		})
+		});
 	});
 });

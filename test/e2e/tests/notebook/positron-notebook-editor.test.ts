@@ -29,7 +29,10 @@ test.describe('Positron Notebooks: Open & Save', {
 		});
 	});
 
-	test.afterEach(async function ({ hotKeys }) {
+	test.afterEach(async function ({ app, settings, hotKeys }) {
+		await app.workbench.notebooksPositron.enableFeature(settings, {
+			editor: 'default',
+		});
 		await hotKeys.closeAllEditors();
 	});
 

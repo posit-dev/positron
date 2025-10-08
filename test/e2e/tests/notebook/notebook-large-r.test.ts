@@ -23,7 +23,7 @@ test.describe('Large R Notebook', {
 		const { notebooks, layouts } = app.workbench;
 
 		// open the large R notebook and run all cells
-		await openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
+		await openDataFile(join('workspaces', 'large_r_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('R');
 		await notebooks.runAllCells(120000);
 
