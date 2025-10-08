@@ -12,13 +12,10 @@ test.use({
 
 // Not running on web due to Positron notebooks being desktop-only
 test.describe('Notebook Focus and Selection', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-			reload: true,
-		});
+		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
 	test.beforeEach(async function ({ app }) {

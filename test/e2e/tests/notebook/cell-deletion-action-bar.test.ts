@@ -10,22 +10,19 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+test.describe('Positron Notebooks: Cell Deletion Action Bar Behavior', {
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-			reload: true,
-		});
+		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Cell deletion using action bar', async function ({ app, settings }) {
+	test('Cell deletion using action bar', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// ========================================

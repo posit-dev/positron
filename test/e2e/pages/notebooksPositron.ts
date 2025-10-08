@@ -11,20 +11,6 @@ import { Clipboard } from './clipboard.js';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 
-type SettingsFixture = {
-	set: (
-		settings: Record<string, unknown>,
-		options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
-	) => Promise<void>;
-};
-
-type ConfigureNotebookEditorOptions = {
-	editor: 'positron' | 'default';
-	reload?: boolean | 'web';
-	waitMs?: number;
-};
-
-
 const DEFAULT_TIMEOUT = 10000;
 
 /**
@@ -68,8 +54,7 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async getCellContent(cellIndex: number): Promise<string> {
 		return await test.step(`Get content of cell at index: ${cellIndex}`, async () => {
-			const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
-			const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
+			const editor = this.cell.nth(cellIndex).locator('.positron-cell-editor-monaco-widget .view-lines');
 			const content = await editor.textContent() ?? '';
 			// Replace the weird ascii space with a proper space
 			return content.replace(/\u00a0/g, ' ');
@@ -105,25 +90,40 @@ export class PositronNotebooks extends Notebooks {
 	// #region ACTIONS
 
 	/**
-	 * Action: Enable the Positron Notebooks feature
-	 * @param settings - The settings fixture.
-	 * @param options - Configuration options for enabling the feature.
+	 * Action: Configure Positron notebook editor in settings.
+	 * @param settings - The settings fixture
+	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
+	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
 	 */
-	async configure(
-		settings: SettingsFixture,
-		{ editor, reload = false, waitMs = 800 }: ConfigureNotebookEditorOptions
-	): Promise<void> {
-		const associations = editor === 'positron'
-			? { '*.ipynb': 'workbench.editor.positronNotebook' }
-			: {};
+	async setNotebookEditor(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+		editor: 'positron' | 'default',
+		waitMs = 800
+	) {
+		await settings.set({
+			'positron.notebook.enabled': true,
+			'workbench.editorAssociations': editor === 'positron'
+				? { '*.ipynb': 'workbench.editor.positronNotebook' }
+				: {}
+		}, { waitMs });
+	}
 
-		await settings.set(
-			{
-				'positron.notebook.enabled': true,
-				'workbench.editorAssociations': associations,
-			},
-			{ reload, waitMs, waitForReady: true }
-		);
+	/**
+	 * Action: Enable Positron notebooks in settings and set to 'positron' editor.
+	 * @param settings - The settings fixture
+	 */
+	async enablePositronNotebooks(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+	) {
+		const config: Record<string, unknown> = {
+			'positron.notebook.enabled': true,
+			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
+		};
+		await settings.set(config, { reload: true });
 	}
 
 	/**
@@ -249,6 +249,7 @@ export class PositronNotebooks extends Notebooks {
 
 			if (run) {
 				await this.runCellButtonAtIndex(cellIndex).click();
+				await expect(this.code.driver.page.locator('.notification-toast').getByText(/Starting.*interpreter/)).not.toBeVisible({ timeout: 30000 });
 
 				if (waitForSpinner) {
 					const spinner = this.spinnerAtIndex(cellIndex);

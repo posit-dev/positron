@@ -11,14 +11,11 @@ test.use({
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
 test.describe('Postiron Notebooks: Cell Undo-Redo Behavior', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-			reload: true,
-		});
+		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
 	test.afterEach(async function ({ hotKeys }) {

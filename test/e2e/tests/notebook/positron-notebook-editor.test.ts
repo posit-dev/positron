@@ -14,23 +14,19 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Open & Save', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'default',
-			reload: true,
-		});
+		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
 	test.beforeEach(async function ({ app, settings }) {
 		// Reset editor associations to default state before each test
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'default',
-		});
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default')
 	});
 
 	test.afterEach(async function ({ app, settings, hotKeys }) {
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
 		await hotKeys.closeAllEditors();
 	});
 
@@ -44,9 +40,7 @@ test.describe('Positron Notebooks: Open & Save', {
 
 		// Configure Positron as the default notebook editor
 		// This sets workbench.editorAssociations to map *.ipynb files to the Positron notebook editor
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-		});
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
 		// Verify that newly opened notebooks now use the Positron editor
 		// The same notebook file should now open with the Positron interface instead of VS Code
@@ -56,9 +50,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		// Reset to default configuration and verify VS Code editor is used again
 		// Close all editors first to ensure a clean state for the next test
 		await hotKeys.closeAllEditors();
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'default',
-		});
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
 
 		// Confirm that removing the association restores VS Code notebook editor
 		// This ensures the configuration change is properly applied and the fallback works
@@ -71,9 +63,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-		});
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
 		// Create a new untitled notebook
 		await notebooks.createNewNotebook();
@@ -105,9 +95,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-		});
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
 		// Create a new notebook (which starts dirty)
 		await notebooks.createNewNotebook();

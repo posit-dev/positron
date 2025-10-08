@@ -10,14 +10,11 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Execution Tooltip', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.configure(settings, {
-			editor: 'positron',
-			reload: true,
-		});
+		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
 	test.afterEach(async function ({ app, hotKeys }) {
