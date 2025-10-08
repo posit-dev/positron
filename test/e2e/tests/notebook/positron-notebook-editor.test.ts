@@ -120,7 +120,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		// Verify that the Positron notebook is visible
 		await notebooksPositron.expectToBeVisible();
 
-		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying to prevent)\
+		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying
 		const positronNotebookElements = app.code.driver.page.locator('.positron-notebook');
 		const vscodeNotebookElements = app.code.driver.page.locator('.notebook-editor');
 

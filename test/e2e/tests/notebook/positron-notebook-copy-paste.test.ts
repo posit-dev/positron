@@ -5,7 +5,6 @@
 
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
-import { PositronNotebooks } from '../../pages/notebooksPositron.js';
 
 test.use({
 	suiteId: __filename
@@ -28,7 +27,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		const { notebooksPositron } = app.workbench;
 
 		// ========================================
-		// Setup: Create notebook with 5 cells and distinct content
+		// Setup: Create 5 cells with distinct content
 		// ========================================
 		await test.step('Test Setup: Create notebook and add cells', async () => {
 			await notebooksPositron.newNotebook(5);
