@@ -57,7 +57,14 @@ export class PositronNotebooks extends Notebooks {
 	// #region GETTERS
 
 	/**
-	 * Get cell content for identification
+	 * Get cell count.
+	 */
+	async getCellCount(): Promise<number> {
+		return this.cell.count();
+	}
+
+	/**
+	 * Get cell content at specified index.
 	 */
 	async getCellContent(cellIndex: number): Promise<string> {
 		const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
@@ -69,7 +76,6 @@ export class PositronNotebooks extends Notebooks {
 
 	/**
 	 * Get the index of the currently focused cell.
-	 * @returns The index of the focused cell, or null if no cell is focused.
 	 */
 	async getFocusedCellIndex(): Promise<number | null> {
 		const cells = this.cell;
@@ -217,7 +223,7 @@ export class PositronNotebooks extends Notebooks {
 	): Promise<Locator> {
 		const { delay = 0, run = false, waitForSpinner = false, waitForPopup = false } = options ?? {};
 		return await test.step(`Add code and run cell ${cellIndex}`, async () => {
-			const currentCellCount = await this.cell.count();
+			const currentCellCount = await this.getCellCount();
 
 			if (cellIndex >= currentCellCount) {
 				if (cellIndex > currentCellCount) {
@@ -299,7 +305,7 @@ export class PositronNotebooks extends Notebooks {
 	async deleteCellWithActionBar(cellIndex = 0): Promise<void> {
 		await test.step(`Delete cell ${cellIndex} using action bar`, async () => {
 			// Get the current cell count before deletion
-			const initialCount = await this.cell.count();
+			const initialCount = await this.getCellCount();
 
 			// Click on the cell to make the action bar visible
 			await this.cell.nth(cellIndex).click();

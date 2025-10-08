@@ -120,14 +120,14 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.selectCellAtIndex(4);
 
 			// Get initial cell count
-			const initialCount = await notebooksPositron.cell.count();
+			const initialCount = await notebooksPositron.getCellCount();
 			expect(initialCount).toBe(5);
 
 			// Press Shift+Enter to add a new cell below
 			await app.code.driver.page.keyboard.press('Shift+Enter');
 
 			// Verify new cell was added
-			const newCount = await notebooksPositron.cell.count();
+			const newCount = await notebooksPositron.getCellCount();
 			expect(newCount).toBe(6);
 
 			// Verify the NEW cell (index 5) is now in edit mode with focus

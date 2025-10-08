@@ -147,7 +147,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// ========================================
 		await test.step('Verify other cells shifted down correctly', async () => {
 			// Delete cells until only one remains
-			while (await notebooksPositron.cell.count() > 1) {
+			while (await notebooksPositron.getCellCount() > 1) {
 				await notebooksPositron.selectCellAtIndex(0);
 				await notebooksPositron.performCellAction('cut');
 			}
@@ -159,7 +159,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.performCellAction('cut');
 
 			// Check if notebook can be empty (Positron may allow 0 cells)
-			const finalCount = await notebooksPositron.cell.count();
+			const finalCount = await notebooksPositron.getCellCount();
 			expect(finalCount).toBeLessThanOrEqual(1);
 		});
 	});

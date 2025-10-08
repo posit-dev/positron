@@ -122,8 +122,8 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 		// ========================================
 		await test.step('Test 5: Delete remaining cells', async () => {
 			// Delete until only one cell remains
-			while (await notebooksPositron.cell.count() > 1) {
-				const currentCount = await notebooksPositron.cell.count();
+			while (await notebooksPositron.getCellCount() > 1) {
+				const currentCount = await notebooksPositron.getCellCount();
 				await notebooksPositron.deleteCellWithActionBar(0);
 
 				// Verify count decreased
