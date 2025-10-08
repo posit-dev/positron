@@ -579,6 +579,18 @@ export class PositronNotebooks extends Notebooks {
 			}
 		);
 	}
+
+	/**
+	 * Verify: the cell at the specified index has the expected number of lines.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param numLines - The expected number of lines in the cell.
+	 */
+	async expectCellToHaveLineCount({ cellIndex, numLines }): Promise<void> {
+		await test.step(`Expect cell at index ${cellIndex} to have ${numLines} lines`, async () => {
+			const viewLines = this.cell.nth(cellIndex).locator('.view-line');
+			await expect(viewLines).toHaveCount(numLines, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
 	// #endregion
 }
 

@@ -115,16 +115,10 @@ test.describe('Notebook Focus and Selection', {
 		});
 
 		await test.step('Test 3: Shift+Enter on last cell creates new cell and enters edit mode', async () => {
-			// Select last cell (index 4)
+			// Verify pressing Shift+Enter adds a new cell below
 			await notebooksPositron.selectCellAtIndex(4);
-
-			// Get initial cell count
 			await notebooksPositron.expectCellCountToBe(5);
-
-			// Press Shift+Enter to add a new cell below
 			await keyboard.press('Shift+Enter');
-
-			// Verify new cell was added
 			await notebooksPositron.expectCellCountToBe(6);
 
 			// Verify the NEW cell (index 5) is now in edit mode with focus
@@ -135,54 +129,37 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellContentAtIndexToContain(5, 'new cell content');
 		});
 
-		// await test.step('Enter key in edit mode adds newline within cell', async () => {
-		// 	const lineText = '# Cell 3';
+		await test.step('Enter key in edit mode adds newline within cell', async () => {
+			const lineText = '# Cell 3';
+			const numCells = 6;
 
+			// Start with 6 cells
+			await notebooksPositron.expectCellCountToBe(numCells);
 
-		// 	// Select cell 1 and enter edit mode
-		// 	await notebooksPositron.selectCellAtIndex(3);
-		// 	// await keyboard.press('Enter');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
-		// 	await notebooksPositron.expectCellContentAtIndexToBe(3, lineText);
+			// Go into edit mode in cell 3
+			await notebooksPositron.selectCellAtIndex(3);
+			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
+			await notebooksPositron.expectCellContentAtIndexToBe(3, lineText);
 
-		// 	// 	// // Get cell and editor locators for line counting
-		// 	// 	// const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(1);
-		// 	// 	// const editor = cell.locator('.positron-cell-editor-monaco-widget');
-		// 	const viewLines2 = notebooksPositron.cell.nth(3).locator('positron-cell-editor-monaco-widget');
-		// 	const viewLines = notebooksPositron.editorAtIndex(3).locator('.view-line');
+			// Position cursor in the middle of the cells contents to avoid any trailing newline trimming issues
+			await keyboard.press('Home');
+			const middleIndex = Math.floor(lineText.length / 2);
+			for (let i = 0; i < middleIndex; i++) { // move to middle of line
+				await notebooksPositron.editorAtIndex(3).press('ArrowRight');
+			}
 
-		// 	// 	// Position cursor in the middle of the cells contents to avoid any trailing newline trimming issues
-		// 	await keyboard.press('Home');
-		// 	const middleIndex = Math.floor(lineText.length / 2);
-		// 	for (let i = 0; i < middleIndex; i++) { // move to middle of line
-		// 		await notebooksPositron.editorAtIndex(3).press('ArrowRight');
-		// 	}
+			// Verify the content was splits into two lines
+			await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 3, numLines: 1 });
+			await app.code.driver.page.keyboard.press('Enter');
+			await notebooksPositron.expectCellToHaveLineCount({ cellIndex: 3, numLines: 2 });
+			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
 
-		// 	// 	// Sanity check: Get initial line count before pressing Enter
-		// 	const initialLineCount = await viewLines.count();
-
-		// 	// 	// Press Enter to split the line in the middle
-		// 	await app.code.driver.page.keyboard.press('Enter');
-		// 	// 	await app.workbench.notebooksPositron.waitForFocusSettle(200);
-
-		// 	// 	// Verify the line count increased by counting Monaco's .view-line elements
-		// 	// 	// Note: getCellContent uses .textContent() which strips newlines, so we count line elements directly
-		// 	const lineCount = await viewLines.count();
-		// 	const lineCount2 = await viewLines2.count();
-
-		// 	// 	// Line count should have increased by 1 after pressing Enter
-		// 	expect(lineCount).toBe(initialLineCount + 1);
-
-		// 	// 	// Verify we're still in the same cell (cell count unchanged)
-		// 	await notebooksPositron.expectCellCountToBe(5);
-
-		// 	// 	// Verify we're still in edit mode in cell 1
-		// 	await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
-		// 	// });
-		// });
+			// Verify we still have the same number of cells we started with
+			await notebooksPositron.expectCellCountToBe(numCells);
+		});
 	});
 
-	test('Navigation between notebooks and default cell selection', async function ({ app }) {
+	test('Notebook navigation and default cell selection', async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
