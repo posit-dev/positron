@@ -9,26 +9,10 @@ import { ColumnSchema } from '../../languageRuntime/common/positronDataExplorerC
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 
 /**
- * Constants.
- */
-const OVERSCAN_FACTOR = 3;
-
-/**
- * Creates an array from an index range.
- * @param startIndex The start index.
- * @param endIndex The end index.
- * @returns An array with the specified index range.
- */
-const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
-	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
-
-/**
  * CacheUpdateDescriptor interface.
  */
 interface CacheUpdateDescriptor {
-	searchText?: string;
-	firstColumnIndex: number;
-	visibleColumns: number;
+	columnIndices: number[];
 }
 
 /**
@@ -46,11 +30,6 @@ export class ColumnSchemaCache extends Disposable {
 	 * Gets or sets the cache update descriptor.
 	 */
 	private _cacheUpdateDescriptor?: CacheUpdateDescriptor;
-
-	/**
-	 * The search text.
-	 */
-	private _searchText?: string;
 
 	/**
 	 * Gets or sets the columns.
@@ -111,16 +90,63 @@ export class ColumnSchemaCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Updates the cache.
-	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 * Updates the cache with the specified column indices.
+	 * @param param0 The column indices.
 	 * @returns A Promise<void> that resolves when the update is complete.
 	 */
 	async update(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
-		// Update the cache.
-		await this.doUpdateCache(cacheUpdateDescriptor);
+		// If there are no column indices, return.
+		if (cacheUpdateDescriptor.columnIndices.length === 0) {
+			return;
+		}
+
+		// If a cache update is already in progress, set the pending cache update descriptor and
+		// return. This allows cache updates that are happening in rapid succession to overwrite one
+		// another so that only the last one gets processed. (For example, this happens when a user
+		// drags a scrollbar rapidly.)
+		if (this._updatingCache) {
+			this._cacheUpdateDescriptor = cacheUpdateDescriptor;
+			return;
+		}
+
+		// Set the updating cache flag.
+		this._updatingCache = true;
+
+		// Get the size of the data.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
+
+		// Set the column indices of the column schema we need to load.
+		const columnIndices = [];
+		for (const index of cacheUpdateDescriptor.columnIndices) {
+			if (!this._columnSchemaCache.has(index)) {
+				columnIndices.push(index);
+			}
+		}
+
+		// Load the column schema.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Cache the column schema that was returned.
+		for (const columnSchema of tableSchema.columns) {
+			this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
+		}
 
 		// Fire the onDidUpdateCache event.
 		this._onDidUpdateCacheEmitter.fire();
+
+		// Clear the updating cache flag.
+		this._updatingCache = false;
+
+		// If there is a pending cache update descriptor, update the cache for it.
+		if (this._cacheUpdateDescriptor) {
+			// Get the pending cache update descriptor and clear it.
+			const pendingCacheUpdateDescriptor = this._cacheUpdateDescriptor;
+			this._cacheUpdateDescriptor = undefined;
+
+			// Update the cache for the pending cache update descriptor.
+			await this.update(pendingCacheUpdateDescriptor);
+		}
 	}
 
 	/**
@@ -134,139 +160,4 @@ export class ColumnSchemaCache extends Disposable {
 
 	//#endregion Public Methods
 
-	//#region Private Methods
-
-	/**
-	 * Updates the cache.
-	 * @param cacheUpdateDescriptor The cache update descriptor.
-	 */
-	private async doUpdateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
-		// If a cache update is already in progress, set the pending cache update descriptor and
-		// return. This allows cache updates that are happening in rapid succession to overwrite one
-		// another so that only the last one gets processed. (For example, this happens when a user
-		// drags a scrollbar rapidly.)
-		if (this._updatingCache) {
-			this._cacheUpdateDescriptor = cacheUpdateDescriptor;
-			return;
-		}
-
-		// Set the updating cache flag.
-		this._updatingCache = true;
-
-		// Destructure the cache update descriptor.
-		const {
-			searchText,
-			firstColumnIndex,
-			visibleColumns,
-		} = cacheUpdateDescriptor;
-
-		// If the search text has changed, clear the column schema cache.
-		if (searchText !== this._searchText) {
-			this._columnSchemaCache.clear();
-		}
-
-		this._searchText = searchText;
-
-		// // Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getBackendState();
-		this._columns = tableState.table_shape.num_columns;
-
-		// Set the start column index and the end column index of the columns to cache.
-		const startColumnIndex = Math.max(
-			firstColumnIndex - (visibleColumns * OVERSCAN_FACTOR),
-			0
-		);
-		const endColumnIndex = Math.min(
-			startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR),
-			this._columns - 1
-		);
-
-		// Build an array of the column indices to cache.
-		const columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-
-		// Build an array of the column schema indices that need to be cached.
-		const columnSchemaIndices = columnIndices.filter(columnIndex =>
-			!this._columnSchemaCache.has(columnIndex)
-		);
-
-		// Initialize the cache updated flag.
-		let cacheUpdated = false;
-
-		if (!searchText) {
-			// Load the column schema for the specified column indices.
-			const tableSchemaResult = await this._dataExplorerClientInstance.getSchema(columnSchemaIndices);
-
-			// Set the columns.
-			this._columns = tableSchemaResult.columns.length;
-
-			// Update the column schema cache, overwriting any entries we already have cached.
-			for (let i = 0; i < tableSchemaResult.columns.length; i++) {
-				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaResult.columns[i]);
-			}
-		} else {
-			// If there are column schema indices that need to be cached, cache them.
-			if (columnSchemaIndices.length) {
-				// Get the schema.
-				const tableSchemaSearchResult = await this._dataExplorerClientInstance.searchSchema({
-					searchText,
-					startIndex: columnSchemaIndices[0],
-					numColumns: columnSchemaIndices[columnSchemaIndices.length - 1] -
-						columnSchemaIndices[0] + 1
-				});
-
-				// Set the columns.
-				this._columns = tableSchemaSearchResult.matching_columns;
-
-				// Update the column schema cache, overwriting any entries we already have cached.
-				for (let i = 0; i < tableSchemaSearchResult.columns.length; i++) {
-					this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaSearchResult.columns[i]);
-				}
-
-				// Update the cache updated flag.
-				cacheUpdated = true;
-			}
-		}
-
-		// If there are column schema indices that need to be cached, cache them.
-		if (columnSchemaIndices.length) {
-			// Get the schema.
-			const tableSchemaSearchResult = await this._dataExplorerClientInstance.searchSchema({
-				searchText,
-				startIndex: columnSchemaIndices[0],
-				numColumns: columnSchemaIndices[columnSchemaIndices.length - 1] -
-					columnSchemaIndices[0] + 1
-			});
-
-			// Set the columns.
-			this._columns = tableSchemaSearchResult.matching_columns;
-
-			// Update the column schema cache, overwriting any entries we already have cached.
-			for (let i = 0; i < tableSchemaSearchResult.columns.length; i++) {
-				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaSearchResult.columns[i]);
-			}
-
-			// Update the cache updated flag.
-			cacheUpdated = true;
-		}
-
-		// If the cache was updated, fire the onDidUpdateCache event.
-		if (cacheUpdated) {
-			this._onDidUpdateCacheEmitter.fire();
-		}
-
-		// Clear the updating cache flag.
-		this._updatingCache = false;
-
-		// If there is a pending cache update descriptor, update the cache for it.
-		if (this._cacheUpdateDescriptor) {
-			// Get the pending cache update descriptor and clear it.
-			const pendingCacheUpdateDescriptor = this._cacheUpdateDescriptor;
-			this._cacheUpdateDescriptor = undefined;
-
-			// Update the cache for the pending cache update descriptor.
-			await this.doUpdateCache(pendingCacheUpdateDescriptor);
-		}
-	}
-
-	//#endregion Private Methods
 }
