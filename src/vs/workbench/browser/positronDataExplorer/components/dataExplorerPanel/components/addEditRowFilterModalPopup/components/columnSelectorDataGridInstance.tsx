@@ -278,7 +278,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			await this.updateLayoutEntries()
 			await this.fetchData();
 
-			// select the first available row after fetching so that users cat hit "enter"
+			// select the first available row after fetching so that users can hit "enter"
 			// to make an immediate confirmation on what they were searching for
 			if (this.rows > 0) {
 				this.showCursor();
