@@ -6,6 +6,7 @@
 import path from 'path';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
+import { PositronNotebooks } from '../../pages/notebooksPositron.js';
 
 test.use({
 	suiteId: __filename
@@ -133,6 +134,52 @@ test.describe('Notebook Focus and Selection', {
 			await keyboard.type('new cell content');
 			await notebooksPositron.expectCellContentAtIndexToContain(5, 'new cell content');
 		});
+
+		// await test.step('Enter key in edit mode adds newline within cell', async () => {
+		// 	const lineText = '# Cell 3';
+
+
+		// 	// Select cell 1 and enter edit mode
+		// 	await notebooksPositron.selectCellAtIndex(3);
+		// 	// await keyboard.press('Enter');
+		// 	await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: true });
+		// 	await notebooksPositron.expectCellContentAtIndexToBe(3, lineText);
+
+		// 	// 	// // Get cell and editor locators for line counting
+		// 	// 	// const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(1);
+		// 	// 	// const editor = cell.locator('.positron-cell-editor-monaco-widget');
+		// 	const viewLines2 = notebooksPositron.cell.nth(3).locator('positron-cell-editor-monaco-widget');
+		// 	const viewLines = notebooksPositron.editorAtIndex(3).locator('.view-line');
+
+		// 	// 	// Position cursor in the middle of the cells contents to avoid any trailing newline trimming issues
+		// 	await keyboard.press('Home');
+		// 	const middleIndex = Math.floor(lineText.length / 2);
+		// 	for (let i = 0; i < middleIndex; i++) { // move to middle of line
+		// 		await notebooksPositron.editorAtIndex(3).press('ArrowRight');
+		// 	}
+
+		// 	// 	// Sanity check: Get initial line count before pressing Enter
+		// 	const initialLineCount = await viewLines.count();
+
+		// 	// 	// Press Enter to split the line in the middle
+		// 	await app.code.driver.page.keyboard.press('Enter');
+		// 	// 	await app.workbench.notebooksPositron.waitForFocusSettle(200);
+
+		// 	// 	// Verify the line count increased by counting Monaco's .view-line elements
+		// 	// 	// Note: getCellContent uses .textContent() which strips newlines, so we count line elements directly
+		// 	const lineCount = await viewLines.count();
+		// 	const lineCount2 = await viewLines2.count();
+
+		// 	// 	// Line count should have increased by 1 after pressing Enter
+		// 	expect(lineCount).toBe(initialLineCount + 1);
+
+		// 	// 	// Verify we're still in the same cell (cell count unchanged)
+		// 	await notebooksPositron.expectCellCountToBe(5);
+
+		// 	// 	// Verify we're still in edit mode in cell 1
+		// 	await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
+		// 	// });
+		// });
 	});
 
 	test('Navigation between notebooks and default cell selection', async function ({ app }) {

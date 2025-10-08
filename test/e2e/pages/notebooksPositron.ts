@@ -18,9 +18,9 @@ const DEFAULT_TIMEOUT = 10000;
  */
 export class PositronNotebooks extends Notebooks {
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
-	private cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
+	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
-	private editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
