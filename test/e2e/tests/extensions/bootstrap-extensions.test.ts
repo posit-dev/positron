@@ -53,7 +53,7 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
+async function getInstalledExtensions(extensionsDir?: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
 	const installed = new Map<string, string>();
 	if (!extensionsDir || !fs.existsSync(extensionsDir)) { return installed; }
 
@@ -94,7 +94,7 @@ async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: 
 	return installed;
 }
 
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>) {
+async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath?: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 
