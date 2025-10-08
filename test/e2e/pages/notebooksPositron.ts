@@ -19,17 +19,17 @@ export class PositronNotebooks extends Notebooks {
 	positronNotebook: Locator;
 
 	// Selector constants for Positron notebook elements
-	private static readonly RUN_CELL_LABEL = /execute cell/i;
-	private static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
-	private static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
-	private static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
-	private static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
-	private static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
-	private static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
-	private static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
-	private static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
-	private static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
-	private static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
+	public static readonly RUN_CELL_LABEL = /execute cell/i;
+	public static readonly NOTEBOOK_CELL_SELECTOR = '[data-testid="notebook-cell"]';
+	public static readonly NEW_CODE_CELL_LABEL = /new code cell/i;
+	public static readonly MONACO_EDITOR_SELECTOR = '.positron-cell-editor-monaco-widget textarea';
+	public static readonly CELL_EXECUTING_LABEL = /cell is executing/i;
+	public static readonly CELL_EXECUTION_INFO_LABEL = /cell execution info/i;
+	public static readonly NOTEBOOK_KERNEL_STATUS_TESTID = 'notebook-kernel-status';
+	public static readonly DELETE_CELL_LABEL = /delete the selected cell/i;
+	public static readonly POSITRON_NOTEBOOK_SELECTOR = '.positron-notebook';
+	public static readonly CELL_STATUS_SYNC_SELECTOR = '.cell-status-item-has-runnable .codicon-sync';
+	public static readonly DETECTING_KERNELS_TEXT = /detecting kernels/i;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -61,10 +61,71 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Wait for at least one cell to exist in the DOM
+	 */
+	async waitForCellsInDOM(timeoutMs: number = 2000): Promise<void> {
+		await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).first().waitFor({
+			state: 'visible',
+			timeout: timeoutMs
+		});
+	}
+
+	/**
+	 * Wait for focus to settle on a notebook cell
+	 * Waits until any notebook cell has focus (or until timeout)
+	 */
+	async waitForFocusSettle(timeoutMs: number = 2000): Promise<void> {
+		const page = this.code.driver.page;
+
+		// First, ensure at least one cell exists in the DOM
+		await this.waitForCellsInDOM(timeoutMs);
+
+		// Now wait for one of them to have focus
+		await page.waitForFunction(() => {
+			const cells = Array.from(document.querySelectorAll('[data-testid="notebook-cell"]'));
+			return cells.some(cell =>
+				cell.contains(document.activeElement) || cell === document.activeElement
+			);
+		}, { timeout: timeoutMs });
+	}
+
+	/**
+	 * Exit edit mode by pressing Escape and waiting for focus to leave the Monaco editor.
+	 * This ensures we're actually in selection mode before proceeding with keyboard shortcuts.
+	 */
+	async exitEditMode(): Promise<void> {
+		await test.step('Exit edit mode', async () => {
+			await this.code.driver.page.keyboard.press('Escape');
+
+			// Wait for focus to leave the Monaco editor textarea AND settle on a cell
+			// This is critical for ensuring keyboard shortcuts work correctly
+			await this.code.driver.page.waitForFunction(() => {
+				const activeElement = document.activeElement;
+
+				// Check if focus is on a Monaco editor textarea (edit mode)
+				const isMonacoTextarea = activeElement?.classList.contains('inputarea') &&
+					activeElement?.closest('.monaco-editor') !== null;
+
+				// Check if focus is on a notebook cell or its focusable container
+				const isOnCell = activeElement?.closest('[data-testid="notebook-cell"]') !== null;
+
+				// We want to wait until:
+				// 1. Focus is NOT in Monaco editor textarea
+				// 2. Focus IS on a cell (somewhere)
+				return !isMonacoTextarea && isOnCell;
+			}, { timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
 	 * Get the current number of cells in the notebook
 	 */
 	private async getCellCount(): Promise<number> {
 		return await this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count();
+	}
+
+	async expectCellCount(expectedCount: number, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await expect(this.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR)).toHaveCount(expectedCount, { timeout });
 	}
 
 	/**
