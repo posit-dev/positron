@@ -359,8 +359,20 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 		}
 
+		// Mark models as default, ensuring only one default per provider
+		let hasDefault = false;
+		for (let i = 0; i < modelListing.length; i++) {
+			const model = modelListing[i];
+			if (!hasDefault && this.isDefaultUserModel(model.id, model.name)) {
+				modelListing[i] = { ...model, isDefault: true };
+				hasDefault = true;
+			} else {
+				modelListing[i] = { ...model, isDefault: false };
+			}
+		}
+
 		// If no models match the default ID, make the first model the default.
-		if (modelListing.length > 0 && !modelListing.some(m => m.isDefault)) {
+		if (modelListing.length > 0 && !hasDefault) {
 			modelListing[0] = {
 				...modelListing[0],
 				isDefault: true,
