@@ -110,6 +110,7 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 	private _onDidAddNotebookInstance(instance: IPositronNotebookInstance): void {
 		this._instanceListeners.set(instance.id, combinedDisposable(
 			// Update state when the notebook text model changes
+			// Seems to fire when the notebook editor becomes visible and active
 			autorun(reader => {
 				instance.textModel.read(reader);
 				this._updateState();
