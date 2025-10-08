@@ -3351,11 +3351,18 @@ class LayoutStateModel extends Disposable {
 			this.setRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN, false);
 		}
 
+		// --- Start Positron ---
+		// We disable the restriction below since we use the auxiliary bar a lot
+		// more in Positron and want the default sidebar/aux bar sizes to match
+		// those of our default stacked layout regardless of window size.
+		/*
 		// Restrict auxiliary bar size in case of small window dimensions
 		if (this.isNew[StorageScope.WORKSPACE] && configuration.mainContainerDimension.width <= DEFAULT_WORKSPACE_WINDOW_DIMENSIONS.width) {
 			this.setInitializationValue(LayoutStateKeys.SIDEBAR_SIZE, Math.min(300, configuration.mainContainerDimension.width / 4));
 			this.setInitializationValue(LayoutStateKeys.AUXILIARYBAR_SIZE, Math.min(300, configuration.mainContainerDimension.width / 4));
 		}
+		*/
+		// --- End Positron ---
 	}
 
 	private applyAuxiliaryBarMaximizedOverride(): void {
