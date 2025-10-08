@@ -18,6 +18,7 @@ import { DataExplorerClientInstance } from '../../../../../../../services/langua
  * Constants.
  */
 const ROW_HEIGHT = 26;
+const OVERSCAN_FACTOR = 3
 
 /**
  * ColumnSelectorDataGridInstance class.
@@ -122,47 +123,28 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		);
 
 		// Set the column layout entries. There is always one column.
+		// The single column contains all the column names.
 		this._columnLayoutManager.setEntries(1);
 
 		// Set the row layout entries.
 		this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
-		/**
-		 * Updates the data grid instance.
-		 * @param backendState The backend state, if known; otherwise, undefined.
-		 */
-		const updateDataGridInstance = async (backendState?: BackendState) => {
-			// Get the backend state, if it was not supplied.
-			if (!backendState) {
-				backendState = await this._dataExplorerClientInstance.getBackendState();
-			}
-
-			// Update the backend state.
-			this._backendState = backendState;
-
-			// Set the layout entries in the row layout manager.
-			this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
-
-			// Scroll to the top.
-			await this.setScrollOffsets(0, 0);
-		};
-
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () =>
 			// Update the data grid instance.
-			updateDataGridInstance()
+			this.updateLayoutEntries()
 		));
 
 		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () =>
 			// Update the data grid instance.
-			updateDataGridInstance()
+			this.updateLayoutEntries()
 		));
 
 		// Add the onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState =>
 			// Update the data grid instance.
-			updateDataGridInstance(backendState)
+			this.updateLayoutEntries(backendState)
 		));
 
 		// Add the onDidUpdateCache event handler.
@@ -219,11 +201,9 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	override async fetchData() {
 		const rowDescriptor = this.firstRow;
 		if (rowDescriptor) {
-			await this._columnSchemaCache.update({
-				searchText: this._searchText,
-				firstColumnIndex: rowDescriptor.rowIndex,
-				visibleColumns: this.screenRows
-			});
+			// Get the layout indices for visible data.
+			const columnIndices = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR);
+			await this._columnSchemaCache.update({ columnIndices });
 		}
 	}
 
@@ -295,6 +275,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 			// Set the search text and fetch data.
 			this._searchText = searchText;
+			await this.updateLayoutEntries()
 			await this.fetchData();
 
 			// select the first available row after fetching so that users cat hit "enter"
@@ -307,4 +288,27 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	* Updates the layout entries to render.
+	* @param backendState The backend state, if known; otherwise, undefined.
+	*/
+	private async updateLayoutEntries(backendState?: BackendState) {
+		if (!this._searchText) {
+			// Get the backend state, if it was not supplied.
+			if (!backendState) {
+				backendState = await this._dataExplorerClientInstance.getBackendState();
+			}
+			this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
+		} else {
+			const searchResults = await this._dataExplorerClientInstance.searchSchema2({
+				searchText: this._searchText,
+			});
+			this._rowLayoutManager.setEntries(searchResults.matches.length, undefined, searchResults.matches);
+		}
+	}
+
+	//#endregion Private Methods
 }
