@@ -354,7 +354,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.contextManager = this._register(
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
 		);
-		this._positronNotebookService.registerInstance(this);
 
 		this.selectionStateMachine = this._register(
 			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
@@ -374,6 +373,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(this.onDidChangeContent(() => {
 			this._syncCells();
 		}));
+
+		// Register once construction is complete
+		this._positronNotebookService.registerInstance(this);
 	}
 
 	override dispose() {

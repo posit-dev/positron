@@ -235,8 +235,8 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(extHostDelta));
 
 		// Second, update main thread state
-		removedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceRemoved, this);
-		addedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceAdded, this);
+		removedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceRemoved, this._mainThreadEditors);
+		addedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceAdded, this._mainThreadEditors);
 	}
 
 	private _toNotebookEditorAddData(instance: MainThreadPositronNotebookInstance): INotebookEditorAddData {
