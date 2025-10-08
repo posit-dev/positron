@@ -21,6 +21,11 @@ import { IExtensionService, isProposedApiEnabled } from '../../../services/exten
 import { ExtensionsRegistry } from '../../../services/extensions/common/extensionsRegistry.js';
 import { ChatContextKeys } from './chatContextKeys.js';
 
+// --- Start Positron ---
+import { match } from '../../../../base/common/glob.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
+
 export const enum ChatMessageRole {
 	System,
 	User,
@@ -369,6 +374,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 	readonly onDidChangeLanguageModels: Event<void> = this._onLanguageModelChange.event;
 
 	constructor(
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -489,6 +497,30 @@ export class LanguageModelsService implements ILanguageModelsService {
 			// Mark the end of initial setup since we have a stored provider
 			this._isInitialSetup = false;
 		}
+
+		// Listen for changes to the filterModels configuration
+		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('positron.assistant.filterModels')) {
+				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
+				// Re-resolve all registered providers to apply new filters
+				const allVendors = Array.from(this._vendors.keys());
+				if (allVendors.length > 0) {
+					this.resolveLanguageModels(allVendors, true).then(() => {
+						// if the current provider is now filtered out, switch to another available provider
+						const currentProvider = this._currentProvider;
+						const availableProviders = this.getLanguageModelProviders();
+						if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
+							this._logService.trace('[LM] Current provider was filtered out, switching to next available', currentProvider.id);
+							if (availableProviders.length > 0) {
+								this.currentProvider = availableProviders[0];
+							} else {
+								this.currentProvider = undefined;
+							}
+						}
+					});
+				}
+			}
+		}));
 		// --- End Positron ---
 	}
 
@@ -616,14 +648,35 @@ export class LanguageModelsService implements ILanguageModelsService {
 			}
 			try {
 				const modelsAndIdentifiers = await provider.prepareLanguageModelChat({ silent }, CancellationToken.None);
+				const includedModels = [];
 				for (const modelAndIdentifier of modelsAndIdentifiers) {
 					if (this._modelCache.has(modelAndIdentifier.identifier)) {
 						this._logService.warn(`[LM] Model ${modelAndIdentifier.identifier} is already registered. Skipping.`);
 						continue;
 					}
+
+					// --- Start Positron ---
+					// Get and apply LLM allow filters from configuration.
+					const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
+					this._logService.trace('[LM] Applying model filters:', config.filterModels);
+					if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
+						match(pattern, modelAndIdentifier.metadata.id) ||
+						match(pattern, modelAndIdentifier.metadata.name))
+					) {
+						continue;
+					}
+					includedModels.push(modelAndIdentifier.identifier);
+					// --- End Positron ---
+
 					this._modelCache.set(modelAndIdentifier.identifier, modelAndIdentifier.metadata);
 				}
 				this._logService.trace(`[LM] Resolved language models for vendor ${vendor}`, modelsAndIdentifiers);
+
+				// --- Start Positron ---
+				if (modelsAndIdentifiers.length > 0 && modelsAndIdentifiers.length !== includedModels.length) {
+					this._logService.trace(`[LM] Filtered out ${modelsAndIdentifiers.length - includedModels.length} models by configuration for vendor ${vendor}. Included models:`, includedModels);
+				}
+				// --- End Positron ---
 			} catch (error) {
 				this._logService.error(`[LM] Error resolving language models for vendor ${vendor}:`, error);
 			}

@@ -19,6 +19,10 @@ import { TestStorageService } from '../../../../test/common/workbenchTestService
 import { Event } from '../../../../../base/common/event.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 
+// --- Start Positron ---
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- End Positron ---
+
 suite('LanguageModels', function () {
 
 	let languageModels: LanguageModelsService;
@@ -29,6 +33,13 @@ suite('LanguageModels', function () {
 	setup(function () {
 
 		languageModels = new LanguageModelsService(
+			// --- Start Positron ---
+			new TestConfigurationService({
+				'positron.assistant': {
+					filterModels: []
+				}
+			}),
+			// --- End Positron ---
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					activationEvents.add(name);
