@@ -14,7 +14,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 			reload: true,
 		});
@@ -27,7 +27,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 		await notebooksPositron.expectNoActiveSpinners();
 
 		await hotKeys.closeAllEditors();
-	})
+	});
 
 	test('Cell Execution Tooltip - Basic Functionality', async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
@@ -36,7 +36,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			await notebooks.createNewNotebook();
 			await notebooksPositron.expectCellCountToBe(1); // Important for CI stability
 			await notebooksPositron.selectAndWaitForKernel('Python');
-		})
+		});
 
 		// ========================================
 		// Cell 0: Basic popup display with successful execution
@@ -88,7 +88,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 
 			// Verify auto-close behavior
 			await notebooksPositron.moveMouseAway();
-			await notebooksPositron.expectSpinnerAtIndex(2, false)
+			await notebooksPositron.expectSpinnerAtIndex(2, false);
 		});
 
 		// ========================================
@@ -98,10 +98,10 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			await notebooksPositron.addCodeToCell(3, 'print("relative time test")', { run: true });
 			await notebooksPositron.expectToolTipToContain({
 				completed: /Just now|seconds ago/,
-			})
+			});
 
 			await notebooksPositron.moveMouseAway();
-		})
+		});
 
 		// ========================================
 		// Cell 4: Hover timing and interaction
@@ -111,11 +111,11 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 
 			// Test popup closes when mouse moves away
 			await notebooksPositron.moveMouseAway();
-			await notebooksPositron.expectToolTipVisible(false)
+			await notebooksPositron.expectToolTipVisible(false);
 
 			// Test that hovering again after closing still works
 			await notebooksPositron.runCellButtonAtIndex(4).hover();
 			await notebooksPositron.expectToolTipVisible(true);
-		})
+		});
 	});
 });

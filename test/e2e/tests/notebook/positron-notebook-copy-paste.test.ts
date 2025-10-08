@@ -16,7 +16,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 }, () => {
 
 	test.beforeAll(async ({ app, settings }) => {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 			reload: true,
 		});

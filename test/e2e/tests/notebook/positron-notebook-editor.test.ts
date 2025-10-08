@@ -5,6 +5,7 @@
 
 import path from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 const NOTEBOOK_PATH = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
 
@@ -16,7 +17,7 @@ test.describe('Positron Notebooks: Open & Save', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'default',
 			reload: true,
 		});
@@ -24,15 +25,12 @@ test.describe('Positron Notebooks: Open & Save', {
 
 	test.beforeEach(async function ({ app, settings }) {
 		// Reset editor associations to default state before each test
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'default',
 		});
 	});
 
 	test.afterEach(async function ({ app, settings, hotKeys }) {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
-			editor: 'default',
-		});
 		await hotKeys.closeAllEditors();
 	});
 
@@ -46,7 +44,7 @@ test.describe('Positron Notebooks: Open & Save', {
 
 		// Configure Positron as the default notebook editor
 		// This sets workbench.editorAssociations to map *.ipynb files to the Positron notebook editor
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 		});
 
@@ -58,7 +56,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		// Reset to default configuration and verify VS Code editor is used again
 		// Close all editors first to ensure a clean state for the next test
 		await hotKeys.closeAllEditors();
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'default',
 		});
 
@@ -73,7 +71,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 		});
 
@@ -107,7 +105,7 @@ test.describe('Positron Notebooks: Open & Save', {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 		});
 
@@ -119,8 +117,8 @@ test.describe('Positron Notebooks: Open & Save', {
 		await editors.waitForTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty
 
 		// Count tabs before reload (checking for multiple tabs with same file is the ghost editor symptom)
-		const tabsBefore = await app.code.driver.page.locator('.tabs-container div.tab').count();
-		test.expect(tabsBefore).toBe(1);
+		const tabsBefore = app.code.driver.page.locator('.tabs-container div.tab');
+		await expect(tabsBefore).toHaveCount(1);
 
 		// Reload the window to simulate restart
 		await hotKeys.reloadWindow(true);
@@ -129,19 +127,19 @@ test.describe('Positron Notebooks: Open & Save', {
 		// The bug would cause both a Positron notebook AND a VS Code notebook to be visible
 
 		// Check tab count - should still be 1, not 2
-		const tabsAfter = await app.code.driver.page.locator('.tabs-container div.tab').count();
-		test.expect(tabsAfter).toBe(1);
+		const tabsAfter = app.code.driver.page.locator('.tabs-container div.tab');
+		await expect(tabsAfter).toHaveCount(1);
 
 		// Verify that the Positron notebook is visible
 		await notebooksPositron.expectToBeVisible();
 
-		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying to prevent)
-		const vscodeNotebookElements = await app.code.driver.page.locator('.notebook-editor').count();
-		const positronNotebookElements = await app.code.driver.page.locator('.positron-notebook').count();
+		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying to prevent)\
+		const positronNotebookElements = app.code.driver.page.locator('.positron-notebook');
+		const vscodeNotebookElements = app.code.driver.page.locator('.notebook-editor');
 
 		// Should have only one notebook editor, and it should be the Positron one
-		test.expect(positronNotebookElements).toBe(1);
-		test.expect(vscodeNotebookElements).toBe(0);
+		await expect(positronNotebookElements).toHaveCount(1);
+		await expect(vscodeNotebookElements).toHaveCount(0);
 
 		// Additional verification: ensure the active tab is still the restored untitled notebook
 		await editors.waitForActiveTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty

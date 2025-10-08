@@ -102,7 +102,9 @@ export class Notebooks {
 	}
 
 	async createNewNotebook() {
-		await this.quickaccess.runCommand(NEW_NOTEBOOK_COMMAND);
+		await test.step('Create new notebook', async () => {
+			await this.quickaccess.runCommand(NEW_NOTEBOOK_COMMAND);
+		});
 	}
 
 	// Opens a Notebook that lives in the current workspace

@@ -67,33 +67,37 @@ export class PositronNotebooks extends Notebooks {
 	 * Get cell content at specified index.
 	 */
 	async getCellContent(cellIndex: number): Promise<string> {
-		const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
-		const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
-		const content = await editor.textContent() ?? '';
-		// Replace the weird ascii space with a proper space
-		return content.replace(/\u00a0/g, ' ');
+		return await test.step(`Get content of cell at index: ${cellIndex}`, async () => {
+			const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
+			const editor = cell.locator('.positron-cell-editor-monaco-widget .view-lines');
+			const content = await editor.textContent() ?? '';
+			// Replace the weird ascii space with a proper space
+			return content.replace(/\u00a0/g, ' ');
+		});
 	}
 
 	/**
 	 * Get the index of the currently focused cell.
 	 */
 	async getFocusedCellIndex(): Promise<number | null> {
-		const cells = this.cell;
-		const cellCount = await cells.count();
+		return await test.step(`Get focused cell index`, async () => {
+			const cells = this.cell;
+			const cellCount = await cells.count();
 
-		for (let i = 0; i < cellCount; i++) {
-			const cell = cells.nth(i);
-			const isFocused = await cell.evaluate((element) => {
-				// Check if this cell or any descendant has focus
-				return element.contains(document.activeElement) ||
-					element === document.activeElement;
-			});
+			for (let i = 0; i < cellCount; i++) {
+				const cell = cells.nth(i);
+				const isFocused = await cell.evaluate((element) => {
+					// Check if this cell or any descendant has focus
+					return element.contains(document.activeElement) ||
+						element === document.activeElement;
+				});
 
-			if (isFocused) {
-				return i;
+				if (isFocused) {
+					return i;
+				}
 			}
-		}
-		return null;
+			return null;
+		});
 	}
 
 	// #endregion
@@ -105,7 +109,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param settings - The settings fixture.
 	 * @param options - Configuration options for enabling the feature.
 	 */
-	async enableFeature(
+	async configure(
 		settings: SettingsFixture,
 		{ editor, reload = false, waitMs = 800 }: ConfigureNotebookEditorOptions
 	): Promise<void> {
@@ -222,7 +226,7 @@ export class PositronNotebooks extends Notebooks {
 		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; waitForPopup?: boolean }
 	): Promise<Locator> {
 		const { delay = 0, run = false, waitForSpinner = false, waitForPopup = false } = options ?? {};
-		return await test.step(`Add code and run cell ${cellIndex}`, async () => {
+		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}, waitForPopup: ${waitForPopup}`, async () => {
 			const currentCellCount = await this.getCellCount();
 
 			if (cellIndex >= currentCellCount) {
@@ -425,8 +429,9 @@ export class PositronNotebooks extends Notebooks {
 		await test.step(
 			`Expect cell ${cellIndex} content to contain: ${expected instanceof RegExp ? expected.toString() : expected}`,
 			async () => {
-				const actualContent = await this.getCellContent(cellIndex);
 				await expect(async () => {
+					const actualContent = await this.getCellContent(cellIndex);
+
 					if (expected instanceof RegExp) {
 						expect(actualContent).toMatch(expected);
 					} else {

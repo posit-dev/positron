@@ -15,7 +15,7 @@ test.describe('Postiron Notebooks: Cell Undo-Redo Behavior', {
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 			reload: true,
 		});
@@ -87,6 +87,6 @@ test.describe('Postiron Notebooks: Cell Undo-Redo Behavior', {
 			await notebooksPositron.performCellAction('redo');
 			await notebooksPositron.expectCellCountToBe(2);
 			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell to Delete');
-		})
+		});
 	});
 });

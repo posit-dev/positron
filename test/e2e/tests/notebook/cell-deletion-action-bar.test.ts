@@ -15,7 +15,7 @@ test.describe('Positorn Notebooks: Cell Deletion Action Bar Behavior', {
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 			reload: true,
 		});

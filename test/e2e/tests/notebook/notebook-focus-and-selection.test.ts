@@ -15,7 +15,7 @@ test.describe('Notebook Focus and Selection', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
-		await app.workbench.notebooksPositron.enableFeature(settings, {
+		await app.workbench.notebooksPositron.configure(settings, {
 			editor: 'positron',
 			reload: true,
 		});
@@ -112,7 +112,7 @@ test.describe('Notebook Focus and Selection', {
 
 			// Verify we can type into the editor after pressing Enter
 			await app.code.driver.page.keyboard.type('# test');
-			await notebooksPositron.expectCellContentAtIndexToContain(2, /^print\("Cell 2"\)# test/);
+			await notebooksPositron.expectCellContentAtIndexToContain(2, /^# Cell 2# test/);
 		});
 
 		await test.step('Test 3: Shift+Enter on last cell creates new cell and enters edit mode', async () => {
