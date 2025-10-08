@@ -360,6 +360,8 @@ test.describe('Notebook Focus and Selection', {
 	});
 
 	test('Enter key in edit mode adds newline within cell', async function ({ app }) {
+		await createNotebookWith5Cells(app);
+
 		// Select cell 1 and enter edit mode
 		await app.workbench.notebooksPositron.selectCellAtIndex(1);
 		await waitForFocusSettle(app, 200);
