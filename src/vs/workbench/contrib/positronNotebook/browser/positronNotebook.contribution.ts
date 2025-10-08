@@ -45,7 +45,6 @@ import { registerAction2, MenuId } from '../../../../platform/actions/common/act
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
-import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 
 
 /**
@@ -390,25 +389,18 @@ registerNotebookAction({
 });
 
 // Escape key: Exit edit mode when cell editor is focused
-// Note: We register the keybinding separately because it needs to fire ONLY when
-// the cell editor is focused, without the container focus requirement that
-// registerNotebookAction automatically adds.
 registerNotebookAction({
 	commandId: 'positronNotebook.cell.quitEdit',
 	handler: (notebook) => {
 		notebook.selectionStateMachine.exitEditor();
 	},
+	keybinding: {
+		primary: KeyCode.Escape,
+		when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+	},
 	metadata: {
 		description: localize('positronNotebook.cell.quitEdit', "Exit cell edit mode")
 	}
-});
-
-// Register the Escape keybinding separately since it needs a different context
-KeybindingsRegistry.registerKeybindingRule({
-	id: 'positronNotebook.cell.quitEdit',
-	weight: KeybindingWeight.EditorContrib,
-	when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
-	primary: KeyCode.Escape
 });
 
 //#endregion Notebook Commands
