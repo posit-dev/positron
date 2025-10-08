@@ -22,11 +22,10 @@ test.describe('Positron Notebooks: Open & Save', {
 
 	test.beforeEach(async function ({ app, settings }) {
 		// Reset editor associations to default state before each test
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default')
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
 	});
 
-	test.afterEach(async function ({ app, settings, hotKeys }) {
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
