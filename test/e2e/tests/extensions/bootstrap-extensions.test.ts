@@ -94,11 +94,7 @@ async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: 
 	return installed;
 }
 
-<<<<<<< HEAD
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath?: string) {
-=======
 async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>) {
->>>>>>> origin/main
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 

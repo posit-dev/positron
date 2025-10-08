@@ -383,12 +383,14 @@ export const DataExplorer = () => {
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
 				}
-				<PositronDataGrid
-					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
-						context.instance.tableDataDataGridInstance :
-						context.instance.tableSchemaDataGridInstance
-					}
-				/>
+				<div className='data-grid-container'>
+					<PositronDataGrid
+						instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
+							context.instance.tableDataDataGridInstance :
+							context.instance.tableSchemaDataGridInstance
+						}
+					/>
+				</div>
 			</div>
 		</div >
 	);

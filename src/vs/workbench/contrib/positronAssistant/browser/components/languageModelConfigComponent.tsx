@@ -248,9 +248,9 @@ const ExternalAPIKey = (props: { provider: string, envKeyName?: { key: string; s
 			<div className='language-model-external-api-key'>
 				{
 					props.envKeyName && props.envKeyName.signedIn ?
-						<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use", props.envKeyName?.key)}</p>
+						<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use.", props.envKeyName?.key)}</p>
 						:
-						<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron", props.envKeyName.key)}</p>
+						<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron.", props.envKeyName.key)}</p>
 				}
 			</div> : null
 	);

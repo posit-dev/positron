@@ -32,7 +32,7 @@ async function activateInfoPopup({ app, icon }: { app: Application; icon: Locato
 }
 
 test.describe('Cell Execution Info Popup', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
