@@ -19,7 +19,7 @@ test.afterEach(async function ({ hotKeys }) {
 });
 
 test.describe('Data Explorer - R ', {
-	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
+	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.WORKBENCH]
 }, () => {
 	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile }) {
 		const { dataExplorer, editor, editors, variables, clipboard } = app.workbench;

@@ -7,5 +7,6 @@
     "files.simpleDialog.enable": true,
     "positron.importSettings.enable": false,
     "positron.assistant.enable": true,
-    "positron.assistant.testModels": true
+    "positron.assistant.testModels": true,
+	"posit.workbench.showWorkbenchFlaskHint": false
 }

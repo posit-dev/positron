@@ -47,11 +47,6 @@ export async function WorkbenchApp(
 		await app.workbench.sessions.expectNoStartUpMessaging();
 		await app.workbench.sessions.deleteAll();
 
-		// handle erroneous flask warning
-		try {
-			await app.code.driver.page.locator('.monaco-dialog-box').getByText('Ok').click({ timeout: 10000 });
-		} catch { }
-
 		await app.workbench.hotKeys.closeAllEditors();
 	};
 
@@ -84,8 +79,25 @@ async function setupWorkbenchEnvironment(): Promise<{ workspacePath: string; use
 	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_WORKSPACE_PATH}`, 'Create workspace directory');
 	await runDockerCommand(`docker exec test mkdir -p ${WORKBENCH_USER_DATA_DIR}`, 'Create user settings directory');
 
-	// Copy qa-example-content workspace to container
-	await runDockerCommand(`docker cp ${DEFAULT_WORKSPACE_PATH}/. test:${WORKBENCH_WORKSPACE_PATH}`, 'Copy workspace to container');
+	const src = DEFAULT_WORKSPACE_PATH;
+	const dst = WORKBENCH_WORKSPACE_PATH;
+
+	const isMac = process.platform === 'darwin';
+	const tarFromHost =
+		isMac
+			// macOS (bsdtar): skip AppleDouble/attrs + .git, .DS_Store
+			? `export COPYFILE_DISABLE=1; tar -C "${src}" -cf - --exclude=".git" --exclude=".DS_Store" --exclude="._*" .`
+			// Linux (GNU tar): just exclude .git
+			: `tar -C "${src}" -cf - --exclude=".git" .`;
+
+	await runDockerCommand(
+		[
+			`docker exec test mkdir -p "${dst}"`,
+			`${tarFromHost} | docker exec -i test tar -C "${dst}" -xpf -`
+		].join(' && '),
+		'Copy workspace to container (excluding .git)'
+	);
+
 
 	// Copy settings to container
 	await copyUserSettingsToContainer();
@@ -170,7 +182,7 @@ export async function copyKeyBindingsToContainer(): Promise<void> {
 	await fs.promises.writeFile(tmpFile, adjusted, 'utf8');
 
 	const containerPath = '/home/user1/.positron-server/User/keybindings.json';
-	
+
 	await runDockerCommand(
 		`docker cp "${tmpFile}" test:"${containerPath}"`,
 		'Copy keybindings to container'
