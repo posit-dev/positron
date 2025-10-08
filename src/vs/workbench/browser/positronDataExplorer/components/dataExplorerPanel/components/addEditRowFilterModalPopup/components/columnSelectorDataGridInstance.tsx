@@ -21,6 +21,11 @@ const ROW_HEIGHT = 26;
 
 /**
  * ColumnSelectorDataGridInstance class.
+ *
+ * This class is used to display a list of the column names from a dataset
+ * in the column selector modal popup. The column selector modal popup is
+ * a DataGridWaffle component. This instance manages the list of columns
+ * and supports searching for columns by name.
  */
 export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	//#region Private Properties
