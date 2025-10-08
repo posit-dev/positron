@@ -49,7 +49,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../serv
 import { localize } from '../../../../../nls.js';
 import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { convertClipboardFiles } from '../../../positronPathUtils/common/filePathConverter.js';
+import { CopyPasteController } from '../../../../../editor/contrib/dropOrPasteInto/browser/copyPasteController.js';
 
 // Position enumeration.
 const enum Position {
@@ -804,6 +804,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					MarkerController.ID,
 					ParameterHintsController.ID,
 					FormatOnType.ID,
+					CopyPasteController.ID,
 				])
 			}
 		);
@@ -1107,46 +1108,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
-	/**
-	 * onPaste event handler for file path conversion.
-	 * @param e A ClipboardEvent that contains the clipboard data.
-	 */
-	const pasteHandler = (e: React.ClipboardEvent<HTMLDivElement>) => {
-		// Check if this is an R console and the setting is enabled
-		const isRLanguage = props.positronConsoleInstance.runtimeMetadata.languageId === 'r';
-		const setting = services.configurationService.getValue<boolean>('positron.r.autoConvertFilePaths');
-
-		if (!isRLanguage || !setting || !e.clipboardData) {
-			return; // Let normal paste behavior handle this
-		}
-
-		// Try to convert clipboard files to R path format
-		const convertedFiles = convertClipboardFiles(e.clipboardData);
-		if (convertedFiles) {
-			// Prevent default paste behavior
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Insert the converted file paths directly into the editor
-			const codeEditorWidget = codeEditorWidgetRef.current;
-			if (codeEditorWidget) {
-				const selection = codeEditorWidget.getSelection();
-				if (selection) {
-					codeEditorWidget.executeEdits('console-file-paste', [
-						EditOperation.replace(selection, convertedFiles)
-					]);
-
-					// Position cursor at the end of inserted text
-					const newPosition = {
-						lineNumber: selection.startLineNumber,
-						column: selection.startColumn + convertedFiles.length
-					};
-					codeEditorWidget.setPosition(newPosition);
-				}
-			}
-		}
-		// If no files detected, let normal paste behavior continue
-	};
 
 	// If it's visible, anchor the history browser to the physical location of
 	// the code editor. The history browser has to have a fixed position so it
@@ -1174,7 +1135,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 	// Render.
 	return (
-		<div className={props.hidden ? 'console-input hidden' : 'console-input'} tabIndex={0} onFocus={focusHandler} onPaste={pasteHandler}>
+		<div className={props.hidden ? 'console-input hidden' : 'console-input'} tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
 				<HistoryBrowserPopup

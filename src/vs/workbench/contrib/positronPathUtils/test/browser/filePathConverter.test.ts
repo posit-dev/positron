@@ -151,6 +151,13 @@ suite('File Path Converter Tests', () => {
 		assert.strictEqual(result, null);
 	});
 
+	test('UNC path (URI-decoded format) is skipped entirely', () => {
+		// This tests the real-world scenario where \\localhost\C$\path becomes localhost/C$/path after URI decoding
+		const dataTransfer = new MockDataTransfer(['file://localhost/C$/Users/jenny/file.txt']);
+		const result = convertClipboardFiles(dataTransfer);
+		assert.strictEqual(result, null);
+	});
+
 	test('Mixed regular and UNC paths skips all conversion', () => {
 		const dataTransfer = new MockDataTransfer([
 			'file:///C:/Users/test/file1.txt',
