@@ -75,7 +75,7 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 		const clipboardText = await app.workbench.clipboard.getClipboardText();
 
 		expect(clipboardText).toMatch(regex);
-	}).toPass({ timeout: 60000 });
+	}).toPass({ timeout: 30000 });
 
 }
 
