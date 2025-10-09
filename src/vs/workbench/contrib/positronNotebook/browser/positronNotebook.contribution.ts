@@ -761,7 +761,7 @@ registerCellCommand({
 	}
 });
 
-// Move cell up command - Alt+UpArrow
+// Move cell up
 registerCellCommand({
 	commandId: 'positronNotebook.cell.moveUp',
 	handler: (cell, notebook) => notebook.moveCellUp(cell),
@@ -782,7 +782,7 @@ registerCellCommand({
 	}
 });
 
-// Move cell down command - Alt+DownArrow
+// Move cell down
 registerCellCommand({
 	commandId: 'positronNotebook.cell.moveDown',
 	handler: (cell, notebook) => notebook.moveCellDown(cell),

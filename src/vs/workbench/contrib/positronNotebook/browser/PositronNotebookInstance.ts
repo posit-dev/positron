@@ -636,19 +636,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	moveCellUp(cell: IPositronNotebookCell): void {
 		this._assertTextModel();
 
-		// 1. Validate boundaries
 		if (cell.index <= 0) {
 			return;
 		}
 
-		// 2. Resolve contiguous selection (ignore discontiguous spans)
 		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
-		if (!cellsToMove) {
-			// TODO: surface lightweight feedback that only contiguous selections can move together
-			return;
-		}
-
-		// 3. Calculate move parameters
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
@@ -658,12 +650,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// 4. Apply edit with proper selection state management
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
 		const focusRange = { start: firstIndex, end: lastIndex + 1 };
 
 		textModel.applyEdits([{
+			// Move edits are important to maintaining cell identity
 			editType: CellEditType.Move,
 			index: firstIndex,
 			length: length,
@@ -684,7 +676,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			computeUndoRedo
 		);
 
-		// 5. Fire content change - REQUIRED for React UI sync!
 		this._onDidChangeContent.fire();
 	}
 
@@ -701,12 +692,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		// Resolve contiguous selection
 		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
-		if (!cellsToMove) {
-			return;
-		}
-
 		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
 		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
 		const length = lastIndex - firstIndex + 1;
