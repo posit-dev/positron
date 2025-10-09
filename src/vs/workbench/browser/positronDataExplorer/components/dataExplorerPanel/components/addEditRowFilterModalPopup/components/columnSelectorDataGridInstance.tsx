@@ -196,14 +196,18 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Fetches data.
+	 * @param invalidateCache A value which indicates whether to invalidate the cache.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override async fetchData() {
+	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
 		if (rowDescriptor) {
 			// Get the layout indices for visible data.
 			const columnIndices = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR);
-			await this._columnSchemaCache.update({ columnIndices });
+			await this._columnSchemaCache.update({
+				columnIndices,
+				invalidateCache: !!invalidateCache
+			});
 		}
 	}
 
@@ -217,10 +221,23 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		return columnIndex === 0 ? this.layoutWidth - 8 : undefined;
 	}
 
+	/**
+	 * Select the column schema at the specified position.
+	 * @param rowIndex The row index (positionally) of the selected item.
+	 */
 	selectItem(rowIndex: number): void {
-		// Get the column schema for the row index.
-		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
-		if (!columnSchema) { return; }
+		// The row index is the visible row index, so we need to map it to the actual index.
+		// For example, if the user has searched for a column name, the visible row index
+		// may not match the actual index in the dataset.
+		const index = this._rowLayoutManager.mapPositionToIndex(rowIndex);
+		if (index === undefined) {
+			return;
+		}
+		// Get the column schema using the actual index in the dataset
+		const columnSchema = this._columnSchemaCache.getColumnSchema(index);
+		if (!columnSchema) {
+			return;
+		}
 
 		this._onDidSelectColumnEmitter.fire(columnSchema);
 	}
@@ -275,8 +292,10 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 			// Set the search text and fetch data.
 			this._searchText = searchText;
-			await this.updateLayoutEntries()
-			await this.fetchData();
+			await this.updateLayoutEntries();
+			// Always invalidate the cache when search text changes,
+			// so the layout manager and cache are in sync.
+			await this.fetchData(true);
 
 			// select the first available row after fetching so that users can hit "enter"
 			// to make an immediate confirmation on what they were searching for

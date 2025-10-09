@@ -13,6 +13,7 @@ import { DataExplorerClientInstance } from '../../languageRuntime/common/languag
  */
 interface CacheUpdateDescriptor {
 	columnIndices: number[];
+	invalidateCache: boolean;
 }
 
 /**
@@ -117,15 +118,25 @@ export class ColumnSchemaCache extends Disposable {
 		this._columns = tableState.table_shape.num_columns;
 
 		// Set the column indices of the column schema we need to load.
-		const columnIndices = [];
-		for (const index of cacheUpdateDescriptor.columnIndices) {
-			if (!this._columnSchemaCache.has(index)) {
-				columnIndices.push(index);
+		let columnIndices: number[];
+		if (cacheUpdateDescriptor.invalidateCache) {
+			columnIndices = cacheUpdateDescriptor.columnIndices;
+		} else {
+			columnIndices = [];
+			for (const index of cacheUpdateDescriptor.columnIndices) {
+				if (!this._columnSchemaCache.has(index)) {
+					columnIndices.push(index);
+				}
 			}
 		}
 
 		// Load the column schema.
 		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Invalidate the cache, if we're supposed to.
+		if (cacheUpdateDescriptor.invalidateCache) {
+			this._columnSchemaCache.clear();
+		}
 
 		// Cache the column schema that was returned.
 		for (const columnSchema of tableSchema.columns) {
