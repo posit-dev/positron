@@ -473,10 +473,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			if (part.type === 'reasoning') {
 				flushAccumulatedTextDeltas();
 				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
-				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelTextPart(part.textDelta)
-				});
+				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
 			}
 
 			if (part.type === 'text-delta') {
@@ -487,10 +484,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
 				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
-				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
-				});
+				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
 			}
 
 			if (part.type === 'error') {

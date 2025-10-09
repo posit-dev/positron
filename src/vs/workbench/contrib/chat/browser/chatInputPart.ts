@@ -754,6 +754,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	public setCurrentLanguageModel(model: ILanguageModelChatMetadataAndIdentifier) {
 		this._currentLanguageModel = model;
 
+		// --- Start Positron ---
+		// If we're switching to a model from another provider, change the provider too
+		if (model && model.metadata.vendor !== this.languageModelsService.currentProvider?.id) {
+			const modelProvider = this.languageModelsService.getLanguageModelProviders().find(p => p.id === model.metadata.vendor);
+			this.languageModelsService.currentProvider = modelProvider;
+		}
+		// --- End Positron ---
+
 		if (this.cachedDimensions) {
 			// For quick chat and editor chat, relayout because the input may need to shrink to accomodate the model name
 			this.layout(this.cachedDimensions.height, this.cachedDimensions.width);
@@ -837,28 +845,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (defaultModel) {
 			this.setCurrentLanguageModel(defaultModel);
 		}
-	}
-
-	private setCurrentLanguageModel(model: ILanguageModelChatMetadataAndIdentifier) {
-		this._currentLanguageModel = model;
-
-		// --- Start Positron ---
-		// If we're switching to a model from another provider, change the provider too
-		if (model && model.metadata.vendor !== this.languageModelsService.currentProvider?.id) {
-			const modelProvider = this.languageModelsService.getLanguageModelProviders().find(p => p.id === model.metadata.vendor);
-			this.languageModelsService.currentProvider = modelProvider;
-		}
-		// --- End Positron ---
-
-		if (this.cachedDimensions) {
-			// For quick chat and editor chat, relayout because the input may need to shrink to accomodate the model name
-			this.layout(this.cachedDimensions.height, this.cachedDimensions.width);
-		}
-
-		this.storageService.store(this.getSelectedModelStorageKey(), model.identifier, StorageScope.APPLICATION, StorageTarget.USER);
-		this.storageService.store(this.getSelectedModelIsDefaultStorageKey(), !!model.metadata.isDefault, StorageScope.APPLICATION, StorageTarget.USER);
-
-		this._onDidChangeCurrentLanguageModel.fire(model);
 	}
 
 	private loadHistory(): HistoryNavigator2<IChatHistoryEntry> {
