@@ -105,7 +105,6 @@ import './positron/mainThreadConnections.js';
 import './positron/mainThreadEnvironment.js';
 import './positron/mainThreadAiFeatures.js';
 import './positron/mainThreadPlotsService.js';
-import './positron/mainThreadPositronNotebooksAndEditors.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {
