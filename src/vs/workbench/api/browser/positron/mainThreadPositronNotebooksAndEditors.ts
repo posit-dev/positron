@@ -15,7 +15,7 @@ import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/bro
 import { MainThreadPositronNotebookInstance, MainThreadPositronNotebookEditors, IMainThreadPositronNotebookInstanceLocator } from './mainThreadPositronNotebookEditors.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { MainPositronContext } from '../../common/positron/extHost.positron.protocol.js';
-import { autorun } from '../../../../base/common/observable.js';
+import { runOnChange } from '../../../../base/common/observable.js';
 import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
 import { getNotebookEditorFromEditorPane } from '../../../contrib/notebook/browser/notebookBrowser.js';
 
@@ -115,10 +115,7 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 		this._instanceListeners.set(instance.id, combinedDisposable(
 			// Update state when the notebook text model changes
 			// Seems to fire when the notebook editor becomes visible and active
-			autorun(reader => {
-				instance.textModel.read(reader);
-				this._updateState();
-			}),
+			runOnChange(instance.textModel, () => this._updateState()),
 			// TODO: Update state when notebook is focused
 			// instance.onDidFocusWidget(() => this._updateState(instance)),
 		));
@@ -214,39 +211,17 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 		));
 	}
 
+	popDelta(): INotebookDocumentsAndEditorsDelta | undefined {
+		const delta = this._delta;
+		this._delta = undefined;
+		return delta;
+	}
+
 	//#region IMainThreadPositronNotebookInstanceLocator
 	getInstance(id: string): MainThreadPositronNotebookInstance | undefined {
 		return this._instances.get(id);
 	}
 	//#endregion IMainThreadPositronNotebookInstanceLocator
-
-	isDeltaEmpty(): boolean {
-		return this._delta === undefined;
-	}
-
-	do(delta: INotebookDocumentsAndEditorsDelta): INotebookDocumentsAndEditorsDelta {
-		if (!this._delta) {
-			return delta;
-		}
-		const result = { ...delta };
-		if (this._delta.visibleEditors) {
-			result.visibleEditors = result.visibleEditors?.concat(this._delta.visibleEditors) ?? this._delta.visibleEditors;
-		}
-		if (this._delta.addedEditors) {
-			result.addedEditors = result.addedEditors?.concat(this._delta.addedEditors) ?? this._delta.addedEditors;
-		}
-		if (this._delta.removedEditors) {
-			result.removedEditors = result.removedEditors?.concat(this._delta.removedEditors) ?? this._delta.removedEditors;
-		}
-		if (this._delta.newActiveEditor !== undefined) {
-			result.newActiveEditor = this._delta.newActiveEditor;
-		}
-
-		// Unset delta, assuming it has been received by the extension host
-		this._delta = undefined;
-
-		return result;
-	}
 
 	//#region State change
 	private _onDelta(delta: PositronNotebookInstanceStateDelta): void {
@@ -263,9 +238,7 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 			removedEditors.push(instance.id);
 		}
 
-		// First, update extension host
-		// this._delta = delta;
-		// const extHostDelta: INotebookDocumentsAndEditorsDelta = {
+		// First, store the delta and call the callback (which should update the extension host state)
 		this._delta = {
 			removedEditors: delta.removedInstances.map(instance => instance.id),
 			newActiveEditor: delta.newActiveInstanceId,
@@ -302,3 +275,27 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 	//#endregion State change
 }
 //#endregion MainThreadPositronNotebooksAndEditors
+
+/**
+ * Combine notebook documents and editors deltas.
+ * Used to track Positron notebook state in the extension host.
+ */
+export function combineNotebookDocumentsAndEditorsDeltas(...deltas: INotebookDocumentsAndEditorsDelta[]): INotebookDocumentsAndEditorsDelta {
+	const result: INotebookDocumentsAndEditorsDelta = Object.create(null);
+	for (const delta of deltas) {
+		if (delta.visibleEditors) {
+			result.visibleEditors = (result.visibleEditors ?? []).concat(delta.visibleEditors);
+		}
+		if (delta.addedEditors) {
+			result.addedEditors = (result.addedEditors ?? []).concat(delta.addedEditors);
+		}
+		if (delta.removedEditors) {
+			result.removedEditors = (result.removedEditors ?? []).concat(delta.removedEditors);
+		}
+		if (delta.newActiveEditor !== undefined) {
+			// Just take the last defined value -- we may need to refine this
+			result.newActiveEditor = delta.newActiveEditor;
+		}
+	}
+	return result;
+}

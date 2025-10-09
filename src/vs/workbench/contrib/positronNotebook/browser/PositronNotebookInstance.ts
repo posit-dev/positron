@@ -316,7 +316,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(autorun(reader => {
 			const session = this.runtimeSession.read(reader);
 			if (session) {
-				const d = this._register(session.onDidEndSession(() => {
+				const d = reader.store.add(session.onDidEndSession(() => {
 					d.dispose();
 					this.runtimeSession.set(undefined, undefined);
 				}));

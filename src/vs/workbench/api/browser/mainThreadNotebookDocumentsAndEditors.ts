@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+import { combineNotebookDocumentsAndEditorsDeltas, MainThreadPositronNotebooksAndEditors } from './positron/mainThreadPositronNotebooksAndEditors.js';
+// --- End Positron ---
 import { diffMaps, diffSets } from '../../../base/common/collections.js';
 import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
 import { URI } from '../../../base/common/uri.js';
@@ -21,7 +24,6 @@ import { IEditorGroupsService } from '../../services/editor/common/editorGroupsS
 import { IEditorService } from '../../services/editor/common/editorService.js';
 import { ExtHostContext, ExtHostNotebookShape, INotebookDocumentsAndEditorsDelta, INotebookEditorAddData, INotebookModelAddedData, MainContext } from '../common/extHost.protocol.js';
 import { SerializableObjectWithBuffers } from '../../services/extensions/common/proxyIdentifier.js';
-import { MainThreadPositronNotebooksAndEditors } from './positron/mainThreadPositronNotebooksAndEditors.js';
 
 interface INotebookAndEditorDelta {
 	removedDocuments: URI[];
@@ -185,10 +187,12 @@ export class MainThreadNotebooksAndEditors {
 
 	private _onDelta(delta: INotebookAndEditorDelta): void {
 		// --- Start Positron ---
+		// Get the Positron delta and only exit if it's empty too
 		/*
 		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta))) {
 		*/
-		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta) && this._mainThreadPositronNotebooksAndEditors.isDeltaEmpty()) {
+		const positronDelta = this._mainThreadPositronNotebooksAndEditors.popDelta();
+		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta) && positronDelta === undefined) {
 			// --- End Positron ---
 			return;
 		}
@@ -204,10 +208,11 @@ export class MainThreadNotebooksAndEditors {
 
 		// send to extension FIRST
 		// --- Start Positron ---
+		// Incorporate the Positron delta, if defined
 		/*
 		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(dto));
 		*/
-		const dto2 = this._mainThreadPositronNotebooksAndEditors.do(dto);
+		const dto2 = positronDelta ? combineNotebookDocumentsAndEditorsDeltas(dto, positronDelta) : dto;
 		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(dto2));
 		// --- End Positron ---
 
