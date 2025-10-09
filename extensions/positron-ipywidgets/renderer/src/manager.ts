@@ -124,14 +124,6 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 		this._messaging.postMessage({ type: 'initialize' });
 	}
 
-	override create_view(model: base.DOMWidgetModel, options?: any): Promise<base.DOMWidgetView> {
-		if (!model.widget_manager) {
-			// Assign the widget manager to the model if not already assigned.
-			model.widget_manager = this;
-		}
-		return super.create_view(model, options);
-	}
-
 	private async _handle_comm_open(message: WebviewMessage.ICommOpenToWebview): Promise<void> {
 		const comm = new Comm(message.comm_id, message.target_name, this._messaging);
 		await this.handle_comm_open(
