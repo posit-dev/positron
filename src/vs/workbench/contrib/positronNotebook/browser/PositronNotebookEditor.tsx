@@ -389,6 +389,15 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	}
 }
 
+/**
+ * Extracts the Positron notebook instance from a generic editor pane, if it contains one.
+ *
+ * The workbench editor service deals with generic `IEditorPane` objects that could
+ * represent any type of editor (text, notebook, diff, etc.). When integrating Positron notebooks
+ * with the extension API, we need to identify which editor panes contain Positron notebooks.
+ *
+ * @returns The notebook instance if the pane is a Positron notebook editor, undefined otherwise
+ */
 export function getNotebookInstanceFromEditorPane(editorPane?: IEditorPane): IPositronNotebookInstance | undefined {
 	if (editorPane &&
 		editorPane.getId() === POSITRON_NOTEBOOK_EDITOR_ID &&
