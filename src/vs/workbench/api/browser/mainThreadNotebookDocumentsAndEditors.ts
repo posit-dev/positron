@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
+// Imports to connect Positron notebook instances to the extension API.
 import { IPositronNotebookInstance } from '../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { runOnChange } from '../../../base/common/observable.js';
 import { IPositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
@@ -32,6 +33,7 @@ import { SerializableObjectWithBuffers } from '../../services/extensions/common/
 
 interface INotebookAndEditorDelta {
 	// --- Start Positron ---
+	// Include added Positron notebook instances in the state delta sent to the extension host
 	addedInstances: MainThreadPositronNotebookInstance[];
 	// --- End Positron ---
 	removedDocuments: URI[];
@@ -47,6 +49,7 @@ class NotebookAndEditorState {
 		if (!before) {
 			return {
 				// --- Start Positron ---
+				// Include added Positron notebook instances in the state delta sent to the extension host
 				addedInstances: [...after.instances.values()],
 				// --- End Positron ---
 				addedDocuments: [...after.documents],
@@ -59,6 +62,7 @@ class NotebookAndEditorState {
 		const documentDelta = diffSets(before.documents, after.documents);
 		const editorDelta = diffMaps(before.textEditors, after.textEditors);
 		// --- Start Positron ---
+		// Include added Positron notebook instances in the state delta sent to the extension host
 		const instanceDelta = diffMaps(before.instances, after.instances);
 		// --- End Positron ---
 
@@ -67,13 +71,14 @@ class NotebookAndEditorState {
 
 		return {
 			// --- Start Positron ---
+			// Include added Positron notebook instances in the state delta sent to the extension host
 			addedInstances: instanceDelta.added,
 			// --- End Positron ---
 			addedDocuments: documentDelta.added,
 			removedDocuments: documentDelta.removed.map(e => e.uri),
 			addedEditors: editorDelta.added,
 			// --- Start Positron ---
-			/*
+			/* Include removed Positron notebook instances in the state delta sent to the extension host
 			removedEditors: editorDelta.removed.map(removed => removed.getId()),
 			*/
 			removedEditors: editorDelta.removed.map(removed => removed.getId()).concat(instanceDelta.removed.map(removed => removed.getId())),
@@ -93,7 +98,8 @@ class NotebookAndEditorState {
 		readonly textEditors: Map<string, IActiveNotebookEditor>,
 		readonly activeEditor: string | null | undefined,
 		// --- Start Positron ---
-		/*
+		/* Include visible Positron notebook instances in the state delta sent to the extension host
+		Since map values are never referenced, we can retype as unknown and include Positron notebook instances
 		readonly visibleEditors: Map<string, IActiveNotebookEditor>
 		*/
 		readonly visibleEditors: Map<string, unknown>
@@ -117,12 +123,15 @@ export class MainThreadNotebooksAndEditors {
 	// readonly onDidRemoveEditors: Event<string[]> = this._onDidRemoveEditors.event;
 
 	// --- Start Positron ---
+	// Include visible Positron notebook instances in the state delta sent to the extension host
+
+	/** Per notebook instance listeners to track state changes, keyed by instance ID */
 	private readonly _instanceListeners = new DisposableMap<string>();
 
 	/** Map of all active notebook instances keyed by instance ID */
 	private readonly _instances = new DisposableMap<string, MainThreadPositronNotebookInstance>();
 
-	/** Main thread component called by extension-host-side notebook editors */
+	/** Main thread component called by extension host notebook editors for Positron notebooks */
 	private readonly _mainThreadPositronEditors: MainThreadPositronNotebookEditors;
 	// --- End Positron ---
 	private readonly _proxy: Pick<ExtHostNotebookShape, '$acceptDocumentAndEditorsDelta'>;
@@ -138,6 +147,7 @@ export class MainThreadNotebooksAndEditors {
 	constructor(
 		extHostContext: IExtHostContext,
 		// --- Start Positron ---
+		// To include Positron notebook instances in the state delta sent to the extension host
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		// --- End Positron ---
 		@IInstantiationService instantiationService: IInstantiationService,
@@ -152,7 +162,7 @@ export class MainThreadNotebooksAndEditors {
 		this._mainThreadNotebooks = instantiationService.createInstance(MainThreadNotebookDocuments, extHostContext);
 		this._mainThreadEditors = instantiationService.createInstance(MainThreadNotebookEditors, extHostContext);
 		// --- Start Positron ---
-		// Create the main thread editors component
+		// Create the main thread Positron notebook editors component
 		// and register it with the ext host context
 		this._mainThreadPositronEditors = instantiationService.createInstance(
 			MainThreadPositronNotebookEditors, this, extHostContext
@@ -170,6 +180,7 @@ export class MainThreadNotebooksAndEditors {
 		this._notebookEditorService.onDidAddNotebookEditor(this._handleEditorAdd, this, this._disposables);
 		this._notebookEditorService.onDidRemoveNotebookEditor(this._handleEditorRemove, this, this._disposables);
 		// --- Start Positron ---
+		// Track Positron notebook instances
 		this._positronNotebookService.onDidAddNotebookInstance(this._handleNotebookInstanceAdd, this, this._disposables);
 		this._positronNotebookService.onDidRemoveNotebookInstance(this._handleNotebookInstanceRemove, this, this._disposables);
 		// this._positronNotebookService.listInstances().forEach(this._handleNotebookInstanceAdd, this);
@@ -179,6 +190,7 @@ export class MainThreadNotebooksAndEditors {
 
 	dispose() {
 		// --- Start Positron ---
+		// Disposables related to Positron notebook instances
 		this._instanceListeners.dispose();
 		this._mainThreadPositronEditors.dispose();
 		// --- End Positron ---
@@ -201,6 +213,7 @@ export class MainThreadNotebooksAndEditors {
 		this._updateState();
 	}
 	// --- Start Positron ---
+	// To track Positron notebook instances
 	private _handleNotebookInstanceAdd(instance: IPositronNotebookInstance): void {
 		this._instanceListeners.set(instance.id, combinedDisposable(
 			// Update state when the notebook text model changes
@@ -228,7 +241,7 @@ export class MainThreadNotebooksAndEditors {
 
 		const editors = new Map<string, IActiveNotebookEditor>();
 		// --- Start Positron ---
-		/*
+		/* Since map values are never referenced, we can retype as unknown and include Positron notebook instances
 		const visibleEditorsMap = new Map<string, IActiveNotebookEditor>();
 		*/
 		const visibleEditorsMap = new Map<string, unknown>();
@@ -293,8 +306,7 @@ export class MainThreadNotebooksAndEditors {
 			}
 		}
 
-		// Create state, now including Positron notebook instances
-		/*
+		/* Create state, now including Positron notebook instances
 		const newState = new NotebookAndEditorState(new Set(this._notebookService.listNotebookDocuments()), editors, activeEditor, visibleEditorsMap);
 		*/
 		const newState = new NotebookAndEditorState(instances, new Set(this._notebookService.listNotebookDocuments()), editors, activeEditor, visibleEditorsMap);
@@ -315,7 +327,7 @@ export class MainThreadNotebooksAndEditors {
 			visibleEditors: delta.visibleEditors,
 			addedDocuments: delta.addedDocuments.map(MainThreadNotebooksAndEditors._asModelAddData),
 			// --- Start Positron ---
-			/*
+			/* Include added Positron notebook instances
 			addedEditors: delta.addedEditors.map(this._asEditorAddData, this),
 			*/
 			addedEditors: delta.addedEditors.map(this._asEditorAddData, this).concat(delta.addedInstances.map(this._instanceAsEditorAddData, this)),
@@ -331,12 +343,14 @@ export class MainThreadNotebooksAndEditors {
 		this._mainThreadNotebooks.handleNotebooksAdded(delta.addedDocuments);
 		this._mainThreadEditors.handleEditorsAdded(delta.addedEditors);
 		// --- Start Positron ---
+		// Notify the main thread side called by extension host notebook editors
 		delta.addedInstances.forEach(instance => this._mainThreadPositronEditors.handleNotebookInstanceAdded(instance));
 		// --- End Positron ---
 	}
 
 	private static _isDeltaEmpty(delta: INotebookAndEditorDelta): boolean {
 		// --- Start Positron ---
+		// Check if any Positron notebook instances were added
 		if (delta.addedInstances !== undefined && delta.addedInstances.length > 0) {
 			return false;
 		}
@@ -386,21 +400,22 @@ export class MainThreadNotebooksAndEditors {
 		};
 	}
 	// --- Start Positron ---
-	private _instanceAsEditorAddData(editor: MainThreadPositronNotebookInstance): INotebookEditorAddData {
+	// Convert Positron notebook instances to serializable data sent to the extension host
+	private _instanceAsEditorAddData(instance: MainThreadPositronNotebookInstance): INotebookEditorAddData {
 		return {
-			id: editor.getId(),
-			documentUri: editor.getDocumentUri(),
-			selections: editor.getSelections(),
-			visibleRanges: editor.getVisibleRanges(),
-			viewColumn: this._findViewColumn(editor),
-			viewType: editor.getViewType(),
+			id: instance.getId(),
+			documentUri: instance.getDocumentUri(),
+			selections: instance.getSelections(),
+			visibleRanges: instance.getVisibleRanges(),
+			viewColumn: this._findViewColumn(instance),
+			viewType: instance.getViewType(),
 			isPositron: true,
 		};
 	}
 
-	private _findViewColumn(editor: MainThreadPositronNotebookInstance) {
+	private _findViewColumn(instance: MainThreadPositronNotebookInstance) {
 		for (const editorPane of this._editorService.visibleEditorPanes) {
-			if (editor.matches(editorPane)) {
+			if (instance.matches(editorPane)) {
 				return editorGroupToColumn(this._editorGroupService, editorPane.group);
 			}
 		}
