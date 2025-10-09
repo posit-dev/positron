@@ -21,6 +21,7 @@ import { IEditorGroupsService } from '../../services/editor/common/editorGroupsS
 import { IEditorService } from '../../services/editor/common/editorService.js';
 import { ExtHostContext, ExtHostNotebookShape, INotebookDocumentsAndEditorsDelta, INotebookEditorAddData, INotebookModelAddedData, MainContext } from '../common/extHost.protocol.js';
 import { SerializableObjectWithBuffers } from '../../services/extensions/common/proxyIdentifier.js';
+import { MainThreadPositronNotebooksAndEditors } from './positron/mainThreadPositronNotebooksAndEditors.js';
 
 interface INotebookAndEditorDelta {
 	removedDocuments: URI[];
@@ -83,6 +84,9 @@ export class MainThreadNotebooksAndEditors {
 	// readonly onDidAddEditors: Event<IActiveNotebookEditor[]> = this._onDidAddEditors.event;
 	// readonly onDidRemoveEditors: Event<string[]> = this._onDidRemoveEditors.event;
 
+	// --- Start Positron ---
+	private readonly _mainThreadPositronNotebooksAndEditors: MainThreadPositronNotebooksAndEditors;
+	// --- End Positron ---
 	private readonly _proxy: Pick<ExtHostNotebookShape, '$acceptDocumentAndEditorsDelta'>;
 	private readonly _disposables = new DisposableStore();
 
@@ -102,6 +106,11 @@ export class MainThreadNotebooksAndEditors {
 		@IEditorGroupsService private readonly _editorGroupService: IEditorGroupsService,
 		@ILogService private readonly _logService: ILogService,
 	) {
+		// --- Start Positron ---
+		this._mainThreadPositronNotebooksAndEditors = this._disposables.add(instantiationService.createInstance(
+			MainThreadPositronNotebooksAndEditors, () => this._updateState(), extHostContext)
+		);
+		// --- End Positron ---
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebook);
 
 		this._mainThreadNotebooks = instantiationService.createInstance(MainThreadNotebookDocuments, extHostContext);
@@ -175,7 +184,12 @@ export class MainThreadNotebooksAndEditors {
 	}
 
 	private _onDelta(delta: INotebookAndEditorDelta): void {
-		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta)) {
+		// --- Start Positron ---
+		/*
+		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta))) {
+		*/
+		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta) && this._mainThreadPositronNotebooksAndEditors.isDeltaEmpty()) {
+			// --- End Positron ---
 			return;
 		}
 
@@ -189,7 +203,13 @@ export class MainThreadNotebooksAndEditors {
 		};
 
 		// send to extension FIRST
+		// --- Start Positron ---
+		/*
 		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(dto));
+		*/
+		const dto2 = this._mainThreadPositronNotebooksAndEditors.do(dto);
+		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(dto2));
+		// --- End Positron ---
 
 		// handle internally
 		this._mainThreadEditors.handleEditorsRemoved(delta.removedEditors);
