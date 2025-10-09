@@ -510,6 +510,23 @@ registerCellCommand({
 	}
 });
 
+registerCellCommand({
+	commandId: 'positronNotebook.cell.debug',
+	handler: async (_cell, _notebook, accessor) => {
+		await accessor.get(ICommandService).executeCommand('notebook.debugCell');
+	},
+	when: CELL_CONTEXT_KEYS.isCode,
+	actionBar: {
+		icon: 'codicon-debug-alt-small',
+		position: 'main',
+		order: 10,
+		category: 'Execution',
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.debug', "Debug cell"),
+	}
+});
+
 // Run all code cells above the current cell
 registerCellCommand({
 	commandId: 'positronNotebook.cell.runAllAbove',
@@ -568,23 +585,6 @@ registerCellCommand({
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.runAllBelow', "Run all code cells below this cell")
-	}
-});
-
-registerCellCommand({
-	commandId: 'positronNotebook.cell.debug',
-	handler: async (_cell, _notebook, accessor) => {
-		await accessor.get(ICommandService).executeCommand('notebook.debugCell');
-	},
-	when: CELL_CONTEXT_KEYS.isCode,
-	actionBar: {
-		icon: 'codicon-debug-alt-small',
-		position: 'mainRight',
-		order: 22,
-		category: 'Execution',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.debug', "Debug cell"),
 	}
 });
 
