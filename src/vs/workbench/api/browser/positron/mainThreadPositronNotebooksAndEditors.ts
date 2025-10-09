@@ -18,6 +18,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { MainPositronContext } from '../../common/positron/extHost.positron.protocol.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { getNotebookEditorFromEditorPane } from '../../../contrib/notebook/browser/notebookBrowser.js';
 
 /**
  * This module implements an alternative of MainThreadNotebooksAndEditors for IPositronNotebookInstance
@@ -35,10 +36,11 @@ class PositronNotebookInstanceState {
 			return new PositronNotebookInstanceStateDelta(
 				[], [...after.instances.values()],
 				[...after.visibleInstances.values()],
+				after.activeInstanceId,
 			);
 		}
 		const instanceDelta = diffMaps(before.instances, after.instances);
-		const newActiveInstance = before.activeInstanceId !== after.activeInstanceId ? after.activeInstanceId : undefined;
+		const newActiveInstanceId = before.activeInstanceId !== after.activeInstanceId ? after.activeInstanceId : undefined;
 		const visibleInstanceDelta = diffMaps(before.visibleInstances, after.visibleInstances);
 		const visibleInstances = visibleInstanceDelta.added.length === 0 && visibleInstanceDelta.removed.length === 0
 			? undefined
@@ -47,13 +49,13 @@ class PositronNotebookInstanceState {
 			instanceDelta.removed,
 			instanceDelta.added,
 			visibleInstances,
-			newActiveInstance,
+			newActiveInstanceId,
 		);
 	}
 
 	constructor(
 		readonly instances: Map<string, IPositronNotebookInstance>,
-		readonly activeInstanceId: string | undefined,
+		readonly activeInstanceId: string | undefined | null,
 		readonly visibleInstances: Map<string, IPositronNotebookInstance>
 	) { }
 }
@@ -147,13 +149,18 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 		}
 
 		// Determine active instance
-		let activeInstanceId: string | undefined;
+		let activeInstanceId: string | null | undefined = null;
 		const candidate = getNotebookInstanceFromEditorPane(this._editorService.activeEditorPane);
 		if (candidate) {
 			for (const instance of instances.values()) {
 				if (candidate === instance) {
 					activeInstanceId = instance.id;
 				}
+			}
+		}
+		if (!activeInstanceId) {
+			if (getNotebookEditorFromEditorPane(this._editorService.activeEditorPane)) {
+				activeInstanceId = undefined;
 			}
 		}
 
@@ -213,11 +220,11 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 
 	//#region State change
 	private _onDelta(delta: PositronNotebookInstanceStateDelta): void {
-		const addedEditors: MainThreadPositronNotebookInstance[] = [];
+		const addedInstances: MainThreadPositronNotebookInstance[] = [];
 		for (const instance of delta.addedInstances) {
-			const editor = new MainThreadPositronNotebookInstance(instance);
-			this._instances.set(instance.id, editor);
-			addedEditors.push(editor);
+			const mainThreadInstance = new MainThreadPositronNotebookInstance(instance);
+			this._instances.set(mainThreadInstance.getId(), mainThreadInstance);
+			addedInstances.push(mainThreadInstance);
 		}
 
 		const removedEditors: string[] = [];
@@ -231,13 +238,15 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 			removedEditors: delta.removedInstances.map(instance => instance.id),
 			newActiveEditor: delta.newActiveInstanceId,
 			visibleEditors: delta.visibleInstances?.map(instance => instance.id),
-			addedEditors: addedEditors.map(this._toNotebookEditorAddData, this),
+			addedEditors: addedInstances.map(this._toNotebookEditorAddData, this),
 		};
+		// TODO: On browser reload, we frist send this before documents are known to ext host...
+		//       I think we're better off patching the otehr main thread class at this stage...
 		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(extHostDelta));
 
 		// Second, update main thread state
 		removedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceRemoved, this._mainThreadEditors);
-		addedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceAdded, this._mainThreadEditors);
+		addedInstances.forEach(this._mainThreadEditors.handleNotebookInstanceAdded, this._mainThreadEditors);
 	}
 
 	private _toNotebookEditorAddData(instance: MainThreadPositronNotebookInstance): INotebookEditorAddData {
