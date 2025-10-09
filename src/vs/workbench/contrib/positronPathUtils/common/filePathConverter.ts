@@ -23,6 +23,9 @@ export function convertClipboardFiles(dataTransfer: DataTransfer): string[] | nu
 	// Check for file URI list from clipboard
 	const uriList = dataTransfer.getData('text/uri-list');
 	if (uriList) {
+		// TODO @jennybc the line breaks actually appear to by \r\n on Windows
+		// so we should probably use split(/\r?\n/) to be safe?
+		// OTOH the uri.trimming seems to be taking care of this for us
 		const fileUris = uriList.split('\n')
 			.filter(line => line.trim().startsWith('file://'));
 
