@@ -9,6 +9,11 @@ import { ColumnSchema } from '../../languageRuntime/common/positronDataExplorerC
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 
 /**
+ * Constants.
+ */
+const TRIM_CACHE_TIMEOUT = 3000; // 3 seconds
+
+/**
  * CacheUpdateDescriptor interface.
  */
 interface CacheUpdateDescriptor {
@@ -30,7 +35,12 @@ export class ColumnSchemaCache extends Disposable {
 	/**
 	 * Gets or sets the cache update descriptor.
 	 */
-	private _cacheUpdateDescriptor?: CacheUpdateDescriptor;
+	private _pendingCacheUpdateDescriptor?: CacheUpdateDescriptor;
+
+	/**
+	 * Gets or sets the trim cache timeout.
+	 */
+	private _trimCacheTimeout?: Timeout;
 
 	/**
 	 * Gets or sets the columns.
@@ -96,6 +106,9 @@ export class ColumnSchemaCache extends Disposable {
 	 * @returns A Promise<void> that resolves when the update is complete.
 	 */
 	async update(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
 		// If there are no column indices, return.
 		if (cacheUpdateDescriptor.columnIndices.length === 0) {
 			return;
@@ -106,7 +119,7 @@ export class ColumnSchemaCache extends Disposable {
 		// another so that only the last one gets processed. (For example, this happens when a user
 		// drags a scrollbar rapidly.)
 		if (this._updatingCache) {
-			this._cacheUpdateDescriptor = cacheUpdateDescriptor;
+			this._pendingCacheUpdateDescriptor = cacheUpdateDescriptor;
 			return;
 		}
 
@@ -150,13 +163,26 @@ export class ColumnSchemaCache extends Disposable {
 		this._updatingCache = false;
 
 		// If there is a pending cache update descriptor, update the cache for it.
-		if (this._cacheUpdateDescriptor) {
+		if (this._pendingCacheUpdateDescriptor) {
 			// Get the pending cache update descriptor and clear it.
-			const pendingCacheUpdateDescriptor = this._cacheUpdateDescriptor;
-			this._cacheUpdateDescriptor = undefined;
+			const pendingCacheUpdateDescriptor = this._pendingCacheUpdateDescriptor;
+			this._pendingCacheUpdateDescriptor = undefined;
 
 			// Update the cache for the pending cache update descriptor.
 			await this.update(pendingCacheUpdateDescriptor);
+		}
+
+		// Schedule trimming the cache if we have actual column indices to preserve.
+		// This prevents accidentally clearing all cached data when columnIndices is an empty array
+		// which happens during UI state transitions (e.g. during resizing when layoutHeight is 0).
+		if (!cacheUpdateDescriptor.invalidateCache && columnIndices.length) {
+			// Set the trim cache timeout.
+			this._trimCacheTimeout = setTimeout(() => {
+				// Release the trim cache timeout.
+				this._trimCacheTimeout = undefined;
+				// Trim the cache.
+				this.trimCache(new Set(columnIndices));
+			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
 
@@ -171,4 +197,31 @@ export class ColumnSchemaCache extends Disposable {
 
 	//#endregion Public Methods
 
+	//#region Private Methods
+
+	/**
+	 * Clears the trim cache timeout.
+	 */
+	private clearTrimCacheTimeout() {
+		// If there is a trim cache timeout scheduled, clear it.
+		if (this._trimCacheTimeout) {
+			clearTimeout(this._trimCacheTimeout);
+			this._trimCacheTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Trims the data in the cache if the key is not in the provided list.
+	 * @param columnIndicesToKeep The array of column indices to keep in the cache.
+	 */
+	private trimCache(columnIndices: Set<number>) {
+		// Trim the column schema cache.
+		for (const columnIndex of this._columnSchemaCache.keys()) {
+			if (!columnIndices.has(columnIndex)) {
+				this._columnSchemaCache.delete(columnIndex);
+			}
+		}
+	}
+
+	//#endregion Private Methods
 }
