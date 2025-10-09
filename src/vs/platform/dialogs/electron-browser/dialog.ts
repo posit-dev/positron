@@ -11,7 +11,11 @@ import { IProductService } from '../../product/common/productService.js';
 import { process } from '../../../base/parts/sandbox/electron-browser/globals.js';
 
 export function createNativeAboutDialogDetails(productService: IProductService, osProps: IOSProperties): { title: string; details: string; detailsToCopy: string } {
-	let version = productService.version;
+	// --- Start Positron ---
+	// Show the Positron version instead of the Code - OSS version
+	// let version = productService.version;
+	let version = productService.positronVersion;
+	// --- End Positron ---
 	if (productService.target) {
 		version = `${version} (${productService.target} setup)`;
 	} else if (productService.darwinUniversalAssetId) {
