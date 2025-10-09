@@ -42,7 +42,7 @@ function createWorkbench(code: Code, options: ApplicationOptions): Workbench {
 export class Application {
 
 	constructor(private options: ApplicationOptions) {
-		this._userDataPath = options.userDataDir;
+		this._userDataPath = options.userDataDir || '';
 		this._workspacePathOrFolder = options.workspacePath;
 	}
 
@@ -80,7 +80,7 @@ export class Application {
 	}
 
 	get extensionsPath(): string {
-		return this.options.extensionsPath;
+		return this.options.extensionsPath || '';
 	}
 
 	private _userDataPath: string;

@@ -2361,7 +2361,7 @@ class EditorHover extends BaseEditorOption<EditorOption.hover, IEditorHoverOptio
 					type: 'integer',
 					minimum: 0,
 					default: defaults.hidingDelay,
-					description: nls.localize('hover.hidingDelay', "Controls the delay in milliseconds after which the hover is hidden. Requires `editor.hover.sticky` to be enabled.")
+					markdownDescription: nls.localize('hover.hidingDelay', "Controls the delay in milliseconds after which the hover is hidden. Requires `#editor.hover.sticky#` to be enabled.")
 				},
 				'editor.hover.above': {
 					type: 'boolean',
@@ -4459,6 +4459,8 @@ export interface IInlineSuggestOptions {
 
 	suppressSuggestions?: boolean;
 
+	minShowDelay?: number;
+
 	/**
 	 * Does not clear active inline suggestions when the editor loses focus.
 	 */
@@ -4485,16 +4487,18 @@ export interface IInlineSuggestOptions {
 	/**
 	* @internal
 	*/
+	triggerCommandOnProviderChange?: boolean;
+
+	/**
+	* @internal
+	*/
 	experimental?: {
 		/**
 		* @internal
 		*/
 		suppressInlineSuggestions?: string;
 
-		/**
-		* @internal
-		*/
-		triggerCommandOnProviderChange?: boolean;
+		showOnSuggestConflict?: 'always' | 'never' | 'whenSuggestListIsIncomplete';
 	};
 }
 
@@ -4520,15 +4524,17 @@ class InlineEditorSuggest extends BaseEditorOption<EditorOption.inlineSuggest, I
 			keepOnBlur: false,
 			fontFamily: 'default',
 			syntaxHighlightingEnabled: true,
+			minShowDelay: 0,
 			edits: {
 				enabled: true,
 				showCollapsed: false,
 				renderSideBySide: 'auto',
 				allowCodeShifting: 'always',
 			},
+			triggerCommandOnProviderChange: true,
 			experimental: {
 				suppressInlineSuggestions: '',
-				triggerCommandOnProviderChange: false,
+				showOnSuggestConflict: 'never',
 			},
 		};
 
@@ -4561,22 +4567,39 @@ class InlineEditorSuggest extends BaseEditorOption<EditorOption.inlineSuggest, I
 					default: defaults.suppressSuggestions,
 					description: nls.localize('inlineSuggest.suppressSuggestions', "Controls how inline suggestions interact with the suggest widget. If enabled, the suggest widget is not shown automatically when inline suggestions are available.")
 				},
+				'editor.inlineSuggest.minShowDelay': {
+					type: 'number',
+					default: 0,
+					minimum: 0,
+					maximum: 10000,
+					description: nls.localize('inlineSuggest.minShowDelay', "Controls the minimal delay in milliseconds after which inline suggestions are shown after typing."),
+				},
 				'editor.inlineSuggest.experimental.suppressInlineSuggestions': {
 					type: 'string',
 					default: defaults.experimental.suppressInlineSuggestions,
 					tags: ['experimental'],
 					description: nls.localize('inlineSuggest.suppressInlineSuggestions', "Suppresses inline completions for specified extension IDs -- comma separated."),
 					experiment: {
-						mode: 'startup'
+						mode: 'auto'
 					}
 				},
-				'editor.inlineSuggest.experimental.triggerCommandOnProviderChange': {
+				'editor.inlineSuggest.triggerCommandOnProviderChange': {
 					type: 'boolean',
-					default: defaults.experimental.triggerCommandOnProviderChange,
+					default: defaults.triggerCommandOnProviderChange,
 					tags: ['experimental'],
 					description: nls.localize('inlineSuggest.triggerCommandOnProviderChange', "Controls whether to trigger a command when the inline suggestion provider changes."),
 					experiment: {
-						mode: 'startup'
+						mode: 'auto'
+					}
+				},
+				'editor.inlineSuggest.experimental.showOnSuggestConflict': {
+					type: 'string',
+					default: defaults.experimental.showOnSuggestConflict,
+					tags: ['experimental'],
+					enum: ['always', 'never', 'whenSuggestListIsIncomplete'],
+					description: nls.localize('inlineSuggest.showOnSuggestConflict', "Controls whether to show inline suggestions when there is a suggest conflict."),
+					experiment: {
+						mode: 'auto'
 					}
 				},
 				'editor.inlineSuggest.fontFamily': {
@@ -4625,15 +4648,17 @@ class InlineEditorSuggest extends BaseEditorOption<EditorOption.inlineSuggest, I
 			keepOnBlur: boolean(input.keepOnBlur, this.defaultValue.keepOnBlur),
 			fontFamily: EditorStringOption.string(input.fontFamily, this.defaultValue.fontFamily),
 			syntaxHighlightingEnabled: boolean(input.syntaxHighlightingEnabled, this.defaultValue.syntaxHighlightingEnabled),
+			minShowDelay: EditorIntOption.clampedInt(input.minShowDelay, 0, 0, 10000),
 			edits: {
 				enabled: boolean(input.edits?.enabled, this.defaultValue.edits.enabled),
 				showCollapsed: boolean(input.edits?.showCollapsed, this.defaultValue.edits.showCollapsed),
 				allowCodeShifting: stringSet(input.edits?.allowCodeShifting, this.defaultValue.edits.allowCodeShifting, ['always', 'horizontal', 'never']),
 				renderSideBySide: stringSet(input.edits?.renderSideBySide, this.defaultValue.edits.renderSideBySide, ['never', 'auto']),
 			},
+			triggerCommandOnProviderChange: boolean(input.triggerCommandOnProviderChange, this.defaultValue.triggerCommandOnProviderChange),
 			experimental: {
 				suppressInlineSuggestions: EditorStringOption.string(input.experimental?.suppressInlineSuggestions, this.defaultValue.experimental.suppressInlineSuggestions),
-				triggerCommandOnProviderChange: boolean(input.experimental?.triggerCommandOnProviderChange, this.defaultValue.experimental.triggerCommandOnProviderChange),
+				showOnSuggestConflict: stringSet(input.experimental?.showOnSuggestConflict, this.defaultValue.experimental.showOnSuggestConflict, ['always', 'never', 'whenSuggestListIsIncomplete']),
 			},
 		};
 	}
@@ -6193,7 +6218,7 @@ export const EditorOptions = {
 	renderRichScreenReaderContent: register(new EditorBooleanOption(
 		EditorOption.renderRichScreenReaderContent, 'renderRichScreenReaderContent', false,
 		{
-			description: nls.localize('renderRichScreenReaderContent', "Whether to render rich screen reader content when the `editor.editContext` is enabled."),
+			markdownDescription: nls.localize('renderRichScreenReaderContent', "Whether to render rich screen reader content when the `#editor.editContext#` setting is enabled."),
 		}
 	)),
 	stickyScroll: register(new EditorStickyScroll()),
@@ -6455,7 +6480,7 @@ export const EditorOptions = {
 		{
 			description: nls.localize('quickSuggestionsDelay', "Controls the delay in milliseconds after which quick suggestions will show up."),
 			experiment: {
-				mode: 'startup'
+				mode: 'auto'
 			}
 		}
 	)),
@@ -6472,7 +6497,7 @@ export const EditorOptions = {
 	readOnlyMessage: register(new ReadonlyMessage()),
 	renameOnType: register(new EditorBooleanOption(
 		EditorOption.renameOnType, 'renameOnType', false,
-		{ description: nls.localize('renameOnType', "Controls whether the editor auto renames on type."), markdownDeprecationMessage: nls.localize('renameOnTypeDeprecate', "Deprecated, use `editor.linkedEditing` instead.") }
+		{ description: nls.localize('renameOnType', "Controls whether the editor auto renames on type."), markdownDeprecationMessage: nls.localize('renameOnTypeDeprecate', "Deprecated, use `#editor.linkedEditing#` instead.") }
 	)),
 	renderControlCharacters: register(new EditorBooleanOption(
 		EditorOption.renderControlCharacters, 'renderControlCharacters', true,

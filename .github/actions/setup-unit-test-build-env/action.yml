@@ -43,7 +43,7 @@ runs:
 
     - name: Compile and Download
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install
+      run: npm exec -- npm-run-all --max_old_space_size=8192 -lp compile "electron x64" playwright-install
 
     - name: Set permissions on SUID sandbox helper
       shell: bash

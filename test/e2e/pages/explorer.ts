@@ -14,8 +14,8 @@ const POSITRON_EXPLORER_TITLE = 'div[id="workbench.view.explorer"] h3.title';
  *  Reuseable Positron explorer functionality for tests to leverage.
  */
 export class Explorer {
-	explorerTitle: Locator = this.code.driver.page.locator(POSITRON_EXPLORER_TITLE);
-	explorerTitleLocator = this.code.driver.page.locator(POSITRON_EXPLORER_TITLE);
+	get explorerTitle(): Locator { return this.code.driver.page.locator(POSITRON_EXPLORER_TITLE); }
+	get explorerTitleLocator(): Locator { return this.code.driver.page.locator(POSITRON_EXPLORER_TITLE); }
 
 	constructor(protected code: Code) { }
 

@@ -14,8 +14,8 @@ const FULL_APP = 'body';
 
 export class Viewer {
 
-	fullApp = this.code.driver.page.locator(FULL_APP);
-	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+	get fullApp(): Locator { return this.code.driver.page.locator(FULL_APP); }
+	get viewerFrame(): FrameLocator { return this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME); }
 
 	constructor(private code: Code) { }
 

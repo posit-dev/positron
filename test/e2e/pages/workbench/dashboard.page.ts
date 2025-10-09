@@ -8,12 +8,12 @@ import { Code } from '../../infra/code.js';
 import { QuickInput } from '../quickInput.js';
 
 export class DashboardPage {
-	title = this.code.driver.page.getByRole('link', { name: 'Workbench projects' });
-	launchButton = this.code.driver.page.getByRole('button', { name: 'Launch' });
-	quitButton = this.code.driver.page.getByRole('button', { name: 'Quit' });
-	newSessionButton = this.code.driver.page.getByRole('button', { name: 'New Session', exact: true }).first();
-	positronProButton = this.code.driver.page.getByRole('tab', { name: 'Positron Pro' });
-	sessionNameInput = this.code.driver.page.getByRole('textbox', { name: 'Session Name' });
+	get title() { return this.code.driver.page.getByRole('link', { name: 'Workbench projects' }); }
+	get launchButton() { return this.code.driver.page.getByRole('button', { name: 'Launch' }); }
+	get quitButton() { return this.code.driver.page.getByRole('button', { name: 'Quit' }); }
+	get newSessionButton() { return this.code.driver.page.getByRole('button', { name: 'New Session', exact: true }).first(); }
+	get positronProButton() { return this.code.driver.page.getByRole('tab', { name: 'Positron Pro' }); }
+	get sessionNameInput() { return this.code.driver.page.getByRole('textbox', { name: 'Session Name' }); }
 	project = (projectName: string) => this.code.driver.page.getByRole('button', { name: projectName });
 	projectNewSessionButton = (projectName: string) => this.project(projectName).locator('..').locator('..').getByRole('button', { name: 'Create new session' });
 	projectCheckbox = (projectName: string) => this.project(projectName).locator('..').locator('..').locator('button[role="checkbox"]');

@@ -165,6 +165,16 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			run: () => showRenameInputField()
 		});
 
+		// Add the delete action
+		actions.push({
+			id: 'workbench.action.positronConsole.deleteConsoleSession',
+			label: localize('positron.console.deleteInstance', "Delete"),
+			tooltip: '',
+			class: undefined,
+			enabled: !deleteDisabled,
+			run: () => deleteSession()
+		});
+
 		// Show the context menu.
 		services.contextMenuService.showContextMenu({
 			getActions: () => actions,

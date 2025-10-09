@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
+import { IMouseWheelEvent } from '../../../../base/browser/mouseEvent.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
 import { ITreeContextMenuEvent, ITreeElement } from '../../../../base/browser/ui/tree/tree.js';
 import { disposableTimeout, timeout } from '../../../../base/common/async.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -14,50 +16,63 @@ import { FuzzyScore } from '../../../../base/common/filters.js';
 import { IMarkdownString, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { Iterable } from '../../../../base/common/iterator.js';
 import { combinedDisposable, Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { ResourceSet } from '../../../../base/common/map.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { autorun, observableFromEvent, observableValue } from '../../../../base/common/observable.js';
 import { basename, extUri, isEqual } from '../../../../base/common/resources.js';
+import { MicrotaskDelay } from '../../../../base/common/symbols.js';
 import { isDefined } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { localize } from '../../../../nls.js';
 import { MenuId } from '../../../../platform/actions/common/actions.js';
+import { fromNowByDay, fromNow } from '../../../../base/common/date.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { ITextResourceEditorInput } from '../../../../platform/editor/common/editor.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
-import { WorkbenchObjectTree } from '../../../../platform/list/browser/listService.js';
+import { WorkbenchObjectTree, WorkbenchList } from '../../../../platform/list/browser/listService.js';
+import { IListRenderer, IListVirtualDelegate } from '../../../../base/browser/ui/list/list.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { bindContextKey } from '../../../../platform/observable/common/platformObservableUtils.js';
-import { PromptsType } from '../common/promptSyntax/promptTypes.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { buttonSecondaryBackground, buttonSecondaryForeground, buttonSecondaryHoverBackground } from '../../../../platform/theme/common/colorRegistry.js';
 import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { checkModeOption } from '../common/chat.js';
 import { IChatAgentCommand, IChatAgentData, IChatAgentService } from '../common/chatAgents.js';
 import { ChatContextKeys } from '../common/chatContextKeys.js';
 import { applyingChatEditsFailedContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IChatEditingService, IChatEditingSession, inChatEditingSessionContextKey, ModifiedFileEntryState } from '../common/chatEditingService.js';
-import { ChatPauseState, IChatModel, IChatResponseModel } from '../common/chatModel.js';
+import { IChatLayoutService } from '../common/chatLayoutService.js';
+import { IChatModel, IChatResponseModel } from '../common/chatModel.js';
+import { IChatModeService } from '../common/chatModes.js';
 import { chatAgentLeader, ChatRequestAgentPart, ChatRequestDynamicVariablePart, ChatRequestSlashPromptPart, ChatRequestToolPart, ChatRequestToolSetPart, chatSubcommandLeader, formatChatQuestion, IParsedChatRequest } from '../common/chatParserTypes.js';
 import { ChatRequestParser } from '../common/chatRequestParser.js';
 import { IChatLocationData, IChatSendRequestOptions, IChatService } from '../common/chatService.js';
 import { IChatSlashCommandService } from '../common/chatSlashCommands.js';
+import { IChatTodoListService } from '../common/chatTodoListService.js';
+import { ChatRequestVariableSet, IChatRequestVariableEntry, isPromptFileVariableEntry, isPromptTextVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry } from '../common/chatVariableEntries.js';
 import { ChatViewModel, IChatRequestViewModel, IChatResponseViewModel, isRequestVM, isResponseVM } from '../common/chatViewModel.js';
 import { IChatInputState } from '../common/chatWidgetHistoryService.js';
 import { CodeBlockModelCollection } from '../common/codeBlockModelCollection.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from '../common/constants.js';
 import { ILanguageModelToolsService, IToolData, ToolSet } from '../common/languageModelToolsService.js';
+import { ComputeAutomaticInstructions } from '../common/promptSyntax/computeAutomaticInstructions.js';
+import { PromptsConfig } from '../common/promptSyntax/config/config.js';
 import { type TPromptMetadata } from '../common/promptSyntax/parsers/promptHeader/promptHeader.js';
+import { PromptsType } from '../common/promptSyntax/promptTypes.js';
 import { IPromptParserResult, IPromptsService } from '../common/promptSyntax/service/promptsService.js';
+import { TodoListToolSettingId } from '../common/tools/manageTodoListTool.js';
 import { handleModeSwitch } from './actions/chatActions.js';
-import { ChatTreeItem, IChatAcceptInputOptions, IChatAccessibilityService, IChatCodeBlockInfo, IChatFileTreeInfo, IChatListItemRendererOptions, IChatWidget, IChatWidgetService, IChatWidgetViewContext, IChatWidgetViewOptions } from './chat.js';
+import { ChatTreeItem, IChatAcceptInputOptions, IChatAccessibilityService, IChatCodeBlockInfo, IChatFileTreeInfo, IChatListItemRendererOptions, IChatWidget, IChatWidgetService, IChatWidgetViewContext, IChatWidgetViewOptions, ChatViewId } from './chat.js';
 import { ChatAccessibilityProvider } from './chatAccessibilityProvider.js';
 import { ChatAttachmentModel } from './chatAttachmentModel.js';
+import { ChatTodoListWidget } from './chatContentParts/chatTodoListWidget.js';
 import { ChatInputPart, IChatInputStyles } from './chatInputPart.js';
 import { ChatListDelegate, ChatListItemRenderer, IChatListItemTemplate, IChatRendererDelegate } from './chatListRenderer.js';
 import { ChatEditorOptions } from './chatOptions.js';
@@ -65,16 +80,10 @@ import './media/chat.css';
 import './media/chatAgentHover.css';
 import './media/chatViewWelcome.css';
 import { ChatViewWelcomePart, IChatSuggestedPrompts, IChatViewWelcomeContent } from './viewsWelcome/chatViewWelcomeController.js';
-import { MicrotaskDelay } from '../../../../base/common/symbols.js';
-import { IChatRequestVariableEntry, ChatRequestVariableSet as ChatRequestVariableSet, isPromptFileVariableEntry, toPromptFileVariableEntry, PromptFileVariableKind, isPromptTextVariableEntry } from '../common/chatVariableEntries.js';
-import { ChatTodoListWidget } from './chatContentParts/chatTodoListWidget.js';
-import { PromptsConfig } from '../common/promptSyntax/config/config.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { ComputeAutomaticInstructions } from '../common/promptSyntax/computeAutomaticInstructions.js';
-import { startupExpContext, StartupExperimentGroup } from '../../../services/coreExperimentation/common/coreExperimentationService.js';
-import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
-import { IMouseWheelEvent } from '../../../../base/browser/mouseEvent.js';
-import { TodoListToolSettingId as TodoListToolSettingId } from '../common/tools/manageTodoListTool.js';
+import { ChatViewPane } from './chatViewPane.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 
 // --- Start Positron ---
 import './media/positronChat.css';
@@ -126,6 +135,93 @@ export function isInlineChat(widget: IChatWidget): boolean {
 	return 'viewContext' in widget && 'isInlineChat' in widget.viewContext && Boolean(widget.viewContext.isInlineChat);
 }
 
+interface IChatHistoryListItem {
+	readonly sessionId: string;
+	readonly title: string;
+	readonly lastMessageDate: number;
+	readonly isActive: boolean;
+}
+
+class ChatHistoryListDelegate implements IListVirtualDelegate<IChatHistoryListItem> {
+	getHeight(element: IChatHistoryListItem): number {
+		return 22;
+	}
+
+	getTemplateId(element: IChatHistoryListItem): string {
+		return 'chatHistoryItem';
+	}
+}
+
+interface IChatHistoryTemplate {
+	container: HTMLElement;
+	title: HTMLElement;
+	date: HTMLElement;
+	disposables: DisposableStore;
+}
+
+class ChatHistoryListRenderer implements IListRenderer<IChatHistoryListItem, IChatHistoryTemplate> {
+	readonly templateId = 'chatHistoryItem';
+
+	constructor(
+		private readonly onDidClickItem: (item: IChatHistoryListItem) => void,
+		private readonly hoverService: IHoverService,
+		private readonly formatHistoryTimestamp: (timestamp: number, todayMidnightMs: number) => string,
+		private readonly todayMidnightMs: number
+	) { }
+
+	renderTemplate(container: HTMLElement): IChatHistoryTemplate {
+		const disposables = new DisposableStore();
+
+		container.classList.add('chat-welcome-history-item');
+		const title = dom.append(container, $('.chat-welcome-history-title'));
+		const date = dom.append(container, $('.chat-welcome-history-date'));
+
+		container.tabIndex = 0;
+		container.setAttribute('role', 'button');
+
+		return { container, title, date, disposables };
+	}
+
+	renderElement(element: IChatHistoryListItem, index: number, templateData: IChatHistoryTemplate): void {
+		const { container, title, date, disposables } = templateData;
+
+		// Clear previous disposables
+		disposables.clear();
+
+		// Set content
+		title.textContent = element.title;
+		date.textContent = this.formatHistoryTimestamp(element.lastMessageDate, this.todayMidnightMs);
+
+		// Set accessibility
+		container.setAttribute('aria-label', element.title);
+
+		// Setup hover for full title
+		const titleHoverEl = dom.$('div.chat-history-item-hover');
+		titleHoverEl.textContent = element.title;
+		disposables.add(this.hoverService.setupDelayedHover(container, {
+			content: titleHoverEl,
+			appearance: { showPointer: false, compact: true }
+		}));
+
+		// Setup click and keyboard handlers
+		disposables.add(dom.addDisposableListener(container, dom.EventType.CLICK, () => {
+			this.onDidClickItem(element);
+		}));
+
+		disposables.add(dom.addStandardDisposableListener(container, dom.EventType.KEY_DOWN, e => {
+			if (e.equals(KeyCode.Enter) || e.equals(KeyCode.Space)) {
+				e.preventDefault();
+				e.stopPropagation();
+				this.onDidClickItem(element);
+			}
+		}));
+	}
+
+	disposeTemplate(templateData: IChatHistoryTemplate): void {
+		templateData.disposables.dispose();
+	}
+}
+
 export class ChatWidget extends Disposable implements IChatWidget {
 	public static readonly CONTRIBS: { new(...args: [IChatWidget, ...any]): IChatWidgetContrib }[] = [];
 
@@ -175,8 +271,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private readonly _codeBlockModelCollection: CodeBlockModelCollection;
 	private lastItem: ChatTreeItem | undefined;
 
-	private inputPart!: ChatInputPart;
-	private inlineInputPart!: ChatInputPart;
+	private readonly inputPartDisposable: MutableDisposable<ChatInputPart> = this._register(new MutableDisposable());
+	private readonly inlineInputPartDisposable: MutableDisposable<ChatInputPart> = this._register(new MutableDisposable());
 	private inputContainer!: HTMLElement;
 	private focusedInputDOM!: HTMLElement;
 	private editorOptions!: ChatEditorOptions;
@@ -193,7 +289,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	private welcomeMessageContainer!: HTMLElement;
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
+	private readonly historyViewStore = this._register(new DisposableStore());
 	private readonly chatTodoListWidget: ChatTodoListWidget;
+	private historyList: WorkbenchList<IChatHistoryListItem> | undefined;
 
 	// --- Start Positron ---
 	private actionBarContainer?: ChatActionBarControl;
@@ -202,11 +300,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
 	private requestInProgress: IContextKey<boolean>;
-	private isRequestPaused: IContextKey<boolean>;
-	private canRequestBePaused: IContextKey<boolean>;
 	private agentInInput: IContextKey<boolean>;
+	private inEmptyStateWithHistoryEnabledKey: IContextKey<boolean>;
 	private currentRequest: Promise<void> | undefined;
-
 
 	private _visible = false;
 	public get visible() {
@@ -231,6 +327,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private _lockedToCodingAgent: string | undefined;
 	private _lockedToCodingAgentContextKey!: IContextKey<boolean>;
 	private _codingAgentPrefix: string | undefined;
+	private _lockedAgentId: string | undefined;
+
+	private lastWelcomeViewChatMode: ChatModeKind | undefined;
+
+	// Cache for prompt file descriptions to avoid async calls during rendering
+	private readonly promptDescriptionsCache = new Map<string, string>();
 
 	private set viewModel(viewModel: ChatViewModel | undefined) {
 		if (this._viewModel === viewModel) {
@@ -292,8 +394,17 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	readonly viewContext: IChatWidgetViewContext;
 
+	private readonly chatSetupTriggerContext = ContextKeyExpr.or(
+		ChatContextKeys.Setup.installed.negate(),
+		ChatContextKeys.Entitlement.canSignUp
+	);
+
 	get supportsChangingModes(): boolean {
 		return !!this.viewOptions.supportsChangingModes;
+	}
+
+	get chatDisclaimer(): string {
+		return localize('chatDisclaimer', "AI responses may be inaccurate.");
 	}
 
 	constructor(
@@ -301,7 +412,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		_viewContext: IChatWidgetViewContext | undefined,
 		private readonly viewOptions: IChatWidgetViewOptions,
 		private readonly styles: IChatWidgetStyles,
-		@ICodeEditorService codeEditorService: ICodeEditorService,
+		@ICodeEditorService private readonly codeEditorService: ICodeEditorService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -318,7 +429,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@IPromptsService private readonly promptsService: IPromptsService,
 		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
-		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService
+		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
+		@IChatModeService private readonly chatModeService: IChatModeService,
+		@IHoverService private readonly hoverService: IHoverService,
+		@IChatTodoListService private readonly chatTodoListService: IChatTodoListService,
+		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService
 	) {
 		super();
 		this._lockedToCodingAgentContextKey = ChatContextKeys.lockedToCodingAgent.bindTo(this.contextKeyService);
@@ -338,8 +453,16 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		ChatContextKeys.inQuickChat.bindTo(contextKeyService).set(isQuickChat(this));
 		this.agentInInput = ChatContextKeys.inputHasAgent.bindTo(contextKeyService);
 		this.requestInProgress = ChatContextKeys.requestInProgress.bindTo(contextKeyService);
-		this.isRequestPaused = ChatContextKeys.isRequestPaused.bindTo(contextKeyService);
-		this.canRequestBePaused = ChatContextKeys.canRequestBePaused.bindTo(contextKeyService);
+
+		// Context key for when empty state history is enabled and in empty state
+		this.inEmptyStateWithHistoryEnabledKey = ChatContextKeys.inEmptyStateWithHistoryEnabled.bindTo(contextKeyService);
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(ChatConfiguration.EmptyStateHistoryEnabled)) {
+				this.updateEmptyStateWithHistoryContext();
+				this.renderWelcomeViewContentIfNeeded();
+			}
+		}));
+		this.updateEmptyStateWithHistoryContext();
 
 		this._register(bindContextKey(decidedChatEditingResourceContextKey, contextKeyService, (reader) => {
 			const currentSession = this._editingSession.read(reader);
@@ -501,11 +624,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				ChatContextKeys.Entitlement.canSignUp.key
 			]))) {
 				// reset the input in welcome view if it was rendered in experimental mode
-				if (this.container.classList.contains('experimental-welcome-view')) {
+				if (this.container.classList.contains('experimental-welcome-view') && !this.contextKeyService.contextMatchesRules(this.chatSetupTriggerContext)) {
 					this.container.classList.remove('experimental-welcome-view');
 					const renderFollowups = this.viewOptions.renderFollowups ?? false;
 					const renderStyle = this.viewOptions.renderStyle;
 					this.createInput(this.container, { renderFollowups, renderStyle });
+					this.input.setChatMode(this.lastWelcomeViewChatMode ?? ChatModeKind.Ask);
 				}
 			}
 		}));
@@ -528,6 +652,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 	get input(): ChatInputPart {
 		return this.viewModel?.editing && this.configurationService.getValue<string>('chat.editRequests') !== 'input' ? this.inlineInputPart : this.inputPart;
+	}
+
+	private get inputPart(): ChatInputPart {
+		return this.inputPartDisposable.value!;
+	}
+
+	private get inlineInputPart(): ChatInputPart {
+		return this.inlineInputPartDisposable.value!;
 	}
 
 	get inputEditor(): ICodeEditor {
@@ -613,6 +745,22 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this._register(scrollDownButton.onDidClick(() => {
 			this.scrollLock = true;
 			this.scrollToEnd();
+		}));
+
+		this._register(autorun(reader => {
+			const fontFamily = this.chatLayoutService.fontFamily.read(reader);
+			const fontSize = this.chatLayoutService.fontSize.read(reader);
+
+			this.container.style.setProperty('--vscode-chat-font-family', fontFamily);
+
+			this.container.style.setProperty('--vscode-chat-font-size-body-xs', `${fontSize.xs}px`);
+			this.container.style.setProperty('--vscode-chat-font-size-body-s', `${fontSize.s}px`);
+			this.container.style.setProperty('--vscode-chat-font-size-body-m', `${fontSize.m}px`);
+			this.container.style.setProperty('--vscode-chat-font-size-body-l', `${fontSize.l}px`);
+			this.container.style.setProperty('--vscode-chat-font-size-body-xl', `${fontSize.xl}px`);
+			this.container.style.setProperty('--vscode-chat-font-size-body-xxl', `${fontSize.xxl}px`);
+
+			this.tree.rerender();
 		}));
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
@@ -739,6 +887,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	private onDidChangeItems(skipDynamicLayout?: boolean) {
+		// Update context key when items change
+		this.updateEmptyStateWithHistoryContext();
+
 		if (this._visible || !this.viewModel) {
 			const treeItems = (this.viewModel?.getItems() ?? [])
 				.map((item): ITreeElement<ChatTreeItem> => {
@@ -751,11 +902,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 
 			// reset the input in welcome view if it was rendered in experimental mode
-			if (this.container.classList.contains('experimental-welcome-view')) {
+			if (this.container.classList.contains('experimental-welcome-view') && this.viewModel?.getItems().length) {
 				this.container.classList.remove('experimental-welcome-view');
 				const renderFollowups = this.viewOptions.renderFollowups ?? false;
 				const renderStyle = this.viewOptions.renderStyle;
 				this.createInput(this.container, { renderFollowups, renderStyle });
+				this.input.setChatMode(this.lastWelcomeViewChatMode ?? ChatModeKind.Ask);
 			}
 
 			this.renderWelcomeViewContentIfNeeded();
@@ -788,8 +940,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 							`_setting${this.settingChangeCounter || '0'}` +
 							// Rerender request if we got new content references in the response
 							// since this may change how we render the corresponding attachments in the request
-							(isRequestVM(element) && element.contentReferences ? `_${element.contentReferences?.length}` : '') +
-							(isResponseVM(element) && element.model.isPaused.get() ? '_paused' : '');
+							(isRequestVM(element) && element.contentReferences ? `_${element.contentReferences?.length}` : '');
 					},
 				}
 			});
@@ -814,39 +965,39 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		const numItems = this.viewModel?.getItems().length ?? 0;
 		if (!numItems) {
-			dom.clearNode(this.welcomeMessageContainer);
-			// TODO@bhavyaus remove this startup experiment once settled
-			const startupExpValue = startupExpContext.getValue(this.contextKeyService);
-			const configuration = this.configurationService.inspect('workbench.secondarySideBar.defaultVisibility');
-			const expIsActive = configuration.defaultValue !== 'hidden';
-
 			const expEmptyState = this.configurationService.getValue<boolean>('chat.emptyChatState.enabled');
-
-			const chatSetupTriggerContext = ContextKeyExpr.or(
-				ChatContextKeys.Setup.installed.negate(),
-				ChatContextKeys.Entitlement.canSignUp
-			);
 
 			let welcomeContent: IChatViewWelcomeContent;
 			const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
-			const additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
+			let additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
+			// --- Start Positron ---
+			// Hide additional messages for Positron Assistant
+			/*
+			if (!additionalMessage) {
+			*/
+			if (!additionalMessage && numItems) {
+				// --- End Positron ---;
+				const generateInstructionsCommand = 'workbench.action.chat.generateInstructions';
+				additionalMessage = new MarkdownString(localize(
+					'chatWidget.instructions',
+					"[Generate instructions]({0}) to onboard AI onto your codebase.",
+					`command:${generateInstructionsCommand}`
+				), { isTrusted: { enabledCommands: [generateInstructionsCommand] } });
+			}
 			// --- Start Positron ---
 			/*
-			if ((startupExpValue === StartupExperimentGroup.MaximizedChat
-				*/
+			if (this.contextKeyService.contextMatchesRules(this.chatSetupTriggerContext)) {
+			*/
 			// Don't use the experimental view for Positron Assistant
 			const useExpView = false;
-			if (useExpView && (startupExpValue === StartupExperimentGroup.MaximizedChat
-				// --- End Positron ---
-				|| startupExpValue === StartupExperimentGroup.SplitEmptyEditorChat
-				|| startupExpValue === StartupExperimentGroup.SplitWelcomeChat
-				|| expIsActive) && this.contextKeyService.contextMatchesRules(chatSetupTriggerContext)) {
+			if (this.contextKeyService.contextMatchesRules(this.chatSetupTriggerContext) && useExpView) {
 				welcomeContent = this.getExpWelcomeViewContent();
 				this.container.classList.add('experimental-welcome-view');
 			}
 			else if (expEmptyState) {
 				welcomeContent = this.getPositronWelcomeViewContent(additionalMessage);
 			}
+			// --- End Positron ---
 			else {
 				// --- Start Positron ---
 				if (numItems) {
@@ -864,23 +1015,177 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				}
 				// --- End Positron ---
 			}
-			this.welcomePart.value = this.instantiationService.createInstance(
-				ChatViewWelcomePart,
-				welcomeContent,
-				{
-					// --- Start Positron ---
-					firstLinkToButton: !this.languageModelsService.currentProvider,
-					// --- End Positron ---
-					location: this.location,
-					isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
+			if (!this.welcomePart.value || this.welcomePart.value.needsRerender(welcomeContent)) {
+				this.historyViewStore.clear();
+				dom.clearNode(this.welcomeMessageContainer);
+
+				// Optional: recent chat history above welcome content when enabled
+				const showHistory = this.configurationService.getValue<boolean>(ChatConfiguration.EmptyStateHistoryEnabled);
+				if (showHistory && !this._lockedToCodingAgent) {
+					this.renderWelcomeHistorySection();
 				}
-			);
-			dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+
+				this.welcomePart.value = this.instantiationService.createInstance(
+					ChatViewWelcomePart,
+					welcomeContent,
+					{
+						// --- Start Positron ---
+						firstLinkToButton: !this.languageModelsService.currentProvider,
+						// --- End Positron ---
+						location: this.location,
+						isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
+					}
+				);
+				dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+			}
 		}
 
 		if (this.viewModel) {
 			dom.setVisibility(numItems === 0, this.welcomeMessageContainer);
 			dom.setVisibility(numItems !== 0, this.listContainer);
+		}
+	}
+
+	private updateEmptyStateWithHistoryContext(): void {
+		const historyEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.EmptyStateHistoryEnabled);
+		const numItems = this.viewModel?.getItems().length ?? 0;
+		const shouldHideButtons = historyEnabled && numItems === 0;
+		this.inEmptyStateWithHistoryEnabledKey.set(shouldHideButtons);
+	}
+
+	private async renderWelcomeHistorySection(): Promise<void> {
+		try {
+			const historyRoot = dom.append(this.welcomeMessageContainer, $('.chat-welcome-history-root'));
+			const container = dom.append(historyRoot, $('.chat-welcome-history'));
+			const header = dom.append(container, $('.chat-welcome-history-header'));
+			const headerTitle = dom.append(header, $('.chat-welcome-history-header-title'));
+			headerTitle.textContent = localize('chat.history.title', 'Chat History');
+			const headerActions = dom.append(header, $('.chat-welcome-history-header-actions'));
+
+			const items = await this.chatService.getHistory();
+			const filtered = items
+				.filter(i => !i.isActive)
+				.sort((a, b) => (b.lastMessageDate ?? 0) - (a.lastMessageDate ?? 0))
+				.slice(0, 3);
+
+			// If no items to show, hide the entire chat history section
+			if (filtered.length === 0) {
+				historyRoot.remove();
+				return;
+			}
+
+			const showAllButton = dom.append(headerActions, $('.chat-welcome-history-show-all'));
+			showAllButton.classList.add('codicon', `codicon-${Codicon.history.id}`, 'chat-welcome-history-show-all');
+			showAllButton.tabIndex = 0;
+			showAllButton.setAttribute('role', 'button');
+			const showAllHover = localize('chat.history.showAllHover', 'Show history...');
+			showAllButton.setAttribute('aria-label', showAllHover);
+			const showAllHoverText = dom.$('div.chat-history-button-hover');
+			showAllHoverText.textContent = showAllHover;
+
+			this.historyViewStore.add(this.hoverService.setupDelayedHover(showAllButton, { content: showAllHoverText, appearance: { showPointer: false, compact: true } }));
+
+			this.historyViewStore.add(dom.addDisposableListener(showAllButton, dom.EventType.CLICK, e => {
+				e.preventDefault();
+				e.stopPropagation();
+				setTimeout(() => {
+					this.instantiationService.invokeFunction(accessor => accessor.get(ICommandService).executeCommand('workbench.action.chat.history'));
+				}, 0);
+			}));
+
+			this.historyViewStore.add(dom.addStandardDisposableListener(showAllButton, dom.EventType.KEY_DOWN, e => {
+				if (e.equals(KeyCode.Enter) || e.equals(KeyCode.Space)) {
+					e.preventDefault();
+					e.stopPropagation();
+					setTimeout(() => {
+						this.instantiationService.invokeFunction(accessor => accessor.get(ICommandService).executeCommand('workbench.action.chat.history'));
+					}, 0);
+				}
+			}));
+			const welcomeHistoryContainer = dom.append(container, $('.chat-welcome-history-list'));
+
+			this.welcomeMessageContainer.classList.toggle('has-chat-history', filtered.length > 0);
+
+			// Compute today's midnight once for label decisions
+			const todayMidnight = new Date();
+			todayMidnight.setHours(0, 0, 0, 0);
+			const todayMidnightMs = todayMidnight.getTime();
+
+			// Create WorkbenchList for chat history items (limit to top 3)
+			const historyItems: IChatHistoryListItem[] = filtered.slice(0, 3).map(item => ({
+				sessionId: item.sessionId,
+				title: item.title,
+				lastMessageDate: typeof item.lastMessageDate === 'number' ? item.lastMessageDate : Date.now(),
+				isActive: item.isActive
+			}));
+
+			const listHeight = historyItems.length * 22;
+			welcomeHistoryContainer.style.height = `${listHeight}px`;
+			welcomeHistoryContainer.style.minHeight = `${listHeight}px`;
+			welcomeHistoryContainer.style.overflow = 'hidden';
+
+			if (!this.historyList) {
+				const delegate = new ChatHistoryListDelegate();
+				const renderer = new ChatHistoryListRenderer(
+					async (item) => await this.openHistorySession(item.sessionId),
+					this.hoverService,
+					(timestamp, todayMs) => this.formatHistoryTimestamp(timestamp, todayMs),
+					todayMidnightMs
+				);
+				const list = this.instantiationService.createInstance(
+					WorkbenchList<IChatHistoryListItem>,
+					'ChatHistoryList',
+					welcomeHistoryContainer,
+					delegate,
+					[renderer],
+					{
+						horizontalScrolling: false,
+						keyboardSupport: true,
+						mouseSupport: true,
+						multipleSelectionSupport: false,
+						overrideStyles: {
+							listBackground: this.styles.listBackground
+						},
+						accessibilityProvider: {
+							getAriaLabel: (item: IChatHistoryListItem) => item.title,
+							getWidgetAriaLabel: () => localize('chat.history.list', 'Chat History')
+						}
+					}
+				);
+				this.historyList = this._register(list);
+			} else {
+				const currentHistoryList = this.historyList.getHTMLElement();
+				if (currentHistoryList && currentHistoryList.parentElement !== welcomeHistoryContainer) {
+					welcomeHistoryContainer.appendChild(currentHistoryList);
+				}
+			}
+
+			this.historyList.splice(0, this.historyList.length, historyItems);
+			this.historyList.layout(undefined, listHeight);
+
+			// Deprecated text link replaced by icon button in header
+		} catch (err) {
+			this.logService.error('Failed to render welcome history', err);
+		}
+	}
+
+	private formatHistoryTimestamp(last: number, todayMidnightMs: number): string {
+		if (last > todayMidnightMs) {
+			const diffMs = Date.now() - last;
+			const minMs = 60 * 1000;
+			const adjusted = diffMs < minMs ? Date.now() - minMs : last;
+			return fromNow(adjusted, true, true);
+		}
+		return fromNowByDay(last, true, true);
+	}
+
+	private async openHistorySession(sessionId: string): Promise<void> {
+		try {
+			const viewsService = this.instantiationService.invokeFunction(accessor => accessor.get(IViewsService));
+			const chatView = await viewsService.openView<ChatViewPane>(ChatViewId);
+			await chatView?.loadSession?.(sessionId);
+		} catch (e) {
+			this.logService.error('Failed to open chat session from history', e);
 		}
 	}
 
@@ -937,26 +1242,45 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	// --- End Positron ---
 
 	private renderChatTodoListWidget(): void {
+		const sessionId = this.viewModel?.sessionId;
+		if (!sessionId) {
+			this.chatTodoListWidget.render(sessionId);
+			return;
+		}
+
 		const isChatTodoListToolEnabled = this.configurationService.getValue<boolean>(TodoListToolSettingId) === true;
-		if (isChatTodoListToolEnabled) {
-			this.chatTodoListWidget.updateSessionId(this.viewModel?.sessionId);
+		if (!isChatTodoListToolEnabled) {
+			return;
+		}
+
+		const todos = this.chatTodoListService.getTodos(sessionId);
+		if (todos.length > 0) {
+			this.chatTodoListWidget.render(sessionId);
 		}
 	}
 
 	private getWelcomeViewContent(additionalMessage: string | IMarkdownString | undefined, expEmptyState?: boolean): IChatViewWelcomeContent {
 		const disclaimerMessage = expEmptyState
-			? localize('chatDisclaimer', "AI responses may be inaccurate.")
-			: localize('chatMessage', "Copilot is powered by AI, so mistakes are possible. Review output carefully before use.");
+			? this.chatDisclaimer
+			: localize('chatMessage', "Chat is powered by AI, so mistakes are possible. Review output carefully before use.");
 		const icon = expEmptyState ? Codicon.chatSparkle : Codicon.copilotLarge;
 
+
 		if (this.isLockedToCodingAgent) {
+			// TODO(jospicer): Let extensions contribute this welcome message/docs
+			const message = this._codingAgentPrefix === '@copilot '
+				? new MarkdownString(localize('copilotCodingAgentMessage', "This chat session will be forwarded to the {0} [coding agent]({1}) where work is completed in the background. ", this._codingAgentPrefix, 'https://aka.ms/coding-agent-docs') + this.chatDisclaimer, { isTrusted: true })
+				: new MarkdownString(localize('genericCodingAgentMessage', "This chat session will be forwarded to the {0} coding agent where work is completed in the background. ", this._codingAgentPrefix) + this.chatDisclaimer);
+
 			return {
-				title: localize('codingAgentTitle', "Chat with {0}", this._codingAgentPrefix),
-				message: new MarkdownString(localize('codingAgentMessage', "This chat session will be forwarded to the {0} coding agent", this._codingAgentPrefix)),
-				icon: Codicon.cloud,
+				title: localize('codingAgentTitle', "Delegate to {0}", this._codingAgentPrefix),
+				message,
+				icon: Codicon.sendToRemoteAgent,
 				additionalMessage,
 			};
 		}
+
+		const suggestedPrompts = this.getPromptFileSuggestions();
 
 		if (this.input.currentModeKind === ChatModeKind.Ask) {
 			return {
@@ -964,26 +1288,29 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				message: new MarkdownString(disclaimerMessage),
 				icon,
 				additionalMessage,
+				suggestedPrompts
 			};
 		} else if (this.input.currentModeKind === ChatModeKind.Edit) {
-			const editsHelpMessage = localize('editsHelp', "Start your editing session by defining a set of files that you want to work with. Then ask Copilot for the changes you want to make.");
+			const editsHelpMessage = localize('editsHelp', "Start your editing session by defining a set of files that you want to work with. Then ask for the changes you want to make.");
 			const message = expEmptyState ? disclaimerMessage : `${editsHelpMessage}\n\n${disclaimerMessage}`;
 
 			return {
 				title: localize('editsTitle', "Edit in context."),
 				message: new MarkdownString(message),
 				icon,
-				additionalMessage
+				additionalMessage,
+				suggestedPrompts
 			};
 		} else {
-			const agentHelpMessage = localize('agentMessage', "Ask Copilot to edit your files in [agent mode]({0}). Copilot will automatically use multiple requests to pick files to edit, run terminal commands, and iterate on errors.", 'https://aka.ms/vscode-copilot-agent');
+			const agentHelpMessage = localize('agentMessage', "Ask to edit your files in [agent mode]({0}). Agent mode will automatically use multiple requests to pick files to edit, run terminal commands, and iterate on errors.", 'https://aka.ms/vscode-copilot-agent');
 			const message = expEmptyState ? disclaimerMessage : `${agentHelpMessage}\n\n${disclaimerMessage}`;
 
 			return {
 				title: localize('agentTitle', "Build with agent mode."),
 				message: new MarkdownString(message),
 				icon,
-				additionalMessage
+				additionalMessage,
+				suggestedPrompts
 			};
 		}
 	}
@@ -1013,7 +1340,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				},
 				{
 					icon: Codicon.newFolder,
-					label: localize('chatWidget.suggestedPrompts.newProject', "Create project"),
+					label: localize('chatWidget.suggestedPrompts.newProject', "Create Project"),
 					prompt: localize('chatWidget.suggestedPrompts.newProjectPrompt', "Create a #new Hello World project in TypeScript"),
 				}
 			];
@@ -1021,15 +1348,143 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return [
 				{
 					icon: Codicon.debugAlt,
-					label: localize('chatWidget.suggestedPrompts.buildWorkspace', "Build workspace"),
+					label: localize('chatWidget.suggestedPrompts.buildWorkspace', "Build Workspace"),
 					prompt: localize('chatWidget.suggestedPrompts.buildWorkspacePrompt', "How do I build this workspace?"),
 				},
 				{
 					icon: Codicon.gear,
-					label: localize('chatWidget.suggestedPrompts.findConfig', "Show project config"),
+					label: localize('chatWidget.suggestedPrompts.findConfig', "Show Config"),
 					prompt: localize('chatWidget.suggestedPrompts.findConfigPrompt', "Where is the configuration for this project defined?"),
 				}
 			];
+		}
+	}
+
+	private getPromptFileSuggestions(): IChatSuggestedPrompts[] {
+		// Get the prompt file suggestions configuration
+		const suggestions = PromptsConfig.getPromptFilesRecommendationsValue(this.configurationService);
+		if (!suggestions) {
+			return [];
+		}
+
+		const result: IChatSuggestedPrompts[] = [];
+		const promptsToLoad: string[] = [];
+
+		// First, collect all prompts that need loading (regardless of shouldInclude)
+		for (const [promptName] of Object.entries(suggestions)) {
+			const description = this.promptDescriptionsCache.get(promptName);
+			if (description === undefined) {
+				promptsToLoad.push(promptName);
+			}
+		}
+
+		// If we have prompts to load, load them asynchronously and don't return anything yet
+		if (promptsToLoad.length > 0) {
+			this.loadPromptDescriptions(promptsToLoad);
+			return [];
+		}
+
+		// Now process the suggestions with loaded descriptions
+		const promptsWithScores: { promptName: string; condition: boolean | string; score: number }[] = [];
+
+		for (const [promptName, condition] of Object.entries(suggestions)) {
+			let score = 0;
+
+			// Handle boolean conditions
+			if (typeof condition === 'boolean') {
+				score = condition ? 1 : 0;
+			}
+			// Handle when clause conditions
+			else if (typeof condition === 'string') {
+				try {
+					const whenClause = ContextKeyExpr.deserialize(condition);
+					if (whenClause) {
+						// Test against all open code editors
+						const allEditors = this.codeEditorService.listCodeEditors();
+
+						if (allEditors.length > 0) {
+							// Count how many editors match the when clause
+							score = allEditors.reduce((count, editor) => {
+								try {
+									const editorContext = this.contextKeyService.getContext(editor.getDomNode());
+									return count + (whenClause.evaluate(editorContext) ? 1 : 0);
+								} catch (error) {
+									// Log error for this specific editor but continue with others
+									this.logService.warn('Failed to evaluate when clause for editor:', error);
+									return count;
+								}
+							}, 0);
+						} else {
+							// Fallback to global context if no editors are open
+							score = this.contextKeyService.contextMatchesRules(whenClause) ? 1 : 0;
+						}
+					} else {
+						score = 0;
+					}
+				} catch (error) {
+					// Log the error but don't fail completely
+					this.logService.warn('Failed to parse when clause for prompt file suggestion:', condition, error);
+					score = 0;
+				}
+			}
+
+			if (score > 0) {
+				promptsWithScores.push({ promptName, condition, score });
+			}
+		}
+
+		// Sort by score (descending) and take top 5
+		promptsWithScores.sort((a, b) => b.score - a.score);
+		const topPrompts = promptsWithScores.slice(0, 5);
+
+		// Build the final result array
+		for (const { promptName } of topPrompts) {
+			const description = this.promptDescriptionsCache.get(promptName);
+			result.push({
+				icon: Codicon.run,
+				label: description || localize('chatWidget.promptFile.suggestion', "/{0}", promptName),
+				prompt: `/${promptName} `
+			});
+		}
+
+		return result;
+	}
+
+	private async loadPromptDescriptions(promptNames: string[]): Promise<void> {
+		try {
+			// Get all available prompt files with their metadata
+			const promptCommands = await this.promptsService.findPromptSlashCommands();
+
+			// Load descriptions only for the specified prompts
+			for (const promptCommand of promptCommands) {
+				if (promptNames.includes(promptCommand.command)) {
+					try {
+						if (promptCommand.promptPath) {
+							const parseResult = await this.promptsService.parse(
+								promptCommand.promptPath.uri,
+								promptCommand.promptPath.type,
+								CancellationToken.None
+							);
+							if (parseResult.metadata?.description) {
+								this.promptDescriptionsCache.set(promptCommand.command, parseResult.metadata.description);
+							} else {
+								// Set empty string to indicate we've checked this prompt
+								this.promptDescriptionsCache.set(promptCommand.command, '');
+							}
+						}
+					} catch (error) {
+						// Log the error but continue with other prompts
+						this.logService.warn('Failed to parse prompt file for description:', promptCommand.command, error);
+						// Set empty string to indicate we've checked this prompt
+						this.promptDescriptionsCache.set(promptCommand.command, '');
+					}
+				}
+			}
+
+			// Trigger a re-render of the welcome view to show the loaded descriptions
+			this.renderWelcomeViewContentIfNeeded();
+		} catch (error) {
+			this.logService.warn('Failed to load specific prompt descriptions:', error);
 		}
 	}
 
@@ -1145,7 +1600,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 					attempt: request.attempt + 1,
 					location: this.location,
 					userSelectedModelId: this.input.currentLanguageModel,
-					mode: this.input.currentModeKind,
+					modeInfo: this.input.currentModeInfo,
 				};
 				this.chatService.resendRequest(request, options).catch(e => this.logService.error('FAILED to rerun request', e));
 			}
@@ -1215,6 +1670,12 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	private clickedRequest(item: IChatListItemTemplate) {
+
+		// cancel current request before we start editing.
+		if (this.viewModel) {
+			this.chatService.cancelCurrentRequestForSession(this.viewModel.sessionId);
+		}
+
 		const currentElement = item.currentElement;
 		if (isRequestVM(currentElement) && !this.viewModel?.editing) {
 
@@ -1276,7 +1737,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.onDidChangeItems();
 			this.input.inputEditor.focus();
 
-			this._register(dom.addDisposableListener(this.inputPart.element, dom.EventType.CLICK, () => {
+			this._register(this.inputPart.onDidClickOverlay(() => {
 				if (this.viewModel?.editing && this.configurationService.getValue<string>('chat.editRequests') !== 'input') {
 					this.finishedEditing();
 				}
@@ -1450,6 +1911,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			renderStyle: options?.renderStyle === 'minimal' ? 'compact' : options?.renderStyle,
 			menus: {
 				executeToolbar: MenuId.ChatExecute,
+				telemetrySource: 'chatWidget',
 				...this.viewOptions.menus
 			},
 			editorOverflowWidgetsDomNode: this.viewOptions.editorOverflowWidgetsDomNode,
@@ -1463,21 +1925,21 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		if (this.viewModel?.editing) {
 			const editedRequest = this.renderer.getTemplateDataForRequestId(this.viewModel?.editing?.id);
 			const scopedInstantiationService = this._register(this.instantiationService.createChild(new ServiceCollection([IContextKeyService, editedRequest?.contextKeyService])));
-			this.inlineInputPart = this._register(scopedInstantiationService.createInstance(ChatInputPart,
+			this.inlineInputPartDisposable.value = scopedInstantiationService.createInstance(ChatInputPart,
 				this.location,
 				commonConfig,
 				this.styles,
 				() => this.collectInputState(),
 				true
-			));
+			);
 		} else {
-			this.inputPart = this._register(this.instantiationService.createInstance(ChatInputPart,
+			this.inputPartDisposable.value = this.instantiationService.createInstance(ChatInputPart,
 				this.location,
 				commonConfig,
 				this.styles,
 				() => this.collectInputState(),
 				false
-			));
+			);
 		}
 
 		this.input.render(container, '', this);
@@ -1562,6 +2024,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.renderWelcomeViewContentIfNeeded();
 		}));
 		this._register(this.input.onDidChangeCurrentChatMode(() => {
+			this.lastWelcomeViewChatMode = this.input.currentModeKind;
 			this.renderWelcomeViewContentIfNeeded();
 			this.refreshParsedInput();
 			this.renderFollowups();
@@ -1572,24 +2035,18 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}));
 		// --- End Positron ---
 
-
-		const enabledToolSetsAndTools = this.input.selectedToolsModel.entries.map(value => {
+		this._register(autorun(r => {
 			const toolSetIds = new Set<string>();
 			const toolIds = new Set<string>();
-			for (const item of value) {
-				if (item instanceof ToolSet) {
-					toolSetIds.add(item.id);
-				} else {
-					toolIds.add(item.id);
+			for (const [entry, enabled] of this.input.selectedToolsModel.entriesMap.read(r)) {
+				if (enabled) {
+					if (entry instanceof ToolSet) {
+						toolSetIds.add(entry.id);
+					} else {
+						toolIds.add(entry.id);
+					}
 				}
 			}
-			return { toolSetIds, toolIds };
-		});
-
-		this._register(autorun(r => {
-
-			const { toolSetIds, toolIds } = enabledToolSetsAndTools.read(r);
-
 			const disabledTools = this.input.attachmentModel.attachments
 				.filter(a => a.kind === 'tool' && !toolIds.has(a.id) || a.kind === 'toolset' && !toolSetIds.has(a.id))
 				.map(a => a.id);
@@ -1605,10 +2062,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		this.container.style.setProperty('--vscode-chat-list-background', this.themeService.getColorTheme().getColor(this.styles.listBackground)?.toString() ?? '');
 	}
 
-	togglePaused() {
-		this.viewModel?.model.toggleLastRequestPaused();
-		this.onDidChangeItems();
-	}
 
 	setModel(model: IChatModel, viewState: IChatViewState): void {
 		if (!this.container) {
@@ -1619,20 +2072,25 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return;
 		}
 
+		if (this.historyList) {
+			this.historyList.setFocus([]);
+			this.historyList.setSelection([]);
+		}
+
 		this._codeBlockModelCollection.clear();
 
 		this.container.setAttribute('data-session-id', model.sessionId);
 		this.viewModel = this.instantiationService.createInstance(ChatViewModel, model, this._codeBlockModelCollection);
 
 		if (this._lockedToCodingAgent) {
-			const placeholder = localize('chat.input.placeholder.lockedToAgent', "Follow up with {0}", this._lockedToCodingAgent);
+			const placeholder = localize('chat.input.placeholder.lockedToAgent', "Chat with {0}", this._lockedToCodingAgent);
 			this.viewModel.setInputPlaceholder(placeholder);
 			this.inputEditor.updateOptions({ placeholder });
 		} else if (this.viewModel.inputPlaceholder) {
 			this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
 		}
 
-		const renderImmediately = this.configurationService.getValue<boolean>('chat.experimental.renderMarkdownImmediately') === true;
+		const renderImmediately = this.configurationService.getValue<boolean>('chat.experimental.renderMarkdownImmediately');
 		const delay = renderImmediately ? MicrotaskDelay : 0;
 		this.viewModelDisposables.add(Event.runAndSubscribe(Event.accumulate(this.viewModel.onDidChange, delay), (events => {
 			if (!this.viewModel) {
@@ -1640,8 +2098,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			}
 
 			this.requestInProgress.set(this.viewModel.requestInProgress);
-			this.isRequestPaused.set(this.viewModel.requestPausibility === ChatPauseState.Paused);
-			this.canRequestBePaused.set(this.viewModel.requestPausibility !== ChatPauseState.NotPausable);
 
 			// Update the editor's placeholder text when it changes in the view model
 			if (events?.some(e => e?.kind === 'changePlaceholder')) {
@@ -1678,6 +2134,9 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		this.viewModelDisposables.add(model.onDidChange((e) => {
 			if (e.kind === 'setAgent') {
 				this._onDidChangeAgent.fire({ agent: e.agent, slashCommand: e.command });
+			}
+			if (e.kind === 'addRequest') {
+				this.chatTodoListWidget.clear(model.sessionId);
 			}
 		}));
 
@@ -1731,13 +2190,14 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	// Coding agent locking methods
-	public lockToCodingAgent(name: string, displayName: string): void {
+	public lockToCodingAgent(name: string, displayName: string, agentId: string): void {
 		this._lockedToCodingAgent = displayName;
 		this._codingAgentPrefix = `@${name} `;
+		this._lockedAgentId = agentId;
 		this._lockedToCodingAgentContextKey.set(true);
 		this.renderWelcomeViewContentIfNeeded();
 		this.input.setChatMode(ChatModeKind.Ask);
-		this.renderer.updateOptions({ restorable: false, editable: false, progressMessageAtBottomOfResponse: true });
+		this.renderer.updateOptions({ restorable: false, editable: false, noFooter: true, progressMessageAtBottomOfResponse: true });
 		this.tree.rerender();
 	}
 
@@ -1745,6 +2205,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		// Clear all state related to locking
 		this._lockedToCodingAgent = undefined;
 		this._codingAgentPrefix = undefined;
+		this._lockedAgentId = undefined;
 		this._lockedToCodingAgentContextKey.set(false);
 
 		// Explicitly update the DOM to reflect unlocked state
@@ -1755,12 +2216,16 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			this.viewModel.resetInputPlaceholder();
 		}
 		this.inputEditor.updateOptions({ placeholder: undefined });
-		this.renderer.updateOptions({ restorable: true, editable: true, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
+		this.renderer.updateOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
 		this.tree.rerender();
 	}
 
 	public get isLockedToCodingAgent(): boolean {
 		return !!this._lockedToCodingAgent;
+	}
+
+	public get lockedAgentId(): string | undefined {
+		return this._lockedAgentId;
 	}
 
 	logInputHistory(): void {
@@ -1816,7 +2281,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return undefined;
 		}
 
-
 		let parseResult: IPromptParserResult | undefined;
 
 		// first check if the input has a prompt slash command
@@ -1834,7 +2298,11 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			// if not, check if the context contains a prompt file: This is the old workflow that we still support for legacy reasons
 			const uri = this._findPromptFileInContext(requestInput.attachedContext);
 			if (uri) {
-				parseResult = await this.promptsService.parse(uri, PromptsType.prompt, CancellationToken.None);
+				try {
+					parseResult = await this.promptsService.parse(uri, PromptsType.prompt, CancellationToken.None);
+				} catch (error) {
+					this.logService.error(`[_applyPromptFileIfSet] Failed to parse prompt file: ${uri}`, error);
+				}
 			}
 		}
 
@@ -1859,28 +2327,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	private async _acceptInput(query: { query: string } | undefined, options?: IChatAcceptInputOptions): Promise<IChatResponseModel | undefined> {
-		if (this.viewModel?.requestInProgress && this.viewModel.requestPausibility !== ChatPauseState.Paused) {
+		if (this.viewModel?.requestInProgress) {
 			return;
-		}
-
-		// Handle coding agent prefix enforcement
-		if (this._lockedToCodingAgent && this._codingAgentPrefix) {
-			if (query) {
-				// For programmatic input, ensure the prefix is added
-				if (!query.query.startsWith(this._codingAgentPrefix)) {
-					query.query = this._codingAgentPrefix + this.removeExistingAgentPrefix(query.query);
-				}
-			} else {
-				// For user input, update the editor value if needed
-				const currentValue = this.getInput();
-				if (!currentValue.length) {
-					return;
-				}
-				if (!currentValue.startsWith(this._codingAgentPrefix)) {
-					const newValue = this._codingAgentPrefix + this.removeExistingAgentPrefix(currentValue);
-					this.input.inputEditor.setValue(newValue);
-				}
-			}
 		}
 
 		if (!query && this.input.generating) {
@@ -1895,7 +2343,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 		if (this.viewModel) {
 			this._onDidAcceptInput.fire();
-			this.scrollLock = !!checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll);
+			this.scrollLock = this.isLockedToCodingAgent || !!checkModeOption(this.input.currentModeKind, this.viewOptions.autoScroll);
 
 			const editorValue = this.getInput();
 			const requestId = this.chatAccessibilityService.acceptRequest();
@@ -1971,7 +2419,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				attachedContext: requestInputs.attachedContext.asArray(),
 				noCommandDetection: options?.noCommandDetection,
 				...this.getModeRequestOptions(),
-				modeInstructions: this.input.currentModeObs.get().body?.get()
+				modeInfo: this.input.currentModeInfo,
+				agentIdSilent: this._lockedAgentId
 			});
 
 			if (result) {
@@ -2004,15 +2453,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 	getModeRequestOptions(): Partial<IChatSendRequestOptions> {
 		return {
-			modeInstructions: this.input.currentModeObs.get().body?.get(),
-			userSelectedTools: this.input.selectedToolsModel.enablementMap.map(map => {
-				const userSelectedTools: Record<string, boolean> = {};
-				for (const [tool, enablement] of map) {
-					userSelectedTools[tool.id] = enablement;
-				}
-				return userSelectedTools;
-			}),
-			mode: this.input.currentModeKind,
+			modeInfo: this.input.currentModeInfo,
+			userSelectedTools: this.input.selectedToolsModel.userSelectedTools,
 		};
 	}
 
@@ -2240,16 +2682,24 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	private async _applyPromptMetadata(metadata: TPromptMetadata, requestInput: IChatRequestInputOptions): Promise<void> {
 		const { mode, tools, model } = metadata;
 
+		const currentMode = this.input.currentModeObs.get();
+
 		// switch to appropriate chat mode if needed
-		if (mode && mode !== this.input.currentModeKind) {
-			const chatModeCheck = await this.instantiationService.invokeFunction(handleModeSwitch, this.input.currentModeKind, mode, this.viewModel?.model.getRequests().length ?? 0, this.viewModel?.model.editingSession);
-			if (!chatModeCheck) {
-				return undefined;
-			} else if (chatModeCheck.needToClearSession) {
-				this.clear();
-				await this.waitForReady();
+		if (mode && mode !== currentMode.name) {
+			// Find the mode object to get its kind
+			const chatMode = this.chatModeService.findModeByName(mode);
+			if (chatMode) {
+				if (currentMode.kind !== chatMode.kind) {
+					const chatModeCheck = await this.instantiationService.invokeFunction(handleModeSwitch, currentMode.kind, chatMode.kind, this.viewModel?.model.getRequests().length ?? 0, this.viewModel?.model.editingSession);
+					if (!chatModeCheck) {
+						return undefined;
+					} else if (chatModeCheck.needToClearSession) {
+						this.clear();
+						await this.waitForReady();
+					}
+				}
+				this.input.setChatMode(chatMode.id);
 			}
-			this.input.setChatMode(mode);
 		}
 
 		// if not tools to enable are present, we are done
@@ -2278,7 +2728,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			await computer.collect(attachedContext, CancellationToken.None);
 		} else {
 			const computer = this.instantiationService.createInstance(ComputeAutomaticInstructions, undefined);
-			await computer.collectCopilotInstructionsOnly(attachedContext, CancellationToken.None);
+			await computer.collectAgentInstructionsOnly(attachedContext, CancellationToken.None);
 		}
 	}
 
@@ -2287,15 +2737,10 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			return undefined;
 		}
 		const readFileTool = this.toolsService.getToolByName('readFile');
-		if (!readFileTool || !this.input.selectedToolsModel.enablementMap.get().get(readFileTool)) {
+		if (!readFileTool || !this.input.selectedToolsModel.userSelectedTools.get()[readFileTool.id]) {
 			return undefined;
 		}
 		return readFileTool;
-	}
-
-	private removeExistingAgentPrefix(text: string): string {
-		// Remove any existing agent prefix (e.g., @agent) from the beginning
-		return text.replace(/^@\w+\s*/, '');
 	}
 
 	delegateScrollFromMouseWheelEvent(browserEvent: IMouseWheelEvent): void {

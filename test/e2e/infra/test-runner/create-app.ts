@@ -24,5 +24,9 @@ export function getRandomUserDataDir(options: ApplicationOptions): string {
 	// https://github.com/microsoft/vscode/issues/34988
 	const userDataPathSuffix = [...Array(8)].map(() => Math.random().toString(36)[3]).join('');
 
+	if (!options.userDataDir) {
+		throw new Error('Cannot get random user data dir from undefined userDataDir');
+	}
+
 	return options.userDataDir.concat(`-${userDataPathSuffix}`);
 }

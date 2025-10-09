@@ -255,7 +255,19 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 	 * Get the currently-registered comms from the runtime.
 	 */
 	protected override _get_comm_info(): Promise<{}> {
-		throw new Error('Method not implemented.');
+		return new Promise((resolve) => {
+			const disposable = this._messaging.onDidReceiveMessage(message => {
+				if (message.type === 'comm_info_reply') {
+					disposable.dispose();
+					resolve(message.comms || {});
+				}
+			});
+			this._disposables.push(disposable);
+			this._messaging.postMessage({
+				type: 'comm_info_request',
+				target_name: undefined,
+			});
+		});
 	}
 
 	/**

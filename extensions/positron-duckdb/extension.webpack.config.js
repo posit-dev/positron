@@ -8,9 +8,9 @@
 'use strict';
 
 const { IgnorePlugin } = require('webpack');
-const withDefaults = require('../shared.webpack.config');
+const withDefaults = require('../shared.webpack.config.mjs').default;
 
-module.exports = withDefaults({
+module.exports.default = withDefaults({
 	context: __dirname,
 	entry: {
 		extension: './src/extension.ts',
@@ -19,7 +19,6 @@ module.exports = withDefaults({
 		__dirname: false
 	},
 	externals: {
-		// eslint-disable-next-line @typescript-eslint/naming-convention
 		'@duckdb/duckdb-wasm': 'commonjs @duckdb/duckdb-wasm',
 		'web-worker': 'commonjs web-worker',
 	}

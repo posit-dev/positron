@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, Locator } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
 import { Code, QuickAccess, Console } from '../infra';
 import { QuickInput } from './quickInput';
 
@@ -21,16 +21,16 @@ const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
  * Class to manage console sessions
  */
 export class Sessions {
-	private page = this.code.driver.page;
+	private get page(): Page { return this.code.driver.page; }
 
 	// Session management and UI elements
-	private quickPick = new SessionQuickPick(this.code, this);
+	private get quickPick(): SessionQuickPick { return new SessionQuickPick(this.code, this); }
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
+	private deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -146,6 +146,7 @@ export class Sessions {
 				await this.console.focus();
 
 				if (await this.getSessionCount() === 1) {
+					// Only one session: Use the delete button in the action bar
 					const currentSessionId = await this.getCurrentSessionId();
 					if (currentSessionId === sessionId) {
 						await this.page.getByTestId('trash-session').click();
@@ -158,11 +159,9 @@ export class Sessions {
 						}
 					}
 				} else {
-					const sessionTab = this.getSessionTab(sessionId);
-
-					await sessionTab.click();
-					await sessionTab.hover();
-					await this.sessionTrashButton(sessionId).click();
+					// More that one session: Delete via the context menu. (The trash icon
+					// is not visible if the tab list is too narrow.)
+					await this.deleteViaUI(sessionId);
 				}
 
 				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
@@ -744,6 +743,24 @@ export class Sessions {
 	}
 
 	/**
+	 * Action: Delete a session via UI
+	 *
+	 * @param sessionId - the id of the session
+	 */
+	async deleteViaUI(sessionId: string): Promise<void> {
+		await test.step(`Delete session: ${sessionId}`, async () => {
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionId);
+
+			// open the context menu and select "Delete"
+			await sessionTab.click({ button: 'right' });
+			await this.deleteMenuItem.hover();
+			await this.page.waitForTimeout(500);
+			await this.deleteMenuItem.click();
+		});
+	}
+
+	/**
 	* Action: Open the metadata dialog for the current session
 	*/
 	async openMetadataDialog() {
@@ -1004,9 +1021,9 @@ export class Sessions {
  * Helper class to manage the session quick pick
  */
 export class SessionQuickPick {
-	private quickInputTitleBar = this.code.driver.page.locator('.quick-input-titlebar');
-	private sessionQuickMenu = this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/);
-	allSessionsMenu = this.quickInputTitleBar.getByText(/Start New Interpreter Session/);
+	private get quickInputTitleBar(): Locator { return this.code.driver.page.locator('.quick-input-titlebar'); }
+	private get sessionQuickMenu(): Locator { return this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/); }
+	get allSessionsMenu(): Locator { return this.quickInputTitleBar.getByText(/Start New Interpreter Session/); }
 
 	constructor(private code: Code, private sessions: Sessions) { }
 

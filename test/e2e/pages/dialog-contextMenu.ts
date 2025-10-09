@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../infra/code.js';
-import test, { Locator } from '@playwright/test';
+import test, { Locator, Page } from '@playwright/test';
 
 export class ContextMenu {
-	private page = this.code.driver.page;
+	private get page(): Page { return this.code.driver.page; }
 	private isNativeMenu: boolean;
-	private contextMenu: Locator = this.page.locator('.monaco-menu');
-	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
-	private getContextMenuItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitem', { name: label });
-	private getContextMenuCheckboxItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitemcheckbox', { name: label });
+	private get contextMenu(): Locator { return this.page.locator('.monaco-menu'); }
+	private get contextMenuItems(): Locator { return this.contextMenu.getByRole('menuitem'); }
+	private getContextMenuItem(label: string | RegExp): Locator { return this.contextMenu.getByRole('menuitem', { name: label }); }
+	private getContextMenuCheckboxItem(label: string | RegExp): Locator { return this.contextMenu.getByRole('menuitemcheckbox', { name: label }); }
 
 	constructor(private code: Code) {
 		// Check if we're on macOS AND we have an Electron app instance

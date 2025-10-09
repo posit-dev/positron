@@ -38,6 +38,11 @@ async function launchServer(options: LaunchOptions) {
 	const serverLogsPath = join(logsPath, 'server');
 	const codeServerPath = codePath ?? process.env.VSCODE_REMOTE_SERVER_PATH;
 	const agentFolder = userDataDir;
+
+	if (!agentFolder || !extensionsPath) {
+		throw new Error('Cannot launch server with undefined userDataDir');
+	}
+
 	await measureAndLog(() => fs.promises.mkdir(agentFolder, { recursive: true }), `mkdirp(${agentFolder})`, logger);
 
 	const env = {

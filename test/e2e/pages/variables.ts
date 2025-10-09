@@ -29,7 +29,7 @@ const VARIABLES_FILTER_SELECTOR = '.positron-variables-container .action-bar-fil
  *  Reuseable Positron variables functionality for tests to leverage.
  */
 export class Variables {
-	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
+	get interpreterLocator(): Locator { return this.code.driver.page.locator(VARIABLES_INTERPRETER); }
 	variablesPane: Locator;
 	variablesRuntime: (name: string | RegExp) => Locator;
 

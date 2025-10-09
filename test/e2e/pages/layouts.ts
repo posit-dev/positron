@@ -38,49 +38,49 @@ export class Layouts {
 	/**
 	 * Locator for the entire IDE. This is the "body" of the root page.
 	 */
-	fullApp = this.code.driver.page.locator(FULL_APP);
+	get fullApp(): Locator { return this.code.driver.page.locator(FULL_APP); }
 
 	/**
 	 * Button in upper right of IDE for customizing layout.
 	 */
-	customizeLayoutButton = this.fullApp.getByLabel(CUSTOMIZE_LAYOUT_BUTTON_LABEL);
+	get customizeLayoutButton(): Locator { return this.fullApp.getByLabel(CUSTOMIZE_LAYOUT_BUTTON_LABEL); }
 
 	/**
 	 * Locator for the panel part of the IDE.
 	 */
-	panel = this.code.driver.page.locator(PANEL);
+	get panel(): Locator { return this.code.driver.page.locator(PANEL); }
 
 	/**
 	 * Locator for the tabs in the panel used to navigate to different views.
 	 */
-	panelViewsTab = getPaneViewTabs(this.panel);
+	get panelViewsTab(): Locator { return getPaneViewTabs(this.panel); }
 
 	/**
 	 * The content of the panel. This is what should be tested if visible etc because
 	 * the panel never is hidden, just collapsed.
 	 * E.g. `await expect(positronLayouts.panelContent).not.toBeVisible();`
 	 */
-	panelContent = this.panel.locator('.content');
+	get panelContent(): Locator { return this.panel.locator('.content'); }
 
 	/**
 	 * Locator for the button to expand the panel.
 	 */
-	panelExpandButton = this.panel.getByLabel(PANEL_EXPAND_BUTTON_LABEL);
+	get panelExpandButton(): Locator { return this.panel.getByLabel(PANEL_EXPAND_BUTTON_LABEL); }
 
 	/**
 	 * Locator for the auxiliary bar part of the IDE.
 	 */
-	auxBar = this.code.driver.page.locator(AUX_BAR);
+	get auxBar(): Locator { return this.code.driver.page.locator(AUX_BAR); }
 
 	/**
 	 * Locator for the tabs in the auxiliary bar used to navigate to different views.
 	 */
-	auxBarViewsTab = getPaneViewTabs(this.auxBar);
+	get auxBarViewsTab(): Locator { return getPaneViewTabs(this.auxBar); }
 
 	/**
 	 * Locator for the sidebar part of the IDE.
 	 */
-	sidebar = this.code.driver.page.locator(SIDEBAR);
+	get sidebar(): Locator { return this.code.driver.page.locator(SIDEBAR); }
 
 	constructor(private code: Code, private workbench: Workbench) { }
 

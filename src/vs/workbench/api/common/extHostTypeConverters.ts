@@ -34,24 +34,28 @@ import * as languages from '../../../editor/common/languages.js';
 import { EndOfLineSequence, TrackedRangeStickiness } from '../../../editor/common/model.js';
 import { ITextEditorOptions } from '../../../platform/editor/common/editor.js';
 import { IExtensionDescription, IRelaxedExtensionDescription } from '../../../platform/extensions/common/extensions.js';
+import { ILogService } from '../../../platform/log/common/log.js';
 import { IMarkerData, IRelatedInformation, MarkerSeverity, MarkerTag } from '../../../platform/markers/common/markers.js';
 import { ProgressLocation as MainProgressLocation } from '../../../platform/progress/common/progress.js';
 import { DEFAULT_EDITOR_ASSOCIATION, SaveReason } from '../../common/editor.js';
 import { IViewBadge } from '../../common/views.js';
 import { IChatAgentRequest, IChatAgentResult } from '../../contrib/chat/common/chatAgents.js';
 import { IChatRequestDraft } from '../../contrib/chat/common/chatEditingService.js';
+import { IChatAgentMarkdownContentWithVulnerability, IChatCodeCitation, IChatCommandButton, IChatConfirmation, IChatContentInlineReference, IChatContentReference, IChatExtensionsContent, IChatFollowup, IChatMarkdownContent, IChatMoveMessage, IChatMultiDiffData, IChatPrepareToolInvocationPart, IChatProgressMessage, IChatPullRequestContent, IChatResponseCodeblockUriPart, IChatTaskDto, IChatTaskResult, IChatTextEdit, IChatThinkingPart, IChatToolInvocationSerialized, IChatTreeData, IChatUserActionEvent, IChatWarningMessage } from '../../contrib/chat/common/chatService.js';
 import { IChatRequestVariableEntry, isImageVariableEntry } from '../../contrib/chat/common/chatVariableEntries.js';
-import { IChatAgentMarkdownContentWithVulnerability, IChatCodeCitation, IChatCommandButton, IChatConfirmation, IChatContentInlineReference, IChatContentReference, IChatExtensionsContent, IChatFollowup, IChatMarkdownContent, IChatMoveMessage, IChatMultiDiffData, IChatPrepareToolInvocationPart, IChatProgressMessage, IChatPullRequestContent, IChatResponseCodeblockUriPart, IChatTaskDto, IChatTaskResult, IChatTextEdit, IChatTreeData, IChatUserActionEvent, IChatWarningMessage } from '../../contrib/chat/common/chatService.js';
+import { ChatAgentLocation } from '../../contrib/chat/common/constants.js';
 import { IToolResult, IToolResultInputOutputDetails, IToolResultOutputDetails, ToolDataSource } from '../../contrib/chat/common/languageModelToolsService.js';
 import * as chatProvider from '../../contrib/chat/common/languageModels.js';
 import { IChatMessageDataPart, IChatResponseDataPart, IChatResponsePromptTsxPart, IChatResponseTextPart } from '../../contrib/chat/common/languageModels.js';
 import { DebugTreeItemCollapsibleState, IDebugVisualizationTreeItem } from '../../contrib/debug/common/debug.js';
+import { McpServerLaunch, McpServerTransportType } from '../../contrib/mcp/common/mcpTypes.js';
 import * as notebooks from '../../contrib/notebook/common/notebookCommon.js';
 import { CellEditType } from '../../contrib/notebook/common/notebookCommon.js';
 import { ICellRange } from '../../contrib/notebook/common/notebookRange.js';
 import * as search from '../../contrib/search/common/search.js';
 import { TestId } from '../../contrib/testing/common/testId.js';
 import { CoverageDetails, DetailType, ICoverageCount, IFileCoverage, ISerializedTestResults, ITestErrorMessage, ITestItem, ITestRunProfileReference, ITestTag, TestMessageType, TestResultItem, TestRunProfileBitset, denamespaceTestTag, namespaceTestTag } from '../../contrib/testing/common/testTypes.js';
+import { AiSettingsSearchResult, AiSettingsSearchResultKind } from '../../services/aiSettingsSearch/common/aiSettingsSearch.js';
 import { EditorGroupColumn } from '../../services/editor/common/editorGroupColumn.js';
 import { ACTIVE_GROUP, SIDE_GROUP } from '../../services/editor/common/editorService.js';
 import { checkProposedApiEnabled, isProposedApiEnabled } from '../../services/extensions/common/extensions.js';
@@ -61,10 +65,6 @@ import { CommandsConverter } from './extHostCommands.js';
 import { getPrivateApiFor } from './extHostTestingPrivateApi.js';
 import * as types from './extHostTypes.js';
 import { LanguageModelDataPart, LanguageModelPromptTsxPart, LanguageModelTextPart } from './extHostTypes.js';
-import { ChatAgentLocation } from '../../contrib/chat/common/constants.js';
-import { AiSettingsSearchResult, AiSettingsSearchResultKind } from '../../services/aiSettingsSearch/common/aiSettingsSearch.js';
-import { McpServerLaunch, McpServerTransportType } from '../../contrib/mcp/common/mcpTypes.js';
-import { ILogService } from '../../../platform/log/common/log.js';
 
 export namespace Command {
 
@@ -2318,13 +2318,15 @@ export namespace LanguageModelChatMessage {
 			if (c.type === 'text') {
 				return new LanguageModelTextPart(c.value, c.audience);
 			} else if (c.type === 'tool_result') {
-				const content: (LanguageModelTextPart | LanguageModelPromptTsxPart)[] = c.value.map(part => {
+				const content: (LanguageModelTextPart | LanguageModelPromptTsxPart)[] = coalesce(c.value.map(part => {
 					if (part.type === 'text') {
 						return new types.LanguageModelTextPart(part.value, part.audience);
-					} else {
+					} else if (part.type === 'prompt_tsx') {
 						return new types.LanguageModelPromptTsxPart(part.value);
+					} else {
+						return undefined; // Strip unknown parts
 					}
-				});
+				}));
 				return new types.LanguageModelToolResultPart(c.toolCallId, content, c.isError);
 			} else if (c.type === 'image_url') {
 				// Non-stable types
@@ -2429,7 +2431,7 @@ export namespace LanguageModelChatMessage2 {
 					if (part.type === 'text') {
 						return new types.LanguageModelTextPart(part.value, part.audience);
 					} else if (part.type === 'data') {
-						return new types.LanguageModelDataPart(part.value.data.buffer, part.value.mimeType);
+						return new types.LanguageModelDataPart(part.data.buffer, part.mimeType);
 					} else {
 						return new types.LanguageModelPromptTsxPart(part.value);
 					}
@@ -2439,6 +2441,8 @@ export namespace LanguageModelChatMessage2 {
 				return new types.LanguageModelDataPart(c.value.data.buffer, c.value.mimeType);
 			} else if (c.type === 'data') {
 				return new types.LanguageModelDataPart(c.data.buffer, c.mimeType);
+			} else if (c.type === 'thinking') {
+				return new types.LanguageModelThinkingPart(c.value, c.id, c.metadata);
 			} else {
 				return new types.LanguageModelToolCallPart(c.toolCallId, c.name, c.parameters);
 			}
@@ -2490,10 +2494,8 @@ export namespace LanguageModelChatMessage2 {
 						} else if (part instanceof types.LanguageModelDataPart) {
 							return {
 								type: 'data',
-								value: {
-									mimeType: part.mimeType as chatProvider.ChatImageMimeType,
-									data: VSBuffer.wrap(part.data)
-								},
+								mimeType: part.mimeType,
+								data: VSBuffer.wrap(part.data),
 								audience: part.audience
 							} satisfies IChatResponseDataPart;
 						} else {
@@ -2534,6 +2536,14 @@ export namespace LanguageModelChatMessage2 {
 					type: 'text',
 					value: c.value
 				};
+			} else if (c instanceof types.LanguageModelThinkingPart) {
+				return {
+					type: 'thinking',
+					value: c.value,
+					id: c.id,
+					metadata: c.metadata
+				};
+
 			} else {
 				if (typeof c !== 'string') {
 					throw new Error('Unexpected chat message content type llm 2');
@@ -2665,7 +2675,9 @@ export namespace ChatResponseMultiDiffPart {
 				resources: part.value.map(entry => ({
 					originalUri: entry.originalUri,
 					modifiedUri: entry.modifiedUri,
-					goToFileUri: entry.goToFileUri
+					goToFileUri: entry.goToFileUri,
+					added: entry.added,
+					removed: entry.removed,
 				}))
 			}
 		};
@@ -2674,7 +2686,9 @@ export namespace ChatResponseMultiDiffPart {
 		const resources = part.multiDiffData.resources.map(resource => ({
 			originalUri: resource.originalUri ? URI.revive(resource.originalUri) : undefined,
 			modifiedUri: resource.modifiedUri ? URI.revive(resource.modifiedUri) : undefined,
-			goToFileUri: resource.goToFileUri ? URI.revive(resource.goToFileUri) : undefined
+			goToFileUri: resource.goToFileUri ? URI.revive(resource.goToFileUri) : undefined,
+			added: resource.added,
+			removed: resource.removed,
 		}));
 		return new types.ChatResponseMultiDiffPart(resources, part.multiDiffData.title);
 	}
@@ -2719,6 +2733,20 @@ export namespace ChatResponseProgressPart {
 	}
 	export function to(part: Dto<IChatProgressMessage>): vscode.ChatResponseProgressPart {
 		return new types.ChatResponseProgressPart(part.content.value);
+	}
+}
+
+export namespace ChatResponseThinkingProgressPart {
+	export function from(part: vscode.ChatResponseThinkingProgressPart): Dto<IChatThinkingPart> {
+		return {
+			kind: 'thinking',
+			value: part.value,
+			id: part.id,
+			metadata: part.metadata
+		};
+	}
+	export function to(part: Dto<IChatThinkingPart>): vscode.ChatResponseThinkingProgressPart {
+		return new types.ChatResponseThinkingProgressPart(part.value ?? '', part.id, part.metadata);
 	}
 }
 
@@ -2783,7 +2811,7 @@ export namespace ChatPrepareToolInvocationPart {
 }
 
 export namespace ChatToolInvocationPart {
-	export function from(part: vscode.ChatToolInvocationPart): any {
+	export function from(part: vscode.ChatToolInvocationPart): IChatToolInvocationSerialized {
 		// Convert extension API ChatToolInvocationPart to internal serialized format
 		return {
 			kind: 'toolInvocationSerialized',
@@ -2794,8 +2822,8 @@ export namespace ChatToolInvocationPart {
 			pastTenseMessage: part.pastTenseMessage ? MarkdownString.from(part.pastTenseMessage) : undefined,
 			isConfirmed: part.isConfirmed,
 			isComplete: part.isComplete ?? true,
-			isError: part.isError ?? false,
-			resultDetails: undefined,
+			source: ToolDataSource.External,
+			// isError: part.isError ?? false,
 			toolSpecificData: part.toolSpecificData ? convertToolSpecificData(part.toolSpecificData) : undefined,
 			presentation: undefined
 		};
@@ -3022,6 +3050,8 @@ export namespace ChatResponsePart {
 			return ChatResponseReferencePart.from(part);
 		} else if (part instanceof types.ChatResponseProgressPart) {
 			return ChatResponseProgressPart.from(part);
+		} else if (part instanceof types.ChatResponseThinkingProgressPart) {
+			return ChatResponseThinkingProgressPart.from(part);
 		} else if (part instanceof types.ChatResponseFileTreePart) {
 			return ChatResponseFilesPart.from(part);
 		} else if (part instanceof types.ChatResponseMultiDiffPart) {
@@ -3283,7 +3313,9 @@ export namespace ChatAgentResult {
 			if (value.$mid === MarshalledId.LanguageModelToolResult) {
 				return new types.LanguageModelToolResult(cloneAndChange(value.content, reviveMetadata));
 			} else if (value.$mid === MarshalledId.LanguageModelTextPart) {
-				return new types.LanguageModelTextPart(value.value, value.audience);
+				return new types.LanguageModelTextPart(value.value);
+			} else if (value.$mid === MarshalledId.LanguageModelThinkingPart) {
+				return new types.LanguageModelThinkingPart(value.value, value.id, value.metadata);
 			} else if (value.$mid === MarshalledId.LanguageModelPromptTsxPart) {
 				return new types.LanguageModelPromptTsxPart(value.value);
 			}
@@ -3341,7 +3373,9 @@ export namespace ChatAgentUserActionEvent {
 					outcome: outcomes.get(event.action.outcome) ?? types.ChatEditingSessionActionOutcome.Rejected,
 					uri: URI.revive(event.action.uri),
 					hasRemainingEdits: event.action.hasRemainingEdits,
-					lineCount: event.action.lineCount
+					lineCount: event.action.lineCount,
+					linesAdded: event.action.linesAdded,
+					linesRemoved: event.action.linesRemoved
 				}, result: ehResult
 			};
 		} else {
@@ -3435,6 +3469,25 @@ export namespace InlineCompletionEndOfLifeReason {
 		return {
 			kind: types.InlineCompletionEndOfLifeReasonKind.Rejected,
 		};
+	}
+}
+
+export namespace InlineCompletionDisplayLocationKind {
+	export function from(value: vscode.InlineCompletionDisplayLocationKind): types.InlineCompletionDisplayLocationKind {
+		if (value === types.InlineCompletionDisplayLocationKind.Label) {
+			return types.InlineCompletionDisplayLocationKind.Label;
+		} else {
+			return types.InlineCompletionDisplayLocationKind.Code;
+		}
+	}
+
+	export function to(kind: languages.InlineCompletionDisplayLocationKind): types.InlineCompletionDisplayLocationKind {
+		switch (kind) {
+			case languages.InlineCompletionDisplayLocationKind.Label:
+				return types.InlineCompletionDisplayLocationKind.Label;
+			default:
+				return types.InlineCompletionDisplayLocationKind.Code;
+		}
 	}
 }
 

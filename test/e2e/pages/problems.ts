@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 export class Problems {
 
-	problemsTab = this.code.driver.page.getByRole('tab', { name: 'Problems' });
-	problemsView = this.code.driver.page.locator('.panel .markers-panel');
-	problemsViewWarning = this.problemsView.locator('.marker-icon .codicon-warning');
-	problemsViewError = this.problemsView.locator('.marker-icon .codicon-error');
-	problemsCount = this.problemsTab.locator('.badge-content');
-	problemsRow = this.problemsView.locator('.monaco-tl-row');
-	warningSquiggly = this.code.driver.page.locator('.view-overlays .cdr.squiggly-warning');
-	errorSquiggly = this.code.driver.page.locator('.view-overlays .cdr.squiggly-error');
+	get problemsTab(): Locator { return this.code.driver.page.getByRole('tab', { name: 'Problems' }); }
+	get problemsView(): Locator { return this.code.driver.page.locator('.panel .markers-panel'); }
+	get problemsViewWarning(): Locator { return this.problemsView.locator('.marker-icon .codicon-warning'); }
+	get problemsViewError(): Locator { return this.problemsView.locator('.marker-icon .codicon-error'); }
+	get problemsCount(): Locator { return this.problemsTab.locator('.badge-content'); }
+	get problemsRow(): Locator { return this.problemsView.locator('.monaco-tl-row'); }
+	get warningSquiggly(): Locator { return this.code.driver.page.locator('.view-overlays .cdr.squiggly-warning'); }
+	get errorSquiggly(): Locator { return this.code.driver.page.locator('.view-overlays .cdr.squiggly-error'); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
