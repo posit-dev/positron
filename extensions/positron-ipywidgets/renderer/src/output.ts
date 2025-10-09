@@ -8,7 +8,7 @@ import * as outputBase from '@jupyter-widgets/output';
 import * as nbformat from '@jupyterlab/nbformat';
 import { OutputArea, OutputAreaModel } from '@jupyterlab/outputarea';
 import { Disposable } from 'vscode-notebook-renderer/events';
-import { PositronWidgetManager } from './manager';
+import { PositronWidgetManager } from './manager.js';
 
 /** Options when setting the `outputs` state. */
 export interface ISetOutputOptions {
@@ -23,7 +23,6 @@ export interface ISetOutputOptions {
 export class OutputModel extends outputBase.OutputModel {
 	// Properties assigned on `super.initialize`.
 	private _outputAreaModel!: OutputAreaModel;
-	public override widget_manager: PositronWidgetManager = undefined!;
 
 	/** The current message handler's disposable, if any. */
 	private _messageHandler?: Disposable;
@@ -65,7 +64,8 @@ export class OutputModel extends outputBase.OutputModel {
 
 		// Register the new handler, if any.
 		if (this.msgId.length > 0) {
-			this._messageHandler = this.widget_manager.onDidReceiveKernelMessage(this.msgId, (message) => {
+			const widget_manager = this.widget_manager as PositronWidgetManager;
+			this._messageHandler = widget_manager.onDidReceiveKernelMessage(this.msgId, (message) => {
 
 				// Update the output area model based on the message.
 				switch (message.type) {
@@ -146,9 +146,7 @@ export class OutputModel extends outputBase.OutputModel {
  */
 export class OutputView extends outputBase.OutputView {
 	// Properties assigned on parent class initialization.
-	override model: OutputModel = undefined!;
 	private _outputView!: OutputArea;
-	override luminoWidget: JupyterLuminoPanelWidget = undefined!;
 
 	override _createElement(_tagName: string): HTMLElement {
 		this.luminoWidget = new JupyterLuminoPanelWidget({ view: this });
@@ -169,15 +167,31 @@ export class OutputView extends outputBase.OutputView {
 	 */
 	override render(): void {
 		super.render();
-		this._outputView = new OutputArea({
-			rendermime: this.model.widget_manager.renderMime,
-			contentFactory: OutputArea.defaultContentFactory,
-			model: this.model.outputAreaModel,
-		});
-		this.luminoWidget.insertWidget(0, this._outputView);
+		try {
+			// Cast to our specific model and widget manager types.
+			const model = this.model as OutputModel;
+			const widget_manager = this.model.widget_manager as PositronWidgetManager;
 
-		this.luminoWidget.addClass('jupyter-widgets');
-		this.luminoWidget.addClass('widget-output');
+			// Create the output area.
+			this._outputView = new OutputArea({
+				rendermime: widget_manager.renderMime,
+				contentFactory: OutputArea.defaultContentFactory,
+				model: model.outputAreaModel,
+			});
+		} catch (e) {
+			// Ensure that errors during construction don't fail silently: log
+			// and rethrow
+			console.error('Render: Error creating OutputArea', e);
+			throw e;
+		}
+
+		// Add the output area to the DOM.
+		const luminoWidget = this.luminoWidget as JupyterLuminoPanelWidget;
+		luminoWidget.insertWidget(0, this._outputView);
+
+		luminoWidget.addClass('jupyter-widgets');
+		luminoWidget.addClass('widget-output');
+
 		this.update(); // Set defaults.
 	}
 
