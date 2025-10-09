@@ -156,9 +156,10 @@ export class PositronNotebooks extends Notebooks {
 			await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
 
 			if (exitEditMode) {
+				await this.code.driver.page.waitForTimeout(500);
 				await this.code.driver.page.keyboard.press('Escape');
-				await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false });
 			}
+			await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: !exitEditMode });
 		});
 	}
 
