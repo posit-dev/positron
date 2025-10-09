@@ -778,7 +778,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const options = new BaseCellEditorOptions({
 			onDidChangeModel: Event.fromObservable(this.textModel, this._store),
-			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this.textModel)),
+			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this.textModel.get())),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
 		}, this.notebookOptions, this.configurationService, language);
