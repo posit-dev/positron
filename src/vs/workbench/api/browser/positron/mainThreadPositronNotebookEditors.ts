@@ -11,7 +11,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostContext, ExtHostNotebookEditorsShape, INotebookDocumentShowOptions, INotebookEditorPropertiesChangeData, INotebookEditorViewColumnInfo, MainThreadNotebookEditorsShape, NotebookEditorRevealType } from '../../common/extHost.protocol.js';
 import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
-import { autorun } from '../../../../base/common/observable.js';
+import { runOnChange } from '../../../../base/common/observable.js';
 import { getSelectedCells, SelectionStates } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { equals } from '../../../../base/common/objects.js';
 import { UriComponents } from '../../../../base/common/uri.js';
@@ -35,8 +35,7 @@ export class MainThreadPositronNotebookInstance extends Disposable {
 		super();
 
 		// Fire an event when selections change
-		this._register(autorun((reader) => {
-			const state = this._instance.selectionStateMachine.state.read(reader);
+		this._register(runOnChange(this._instance.selectionStateMachine.state, (state) => {
 			const selections = this.getSelections(state);
 			this._onDidChangeProperties.fire({ selections: { selections } });
 		}));
