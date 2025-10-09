@@ -120,7 +120,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2025.26.0",
+			"version": "2025.28.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -242,8 +242,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.125.0",
-			"sha256sum": "6bfa70195d98e8be609c7d4639ad94d0393252a4d8838cc2bdeeb59c8001cf23",
+			"version": "1.126.0",
+			"sha256sum": "90e53ab8d278a7f4faf0f929caeeafbf69114f0bede849298c5a35a843d431a5",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",
