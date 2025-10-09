@@ -183,7 +183,6 @@ export class MainThreadNotebooksAndEditors {
 		// Track Positron notebook instances
 		this._positronNotebookService.onDidAddNotebookInstance(this._handleNotebookInstanceAdd, this, this._disposables);
 		this._positronNotebookService.onDidRemoveNotebookInstance(this._handleNotebookInstanceRemove, this, this._disposables);
-		// this._positronNotebookService.listInstances().forEach(this._handleNotebookInstanceAdd, this);
 		// --- End Positron ---
 		this._updateState();
 	}
@@ -284,13 +283,11 @@ export class MainThreadNotebooksAndEditors {
 		}
 
 		// Check which instances are visible
-		// const visibleInstances = new Map<string, MainThreadPositronNotebookInstance>();
 		for (const editorPane of this._editorService.visibleEditorPanes) {
 			const instance = getNotebookInstanceFromEditorPane(editorPane);
 			if (instance) {
 				const mainThreadInstance = instances.get(instance.id);
 				if (mainThreadInstance && mainThreadInstance.matches(editorPane)) {
-					// visibleInstances.set(instance.id, mainThreadInstance);
 					visibleEditorsMap.set(instance.id, mainThreadInstance);
 				}
 			}
