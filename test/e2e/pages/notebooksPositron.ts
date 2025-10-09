@@ -266,34 +266,36 @@ export class PositronNotebooks extends Notebooks {
 	 * @param action - The action to perform: 'copy', 'cut', 'paste', 'undo', 'redo', 'delete', 'addCellBelow'.
 	 */
 	async performCellAction(action: 'copy' | 'cut' | 'paste' | 'undo' | 'redo' | 'delete' | 'addCellBelow'): Promise<void> {
-		// Press escape to ensure focus is out of the cell editor
-		await this.code.driver.page.keyboard.press('Escape');
+		await test.step(`Perform cell action: ${action}`, async () => {
+			// Press escape to ensure focus is out of the cell editor
+			await this.code.driver.page.keyboard.press('Escape');
 
-		switch (action) {
-			case 'copy':
-				await this.clipboard.copy();
-				break;
-			case 'cut':
-				await this.clipboard.cut();
-				break;
-			case 'paste':
-				await this.clipboard.paste();
-				break;
-			case 'undo':
-				await this.hotKeys.undo();
-				break;
-			case 'redo':
-				await this.hotKeys.redo();
-				break;
-			case 'delete':
-				await this.code.driver.page.keyboard.press('Backspace');
-				break;
-			case 'addCellBelow':
-				await this.code.driver.page.keyboard.press('KeyB');
-				break;
-			default:
-				throw new Error(`Unknown cell action: ${action}`);
-		}
+			switch (action) {
+				case 'copy':
+					await this.clipboard.copy();
+					break;
+				case 'cut':
+					await this.clipboard.cut();
+					break;
+				case 'paste':
+					await this.clipboard.paste();
+					break;
+				case 'undo':
+					await this.hotKeys.undo();
+					break;
+				case 'redo':
+					await this.hotKeys.redo();
+					break;
+				case 'delete':
+					await this.code.driver.page.keyboard.press('Backspace');
+					break;
+				case 'addCellBelow':
+					await this.code.driver.page.keyboard.press('KeyB');
+					break;
+				default:
+					throw new Error(`Unknown cell action: ${action}`);
+			}
+		});
 	}
 
 	/**

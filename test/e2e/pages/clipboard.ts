@@ -35,9 +35,10 @@ export class Clipboard {
 		await this.setClipboardText(seed);
 
 		// Wait until clipboard value differs from the seed
+		await this.hotKeys.cut();
+
 		await expect
 			.poll(async () => {
-				await this.hotKeys.cut();
 				return (await this.getClipboardText()) ?? '';
 			}, {
 				message: 'clipboard should change after cut',
