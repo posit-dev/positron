@@ -40,7 +40,7 @@ test.describe('Postiron Notebooks: Cell Undo-Redo Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Initial Cell');
 
 			// Add a second cell
-			await notebooksPositron.selectCellAtIndex(0);
+			await notebooksPositron.selectCellAtIndex(0, { exitEditMode: true });
 			await notebooksPositron.performCellAction('addCellBelow');
 			await notebooksPositron.addCodeToCell(1, '# Second Cell');
 			await notebooksPositron.expectCellCountToBe(2);

@@ -24,7 +24,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 	});
 
 	test('Should correctly copy and paste cell content in various scenarios', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
+		const { notebooksPositron, clipboard } = app.workbench;
 
 		// ========================================
 		// Setup: Create 5 cells with distinct content
@@ -48,6 +48,26 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 
 			// Move to last cell and paste after it
 			await notebooksPositron.selectCellAtIndex(4);
+			// DEBUG: clipboard contents. Remove after issue resolved.
+			await clipboard.expectClipboardTextToBe(JSON.stringify({
+				cells: [
+					{
+						cell_type: 'code',
+						source: [
+							'# Cell 2'
+						],
+						metadata: {},
+						outputs: [],
+						execution_count: null
+					}
+				],
+				metadata: {
+					kernelspec: {},
+					language_info: {}
+				},
+				nbformat: 4,
+				nbformat_minor: 2
+			}, null, 2));
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count increased

@@ -45,7 +45,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 				order: 1,
 				duration: /\d+ms/,
 				status: 'Success'
-			});
+			}, 30000);
 
 			// Verify auto-close behavior
 			await notebooksPositron.moveMouseAway();

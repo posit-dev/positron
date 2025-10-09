@@ -436,10 +436,14 @@ export class PositronNotebooks extends Notebooks {
 	 * Verify: Cell info tooltip contains expected content.
 	 * @param expectedContent - Object with expected content to verify.
 	 *                          Use RegExp for fields where exact match is not feasible (e.g., duration, completed time).
+	 * @param timeout - Optional timeout for the expectation.
 	 */
-	async expectToolTipToContain(expectedContent: { order?: number; duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp }): Promise<void> {
+	async expectToolTipToContain(
+		expectedContent: { order?: number; duration?: RegExp; status?: 'Success' | 'Failed' | 'Currently running...'; completed?: RegExp },
+		timeout = DEFAULT_TIMEOUT
+	): Promise<void> {
 		await test.step(`Expect cell info tooltip to contain: ${JSON.stringify(expectedContent)}`, async () => {
-			await expect(this.cellInfoToolTip).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+			await expect(this.cellInfoToolTip).toBeVisible({ timeout });
 
 			const labelMap: Record<keyof typeof expectedContent, string> = {
 				order: 'Execution Order',
@@ -460,11 +464,11 @@ export class PositronNotebooks extends Notebooks {
 					if (key === 'status' && expectedValue === 'Currently running...') {
 						// Special case when cell is actively running: check for label, not value
 						const labelLocator = this.code.driver.page.locator('.popup-label', { hasText: 'Currently running...' });
-						await expect(labelLocator).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+						await expect(labelLocator).toBeVisible({ timeout });
 					} else {
 						const valueLocator = getValueLocator(labelMap[key]);
 						const expectedText = expectedValue instanceof RegExp ? expectedValue : expectedValue.toString();
-						await expect(valueLocator).toContainText(expectedText, { timeout: DEFAULT_TIMEOUT });
+						await expect(valueLocator).toContainText(expectedText, { timeout });
 					}
 				}
 			}
