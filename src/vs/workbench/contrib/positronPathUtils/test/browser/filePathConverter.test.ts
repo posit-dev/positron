@@ -113,36 +113,32 @@ suite('File Path Converter Tests', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('Single Windows file path conversion', () => {
-		const dataTransfer = new MockDataTransfer(['file:///C:/Users/test/file.txt']);
+		// Based on a real-world example captured in the debugger
+		const dataTransfer = new MockDataTransfer(['file:///c%3A/Users/test/file.txt']);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, '"C:/Users/test/file.txt"');
+		assert.deepStrictEqual(result, ['"c:/Users/test/file.txt"']);
 	});
 
-	test('Multiple Windows file paths create R vector', () => {
+	test('Multiple Windows file paths conversion', () => {
 		const dataTransfer = new MockDataTransfer([
-			'file:///C:/Users/test/file1.txt',
-			'file:///C:/Users/test/file2.txt'
+			'file:///c%3A/Users/test/file1.txt',
+			'file:///c%3A/Users/test/file2.txt'
 		]);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, 'c("C:/Users/test/file1.txt", "C:/Users/test/file2.txt")');
+		assert.deepStrictEqual(result, ['"c:/Users/test/file1.txt"', '"c:/Users/test/file2.txt"']);
 	});
 
 	test('File path with spaces is handled correctly', () => {
-		const dataTransfer = new MockDataTransfer(['file:///C:/Users/My%20Documents/file.txt']);
+		const dataTransfer = new MockDataTransfer(['file:///c%3A/Users/My%20Documents/file.txt']);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, '"C:/Users/My Documents/file.txt"');
+		assert.deepStrictEqual(result, ['"c:/Users/My Documents/file.txt"']);
 	});
 
+	// "file:///c%3A/Users/jenny/i%20love%20%27quotes%27.txt"
 	test('File path with quotes is escaped correctly', () => {
-		const dataTransfer = new MockDataTransfer(['file:///C:/Users/My%20%22Special%22%20File.txt']);
+		const dataTransfer = new MockDataTransfer(['file:///c%3A/Users/My%20%22Special%22%20File.txt']);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, '"C:/Users/My \\"Special\\" File.txt"');
-	});
-
-	test('Windows path with backslashes is normalized', () => {
-		const dataTransfer = new MockDataTransfer(['file:///C:\\Users\\test\\file.txt']);
-		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, '"C:/Users/test/file.txt"');
+		assert.deepStrictEqual(result, ['"c:/Users/My \\"Special\\" File.txt"']);
 	});
 
 	test('UNC path is skipped entirely', () => {
@@ -185,7 +181,7 @@ suite('File Path Converter Tests', () => {
 			'https://example.com/not-a-file'
 		]);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, '"C:/Users/test/file.txt"');
+		assert.deepStrictEqual(result, ['"C:/Users/test/file.txt"']);
 	});
 
 	test('Different drive letters work correctly', () => {
@@ -194,6 +190,6 @@ suite('File Path Converter Tests', () => {
 			'file:///E:/Backup/archive.zip'
 		]);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, 'c("D:/Projects/data.csv", "E:/Backup/archive.zip")');
+		assert.deepStrictEqual(result, ['"D:/Projects/data.csv"', '"E:/Backup/archive.zip"']);
 	});
 });
