@@ -53,15 +53,6 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             ['Running on local URL:  {{APP_URL}}', 'Running on public URL:  {{APP_URL}}'],
         ),
         registerExecCommand(
-            Commands.Exec_Shiny_In_Terminal,
-            'Shiny',
-            (_runtime, document, _urlPrefix) => getShinyDebugConfig(document),
-            undefined,
-            'Application startup complete',
-            // Uvicorn url string: https://github.com/encode/uvicorn/blob/fe3910083e3990695bc19c2ef671dd447262ae18/uvicorn/config.py#L479-L525
-            ['Uvicorn running on {{APP_URL}}'],
-        ),
-        registerExecCommand(
             Commands.Exec_Streamlit_In_Terminal,
             'Streamlit',
             (_runtime, document, _urlPrefix) => getStreamlitDebugConfig(document),
@@ -105,15 +96,6 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
             ['Running on local URL:  {{APP_URL}}', 'Running on public URL:  {{APP_URL}}'],
-        ),
-        registerDebugCommand(
-            Commands.Debug_Shiny_In_Terminal,
-            'Shiny',
-            (_runtime, document, _urlPrefix) => getShinyDebugConfig(document),
-            undefined,
-            'Application startup complete',
-            // Uvicorn url string: https://github.com/encode/uvicorn/blob/fe3910083e3990695bc19c2ef671dd447262ae18/uvicorn/config.py#L479-L525
-            ['Uvicorn running on {{APP_URL}}'],
         ),
         registerDebugCommand(
             Commands.Debug_Streamlit_In_Terminal,
@@ -279,11 +261,6 @@ function getFlaskDebugConfig(document: vscode.TextDocument): DebugConfiguration 
 function getGradioDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const env: { [key: string]: string } = {};
     return { program: document.uri.fsPath, env };
-}
-
-function getShinyDebugConfig(document: vscode.TextDocument): DebugConfiguration {
-    const args = ['run', '--reload', document.uri.fsPath];
-    return { module: 'shiny', args };
 }
 
 function getStreamlitDebugConfig(document: vscode.TextDocument): DebugConfiguration {

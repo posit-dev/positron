@@ -27,7 +27,7 @@ export interface RunAppTerminalOptions {
  */
 export interface RunAppOptions {
 	/**
-	 * The human-readable label for the application e.g. `'Shiny'`, also used as the ${@link vscode.Terminal.name}.
+	 * The human-readable label for the application e.g. `'Streamlit'`, also used as the ${@link vscode.Terminal.name}.
 	 */
 	name: string;
 
@@ -66,7 +66,7 @@ export interface RunAppOptions {
  */
 export interface DebugAppOptions {
 	/**
-	 * The human-readable label for the application e.g. `'Shiny'`.
+	 * The human-readable label for the application e.g. `'Streamlit'`.
 	 */
 	name: string;
 

@@ -13,7 +13,6 @@ import { IDisposableRegistry } from '../../client/common/types';
 suite('Discover Web app frameworks', () => {
     let document: vscode.TextDocument;
     let executeCommandStub: sinon.SinonStub;
-    let getExtensionStub: sinon.SinonStub;
     const disposables: IDisposableRegistry = [];
 
     setup(() => {
@@ -22,7 +21,6 @@ suite('Discover Web app frameworks', () => {
             getText: () => '',
             languageId: 'python',
         } as vscode.TextDocument;
-        getExtensionStub = sinon.stub(vscode.extensions, 'getExtension');
     });
 
     teardown(() => {
@@ -32,13 +30,12 @@ suite('Discover Web app frameworks', () => {
 
     const texts = {
         'import streamlit': 'streamlit',
-        'from shiny.ui import page_navbar': 'shiny',
+        'from fastapi import FastAPI': 'fastapi',
         'import numpy': 'numpy',
     };
     Object.entries(texts).forEach(([text, framework]) => {
         const expected = text.includes('numpy') ? undefined : framework;
         test('should set context pythonAppFramework if application is found', () => {
-            getExtensionStub.withArgs('Posit.shiny').returns(undefined);
             document.getText = () => text;
             detectWebApp(document);
 
@@ -46,7 +43,7 @@ suite('Discover Web app frameworks', () => {
         });
     });
 
-    const frameworks = ['streamlit', 'shiny', 'gradio', 'flask', 'fastapi', 'numpy'];
+    const frameworks = ['streamlit', 'gradio', 'flask', 'fastapi', 'numpy'];
     frameworks.forEach((framework) => {
         const expected = framework === 'numpy' ? undefined : framework;
         test(`should detect ${expected}: import framework`, () => {
@@ -67,12 +64,5 @@ suite('Discover Web app frameworks', () => {
 
             assert.strictEqual(actual, expected);
         });
-    });
-    test(`should not detect shiny if extension is installed`, () => {
-        getExtensionStub.withArgs('Posit.shiny').returns({ isActive: true });
-        const text = `from shiny import XYZ`;
-        const actual = getFramework(text);
-
-        assert.strictEqual(actual, undefined);
     });
 });
