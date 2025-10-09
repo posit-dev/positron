@@ -36,10 +36,11 @@ class PositronNotebookInstanceState {
 			return new PositronNotebookInstanceStateDelta(
 				[], [...after.instances.values()],
 				[...after.visibleInstances.values()],
-				after.activeInstanceId,
+				undefined, after.activeInstanceId,
 			);
 		}
 		const instanceDelta = diffMaps(before.instances, after.instances);
+		const oldActiveInstanceId = before.activeInstanceId !== after.activeInstanceId ? before.activeInstanceId : undefined;
 		const newActiveInstanceId = before.activeInstanceId !== after.activeInstanceId ? after.activeInstanceId : undefined;
 		const visibleInstanceDelta = diffMaps(before.visibleInstances, after.visibleInstances);
 		const visibleInstances = visibleInstanceDelta.added.length === 0 && visibleInstanceDelta.removed.length === 0
@@ -49,6 +50,7 @@ class PositronNotebookInstanceState {
 			instanceDelta.removed,
 			instanceDelta.added,
 			visibleInstances,
+			oldActiveInstanceId,
 			newActiveInstanceId,
 		);
 	}
@@ -70,12 +72,13 @@ class PositronNotebookInstanceStateDelta {
 		readonly removedInstances: IPositronNotebookInstance[],
 		readonly addedInstances: IPositronNotebookInstance[],
 		readonly visibleInstances: IPositronNotebookInstance[] | undefined,
-		readonly newActiveInstanceId?: string | null,
+		readonly oldActiveInstanceId: string | null | undefined,
+		readonly newActiveInstanceId: string | null | undefined,
 	) {
 		this.isEmpty = addedInstances.length === 0 &&
 			removedInstances.length === 0 &&
 			(visibleInstances === undefined || visibleInstances.length === 0) &&
-			newActiveInstanceId === undefined;
+			oldActiveInstanceId === newActiveInstanceId;
 	}
 }
 
@@ -134,7 +137,9 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 		// Get all Positron notebook instances
 		const instances = new Map<string, IPositronNotebookInstance>();
 		for (const instance of this._positronNotebookService.listInstances()) {
-			if (instance.textModel) {
+			// Don't add the instance until it has a text model, otherwise it'll get
+			// dropped in the extension host
+			if (instance.textModel.get()) {
 				instances.set(instance.id, instance);
 			}
 		}
@@ -159,6 +164,8 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 			}
 		}
 		if (!activeInstanceId) {
+			// Since we share vscode.window.activeNotebookEditor with VSCode notebook editors,
+			// don't clear the active instance with a null value if its a VSCode notebook
 			if (getNotebookEditorFromEditorPane(this._editorService.activeEditorPane)) {
 				activeInstanceId = undefined;
 			}
