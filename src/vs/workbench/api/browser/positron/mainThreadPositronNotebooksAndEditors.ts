@@ -5,12 +5,11 @@
 
 import { diffMaps } from '../../../../base/common/collections.js';
 import { DisposableMap, Disposable, combinedDisposable } from '../../../../base/common/lifecycle.js';
-import { extHostCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { EditorGroupColumn, editorGroupToColumn } from '../../../services/editor/common/editorGroupColumn.js';
 import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ExtHostContext, ExtHostNotebookShape, INotebookDocumentsAndEditorsDelta, INotebookEditorAddData } from '../../common/extHost.protocol.js';
-import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
+import { INotebookDocumentsAndEditorsDelta, INotebookEditorAddData } from '../../common/extHost.protocol.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { MainThreadPositronNotebookInstance, MainThreadPositronNotebookEditors, IMainThreadPositronNotebookInstanceLocator } from './mainThreadPositronNotebookEditors.js';
@@ -183,18 +182,17 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 //#endregion MainThreadPositronNotebookInstancesStateComputer
 
 //#region MainThreadPositronNotebooksAndEditors
-@extHostCustomer
 export class MainThreadPositronNotebooksAndEditors extends Disposable implements IMainThreadPositronNotebookInstanceLocator {
-	/** Extension host component that receives notebook instance state deltas */
-	private readonly _proxy: ExtHostNotebookShape;
-
 	/** Main thread component called by extension-host-side notebook editors */
 	private readonly _mainThreadEditors: MainThreadPositronNotebookEditors;
 
 	/** Map of all active notebook instances keyed by instance ID */
 	private readonly _instances = this._register(new DisposableMap<string, MainThreadPositronNotebookInstance>());
 
+	private _delta?: INotebookDocumentsAndEditorsDelta;
+
 	constructor(
+		private readonly _onDidChangeState: () => void,
 		extHostContext: IExtHostContext,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IEditorService private readonly _editorService: IEditorService,
@@ -209,9 +207,6 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 		));
 		extHostContext.set(MainPositronContext.MainThreadPositronNotebookEditors, this._mainThreadEditors);
 
-		// Get the extension host proxy
-		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebook);
-
 		// Create the notebook instance state computer;
 		// it will call us back with state changes
 		this._register(instantiationService.createInstance(
@@ -224,6 +219,34 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 		return this._instances.get(id);
 	}
 	//#endregion IMainThreadPositronNotebookInstanceLocator
+
+	isDeltaEmpty(): boolean {
+		return this._delta === undefined;
+	}
+
+	do(delta: INotebookDocumentsAndEditorsDelta): INotebookDocumentsAndEditorsDelta {
+		if (!this._delta) {
+			return delta;
+		}
+		const result = { ...delta };
+		if (this._delta.visibleEditors) {
+			result.visibleEditors = result.visibleEditors?.concat(this._delta.visibleEditors) ?? this._delta.visibleEditors;
+		}
+		if (this._delta.addedEditors) {
+			result.addedEditors = result.addedEditors?.concat(this._delta.addedEditors) ?? this._delta.addedEditors;
+		}
+		if (this._delta.removedEditors) {
+			result.removedEditors = result.removedEditors?.concat(this._delta.removedEditors) ?? this._delta.removedEditors;
+		}
+		if (this._delta.newActiveEditor !== undefined) {
+			result.newActiveEditor = this._delta.newActiveEditor;
+		}
+
+		// Unset delta, assuming it has been received by the extension host
+		this._delta = undefined;
+
+		return result;
+	}
 
 	//#region State change
 	private _onDelta(delta: PositronNotebookInstanceStateDelta): void {
@@ -241,15 +264,15 @@ export class MainThreadPositronNotebooksAndEditors extends Disposable implements
 		}
 
 		// First, update extension host
-		const extHostDelta: INotebookDocumentsAndEditorsDelta = {
+		// this._delta = delta;
+		// const extHostDelta: INotebookDocumentsAndEditorsDelta = {
+		this._delta = {
 			removedEditors: delta.removedInstances.map(instance => instance.id),
 			newActiveEditor: delta.newActiveInstanceId,
 			visibleEditors: delta.visibleInstances?.map(instance => instance.id),
 			addedEditors: addedInstances.map(this._toNotebookEditorAddData, this),
 		};
-		// TODO: On browser reload, we frist send this before documents are known to ext host...
-		//       I think we're better off patching the otehr main thread class at this stage...
-		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(extHostDelta));
+		this._onDidChangeState();
 
 		// Second, update main thread state
 		removedEditors.forEach(this._mainThreadEditors.handleNotebookInstanceRemoved, this._mainThreadEditors);
