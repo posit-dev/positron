@@ -130,22 +130,32 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () =>
-			// Update the data grid instance.
-			this.updateLayoutEntries()
-		));
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the layout entries.
+			await this.updateLayoutEntries()
+
+			// Perform a soft reset.
+			this.softReset();
+
+			// Fetch data.
+			await this.fetchData(true);
+		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () =>
-			// Update the data grid instance.
-			this.updateLayoutEntries()
-		));
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Update the layout entries.
+			await this.updateLayoutEntries()
+
+			// Fetch data.
+			await this.fetchData(true);
+		}));
 
 		// Add the onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState =>
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState => {
 			// Update the data grid instance.
-			this.updateLayoutEntries(backendState)
-		));
+			await this.updateLayoutEntries(backendState);
+			await this.fetchData(true);
+		}));
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._columnSchemaCache.onDidUpdateCache(() =>
@@ -303,6 +313,9 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 				this.showCursor();
 				this.setCursorRow(0);
 			}
+
+			// Force a re-render when the search changes
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
