@@ -2,7 +2,7 @@
   "name": "open-remote-ssh",
   "displayName": "Open Remote - SSH",
   "description": "Use any remote machine with a SSH server as your development environment.",
-  "version": "0.0.46",
+  "version": "0.0.49",
   "publisher": "jeanp413",
   "repository": {
     "type": "git",
@@ -347,6 +347,7 @@
   "devDependencies": {
     "@types/node": "^16.11.0",
     "@types/ssh2": "^0.5.52",
+    "@types/ssh2-streams": "0.1.12",
     "@typescript-eslint/eslint-plugin": "^5.19.0",
     "@typescript-eslint/parser": "^5.19.0",
     "node-loader": "^1.0.2",

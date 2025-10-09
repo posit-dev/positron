@@ -40,7 +40,7 @@ const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh
 export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log): Promise<ServerInstallResult> {
     let shell = 'powershell';
 
-    // detect plaform and shell for windows
+    // detect platform and shell for windows
     if (!platform || platform === 'windows') {
         const result = await conn.exec('uname -s');
 
@@ -81,7 +81,7 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
         useSocketPath,
         serverApplicationName: vscodeServerConfig.serverApplicationName,
         serverDataFolderName: vscodeServerConfig.serverDataFolderName,
-        serverDownloadUrlTemplate: serverDownloadUrlTemplate ?? vscodeServerConfig.serverDownloadUrlTemplate ?? DEFAULT_DOWNLOAD_URL_TEMPLATE,
+        serverDownloadUrlTemplate: serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
     };
 
     let commandOutput: { stdout: string; stderr: string };
@@ -293,6 +293,14 @@ case $ARCH in
         SERVER_ARCH="riscv64"
         ARCH_LONG="riscv64"
         ;;
+    loongarch64)
+        SERVER_ARCH="loong64"
+        ARCH_LONG="loong64"
+        ;;
+    s390x)
+        SERVER_ARCH="s390x"
+        ARCH_LONG="s390x"
+        ;;
     *)
         echo "Error architecture not supported: $ARCH"
         print_install_results_and_exit 1
@@ -317,14 +325,23 @@ if [[ ! -d $SERVER_DIR ]]; then
     fi
 fi
 
+# adjust platform for vscodium download, if needed
+if [[ $OS_RELEASE_ID = alpine ]]; then
+    PLATFORM=$OS_RELEASE_ID
+fi
+
 SERVER_DOWNLOAD_URL="$(echo "${serverDownloadUrlTemplate.replace(/\$\{/g, '\\${')}" | sed "s/\\\${quality}/$DISTRO_QUALITY/g" | sed "s/\\\${version}/$DISTRO_VERSION/g" | sed "s/\\\${commit}/$DISTRO_COMMIT/g" | sed "s/\\\${os}/$PLATFORM/g" | sed "s/\\\${arch}/$SERVER_ARCH/g" | sed "s/\\\${arch-long}/$ARCH_LONG/g" | sed "s/\\\${release}/$DISTRO_VSCODIUM_RELEASE/g")"
 
 # Check if server script is already installed
 if [[ ! -f $SERVER_SCRIPT ]]; then
-    if [[ "$PLATFORM" != "darwin" ]] && [[ "$PLATFORM" != "linux" ]]; then
-        echo "Error "$PLATFORM" needs manual installation of remote extension host"
-        print_install_results_and_exit 1
-    fi
+    case "$PLATFORM" in
+        darwin | linux | alpine )
+            ;;
+        *)
+            echo "Error '$PLATFORM' needs manual installation of remote extension host"
+            print_install_results_and_exit 1
+            ;;
+    esac
 
     pushd $SERVER_DIR > /dev/null
 
@@ -404,7 +421,7 @@ if [[ -f $SERVER_LOGFILE ]]; then
     done
 
     if [[ -z $LISTENING_ON ]]; then
-        echo "Error server did not start sucessfully"
+        echo "Error server did not start successfully"
         print_install_results_and_exit 1
     fi
 else
@@ -432,6 +449,7 @@ function generatePowerShellInstallScript({ id, quality, version, commit, release
 # Server installation script
 
 $TMP_DIR="$env:TEMP\\$([System.IO.Path]::GetRandomFileName())"
+$ProgressPreference = "SilentlyContinue"
 
 $DISTRO_VERSION="${version}"
 $DISTRO_COMMIT="${commit}"

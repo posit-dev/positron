@@ -35,6 +35,12 @@ interface INotebookActionKeybinding {
 	linux?: { primary: number; secondary?: number[] };
 	/** Keybinding weight (defaults to EditorContrib) */
 	weight?: number;
+	/**
+	 * Optional custom when clause for this keybinding.
+	 * If specified, this overrides the default keybinding context condition.
+	 * If not specified, defaults to POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.
+	 */
+	when?: ContextKeyExpression;
 }
 
 /**
@@ -294,9 +300,11 @@ function registerNotebookCommandInternal(options: INotebookCommandOptions): IDis
 	if (options.keybinding) {
 		// Default to requiring notebook focus for keybindings
 		const defaultKeybindingWhen = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED;
-		const keybindingWhen = options.when
-			? ContextKeyExpr.and(options.when, defaultKeybindingWhen)
-			: defaultKeybindingWhen;
+		const keybindingWhen: ContextKeyExpression = options.keybinding.when ?? (
+			options.when
+				? ContextKeyExpr.and(options.when, defaultKeybindingWhen) ?? defaultKeybindingWhen
+				: defaultKeybindingWhen
+		);
 
 		const keybindingDisposable = KeybindingsRegistry.registerKeybindingRule({
 			id: options.commandId,

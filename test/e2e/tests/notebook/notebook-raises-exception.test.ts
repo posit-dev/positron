@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Notebook Cell Execution with raises-exception tag', {
+test.describe('Notebooks: Cell Execution with raises-exception tag', {
 	tag: [tags.NOTEBOOKS, tags.WIN, tags.WEB]
 }, () => {
 
@@ -20,29 +20,31 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await app.workbench.notebooks.selectInterpreter('Python');
 		});
 
-		test.afterEach(async function ({ app }) {
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
+		test.afterEach(async function ({ hotKeys }) {
+			await hotKeys.closeAllEditors();
 		});
 
 		test('Python - Execution stops at exception without raises-exception tag', async function ({ app, page, hotKeys }) {
+			const { notebooks } = app.workbench;
+
 			// Cell 1: Normal execution
 			await hotKeys.scrollToTop();
-			await app.workbench.notebooks.addCodeToCellAtIndex('print("Cell 1 executed")');
+			await notebooks.addCodeToCellAtIndex(0, 'print("Cell 1 executed")');
 
 			// Cell 2: Exception without tag (should stop execution)
-			await app.workbench.notebooks.insertNotebookCell('code');
-			await app.workbench.notebooks.addCodeToCellAtIndex('raise ValueError("This should stop execution")', 1);
+			await notebooks.insertNotebookCell('code');
+			await notebooks.addCodeToCellAtIndex(1, 'raise ValueError("This should stop execution")');
 
 			// Cell 3: Should NOT execute
-			await app.workbench.notebooks.insertNotebookCell('code');
-			await app.workbench.notebooks.addCodeToCellAtIndex('print("Cell 3 should not execute")', 2);
+			await notebooks.insertNotebookCell('code');
+			await notebooks.addCodeToCellAtIndex(2, 'print("Cell 3 should not execute")');
 
 			// Run all cells
-			await app.workbench.notebooks.runAllCells();
+			await notebooks.runAllCells();
 
 			// Verify outputs
-			await app.workbench.notebooks.assertCellOutput('Cell 1 executed');
-			await app.workbench.notebooks.assertCellOutput('ValueError: This should stop execution');
+			await notebooks.assertCellOutput('Cell 1 executed');
+			await notebooks.assertCellOutput('ValueError: This should stop execution');
 
 			// Cell 3 should have no output
 			const cell3Output = page.locator('.cell-inner-container > .cell').nth(2).locator('.output');
@@ -50,13 +52,15 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 		});
 
 		test('Python - Execution continues after exception with raises-exception tag', async function ({ app, page, hotKeys }) {
+			const { notebooks, quickInput } = app.workbench;
+
 			// Cell 1: Normal execution
 			await hotKeys.scrollToTop();
-			await app.workbench.notebooks.addCodeToCellAtIndex('print("Cell 1 executed")');
+			await notebooks.addCodeToCellAtIndex(0, 'print("Cell 1 executed")');
 
 			// Cell 2: Exception with raises-exception tag
-			await app.workbench.notebooks.insertNotebookCell('code');
-			await app.workbench.notebooks.addCodeToCellAtIndex('raise ValueError("Expected error - execution should continue")', 1);
+			await notebooks.insertNotebookCell('code');
+			await notebooks.addCodeToCellAtIndex(1, 'raise ValueError("Expected error - execution should continue")');
 
 			// Add raises-exception tag to Cell 2
 			// First, ensure the cell is selected
@@ -66,22 +70,22 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await hotKeys.jupyterCellAddTag();
 
 			// Type the tag name in the quick input
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type('raises-exception');
+			await quickInput.waitForQuickInputOpened();
+			await quickInput.type('raises-exception');
 			// Press Enter key to submit (there's no okay button to press)
 			await page.keyboard.press('Enter');
 
 			// Cell 3: Should execute despite Cell 2 error
-			await app.workbench.notebooks.insertNotebookCell('code');
-			await app.workbench.notebooks.addCodeToCellAtIndex('print("Cell 3 executed successfully!")', 2);
+			await notebooks.insertNotebookCell('code');
+			await notebooks.addCodeToCellAtIndex(2, 'print("Cell 3 executed successfully!")');
 
 			// Run all cells by clicking the "Run All" button
-			await app.workbench.notebooks.runAllCells();
+			await notebooks.runAllCells();
 
 			// Verify outputs
-			await app.workbench.notebooks.assertCellOutput('Cell 1 executed');
-			await app.workbench.notebooks.assertCellOutput('ValueError: Expected error - execution should continue');
-			await app.workbench.notebooks.assertCellOutput('Cell 3 executed successfully!');
+			await notebooks.assertCellOutput('Cell 1 executed');
+			await notebooks.assertCellOutput('ValueError: Expected error - execution should continue');
+			await notebooks.assertCellOutput('Cell 3 executed successfully!');
 		});
 	});
 });

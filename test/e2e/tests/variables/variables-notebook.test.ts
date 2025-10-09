@@ -26,7 +26,7 @@ test.describe('Variables Pane - Notebook', {
 		// Create a variable via a notebook
 		await notebooks.createNewNotebook();
 		await notebooks.selectInterpreter('R');
-		await notebooks.addCodeToCellAtIndex('y <- c(2, 3, 4, 5)');
+		await notebooks.addCodeToCellAtIndex(0, 'y <- c(2, 3, 4, 5)');
 		await notebooks.executeCodeInCell();
 
 		// Verify the interpreter and var in the variable pane
@@ -41,7 +41,7 @@ test.describe('Variables Pane - Notebook', {
 		// Create a variable via a notebook
 		await notebooks.createNewNotebook();
 		await notebooks.selectInterpreter('Python');
-		await notebooks.addCodeToCellAtIndex('y = [2, 3, 4, 5]');
+		await notebooks.addCodeToCellAtIndex(0, 'y = [2, 3, 4, 5]');
 		await notebooks.executeCodeInCell();
 
 		// Verify the interpreter and var in the variable pane
@@ -56,7 +56,7 @@ test.describe('Variables Pane - Notebook', {
 		// Create a variable via a notebook
 		await notebooks.createNewNotebook();
 		await notebooks.selectInterpreter('Python');
-		await notebooks.addCodeToCellAtIndex('dict = [{"a":1,"b":2},{"a":3,"b":4}]');
+		await notebooks.addCodeToCellAtIndex(0, 'dict = [{"a":1,"b":2},{"a":3,"b":4}]');
 		await notebooks.executeCodeInCell();
 
 		// Verify the interpreter and var in the variable pane

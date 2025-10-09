@@ -8,15 +8,7 @@ import { executeCommand } from '../common/vscodeApis/commandApis';
 
 function getSupportedLibraries(): string[] {
     const libraries: string[] = ['streamlit', 'dash', 'gradio', 'flask', 'fastapi'];
-
-    const shinyExtensionId = 'Posit.shiny';
-    const shinyExtension = vscode.extensions.getExtension(shinyExtensionId);
-
-    // if shiny extension is installed, we don't need to handle it
-    if (shinyExtension) {
-        return libraries;
-    }
-    return libraries.concat('shiny');
+    return libraries;
 }
 
 export function detectWebApp(document: vscode.TextDocument): void {

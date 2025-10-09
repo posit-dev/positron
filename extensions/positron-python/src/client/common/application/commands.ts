@@ -107,7 +107,6 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_FastAPI_In_Terminal]: [];
     [Commands.Exec_Flask_In_Terminal]: [];
     [Commands.Exec_Gradio_In_Terminal]: [];
-    [Commands.Exec_Shiny_In_Terminal]: [];
     [Commands.Exec_Streamlit_In_Terminal]: [];
     [Commands.Exec_In_Console]: [];
     [Commands.Focus_Positron_Console]: [];

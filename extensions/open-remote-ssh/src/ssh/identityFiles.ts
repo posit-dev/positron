@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { ParsedKey } from 'ssh2-streams';
+import type { ParsedKey } from 'ssh2-streams';
 import * as ssh2 from 'ssh2';
 import { untildify, exists as fileExists } from '../common/files';
 import Log from '../common/logger';

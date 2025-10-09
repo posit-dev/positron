@@ -119,7 +119,7 @@ export class Notebooks {
 		});
 	}
 
-	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0) {
+	async addCodeToCellAtIndex(cellIndex: number, code: string, delay = 0) {
 		await test.step('Add code to first cell', async () => {
 			await this.selectCellAtIndex(cellIndex);
 			await this.typeInEditor(code, delay);
