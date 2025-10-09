@@ -115,12 +115,12 @@ export class Workbench {
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.modals = new Modals(code, this.toasts, this.console);
+		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
-		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
+		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys, this.clipboard);
 		this.welcome = new Welcome(code);
-		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
 		this.viewer = new Viewer(code);
 		this.editor = new Editor(code);

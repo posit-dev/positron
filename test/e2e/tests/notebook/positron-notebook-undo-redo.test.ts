@@ -3,133 +3,87 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
 });
 
-/**
- * Helper function to get cell count
- */
-async function getCellCount(app: Application): Promise<number> {
-	return await app.code.driver.page.locator('[data-testid="notebook-cell"]').count();
-}
-
-/**
- * Helper function to perform undo using keyboard shortcut
- */
-async function undoWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-	await app.code.driver.page.keyboard.press(`${modifierKey}+KeyZ`);
-}
-
-/**
- * Helper function to perform redo using keyboard shortcut
- */
-async function redoWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-	await app.code.driver.page.keyboard.press(`${modifierKey}+Shift+KeyZ`);
-}
-
-/**
- * Helper function to delete a cell using keyboard shortcut
- */
-async function deleteCellWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	await app.code.driver.page.keyboard.press('Backspace');
-}
-
-/**
- * Helper function to add a code cell below using keyboard shortcut
- */
-async function addCodeCellBelowWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	await app.code.driver.page.keyboard.press('KeyB');
-}
-
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
-test.describe('Notebook Cell Undo-Redo Behavior', {
+test.describe('Postiron Notebooks: Cell Undo-Redo Behavior', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	// Skip these tests on CI due to flakiness - will address in followup PR
-	test.skip(process.env.CI === 'true', 'Skipping undo-redo tests on CI due to flakiness');
 
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-		// Configure Positron as the notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 	});
 
-	test('Cell undo-redo behavior - comprehensive test', async function ({ app }) {
-		// Setup: Create notebook
-		await app.workbench.notebooks.createNewNotebook();
-		await app.workbench.notebooksPositron.expectToBeVisible();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
+	});
+
+	test('Should correctly undo and redo cell actions', async function ({ app }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		await test.step('Test Setup: Create notebook', async () => {
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectToBeVisible();
+		});
 
 		// ========================================
 		// Test 1: Basic add cell and undo/redo
 		// ========================================
-		// Start with initial cell
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Initial Cell', 0);
-		expect(await getCellCount(app)).toBe(1);
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Initial Cell');
+		await test.step('Test 1: Add cell and undo/redo', async () => {
+			// Start with initial cell
+			await notebooksPositron.addCodeToCell(0, '# Initial Cell');
+			await notebooksPositron.expectCellCountToBe(1);
+			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Initial Cell');
 
-		// Add a second cell
-		await app.workbench.notebooksPositron.selectCellAtIndex(0);
-		await addCodeCellBelowWithKeyboard(app);
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Second Cell', 1);
-		expect(await getCellCount(app)).toBe(2);
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Second Cell');
+			// Add a second cell
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			await notebooksPositron.performCellAction('addCellBelow');
+			await notebooksPositron.addCodeToCell(1, '# Second Cell');
+			await notebooksPositron.expectCellCountToBe(2);
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Second Cell');
 
-		// Undo the add cell operation
-		await undoWithKeyboard(app);
-		expect(await getCellCount(app)).toBe(1);
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Initial Cell');
+			// Undo the add cell operation
+			await notebooksPositron.performCellAction('undo');
+			await notebooksPositron.expectCellCountToBe(1);
+			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Initial Cell');
 
-		// Redo the add cell operation to add back cell
-		await redoWithKeyboard(app);
-		expect(await getCellCount(app)).toBe(2);
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Second Cell');
+			// Redo the add cell operation to add back cell
+			await notebooksPositron.performCellAction('redo');
+			await notebooksPositron.expectCellCountToBe(2);
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Second Cell');
+		});
 
 		// ========================================
 		// Test 2: Delete cell and undo/redo
 		// ========================================
-		// Add a third cell for deletion test
-		await app.workbench.notebooksPositron.selectCellAtIndex(1);
-		await addCodeCellBelowWithKeyboard(app);
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell to Delete', 2);
-		expect(await getCellCount(app)).toBe(3);
+		await test.step('Test 2: Delete cell and undo/redo', async () => {
+			// Add a third cell for deletion test
+			await notebooksPositron.selectCellAtIndex(1);
+			await notebooksPositron.performCellAction('addCellBelow');
+			await notebooksPositron.addCodeToCell(2, '# Cell to Delete');
+			await notebooksPositron.expectCellCountToBe(3);
 
-		// Delete the middle cell
-		await app.workbench.notebooksPositron.selectCellAtIndex(1);
-		await deleteCellWithKeyboard(app);
-		expect(await getCellCount(app)).toBe(2);
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Initial Cell');
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell to Delete');
+			// Delete the middle cell
+			await notebooksPositron.selectCellAtIndex(1);
+			await notebooksPositron.performCellAction('delete');
+			await notebooksPositron.expectCellCountToBe(2);
+			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Initial Cell');
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell to Delete');
 
-		// Undo the delete
-		await undoWithKeyboard(app);
-		expect(await getCellCount(app)).toBe(3);
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Second Cell');
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell to Delete');
+			// Undo the delete
+			await notebooksPositron.performCellAction('undo');
+			await notebooksPositron.expectCellCountToBe(3);
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Second Cell');
+			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell to Delete');
 
-		// Redo the delete
-		await redoWithKeyboard(app);
-		expect(await getCellCount(app)).toBe(2);
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell to Delete');
-
-		// ========================================
-		// Cleanup
-		// ========================================
-		// Close the notebook without saving
-		await app.workbench.notebooks.closeNotebookWithoutSaving();
+			// Redo the delete
+			await notebooksPositron.performCellAction('redo');
+			await notebooksPositron.expectCellCountToBe(2);
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell to Delete');
+		});
 	});
 });

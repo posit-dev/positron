@@ -16,13 +16,32 @@ export class Clipboard {
 		// Seed the clipboard
 		await this.setClipboardText(seed);
 
-		// Invoke the copy hotkey
-		await this.hotKeys.copy();
-
 		// Wait until clipboard value differs from the seed
 		await expect
-			.poll(async () => (await this.getClipboardText()) ?? '', {
+			.poll(async () => {
+				await this.hotKeys.copy();
+				return (await this.getClipboardText()) ?? '';
+			}, {
 				message: 'clipboard should change after copy',
+				timeout: timeoutMs,
+				intervals: [100, 150, 200, 300, 500, 800],
+			})
+			.not.toBe(seed);
+	}
+
+	async cut(timeoutMs = 5000): Promise<void> {
+		const seed = '__SEED__';
+		// Seed the clipboard
+		await this.setClipboardText(seed);
+
+		// Wait until clipboard value differs from the seed
+		await this.hotKeys.cut();
+
+		await expect
+			.poll(async () => {
+				return (await this.getClipboardText()) ?? '';
+			}, {
+				message: 'clipboard should change after cut',
 				timeout: timeoutMs,
 				intervals: [100, 150, 200, 300, 500, 800],
 			})

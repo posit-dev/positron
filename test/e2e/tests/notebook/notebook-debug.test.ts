@@ -41,7 +41,7 @@ test.describe('Notebook Debugging', {
 	});
 
 	// Single, simpler test that covers it all basics, instead of many separate and redundant tests.
-	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app }) => {
+	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger }) => {
 		const code = [
 			'# Initialize variables',
 			'x = 10',
@@ -56,7 +56,7 @@ test.describe('Notebook Debugging', {
 			'print(message)'
 		].join('\n');
 
-		await app.workbench.notebooks.addCodeToCellAtIndex(code, 0);
+		await app.workbench.notebooks.addCodeToCellAtIndex(0, code);
 
 		// Set BPs
 		await app.workbench.debug.setBreakpointOnLine(5); // intermediate calculation
@@ -68,7 +68,7 @@ test.describe('Notebook Debugging', {
 		// BP1
 		await app.workbench.debug.expectCurrentLineIndicatorVisible();
 		const vars1 = await app.workbench.debug.getVariables();
-		console.log('Variables at first breakpoint:', vars1);
+		logger.log('Variables at first breakpoint:', vars1);
 
 		// Step over to execute the intermediate calculation (BP1)
 		await app.workbench.debug.stepOver();
@@ -80,7 +80,7 @@ test.describe('Notebook Debugging', {
 
 		// BP2
 		const vars2 = await app.workbench.debug.getVariables();
-		console.log('Variables at second breakpoint:', vars2);
+		logger.log('Variables at second breakpoint:', vars2);
 
 		// Continue
 		await app.workbench.debug.continue();

@@ -3,207 +3,134 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
-import { PositronNotebooks } from '../../pages/notebooksPositron.js';
 
 test.use({
 	suiteId: __filename
 });
 
-/**
- * Clipboard operations (copy/cut) are asynchronous OS-level operations that may not complete
- * immediately after the keyboard shortcut is pressed. On slower CI environments (especially Ubuntu),
- * the clipboard may not be populated by the time the next operation (paste) executes, causing
- * race conditions. This delay ensures the clipboard operation has time to propagate.
- */
-const CLIPBOARD_OPERATION_DELAY_MS = 100;
-
-/**
- * Helper function to copy cells using keyboard shortcut
- */
-async function copyCellsWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	await app.code.driver.page.keyboard.press('ControlOrMeta+C');
-	// Wait for clipboard operation to complete
-	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
-}
-
-/**
- * Helper function to cut cells using keyboard shortcut
- */
-async function cutCellsWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	await app.code.driver.page.keyboard.press('ControlOrMeta+X');
-	// Wait for clipboard operation to complete
-	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
-}
-
-/**
- * Helper function to paste cells using keyboard shortcut
- */
-async function pasteCellsWithKeyboard(app: Application): Promise<void> {
-	// Exit edit mode and wait for focus to leave Monaco editor
-	await app.workbench.notebooksPositron.exitEditMode();
-	await app.code.driver.page.keyboard.press('ControlOrMeta+V');
-	// Wait for paste operation to complete before asserting results
-	await app.code.driver.page.waitForTimeout(CLIPBOARD_OPERATION_DELAY_MS);
-}
-
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
-test.describe('Notebook Cell Copy-Paste Behavior', {
+test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
-	// Skip these tests on CI due to flakiness - will address in followup PR
-	test.skip(process.env.CI === 'true', 'Skipping copy-paste tests on CI due to flakiness');
 
-	test.beforeAll(async function ({ app, settings }) {
+	test.beforeAll(async ({ app, settings }) => {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
-		// Configure Positron as the notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 	});
 
-	test('Cell copy-paste behavior - comprehensive test', async function ({ app }) {
-		// Setup: Create notebook and select kernel once
-		await app.workbench.notebooks.createNewNotebook();
-		await app.workbench.notebooksPositron.expectToBeVisible();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
+	});
+
+	test('Should correctly copy and paste cell content in various scenarios', async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
 
 		// ========================================
 		// Setup: Create 5 cells with distinct content
 		// ========================================
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell 0', 0);
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell 1', 1);
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell 2', 2);
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell 3', 3);
-		await app.workbench.notebooksPositron.addCodeToCellAtIndex('# Cell 4', 4);
-
-		// Verify we have 5 cells
-		await app.workbench.notebooksPositron.expectCellCount(5);
+		await test.step('Test Setup: Create notebook and add cells', async () => {
+			await notebooksPositron.newNotebook(5);
+			await notebooksPositron.expectCellCountToBe(5);
+		});
 
 		// ========================================
 		// Test 1: Copy single cell and paste at end
 		// ========================================
-		await app.workbench.notebooksPositron.selectCellAtIndex(2);
+		await test.step('Test 1: Copy single cell and paste at end', async () => {
+			// Perform copy on cell 2
+			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+			await notebooksPositron.performCellAction('copy');
 
-		// Verify cell 2 has correct content
-		expect(await app.workbench.notebooksPositron.getCellContent(2)).toBe('# Cell 2');
+			// Move to last cell and perform paste
+			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
+			await notebooksPositron.performCellAction('paste');
+			await notebooksPositron.expectCellCountToBe(6);
 
-		// Copy the cell
-		await copyCellsWithKeyboard(app);
-
-		// Move to last cell and paste after it
-		await app.workbench.notebooksPositron.selectCellAtIndex(4);
-		await pasteCellsWithKeyboard(app);
-
-		// Verify cell count increased
-		await app.workbench.notebooksPositron.expectCellCount(6);
-
-		// Verify the pasted cell has the correct content (should be at index 5)
-		expect(await app.workbench.notebooksPositron.getCellContent(5)).toBe('# Cell 2');
+			// Verify pasted contents are correct at new index 5
+			expect(await notebooksPositron.getCellContent(5)).toBe('# Cell 2');
+		});
 
 		// ========================================
 		// Test 2: Cut single cell and paste at different position
 		// ========================================
-		await app.workbench.notebooksPositron.selectCellAtIndex(1);
+		await test.step('Test 2: Cut single cell and paste at different position', async () => {
+			// Perform cut on cell 1
+			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
+			await notebooksPositron.performCellAction('cut');
 
-		// Verify we're at cell 1 with correct content
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 1');
+			// Verify cell count decreased and cell 1 is removed
+			await notebooksPositron.expectCellCountToBe(5);
+			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
 
-		// Cut the cell
-		await cutCellsWithKeyboard(app);
+			// Move to index 3 and paste
+			await notebooksPositron.selectCellAtIndex(3, { editMode: false });
+			await notebooksPositron.performCellAction('paste');
 
-		// Verify cell count decreased
-		await app.workbench.notebooksPositron.expectCellCount(5);
-
-		// Verify what was cell 2 is now at index 1
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe('# Cell 2');
-
-		// Move to index 3 and paste
-		await app.workbench.notebooksPositron.selectCellAtIndex(3);
-		await pasteCellsWithKeyboard(app);
-
-		// Verify cell count is back to 6
-		await app.workbench.notebooksPositron.expectCellCount(6);
-
-		// Verify the pasted cell has correct content at index 4
-		expect(await app.workbench.notebooksPositron.getCellContent(4)).toBe('# Cell 1');
+			// Verify cell count restored and cell content is correct
+			await notebooksPositron.expectCellCountToBe(6)
+			await notebooksPositron.expectCellContentAtIndexToBe(4, '# Cell 1');
+		});
 
 		// ========================================
 		// Test 3: Copy cell and paste multiple times (clipboard persistence)
 		// ========================================
-		await app.workbench.notebooksPositron.selectCellAtIndex(0);
+		await test.step('Test 3: Copy cell and paste multiple times (clipboard persistence)', async () => {
+			await notebooksPositron.expectCellCountToBe(6);
 
-		// Copy cell 0
-		expect(await app.workbench.notebooksPositron.getCellContent(0)).toBe('# Cell 0');
-		await copyCellsWithKeyboard(app);
+			// Copy cell 0
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
+			await notebooksPositron.performCellAction('copy');
 
-		// Paste at position 2
-		await app.workbench.notebooksPositron.selectCellAtIndex(2);
-		await pasteCellsWithKeyboard(app);
+			// Paste at position 2
+			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+			await notebooksPositron.performCellAction('paste');
 
-		// Verify first paste
-		await app.workbench.notebooksPositron.expectCellCount(7);
-		expect(await app.workbench.notebooksPositron.getCellContent(3)).toBe('# Cell 0');
+			// Verify first paste
+			await notebooksPositron.expectCellCountToBe(7);
+			await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 0');
 
-		// Paste again at position 5
-		await app.workbench.notebooksPositron.selectCellAtIndex(5);
-		await pasteCellsWithKeyboard(app);
+			// Paste again at position 5
+			await notebooksPositron.selectCellAtIndex(5, { editMode: false });
+			await notebooksPositron.performCellAction('paste');
 
-		// Verify second paste
-		await app.workbench.notebooksPositron.expectCellCount(8);
-		expect(await app.workbench.notebooksPositron.getCellContent(6)).toBe('# Cell 0');
+			// Verify second paste
+			await notebooksPositron.expectCellCountToBe(8);
+			await notebooksPositron.expectCellContentAtIndexToBe(6, '# Cell 0');
+		});
 
 		// ========================================
 		// Test 4: Cut and paste at beginning of notebook
 		// ========================================
-		// Select a middle cell to cut
-		await app.workbench.notebooksPositron.selectCellAtIndex(4);
-		const cellToMoveContent = await app.workbench.notebooksPositron.getCellContent(4);
+		await test.step('Test 4: Cut and paste at beginning of notebook', async () => {
+			// Cut cell 4 (from the middle of the notebook)
+			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
+			const cellToMoveContent = await notebooksPositron.getCellContent(4);
+			await notebooksPositron.performCellAction('cut');
+			await notebooksPositron.expectCellCountToBe(7);
 
-		// Cut the cell
-		await cutCellsWithKeyboard(app);
+			// Move to first cell and paste
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			await notebooksPositron.performCellAction('paste');
 
-		// Verify cell removed
-		await app.workbench.notebooksPositron.expectCellCount(7);
-
-		// Move to first cell and paste
-		// Note: Paste typically inserts after the current cell
-		await app.workbench.notebooksPositron.selectCellAtIndex(0);
-		await pasteCellsWithKeyboard(app);
-
-		// Verify cell count restored
-		await app.workbench.notebooksPositron.expectCellCount(8);
-
-		// Verify pasted cell is at index 1 (pasted after cell 0)
-		expect(await app.workbench.notebooksPositron.getCellContent(1)).toBe(cellToMoveContent);
+			// Verify cell count restored and content is correct
+			await notebooksPositron.expectCellCountToBe(8);
+			await notebooksPositron.expectCellContentAtIndexToBe(1, cellToMoveContent);
+		});
 
 		// ========================================
 		// Test 5: Cut all cells and verify notebook can be empty
 		// ========================================
-		// Delete cells until only one remains
-		while ((await app.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count()) > 1) {
-			await app.workbench.notebooksPositron.selectCellAtIndex(0);
-			await cutCellsWithKeyboard(app);
-		}
+		await test.step('Verify other cells shifted down correctly', async () => {
+			while (await notebooksPositron.getCellCount() > 0) {
+				await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+				await notebooksPositron.performCellAction('cut');
+			}
 
-		// Verify we have exactly one cell
-		await app.workbench.notebooksPositron.expectCellCount(1);
-
-		// Cut the last cell - in Positron notebooks, this may be allowed
-		await cutCellsWithKeyboard(app);
-
-		// Check if notebook can be empty (Positron may allow 0 cells)
-		const finalCount = await app.code.driver.page.locator(PositronNotebooks.NOTEBOOK_CELL_SELECTOR).count();
-		expect(finalCount).toBeLessThanOrEqual(1);
-
-		// ========================================
-		// Cleanup
-		// ========================================
-		// Close the notebook without saving
-		await app.workbench.notebooks.closeNotebookWithoutSaving();
+			await notebooksPositron.expectCellCountToBe(0);
+		});
 	});
-
 });

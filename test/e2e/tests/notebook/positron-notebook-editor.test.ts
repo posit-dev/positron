@@ -5,6 +5,7 @@
 
 import path from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 const NOTEBOOK_PATH = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
 
@@ -12,8 +13,7 @@ test.use({
 	suiteId: __filename
 });
 
-
-test.describe('Positron notebook opening and saving', {
+test.describe('Positron Notebooks: Open & Save', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
@@ -25,8 +25,7 @@ test.describe('Positron notebook opening and saving', {
 		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
 	});
 
-	test.afterEach(async function ({ app, hotKeys, settings }) {
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'default');
+	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
@@ -95,7 +94,7 @@ test.describe('Positron notebook opening and saving', {
 		const { notebooks, notebooksPositron, editors } = app.workbench;
 
 		// Configure Positron as the default notebook editor
-		await notebooksPositron.setNotebookEditor(settings, 'positron');
+		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
 		// Create a new notebook (which starts dirty)
 		await notebooks.createNewNotebook();
@@ -105,32 +104,29 @@ test.describe('Positron notebook opening and saving', {
 		await editors.waitForTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty
 
 		// Count tabs before reload (checking for multiple tabs with same file is the ghost editor symptom)
-		const tabsBefore = await app.code.driver.page.locator('.tabs-container div.tab').count();
-		test.expect(tabsBefore).toBe(1);
+		const tabsBefore = app.code.driver.page.locator('.tabs-container div.tab');
+		await expect(tabsBefore).toHaveCount(1);
 
 		// Reload the window to simulate restart
-		await hotKeys.reloadWindow();
-		// Wait for the reload to complete
-		await app.code.driver.page.waitForTimeout(3000);
-		await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await hotKeys.reloadWindow(true);
 
 		// After reload, check for the ghost editor issue
 		// The bug would cause both a Positron notebook AND a VS Code notebook to be visible
 
 		// Check tab count - should still be 1, not 2
-		const tabsAfter = await app.code.driver.page.locator('.tabs-container div.tab').count();
-		test.expect(tabsAfter).toBe(1);
+		const tabsAfter = app.code.driver.page.locator('.tabs-container div.tab');
+		await expect(tabsAfter).toHaveCount(1);
 
 		// Verify that the Positron notebook is visible
 		await notebooksPositron.expectToBeVisible();
 
-		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying to prevent)
-		const vscodeNotebookElements = await app.code.driver.page.locator('.notebook-editor').count();
-		const positronNotebookElements = await app.code.driver.page.locator('.positron-notebook').count();
+		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying
+		const positronNotebookElements = app.code.driver.page.locator('.positron-notebook');
+		const vscodeNotebookElements = app.code.driver.page.locator('.notebook-editor');
 
 		// Should have only one notebook editor, and it should be the Positron one
-		test.expect(positronNotebookElements).toBe(1);
-		test.expect(vscodeNotebookElements).toBe(0);
+		await expect(positronNotebookElements).toHaveCount(1);
+		await expect(vscodeNotebookElements).toHaveCount(0);
 
 		// Additional verification: ensure the active tab is still the restored untitled notebook
 		await editors.waitForActiveTab(/^Untitled-\d+\.ipynb$/, true); // true = isDirty

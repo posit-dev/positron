@@ -29,6 +29,8 @@ export function SettingsFixture(app: Application) {
 			}
 
 			if (waitForReady) {
+				await app.code.driver.page.waitForTimeout(3000);
+				await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 				await app.workbench.sessions.expectNoStartUpMessaging();
 			}
 		},
