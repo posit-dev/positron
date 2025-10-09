@@ -761,6 +761,48 @@ registerCellCommand({
 	}
 });
 
+// Move cell up command - Alt+UpArrow
+registerCellCommand({
+	commandId: 'positronNotebook.cell.moveUp',
+	handler: (cell, notebook) => notebook.moveCellUp(cell),
+	multiSelect: true,  // Moves all selected cells
+	editMode: true,     // Allow from editor focus
+	when: CELL_CONTEXT_KEYS.canMoveUp,
+	actionBar: {
+		icon: 'codicon-arrow-up',
+		position: 'menu',
+		order: 110,
+		category: 'Cell Order'
+	},
+	keybinding: {
+		primary: KeyMod.Alt | KeyCode.UpArrow
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.moveUp', "Move cell up")
+	}
+});
+
+// Move cell down command - Alt+DownArrow
+registerCellCommand({
+	commandId: 'positronNotebook.cell.moveDown',
+	handler: (cell, notebook) => notebook.moveCellDown(cell),
+	multiSelect: true,  // Moves all selected cells
+	editMode: true,     // Allow from editor focus
+	when: CELL_CONTEXT_KEYS.canMoveDown,
+	actionBar: {
+		icon: 'codicon-arrow-down',
+		position: 'menu',
+		order: 111,
+		category: 'Cell Order'
+	},
+	keybinding: {
+		primary: KeyMod.Alt | KeyCode.DownArrow
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.moveDown', "Move cell down")
+	}
+});
+
 
 //#endregion Cell Commands
 

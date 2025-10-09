@@ -628,6 +628,137 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
+	/**
+	 * Moves a cell up by one position.
+	 * Supports multi-cell selection - moves all selected cells as a group.
+	 * @param cell The cell to move up
+	 */
+	moveCellUp(cell: IPositronNotebookCell): void {
+		this._assertTextModel();
+
+		// 1. Validate boundaries
+		if (cell.index <= 0) {
+			return;
+		}
+
+		// 2. Resolve contiguous selection (ignore discontiguous spans)
+		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		if (!cellsToMove) {
+			// TODO: surface lightweight feedback that only contiguous selections can move together
+			return;
+		}
+
+		// 3. Calculate move parameters
+		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
+		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
+		const length = lastIndex - firstIndex + 1;
+		const newIdx = firstIndex - 1;
+
+		if (newIdx < 0) {
+			return;
+		}
+
+		// 4. Apply edit with proper selection state management
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		const focusRange = { start: firstIndex, end: lastIndex + 1 };
+
+		textModel.applyEdits([{
+			editType: CellEditType.Move,
+			index: firstIndex,
+			length: length,
+			newIdx: newIdx
+		}],
+			true, // synchronous
+			{
+				kind: SelectionStateType.Index,
+				focus: focusRange,
+				selections: [focusRange]
+			}, // before
+			() => ({
+				kind: SelectionStateType.Index,
+				focus: { start: newIdx, end: newIdx + length },
+				selections: [{ start: newIdx, end: newIdx + length }]
+			}), // after callback - selection follows moved cells
+			undefined,
+			computeUndoRedo
+		);
+
+		// 5. Fire content change - REQUIRED for React UI sync!
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * Moves a cell down by one position.
+	 * Supports multi-cell selection - moves all selected cells as a group.
+	 * @param cell The cell to move down
+	 */
+	moveCellDown(cell: IPositronNotebookCell): void {
+		this._assertTextModel();
+
+		const cells = this.cells.get();
+		if (cell.index >= cells.length - 1) {
+			return;
+		}
+
+		// Resolve contiguous selection
+		const cellsToMove = getSelectedCells(this.selectionStateMachine.state.get());
+		if (!cellsToMove) {
+			return;
+		}
+
+		const firstIndex = Math.min(...cellsToMove.map(c => c.index));
+		const lastIndex = Math.max(...cellsToMove.map(c => c.index));
+		const length = lastIndex - firstIndex + 1;
+		const newIdx = firstIndex + 1; // insert immediately after the block we're crossing
+
+		if (lastIndex >= cells.length - 1) {
+			return;
+		}
+
+		const textModel = this.textModel;
+		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+		const focusRange = { start: firstIndex, end: lastIndex + 1 };
+
+		textModel.applyEdits([{
+			editType: CellEditType.Move,
+			index: firstIndex,
+			length: length,
+			newIdx: newIdx
+		}],
+			true,
+			{
+				kind: SelectionStateType.Index,
+				focus: focusRange,
+				selections: [focusRange]
+			},
+			() => ({
+				kind: SelectionStateType.Index,
+				focus: { start: newIdx, end: newIdx + length },
+				selections: [{ start: newIdx, end: newIdx + length }]
+			}),
+			undefined,
+			computeUndoRedo
+		);
+
+		this._onDidChangeContent.fire();
+	}
+
+	/**
+	 * General-purpose method to move cells to a specific index.
+	 * Used by drag-and-drop operations.
+	 * @param cells Array of cells to move
+	 * @param targetIndex The index to move the cells to
+	 */
+	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void {
+		this._assertTextModel();
+
+		// TODO: Implement based on VSCode's performCellDropEdits() algorithm
+		// Reference: cellDnd.ts:422-510
+		// Handle multiple selection ranges, adjust indices correctly
+		throw new Error('moveCells not yet implemented - to be completed in Step 3 (Drag & Drop)');
+	}
+
 
 	/**
 	 * Sets the cell that is currently being edited.
