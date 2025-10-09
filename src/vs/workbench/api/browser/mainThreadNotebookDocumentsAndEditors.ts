@@ -108,11 +108,6 @@ export class MainThreadNotebooksAndEditors {
 		@IEditorGroupsService private readonly _editorGroupService: IEditorGroupsService,
 		@ILogService private readonly _logService: ILogService,
 	) {
-		// --- Start Positron ---
-		this._mainThreadPositronNotebooksAndEditors = this._disposables.add(instantiationService.createInstance(
-			MainThreadPositronNotebooksAndEditors, () => this._updateState(), extHostContext)
-		);
-		// --- End Positron ---
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebook);
 
 		this._mainThreadNotebooks = instantiationService.createInstance(MainThreadNotebookDocuments, extHostContext);
@@ -127,6 +122,11 @@ export class MainThreadNotebooksAndEditors {
 		this._editorService.onDidVisibleEditorsChange(() => this._updateState(), this, this._disposables);
 		this._notebookEditorService.onDidAddNotebookEditor(this._handleEditorAdd, this, this._disposables);
 		this._notebookEditorService.onDidRemoveNotebookEditor(this._handleEditorRemove, this, this._disposables);
+		// --- Start Positron ---
+		this._mainThreadPositronNotebooksAndEditors = this._disposables.add(instantiationService.createInstance(
+			MainThreadPositronNotebooksAndEditors, () => this._updateState(), extHostContext)
+		);
+		// --- End Positron ---
 		this._updateState();
 	}
 
