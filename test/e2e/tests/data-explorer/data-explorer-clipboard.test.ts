@@ -51,7 +51,7 @@ for (const { env, data, rowIndexOffset: indexOffset, tags: testTags = [] } of te
 
 			// maximize data view
 			await dataExplorer.waitForIdle();
-			await dataExplorer.maximize(true);
+			await dataExplorer.maximize(false);
 		});
 
 		test.afterEach(async function ({ hotKeys }) {
