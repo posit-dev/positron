@@ -141,7 +141,6 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < numCellsToAdd; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 			}
-			await this.selectCellAtIndex(0, { exitEditMode: true });
 		}
 	}
 
@@ -219,7 +218,7 @@ export class PositronNotebooks extends Notebooks {
 	async addCodeToCell(
 		cellIndex: number,
 		code: string,
-		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean; }
+		options?: { delay?: number; run?: boolean; waitForSpinner?: boolean }
 	): Promise<Locator> {
 		const { delay = 0, run = false, waitForSpinner = false } = options ?? {};
 		return await test.step(`Add code to cell: ${cellIndex}, run: ${run}, waitForSpinner: ${waitForSpinner}`, async () => {

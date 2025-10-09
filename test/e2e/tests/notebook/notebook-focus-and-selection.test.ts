@@ -167,6 +167,7 @@ test.describe('Notebook Focus and Selection', {
 
 		// Start a new notebook (tab 1)
 		await test.step('Open new notebook: Ensure keyboard navigation', async () => {
+			await notebooksPositron.selectCellAtIndex(0, { exitEditMode: true });
 			await keyboard.press('ArrowDown');
 			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
 
