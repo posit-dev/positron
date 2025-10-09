@@ -39,12 +39,12 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// ========================================
 		await test.step('Test 1: Copy single cell and paste at end', async () => {
 			// Perform copy on cell 2
-			await notebooksPositron.selectCellAtIndex(2, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
 			await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
 			await notebooksPositron.performCellAction('copy');
 
 			// Move to last cell and perform paste
-			await notebooksPositron.selectCellAtIndex(4, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
 			await notebooksPositron.performCellAction('paste');
 			await notebooksPositron.expectCellCountToBe(6);
 
@@ -57,7 +57,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// ========================================
 		await test.step('Test 2: Cut single cell and paste at different position', async () => {
 			// Perform cut on cell 1
-			await notebooksPositron.selectCellAtIndex(1, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
 			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
 			await notebooksPositron.performCellAction('cut');
 
@@ -66,7 +66,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
 
 			// Move to index 3 and paste
-			await notebooksPositron.selectCellAtIndex(3, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(3, { editMode: false });
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count restored and cell content is correct
@@ -81,12 +81,12 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellCountToBe(6);
 
 			// Copy cell 0
-			await notebooksPositron.selectCellAtIndex(0, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 			await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
 			await notebooksPositron.performCellAction('copy');
 
 			// Paste at position 2
-			await notebooksPositron.selectCellAtIndex(2, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(2, { editMode: false });
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify first paste
@@ -94,7 +94,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 0');
 
 			// Paste again at position 5
-			await notebooksPositron.selectCellAtIndex(5, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(5, { editMode: false });
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify second paste
@@ -107,13 +107,13 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// ========================================
 		await test.step('Test 4: Cut and paste at beginning of notebook', async () => {
 			// Cut cell 4 (from the middle of the notebook)
-			await notebooksPositron.selectCellAtIndex(4, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
 			const cellToMoveContent = await notebooksPositron.getCellContent(4);
 			await notebooksPositron.performCellAction('cut');
 			await notebooksPositron.expectCellCountToBe(7);
 
 			// Move to first cell and paste
-			await notebooksPositron.selectCellAtIndex(0, { exitEditMode: true });
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count restored and content is correct
@@ -126,7 +126,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 		// ========================================
 		await test.step('Verify other cells shifted down correctly', async () => {
 			while (await notebooksPositron.getCellCount() > 0) {
-				await notebooksPositron.selectCellAtIndex(0, { exitEditMode: true });
+				await notebooksPositron.selectCellAtIndex(0, { editMode: false });
 				await notebooksPositron.performCellAction('cut');
 			}
 
