@@ -2,7 +2,7 @@
 
 ## Overview
 
-This PR implements automatic file path conversion when pasting files (copied from file manager) into R contexts, matching RStudio's behavior exactly. When users copy files from Windows Explorer and paste into Positron's R console or editor, paths are automatically converted to R-compatible format.
+This feature implements automatic file path conversion when pasting files (copied from file manager) into R contexts, matching RStudio's behavior exactly. When users copy files from Windows Explorer and paste into Positron's R console or editor, paths are automatically converted to R-compatible format.
 
 **GitHub Issue**: https://github.com/posit-dev/positron/issues/8393
 
@@ -104,20 +104,38 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 
 ## Implementation Summary
 
-### ✅ Status: Complete & Tested
+### ✅ Status: R Files Complete & Tested | Console Deferred
 
 **Key Features Delivered:**
 - **RStudio compatibility**: Exact `formatDesktopPath()` behavior match
 - **UNC path safety**: Uses VS Code's `isUNC()` for robust network path detection
-- **Cross-context support**: Single implementation works in both R files and R console
+- **R files support**: Full implementation working in R source files
 - **Language-agnostic core**: Ready for future Python/Julia extensions
 - **User controllable**: `positron.r.autoConvertFilePaths` setting (defaults enabled)
 
 **Testing Validation:**
 - ✅ **Unit tests**: 12 comprehensive test cases covering all scenarios
-- ✅ **Manual testing**: Confirmed working in R files and R console
+- ✅ **Manual testing**: Confirmed working in R files - produces `"c:/Users/jenny/readxl/inst/extdata/datasets.xlsx"`
 - ✅ **Build verification**: Clean TypeScript compilation
 - ✅ **UNC safety**: Network paths properly detected and skipped
+
+### 📋 Console Status: Attempted, Learned From, Removed
+
+**What We Learned About Console Architecture:**
+- **Console is not a document**: Uses "simple widget"/mini editor architecture, so `DocumentPasteEditProvider` doesn't work
+- **Different paste handling**: Console has its own paste logic in `positronConsole.contribution.ts` that only calls `clipboardService.readText()`
+- **Architecture challenges**: Attempted language-aware console paste extension point but encountered issues:
+  - `PositronConsoleFocused` context handler wasn't triggering properly
+  - Different Monaco editor integration requirements
+  - Timing/compilation issues prevented testing
+
+**Decision**: Console implementation was **attempted, learned from, and removed**. Shipping with R files support only.
+
+**Future Console Work:**
+For future console implementation, investigate:
+1. **Root cause**: Why enhanced console paste handler didn't trigger
+2. **Alternative approaches**: Direct Monaco editor integration, different paste event handling
+3. **Simpler patterns**: Study existing console commands like `r.insertPipeConsole` that work via `default:type`
 
 ## Files Changed
 
@@ -143,12 +161,12 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 - Clean registration following existing R extension patterns
 
 ### Configuration
-**`src/vs/workbench/contrib/positronPathUtils/common/pathConversion.contribution.ts`** (new, 31 lines)
+**`extensions/positron-r/package.json`** (configuration and localization)
 - User setting: `positron.r.autoConvertFilePaths` (boolean, default: true)
+- Description: "Automatically convert file paths when pasting files from file manager into R contexts"
 
 ### Supporting Files
-**`src/vs/workbench/workbench.common.main.ts`** (+1 line) - Configuration registration
-**Test file** (+199 lines) - Comprehensive unit test suite
+**Test file** (+199 lines) - Comprehensive unit test suite covering all scenarios
 
 ## Technical Design Principles
 
@@ -167,4 +185,4 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 
 ## Testing/Debugging
 
-**To see the paste provider title**: Copy files from file manager, then use **"Paste As"** from the Command Palette (Ctrl+Shift+P) in an R file. This shows the picker with "Insert file path(s)" option.
+**To see the paste provider title**: Copy files from file manager, then use **"Paste As"** from the Command Palette (Ctrl+Shift+P) in an R file. This shows the picker with "Insert quoted, forward-slash file path(s)" option.
