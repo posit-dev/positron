@@ -41,6 +41,15 @@ export interface ICommOpenFromWebview {
 }
 
 /**
+ * Request the runtime to get comm info
+ */
+export interface IGetCommInfoFromWebview {
+	type: 'comm_info_request';
+	// Optional; if provided, only return comms with this target name
+	target_name?: string;
+}
+
+/**
  * Get the preferred VSCode notebook renderer for a given mime type.
  *
  * This is used inside the PositronRenderer to render sub-outputs inside an Output widget.
@@ -64,6 +73,7 @@ export interface IInitializeFromWebview {
 export type FromWebviewMessage = ICommCloseFromWebview |
 	ICommMessageFromWebview |
 	ICommOpenFromWebview |
+	IGetCommInfoFromWebview |
 	IGetPreferredRendererFromWebview |
 	IInitializeFromWebview;
 
@@ -104,6 +114,14 @@ export interface ICommOpenToWebview {
 	data: unknown;
 	buffers?: Array<VSBuffer>;
 	metadata: unknown;
+}
+
+/**
+ * The result of a comm info request
+ */
+export interface ICommInfoToWebview {
+	type: 'comm_info_reply';
+	comms: { [comm_id: string]: { target_name: string } };
 }
 
 /**
@@ -187,5 +205,6 @@ export type ToWebviewMessage = IInitializeResultToWebview |
 	ICommCloseToWebview |
 	ICommMessageToWebview |
 	ICommOpenToWebview |
+	ICommInfoToWebview |
 	IGetPreferredRendererResultToWebview |
 	IRuntimeMessageToWebview;
