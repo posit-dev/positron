@@ -4,7 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 // --- Start Positron ---
-import { combineNotebookDocumentsAndEditorsDeltas, MainThreadPositronNotebooksAndEditors } from './positron/mainThreadPositronNotebooksAndEditors.js';
+import { IPositronNotebookInstance } from '../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
+import { runOnChange } from '../../../base/common/observable.js';
+import { IPositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
+import { getNotebookInstanceFromEditorPane } from '../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
+import { MainThreadPositronNotebookEditors, MainThreadPositronNotebookInstance } from './positron/mainThreadPositronNotebookEditors.js';
 // --- End Positron ---
 import { diffMaps, diffSets } from '../../../base/common/collections.js';
 import { combinedDisposable, DisposableStore, DisposableMap } from '../../../base/common/lifecycle.js';
@@ -26,6 +31,9 @@ import { ExtHostContext, ExtHostNotebookShape, INotebookDocumentsAndEditorsDelta
 import { SerializableObjectWithBuffers } from '../../services/extensions/common/proxyIdentifier.js';
 
 interface INotebookAndEditorDelta {
+	// --- Start Positron ---
+	addedInstances: MainThreadPositronNotebookInstance[];
+	// --- End Positron ---
 	removedDocuments: URI[];
 	addedDocuments: NotebookTextModel[];
 	removedEditors: string[];
@@ -38,6 +46,9 @@ class NotebookAndEditorState {
 	static delta(before: NotebookAndEditorState | undefined, after: NotebookAndEditorState): INotebookAndEditorDelta {
 		if (!before) {
 			return {
+				// --- Start Positron ---
+				addedInstances: [...after.instances.values()],
+				// --- End Positron ---
 				addedDocuments: [...after.documents],
 				removedDocuments: [],
 				addedEditors: [...after.textEditors.values()],
@@ -47,15 +58,26 @@ class NotebookAndEditorState {
 		}
 		const documentDelta = diffSets(before.documents, after.documents);
 		const editorDelta = diffMaps(before.textEditors, after.textEditors);
+		// --- Start Positron ---
+		const instanceDelta = diffMaps(before.instances, after.instances);
+		// --- End Positron ---
 
 		const newActiveEditor = before.activeEditor !== after.activeEditor ? after.activeEditor : undefined;
 		const visibleEditorDelta = diffMaps(before.visibleEditors, after.visibleEditors);
 
 		return {
+			// --- Start Positron ---
+			addedInstances: instanceDelta.added,
+			// --- End Positron ---
 			addedDocuments: documentDelta.added,
 			removedDocuments: documentDelta.removed.map(e => e.uri),
 			addedEditors: editorDelta.added,
+			// --- Start Positron ---
+			/*
 			removedEditors: editorDelta.removed.map(removed => removed.getId()),
+			*/
+			removedEditors: editorDelta.removed.map(removed => removed.getId()).concat(instanceDelta.removed.map(removed => removed.getId())),
+			// --- End Positron ---
 			newActiveEditor: newActiveEditor,
 			visibleEditors: visibleEditorDelta.added.length === 0 && visibleEditorDelta.removed.length === 0
 				? undefined
@@ -64,10 +86,18 @@ class NotebookAndEditorState {
 	}
 
 	constructor(
+		// --- Start Positron ---
+		readonly instances: Map<string, MainThreadPositronNotebookInstance>,
+		// --- End Positron ---
 		readonly documents: Set<NotebookTextModel>,
 		readonly textEditors: Map<string, IActiveNotebookEditor>,
 		readonly activeEditor: string | null | undefined,
+		// --- Start Positron ---
+		/*
 		readonly visibleEditors: Map<string, IActiveNotebookEditor>
+		*/
+		readonly visibleEditors: Map<string, unknown>
+		// --- End Positron ---
 	) {
 		//
 	}
@@ -87,7 +117,13 @@ export class MainThreadNotebooksAndEditors {
 	// readonly onDidRemoveEditors: Event<string[]> = this._onDidRemoveEditors.event;
 
 	// --- Start Positron ---
-	private readonly _mainThreadPositronNotebooksAndEditors: MainThreadPositronNotebooksAndEditors;
+	private readonly _instanceListeners = new DisposableMap<string>();
+
+	/** Map of all active notebook instances keyed by instance ID */
+	private readonly _instances = new DisposableMap<string, MainThreadPositronNotebookInstance>();
+
+	/** Main thread component called by extension-host-side notebook editors */
+	private readonly _mainThreadPositronEditors: MainThreadPositronNotebookEditors;
 	// --- End Positron ---
 	private readonly _proxy: Pick<ExtHostNotebookShape, '$acceptDocumentAndEditorsDelta'>;
 	private readonly _disposables = new DisposableStore();
@@ -101,6 +137,9 @@ export class MainThreadNotebooksAndEditors {
 
 	constructor(
 		extHostContext: IExtHostContext,
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IInstantiationService instantiationService: IInstantiationService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
@@ -112,6 +151,14 @@ export class MainThreadNotebooksAndEditors {
 
 		this._mainThreadNotebooks = instantiationService.createInstance(MainThreadNotebookDocuments, extHostContext);
 		this._mainThreadEditors = instantiationService.createInstance(MainThreadNotebookEditors, extHostContext);
+		// --- Start Positron ---
+		// Create the main thread editors component
+		// and register it with the ext host context
+		this._mainThreadPositronEditors = instantiationService.createInstance(
+			MainThreadPositronNotebookEditors, this, extHostContext
+		);
+		extHostContext.set(MainPositronContext.MainThreadPositronNotebookEditors, this._mainThreadEditors);
+		// --- End Positron ---
 
 		extHostContext.set(MainContext.MainThreadNotebookDocuments, this._mainThreadNotebooks);
 		extHostContext.set(MainContext.MainThreadNotebookEditors, this._mainThreadEditors);
@@ -123,14 +170,18 @@ export class MainThreadNotebooksAndEditors {
 		this._notebookEditorService.onDidAddNotebookEditor(this._handleEditorAdd, this, this._disposables);
 		this._notebookEditorService.onDidRemoveNotebookEditor(this._handleEditorRemove, this, this._disposables);
 		// --- Start Positron ---
-		this._mainThreadPositronNotebooksAndEditors = this._disposables.add(instantiationService.createInstance(
-			MainThreadPositronNotebooksAndEditors, () => this._updateState(), extHostContext)
-		);
+		this._positronNotebookService.onDidAddNotebookInstance(this._handleNotebookInstanceAdd, this, this._disposables);
+		this._positronNotebookService.onDidRemoveNotebookInstance(this._handleNotebookInstanceRemove, this, this._disposables);
+		// this._positronNotebookService.listInstances().forEach(this._handleNotebookInstanceAdd, this);
 		// --- End Positron ---
 		this._updateState();
 	}
 
 	dispose() {
+		// --- Start Positron ---
+		this._instanceListeners.dispose();
+		this._mainThreadPositronEditors.dispose();
+		// --- End Positron ---
 		this._mainThreadNotebooks.dispose();
 		this._mainThreadEditors.dispose();
 		this._disposables.dispose();
@@ -149,11 +200,39 @@ export class MainThreadNotebooksAndEditors {
 		this._editorListeners.deleteAndDispose(editor.getId());
 		this._updateState();
 	}
+	// --- Start Positron ---
+	private _handleNotebookInstanceAdd(instance: IPositronNotebookInstance): void {
+		this._instanceListeners.set(instance.id, combinedDisposable(
+			// Update state when the notebook text model changes
+			// Seems to fire when the notebook editor becomes visible and active
+			runOnChange(instance.textModel, () => this._updateState()),
+			// TODO: Update state when notebook is focused
+			// instance.onDidFocusWidget(() => this._updateState(instance)),
+		));
+		this._updateState();
+	}
+
+	private _handleNotebookInstanceRemove(instance: IPositronNotebookInstance): void {
+		if (this._instanceListeners.has(instance.id)) {
+			this._instanceListeners.deleteAndDispose(instance.id);
+			this._updateState();
+		}
+	}
+
+	getInstance(id: string) {
+		return this._instances.get(id);
+	}
+	// --- End Positron ---
 
 	private _updateState(focusedEditor?: INotebookEditor): void {
 
 		const editors = new Map<string, IActiveNotebookEditor>();
+		// --- Start Positron ---
+		/*
 		const visibleEditorsMap = new Map<string, IActiveNotebookEditor>();
+		*/
+		const visibleEditorsMap = new Map<string, unknown>();
+		// --- End Positron ---
 
 		for (const editor of this._notebookEditorService.listNotebookEditors()) {
 			if (editor.hasModel()) {
@@ -179,21 +258,53 @@ export class MainThreadNotebooksAndEditors {
 				visibleEditorsMap.set(notebookEditor.getId(), notebookEditor);
 			}
 		}
+		// --- Start Positron ---
+		// Get all Positron notebook instances
+		const instances = new Map<string, MainThreadPositronNotebookInstance>();
+		for (const instance of this._positronNotebookService.listInstances()) {
+			// Don't add the instance until it has a text model, otherwise it'll get
+			// dropped in the extension host
+			if (instance.textModel.get()) {
+				const mainThreadInstance = new MainThreadPositronNotebookInstance(instance);
+				instances.set(instance.id, mainThreadInstance);
+			}
+		}
 
+		// Check which instances are visible
+		// const visibleInstances = new Map<string, MainThreadPositronNotebookInstance>();
+		for (const editorPane of this._editorService.visibleEditorPanes) {
+			const instance = getNotebookInstanceFromEditorPane(editorPane);
+			if (instance) {
+				const mainThreadInstance = instances.get(instance.id);
+				if (mainThreadInstance && mainThreadInstance.matches(editorPane)) {
+					// visibleInstances.set(instance.id, mainThreadInstance);
+					visibleEditorsMap.set(instance.id, mainThreadInstance);
+				}
+			}
+		}
+
+		// Determine active instance
+		if (!activeEditor) {
+			for (const mainThreadInstance of instances.values()) {
+				if (this._editorService.activeEditorPane && mainThreadInstance.matches(this._editorService.activeEditorPane)) {
+					activeEditor = mainThreadInstance.getId();
+					break;
+				}
+			}
+		}
+
+		// Create state, now including Positron notebook instances
+		/*
 		const newState = new NotebookAndEditorState(new Set(this._notebookService.listNotebookDocuments()), editors, activeEditor, visibleEditorsMap);
+		*/
+		const newState = new NotebookAndEditorState(instances, new Set(this._notebookService.listNotebookDocuments()), editors, activeEditor, visibleEditorsMap);
+		// --- End Positron ---
 		this._onDelta(NotebookAndEditorState.delta(this._currentState, newState));
 		this._currentState = newState;
 	}
 
 	private _onDelta(delta: INotebookAndEditorDelta): void {
-		// --- Start Positron ---
-		// Get the Positron delta and only exit if it's empty too
-		/*
-		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta))) {
-		*/
-		const positronDelta = this._mainThreadPositronNotebooksAndEditors.popDelta();
-		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta) && positronDelta === undefined) {
-			// --- End Positron ---
+		if (MainThreadNotebooksAndEditors._isDeltaEmpty(delta)) {
 			return;
 		}
 
@@ -203,27 +314,33 @@ export class MainThreadNotebooksAndEditors {
 			newActiveEditor: delta.newActiveEditor,
 			visibleEditors: delta.visibleEditors,
 			addedDocuments: delta.addedDocuments.map(MainThreadNotebooksAndEditors._asModelAddData),
+			// --- Start Positron ---
+			/*
 			addedEditors: delta.addedEditors.map(this._asEditorAddData, this),
+			*/
+			addedEditors: delta.addedEditors.map(this._asEditorAddData, this).concat(delta.addedInstances.map(this._instanceAsEditorAddData, this)),
+			// --- End Positron ---
 		};
 
 		// send to extension FIRST
-		// --- Start Positron ---
-		// Incorporate the Positron delta, if defined
-		/*
 		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(dto));
-		*/
-		const dto2 = positronDelta ? combineNotebookDocumentsAndEditorsDeltas(dto, positronDelta) : dto;
-		this._proxy.$acceptDocumentAndEditorsDelta(new SerializableObjectWithBuffers(dto2));
-		// --- End Positron ---
 
 		// handle internally
 		this._mainThreadEditors.handleEditorsRemoved(delta.removedEditors);
 		this._mainThreadNotebooks.handleNotebooksRemoved(delta.removedDocuments);
 		this._mainThreadNotebooks.handleNotebooksAdded(delta.addedDocuments);
 		this._mainThreadEditors.handleEditorsAdded(delta.addedEditors);
+		// --- Start Positron ---
+		delta.addedInstances.forEach(instance => this._mainThreadPositronEditors.handleNotebookInstanceAdded(instance));
+		// --- End Positron ---
 	}
 
 	private static _isDeltaEmpty(delta: INotebookAndEditorDelta): boolean {
+		// --- Start Positron ---
+		if (delta.addedInstances !== undefined && delta.addedInstances.length > 0) {
+			return false;
+		}
+		// --- End Positron ---
 		if (delta.addedDocuments !== undefined && delta.addedDocuments.length > 0) {
 			return false;
 		}
@@ -268,4 +385,26 @@ export class MainThreadNotebooksAndEditors {
 			viewType: add.getViewModel().viewType
 		};
 	}
+	// --- Start Positron ---
+	private _instanceAsEditorAddData(editor: MainThreadPositronNotebookInstance): INotebookEditorAddData {
+		return {
+			id: editor.getId(),
+			documentUri: editor.getDocumentUri(),
+			selections: editor.getSelections(),
+			visibleRanges: editor.getVisibleRanges(),
+			viewColumn: this._findViewColumn(editor),
+			viewType: editor.getViewType(),
+			isPositron: true,
+		};
+	}
+
+	private _findViewColumn(editor: MainThreadPositronNotebookInstance) {
+		for (const editorPane of this._editorService.visibleEditorPanes) {
+			if (editor.matches(editorPane)) {
+				return editorGroupToColumn(this._editorGroupService, editorPane.group);
+			}
+		}
+		return undefined;
+	}
+	// --- End Positron ---
 }
