@@ -45,15 +45,15 @@ export class DataExplorer {
 
 	// --- Actions ---
 
-	async maximize(hideSummaryPanel: boolean = false): Promise<void> {
+	async maximize(showSummaryPanel: boolean = true): Promise<void> {
 		await this.workbench.hotKeys.stackedLayout();
 		await this.workbench.hotKeys.closeSecondarySidebar();
 		await this.workbench.hotKeys.closePrimarySidebar();
 		await this.workbench.hotKeys.toggleBottomPanel();
 
-		if (hideSummaryPanel) {
-			await this.summaryPanel.hide();
-		}
+		showSummaryPanel
+			? await this.summaryPanel.show()
+			: await this.summaryPanel.hide();
 	}
 
 	// --- Verifications ---
@@ -655,17 +655,17 @@ export class DataGrid {
 //     Summary Panel
 // ----------------------
 export class SummaryPanel {
-	private summaryPanel: Locator;
+	summaryPanel: Locator;
 	private summaryFilterBar: Locator;
 	private searchFilter: Locator;
-	private sortFilter: Locator;
-	private columnSummary: Locator;
+	sortFilter: Locator;
+	columnSummary: Locator;
 	private columnSummaryName: Locator;
 	private verticalScrollbar: Locator;
 
 	constructor(private code: Code, private workbench: Workbench,) {
-		this.summaryPanel = this.code.driver.page.locator('.data-explorer .left-column');
-		this.summaryFilterBar = this.summaryPanel.locator('.summary-row-filter-bar');
+		this.summaryFilterBar = this.code.driver.page.locator('.summary-row-filter-bar');
+		this.summaryPanel = this.summaryFilterBar.locator('..');
 		this.searchFilter = this.summaryFilterBar.getByRole('textbox', { name: 'filter' });
 		this.sortFilter = this.summaryFilterBar.getByRole('button', { name: 'Sort summary row data' });
 		this.columnSummary = this.summaryPanel.locator('.column-summary');
@@ -679,8 +679,10 @@ export class SummaryPanel {
 		await this.workbench.hotKeys.hideDataExplorerSummaryPanel();
 	}
 
-	async show(): Promise<void> {
-		await this.workbench.hotKeys.showDataExplorerSummaryPanel();
+	async show(position: 'left' | 'right' = 'left'): Promise<void> {
+		position === 'left'
+			? await this.workbench.hotKeys.showDataExplorerSummaryPanel()
+			: await this.workbench.hotKeys.showDataExplorerSummaryPanelRight();
 	}
 
 	async search(filterText: string) {
