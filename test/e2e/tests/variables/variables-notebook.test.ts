@@ -11,8 +11,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.afterEach(async function ({ app }) {
-	await app.workbench.notebooks.closeNotebookWithoutSaving();
+test.afterEach(async function ({ hotKeys }) {
+	await hotKeys.closeAllEditors();
 });
 
 test.describe('Variables Pane - Notebook', {
@@ -72,5 +72,43 @@ test.describe('Variables Pane - Notebook', {
 		await variables.selectSession(FILENAME);
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
 	});
+
+	test('Python - Verify variables persist across cells', async function ({ app }) {
+		const { notebooks } = app.workbench;
+
+		await notebooks.createNewNotebook();
+		await notebooks.selectInterpreter('Python');
+
+		await notebooks.addCodeToCellAtIndex(0, variableCode);
+		await notebooks.executeCodeInCell();
+		await notebooks.insertNotebookCell('code');
+
+		await notebooks.addCodeToCellAtIndex(1, useVariableCode);
+		await notebooks.executeCodeInCell();
+		await notebooks.assertCellOutput('Hello from first cell', 0);
+		await notebooks.assertCellOutput('Sum of numbers: 15');
+		await notebooks.assertCellOutput('Modified numbers: [1, 2, 3, 4, 5, 6]');
+	});
 });
 
+const variableCode = `# Define variables
+global_var = "Hello from first cell"
+numbers = [1, 2, 3, 4, 5]
+data_dict = {'name': 'test', 'value': 42}
+
+print(f"Global variable: {global_var}")
+print(f"Numbers list: {numbers}")
+print(f"Data dictionary: {data_dict}")`;
+
+
+const useVariableCode = `# Use variables from previous cell
+print(f"Accessing global_var: {global_var}")
+print(f"Sum of numbers: {sum(numbers)}")
+print(f"Dictionary value: {data_dict['value']}")
+
+# Modify variables
+numbers.append(6)
+data_dict['new_key'] = 'new_value'
+
+print(f"Modified numbers: {numbers}")
+print(f"Modified dictionary: {data_dict}")`;
