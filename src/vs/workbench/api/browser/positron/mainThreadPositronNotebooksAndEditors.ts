@@ -17,7 +17,6 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { MainPositronContext } from '../../common/positron/extHost.positron.protocol.js';
 import { runOnChange } from '../../../../base/common/observable.js';
 import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
-import { getNotebookEditorFromEditorPane } from '../../../contrib/notebook/browser/notebookBrowser.js';
 
 /**
  * This module implements an alternative of MainThreadNotebooksAndEditors for IPositronNotebookInstance
@@ -159,13 +158,6 @@ class MainThreadPositronNotebookInstancesStateComputer extends Disposable {
 				}
 			}
 		}
-		if (!activeInstanceId) {
-			// Since we share vscode.window.activeNotebookEditor with VSCode notebook editors,
-			// don't clear the active instance with a null value if its a VSCode notebook
-			if (getNotebookEditorFromEditorPane(this._editorService.activeEditorPane)) {
-				activeInstanceId = undefined;
-			}
-		}
 
 		// Compute state delta and notify if changed
 		const newState = new PositronNotebookInstanceState(instances, activeInstanceId, visibleInstances);
@@ -292,8 +284,9 @@ export function combineNotebookDocumentsAndEditorsDeltas(...deltas: INotebookDoc
 		if (delta.removedEditors) {
 			result.removedEditors = (result.removedEditors ?? []).concat(delta.removedEditors);
 		}
-		if (delta.newActiveEditor !== undefined) {
-			// Just take the last defined value -- we may need to refine this
+		// Only override previous if current is defined, or current is null and previous is null/undefined
+		// This is to handle switching between Positron/VSCode notebooks
+		if (delta.newActiveEditor || (delta.newActiveEditor === null && !result.newActiveEditor)) {
 			result.newActiveEditor = delta.newActiveEditor;
 		}
 	}
