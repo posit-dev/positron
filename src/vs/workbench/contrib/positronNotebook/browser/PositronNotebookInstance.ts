@@ -747,17 +747,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	/**
-	 * Sets the cell that is currently being edited.
-	 * @param cell The cell to set as editing, or undefined to clear editing state
-	 */
-	setEditingCell(cell: IPositronNotebookCell | undefined): void {
-		if (cell === undefined) {
-			return;
-		}
-		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
-	}
-
-	/**
 	 * Checks if the notebook contains a specific code editor.
 	 * @param editor The code editor to check for
 	 * @returns True if the editor belongs to one of the notebook's cells, false otherwise
