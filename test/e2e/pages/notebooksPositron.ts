@@ -566,9 +566,6 @@ export class PositronNotebooks extends Notebooks {
 						const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
 						if (isSelected) {
 							selectedIndices.push(i);
-							console.log(`Cell ${i} is selected`);
-						} else {
-							console.log(`Cell ${i} is NOT selected`);
 						}
 					}
 
