@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -747,17 +747,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	/**
-	 * Sets the cell that is currently being edited.
-	 * @param cell The cell to set as editing, or undefined to clear editing state
-	 */
-	setEditingCell(cell: IPositronNotebookCell | undefined): void {
-		if (cell === undefined) {
-			return;
-		}
-		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
-	}
-
-	/**
 	 * Checks if the notebook contains a specific code editor.
 	 * @param editor The code editor to check for
 	 * @returns True if the editor belongs to one of the notebook's cells, false otherwise
@@ -908,13 +897,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		});
 
 		if (newlyAddedCells.length === 1) {
-			// If we've only added one cell, we can set it as the selected cell in edit mode.
-			this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Edit);
-			// Defer focus request to next tick to allow React to mount the editor component.
-			// Without this, requestEditorFocus() fires before the editor exists, and the
-			// autorun in CellEditorMonacoWidget won't be able to focus a non-existent editor.
+			// Defer to next tick to allow React to mount the editor component.
+			// enterEditor() handles both state update and focus management.
 			setTimeout(() => {
-				newlyAddedCells[0].requestEditorFocus();
+				this.selectionStateMachine.enterEditor(newlyAddedCells[0]);
 			}, 0);
 		}
 
