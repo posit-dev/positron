@@ -299,10 +299,13 @@ export class SelectionStateMachine extends Disposable {
 
 	/**
 	 * Reset the selection to the cell so user can navigate between cells
+	 * @param cell Optional - if provided, only exit if this specific cell is being edited
 	 */
-	exitEditor(): void {
+	exitEditor(cell?: IPositronNotebookCell): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
+		// If a specific cell is provided, only exit if THAT cell is being edited
+		if (cell && state.selected !== cell) { return; }
 		this._setState({ type: SelectionState.SingleSelection, selected: state.selected });
 	}
 
@@ -461,7 +464,7 @@ export class SelectionStateMachine extends Disposable {
 		} else {
 			this._setState({ type: SelectionState.NoCells });
 		}
-	};
+	}
 
 	/**
 	 * Validates and corrects state to maintain invariants.
