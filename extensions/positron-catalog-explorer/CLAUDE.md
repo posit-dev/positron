@@ -104,6 +104,54 @@ The extension integrates with VS Code to provide:
 - `src/extension.ts`: Main entry point for the extension
 - `src/catalog.ts`: Core interfaces and classes for catalog system
 - `src/catalogs/databricks.ts`: Implementation of Databricks catalog provider
+- `src/catalogs/unityCatalogClient.ts`: Client for Databricks Unity Catalog API
 - `src/fs/dbfs.ts`: Implementation of DBFS file system provider
 - `src/credentials.ts`: Credential management for catalog providers
 - `src/positron.ts`: Integration with Posit's VSCode extension (Positron)
+
+## Testing Structure
+
+The extension's test suite is organized to verify both API client functionality and VS Code integration:
+
+### Test Files
+
+- `src/test/databricksCatalogTreeView.test.ts`: Tests for the VS Code tree view integration with Databricks Unity Catalog
+- `src/test/unityCatalogClient.test.ts`: Tests for the raw Unity Catalog API client functionality
+- `src/test/dbfs.test.ts`: Tests for the Databricks File System provider
+- `src/test/databricksCatalog.test.ts`: Tests for the Databricks catalog provider integration
+
+### Mock System
+
+- `src/test/mocks/unityCatalogMock.ts`: Contains mock data and stubs for the Unity Catalog API
+  - Provides mock catalog, schema, table, and volume data
+  - Implements Sinon stubs to intercept API calls with `setupStubs()`
+  - Supports testing API URL construction and response handling
+
+### Key Test Concepts
+
+1. **API Verification**: Tests verify that the correct API endpoints are called with appropriate parameters:
+   - Catalog listing (`/api/2.1/unity-catalog/catalogs`)
+   - Schema listing (`/api/2.1/unity-catalog/schemas?catalog_name=...`)
+   - Table listing (`/api/2.1/unity-catalog/tables?catalog_name=...&schema_name=...`)
+   - Volume listing (`/api/2.1/unity-catalog/volumes?catalog_name=...&schema_name=...`)
+
+2. **Navigation Testing**: Tests verify proper navigation through catalog hierarchies:
+   - Catalogs → Schemas → Tables/Volumes
+
+3. **Error Handling**: Tests verify graceful handling of API errors and edge cases:
+   - Authentication errors
+   - Empty response handling
+   - Error response handling
+
+### Running Tests
+
+Tests can be run using the VS Code testing framework:
+
+```bash
+npm test
+```
+
+The test system uses:
+- Mocha as the test framework
+- Sinon for mocking and stubbing
+- Node's built-in assertions

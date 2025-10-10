@@ -1,4 +1,4 @@
-name: Test
+name: PR Test
 
 on:
   push:
@@ -31,3 +31,35 @@ jobs:
 
       - name: Lint TypeScript code
         run: npm run lint-check
+
+  test:
+    name: Extension test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v5
+        with:
+          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Node dependencies
+        run: npm ci --fetch-timeout 120000
+
+        # Install xvfb for Linux to provide a virtual display for VS Code
+      - name: Run tests (linux)
+        if: runner.os == 'Linux'
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm run test
+
+      # Run tests directly on macOS and Windows (already have display servers)
+      - name: Run tests (macOS/Windows)
+        if: runner.os != 'Linux'
+        run: npm run test

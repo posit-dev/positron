@@ -125,7 +125,7 @@ async function getDatabricksCatalogs(
 /**
  * A provider for a Databricks Unity Catalog.
  */
-class DatabricksCatalogProvider implements CatalogProvider {
+export class DatabricksCatalogProvider implements CatalogProvider {
 	private emitter = new vscode.EventEmitter<void>();
 	private catalogClient: UnityCatalogClient;
 	private fsClient: DatabricksFilesClient;
