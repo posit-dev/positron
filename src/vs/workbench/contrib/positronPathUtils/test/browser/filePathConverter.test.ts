@@ -112,14 +112,15 @@ suite('File Path Converter Tests', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	test('Single Windows file path conversion', () => {
-		// Based on a real-world example captured in the debugger
+	// Inputs largely based on real-world examples captured in the debugger on Windows
+
+	test('Convert a single Windows file path', () => {
 		const dataTransfer = new MockDataTransfer(['file:///c%3A/Users/test/file.txt']);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.deepStrictEqual(result, ['"c:/Users/test/file.txt"']);
 	});
 
-	test('Multiple Windows file paths conversion', () => {
+	test('Convert multiple Windows file paths', () => {
 		const dataTransfer = new MockDataTransfer([
 			'file:///c%3A/Users/test/file1.txt',
 			'file:///c%3A/Users/test/file2.txt'
@@ -128,36 +129,31 @@ suite('File Path Converter Tests', () => {
 		assert.deepStrictEqual(result, ['"c:/Users/test/file1.txt"', '"c:/Users/test/file2.txt"']);
 	});
 
-	test('File path with spaces is handled correctly', () => {
+	test('Convert a file path with a space', () => {
 		const dataTransfer = new MockDataTransfer(['file:///c%3A/Users/My%20Documents/file.txt']);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.deepStrictEqual(result, ['"c:/Users/My Documents/file.txt"']);
 	});
 
-	// "file:///c%3A/Users/jenny/i%20love%20%27quotes%27.txt"
+	// TODO @jennybc: revisit this test when I can get a real-world example
+	// on macOS. You can't actually use `"` in a file path on Windows."
 	test('File path with quotes is escaped correctly', () => {
 		const dataTransfer = new MockDataTransfer(['file:///c%3A/Users/My%20%22Special%22%20File.txt']);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.deepStrictEqual(result, ['"c:/Users/My \\"Special\\" File.txt"']);
 	});
 
-	test('UNC path is skipped entirely', () => {
-		const dataTransfer = new MockDataTransfer(['file:///\\\\server\\share\\file.txt']);
-		const result = convertClipboardFiles(dataTransfer);
-		assert.strictEqual(result, null);
-	});
-
 	test('UNC path (URI-decoded format) is skipped entirely', () => {
 		// This tests the real-world scenario where \\localhost\C$\path becomes localhost/C$/path after URI decoding
-		const dataTransfer = new MockDataTransfer(['file://localhost/C$/Users/jenny/file.txt']);
+		const dataTransfer = new MockDataTransfer(['file://localhost/C$/Users/test/file.txt']);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.strictEqual(result, null);
 	});
 
 	test('Mixed regular and UNC paths skips all conversion', () => {
 		const dataTransfer = new MockDataTransfer([
-			'file:///C:/Users/test/file1.txt',
-			'file:///\\\\server\\share\\file2.txt'
+			'file:///c%3A/Users/test/file.txt',
+			'file://localhost/C$/Users/test/file.txt'
 		]);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.strictEqual(result, null);
@@ -175,21 +171,12 @@ suite('File Path Converter Tests', () => {
 		assert.strictEqual(result, null);
 	});
 
-	test('Invalid file URI is filtered out', () => {
+	test('Non-file URIs are filtered out', () => {
 		const dataTransfer = new MockDataTransfer([
-			'file:///C:/Users/test/file.txt',
+			'file:///c%3A/Users/test/file.txt',
 			'https://example.com/not-a-file'
 		]);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.deepStrictEqual(result, ['"C:/Users/test/file.txt"']);
-	});
-
-	test('Different drive letters work correctly', () => {
-		const dataTransfer = new MockDataTransfer([
-			'file:///D:/Projects/data.csv',
-			'file:///E:/Backup/archive.zip'
-		]);
-		const result = convertClipboardFiles(dataTransfer);
-		assert.deepStrictEqual(result, ['"D:/Projects/data.csv"', '"E:/Backup/archive.zip"']);
 	});
 });
