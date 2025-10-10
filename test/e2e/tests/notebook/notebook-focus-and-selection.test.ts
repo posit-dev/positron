@@ -72,7 +72,33 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 		});
 
-		await test.step('Test 6: Shift+Arrow Down adds next cell to selection', async () => {
+
+		// BUG: https://github.com/posit-dev/positron/issues/9876
+		await test.step.skip('Test 6: Cell regains edit mode when clicking away and back', async () => {
+			// verify we are starting with 5 cells
+			await notebooksPositron.expectCellCountToBe(5);
+			await notebooksPositron.selectCellAtIndex(1);
+
+			// click away to defocus cell
+			const active = notebooksPositron.cell.nth(1);
+			const box = await active.boundingBox();
+			if (box) {
+				const page = app.code.driver.page;
+				const x = box.x + box.width / 2 - 300;
+				const y = box.y + box.height + 20;
+
+				await page.mouse.click(x, y);
+			}
+
+			// click back on cell to re-focus
+			await notebooksPositron.selectCellAtIndex(1);
+
+			// verify backspace deletes cell content not cell (indicating edit mode is active)
+			await keyboard.press('Backspace');
+			await notebooksPositron.expectCellCountToBe(5);
+		});
+
+		await test.step('Test 7: Shift+Arrow Down adds next cell to selection', async () => {
 			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
 			await keyboard.press('Shift+ArrowDown');
 			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
