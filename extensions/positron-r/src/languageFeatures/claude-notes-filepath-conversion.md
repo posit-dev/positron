@@ -1,10 +1,14 @@
-# Windows File Path Auto-Conversion Feature
+# (Mostly Windows) File Path Auto-Conversion Feature
 
 ## Overview
 
-This feature implements automatic file path conversion when pasting files (copied from file manager) into R contexts, matching RStudio's behavior exactly. When users copy files from Windows Explorer and paste into Positron's R console or editor, paths are automatically converted to R-compatible format.
+The intent of this feature is to replicate this RStudio behaviour: when pasting files (copied from the file manager, most especially Windows Explorer), they get converted into usable file paths. Where "usable" means `\` has been replaced by `/` and the whole path is wrapped in double quotes. (And I really do mean there are files on the clipboard, not just text that looks like a file path.)
 
-**GitHub Issue**: https://github.com/posit-dev/positron/issues/8393
+Ideally, we would do this in R files AND in the R console (and potentially also in Python?). It turns out it's much easier to implement this in the editor, so that's where we're starting. These notes record some successful efforts to get this working in the console, but the implementation seemed yucky, so I've chosen to pause and get some advice before trying that again.
+
+**Motivating GitHub Issue**: https://github.com/posit-dev/positron/issues/8393
+
+These notes are partially authored by Claude and partially by @jennybc.
 
 ## Problem Statement
 
@@ -17,7 +21,7 @@ RStudio users expect Windows file paths to be automatically converted when pasti
 - **Single file**: `"C:/Users/file.txt"`
 - **Multiple files**: `c("C:/Users/file1.txt", "C:/Users/file2.txt")`
 - **Files with spaces**: `"C:/Users/My Documents/file.txt"`
-- **Files with quotes**: `"C:/Users/My \"Special\" File.txt"` (properly escaped)
+- **Files with quotes**: `"C:/Users/My \"Special\" File.txt"` (properly escaped). Note that double quotes aren't allowed in Windows file paths, so until I get back onto a macOS machine, I can't be sure that we even need to worry about this case.
 
 ### What Doesn't Get Converted ❌
 - **UNC paths**: `\\server\share\file.txt` (skipped entirely for safety)
@@ -26,7 +30,7 @@ RStudio users expect Windows file paths to be automatically converted when pasti
 - **Non-R contexts**: Python console, other languages (unaffected)
 
 ### Key Features
-- **RStudio compatible**: Matches `formatDesktopPath()` behavior exactly
+- **RStudio compatible**: Goal is to (eventually) match `formatDesktopPath()` behavior exactly
 - **Safe UNC handling**: Uses VS Code's `isUNC()` to detect and skip network paths
 - **User controllable**: `positron.r.autoConvertFilePaths` setting (defaults enabled)
 - **Platform agnostic**: Works on any OS, detects file clipboard via `text/uri-list`
@@ -39,68 +43,25 @@ RStudio users expect Windows file paths to be automatically converted when pasti
 ### 1. Core Layer (Language-Agnostic)
 **File**: `src/vs/workbench/contrib/positronPathUtils/common/filePathConverter.ts`
 
-```typescript
-export function convertClipboardFiles(dataTransfer: DataTransfer): string[] | null {
-    // Check for file URI list from clipboard
-    const uriList = dataTransfer.getData('text/uri-list');
-    if (uriList) {
-        const fileUris = uriList.split('\n')
-            .filter(line => line.trim().startsWith('file://'));
+Key exported function is `convertClipboardFiles()`.
 
-        filePaths = fileUris.map(uri => {
-            // Convert file URIs using VS Code's proper URI handling
-            return URI.parse(uri.trim()).fsPath;
-        });
-    }
-
-    // Skip conversion entirely if ANY paths are UNC paths
-    const hasUncPaths = filePaths.some(path => isUNC(path));
-    if (hasUncPaths) {
-        return null;
-    }
-
-    return filePaths.map(formatForwardSlashPath);
-}
-
-function formatForwardSlashPath(filePath: string): string {
-    // Convert backslashes to forward slashes (universal need)
-    const normalized = toSlashes(filePath);
-
-    // Escape existing quotes (universal for string literals)
-    const escaped = normalized.replace(/"/g, '\\"');
-
-    // Wrap in quotes for safe usage (universal for paths with spaces)
-    return `"${escaped}"`;
-}
-```
+Unit tests in `src/vs/workbench/contrib/positronPathUtils/test/browser/filePathConverter.test.ts`
 
 ### 2. API Layer (Official Positron Extension API)
-**Files**: `src/positron-dts/positron.d.ts` + implementation
+**Files**: `src/positron-dts/positron.d.ts` + `src/vs/workbench/api/common/positron/extHost.positron.api.impl.ts`
 
-```typescript
-namespace paths {
-    /**
-     * Extract file paths from clipboard for use in data analysis code.
-     */
-    export function extractClipboardFilePaths(dataTransfer: vscode.DataTransfer): Thenable<string[] | null>;
-}
-```
+Exposes `positron.paths.extractClipboardFilePaths()` for extensions to use.
 
-### 3. Language Layer (R-Specific)
+### 3. Language Layer (only in positron-r for now)
 **File**: `extensions/positron-r/src/languageFeatures/rFilePasteProvider.ts`
 
-```typescript
-export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
-    async provideDocumentPasteEdits(...) {
-        const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer);
-        if (!filePaths) return undefined;
+`provideDocumentPasteEdits()` checks the user setting `positron.r.autoConvertFilePaths` and whether `positron.paths.extractClipboardFilePaths()` has any paths to provide.
 
-        const insertText = filePaths.length === 1
-            ? filePaths[0] // Already formatted by core utility
-            : `c(${filePaths.join(', ')})`; // R vector syntax - R-specific
-    }
-}
-```
+If not, early return of `undefined` and default paste behaviour takes over.
+
+If so, the converted file paths are potentially formatted for use in R, e.g. inside `c(...)` for multiple files.
+
+`registerRFilePasteProvider()` is used in `extensions/positron-r/src/extension.ts` to register the provider via `vscode.languages.registerDocumentPasteEditProvider()`. This is the missing piece for the console. What's the best equivalent implementation there?
 
 ## Implementation Summary
 
@@ -114,7 +75,7 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 - **User controllable**: `positron.r.autoConvertFilePaths` setting (defaults enabled)
 
 **Testing Validation:**
-- ✅ **Unit tests**: 12 comprehensive test cases covering all scenarios
+- ✅ **Unit tests**: comprehensive test cases covering all scenarios
 - ✅ **Manual testing**: Confirmed working in R files - produces `"c:/Users/jenny/readxl/inst/extdata/datasets.xlsx"`
 - ✅ **Build verification**: Clean TypeScript compilation
 - ✅ **UNC safety**: Network paths properly detected and skipped
@@ -124,10 +85,7 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 **What We Learned About Console Architecture:**
 - **Console is not a document**: Uses "simple widget"/mini editor architecture, so `DocumentPasteEditProvider` doesn't work
 - **Different paste handling**: Console has its own paste logic in `positronConsole.contribution.ts` that only calls `clipboardService.readText()`
-- **Architecture challenges**: Attempted language-aware console paste extension point but encountered issues:
-  - `PositronConsoleFocused` context handler wasn't triggering properly
-  - Different Monaco editor integration requirements
-  - Timing/compilation issues prevented testing
+- **Architecture challenges**: We (Claude and @jennybc) did get this working, but it didn't feel well-designed. In particular, R-specific stuff was appearing Positron core. How to make this behaviour something that a language pack can contribute?
 
 **Decision**: Console implementation was **attempted, learned from, and removed**. Shipping with R files support only.
 
@@ -135,54 +93,24 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 For future console implementation, investigate:
 1. **Root cause**: Why enhanced console paste handler didn't trigger
 2. **Alternative approaches**: Direct Monaco editor integration, different paste event handling
-3. **Simpler patterns**: Study existing console commands like `r.insertPipeConsole` that work via `default:type`
-
-## Files Changed
-
-### Core Implementation
-**`src/vs/workbench/contrib/positronPathUtils/common/filePathConverter.ts`** (new, 69 lines)
-- Language-agnostic clipboard file detection and path formatting
-- Uses VS Code utilities: `URI.parse().fsPath`, `toSlashes()`, `isUNC()`
-- Universal quote escaping for any programming language
-
-### API Surface
-**`src/positron-dts/positron.d.ts`** (+24 lines)
-- Official Positron extension API: `positron.paths.extractClipboardFilePaths()`
-
-**`src/vs/workbench/api/common/positron/extHost.positron.api.impl.ts`** (+36 lines)
-- API implementation bridging VS Code and browser DataTransfer formats
-
-### R Language Support
-**`extensions/positron-r/src/languageFeatures/rFilePasteProvider.ts`** (new, 69 lines)
-- VS Code `DocumentPasteEditProvider` implementation
-- R-specific multi-file vector syntax: `c("file1", "file2")`
-
-**`extensions/positron-r/src/extension.ts`** (+4 lines)
-- Clean registration following existing R extension patterns
-
-### Configuration
-**`extensions/positron-r/package.json`** (configuration and localization)
-- User setting: `positron.r.autoConvertFilePaths` (boolean, default: true)
-- Description: "Automatically convert file paths when pasting files from file manager into R contexts"
-
-### Supporting Files
-**Test file** (+199 lines) - Comprehensive unit test suite covering all scenarios
-
-## Technical Design Principles
-
-1. **Leverage VS Code utilities** instead of custom implementations
-2. **Language-agnostic core** with language-specific formatting layers
-3. **Conservative UNC handling** - skip conversion entirely for safety
-4. **Single provider pattern** - DocumentPasteEditProvider works in both contexts
-5. **Official API surface** - clean `positron.paths` namespace for extensions
-
-## Usage Examples
-
-**Single file**: Copy from Windows Explorer → Paste in R → `"C:/Users/data.csv"`
-**Multiple files**: Copy multiple files → Paste in R → `c("C:/file1.csv", "C:/file2.csv")`
-**UNC paths**: Network paths remain unchanged (no conversion applied)
-**Non-R contexts**: Python console unaffected
 
 ## Testing/Debugging
 
-**To see the paste provider title**: Copy files from file manager, then use **"Paste As"** from the Command Palette (Ctrl+Shift+P) in an R file. This shows the picker with "Insert quoted, forward-slash file path(s)" option.
+**To see the paste provider title**: Copy files from file manager, then use **"Paste As"** from the Command Palette (Ctrl+Shift+P) in an R file. This shows the picker with "Insert quoted, forward-slash file path(s)" option. NOTE: this is no longer working, once we pared things way back. Hopefully we can get it back for the console implementation.
+
+**To manually test UNC paths**:
+
+* Open Windows Explorer
+* Type `\\localhost\c$` and press Enter
+* Navigate to any file and copy it
+* Paste into an R file in Positron and (hopefully) observe no conversion
+
+Example: `\\localhost\c$\Users\jenny\readxl\inst\extdata\geometry.xlsx`
+
+## Interesting example to study
+
+Recent discovery: the markdown-language-features has a similar feature for pasting or dragging-and-dropping of files into markdown documents. I will look at this later. Key files:
+
+* `extensions\markdown-language-features\src\languageFeatures\copyFiles\dropOrPasteResource.ts`
+* `extensions\markdown-language-features\src\extension.shared.ts`
+* `extensions\markdown-language-features\src\languageFeatures\copyFiles\shared.ts` (look at `getRelativeMdPath()`)
