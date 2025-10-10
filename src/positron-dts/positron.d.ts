@@ -5,6 +5,7 @@
 
 /// <reference path="../vscode-dts/vscode.proposed.chatProvider.d.ts" />
 /// <reference path="../vscode-dts/vscode.proposed.languageModelDataPart.d.ts" />
+/// <reference path="../vscode-dts/vscode.proposed.languageModelThinkingPart.d.ts" />
 
 declare module 'positron' {
 
@@ -2072,22 +2073,18 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * A language model provider, extends vscode.LanguageModelChatProvider2.
+		 * A language model provider, extends vscode.LanguageModelChatProvider.
 		 */
-		export interface LanguageModelChatProvider2<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
+		export interface LanguageModelChatProvider<T extends vscode.LanguageModelChatInformation = vscode.LanguageModelChatInformation> {
 			name: string;
 			provider: string;
 			id: string;
 
 			providerName: string;
 
-			// signals a change from the provider to the editor so that prepareLanguageModelChat is called again
-			onDidChange?: vscode.Event<void>;
+			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage>, options: vscode.ProvideLanguageModelChatResponseOptions, progress: vscode.Progress<vscode.LanguageModelResponsePart2>, token: vscode.CancellationToken): Thenable<any>;
 
-			// NOT cacheable (between reloads)
-			prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
-
-			provideLanguageModelChatResponse(model: T, messages: Array<vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2>, options: vscode.LanguageModelChatRequestHandleOptions, progress: vscode.Progress<vscode.ChatResponseFragment2>, token: vscode.CancellationToken): Thenable<any>;
+			provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): vscode.ProviderResult<T[]>;
 
 			provideTokenCount(model: T, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Thenable<number>;
 

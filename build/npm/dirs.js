@@ -74,6 +74,11 @@ const dirs = [
 	'remote/reh-web',
 	'test/integration/browser',
 	'test/monaco',
+	'test/mcp', // TODO 1.104.0 do we remove this?
+	// We've removed these test folders
+	// 'test/automation',
+	// 'test/smoke',
+
 	// no need to compile e2e tests during release builds
 	// 'test/e2e',
 	// --- End Positron ---

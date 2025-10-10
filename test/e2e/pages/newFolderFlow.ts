@@ -8,18 +8,18 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 export class NewFolderFlow {
-	private backButton = this.code.driver.page.getByRole('button', { name: 'Back', exact: true });
-	private cancelButton = this.code.driver.page.getByRole('button', { name: 'Cancel' });
-	private nextButton = this.code.driver.page.getByRole('button', { name: 'Next', exact: true });
-	private createButton = this.code.driver.page.getByRole('button', { name: 'Create', exact: true });
+	private get backButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Back', exact: true }); }
+	private get cancelButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Cancel' }); }
+	private get nextButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Next', exact: true }); }
+	private get createButton(): Locator { return this.code.driver.page.getByRole('button', { name: 'Create', exact: true }); }
 	private folderTemplateButton = (label: string) => this.code.driver.page.locator('label').filter({ hasText: label });
-	private folderNameInput = this.code.driver.page.getByLabel(/Enter the name of your new/);
-	private existingEnvRadioButton = this.code.driver.page.getByText(/Use an existing/);
-	private envProviderDropdown = this.code.driver.page.locator('#flow-sub-step-environment-creation').locator('button');
-	private envProviderDropdownTitle = this.envProviderDropdown.locator('.dropdown-entry-title');
-	private dropDropdownOptions = this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button');
-	private interpreterDropdown = this.code.driver.page.locator('#flow-sub-step-pythonenvironment-interpreterorversion').locator('button');
-	private interpreterDropdownSubtitle = this.interpreterDropdown.locator('.dropdown-entry-subtitle');
+	private get folderNameInput(): Locator { return this.code.driver.page.getByLabel(/Enter the name of your new/); }
+	private get existingEnvRadioButton(): Locator { return this.code.driver.page.getByText(/Use an existing/); }
+	private get envProviderDropdown(): Locator { return this.code.driver.page.locator('#flow-sub-step-environment-creation').locator('button'); }
+	private get envProviderDropdownTitle(): Locator { return this.envProviderDropdown.locator('.dropdown-entry-title'); }
+	private get dropDropdownOptions(): Locator { return this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button'); }
+	private get interpreterDropdown(): Locator { return this.code.driver.page.locator('#flow-sub-step-pythonenvironment-interpreterorversion').locator('button'); }
+	private get interpreterDropdownSubtitle(): Locator { return this.interpreterDropdown.locator('.dropdown-entry-subtitle'); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 

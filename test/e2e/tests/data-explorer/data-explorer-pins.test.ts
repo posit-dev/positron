@@ -19,9 +19,9 @@ import { test, tags } from '../_test.setup';
 const columnOrder = {
 	default: ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
 	pinCol2: ['column2', 'column0', 'column1', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
+	pinCol3: ['column3', 'column0', 'column1', 'column2', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
 	pinCol4: ['column4', 'column0', 'column1', 'column2', 'column3', 'column5', 'column6', 'column7', 'column8', 'column9'],
-	pinCol6: ['column6', 'column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8', 'column9'],
-	pinCol4And6: ['column4', 'column6', 'column0', 'column1', 'column2', 'column3', 'column5', 'column7', 'column8', 'column9'],
+	pinCol4And3: ['column4', 'column3', 'column0', 'column1', 'column2', 'column5', 'column6', 'column7', 'column8', 'column9'],
 };
 const rowOrder = {
 	default: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -80,10 +80,10 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			await dataExplorer.grid.expectColumnsToBePinned(['column4']);
 			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4);
 
-			// Pin "column6"
-			await dataExplorer.grid.pinColumn(6);
-			await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column6']);
-			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4And6);
+			// Pin "column3"
+			await dataExplorer.grid.pinColumn(4);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column3']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol4And3);
 
 			// Pin row 8
 			await dataExplorer.grid.pinRow(8);
@@ -97,13 +97,13 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 
 			// Ensure pins persist with scrolling
 			await dataExplorer.grid.clickLowerRightCorner();
-			await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column6']);
+			await dataExplorer.grid.expectColumnsToBePinned(['column4', 'column3']);
 			await dataExplorer.grid.expectRowsToBePinned([8, 6], indexOffset);
 
 			// Unpin columns
 			await dataExplorer.grid.unpinColumn(0);
-			await dataExplorer.grid.expectColumnsToBePinned(['column6']);
-			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol6);
+			await dataExplorer.grid.expectColumnsToBePinned(['column3']);
+			await dataExplorer.grid.expectColumnHeadersToBe(columnOrder.pinCol3);
 
 			await dataExplorer.grid.unpinColumn(0);
 			await dataExplorer.grid.expectColumnsToBePinned([]);

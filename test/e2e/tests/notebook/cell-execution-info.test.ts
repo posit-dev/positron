@@ -43,7 +43,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			await notebooksPositron.addCodeToCell(0, 'print("hello world")', { run: true });
 			await notebooksPositron.expectToolTipToContain({
 				order: 1,
-				duration: /\d+ms/,
+				duration: /\d+(ms|s)/,
 				status: 'Success'
 			}, 30000);
 
@@ -62,7 +62,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 			});
 			await notebooksPositron.expectToolTipToContain({
 				order: 2,
-				duration: /\d+ms/,
+				duration: /\d+(ms|s)/,
 				status: 'Failed'
 			});
 

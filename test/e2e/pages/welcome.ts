@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import test, { expect } from '@playwright/test';
+import test, { expect, type Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const LOGO = '.product-logo';
@@ -19,24 +19,24 @@ const BUTTON_ROLE = 'button';
 
 export class Welcome {
 
-	logo = this.code.driver.page.locator(LOGO);
-	footer = this.code.driver.page.locator(FOOTER);
-	startSection = this.code.driver.page.locator(START_SECTION);
-	startButtons = this.startSection.getByRole(BUTTON_ROLE);
-	helpSection = this.code.driver.page.locator(HELP_TITLE);
-	helpTitle = this.helpSection.getByRole(HEADING_ROLE);
-	helpLinks = this.helpSection.getByRole(BUTTON_ROLE);
-	openSection = this.code.driver.page.locator(OPEN_SECTION);
-	openTitle = this.openSection.getByRole(HEADING_ROLE);
-	openButtons = this.openSection.getByRole(BUTTON_ROLE);
-	recentSection = this.code.driver.page.locator(RECENT_SECTION);
-	recentTitle = this.recentSection.getByRole(HEADING_ROLE);
-	newNotebookButton = this.startButtons.getByText('New Notebook');
-	newFileButton = this.startButtons.getByText('New File');
-	newFolderFromTemplateButton = this.startButtons.getByText('New Folder');
-	openFolderButton = this.startButtons.getByText('Open Folder');
-	walkthroughSection = this.code.driver.page.locator(WALKTHROUGH_SECTION);
-	walkthroughButtons = this.walkthroughSection.getByRole(BUTTON_ROLE);
+	get logo(): Locator { return this.code.driver.page.locator(LOGO); }
+	get footer(): Locator { return this.code.driver.page.locator(FOOTER); }
+	get startSection(): Locator { return this.code.driver.page.locator(START_SECTION); }
+	get startButtons(): Locator { return this.startSection.getByRole(BUTTON_ROLE); }
+	get helpSection(): Locator { return this.code.driver.page.locator(HELP_TITLE); }
+	get helpTitle(): Locator { return this.helpSection.getByRole(HEADING_ROLE); }
+	get helpLinks(): Locator { return this.helpSection.getByRole(BUTTON_ROLE); }
+	get openSection(): Locator { return this.code.driver.page.locator(OPEN_SECTION); }
+	get openTitle(): Locator { return this.openSection.getByRole(HEADING_ROLE); }
+	get openButtons(): Locator { return this.openSection.getByRole(BUTTON_ROLE); }
+	get recentSection(): Locator { return this.code.driver.page.locator(RECENT_SECTION); }
+	get recentTitle(): Locator { return this.recentSection.getByRole(HEADING_ROLE); }
+	get newNotebookButton(): Locator { return this.startButtons.getByText('New Notebook'); }
+	get newFileButton(): Locator { return this.startButtons.getByText('New File'); }
+	get newFolderFromTemplateButton(): Locator { return this.startButtons.getByText('New Folder'); }
+	get openFolderButton(): Locator { return this.startButtons.getByText('Open Folder'); }
+	get walkthroughSection(): Locator { return this.code.driver.page.locator(WALKTHROUGH_SECTION); }
+	get walkthroughButtons(): Locator { return this.walkthroughSection.getByRole(BUTTON_ROLE); }
 
 	constructor(private code: Code) { }
 

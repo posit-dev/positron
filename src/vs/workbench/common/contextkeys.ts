@@ -37,6 +37,8 @@ export const HasWebFileSystemAccess = new RawContextKey<boolean>('hasWebFileSyst
 
 export const EmbedderIdentifierContext = new RawContextKey<string | undefined>('embedderIdentifier', undefined, localize('embedderIdentifier', 'The identifier of the embedder according to the product service, if one is defined'));
 
+export const InAutomationContext = new RawContextKey<boolean>('inAutomation', false, localize('inAutomation', "Whether VS Code is running under automation/smoke test"));
+
 // --- Start PWB: disable file downloads ---
 export const IsEnabledFileDownloads = new RawContextKey<boolean>('isEnabledFileDownloads', true, true);
 export const IsEnabledFileUploads = new RawContextKey<boolean>('isEnabledFileUploads', true, true);

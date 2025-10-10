@@ -7,7 +7,7 @@
 import { fail } from 'assert';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 
 const HORIZONTAL_SASH = '.explorer-viewlet .monaco-sash.horizontal';
 const FOCUS_OUTLINE_COMMAND = 'outline.focus';
@@ -19,7 +19,7 @@ const OUTLINE_ELEMENT = '.outline-element';
  */
 export class Outline {
 
-	outlineElement = this.code.driver.page.locator(OUTLINE_TREE).locator(OUTLINE_ELEMENT);
+	get outlineElement(): Locator { return this.code.driver.page.locator(OUTLINE_TREE).locator(OUTLINE_ELEMENT); }
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 

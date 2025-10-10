@@ -31,7 +31,6 @@ for %%A in (%*) do (
 )
 
 :: Launch Code
-
 %CODE% . %DISABLE_TEST_EXTENSION% %*
 :: --- Start Positron ---
 :: The changes in this file are meant to propagate exit code

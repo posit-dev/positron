@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 
 export class Editors {
 
-	activeEditor = this.code.driver.page.locator('div.tab.tab-actions-right.active.selected');
-	editorIcon = this.code.driver.page.locator('.monaco-icon-label.file-icon');
-	editorPart = this.code.driver.page.locator('.split-view-view .part.editor');
-	suggestionList = this.code.driver.page.locator('.suggest-widget .monaco-list-row');
+	get activeEditor(): Locator { return this.code.driver.page.locator('div.tab.tab-actions-right.active.selected'); }
+	get editorIcon(): Locator { return this.code.driver.page.locator('.monaco-icon-label.file-icon'); }
+	get editorPart(): Locator { return this.code.driver.page.locator('.split-view-view .part.editor'); }
+	get suggestionList(): Locator { return this.code.driver.page.locator('.suggest-widget .monaco-list-row'); }
 
 	constructor(private code: Code) { }
 

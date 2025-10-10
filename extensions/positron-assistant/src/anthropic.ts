@@ -29,7 +29,7 @@ type CacheControllableBlockParam = Anthropic.TextBlockParam |
 	Anthropic.ToolUseBlockParam |
 	Anthropic.ToolResultBlockParam;
 
-export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider2 {
+export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
 	provider: string;
 	family: string;
@@ -83,7 +83,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this.modelListing = [];
 	}
 
-	async prepareLanguageModelChat(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	async provideLanguageModelChatInformation(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.trace('Preparing Anthropic language model');
 
 		await this.resolveModels(token);
@@ -110,8 +110,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	async provideLanguageModelChatResponse(
 		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
-		options: vscode.LanguageModelChatRequestOptions,
-		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		options: vscode.ProvideLanguageModelChatResponseOptions,
+		progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
 		token: vscode.CancellationToken
 	) {
 		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
@@ -183,7 +183,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					type: 'usage',
 					data: toTokenUsage(usage)
 				});
-				progress.report({ index: 0, part: part });
+				// Report usage data as a data part so it conforms to LanguageModelResponsePart2
+				progress.report(part);
 			}
 		});
 
@@ -239,25 +240,19 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
-	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
+	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
 		switch (block.type) {
 			case 'tool_use':
 				return this.onToolUseBlock(block, progress);
 		}
 	}
 
-	private onToolUseBlock(block: Anthropic.ToolUseBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
-		progress.report({
-			index: 0,
-			part: new vscode.LanguageModelToolCallPart(block.id, block.name, block.input as any),
-		});
+	private onToolUseBlock(block: Anthropic.ToolUseBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
+		progress.report(new vscode.LanguageModelToolCallPart(block.id, block.name, block.input as any));
 	}
 
-	private onText(textDelta: string, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
-		progress.report({
-			index: 0,
-			part: new vscode.LanguageModelTextPart(textDelta),
-		});
+	private onText(textDelta: string, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
+		progress.report(new vscode.LanguageModelTextPart(textDelta));
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
@@ -546,7 +541,7 @@ function languageModelPromptTsxPartToAnthropicBlock(
 	);
 }
 
-function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
+function toAnthropicTools(tools: readonly vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
 	if (tools.length === 0) {
 		return [];
 	}

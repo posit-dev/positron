@@ -9,7 +9,7 @@
  * but reverted to the 1.99.0 upstream merge, with some changes applied to make it work with the
  * 1.100.0 upstream merge changes.
  *
- * This file does not exist upstream. Positron markers have been added around the code that has been changed
+ * Positron markers have been added around the code that has been changed
  * from the 1.99.0 state to allow for this tool to be used with the 1.100.0 upstream merge:
  * https://github.com/posit-dev/positron/blob/121d131b19afed5646b3f57d5453fe53b44ca0c1/src/vs/workbench/contrib/chat/common/tools/editFileTool.ts
  */
@@ -39,7 +39,7 @@ import { ICodeMapperService } from '../../common/chatCodeMapperService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { ILanguageModelIgnoredFilesService } from '../../common/ignoredFiles.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolInvocationPresentation } from '../../common/languageModelToolsService.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
@@ -273,7 +273,7 @@ export class EditTool implements IToolImpl {
 
 	async prepareToolInvocation(parameters: any, token: CancellationToken): Promise<IPreparedToolInvocation | undefined> {
 		return {
-			presentation: 'hidden'
+			presentation: ToolInvocationPresentation.Hidden,
 		};
 	}
 }

@@ -74,10 +74,7 @@ type ChatMessageValidateInfo = {
 };
 
 type MockAnthropicProgress = {
-	report: sinon.SinonStub<Parameters<vscode.Progress<{
-		index: number;
-		part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart | vscode.LanguageModelDataPart;
-	}>['report']>, void>;
+	report: sinon.SinonStub<Parameters<vscode.Progress<vscode.LanguageModelResponsePart2>['report']>, void>;
 };
 
 suite('AnthropicLanguageModel', () => {
@@ -120,7 +117,7 @@ suite('AnthropicLanguageModel', () => {
 	/** Send the request to the model and return the internal request made to the Anthropic API client. */
 	async function provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage2[],
-		options: vscode.LanguageModelChatRequestOptions = {},
+		options: vscode.ProvideLanguageModelChatResponseOptions = { requestInitiator: 'test', toolMode: vscode.LanguageModelChatToolMode.Auto },
 	) {
 		await model.provideLanguageModelChatResponse(
 			model,
@@ -199,7 +196,7 @@ suite('AnthropicLanguageModel', () => {
 			const messages = [vscode.LanguageModelChatMessage.User('Token usage test')];
 			await provideLanguageModelResponse(messages);
 
-			const initialData = progress.report.getCall(0).args[0].part;
+			const initialData = progress.report.getCall(0).args[0];
 			const initialExpected = { type: 'usage', data: { inputTokens: 100, outputTokens: 0, cachedTokens: 20 } };
 			assert.ok(initialData instanceof vscode.LanguageModelDataPart, 'Initial response should be a LanguageModelDataPart');
 			assert.strictEqual(initialData.mimeType, 'text/x-json', 'Initial response should have `application/json` mimeType');
@@ -209,7 +206,7 @@ suite('AnthropicLanguageModel', () => {
 			delete initialObject.data["providerMetadata"];
 			assert.deepStrictEqual(initialObject, initialExpected, 'Remaining initial usage data should decode as expected');
 
-			const finalData = progress.report.getCall(1).args[0].part;
+			const finalData = progress.report.getCall(1).args[0];
 			const finalExpected = { type: 'usage', data: { inputTokens: 100, outputTokens: 50, cachedTokens: 20 } };
 			assert.ok(finalData instanceof vscode.LanguageModelDataPart, 'Final response should be a LanguageModelDataPart');
 			assert.strictEqual(finalData.mimeType, 'text/x-json', 'Final response should have `application/json` mimeType');
@@ -326,7 +323,7 @@ suite('AnthropicLanguageModel', () => {
 			const toolA = {
 				name: 'toolA',
 				description: 'Tool A',
-				inputSchema: { type: 'object' as const, properties: {} }
+				inputSchema: { type: 'object' as const, properties: {} },
 			} satisfies vscode.LanguageModelChatTool;
 			const toolB = {
 				name: 'toolB',
@@ -346,6 +343,8 @@ suite('AnthropicLanguageModel', () => {
 					// Define the request tools, not sorted by name, so we can test sorting behavior.
 					tools: [toolB, toolA],
 					modelOptions: {},
+					requestInitiator: 'test',
+					toolMode: vscode.LanguageModelChatToolMode.Auto,
 				},
 			);
 
@@ -404,6 +403,8 @@ suite('AnthropicLanguageModel', () => {
 							system: false,
 						} satisfies CacheControlOptions,
 					},
+					requestInitiator: 'test',
+					toolMode: vscode.LanguageModelChatToolMode.Auto,
 				},
 			);
 
