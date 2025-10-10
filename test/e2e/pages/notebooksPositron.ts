@@ -552,31 +552,33 @@ export class PositronNotebooks extends Notebooks {
 			inEditMode = undefined,
 		} = options ?? {};
 
-		await test.step(`Verify cell at index ${expectedIndex} to is${isSelected ? '' : ' NOT'} selected`, async () => {
-			const cells = this.cell;
-			const cellCount = await cells.count();
-			const selectedIndices: number[] = [];
+		await expect(async () => {
+			await test.step(`Verify cell at index ${expectedIndex} to is${isSelected ? '' : ' NOT'} selected`, async () => {
+				const cells = this.cell;
+				const cellCount = await cells.count();
+				const selectedIndices: number[] = [];
 
-			for (let i = 0; i < cellCount; i++) {
-				const cell = cells.nth(i);
-				const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
-				if (isSelected) {
-					selectedIndices.push(i);
+				for (let i = 0; i < cellCount; i++) {
+					const cell = cells.nth(i);
+					const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
+					if (isSelected) {
+						selectedIndices.push(i);
+					}
 				}
-			}
 
-			isSelected
-				? expect(selectedIndices).toContain(expectedIndex)
-				: expect(selectedIndices).not.toContain(expectedIndex);
-		});
+				isSelected
+					? expect(selectedIndices).toContain(expectedIndex)
+					: expect(selectedIndices).not.toContain(expectedIndex);
+			});
 
-		await test.step(`Verify cell at index ${expectedIndex} is ${inEditMode ? '' : 'NOT '}in edit mode`, async () => {
-			const editorFocused = this.cell.nth(expectedIndex).locator('.monaco-editor-background').locator('.focused');
-			inEditMode
-				? await expect(editorFocused).toHaveCount(1)
-				: await expect(editorFocused).toHaveCount(0);
+			await test.step(`Verify cell at index ${expectedIndex} is ${inEditMode ? '' : 'NOT '}in edit mode`, async () => {
+				const editorFocused = this.cell.nth(expectedIndex).locator('.monaco-editor-background').locator('.focused');
+				inEditMode
+					? await expect(editorFocused).toHaveCount(1)
+					: await expect(editorFocused).toHaveCount(0);
 
-		});
+			});
+		}, `Cell selection and edit mode`).toPass({ timeout: options?.timeout ?? DEFAULT_TIMEOUT });
 	}
 
 	/**
