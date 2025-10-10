@@ -1,4 +1,12 @@
-// From https://github.com/sanketbajoria/ssh2-promise
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
+// which is licensed under the MIT license.
+// The code in this file has also been adapted from https://github.com/sanketbajoria/ssh2-promise,
+// which is licensed under the MIT license.
 
 import { EventEmitter } from 'events';
 import * as net from 'net';
@@ -72,8 +80,8 @@ export default class SSHConnection extends EventEmitter {
 	}
 
 	/**
-	  * Emit message on this channel
-	  */
+	 * Emit message on this channel
+	 */
 	override emit(channel: string, status: string, payload?: any): boolean {
 		super.emit(channel, status, this, payload);
 		return super.emit(`${channel}:${status}`, this, payload);
