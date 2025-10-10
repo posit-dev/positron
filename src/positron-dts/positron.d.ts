@@ -2074,8 +2074,9 @@ declare module 'positron' {
 	namespace paths {
 		/**
 		 * Extract file paths from clipboard for use in data analysis code.
-		 * Detects files copied from file manager and returns their paths for insertion into scripts.
-		 * Should not modify UNC paths.
+		 * Detects files copied from file manager and returns their paths for use in scripts.
+		 * Main motivation is the Windows issue of replacing `\` with `/`.
+		 * Does no modification to UNC paths.
 		 *
 		 * @param dataTransfer The clipboard DataTransfer object
 		 * @returns A Thenable that resolves to an array of file paths, or null if no files or UNC paths detected

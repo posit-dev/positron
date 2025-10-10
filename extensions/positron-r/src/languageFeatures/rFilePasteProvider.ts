@@ -7,13 +7,13 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 /**
- * Document paste edit provider for R files and console that converts files on
- * the clipboard into file paths that are usable in R code.
+ * Document paste edit provider for R files that converts files on the clipboard
+ * into file paths that are usable in R code.
  */
 export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 
 	/**
-	 * Provide paste edits for R files when files are detected on clipboard.
+	 * Provide paste edits for R filepaths when files are detected on clipboard.
 	 */
 	async provideDocumentPasteEdits(
 		document: vscode.TextDocument,
