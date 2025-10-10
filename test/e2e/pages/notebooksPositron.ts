@@ -150,16 +150,17 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async selectCellAtIndex(cellIndex: number, { editMode = true }: { editMode?: boolean } = {}): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}`, async () => {
+			// click cell and verify selected & edit mode
 			await this.cell.nth(cellIndex).click();
-
 			await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
 
 			if (!editMode) {
+				// press escape to exit edit mode
 				await this.code.driver.page.waitForTimeout(500);
 				await expect(async () => {
 					await this.code.driver.page.keyboard.press('Escape');
-					await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false });
-				}, 'should NOT be in edit mode').toPass({ timeout: DEFAULT_TIMEOUT });
+					await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false, timeout: 2000 });
+				}, 'should NOT be in edit mode').toPass({ timeout: 15000 });
 			} else {
 				await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
 			}
@@ -565,6 +566,9 @@ export class PositronNotebooks extends Notebooks {
 						const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
 						if (isSelected) {
 							selectedIndices.push(i);
+							console.log(`Cell ${i} is selected`);
+						} else {
+							console.log(`Cell ${i} is NOT selected`);
 						}
 					}
 
