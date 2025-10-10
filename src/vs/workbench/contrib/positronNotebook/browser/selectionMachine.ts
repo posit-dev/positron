@@ -175,6 +175,7 @@ export class SelectionStateMachine extends Disposable {
 	) {
 		super();
 		this._register(autorunDelta(this.state, ({ lastValue, newValue }) => {
+			console.log('SelectionStateMachine: state changed', newValue);
 			if (lastValue !== undefined) {
 				this._updateCellSelectionStatus(lastValue, newValue);
 			}
@@ -210,10 +211,10 @@ export class SelectionStateMachine extends Disposable {
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 		switch (selectType) {
 			case CellSelectionType.Normal:
-				this._selectCellNormal(cell);
+				this._setState({ type: SelectionState.SingleSelection, selected: cell });
 				break;
 			case CellSelectionType.Edit:
-				this._selectCellEdit(cell);
+				this._setState({ type: SelectionState.EditingSelection, selected: cell });
 				break;
 			case CellSelectionType.Add:
 				this._selectCellAdd(cell);
@@ -281,7 +282,8 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Enters the editor for the selected cell.
+	 * Enters edit mode for the currently selected cell.
+	 * For entering edit mode on a specific cell, use selectCell(cell, CellSelectionType.Edit).
 	 */
 	async enterEditor(): Promise<void> {
 		const state = this._state.get();
@@ -298,8 +300,9 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Reset the selection to the cell so user can navigate between cells
-	 * @param cell Optional - if provided, only exit if this specific cell is being edited
+	 * Exits edit mode, returning to single selection state.
+	 * @param cell Optional - if provided, only exit if this specific cell is being edited.
+	 *             This prevents race conditions when focus moves between cell editors.
 	 */
 	exitEditor(cell?: IPositronNotebookCell): void {
 		const state = this._state.get();
@@ -313,23 +316,6 @@ export class SelectionStateMachine extends Disposable {
 
 
 	//#region Private Methods
-
-	/**
-	 * Performs a normal selection - replaces current selection with the specified cell.
-	 * @param cell The cell to select.
-	 */
-	private _selectCellNormal(cell: IPositronNotebookCell): void {
-		this._setState({ type: SelectionState.SingleSelection, selected: cell });
-	}
-
-	/**
-	 * Selects a cell for editing - enters edit mode with the specified cell.
-	 *
-	 * @param cell The cell to select and edit.
-	 */
-	private _selectCellEdit(cell: IPositronNotebookCell): void {
-		this._setState({ type: SelectionState.EditingSelection, selected: cell });
-	}
 
 	/**
 	 * Adds a cell to the current selection (multi-select mode).
