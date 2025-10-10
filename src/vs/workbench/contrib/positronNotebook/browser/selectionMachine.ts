@@ -175,7 +175,6 @@ export class SelectionStateMachine extends Disposable {
 	) {
 		super();
 		this._register(autorunDelta(this.state, ({ lastValue, newValue }) => {
-			console.log('SelectionStateMachine: state changed', newValue);
 			if (lastValue !== undefined) {
 				this._updateCellSelectionStatus(lastValue, newValue);
 			}
