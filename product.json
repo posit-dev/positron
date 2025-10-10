@@ -8,7 +8,7 @@
 	"dataFolderName": ".positron",
 	"win32MutexName": "positron",
 	"licenseName": "Software Evaluation License",
-	"licenseUrl": "https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file",
+	"licenseUrl": "https://positron.posit.co/licensing",
 	"serverLicenseUrl": "https://posit.co/about/eula/",
 	"serverGreeting": [],
 	"serverLicense": [],
