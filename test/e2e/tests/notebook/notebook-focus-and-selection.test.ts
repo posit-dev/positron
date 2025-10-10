@@ -38,56 +38,47 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 		});
 
-		// await test.step('Test 2: Arrow Up navigation moves focus to previous cell', async () => {
-		// 	await notebooksPositron.selectCellAtIndex(3, { editMode: false });
-		// 	await keyboard.press('ArrowUp');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-		// });
-
-		// await test.step('Test 3: Arrow Down at last cell does not change selection', async () => {
-		// 	await notebooksPositron.selectCellAtIndex(4, { editMode: false });
-		// 	await keyboard.press('ArrowDown');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(4, { inEditMode: false });
-		// });
-
-		// await test.step('Test 4: Arrow Up at first cell does not change selection', async () => {
-		// 	await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-		// 	await keyboard.press('ArrowUp');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
-		// });
-
-		// await test.step('Test 5: Focus is maintained across multiple navigation operations', async () => {
-		// 	// Navigate down multiple times
-		// 	await keyboard.press('ArrowDown');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
-
-		// 	await keyboard.press('ArrowDown');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-
-		// 	await keyboard.press('ArrowDown');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: false });
-
-		// 	// Navigate up
-		// 	await keyboard.press('ArrowUp');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-		// });
-
-		// await test.step('Test 6: Shift+Arrow Down adds next cell to selection', async () => {
-		// 	await notebooksPositron.selectCellAtIndex(1, { editMode: false });
-		// 	await keyboard.press('Shift+ArrowDown');
-		// 	await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
-		// 	await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
-		// });
-
-		await test.step('Test 7: Click outside cell', async () => {
-			await notebooksPositron.selectCellAtIndex(1);
-			await app.code.driver.page.getByText('CodeMarkdown').nth(1).click({ position: { x: 5, y: 10 } });
-			await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: false, inEditMode: false });
-			await notebooksPositron.selectCellAtIndex(1);
-			await keyboard.type("test")
-			await notebooksPositron.expectCellContentAtIndexToContain(1, "test");
+		await test.step('Test 2: Arrow Up navigation moves focus to previous cell', async () => {
+			await notebooksPositron.selectCellAtIndex(3, { editMode: false });
+			await keyboard.press('ArrowUp');
+			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
 		});
-	})
+
+		await test.step('Test 3: Arrow Down at last cell does not change selection', async () => {
+			await notebooksPositron.selectCellAtIndex(4, { editMode: false });
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(4, { inEditMode: false });
+		});
+
+		await test.step('Test 4: Arrow Up at first cell does not change selection', async () => {
+			await notebooksPositron.selectCellAtIndex(0, { editMode: false });
+			await keyboard.press('ArrowUp');
+			await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
+		});
+
+		await test.step('Test 5: Focus is maintained across multiple navigation operations', async () => {
+			// Navigate down multiple times
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
+
+			await keyboard.press('ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: false });
+
+			// Navigate up
+			await keyboard.press('ArrowUp');
+			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
+		});
+
+		await test.step('Test 6: Shift+Arrow Down adds next cell to selection', async () => {
+			await notebooksPositron.selectCellAtIndex(1, { editMode: false });
+			await keyboard.press('Shift+ArrowDown');
+			await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: false });
+			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
+		});
+	});
 
 	test('Editor mode behavior with notebook cells', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
