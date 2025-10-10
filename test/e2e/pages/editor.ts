@@ -21,10 +21,6 @@ export class Editor {
 	get playButton(): Locator { return this.code.driver.page.locator(PLAY_BUTTON); }
 	get editorPane(): Locator { return this.code.driver.page.locator('[id="workbench.parts.editor"]'); }
 
-	getEditorViewerLocator(locator: string,): Locator {
-		return this.viewerFrame.locator(locator);
-	}
-
 	getEditorViewerFrame(): FrameLocator {
 		return this.viewerFrame;
 	}

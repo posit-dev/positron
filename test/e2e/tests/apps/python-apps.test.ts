@@ -67,10 +67,10 @@ test.describe('Python Applications', {
 			await app.workbench.viewer.clearViewer();
 
 			const editorHeaderLocator = app.web
-				? app.workbench.editor.viewerFrame.frameLocator('iframe').locator('h2')
-				: app.workbench.editor.getEditorViewerLocator('h2');
+				? app.workbench.editor.viewerFrame.frameLocator('iframe').getByRole('heading', { name: 'FastAPI' })
+				: app.workbench.editor.viewerFrame.getByRole('heading', { name: 'FastAPI' });
 
-			await expect(editorHeaderLocator).toContainText('FastAPI', { timeout: 30000 });
+			await expect(editorHeaderLocator).toBeVisible({ timeout: 30000 });
 		});
 	});
 
