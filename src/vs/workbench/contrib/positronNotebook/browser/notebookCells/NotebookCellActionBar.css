@@ -23,7 +23,7 @@
 		visibility: hidden;
 	}
 
-	.action-button {
+	.positron-button {
 		aspect-ratio: 1;
 		display: grid;
 		place-content: center;
@@ -41,6 +41,12 @@
 			display: flex;
 			width: 16px;
 			aspect-ratio: 1;
+
+			/* The debug icon is misaligned with run above / run below icons by 1pixel */
+			&.codicon-debug-alt-small {
+				position: relative;
+				top: -1px;
+			}
 		}
 
 		&.disabled {
