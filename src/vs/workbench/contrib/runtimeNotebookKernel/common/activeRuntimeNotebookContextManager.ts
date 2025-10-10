@@ -8,10 +8,12 @@ import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeInfo, LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
+import { isNotebookEditorInput as isVSCodeNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
+import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
 
 /** Whether the active notebook has a running runtime. */
 export const ActiveNotebookHasRunningRuntime = new RawContextKey<boolean>(
@@ -162,4 +164,11 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 			supportedFeatures.includes(DebuggerRuntimeSupportedFeature)
 		);
 	}
+}
+
+function isNotebookEditorInput(editor: EditorInput | undefined): editor is EditorInput & { resource: URI } {
+	return editor !== undefined && (
+		isVSCodeNotebookEditorInput(editor) ||
+		(editor.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID && editor.resource !== undefined)
+	);
 }
