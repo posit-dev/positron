@@ -282,17 +282,40 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Enters edit mode for the currently selected cell.
-	 * For entering edit mode on a specific cell, use selectCell(cell, CellSelectionType.Edit).
+	 * Enters edit mode for a cell, automatically managing focus as needed.
+	 *
+	 * This method intelligently handles focus:
+	 * - If the editor already has focus (e.g., from a focus event), it only updates state
+	 * - If the editor doesn't have focus (e.g., from a keyboard shortcut), it gives focus
+	 *
+	 * @param cell The cell to edit. If omitted, uses currently selected cell.
 	 */
-	async enterEditor(): Promise<void> {
-		const state = this._state.get();
-		if (state.type !== SelectionState.SingleSelection) {
+	async enterEditor(cell?: IPositronNotebookCell): Promise<void> {
+		// Determine which cell to edit
+		let cellToEdit: IPositronNotebookCell | null = null;
+
+		if (cell) {
+			// Use the provided cell
+			cellToEdit = cell;
+		} else {
+			// Use currently selected cell
+			const state = this._state.get();
+			if (state.type !== SelectionState.SingleSelection) {
+				return;
+			}
+			cellToEdit = state.selected;
+		}
+
+		// Update state to editing mode
+		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
+
+		// Automatically detect if editor already has focus
+		// If it does, skip focus management to avoid double-focusing
+		if (cellToEdit.editor?.hasWidgetFocus()) {
 			return;
 		}
 
-		const cellToEdit = state.selected;
-		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
+		// Editor doesn't have focus - perform focus management
 		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
 		await cellToEdit.showEditor();
 		// Request editor focus through observable - React will handle it
