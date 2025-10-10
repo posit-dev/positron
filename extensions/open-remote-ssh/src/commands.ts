@@ -1,15 +1,76 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { getRemoteAuthority } from './authResolver';
-import { getSSHConfigPath } from './ssh/sshConfig';
+import SSHConfiguration, { getSSHConfigPath } from './ssh/sshConfig';
 import { exists as fileExists } from './common/files';
 import SSHDestination from './ssh/sshDestination';
 
+interface HostQuickPickItem extends vscode.QuickPickItem {
+	hostname?: string;
+	isAddOption?: boolean;
+}
+
 export async function promptOpenRemoteSSHWindow(reuseWindow: boolean) {
-	const host = await vscode.window.showInputBox({
-		title: 'Enter [user@]hostname[:port]'
+	const sshConfigFile = await SSHConfiguration.loadFromFS();
+	const configuredHosts = sshConfigFile.getAllConfiguredHosts();
+
+	const baseItems: HostQuickPickItem[] = configuredHosts.map(hostname => ({
+		label: hostname,
+		hostname: hostname,
+	}));
+	baseItems.push({
+		label: vscode.l10n.t('$(add) Add host to SSH config file...'),
+		isAddOption: true,
 	});
 
+	const quickPick = vscode.window.createQuickPick<HostQuickPickItem>();
+	quickPick.placeholder = vscode.l10n.t('Select a host, or type [user@]hostname[:port]');
+	quickPick.ignoreFocusOut = true;
+	quickPick.items = baseItems;
+
+	quickPick.onDidChangeValue((value) => {
+		if (!value.trim()) {
+			quickPick.items = baseItems;
+			return;
+		}
+
+		const matchesExisting = configuredHosts.some(host => host.toLowerCase() === value.toLowerCase());
+		if (!matchesExisting && value.trim()) {
+			// Add the custom hostname as the first item
+			quickPick.items = [
+				{
+					label: value,
+					description: vscode.l10n.t('Connect to this host'),
+					hostname: value,
+				},
+				...baseItems
+			];
+		} else {
+			quickPick.items = baseItems;
+		}
+	});
+
+	const selected = await new Promise<HostQuickPickItem | undefined>(resolve => {
+		quickPick.onDidAccept(() => {
+			resolve(quickPick.selectedItems[0]);
+			quickPick.dispose();
+		});
+		quickPick.onDidHide(() => {
+			resolve(undefined);
+			quickPick.dispose();
+		});
+		quickPick.show();
+	});
+	if (!selected) {
+		return;
+	}
+
+	let host: string | undefined;
+	if (selected.isAddOption) {
+		await addNewHost();
+	} else {
+		host = selected.hostname;
+	}
 	if (!host) {
 		return;
 	}
@@ -48,10 +109,10 @@ export async function addNewHost() {
 		});
 	}
 
-	let snippet = '\nHost ${1:dev}\n\tHostName ${2:dev.example.com}\n\tUser ${3:john}';
+	let snippet = '\nHost ${1:dev}\n\tHostName ${2:dev.example.com}\n\tUser ${3:username}\n';
 	await textEditor.insertSnippet(
 		new vscode.SnippetString(snippet),
-		new vscode.Position(textDocument.lineCount, 0)
+		new vscode.Position(textDocument.lineCount - 1, 0)
 	);
 }
 
