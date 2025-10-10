@@ -61,27 +61,25 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		const parsedOutputs: NotebookCellOutputs[] = [];
 
 		this.cellModel.outputs.forEach((output) => {
-			const outputs = output.outputs || [];
-			const preferredOutput = pickPreferredOutputItem(outputs);
-			if (!preferredOutput) {
+			const outputItems = output.outputs || [];
+			const preferredOutputItem = pickPreferredOutputItem(outputItems);
+			if (!preferredOutputItem) {
 				return;
 			}
 
 			const parsedOutput: NotebookCellOutputs = {
-				...output,
-				// For some reason the outputs don't make it across the spread operator sometimes,
-				// so we'll just set them explicitly.
-				outputs,
-				parsed: parseOutputData(preferredOutput),
+				outputId: output.outputId,
+				outputs: outputItems,
+				parsed: parseOutputData(preferredOutputItem),
 			};
 
-			const preloadMessageType = getWebviewMessageType(outputs);
+			const preloadMessageType = getWebviewMessageType(outputItems);
 
 			if (preloadMessageType) {
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
 					instance: this.instance,
 					outputId: output.outputId,
-					outputs,
+					outputs: outputItems,
 				});
 			}
 

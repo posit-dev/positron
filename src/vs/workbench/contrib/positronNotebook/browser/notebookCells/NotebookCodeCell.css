@@ -17,5 +17,23 @@
 			/* Dont show empty outputs at all */
 			display: none;
 		}
+
+		/*
+		Provide style hints for dataframes rendered as tables,
+		similar to styling in the console
+		*/
+		.dataframe {
+			font-size: 12px;
+			border: 1px solid var(--vscode-tab-border);
+			border-collapse: collapse;
+
+			td, th {
+				border: 1px solid var(--vscode-tab-border);
+				padding-top: 3px;
+				padding-bottom: 3px;
+				padding-left: 5px;
+				padding-right: 5px;
+			}
+		}
 	}
 }

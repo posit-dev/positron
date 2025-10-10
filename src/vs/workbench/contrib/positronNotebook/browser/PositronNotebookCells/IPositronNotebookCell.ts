@@ -12,6 +12,7 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
+import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
@@ -269,14 +270,18 @@ export type ParsedOutput = ParsedTextOutput |
 	trace: string;
 } |
 {
+	type: 'html';
+	content: string;
+} |
+{
 	type: 'unknown';
-	contents: string;
+	content: string;
 };
 
 
 export interface NotebookCellOutputs {
 	readonly outputId: string;
-	readonly outputs: NotebookCellOutputItem[];
+	readonly outputs: IOutputItemDto[];
 	readonly parsed: ParsedOutput;
 	preloadMessageResult?: NotebookPreloadOutputResults | undefined;
 }

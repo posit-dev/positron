@@ -20,6 +20,7 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 
 
 interface CellOutputsSectionProps {
@@ -59,7 +60,7 @@ function CellOutput(output: NotebookCellOutputs) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs } = output;
+	const { parsed } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -72,9 +73,11 @@ function CellOutput(output: NotebookCellOutputs) {
 			</div>;
 		case 'image':
 			return <img alt='output image' src={parsed.dataUrl} />;
+		case 'html':
+			return renderHtml(parsed.content);
 		case 'unknown':
 			return <div className='unknown-mime-type'>
-				{localize('cellExecutionUnknownMimeType', 'Can\'t handle mime types "{0}" yet', outputs.map(o => o.mime).join(','))}
+				{parsed.content}
 			</div>;
 	}
 }
