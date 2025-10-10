@@ -22,7 +22,7 @@ test.describe('Notebook Cell Reordering', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Move first cell down - should swap with second cell (via Action Bar)', async function ({ app }) {
+	test('Action Bar: swap 1st and 2nd cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Open an existing notebook to match manual testing scenario
@@ -50,213 +50,89 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectCellCountToBe(initialCount);
 	});
 
-	test('Move first cell down - should swap with second cell (via Keyboard)', async function ({ app }) {
+	test('Keyboard: swap 1st and 2nd cell', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
 
 		// Setup: Create notebook with 3 cells
 		await notebooksPositron.newNotebook(3);
 
 		// Verify initial order
 		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// Select first cell and move down
 		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowDown');
+		await keyboard.press('Alt+ArrowDown');
 
 		// Verify cell moved down by exactly one position
 		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
 	});
 
-	test('Move cell up - basic operation', async function ({ app }) {
+	test('Boundaries: first-up and last-down are no-ops', async ({ app }) => {
 		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
 
-		// Setup: Create notebook with 3 cells
 		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-
-		// Select second cell and move up
-		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowUp');
-
-		// Verify cell moved up
-		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-	});
-
-	test('Move cell down - basic operation', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
-
-		// Setup: Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
-
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-
-		// Select first cell and move down
+		// First cell up -> no change
 		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowDown');
+		await keyboard.press('Alt+ArrowUp');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
-		// Verify cell moved down
-		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-	});
-
-	test('Move last cell up', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
-
-		// Setup: Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
-
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-
-		// Select last cell and move up
+		// Last cell down -> no change
 		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowUp');
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
-		// Verify cell moved up
 		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 1');
 	});
 
-	test('Boundary: Cannot move first cell up', async function ({ app }) {
+	test('Multi-move: move first to end then one up', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
-
-		// Setup: Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
-
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-
-		// Select first cell and try to move up (should be no-op)
-		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowUp');
-
-		// Verify order hasn't changed
-		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-	});
-
-	test('Boundary: Cannot move last cell down', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
-
-		// Setup: Create notebook with 3 cells
-		await notebooksPositron.newNotebook(3);
-
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-
-		// Select last cell and try to move down (should be no-op)
-		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowDown');
-
-		// Verify order hasn't changed
-		await notebooksPositron.expectCellCountToBe(3);
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-	});
-
-	test('Move cell multiple times', async function ({ app }) {
-		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
 
 		// Setup: Create notebook with 4 cells
 		await notebooksPositron.newNotebook(4);
-
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-		await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 3');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2', '# Cell 3']);
 
 		// Move Cell 0 down three times to end
 		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowDown');
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
-		await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 3');
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2', '# Cell 3']);
 
-		await app.code.driver.page.keyboard.press('Alt+ArrowDown');
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 3');
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 2', '# Cell 0', '# Cell 3']);
 
-		await app.code.driver.page.keyboard.press('Alt+ArrowDown');
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 3');
-		await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 0');
+		await keyboard.press('Alt+ArrowDown');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 2', '# Cell 3', '# Cell 0']);
 
 		// Now move it back up
-		await app.code.driver.page.keyboard.press('Alt+ArrowUp');
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 2');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 3');
+		await keyboard.press('Alt+ArrowUp');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 2', '# Cell 0', '# Cell 3']);
 	});
 
 	test('Undo/redo cell move operation', async function ({ app, hotKeys }) {
 		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
 
 		// Setup: Create notebook with 3 cells
 		await notebooksPositron.newNotebook(3);
-
-		// Verify initial order
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// Move cell 1 up
 		await notebooksPositron.selectCellAtIndex(1, { editMode: false });
-		await app.code.driver.page.keyboard.press('Alt+ArrowUp');
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+		await keyboard.press('Alt+ArrowUp');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
 
 		// Undo the move
-		await hotKeys.undo();
-		await app.code.driver.page.waitForTimeout(500);
-
-		// Verify order is restored
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+		await notebooksPositron.performCellAction('undo');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1', '# Cell 2']);
 
 		// Redo the move
-		await hotKeys.redo();
-		await app.code.driver.page.waitForTimeout(500);
-
-		// Verify order is changed again
-		await notebooksPositron.expectCellContentAtIndexToBe(0, '# Cell 1');
-		await notebooksPositron.expectCellContentAtIndexToBe(1, '# Cell 0');
-		await notebooksPositron.expectCellContentAtIndexToBe(2, '# Cell 2');
+		await notebooksPositron.performCellAction('redo');
+		await notebooksPositron.expectCellContentsToBe(['# Cell 1', '# Cell 0', '# Cell 2']);
 	});
 });

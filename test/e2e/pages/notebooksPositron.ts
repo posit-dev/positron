@@ -421,6 +421,16 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: Cell contents match expected contents.
+	 * @param expectedContents - Array of expected cell contents in order.
+	 */
+	async expectCellContentsToBe(expectedContents: string[]): Promise<void> {
+		for (let i = 0; i < expectedContents.length; i++) {
+			await this.expectCellContentAtIndexToBe(i, expectedContents[i]);
+		}
+	}
+
+	/**
 	 * Verify: Cell content at specified index matches expected content.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param expectedContent - The expected content of the cell.
