@@ -270,6 +270,10 @@ export type ParsedOutput = ParsedTextOutput |
 	trace: string;
 } |
 {
+	type: 'html';
+	content: string;
+} |
+{
 	type: 'unknown';
 	content: string;
 };

@@ -20,6 +20,7 @@ import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 import { CellLeftActionMenu } from './CellLeftActionMenu.js';
+import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 
 
 interface CellOutputsSectionProps {
@@ -72,6 +73,8 @@ function CellOutput(output: NotebookCellOutputs) {
 			</div>;
 		case 'image':
 			return <img alt='output image' src={parsed.dataUrl} />;
+		case 'html':
+			return renderHtml(parsed.content);
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}
