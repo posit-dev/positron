@@ -515,6 +515,10 @@ registerCellCommand({
 	handler: async (_cell, _notebook, accessor) => {
 		await accessor.get(ICommandService).executeCommand('notebook.debugCell');
 	},
+	editMode: true,
+	keybinding: {
+		primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
+	},
 	when: CELL_CONTEXT_KEYS.isCode,
 	actionBar: {
 		icon: 'codicon-debug-alt-small',
