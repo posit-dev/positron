@@ -1142,6 +1142,7 @@
 		"--positron-data-grid-column-header-sort-index-font-size",
 		"--positron-data-grid-column-header-sort-index-font-variant-numeric",
 		"--positron-data-grid-column-header-sort-index-font-weight",
-		"--positron-data-grid-column-header-title-font-weight"
+		"--positron-data-grid-column-header-title-font-weight",
+		"--positron-notebook-selection-bar-width"
 	]
 }

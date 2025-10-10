@@ -21,7 +21,7 @@ export enum SelectionState {
 /**
  * Selection state discriminated union.
  */
-type SelectionStates =
+export type SelectionStates =
 	| {
 		type: SelectionState.NoCells;
 	}
