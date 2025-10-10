@@ -21,7 +21,6 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import {
 	EditorPaneSelectionChangeReason,
 	IEditorOpenContext,
-	IEditorPane,
 	IEditorPaneSelectionChangeEvent
 } from '../../../common/editor.js';
 import {
@@ -44,7 +43,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 
 /**
@@ -387,22 +385,4 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// Call the base class's dispose method.
 		super.dispose();
 	}
-}
-
-/**
- * Extracts the Positron notebook instance from a generic editor pane, if it contains one.
- *
- * The workbench editor service deals with generic `IEditorPane` objects that could
- * represent any type of editor (text, notebook, diff, etc.). When integrating Positron notebooks
- * with the extension API, we need to identify which editor panes contain Positron notebooks.
- *
- * @returns The notebook instance if the pane is a Positron notebook editor, undefined otherwise
- */
-export function getNotebookInstanceFromEditorPane(editorPane?: IEditorPane): IPositronNotebookInstance | undefined {
-	if (editorPane &&
-		editorPane.getId() === POSITRON_NOTEBOOK_EDITOR_ID &&
-		editorPane instanceof PositronNotebookEditor) {
-		return editorPane.notebookInstance;
-	}
-	return undefined;
 }

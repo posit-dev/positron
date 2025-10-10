@@ -8,7 +8,7 @@
 import { IPositronNotebookInstance } from '../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
 import { runOnChange } from '../../../base/common/observable.js';
 import { IPositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
-import { getNotebookInstanceFromEditorPane } from '../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { getNotebookInstanceFromEditorPane } from '../../contrib/positronNotebook/browser/positronNotebookBrowser.js';
 import { MainPositronContext } from '../common/positron/extHost.positron.protocol.js';
 import { MainThreadPositronNotebookEditors, MainThreadPositronNotebookInstance } from './positron/mainThreadPositronNotebookEditors.js';
 // --- End Positron ---
