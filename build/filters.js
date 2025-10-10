@@ -38,10 +38,6 @@ module.exports.all = [
 	// rules
 	'!extensions/positron-python/**/*',
 
-	// Excluded since it comes from an external source with its own hygiene
-	// rules
-	'!extensions/open-remote-ssh/**/*',
-
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	'!test/e2e/test-repo/**/*',

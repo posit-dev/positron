@@ -1,3 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
+// which is licensed under the MIT license.
+
 import * as vscode from 'vscode';
 import { REMOTE_SSH_AUTHORITY } from './authResolver';
 import SSHDestination from './ssh/sshDestination';
@@ -17,7 +25,7 @@ export class RemoteLocationHistory {
 	}
 
 	async addLocation(host: string, path: string) {
-		let hostLocations = this.remoteLocationHistory[host] || [];
+		const hostLocations = this.remoteLocationHistory[host] || [];
 		if (!hostLocations.includes(path)) {
 			hostLocations.unshift(path);
 			this.remoteLocationHistory[host] = hostLocations;

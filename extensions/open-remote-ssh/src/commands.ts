@@ -1,3 +1,11 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
+// which is licensed under the MIT license.
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { getRemoteAuthority } from './authResolver';
@@ -109,7 +117,7 @@ export async function addNewHost() {
 		});
 	}
 
-	let snippet = '\nHost ${1:dev}\n\tHostName ${2:dev.example.com}\n\tUser ${3:username}\n';
+	const snippet = '\nHost ${1:dev}\n\tHostName ${2:dev.example.com}\n\tUser ${3:username}\n';
 	await textEditor.insertSnippet(
 		new vscode.SnippetString(snippet),
 		new vscode.Position(textDocument.lineCount - 1, 0)
