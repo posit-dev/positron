@@ -6,7 +6,7 @@
 // --- Start Positron ---
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
 import { checkPositronNotebookEnabled } from '../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
-import { getNotebookInstanceFromEditorPane } from '../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { getNotebookInstanceFromEditorPane } from '../../contrib/positronNotebook/browser/positronNotebookBrowser.js';
 // --- End Positron ---
 import { DisposableStore, dispose } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';

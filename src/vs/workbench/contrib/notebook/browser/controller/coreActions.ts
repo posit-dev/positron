@@ -5,7 +5,7 @@
 
 // --- Start Positron ---
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { getNotebookInstanceFromEditorPane } from '../../../positronNotebook/browser/PositronNotebookEditor.js';
+import { getNotebookInstanceFromEditorPane } from '../../../positronNotebook/browser/positronNotebookBrowser.js';
 import { toPositronNotebookCommand } from '../../../positronNotebook/browser/toPositronNotebookCommand.js';
 // --- End Positron ---
 import { URI, UriComponents } from '../../../../../base/common/uri.js';

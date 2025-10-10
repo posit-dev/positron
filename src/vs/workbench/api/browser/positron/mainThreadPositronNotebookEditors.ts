@@ -17,7 +17,8 @@ import { equals } from '../../../../base/common/objects.js';
 import { UriComponents } from '../../../../base/common/uri.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { IEditorPane } from '../../../common/editor.js';
-import { getNotebookInstanceFromEditorPane, PositronNotebookEditor } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { PositronNotebookEditor } from '../../../contrib/positronNotebook/browser/PositronNotebookEditor.js';
+import { getNotebookInstanceFromEditorPane } from '../../../contrib/positronNotebook/browser/positronNotebookBrowser.js';
 
 //#region MainThreadPositronNotebookInstance
 /**
