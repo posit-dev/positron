@@ -291,10 +291,12 @@ export function getEnabledTools(
 		// include Copilot tools.
 		const shouldIncludeCopilotTools = (usingCopilotModel || copilotEnabled && alwaysIncludeCopilotTools);
 
-		// Enable Copilot tools only if shouldIncludeCopilotTools is true; otherwise, enable if agent mode or tool is tagged 'positron-assistant'.
-		const enableTool = copilotTool
-			? shouldIncludeCopilotTools
-			: (isAgentMode || tool.tags.includes('positron-assistant'));
+		// Enable if tagged 'positron-assistant' OR a Copilot tool when shouldIncludeCopilotTools is true OR  Agent mode enabled.
+		// editFile from 'positron-assistant' will be disabled in Ask mode based on control flow above.
+		const enableTool = tool.tags.includes('positron-assistant') ||
+			(copilotTool
+				? shouldIncludeCopilotTools
+				: isAgentMode);
 
 		// If we've decided to enable the tool, add it to the list.
 		if (enableTool) {
