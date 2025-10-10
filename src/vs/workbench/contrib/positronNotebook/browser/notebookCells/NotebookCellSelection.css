@@ -6,7 +6,6 @@
 /* Define common properties for the selection bar */
 .positron-notebook-cell {
 	--_positron-notebook-selection-bar-radius: var(--vscode-positronNotebook-cell-radius);
-	--_positron-notebook-selection-bar-width: 7px;
 	--_positron-notebook-selection-bar-top-offset: 5px;
 	--_positron-notebook-selection-bar-inset: 0;
 }
@@ -34,7 +33,7 @@
 .positron-notebook-cell.editing .positron-notebook-cell-outputs::before {
 	content: "";
 	position: absolute;
-	width: var(--_positron-notebook-selection-bar-width);
+	width: var(--positron-notebook-selection-bar-width);
 	background-color: var(--vscode-focusBorder);
 	z-index: 1;
 	left: var(--_positron-notebook-selection-bar-inset);

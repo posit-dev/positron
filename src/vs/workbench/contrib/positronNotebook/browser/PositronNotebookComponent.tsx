@@ -98,7 +98,7 @@ function useNotebookStyles(): React.CSSProperties {
 		'--vscode-positronNotebook-text-output-font-family': family,
 		'--vscode-positronNotebook-text-output-font-size': `${fontInfo.fontSize}px`,
 		/** Selection bar */
-		'--vscode-positronNotebook-selection-bar-width': '7px',
+		'--positron-notebook-selection-bar-width': '7px',
 		/** Override the default editor background */
 		[asCssVariableName(editorBackground)]: asCssVariable(checkboxBackground),
 		[asCssVariableName(editorGutter)]: asCssVariable(checkboxBackground),
