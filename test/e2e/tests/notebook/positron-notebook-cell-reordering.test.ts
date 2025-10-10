@@ -22,7 +22,7 @@ test.describe('Notebook Cell Reordering', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Move first cell down using action bar button - should swap with second cell', async function ({ app }) {
+	test('Move first cell down - should swap with second cell (via Action Bar)', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Open an existing notebook to match manual testing scenario
@@ -38,19 +38,8 @@ test.describe('Notebook Cell Reordering', {
 		const cell1Content = await notebooksPositron.getCellContent(1);
 		const cell2Content = await notebooksPositron.getCellContent(2);
 
-		// Select first cell
-		await notebooksPositron.selectCellAtIndex(0, { editMode: false });
-
-		// Find and click the "More Actions" button in the action bar
-		const cell = app.code.driver.page.locator('[data-testid="notebook-cell"]').nth(0);
-		const moreActionsButton = cell.getByRole('button', { name: /more actions/i });
-		await expect(moreActionsButton).toBeVisible({ timeout: 5000 });
-		await moreActionsButton.click();
-
-		// Wait for the menu to open and find "Move cell down" option
-		const moveDownOption = app.code.driver.page.locator('button.custom-context-menu-item', { hasText: /move cell down/i });
-		await expect(moveDownOption).toBeVisible({ timeout: 5000 });
-		await moveDownOption.click();
+		// Select "Move cell down"
+		await notebooksPositron.selectFromMoreActionsMenu(0, 'Move cell down');
 
 		// Verify cell moved down by EXACTLY ONE position
 		await notebooksPositron.expectCellContentAtIndexToBe(0, cell1Content); // Former cell 1 is now at position 0
@@ -61,7 +50,7 @@ test.describe('Notebook Cell Reordering', {
 		await notebooksPositron.expectCellCountToBe(initialCount);
 	});
 
-	test('Move first cell down - should swap with second cell', async function ({ app }) {
+	test('Move first cell down - should swap with second cell (via Keyboard)', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Setup: Create notebook with 3 cells
