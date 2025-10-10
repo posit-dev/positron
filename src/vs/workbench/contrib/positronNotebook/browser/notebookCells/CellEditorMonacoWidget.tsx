@@ -23,6 +23,7 @@ import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNo
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
+import { CellSelectionType } from '../selectionMachine.js';
 
 /**
  *
@@ -81,7 +82,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
-			instance.setEditingCell(cell);
+			instance.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 			cellEditorFocusedKey.set(true);
 		}));
 
