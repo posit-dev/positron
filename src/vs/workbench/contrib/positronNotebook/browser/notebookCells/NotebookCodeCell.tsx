@@ -59,7 +59,7 @@ function CellOutput(output: NotebookCellOutputs) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputs } = output;
+	const { parsed } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -74,7 +74,7 @@ function CellOutput(output: NotebookCellOutputs) {
 			return <img alt='output image' src={parsed.dataUrl} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
-				{localize('cellExecutionUnknownMimeType', 'Can\'t handle mime types "{0}" yet', outputs.map(o => o.mime).join(','))}
+				{parsed.content}
 			</div>;
 	}
 }

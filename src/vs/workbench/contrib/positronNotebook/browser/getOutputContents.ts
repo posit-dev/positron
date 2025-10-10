@@ -3,9 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../nls.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
-import { ICellOutput } from '../../notebook/common/notebookCommon.js';
+import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
 import { ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
 
 type CellOutputInfo = { id: string; content: string };
@@ -84,11 +85,11 @@ export function isParsedTextOutput(output: ParsedOutput): output is ParsedTextOu
 
 /**
  * Parse cell output into standard serializable js objects.
- * @param output Contents of a cells output
+ * @param outputItem Contents of a cells output
  * @returns The output parsed to the known types.
  */
-export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedOutput {
-	const { data, mime } = output;
+export function parseOutputData(outputItem: IOutputItemDto): ParsedOutput {
+	const { data, mime } = outputItem;
 	const message = data.toString();
 
 	try {
@@ -128,7 +129,10 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 		};
 	}
 
-	return { type: 'unknown', contents: message };
+	return {
+		type: 'unknown',
+		content: localize('cellExecutionUnknownMimeType', 'Can\'t handle mime type "{0}" yet', mime)
+	};
 }
 
 
