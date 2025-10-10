@@ -25,12 +25,14 @@ import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNot
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { useScrollObserver } from './notebookCells/useScrollObserver.js';
 import { ScreenReaderOnly } from '../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
+import { asCssVariable, asCssVariableName, checkboxBackground, editorBackground } from '../../../../platform/theme/common/colorRegistry.js';
+import { editorGutter } from '../../../../editor/common/core/editorColorRegistry.js';
 
 
 export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
-	const fontStyles = useFontStyles();
+	const styles = useNotebookStyles();
 	const containerRef = React.useRef<HTMLDivElement>(null);
 
 	// Accessibility: Global announcements for notebook-level operations (cell add/delete).
@@ -64,7 +66,7 @@ export function PositronNotebookComponent() {
 	}, [notebookInstance]));
 
 	return (
-		<div className='positron-notebook' style={{ ...fontStyles }}>
+		<div className='positron-notebook' style={{ ...styles }}>
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				{notebookCells.length ? notebookCells.map((cell, index) => <>
 					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
@@ -79,10 +81,10 @@ export function PositronNotebookComponent() {
 	);
 }
 /**
- * Get css properties for fonts in the notebook.
- * @returns A css properties object that sets css variables associated with fonts in the notebook.
+ * Get css properties for notebooks e.g. fonts and colors.
+ * @returns A css properties object that sets css variables associated with notebooks.
  */
-function useFontStyles(): React.CSSProperties {
+function useNotebookStyles(): React.CSSProperties {
 	const services = usePositronReactServicesContext();
 
 	const editorOptions = services.configurationService.getValue<IEditorOptions>('editor');
@@ -90,9 +92,16 @@ function useFontStyles(): React.CSSProperties {
 	const fontInfo = FontMeasurements.readFontInfo(targetWindow, BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(targetWindow).value));
 	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
 
+	// eslint-disable-next-line local/code-no-dangerous-type-assertions
 	return {
+		/** Fonts */
 		'--vscode-positronNotebook-text-output-font-family': family,
 		'--vscode-positronNotebook-text-output-font-size': `${fontInfo.fontSize}px`,
+		/** Selection bar */
+		'--vscode-positronNotebook-selection-bar-width': '7px',
+		/** Override the default editor background */
+		[asCssVariableName(editorBackground)]: asCssVariable(checkboxBackground),
+		[asCssVariableName(editorGutter)]: asCssVariable(checkboxBackground),
 	} as React.CSSProperties;
 }
 
