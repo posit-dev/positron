@@ -149,20 +149,21 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to select.
 	 */
 	async selectCellAtIndex(cellIndex: number, { editMode = true }: { editMode?: boolean } = {}): Promise<void> {
-		await test.step(`Select cell at index: ${cellIndex}`, async () => {
+		await test.step(`Select cell at index: ${cellIndex}, edit mode: ${editMode}`, async () => {
 			// click cell and verify selected & edit mode
 			await this.cell.nth(cellIndex).click();
 			await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
 
+
 			if (!editMode) {
-				// press escape to exit edit mode
-				await this.code.driver.page.waitForTimeout(500);
-				await expect(async () => {
-					await this.code.driver.page.keyboard.press('Escape');
-					await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false, timeout: 2000 });
-				}, 'should NOT be in edit mode').toPass({ timeout: 15000 });
-			} else {
-				await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: true });
+				await test.step('Exit edit mode', async () => {
+					// press escape to exit edit mode
+					await this.code.driver.page.waitForTimeout(500);
+					await expect(async () => {
+						await this.code.driver.page.keyboard.press('Escape');
+						await this.expectCellIndexToBeSelected(cellIndex, { isSelected: true, inEditMode: false, timeout: 2000 });
+					}, 'should NOT be in edit mode').toPass({ timeout: 15000 });
+				});
 			}
 		});
 	}
@@ -549,41 +550,33 @@ export class PositronNotebooks extends Notebooks {
 		const {
 			isSelected = true,
 			inEditMode = undefined,
-			timeout = DEFAULT_TIMEOUT
 		} = options ?? {};
 
-		await test.step(
-			`Expect cell at index ${expectedIndex} to be${isSelected ? '' : ' not'} selected`
-			+ (inEditMode !== undefined ? ` and${inEditMode ? '' : ' not'} in edit mode` : ''),
-			async () => {
-				await expect(async () => {
-					const cells = this.cell;
-					const cellCount = await cells.count();
-					const selectedIndices: number[] = [];
+		await test.step(`Verify cell at index ${expectedIndex} to is${isSelected ? '' : ' NOT'} selected`, async () => {
+			const cells = this.cell;
+			const cellCount = await cells.count();
+			const selectedIndices: number[] = [];
 
-					for (let i = 0; i < cellCount; i++) {
-						const cell = cells.nth(i);
-						const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
-						if (isSelected) {
-							selectedIndices.push(i);
-						}
-					}
-
-					isSelected
-						? expect(selectedIndices).toContain(expectedIndex)
-						: expect(selectedIndices).not.toContain(expectedIndex);
-
-					if (inEditMode !== undefined) {
-						const ta = this.editorAtIndex(expectedIndex);
-						const isEditing = await ta.evaluate(el => el === document.activeElement);
-
-						inEditMode
-							? expect(isEditing).toBe(true)
-							: expect(isEditing).toBe(false);
-					}
-				}).toPass({ timeout });
+			for (let i = 0; i < cellCount; i++) {
+				const cell = cells.nth(i);
+				const isSelected = (await cell.getAttribute('aria-selected')) === 'true';
+				if (isSelected) {
+					selectedIndices.push(i);
+				}
 			}
-		);
+
+			isSelected
+				? expect(selectedIndices).toContain(expectedIndex)
+				: expect(selectedIndices).not.toContain(expectedIndex);
+		});
+
+		await test.step(`Verify cell at index ${expectedIndex} is ${inEditMode ? '' : 'NOT '}in edit mode`, async () => {
+			const editorFocused = this.cell.nth(expectedIndex).locator('.monaco-editor-background').locator('.focused');
+			inEditMode
+				? await expect(editorFocused).toHaveCount(1)
+				: await expect(editorFocused).toHaveCount(0);
+
+		});
 	}
 
 	/**

@@ -82,7 +82,7 @@ test.describe('Positron Notebooks: Cell Deletion Action Bar Behavior', {
 		// ========================================
 		await test.step('Test 3: Delete last cell (cell 3, contains \'# Cell 5\')', async () => {
 			// Verify we're at the last cell with correct content
-			expect(await notebooksPositron.getCellContent(3)).toBe('# Cell 5');
+			await notebooksPositron.expectCellContentAtIndexToBe(3, '# Cell 5');
 
 			// Delete the last cell using action bar
 			await notebooksPositron.deleteCellWithActionBar(3);
