@@ -61,7 +61,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 				await variables.doubleClickVariableRow('df');
 			}
 			await dataExplorer.waitForIdle();
-			await dataExplorer.maximize(true);
+			await dataExplorer.maximize(false);
 		});
 
 		test.afterEach(async function ({ hotKeys }) {
@@ -244,7 +244,7 @@ for (const { env, data, rowIndexOffset: indexOffset } of testCases) {
 			];
 
 			// maximize to ensure all rows/columns are rendered and visible
-			await dataExplorer.maximize(true);
+			await dataExplorer.maximize(false);
 
 			// pin row 5
 			await dataExplorer.grid.pinRow(5); // pins the 6th row

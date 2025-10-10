@@ -494,10 +494,12 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async expectNoStartUpMessaging() {
-		await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
-		await this.console.focus();
-		await this.code.driver.page.mouse.move(0, 0);
-		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+		await test.step('Wait runtimes to finish loading', async () => {
+			await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
+			await this.console.focus();
+			await this.code.driver.page.mouse.move(0, 0);
+			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+		})
 	}
 
 	/**

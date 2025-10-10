@@ -80,10 +80,13 @@
     },
     {
         "key": "cmd+j z",
-        "command": "workbench.action.positronDataExplorer.collapseSummary" // Collapse/hide the summary Panel in DE
+        "command": "workbench.action.positronDataExplorer.collapseSummary" // Collapse the Summary Panel in DE
     },
     {
         "key": "cmd+j y",
-        "command": "workbench.action.positronDataExplorer.expandSummary" // Expand/show the summary Panel in DE
+        "command": "workbench.action.positronDataExplorer.expandSummary" // Show the Summary Panel in DE
+    },{
+        "key": "cmd+j m",
+        "command": "workbench.action.positronDataExplorer.summaryOnRight" // Move the DE Summary Panel to the right side
     }
 ]

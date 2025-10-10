@@ -33,7 +33,7 @@ test.describe('Data Explorer - R ', {
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify the data in the table
-		await dataExplorer.maximize(true);
+		await dataExplorer.maximize(false);
 		await dataExplorer.grid.verifyTableDataLength(3);
 		await dataExplorer.grid.verifyTableData([
 			{ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' },
