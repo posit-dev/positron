@@ -6,9 +6,6 @@
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { CustomContextMenuItem } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuEntry } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
-import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType } from '../../selectionMachine.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { CustomContextMenuSeparator } from '../../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 
@@ -17,9 +14,7 @@ import { CustomContextMenuSeparator } from '../../../../../browser/positronCompo
  * This provides a clean extension point for adding new actions via the registry.
  */
 export function buildMoreActionsMenuItems(
-	instance: IPositronNotebookInstance,
 	commandService: ICommandService,
-	cell: IPositronNotebookCell,
 	menuActions?: INotebookCellActionBarItem[]
 ): CustomContextMenuEntry[] {
 	// Use provided menuActions or fallback to getting all from registry
@@ -37,12 +32,7 @@ export function buildMoreActionsMenuItems(
 				label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
 				icon: action.icon?.startsWith('codicon-') ? action.icon.slice(8) : action.icon,
 				onSelected: () => {
-					// IMPORTANT: Ensure the cell from this menu is selected before executing
-					// Otherwise the command would operate on whatever cell is currently selected
-					instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
-
-					// Execute command - it will now operate on the correct cell
-					commandService.executeCommand(action.commandId);
+					// No op as command is executed via the commandId argument
 				}
 			}));
 		}

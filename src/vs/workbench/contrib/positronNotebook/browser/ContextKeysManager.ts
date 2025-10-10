@@ -30,6 +30,8 @@ export const POSITRON_NOTEBOOK_CELL_IS_ONLY = new RawContextKey<boolean>('positr
 export const POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN = new RawContextKey<boolean>('positronNotebookCellMarkdownEditorOpen', false);
 export const POSITRON_NOTEBOOK_CELL_IS_SELECTED = new RawContextKey<boolean>('positronNotebookCellIsSelected', false);
 export const POSITRON_NOTEBOOK_CELL_IS_EDITING = new RawContextKey<boolean>('positronNotebookCellIsEditing', false);
+export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP = new RawContextKey<boolean>('positronNotebookCellCanMoveUp', false);
+export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('positronNotebookCellCanMoveDown', false);
 
 // All cell context keys in one place so we can easily operate on them all at once
 export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
@@ -44,6 +46,8 @@ export const POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS = {
 	markdownEditorOpen: POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN,
 	isSelected: POSITRON_NOTEBOOK_CELL_IS_SELECTED,
 	isEditing: POSITRON_NOTEBOOK_CELL_IS_EDITING,
+	canMoveUp: POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP,
+	canMoveDown: POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN,
 } as const;
 
 // Interface for the cell context keys
@@ -68,6 +72,8 @@ export function bindCellContextKeys(service: IScopedContextKeyService): IPositro
 		markdownEditorOpen: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.markdownEditorOpen.bindTo(service),
 		isSelected: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isSelected.bindTo(service),
 		isEditing: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.isEditing.bindTo(service),
+		canMoveUp: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveUp.bindTo(service),
+		canMoveDown: POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS.canMoveDown.bindTo(service),
 	} satisfies IPositronNotebookCellContextKeys;
 }
 
