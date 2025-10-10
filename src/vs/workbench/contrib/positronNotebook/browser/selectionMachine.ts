@@ -268,7 +268,7 @@ export class SelectionStateMachine extends Disposable {
 	 * Move the selection up.
 	 * @param addMode If true, the selection will be added to the current selection.
 	 */
-	moveUp(addMode: boolean): void {
+	moveSelectionUp(addMode: boolean): void {
 		this._moveSelection(true, addMode);
 	}
 
@@ -276,7 +276,7 @@ export class SelectionStateMachine extends Disposable {
 	 * Move the selection down.
 	 * @param addMode If true, the selection will be added to the current selection.
 	 */
-	moveDown(addMode: boolean): void {
+	moveSelectionDown(addMode: boolean): void {
 		this._moveSelection(false, addMode);
 	}
 

@@ -45,7 +45,7 @@ export function NotebookCellMoreActionsMenu({
 		}
 
 		try {
-			const entries = buildMoreActionsMenuItems(instance, commandService, cell, menuActions);
+			const entries = buildMoreActionsMenuItems(commandService, menuActions);
 
 			setIsMenuOpen(true);
 			onMenuStateChange(true);

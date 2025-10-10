@@ -170,6 +170,31 @@ export interface IPositronNotebookInstance {
 	deleteCell(cell?: IPositronNotebookCell): void;
 
 	/**
+	 * Moves a cell up by one position.
+	 * Supports multi-cell selection - moves all selected cells as a group.
+	 *
+	 * @param cell The cell to move up
+	 */
+	moveCellUp(cell: IPositronNotebookCell): void;
+
+	/**
+	 * Moves a cell down by one position.
+	 * Supports multi-cell selection - moves all selected cells as a group.
+	 *
+	 * @param cell The cell to move down
+	 */
+	moveCellDown(cell: IPositronNotebookCell): void;
+
+	/**
+	 * Moves cells to a specific index.
+	 * Used by drag-and-drop operations.
+	 *
+	 * @param cells Array of cells to move
+	 * @param targetIndex The index to move the cells to
+	 */
+	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void;
+
+	/**
 	 * Updates the currently editing cell state.
 	 *
 	 * @param cell The cell to set as editing, or undefined to clear editing state
