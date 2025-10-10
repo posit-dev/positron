@@ -49,7 +49,16 @@ export class ManageModelsAction extends Action2 {
 		const quickInputService = accessor.get(IQuickInputService);
 		const commandService = accessor.get(ICommandService);
 
+		// --- Start Positron ---
+		/*
 		const vendors = languageModelsService.getVendors();
+		*/
+		// Further filter vendors to only the providers (vendors) that the user has authenticated with
+		const providers = languageModelsService.getLanguageModelProviders();
+		const allVendors = languageModelsService.getVendors();
+		const vendors = allVendors
+			.filter(vendor => providers.some(provider => provider.id === vendor.vendor));
+		// --- End Positron ---
 		const store = new DisposableStore();
 
 		const quickPickItems: IVendorQuickPickItem[] = vendors.map(vendor => ({

@@ -39,6 +39,14 @@ export const usePositronChatState = (environment: PositronChatEnvironment): Posi
 			setCurrentProvider(currentProvider);
 		}));
 
+		disposableStore.add(services.languageModelsService.onDidChangeLanguageModels(() => {
+			const currentProvider = services.languageModelsService.currentProvider;
+			const providers = services.languageModelsService.getLanguageModelProviders();
+
+			setCurrentProvider(currentProvider);
+			setProviders(providers);
+		}));
+
 		return () => disposableStore.dispose();
 	}, [environment.chatInput, services.languageModelsService]);
 

@@ -531,7 +531,7 @@ class AWSCompletion extends FimPromptCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'amazon-bedrock',
-			displayName: 'AWS Bedrock'
+			displayName: 'Amazon Bedrock'
 		},
 		supportedOptions: [],
 		defaults: {

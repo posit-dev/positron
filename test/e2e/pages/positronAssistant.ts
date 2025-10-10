@@ -104,6 +104,7 @@ export class Assistant {
 			case 'aws':
 			case 'bedrock':
 			case 'aws bedrock':
+			case 'amazon bedrock':
 				await this.code.driver.page.locator(AWS_BEDROCK_BUTTON).click();
 				break;
 			case 'echo':
