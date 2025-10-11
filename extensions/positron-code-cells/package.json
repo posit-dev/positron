@@ -202,6 +202,11 @@
             "%positron.codeCells.configuration.cellStyle.both%"
           ],
           "markdownDescription": "%positron.codeCells.configuration.cellStyle%"
+        },
+        "codeCells.additionalCellDelimiter": {
+          "type": "string",
+          "default": "# COMMAND ----------",
+          "markdownDescription": "%positron.codeCells.configuration.additionalCellDelimiter%"
         }
       }
     }

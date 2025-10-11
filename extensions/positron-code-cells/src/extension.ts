@@ -26,6 +26,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		// Adds 'Run Cell' | 'Run Above' | 'Run Below' code lens for cells
 		vscode.languages.registerCodeLensProvider('*', new CellCodeLensProvider()),
 
+		// Listen for configuration changes and prompt to restart
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('codeCells.additionalCellDelimiter')) {
+				void vscode.window.showInformationMessage(
+					vscode.l10n.t('Code cell delimiter configuration changed. Please restart Positron for changes to take effect.'),
+					vscode.l10n.t('Reload Window')
+				).then(selection => {
+					if (selection === vscode.l10n.t('Reload Window')) {
+						void vscode.commands.executeCommand('workbench.action.reloadWindow');
+					}
+				});
+			}
+		}),
+
 		// Temporarily disabled because registering this provider causes it to
 		// become the *only* folding range provider for R and Python files,
 		// suppressing the built-in folding range provider.
