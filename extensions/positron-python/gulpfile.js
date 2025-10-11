@@ -317,6 +317,9 @@ async function bundleIPykernel() {
         `./python_files/ipykernel_requirements/cp3-requirements.txt`,
     ]);
 
+    // Remove tornado test folder immediately after installing CPython 3 requirements
+    await removeTornadoTestFolder();
+
     // CPython 3.x requirements (specific to platform, architecture, and Python version).
     for (const pythonVersion of pythonVersions) {
         const shortVersion = pythonVersion.replace('.', '');
@@ -397,6 +400,22 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
         });
         proc.on('error', (error) => reject(error));
     });
+}
+
+/**
+ * Removes the tornado test directory for the current architecture
+ */
+async function removeTornadoTestFolder() {
+    const tornadoTestPath = path.join(__dirname, `python_files/lib/ipykernel/${arch}/cp3/tornado/test`);
+    try {
+        if (await fsExtra.pathExists(tornadoTestPath)) {
+            fancyLog('Removing tornado test folder from:', ansiColors.cyan(tornadoTestPath));
+            await del([tornadoTestPath]);
+        }
+    } catch (error) {
+        fancyLog.error('Error removing tornado test folder from', ansiColors.cyan(tornadoTestPath), ':', error);
+        // Don't fail the build if we can't remove the test folder
+    }
 }
 // --- End Positron ---
 
