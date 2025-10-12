@@ -35,7 +35,9 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	const [showTraceback, setShowTraceback] = useState(false);
 
 	// Configuration hooks.
-	const showAssistantActions = usePositronConfiguration<boolean>('positron.assistant.consoleActions.enable');
+	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
+	const enableAssistantActions = usePositronConfiguration<boolean>('positron.assistant.consoleActions.enable');
+	const showAssistantActions = enableAssistant && enableAssistantActions;
 
 	// Traceback useEffect.
 	useEffect(() => {
