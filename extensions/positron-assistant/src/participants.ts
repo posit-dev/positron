@@ -759,7 +759,7 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 }
 
 /** The participant used in the chat pane in Edit mode. */
-class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+export class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Edit;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
@@ -789,7 +789,7 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 }
 
 /** The participant used in terminal inline chats. */
-class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+export class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
@@ -889,7 +889,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 }
 
 /** The participant used in notebook inline chats. */
-class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
+export class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
 	// For now, the Notebook Participant inherits everything from the Editor Participant.
 }

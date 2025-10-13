@@ -4,11 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { PositronAssistantChatContext } from '../participants.js';
-import { registerFixCommand } from './fix.js';
-import { registerQuartoCommand } from './quarto.js';
-import { registerExplainCommand } from './explain.js';
-import { registerDocCommand } from './doc.js';
+import { FIX_COMMAND, fixHandler } from './fix.js';
+import { EXPORT_QUARTO_COMMAND, quartoHandler } from './quarto.js';
+import { EXPLAIN_COMMAND, explainHandler } from './explain.js';
+import { DOC_COMMAND, docHandler } from './doc.js';
+import { getCommandMetadata } from '../promptRender.js';
+import { log } from '../extension.js';
+import {
+	PositronAssistantAgentParticipant,
+	PositronAssistantChatContext,
+	PositronAssistantChatParticipant,
+	PositronAssistantEditorParticipant,
+	PositronAssistantEditParticipant,
+	PositronAssistantNotebookParticipant,
+	PositronAssistantTerminalParticipant
+} from '../participants.js';
 
 /**
  * A function that handles chat requests.
@@ -29,9 +39,38 @@ export interface IChatRequestHandler {
 	): Promise<vscode.ChatResult | void>;
 }
 
+function registerAssistantCommand(command: string, handler: IChatRequestHandler) {
+	const metadata = getCommandMetadata(command);
+	const modes = metadata.mode ?? [];
+	for (const mode of modes) {
+		switch (mode) {
+			case 'ask':
+				PositronAssistantChatParticipant.registerCommand(command, handler);
+				break;
+			case 'edit':
+				PositronAssistantEditParticipant.registerCommand(command, handler);
+				break;
+			case 'agent':
+				PositronAssistantAgentParticipant.registerCommand(command, handler);
+				break;
+			case 'inline':
+				PositronAssistantEditorParticipant.registerCommand(command, handler);
+				break;
+			case 'terminal':
+				PositronAssistantTerminalParticipant.registerCommand(command, handler);
+				break;
+			case 'notebook':
+				PositronAssistantNotebookParticipant.registerCommand(command, handler);
+				break;
+			default:
+				log.trace('[commands] Unsupported command mode:', mode);
+		}
+	}
+}
+
 export function registerAssistantCommands() {
-	registerFixCommand();
-	registerExplainCommand();
-	registerQuartoCommand();
-	registerDocCommand();
+	registerAssistantCommand(DOC_COMMAND, docHandler);
+	registerAssistantCommand(FIX_COMMAND, fixHandler);
+	registerAssistantCommand(EXPLAIN_COMMAND, explainHandler);
+	registerAssistantCommand(EXPORT_QUARTO_COMMAND, quartoHandler);
 }
