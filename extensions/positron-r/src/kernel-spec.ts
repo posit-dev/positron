@@ -155,6 +155,14 @@ export function createJupyterKernelSpec(
 		kernelSpec.argv.push('--no-restore-data');
 	}
 
+	// If the user has chosen to save the workspace, pass the
+	// `--save` flag to R, otherwise, pass `--no-save`.
+	if (config.get<boolean>('saveWorkspace')) {
+		kernelSpec.argv.push('--save');
+	} else {
+		kernelSpec.argv.push('--no-save');
+	}
+
 	// If the user has supplied extra arguments to R, pass them along.
 	const extraArgs = config.get<Array<string>>('extraArguments');
 	const quietMode = config.get<boolean>('quietMode');
