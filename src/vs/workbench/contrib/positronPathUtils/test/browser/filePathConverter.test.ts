@@ -6,6 +6,7 @@
 import assert from 'assert';
 import { convertClipboardFiles } from '../../common/filePathConverter.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { isWindows } from '../../../../../base/common/platform.js';
 
 /**
  * Mock DataTransfer for testing clipboard file conversion.
@@ -143,14 +144,16 @@ suite('File Path Converter Tests', () => {
 		assert.deepStrictEqual(result, ['"c:/Users/My \\"Special\\" File.txt"']);
 	});
 
-	test('UNC path (URI-decoded format) is skipped entirely', () => {
+	// The isUNC() utility used to detect UNC paths literally only works on
+	// Windows.
+	(isWindows ? test : test.skip)('UNC path (URI-decoded format) is skipped entirely', () => {
 		// This tests the real-world scenario where \\localhost\C$\path becomes localhost/C$/path after URI decoding
 		const dataTransfer = new MockDataTransfer(['file://localhost/C$/Users/test/file.txt']);
 		const result = convertClipboardFiles(dataTransfer);
 		assert.strictEqual(result, null);
 	});
 
-	test('Mixed regular and UNC paths skips all conversion', () => {
+	(isWindows ? test : test.skip)('Mixed regular and UNC paths skips all conversion', () => {
 		const dataTransfer = new MockDataTransfer([
 			'file:///c%3A/Users/test/file.txt',
 			'file://localhost/C$/Users/test/file.txt'
