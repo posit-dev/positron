@@ -232,6 +232,7 @@ export class RInstallation {
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
+		let derivedArch = '';
 
 		if (architecture) {
 			const arch = architecture[1];
@@ -239,18 +240,28 @@ export class RInstallation {
 			// Remap known architectures to equivalent values used by Rig,
 			// just for overall consistency and familiarity
 			if (arch === 'aarch64') {
-				this.arch = 'arm64';
+				derivedArch = 'arm64';
 			} else if (arch === 'x86_64') {
-				this.arch = 'x86_64';
+				derivedArch = 'x86_64';
 			} else {
 				// Should never happen because of how our `match()` works
 				console.warn(`Matched an unknown architecture '${arch}' for R '${this.version}'.`);
-				this.arch = arch;
+				derivedArch = arch;
 			}
-		} else {
-			// Unknown architecture
-			this.arch = '';
 		}
+
+		if (process.platform === 'win32') {
+			// Windows arm builds currently misreport in the Built field; prefer the path signature (e.g. ...-aarch64).
+			const normalizedBin = this.binpath.toLowerCase();
+			const pathSegments = normalizedBin.split(path.sep).filter(segment => segment.length > 0);
+			if (pathSegments.some(segment => segment === 'arm64' || segment === 'aarch64' || segment.endsWith('-arm64') || segment.endsWith('-aarch64'))) {
+				derivedArch = 'arm64';
+			} else if (!derivedArch && pathSegments.some(segment => segment === 'x64' || segment.endsWith('-x64'))) {
+				derivedArch = 'x86_64';
+			}
+		}
+
+		this.arch = derivedArch;
 
 		LOGGER.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
 	}
