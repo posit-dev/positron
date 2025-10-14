@@ -5,8 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 
-import { MD_DIR } from './constants';
+import { MARKDOWN_DIR } from './constants';
 import { ParticipantService } from './participants.js';
 
 type LMTextEdit = { append: string } | { delete: string; replace: string };
@@ -134,7 +135,7 @@ async function* mapEdit(
 	token: vscode.CancellationToken,
 ) {
 	// Read the system prompt for the language model from the markdown file
-	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/chat/mapedit.md`, 'utf8');
+	const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'mapedit.md'), 'utf8');
 
 	// Send a request to the language model with the document and code block
 	const response = await model.sendRequest([

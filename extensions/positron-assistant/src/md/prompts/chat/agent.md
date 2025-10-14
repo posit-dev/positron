@@ -1,3 +1,7 @@
+---
+mode: agent
+order: 50
+---
 You will be given a task that may require editing multiple files and executing
 code to achieve.
 
