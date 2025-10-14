@@ -28,12 +28,12 @@ export class ContextMenu {
 	 * @param menuItemLabel The label of the menu item to click
 	 * @param menuItemType The type of the menu item, either 'menuitemcheckbox' or 'menuitem'
 	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem' }: ContextMenuClick): Promise<void> {
+	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
-				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel });
+				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
-				await menuTrigger.click();
+				await menuTrigger.click({ button: menuTriggerButton });
 
 				// Hover over the menu item
 				const menuItem = menuItemType === 'menuitemcheckbox'
@@ -157,9 +157,9 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: Omit<ContextMenuClick, 'menuItemType'>): Promise<void> {
+	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton = 'left' }: Omit<ContextMenuClick, 'menuItemType'> & { clickButton?: ClickButton }): Promise<void> {
 		// Show the context menu by clicking on the trigger element
-		const menuItems = await this.showContextMenu(() => menuTrigger.click());
+		const menuItems = await this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
 
 		// Handle the menu interaction once it's shown
 		if (menuItems) {
@@ -195,9 +195,11 @@ export class ContextMenu {
 	}
 }
 
+type ClickButton = 'left' | 'right' | 'middle';
 
 interface ContextMenuClick {
 	menuTrigger: Locator;
 	menuItemLabel: string | RegExp;
 	menuItemType?: 'menuitemcheckbox' | 'menuitem';
+	menuTriggerButton?: ClickButton;
 }
