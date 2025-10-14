@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
-import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference } from './utils';
+import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -20,6 +20,7 @@ import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
+import { getModePrompt } from './promptRender.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -126,7 +127,7 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 	participantId: ParticipantID;
 
 	/** The system prompt to use for the participant. */
-	systemPrompt: string;
+	systemPrompt?: string;
 
 	/** The tools allowed for the participant. */
 	toolAvailability: Map<PositronAssistantToolName, boolean>;
@@ -252,9 +253,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		incomingContext: vscode.ChatContext,
 		response: vscode.ChatResponseStream
 	): Promise<PositronAssistantChatContext> {
-		// System prompt
-		const systemPrompt = await this.getSystemPrompt(request);
-
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
@@ -271,7 +269,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			...incomingContext,
 			participantId: this.id,
 			positronContext,
-			systemPrompt,
 			toolAvailability,
 			contextInfo: undefined,
 			async attachContextInfo(messages: vscode.LanguageModelChatMessage2[]) {
@@ -287,6 +284,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		};
 
+		// Add this participant's system prompt to the context object
+		assistantContext.systemPrompt = await this.getSystemPrompt(request, assistantContext);
 		return assistantContext;
 	}
 
@@ -310,12 +309,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
 
-		// Start with the chat history.
+		// Start with the system prompt if available.
+		const messages: vscode.LanguageModelChatMessage2[] = systemPrompt ? [
+			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, systemPrompt)
+		] : [];
+
+		// Add the current chat history.
 		// Note that context.history excludes tool calls and results.
-		const messages = [
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, systemPrompt),
-			...toLanguageModelChatMessage(context.history),
-		];
+		messages.push(...toLanguageModelChatMessage(context.history));
 
 		// Add cache breakpoints to at-most the last 2 user messages.
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
@@ -349,7 +350,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		};
 	}
 
-	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
+	protected abstract getSystemPrompt(request: vscode.ChatRequest, assistantContext: PositronAssistantChatContext): Promise<string>;
 
 	protected mapDiagnostics(diagnostics: vscode.Diagnostic[], selection?: vscode.Position | vscode.Range | vscode.Selection): string {
 		const severityMap = {
@@ -721,24 +722,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		return defaultTextProcessor;
 	}
 
-	/** Additional language-specific prompts for active sessions */
-	protected async getActiveSessionInstructions(): Promise<string> {
-		const sessions = await positron.runtime.getActiveSessions();
-		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
-
-		const instructions = await Promise.all(languages.map(async (id) => {
-			try {
-				const instructions = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', `instructions-${id}.md`), 'utf8');
-				return instructions + '\n\n';
-			} catch {
-				// There are no additional instructions for this language ID
-				return '';
-			}
-		}));
-
-		return instructions.join('');
-	}
-
 	dispose(): void { }
 }
 
@@ -746,14 +729,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		const ask = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'ask.md'), 'utf8');
-		const languages = await this.getActiveSessionInstructions();
-		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
-		const prompts = [defaultSystem, filepaths, warning, ask, languages];
-		return prompts.join('\n\n');
+	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const sessions = activeSessions.map(session => session.runtimeMetadata);
+		const prompt = getModePrompt(positron.PositronChatMode.Ask, { request, context, sessions });
+		return prompt.content;
 	}
 }
 
@@ -761,14 +741,11 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 export class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Edit;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		const edit = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'edit.md'), 'utf8');
-		const languages = await this.getActiveSessionInstructions();
-		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
-		const prompts = [defaultSystem, filepaths, warning, edit, languages];
-		return prompts.join('\n\n');
+	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const sessions = activeSessions.map(session => session.runtimeMetadata);
+		const prompt = getModePrompt(positron.PositronChatMode.Edit, { request, context, sessions });
+		return prompt.content;
 	}
 }
 
@@ -776,14 +753,11 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 export class PositronAssistantAgentParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Agent;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
-		const languages = await this.getActiveSessionInstructions();
-		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
-		const prompts = [defaultSystem, filepaths, warning, agent, languages];
-		return prompts.join('\n\n');
+	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const sessions = activeSessions.map(session => session.runtimeMetadata);
+		const prompt = getModePrompt(positron.PositronChatMode.Agent, { request, context, sessions });
+		return prompt.content;
 	}
 }
 
@@ -791,9 +765,12 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 export class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
 		// The terminal prompt includes how to handle warnings in the response.
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const sessions = activeSessions.map(session => session.runtimeMetadata);
+		const prompt = getModePrompt(positron.PositronChatAgentLocation.Terminal, { request, context, sessions });
+		return prompt.content;
 	}
 }
 
@@ -801,40 +778,14 @@ export class PositronAssistantTerminalParticipant extends PositronAssistantParti
 export class PositronAssistantEditorParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Editor;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
 		if (!isTextEditRequest(request)) {
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
-		if (isStreamingEditsEnabled()) {
-			const warningStreaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warningStreaming.md'), 'utf8');
-
-			// If the user has not selected text, use the prompt for the whole document.
-			if (request.location2.selection.isEmpty) {
-				const editorSteaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
-				return [editorSteaming, warningStreaming].join('\n\n');
-			}
-
-			// If the user has selected text, generate a new version of the selection.
-			const selectionStreaming = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
-			return [selectionStreaming, warningStreaming].join('\n\n');
-		}
-
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const warning = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'warning.md'), 'utf8');
-
-		// Inline editor chats behave as in "Ask" mode
-		const ask = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'ask.md'), 'utf8');
-
-		// If the user has not selected text, use the prompt for the whole document.
-		if (request.location2.selection.isEmpty) {
-			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
-			return [defaultSystem, warning, ask, editor].join('\n\n');
-		}
-
-		// If the user has selected text, generate a new version of the selection.
-		const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
-		return [defaultSystem, warning, ask, selection].join('\n\n');
+		const streamingEdits = isStreamingEditsEnabled();
+		const prompt = getModePrompt(positron.PositronChatAgentLocation.Editor, { request, context, streamingEdits });
+		return prompt.content;
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { FIX_COMMAND, fixHandler } from './fix.js';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './quarto.js';
 import { EXPLAIN_COMMAND, explainHandler } from './explain.js';
@@ -44,22 +45,22 @@ function registerAssistantCommand(command: string, handler: IChatRequestHandler)
 	const modes = metadata.mode ?? [];
 	for (const mode of modes) {
 		switch (mode) {
-			case 'ask':
+			case positron.PositronChatMode.Ask:
 				PositronAssistantChatParticipant.registerCommand(command, handler);
 				break;
-			case 'edit':
+			case positron.PositronChatMode.Edit:
 				PositronAssistantEditParticipant.registerCommand(command, handler);
 				break;
-			case 'agent':
+			case positron.PositronChatMode.Agent:
 				PositronAssistantAgentParticipant.registerCommand(command, handler);
 				break;
-			case 'inline':
+			case positron.PositronChatAgentLocation.Editor:
 				PositronAssistantEditorParticipant.registerCommand(command, handler);
 				break;
-			case 'terminal':
+			case positron.PositronChatAgentLocation.Terminal:
 				PositronAssistantTerminalParticipant.registerCommand(command, handler);
 				break;
-			case 'notebook':
+			case positron.PositronChatAgentLocation.Notebook:
 				PositronAssistantNotebookParticipant.registerCommand(command, handler);
 				break;
 			default:

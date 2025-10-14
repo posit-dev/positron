@@ -6,45 +6,29 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as yaml from 'yaml';
 import * as Sqrl from 'squirrelly';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
 
 /**
- * Chat modes
- */
-export enum PromptMode {
-	/** Chat pane - Ask, Edit & Agent modes */
-	Chat = 'chat',
-	/** Chat pane Ask mode */
-	Ask = 'ask',
-	/** Chat pane Edit modes */
-	Edit = 'edit',
-	/** Chat pane Agent mode */
-	Agent = 'agent',
-	/** Inline editor */
-	Inline = 'inline',
-	/** Notebook */
-	Notebook = 'notebook',
-	/** Console pane */
-	Console = 'console',
-	/** Terminal pane */
-	Terminal = 'terminal',
-	/** When generating a git commit message */
-	Git = 'git',
-}
-
-/**
  * YAML frontmatter metadata for prompt files
  */
-interface PromptMetadata<T = PromptMode | PromptMode[]> {
+interface PromptMetadata<T = PromptMetadataMode | PromptMetadataMode[]> {
 	description?: string;
 	mode?: T;
 	tools?: string[];
 	command?: string;
+	order?: number;
 }
 
+/** Possible vales for the `mode` prompt metadata property */
+type PromptMetadataMode = positron.PositronChatMode | positron.PositronChatAgentLocation;
+
+/**
+ * Parsed prompt document
+ */
 interface ParsedPromptDocument {
 	metadata: PromptMetadata;
 	content: string;
@@ -57,6 +41,17 @@ interface ParsedPromptDocument {
 interface PromptDocument {
 	metadata: PromptMetadata;
 	content: string;
+}
+
+/**
+ * Metadata for the `positron` data object passed to prompt templates
+ */
+interface PromptRenderData {
+	context?: vscode.ChatContext;
+	request?: vscode.ChatRequest;
+	document?: vscode.TextDocument;
+	sessions?: Array<positron.LanguageRuntimeMetadata>;
+	streamingEdits?: boolean;
 }
 
 /**
@@ -129,9 +124,9 @@ function loadPromptDocuments(promptsDir: string): ParsedPromptDocument[] {
  * Merge metadata from multiple documents
  */
 function mergeMetadata(documents: ParsedPromptDocument[]) {
-	const merged: PromptMetadata<PromptMode[]> = {};
+	const merged: PromptMetadata<PromptMetadataMode[]> = {};
 	const allTools = new Set<string>();
-	const allModes = new Set<PromptMode>();
+	const allModes = new Set<PromptMetadataMode>();
 
 	for (const doc of documents) {
 		// Combine tools arrays
@@ -206,8 +201,42 @@ export function getCommandPrompt(command: string, request: vscode.ChatRequest, c
 	const mergedMetadata = mergeMetadata(matchingDocuments);
 
 	// Render prompt template
-	const data = { context, request };
+	const data: PromptRenderData = { context, request };
 	log.trace('[PromptRender] Rendering prompt for command:', command, 'with data:', JSON.stringify(data));
+	const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
+
+	return {
+		content: result,
+		metadata: mergedMetadata,
+	};
+}
+
+/**
+ * Get combined prompt for a specific command
+ */
+export function getModePrompt(mode: PromptMetadataMode, data: PromptRenderData, promptDir?: string): PromptDocument {
+	const commandsPath = promptDir ?? path.join(MARKDOWN_DIR, 'prompts', 'chat');
+	const documents = loadPromptDocuments(commandsPath);
+	const matchingDocuments: ParsedPromptDocument[] = [];
+	for (const doc of documents) {
+		if (doc.metadata.mode === mode || (Array.isArray(doc.metadata.mode) && doc.metadata.mode.includes(mode))) {
+			matchingDocuments.push(doc);
+		}
+	}
+
+	// Sort entries by order metadata
+	matchingDocuments.sort((a, b) => (a.metadata.order ?? 0) - (b.metadata.order ?? 0));
+
+	if (matchingDocuments.length === 0) {
+		throw new Error(`No prompt documents found for mode: ${mode}`);
+	}
+
+	// Merge prompts
+	const mergedContent = mergeContent(matchingDocuments);
+	const mergedMetadata = mergeMetadata(matchingDocuments);
+
+	// Render prompt template
+	log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
 	const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
 
 	return {

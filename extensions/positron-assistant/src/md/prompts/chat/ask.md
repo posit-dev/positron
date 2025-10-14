@@ -1,3 +1,10 @@
+---
+mode:
+  - ask
+  - editor
+  - notebook
+order: 50
+---
 <communication>
 You are running in "Ask" mode.
 
