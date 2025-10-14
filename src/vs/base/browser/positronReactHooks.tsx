@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePositronReactServicesContext } from './positronReactRendererContext.js';
+import { ContextKeyValue } from '../../platform/contextkey/common/contextkey.js';
 
 
 /**
@@ -26,6 +27,30 @@ export const usePositronConfiguration = <T,>(key: string, watch: boolean = true)
 		});
 		return () => disposable.dispose();
 	}, [configurationService, key, watch]);
+
+	return value;
+}
+
+/**
+ * usePositronContextKey hook.
+ * @param key Context key to retrieve.
+ * @param watch Whether to watch for changes. Default true.
+ * @returns The context value.
+ */
+export const usePositronContextKey = <T extends ContextKeyValue,>(key: string, watch: boolean = true): T | undefined => {
+	const { contextKeyService } = usePositronReactServicesContext();
+	const [value, setValue] = useState(() => contextKeyService.getContextKeyValue<T>(key));
+
+	useEffect(() => {
+		if (!watch) {
+			return;
+		}
+		const disposable = contextKeyService.onDidChangeContext(e => {
+			const keySet = new Set([key]);
+			e.affectsSome(keySet) && setValue(contextKeyService.getContextKeyValue<T>(key));
+		});
+		return () => disposable.dispose();
+	}, [contextKeyService, key, watch]);
 
 	return value;
 }
