@@ -415,7 +415,7 @@ jobs:
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
-        if: false # temporarily disabled due to test failures
+        if: matrix.test-suite == 'single-workspace'
 
       - name: Run debugger tests
         env:
