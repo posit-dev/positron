@@ -15,7 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, usePositronContextKey } from '../../../../../base/browser/positronReactHooks.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -37,7 +37,8 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// Configuration hooks.
 	const enableAssistant = usePositronConfiguration<boolean>('positron.assistant.enable');
 	const enableAssistantActions = usePositronConfiguration<boolean>('positron.assistant.consoleActions.enable');
-	const showAssistantActions = enableAssistant && enableAssistantActions;
+	const hasChatModels = usePositronContextKey<boolean>('positron-assistant.hasChatModels');
+	const showAssistantActions = enableAssistant && hasChatModels && enableAssistantActions;
 
 	// Traceback useEffect.
 	useEffect(() => {
