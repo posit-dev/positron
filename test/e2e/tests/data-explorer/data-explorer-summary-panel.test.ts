@@ -12,6 +12,7 @@
 
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 const columnOrder = {
 	default: ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column6', 'column7', 'column8', 'column9'],
@@ -137,4 +138,27 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		await dataExplorer.summaryPanel.clearSearch();
 		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.pinCol3Col4_ascending);
 	});
+
+	test('Summary Panel: Behavior on right', async function ({ app }) {
+		const { dataExplorer } = app.workbench;
+
+		// view data and show summary panel on right side
+		await dataExplorer.maximize();
+		await dataExplorer.waitForIdle();
+		await dataExplorer.summaryPanel.show('right');
+		await expect(dataExplorer.summaryPanel.summaryPanel).toHaveClass(/.*right-column.*/);
+
+		// perform basic actions to ensure panel is functional
+		await dataExplorer.summaryPanel.expectColumnCountToBe(10);
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.default);
+		await dataExplorer.summaryPanel.sortBy('Name, Descending');
+		await dataExplorer.summaryPanel.expectColumnOrderToBe(columnOrder.descending);
+		await dataExplorer.summaryPanel.search('column9');
+		await dataExplorer.summaryPanel.expectColumnCountToBe(1);
+
+		// verify search is above column results
+		const searchBarY = await dataExplorer.summaryPanel.sortFilter.boundingBox().then(b => b?.y ?? 0);
+		const firstColumnY = await dataExplorer.summaryPanel.columnSummary.nth(0).boundingBox().then(b => b?.y ?? 0);
+		expect(searchBarY).toBeLessThan(firstColumnY);
+	})
 });
