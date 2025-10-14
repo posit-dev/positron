@@ -25,6 +25,9 @@ export interface RMetadataExtra {
 	/** R's Rscript path */
 	readonly scriptpath: string;
 
+	/** Architecture reported by this installation (normalized, e.g. arm64, x86_64) */
+	readonly arch?: string;
+
 	/**
 	 * Is this known to be the current version of R?
 	 * https://github.com/posit-dev/positron/issues/2659

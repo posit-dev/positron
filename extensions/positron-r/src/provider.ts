@@ -268,6 +268,7 @@ export async function makeMetadata(
 		homepath: rInst.homepath,
 		binpath: rInst.binpath,
 		scriptpath: scriptPath,
+		arch: rInst.arch || undefined,
 		current: rInst.current,
 		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,

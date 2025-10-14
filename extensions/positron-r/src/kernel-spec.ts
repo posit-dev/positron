@@ -25,10 +25,15 @@ import { EXTENSION_ROOT_DIR } from './constants';
 export function createJupyterKernelSpec(
 	rHomePath: string,
 	runtimeName: string,
-	sessionMode: positron.LanguageRuntimeSessionMode): JupyterKernelSpec {
+	sessionMode: positron.LanguageRuntimeSessionMode,
+	options?: { rBinaryPath?: string; rArchitecture?: string }): JupyterKernelSpec {
 
 	// Path to the kernel executable
-	const kernelPath = getArkKernelPath();
+	const kernelPath = getArkKernelPath({
+		rBinaryPath: options?.rBinaryPath,
+		rHomePath,
+		rArch: options?.rArchitecture
+	});
 	if (!kernelPath) {
 		throw new Error('Unable to find R kernel');
 	}
