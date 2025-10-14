@@ -30,7 +30,7 @@ export class Sessions {
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
-	private deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
+	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
