@@ -80,7 +80,7 @@ test.describe('Data Explorer: Performance', { tag: [] }, () => {
 
 				// Verify the status bar text reflects the full data set
 				await dataExplorer.expectStatusBarToHaveText(testCase.preFilterSummary);
-				await dataExplorer.maximize(true);
+				await dataExplorer.maximize(false);
 
 				// Perform and record basic sorting
 				await metric.dataExplorer.sort(async () => {

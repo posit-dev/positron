@@ -23,7 +23,7 @@ test.describe('Data Explorer - Python Polars', {
 		// open the data frame in the data explorer
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-		await dataExplorer.maximize(true);
+		await dataExplorer.maximize(false);
 	});
 
 	test.afterEach(async function ({ app, hotKeys }) {

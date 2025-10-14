@@ -57,7 +57,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await console.executeCode('Python', emptyFieldsScript);
 		await variables.doubleClickVariableRow('emptyFields');
 		await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
-		await dataExplorer.maximize(true);
+		await dataExplorer.maximize(false);
 
 		// verify table data with empty fields
 		await dataExplorer.grid.verifyTableData([

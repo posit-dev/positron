@@ -236,6 +236,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J Z', 'Hide the DE Summary Panel');
 	}
 
+	public async showDataExplorerSummaryPanelRight() {
+		await this.pressHotKeys('Cmd+J M', 'Show the DE Summary Panel on Right');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.
