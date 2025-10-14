@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator, Page } from '@playwright/test';
-import { Code, QuickAccess, Console } from '../infra';
+import { Code, QuickAccess, Console, ContextMenu } from '../infra';
 import { QuickInput } from './quickInput';
 
 // Lazy getters for environment variables - these will be evaluated when accessed, not at module load time
@@ -30,7 +30,7 @@ export class Sessions {
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
-	private deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
+	deleteMenuItem = this.page.getByRole('menuitem', { name: 'Delete' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -44,7 +44,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console, private contextMenu: ContextMenu) { }
 
 	// -- Actions --
 
@@ -494,10 +494,12 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async expectNoStartUpMessaging() {
-		await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
-		await this.console.focus();
-		await this.code.driver.page.mouse.move(0, 0);
-		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+		await test.step('Wait runtimes to finish loading', async () => {
+			await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
+			await this.console.focus();
+			await this.code.driver.page.mouse.move(0, 0);
+			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+		});
 	}
 
 	/**
@@ -752,11 +754,11 @@ export class Sessions {
 			await this.console.focus();
 			const sessionTab = this.getSessionTab(sessionId);
 
-			// open the context menu and select "Delete"
-			await sessionTab.click({ button: 'right' });
-			await this.deleteMenuItem.hover();
-			await this.page.waitForTimeout(500);
-			await this.deleteMenuItem.click();
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: sessionTab,
+				menuTriggerButton: 'right',
+				menuItemLabel: 'Delete'
+			});
 		});
 	}
 

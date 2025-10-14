@@ -13,6 +13,8 @@ import { HotKeys } from './hotKeys.js';
 
 const DEFAULT_TIMEOUT = 10000;
 
+type moreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
+
 /**
  * Notebooks functionality exclusive to Positron notebooks.
  */
@@ -30,6 +32,8 @@ export class PositronNotebooks extends Notebooks {
 	private kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
+	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
+	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -165,6 +169,18 @@ export class PositronNotebooks extends Notebooks {
 					}, 'should NOT be in edit mode').toPass({ timeout: 15000 });
 				});
 			}
+		});
+	}
+
+	/**
+	 * Action: Select an action from the More Actions menu for a specific cell.
+	 * @param cellIndex - The index of the cell to act on
+	 * @param action - The action to perform from the More Actions menu
+	 */
+	async selectFromMoreActionsMenu(cellIndex: number, action: moreActionsMenuItems): Promise<void> {
+		await test.step(`Select action from More Actions menu: ${action}`, async () => {
+			await this.moreActionsButtonAtIndex(cellIndex).click();
+			await this.moreActionsOption(action).click();
 		});
 	}
 
@@ -402,6 +418,16 @@ export class PositronNotebooks extends Notebooks {
 		await test.step(`Expect cell count to be ${expectedCount}`, async () => {
 			await expect(this.cell).toHaveCount(expectedCount, { timeout: DEFAULT_TIMEOUT });
 		});
+	}
+
+	/**
+	 * Verify: Cell contents match expected contents.
+	 * @param expectedContents - Array of expected cell contents in order.
+	 */
+	async expectCellContentsToBe(expectedContents: string[]): Promise<void> {
+		for (let i = 0; i < expectedContents.length; i++) {
+			await this.expectCellContentAtIndexToBe(i, expectedContents[i]);
+		}
 	}
 
 	/**
