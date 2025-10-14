@@ -677,11 +677,32 @@ function rHeadquarters(): string[] {
 		case 'linux':
 			return [path.join('/opt', 'R')];
 		case 'win32': {
-			const paths = [
-				path.join(process.env['ProgramW6432'] || 'C:\\Program Files', 'R')
-			];
+			const defaultProgramFiles = 'C:\\Program Files';
+			const programFilesDirs = new Set<string>();
+			const programFilesEnv = process.env['PROGRAMFILES'] || process.env['ProgramFiles'];
+			if (programFilesEnv) {
+				programFilesDirs.add(programFilesEnv);
+			}
+			if (process.env['ProgramW6432']) {
+				programFilesDirs.add(process.env['ProgramW6432']);
+			}
+			if (programFilesDirs.size === 0) {
+				programFilesDirs.add(defaultProgramFiles);
+			}
+			const paths: string[] = [];
+			for (const baseDir of programFilesDirs) {
+				paths.push(path.join(baseDir, 'R'));
+				if (process.arch === 'arm64') {
+					// also look in R-aarch64 on ARM64 Windows
+					paths.push(path.join(baseDir, 'R-aarch64'));
+				}
+			}
 			if (process.env['LOCALAPPDATA']) {
 				paths.push(path.join(process.env['LOCALAPPDATA'], 'Programs', 'R'));
+				if (process.arch === 'arm64') {
+					// also look in R-aarch64 on ARM64 Windows
+					paths.push(path.join(process.env['LOCALAPPDATA'], 'Programs', 'R-aarch64'));
+				}
 			}
 			return [...new Set(paths)];
 		}
