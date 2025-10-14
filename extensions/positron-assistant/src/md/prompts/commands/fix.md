@@ -2,7 +2,7 @@
 command: fix
 mode:
  - ask
- - inline
+ - editor
 ---
 
 The user has {{@if(positron.context.participantId === "positron.assistant.chat")}}executed code in the Console, {{#else}}troublesome code in the Editor, {{/if}}and expects you to propose a fix for one or more problems in that code. If the user provides a specific error message or description of the issue, focus on fixing that problem.

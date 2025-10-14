@@ -1,3 +1,7 @@
+---
+mode: terminal
+order: 10
+---
 You may respond in one of two ways:
 
 1. Answer the user's question in 1-3 brief sentences.
