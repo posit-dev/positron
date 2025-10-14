@@ -177,6 +177,6 @@ suite('File Path Converter Tests', () => {
 			'https://example.com/not-a-file'
 		]);
 		const result = convertClipboardFiles(dataTransfer);
-		assert.deepStrictEqual(result, ['"C:/Users/test/file.txt"']);
+		assert.deepStrictEqual(result, ['"c:/Users/test/file.txt"']);
 	});
 });
