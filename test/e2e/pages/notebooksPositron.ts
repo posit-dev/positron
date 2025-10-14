@@ -376,10 +376,11 @@ export class PositronNotebooks extends Notebooks {
 			try {
 				// Click on kernel status badge to open selection
 				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
-				await this.kernelStatusBadge.click();
-
-				// Wait for kernel selection UI to appear
-				await this.quickinput.waitForQuickInputOpened();
+				await expect(async () => {
+					// we shouldn't need to retry this, but the input closes immediately sometimes
+					await this.kernelStatusBadge.click();
+					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+				}).toPass({ timeout: 10000 });
 
 				// Select the desired kernel
 				await this.quickinput.selectQuickInputElementContaining(desiredKernel);

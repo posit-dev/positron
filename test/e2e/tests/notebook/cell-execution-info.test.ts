@@ -14,9 +14,6 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
-		if (process.env.CI) {
-			test.skip();
-		}
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
 	});
 
