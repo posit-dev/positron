@@ -98,6 +98,8 @@ For future console implementation, investigate:
 
 **To see the paste provider title**: Copy files from file manager, then use **"Paste As"** from the Command Palette (Ctrl+Shift+P) in an R file. This shows the picker with "Insert quoted, forward-slash file path(s)" option. NOTE: this is no longer working, once we pared things way back. Hopefully we can get it back for the console implementation.
 
+**To run a small set of unit tests**: Do something like: `scripts/test.sh --grep "UNC path"`
+
 **To manually test UNC paths**:
 
 * Open Windows Explorer
