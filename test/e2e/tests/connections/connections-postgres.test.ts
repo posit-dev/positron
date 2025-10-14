@@ -10,14 +10,6 @@ test.use({
 	suiteId: __filename
 });
 
-// Local setup sample
-// docker run --name local-postgres -p 5432:5432 -e POSTGRES_USER=testuser -e POSTGRES_PASSWORD=testpassword -e POSTGRES_DB=testdb -d postgres:latest
-// Download https://github.com/neondatabase-labs/postgres-sample-dbs/blob/main/periodic_table.sql
-// psql -h localhost -U testuser -d testdb -f /Users/christophermead/Desktop/periodic_table.sql
-// psql -h localhost -U testuser -d testdb
-// SELECT * FROM periodic_table;
-// exit
-
 const viewLine = '.lines-content .view-line';
 const dbName = process.env.E2E_POSTGRES_DB || 'testdb';
 const user = process.env.E2E_POSTGRES_USER || 'testuser';
