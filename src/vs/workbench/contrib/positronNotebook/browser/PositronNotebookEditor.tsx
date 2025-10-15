@@ -123,10 +123,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	 * https://github.com/microsoft/vscode/issues/40114).
 	 */
 	protected override computeEditorViewState(resource: URI): INotebookEditorViewState | undefined {
-		if (this.notebookInstance &&
-			this.notebookInstance.textModel &&
-			isEqual(this.notebookInstance.textModel.uri, resource)) {
-			return this.notebookInstance.getEditorViewState();
+		if (this.notebookInstance) {
+			const textModel = this.notebookInstance.textModel.get();
+			if (textModel && isEqual(textModel.uri, resource)) {
+				return this.notebookInstance.getEditorViewState();
+			}
 		}
 		return undefined;
 	}
