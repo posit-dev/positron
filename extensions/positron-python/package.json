@@ -54,7 +54,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.95.0"
+        "vscode": "^1.104.0"
     },
     "enableTelemetry": false,
     "keywords": [
