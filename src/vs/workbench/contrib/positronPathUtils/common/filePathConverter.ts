@@ -5,26 +5,40 @@
 
 import { isUNC, toSlashes } from '../../../../base/common/extpath.js';
 import { URI } from '../../../../base/common/uri.js';
+import { relativePath } from '../../../../base/common/resources.js';
 
 /**
- * Utilities for getting file paths when files (yes, actual files, not paths)
- * are on the clipboard
+ * Options for clipboard file conversion
  */
+export interface ConvertClipboardFilesOptions {
+	/**
+	 * Whether to prefer relative paths when baseUri is available (typically the workspace folder).
+	 */
+	preferRelative?: boolean;
+
+	/**
+	 * Base URI for relative path calculation
+	 */
+	baseUri?: URI;
+}
 
 /**
  * Converts clipboard files to forward-slash, quoted file paths.
+ * Uses relative paths when workspace context is available.
  *
- * @param dataTransfer The clipboard DataTransfer object
- * @returns Array of forward-slash file paths, or null if no conversion should be applied
+ * @param uriListData Raw URI list data from clipboard
+ * @param options Options for path conversion
+ * @returns Array of quoted, forward-slash file paths, or null if no conversion should be applied
  */
-export function convertClipboardFiles(dataTransfer: DataTransfer): string[] | null {
+export function convertClipboardFiles(
+	uriListData: string,
+	options?: ConvertClipboardFilesOptions
+): string[] | null {
 	let filePaths: string[] = [];
 
-	// Check for file URI list from clipboard
-	const uriList = dataTransfer.getData('text/uri-list');
-	if (uriList) {
+	if (uriListData) {
 		// On Windows, we definitely see \r\n here
-		const fileUris = uriList.split(/\r?\n/)
+		const fileUris = uriListData.split(/\r?\n/)
 			.filter(line => line.trim().startsWith('file://'));
 
 		filePaths = fileUris.map(uri => {
@@ -44,26 +58,39 @@ export function convertClipboardFiles(dataTransfer: DataTransfer): string[] | nu
 		return null;
 	}
 
-	return filePaths.map(formatForwardSlashPath);
+	return filePaths.map(filePath => formatForwardSlashPath(filePath, options));
 }
 
 /**
- * Formats a file path to forward-slash format with proper quoting.
+ * Formats a file path to forward-slash format with double quotes.
+ * Uses relative path if base URI provided and the file is within that workspace.
  *
  * @param filePath The file path to format
- * @returns Forward-slash path: "C:/path/file.txt"
+ * @param options Options for path formatting
+ * @returns Quoted forward-slash path: "C:/path/file.txt" or "./relative/path.txt"
  */
-function formatForwardSlashPath(filePath: string): string {
+function formatForwardSlashPath(filePath: string, options?: ConvertClipboardFilesOptions): string {
 	if (!filePath) {
 		return '';
 	}
 
+	let processedPath = filePath;
+
+	// Use relative path if requested and base URI provided (follows RelativePathProvider pattern)
+	if (options?.preferRelative && options.baseUri) {
+		const fileUri = URI.file(filePath);
+		const relativePathResult = relativePath(options.baseUri, fileUri);
+
+		// Only use relative path if it was successfully calculated
+		if (relativePathResult) {
+			processedPath = relativePathResult;
+		}
+	}
+
 	// Convert backslashes to forward slashes
-	const normalized = toSlashes(filePath);
+	const normalized = toSlashes(processedPath);
 
-	// Escape existing quotes
+	// Escape existing quotes and wrap in double quotes
 	const escaped = normalized.replace(/"/g, '\\"');
-
-	// Wrap in quotes for safe usage
 	return `"${escaped}"`;
 }
