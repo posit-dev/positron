@@ -191,7 +191,7 @@
         "command": "positron-assistant.managePromptFiles",
         "title": "%commands.managePromptFiles.title%",
         "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable"
+        "enablement": "config.positron.assistant.enable && isDevelopment"
       }
     ],
     "configuration": [
