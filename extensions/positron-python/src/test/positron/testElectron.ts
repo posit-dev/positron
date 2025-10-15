@@ -213,27 +213,38 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         );
     }
 
-    let responseBody = '';
-    response.on('data', (chunk) => {
-        responseBody += chunk;
+    // Get releases from the Positron CDN instead of GitHub releases
+    const cdnResponse = await httpsGetAsync({
+        headers: {
+            'User-Agent': USER_AGENT,
+        },
+        method: 'GET',
+        protocol: 'https:',
+        hostname: 'cdn.posit.co',
+        path: '/positron/dailies/mac/universal/releases.json',
     });
 
-    const releases = await new Promise((resolve, reject) => {
-        response.once('end', async () => {
-            if (response.statusCode !== 200) {
-                reject(new Error(`Failed to download Positron: HTTP ${response.statusCode}\n\n${responseBody}`));
+    let cdnResponseBody = '';
+    cdnResponse.on('data', (chunk) => {
+        cdnResponseBody += chunk;
+    });
+
+    const cdnRelease = await new Promise<any>((resolve, reject) => {
+        cdnResponse.once('end', async () => {
+            if (cdnResponse.statusCode !== 200) {
+                reject(
+                    new Error(
+                        `Failed to download releases from CDN: HTTP ${cdnResponse.statusCode}\n\n${cdnResponseBody}`,
+                    ),
+                );
             } else {
-                resolve(JSON.parse(responseBody));
+                resolve(JSON.parse(cdnResponseBody));
             }
         });
     });
 
-    if (!Array.isArray(releases)) {
-        throw new Error(`Unexpected response from Github:\n\n${responseBody}`);
-    }
-    const release = releases[0];
-    if (!release) {
-        throw new Error(`Unexpected error, no releases found.`);
+    if (!cdnRelease) {
+        throw new Error(`Unexpected response from CDN:\n\n${cdnResponseBody}`);
     }
 
     const { platform } = process;
@@ -247,7 +258,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         }
     }
 
-    const version = release.tag_name;
+    const version = cdnRelease.version;
     console.log(`Using ${version} build of Positron`);
 
     // Exit early if the version has already been downloaded and unzipped.

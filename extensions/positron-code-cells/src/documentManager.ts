@@ -86,9 +86,20 @@ export function activateDocumentManagers(disposables: vscode.Disposable[]): void
 		// Trigger a decorations update when the active editor's content changes.
 		vscode.workspace.onDidChangeTextDocument(event => {
 			getOrCreateDocumentManager(event.document)?.parseCells();
-		})
+		}),
+
+		// Trigger parsing the open documents when the cell delimiter changes.
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('codeCells.additionalCellDelimiter')) {
+				reparseOpenDocuments();
+			}
+		}),
 	);
 }
 
-
-
+// Function to reparse document cells
+function reparseOpenDocuments(): void {
+	documentManagers.forEach(manager => {
+		manager.parseCells();
+	});
+}

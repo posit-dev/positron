@@ -12,6 +12,10 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.j
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { availableModels } from './models.js';
+import { LanguageModelDataPartMimeType } from './types.js';
+
+export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
+export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -59,8 +63,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		},
 		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
-			model: 'claude-3-5-sonnet-latest',
+			name: DEFAULT_ANTHROPIC_MODEL_NAME,
+			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
 			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
@@ -240,6 +244,17 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
+	private isDefaultUserModel(id: string, name?: string): boolean {
+		const config = vscode.workspace.getConfiguration('positron.assistant');
+		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
+		if ('anthropic-api' in defaultModels) {
+			if (id.includes(defaultModels['anthropic-api']) || name?.includes(defaultModels['anthropic-api'])) {
+				return true;
+			}
+		}
+		return id.includes(DEFAULT_ANTHROPIC_MODEL_MATCH);
+	}
+
 	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.LanguageModelResponsePart2>): void {
 		switch (block.type) {
 			case 'tool_use':
@@ -303,7 +318,6 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		const userSetMaxOutputTokens: Record<string, number> = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {});
 		let hasMore = true;
 		let nextPageToken: string | undefined;
-		let isFirst = true;
 
 		log.trace(`Fetching models from Anthropic API for provider ${this.provider}`);
 
@@ -329,16 +343,35 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					maxInputTokens: maxInputTokens,
 					maxOutputTokens: maxOutputTokens,
 					capabilities: this.capabilities,
-					isDefault: isFirst,
+					isDefault: this.isDefaultUserModel(model.id, model.display_name),
 					isUserSelectable: true,
 				});
-				isFirst = false;
 			});
 
 			hasMore = modelsPage.has_more;
 			if (hasMore && modelsPage.data.length > 0) {
 				nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
 			}
+		}
+
+		// Mark models as default, ensuring only one default per provider
+		let hasDefault = false;
+		for (let i = 0; i < modelListing.length; i++) {
+			const model = modelListing[i];
+			if (!hasDefault && this.isDefaultUserModel(model.id, model.name)) {
+				modelListing[i] = { ...model, isDefault: true };
+				hasDefault = true;
+			} else {
+				modelListing[i] = { ...model, isDefault: false };
+			}
+		}
+
+		// If no models match the default ID, make the first model the default.
+		if (modelListing.length > 0 && !hasDefault) {
+			modelListing[0] = {
+				...modelListing[0],
+				isDefault: true,
+			};
 		}
 
 		this.modelListing = modelListing;
@@ -424,10 +457,12 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, sourc
 				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
 			} else {
 				// Skip other data parts.
-				log.debug(`[anthropic] Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
+				if (part.mimeType !== LanguageModelDataPartMimeType.CacheControl) {
+					log.debug(`[anthropic] Skipping unsupported part in user message: ${JSON.stringify(part, null, 2)}`);
+				}
 			}
 		} else {
-			throw new Error('Unsupported part type on user message');
+			throw new Error(`Unsupported part type on user message: ${JSON.stringify(part, null, 2)}`);
 		}
 	}
 	return {

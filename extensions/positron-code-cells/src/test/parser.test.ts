@@ -27,6 +27,7 @@ suite('Parsers', () => {
 		const language = 'python';
 		const codeCellBody = '123\n456';
 		const codeCell = `# %%\n${codeCellBody}`;
+		const databricksCodeCell = `# COMMAND ----------\n${codeCellBody}`;
 		const markdownBody = `# H1
 ## H2
 
@@ -45,6 +46,7 @@ And a [link](target)`;
 		const singleCellTests: [string, string, CellType][] = [
 			['Parses a single code cell', codeCell, CellType.Code],
 			['Parses a single markdown cell', commentedMarkdownCell, CellType.Markdown],
+			['Parses a Databricks-style code cell', databricksCodeCell, CellType.Code],
 		];
 		singleCellTests.forEach(([title, content, expectedType]) => {
 			test(title, async () => {
@@ -62,9 +64,19 @@ And a [link](target)`;
 			]);
 		});
 
+		test('Parses mixed cell types (standard and Databricks-style)', async () => {
+			const content = [codeCell, databricksCodeCell].join('\n');
+			const document = await vscode.workspace.openTextDocument({ language, content });
+			assert.deepStrictEqual(parseCells(document), [
+				{ range: new vscode.Range(0, 0, 2, 3), type: CellType.Code },
+				{ range: new vscode.Range(3, 0, 5, 3), type: CellType.Code }
+			]);
+		});
+
 		const getCellTypeTests: [string, string, CellType][] = [
 			['Get the cell type for a code cell', codeCell, CellType.Code],
 			['Get the cell type for a markdown cell', commentedMarkdownCell, CellType.Markdown],
+			['Get the cell type for a Databricks-style code cell', databricksCodeCell, CellType.Code],
 		];
 		getCellTypeTests.forEach(([title, content, expectedType]) => {
 			test(title, () => {
@@ -99,6 +111,7 @@ And a [link](target)`;
 		const codeCell1 = `#+\n${codeCellBody}`;
 		const codeCell2 = `# %%\n789\n\n012`;
 		const codeCell3 = `# Header ----\n\n123\n456`;
+		const databricksCodeCell = `# COMMAND ----------\n${codeCellBody}`;
 
 		const parser = getParser(language);
 
@@ -108,6 +121,7 @@ And a [link](target)`;
 
 		const singleCellTests: [string, string, CellType][] = [
 			['Parses a single code cell', codeCell1, CellType.Code],
+			['Parses a Databricks-style code cell', databricksCodeCell, CellType.Code],
 		];
 		singleCellTests.forEach(([title, content, expectedType]) => {
 			test(title, async () => {
@@ -137,6 +151,7 @@ And a [link](target)`;
 
 		const getCellTextTests: [string, string, CellType, string][] = [
 			['Get the cell text for a code cell', codeCell1, CellType.Code, codeCellBody],
+			['Get the cell text for a Databricks-style code cell', databricksCodeCell, CellType.Code, codeCellBody],
 		];
 		getCellTextTests.forEach(([title, content, expectedType, expectedText]) => {
 			test(title, async () => {
