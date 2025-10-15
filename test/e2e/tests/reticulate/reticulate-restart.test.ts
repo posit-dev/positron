@@ -36,6 +36,8 @@ test.describe('Reticulate', {
 
 		await app.workbench.sessions.expectSessionPickerToBe('Python (reticulate)');
 
+		await app.workbench.console.clearButton.click();
+
 		await app.workbench.sessions.restart('Python (reticulate)', { waitForIdle: false });
 
 		await app.code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Yes' }).click();
