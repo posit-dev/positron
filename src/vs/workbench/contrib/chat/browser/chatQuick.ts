@@ -25,6 +25,10 @@ import { IChatProgress, IChatService } from '../common/chatService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { EDITOR_DRAG_AND_DROP_BACKGROUND } from '../../../common/theme.js';
 import { ChatAgentLocation } from '../common/constants.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IChatWidgetService } from './chat.js';
+// --- End Positron ---
 
 export class QuickChatService extends Disposable implements IQuickChatService {
 	readonly _serviceBrand: undefined;
@@ -155,6 +159,9 @@ class QuickChat extends Disposable {
 		@IChatService private readonly chatService: IChatService,
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@IViewsService private readonly viewsService: IViewsService,
+		// --- Start Positron ---
+		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
+		// --- End Positron ---
 	) {
 		super();
 	}
@@ -203,6 +210,27 @@ class QuickChat extends Disposable {
 		if (!this.maintainScrollTimer.value) {
 			this.widget.layoutDynamicChatTreeItemMode();
 		}
+		// --- Start Positron ---
+		// Update with any existing context from other chat widgets
+		// Look for a chat widget that is in a panel and is not a quick chat
+		const widget = this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Panel).find(w => w !== this.widget && w.location === ChatAgentLocation.Panel && (!('isQuickChat' in w.viewContext) || !w.viewContext.isQuickChat));
+		if (widget) {
+			// Update console context
+			if (this.widget.input.runtimeContext) {
+				// Set the Console context
+				this.widget.input.runtimeContext.setValue(widget.input.runtimeContext?.value);
+				// Set whether the Console context is enabled
+				this.widget.input.runtimeContext.enabled = widget.input.runtimeContext?.enabled ?? false;
+			}
+			// Update attachments
+			this.widget.attachmentModel.clearAndSetContext(...widget.attachmentModel.attachments);
+			// Update language model
+			const languageModel = widget.input.selectedLanguageModel;
+			if (languageModel) {
+				this.widget.input.setCurrentLanguageModel(languageModel);
+			}
+		}
+		// --- End Positron ---
 	}
 
 	render(parent: HTMLElement): void {
