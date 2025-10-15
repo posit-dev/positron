@@ -211,25 +211,7 @@ class QuickChat extends Disposable {
 			this.widget.layoutDynamicChatTreeItemMode();
 		}
 		// --- Start Positron ---
-		// Update with any existing context from other chat widgets
-		// Look for a chat widget that is in a panel and is not a quick chat
-		const widget = this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Panel).find(w => w !== this.widget && w.location === ChatAgentLocation.Panel && (!('isQuickChat' in w.viewContext) || !w.viewContext.isQuickChat));
-		if (widget) {
-			// Update console context
-			if (this.widget.input.runtimeContext) {
-				// Set the Console context
-				this.widget.input.runtimeContext.setValue(widget.input.runtimeContext?.value);
-				// Set whether the Console context is enabled
-				this.widget.input.runtimeContext.enabled = widget.input.runtimeContext?.enabled ?? false;
-			}
-			// Update attachments
-			this.widget.attachmentModel.clearAndSetContext(...widget.attachmentModel.attachments);
-			// Update language model
-			const languageModel = widget.input.selectedLanguageModel;
-			if (languageModel) {
-				this.widget.input.setCurrentLanguageModel(languageModel);
-			}
-		}
+		this.syncWithMainChat();
 		// --- End Positron ---
 	}
 
@@ -263,6 +245,9 @@ class QuickChat extends Disposable {
 		this.updateModel();
 		this.sash = this._register(new Sash(parent, { getHorizontalSashTop: () => parent.offsetHeight }, { orientation: Orientation.HORIZONTAL }));
 		this.registerListeners(parent);
+		// --- Start Positron ---
+		this.syncWithMainChat();
+		// --- End Positron ---
 	}
 
 	private get maxHeight(): number {
@@ -385,4 +370,33 @@ class QuickChat extends Disposable {
 
 		this.widget.setModel(this.model, { inputValue: this._currentQuery });
 	}
+	// --- Start Positron ---
+	private syncWithMainChat() {
+		// Update with any existing context from other chat widgets
+		// Look for a chat widget that is in a panel and is not a quick chat
+		const widget = this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Panel).find(w => w !== this.widget && w.location === ChatAgentLocation.Panel && (!('isQuickChat' in w.viewContext) || !w.viewContext.isQuickChat));
+		if (widget) {
+			// Update language model
+			const languageModel = widget.input.selectedLanguageModel;
+			if (languageModel) {
+				this.widget.input.setCurrentLanguageModel(languageModel);
+			}
+			// Update implicit context
+			if (widget.input.implicitContext && this.widget.input.implicitContext) {
+				this.widget.input.implicitContext.setValue(widget.input.implicitContext.value, widget.input.implicitContext.isSelection);
+				this.widget.input.implicitContext.enabled = widget.input.implicitContext.enabled;
+			}
+			// Update attachments
+			this.widget.attachmentModel.clearAndSetContext(...widget.attachmentModel.attachments);
+			// Update console context
+			if (this.widget.input.runtimeContext) {
+				// Set the Console context
+				this.widget.input.runtimeContext.setValue(widget.input.runtimeContext?.value);
+				// Set whether the Console context is enabled
+				this.widget.input.runtimeContext.enabled = widget.input.runtimeContext?.enabled ?? false;
+			}
+
+		}
+	}
+	// --- End Positron ---
 }
