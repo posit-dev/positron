@@ -127,7 +127,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         );
         const { stdout } = await executeCommand(
             'git credential fill',
-            `protocol=https\nhost=github.com\npath=/repos/posit-dev/positron-builds/releases\n`,
+            `protocol=https\nhost=github.com\npath=/repos/posit-dev/positron/releases\n`,
         );
 
         gitCredential = true;
@@ -157,7 +157,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         method: 'GET',
         protocol: 'https:',
         hostname: 'api.github.com',
-        path: `/repos/posit-dev/positron-builds/releases`,
+        path: `/repos/posit-dev/positron/releases`,
     });
 
     // Special handling for PATs originating from `git credential`.
@@ -170,7 +170,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
             'git credential approve',
             `protocol=https\n` +
                 `host=github.com\n` +
-                `path=/repos/posit-dev/positron-builds/releases\n` +
+                `path=/repos/posit-dev/positron/releases\n` +
                 `username=\n` +
                 `password=${githubPat}\n`,
         );
@@ -190,7 +190,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
             'git credential reject',
             `protocol=https\n` +
                 `host=github.com\n` +
-                `path=/repos/posit-dev/positron-builds/releases\n` +
+                `path=/repos/posit-dev/positron/releases\n` +
                 `username=\n` +
                 `password=${githubPat}\n`,
         );
@@ -231,7 +231,43 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     if (!Array.isArray(releases)) {
         throw new Error(`Unexpected response from Github:\n\n${responseBody}`);
     }
-    const release = releases[0];
+
+    // Get releases from the Positron CDN instead of GitHub releases
+    const cdnResponse = await httpsGetAsync({
+        headers: {
+            'User-Agent': USER_AGENT,
+        },
+        method: 'GET',
+        protocol: 'https:',
+        hostname: 'cdn.posit.co',
+        path: '/positron/dailies/mac/universal/releases.json',
+    });
+
+    let cdnResponseBody = '';
+    cdnResponse.on('data', (chunk) => {
+        cdnResponseBody += chunk;
+    });
+
+    const cdnReleases = await new Promise((resolve, reject) => {
+        cdnResponse.once('end', async () => {
+            if (cdnResponse.statusCode !== 200) {
+                reject(
+                    new Error(
+                        `Failed to download releases from CDN: HTTP ${cdnResponse.statusCode}\n\n${cdnResponseBody}`,
+                    ),
+                );
+            } else {
+                resolve(JSON.parse(cdnResponseBody));
+            }
+        });
+    });
+
+    if (!Array.isArray(cdnReleases)) {
+        throw new Error(`Unexpected response from CDN:\n\n${cdnResponseBody}`);
+    }
+
+    const release = cdnReleases[0];
+
     if (!release) {
         throw new Error(`Unexpected error, no releases found.`);
     }
@@ -247,7 +283,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         }
     }
 
-    const version = release.tag_name;
+    const version = release.version;
     console.log(`Using ${version} build of Positron`);
 
     // Exit early if the version has already been downloaded and unzipped.
