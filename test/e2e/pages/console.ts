@@ -184,10 +184,10 @@ export class Console {
 		await expect(activeLine).toHaveText(prompt, { timeout });
 	}
 
-	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
+	async waitForReadyAndStarted(prompt: string, timeout = 30000, expectedCount = 1): Promise<void> {
 		await test.step('Wait for console to be ready and started', async () => {
 			await this.waitForReady(prompt, timeout);
-			await this.waitForConsoleContents('started', { timeout });
+			await this.waitForConsoleContents('started', { timeout, expectedCount });
 		});
 	}
 
