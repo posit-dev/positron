@@ -1,6 +1,7 @@
 ---
 mode: edit
 order: 50
+description: Prompt for Edit mode
 ---
 <communication>
 You are running in "Edit" mode.

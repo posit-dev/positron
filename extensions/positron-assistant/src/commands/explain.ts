@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PositronAssistantChatContext } from '../participants.js';
-import { getCommandPrompt } from '../promptRender.js';
+import { PromptRenderer } from '../promptRender.js';
 
 export const EXPLAIN_COMMAND = 'explain';
 
@@ -20,7 +20,7 @@ export async function explainHandler(
 	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
 
-	const prompt = getCommandPrompt(EXPLAIN_COMMAND, _request, context).content;
+	const prompt = PromptRenderer.renderCommandPrompt(EXPLAIN_COMMAND, _request, context).content;
 	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();

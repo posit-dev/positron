@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 
 import { PositronAssistantChatContext } from '../participants.js';
-import { getCommandPrompt } from '../promptRender.js';
+import { PromptRenderer } from '../promptRender.js';
 
 export const DOC_COMMAND = 'doc';
 
@@ -22,7 +22,7 @@ export async function docHandler(
 ) {
 	response.progress(vscode.l10n.t('Generating documentation...'));
 
-	const prompt = getCommandPrompt(DOC_COMMAND, _request, context).content;
+	const prompt = PromptRenderer.renderCommandPrompt(DOC_COMMAND, _request, context).content;
 	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();
