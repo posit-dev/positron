@@ -658,7 +658,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'openai',
+			id: 'openai-api',
 			displayName: 'OpenAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
