@@ -8,7 +8,7 @@ import { initializeLogging } from './logging';
 import { CellCodeLensProvider } from './codeLenses';
 import { activateDecorations } from './decorations';
 import { activateContextKeys } from './context';
-import { activateDocumentManagers } from './documentManager';
+import { activateDocumentManagers, reparseOpenDocuments } from './documentManager';
 import { registerCommands } from './commands';
 
 export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
@@ -26,17 +26,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		// Adds 'Run Cell' | 'Run Above' | 'Run Below' code lens for cells
 		vscode.languages.registerCodeLensProvider('*', new CellCodeLensProvider()),
 
-		// Listen for configuration changes and prompt to restart
+		// Listen for configuration changes and reparse the open documents
 		vscode.workspace.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration('codeCells.additionalCellDelimiter')) {
-				void vscode.window.showInformationMessage(
-					vscode.l10n.t('Code cell delimiter configuration changed. Please restart Positron for changes to take effect.'),
-					vscode.l10n.t('Reload Window')
-				).then(selection => {
-					if (selection === vscode.l10n.t('Reload Window')) {
-						void vscode.commands.executeCommand('workbench.action.reloadWindow');
-					}
-				});
+				reparseOpenDocuments();
 			}
 		}),
 

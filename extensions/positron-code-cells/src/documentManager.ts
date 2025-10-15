@@ -12,6 +12,13 @@ import { IGNORED_SCHEMES } from './extension';
 // export const documentManagers: DocumentManager[] = [];
 const documentManagers: Map<vscode.Uri, DocumentManager> = new Map();
 
+// Function to reparse document cells
+export function reparseOpenDocuments(): void {
+	documentManagers.forEach(manager => {
+		manager.parseCells();
+	});
+}
+
 // Creates a cached document that handles parsing code cells for supported languages
 export class DocumentManager implements vscode.Disposable {
 	private cells: Cell[] = [];
