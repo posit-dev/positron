@@ -157,7 +157,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         method: 'GET',
         protocol: 'https:',
         hostname: 'api.github.com',
-        path: `/repos/posit-dev/positron/releases`,
+        path: `/repos/posit-dev/positron-builds/releases`,
     });
 
     // Special handling for PATs originating from `git credential`.
@@ -170,7 +170,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
             'git credential approve',
             `protocol=https\n` +
                 `host=github.com\n` +
-                `path=/repos/posit-dev/positron/releases\n` +
+                `path=/repos/posit-dev/positron-builds/releases\n` +
                 `username=\n` +
                 `password=${githubPat}\n`,
         );
@@ -190,7 +190,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
             'git credential reject',
             `protocol=https\n` +
                 `host=github.com\n` +
-                `path=/repos/posit-dev/positron/releases\n` +
+                `path=/repos/posit-dev/positron-builds/releases\n` +
                 `username=\n` +
                 `password=${githubPat}\n`,
         );
