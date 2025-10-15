@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, MAX_CONTEXT_VARIABLES } from './constants';
-import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference } from './utils';
+import { isChatImageMimeType, isTextEditRequest, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString, isRuntimeSessionReference, isPromptInstructionsReference } from './utils';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { DefaultTextProcessor } from './defaultTextProcessor.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -286,6 +286,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		};
 
 		// Append this participant's additional system prompt
+		assistantContext.systemPrompt ??= '';
 		assistantContext.systemPrompt += await this.getSystemPrompt(request, assistantContext);
 		return assistantContext;
 	}
@@ -398,6 +399,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// If the user has explicitly attached files as context, add them to the prompt.
 		if (request.references.length > 0) {
+			const instructionPrompts: string[] = [];
 			const attachmentPrompts: string[] = [];
 			const sessionPrompts: string[] = [];
 			for (const reference of request.references) {
@@ -418,6 +420,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					});
 					sessionPrompts.push(xml.node('session', sessionContent));
 					log.debug(`[context] adding session context for session ${value.activeSession!.identifier}: ${sessionContent.length} characters`);
+				} else if (isPromptInstructionsReference(reference)) {
+					// A prompt instructions file has automatically been attached
+					response.reference(reference.value);
+					const document = await vscode.workspace.openTextDocument(reference.value);
+					const documentText = document.getText();
+					instructionPrompts.push(documentText);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.
@@ -550,6 +558,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const sessionText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
 				const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
 				prompts.push(xml.node('sessions', sessionContent));
+			}
+
+			if (instructionPrompts.length > 0) {
+				// Add instructions files to the prompt.
+				prompts.push(xml.node('instructions', instructionPrompts.join('\n')));
 			}
 		}
 
