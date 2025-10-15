@@ -353,7 +353,9 @@ function getPythonCodeForFile(uri: vscode.Uri): {
 	const dependencies = ['databricks-sdk', 'pandas'];
 	const ext = path.extname(uri.path);
 	const varname = nameToIdentifier(path.basename(uri.path).replace(ext, ''));
-	const code = `import pandas as pd
+	const code = `# pip install ${dependencies.join(' ')}
+
+import pandas as pd
 from databricks.sdk import WorkspaceClient
 from io import BytesIO
 
@@ -379,7 +381,9 @@ function getPythonCodeForTable(uri: vscode.Uri): {
 	}
 	const dependencies = ['databricks-sql-connector', 'pyarrow', 'pandas'];
 	const varname = nameToIdentifier(table);
-	const code = `import pandas as pd
+	const code = `# pip install ${dependencies.join(' ')}
+
+import pandas as pd
 from databricks import sql
 
 conn = sql.connect(

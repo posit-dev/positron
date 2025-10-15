@@ -73,8 +73,7 @@
       "explorer": [
         {
           "id": "catalog-explorer",
-          "name": "Catalog Explorer",
-          "when": "isPositron"
+          "name": "Catalog Explorer"
         }
       ]
     },
