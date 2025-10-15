@@ -319,19 +319,15 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Note that context.history excludes tool calls and results.
 		messages.push(...toLanguageModelChatMessage(context.history));
 
+		// Add cache breakpoint after the current history.
+		addCacheControlBreakpointPartsToLastUserMessages(messages, 1);
+
+		// Add a user message containing context about the request, workspace, running sessions, etc.
+		const contextInfo = await attachContextInfo(messages);
+
 		// Add the user's prompt.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
 		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
-
-		// Add cache breakpoints to at-most the last 2 user messages.
-		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
-
-		// Add a user message containing context about the request, workspace, running sessions, etc.
-		// NOTE: We add the context message after the user prompt so that the context message is
-		// not cached. Since the context message is transiently added to each request, caching it
-		// will write a prompt prefix to the cache that will never be read. We will want to keep
-		// an eye on whether the order of user prompt and context message affects model responses.
-		const contextInfo = await attachContextInfo(messages);
 
 		// Send the request to the language model.
 		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);

@@ -12,6 +12,7 @@ import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
+import { PromptRenderer } from '../promptRender.js';
 
 /** We expect 3 messages by default: 1 for the system prompt, 1 for the user's prompt, and 1 containing at least the default context */
 const DEFAULT_EXPECTED_MESSAGE_COUNT = 3;
@@ -115,6 +116,8 @@ suite('PositronAssistantParticipant', () => {
 
 		const extensionContext = mock<vscode.ExtensionContext>({});
 		const participantService = new ParticipantService();
+		new PromptRenderer(extensionContext);
+
 		disposables.push(participantService);
 		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
 		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
@@ -149,7 +152,7 @@ suite('PositronAssistantParticipant', () => {
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const c = positronChatContext;
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<context>
 <shell description="Current active shell">
 ${c.shell}
@@ -192,7 +195,7 @@ Today's date is: Wednesday 11 June 2025 at 13:30:00 BST
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <attachment filePath="${filePath}" description="Full contents of the file" language="${document.languageId}">
@@ -223,7 +226,7 @@ ${document.getText()}
 		const filePath = vscode.workspace.asRelativePath(folderReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <attachment filePath="${filePath}" description="Contents of the directory">
@@ -258,7 +261,7 @@ subfolder/
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <attachment filePath="${filePath}" description="Visible region of the active file" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
@@ -294,7 +297,7 @@ ${document.getText()}
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<attachments>
 ${attachmentsText}
 <img src="${reference.name}" />
@@ -354,7 +357,7 @@ ${llmsTxtContent}
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
-		assertContextMessage(messages.at(-1)!,
+		assertContextMessage(messages.at(-2)!,
 			`<editor description="Current active editor" filePath="${filePath}" language="${document.languageId}" line="${selection.active.line + 1}" column="${selection.active.character + 1}" documentOffset="${document.offsetAt(selection.active)}">
 <document description="Full contents of the active file">
 ${document.getText()}
