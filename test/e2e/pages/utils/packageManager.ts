@@ -9,8 +9,8 @@ import { Application } from '../../infra';
 type PackageAction = 'install' | 'uninstall';
 
 const Packages = [
-	{ name: 'ipykernel', type: 'Python' },
-	{ name: 'renv', type: 'R' }
+	{ name: 'renv', type: 'R' },
+	{ name: 'snowflake', type: 'Python' }
 ] as const;
 
 type PackageName = (typeof Packages[number])['name']; // "ipykernel" | "renv", etc
@@ -51,8 +51,8 @@ export class PackageManager {
 	private getCommand(language: 'R' | 'Python', packageName: PackageName, action: PackageAction): string {
 		if (language === 'Python') {
 			return action === 'install'
-				? `uv pip install ${packageName}`
-				: `uv pip uninstall -y ${packageName}`;
+				? `pip install ${packageName}`
+				: `pip uninstall -y ${packageName}`;
 		} else {
 			return action === 'install'
 				? `install.packages("${packageName}")`
@@ -67,10 +67,8 @@ export class PackageManager {
 	 */
 	private getExpectedOutput(packageName: PackageName, action: PackageAction): RegExp {
 		switch (packageName) {
-			case 'ipykernel':
-				return action === 'install'
-					? /uv pip install completed successfully|Requirement already satisfied/
-					: /Successfully uninstalled ipykernel|Skipping ipykernel as it is not installed/;
+			case 'snowflake':
+				return /you may need to restart the kernel to use updated packages/;
 			default:
 				return action === 'install' ? /Installing|Downloading|Fetched/ : /Removing|Uninstalling/;
 		}

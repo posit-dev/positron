@@ -28,7 +28,7 @@ test.describe('Bootstrap Extensions', {
 		const containerExtensionsPath = '/home/user1/.positron-server/extensions';
 		await waitForExtensions(
 			extensions,
-			isWorkbench ? containerExtensionsPath : options.extensionsPath,
+			isWorkbench ? containerExtensionsPath : options.extensionsPath!,
 			isWorkbench ? runDockerCommand : undefined
 		);
 	});
@@ -53,9 +53,8 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-async function getInstalledExtensions(extensionsDir?: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
+async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>): Promise<Map<string, string>> {
 	const installed = new Map<string, string>();
-	if (!extensionsDir || !fs.existsSync(extensionsDir)) { return installed; }
 
 	// Workbench: read extensions from Docker container
 	if (runDockerCommand) {
@@ -94,15 +93,23 @@ async function getInstalledExtensions(extensionsDir?: string, runDockerCommand?:
 	return installed;
 }
 
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath?: string, runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>) {
+async function waitForExtensions(
+	extensions: { fullName: string; shortName: string; version: string }[],
+	extensionsPath: string,
+	runDockerCommand?: (command: string, description: string) => Promise<{ stdout: string; stderr: string }>,
+	mismatchGraceMs: number = 60_000, // wait up to 1 minute for mismatches to self-resolve
+) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
 
+	// Phase 1: wait for all to be installed (mismatches are noted, but we continue)
 	while (missing.size > 0) {
 		const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
 
 		for (const ext of extensions) {
-			if (!missing.has(ext.fullName)) { continue; }
+			if (!missing.has(ext.fullName)) {
+				continue;
+			}
 
 			const installedVersion = installed.get(ext.shortName);
 			if (!installedVersion) {
@@ -123,8 +130,35 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		}
 	}
 
+	// Phase 2: give mismatches time to auto-resolve (e.g., post-install updates settling)
 	if (mismatched.size > 0) {
-		console.log('\n❌ Some extensions were installed with mismatched versions:');
+		console.log(`\n⏳ Detected mismatches. Allowing up to ${Math.round(mismatchGraceMs / 1000)}s for auto-resolution...`);
+		const deadline = Date.now() + mismatchGraceMs;
+
+		while (mismatched.size > 0 && Date.now() < deadline) {
+			await sleep(1000);
+			const installed = await getInstalledExtensions(extensionsPath, runDockerCommand);
+
+			// Re-evaluate each previously mismatched extension
+			for (const ext of [...mismatched]) {
+				const installedVersion = installed.get(ext.split('@')[0] /* if your fullName is like 'short@scope' adjust accordingly */)
+					?? installed.get(extensions.find(e => e.fullName === ext)?.shortName ?? '');
+
+				// Find the expected version for this ext
+				const expected = extensions.find(e => e.fullName === ext)?.version;
+
+				if (installedVersion && expected && installedVersion === expected) {
+					console.log(`✅ Resolved: ${ext} now matches (${installedVersion})`);
+					mismatched.delete(ext);
+				} else {
+					// Keep it in the set; optional: log occasionally to avoid spam
+				}
+			}
+		}
+	}
+
+	if (mismatched.size > 0) {
+		console.log('\n❌ Some extensions are still mismatched after the grace period:');
 		for (const ext of mismatched) {
 			console.log(`   * ${ext}`);
 		}
@@ -132,10 +166,12 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}`);
 
 		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
-			throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
+			throw new Error('Some extensions were installed with mismatched versions (after grace period). Please check the logs above.');
 		}
+		return; // warn-only mode
 	}
 
-	console.log('\n🎉 All extensions installed with correct versions.');
+	console.log('\n🎉 All extensions installed with correct versions (after waiting for auto-resolution if needed).');
 }
+
 

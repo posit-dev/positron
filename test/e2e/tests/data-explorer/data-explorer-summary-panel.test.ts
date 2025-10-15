@@ -160,5 +160,5 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		const searchBarY = await dataExplorer.summaryPanel.sortFilter.boundingBox().then(b => b?.y ?? 0);
 		const firstColumnY = await dataExplorer.summaryPanel.columnSummary.nth(0).boundingBox().then(b => b?.y ?? 0);
 		expect(searchBarY).toBeLessThan(firstColumnY);
-	})
+	});
 });

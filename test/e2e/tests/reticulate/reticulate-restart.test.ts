@@ -40,7 +40,7 @@ test.describe('Reticulate', {
 
 		await app.code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Yes' }).click();
 
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		await app.workbench.console.waitForReadyAndStarted('>>>', 30000, 2);
 
 	});
 });

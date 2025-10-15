@@ -124,6 +124,9 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
         with:
