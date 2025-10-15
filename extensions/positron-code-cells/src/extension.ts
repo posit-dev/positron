@@ -8,7 +8,7 @@ import { initializeLogging } from './logging';
 import { CellCodeLensProvider } from './codeLenses';
 import { activateDecorations } from './decorations';
 import { activateContextKeys } from './context';
-import { activateDocumentManagers, reparseOpenDocuments } from './documentManager';
+import { activateDocumentManagers } from './documentManager';
 import { registerCommands } from './commands';
 
 export const IGNORED_SCHEMES = ['vscode-notebook-cell', 'vscode-interactive-input'];
@@ -25,13 +25,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		// Adds 'Run Cell' | 'Run Above' | 'Run Below' code lens for cells
 		vscode.languages.registerCodeLensProvider('*', new CellCodeLensProvider()),
-
-		// Listen for configuration changes and reparse the open documents
-		vscode.workspace.onDidChangeConfiguration(event => {
-			if (event.affectsConfiguration('codeCells.additionalCellDelimiter')) {
-				reparseOpenDocuments();
-			}
-		}),
 
 		// Temporarily disabled because registering this provider causes it to
 		// become the *only* folding range provider for R and Python files,

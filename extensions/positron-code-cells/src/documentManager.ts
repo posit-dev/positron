@@ -12,13 +12,6 @@ import { IGNORED_SCHEMES } from './extension';
 // export const documentManagers: DocumentManager[] = [];
 const documentManagers: Map<vscode.Uri, DocumentManager> = new Map();
 
-// Function to reparse document cells
-export function reparseOpenDocuments(): void {
-	documentManagers.forEach(manager => {
-		manager.parseCells();
-	});
-}
-
 // Creates a cached document that handles parsing code cells for supported languages
 export class DocumentManager implements vscode.Disposable {
 	private cells: Cell[] = [];
@@ -93,9 +86,20 @@ export function activateDocumentManagers(disposables: vscode.Disposable[]): void
 		// Trigger a decorations update when the active editor's content changes.
 		vscode.workspace.onDidChangeTextDocument(event => {
 			getOrCreateDocumentManager(event.document)?.parseCells();
-		})
+		}),
+
+		// Trigger parsing the open documents when the cell delimiter changes.
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('codeCells.additionalCellDelimiter')) {
+				reparseOpenDocuments();
+			}
+		}),
 	);
 }
 
-
-
+// Function to reparse document cells
+function reparseOpenDocuments(): void {
+	documentManagers.forEach(manager => {
+		manager.parseCells();
+	});
+}
