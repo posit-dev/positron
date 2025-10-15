@@ -43,6 +43,13 @@ export const INSTRUCTIONS_DEFAULT_SOURCE_FOLDER = '.github/instructions';
  */
 export const MODE_DEFAULT_SOURCE_FOLDER = '.github/chatmodes';
 
+// --- Start Positron ---
+// Additional search paths for `.positron` directory
+export const PROMPT_POSITRON_SOURCE_FOLDER = '.positron/prompts';
+export const INSTRUCTIONS_POSITRON_SOURCE_FOLDER = '.positron/instructions';
+export const MODE_POSITRON_SOURCE_FOLDER = '.positron/chatmodes';
+// --- End Positron ---
+
 /**
  * Gets the prompt file type from the provided path.
  */

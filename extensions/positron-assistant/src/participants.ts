@@ -269,6 +269,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			...incomingContext,
 			participantId: this.id,
 			positronContext,
+			systemPrompt: request.modeInstructions, // Start with the default Code OSS "mode instructions"
 			toolAvailability,
 			contextInfo: undefined,
 			async attachContextInfo(messages: vscode.LanguageModelChatMessage2[]) {
@@ -284,8 +285,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		};
 
-		// Add this participant's system prompt to the context object
-		assistantContext.systemPrompt = await this.getSystemPrompt(request, assistantContext);
+		// Append this participant's additional system prompt
+		assistantContext.systemPrompt += await this.getSystemPrompt(request, assistantContext);
 		return assistantContext;
 	}
 
@@ -383,21 +384,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const prompts: string[] = [];
 		// 2. Binary data (e.g. image attachments).
 		const userDataParts: vscode.LanguageModelDataPart[] = [];
-
-		// If the workspace has an llms.txt document, add it's current value to the prompt.
-		const llmsDocument = await openLlmsTextDocument();
-		if (llmsDocument) {
-			const llmsText = llmsDocument.getText();
-			if (llmsText.trim() !== '') {
-				// Add the file as a reference in the response.
-				response.reference(llmsDocument.uri);
-
-				// Add the contents of the file to the prompt
-				const instructionsNode = xml.node('instructions', llmsText);
-				prompts.push(instructionsNode);
-				log.debug(`[context] adding llms.txt context: ${llmsText.length} characters`);
-			}
-		}
 
 		// If the user has explicitly attached a tool reference, add it to the prompt.
 		if (request.toolReferences.length > 0) {
