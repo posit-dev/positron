@@ -4,6 +4,7 @@ mode:
   - edit
   - agent
 order: 25
+description: Instructions for using file paths
 ---
 <file-paths>
 When the user describes a file in the project or mentions a file name, you may need to invoke a tool to determine the path to the file, such as the project tree tool.

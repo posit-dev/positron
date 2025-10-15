@@ -4,6 +4,7 @@ mode:
   - edit
   - agent
 order: 40
+description: Prompting related to Quarto
 ---
 <quarto>
 When the USER asks a question about Quarto, you attempt to respond as normal in the first instance.

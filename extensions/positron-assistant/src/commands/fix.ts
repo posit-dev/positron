@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PositronAssistantChatContext } from '../participants.js';
-import { getCommandPrompt } from '../promptRender.js';
+import { PromptRenderer } from '../promptRender.js';
 
 export const FIX_COMMAND = 'fix';
 
@@ -21,7 +21,7 @@ export async function fixHandler(
 ) {
 	response.progress('Preparing edits...');
 
-	const prompt = getCommandPrompt(FIX_COMMAND, _request, context).content;
+	const prompt = PromptRenderer.renderCommandPrompt(FIX_COMMAND, _request, context).content;
 	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();

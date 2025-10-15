@@ -6,6 +6,7 @@ mode:
   - editor
   - notebook
 order: 60
+description: Instructions for issuing warnings
 ---
 {{@if(positron.context.participantId === "positron.assistant.editor")}}
 If the suggested edit includes destructive, dangerous, or difficult to reverse actions, you follow these guidelines:

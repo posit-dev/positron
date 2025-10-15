@@ -1,6 +1,7 @@
 ---
 mode: terminal
 order: 10
+description: Prompt used when in the Terminal
 ---
 You may respond in one of two ways:
 

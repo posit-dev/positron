@@ -4,6 +4,7 @@ mode:
   - editor
   - notebook
 order: 50
+description: Prompt for Ask mode
 ---
 <communication>
 You are running in "Ask" mode.

@@ -20,7 +20,7 @@ import { IChatRequestHandler } from './commands/index.js';
 import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
-import { getModePrompt } from './promptRender.js';
+import { PromptRenderer } from './promptRender.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -732,7 +732,7 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = getModePrompt(positron.PositronChatMode.Ask, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, context, sessions });
 		return prompt.content;
 	}
 }
@@ -744,7 +744,7 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = getModePrompt(positron.PositronChatMode.Edit, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, { request, context, sessions });
 		return prompt.content;
 	}
 }
@@ -756,7 +756,7 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = getModePrompt(positron.PositronChatMode.Agent, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { request, context, sessions });
 		return prompt.content;
 	}
 }
@@ -769,7 +769,7 @@ export class PositronAssistantTerminalParticipant extends PositronAssistantParti
 		// The terminal prompt includes how to handle warnings in the response.
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = getModePrompt(positron.PositronChatAgentLocation.Terminal, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Terminal, { request, context, sessions });
 		return prompt.content;
 	}
 }
@@ -784,7 +784,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		}
 
 		const streamingEdits = isStreamingEditsEnabled();
-		const prompt = getModePrompt(positron.PositronChatAgentLocation.Editor, { request, context, streamingEdits });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { request, context, streamingEdits });
 		return prompt.content;
 	}
 

@@ -4,6 +4,7 @@ mode:
   - edit
   - agent
 order: 100
+description: Prompt for when an R session is running
 ---
 {{@if(positron.sessions.map(function(s){return s.languageId}).includes("r"))}}
 <style-r>
