@@ -14,7 +14,7 @@
     "types": "./out/main.d.ts",
     "engines": {
         "node": ">=22.17.0",
-        "vscode": "^1.93.0"
+        "vscode": "^1.104.0"
     },
     "license": "MIT",
     "homepage": "https://github.com/microsoft/vscode-python/tree/main/pythonExtensionApi",
@@ -27,7 +27,7 @@
     },
     "devDependencies": {
         "typescript": "~5.2",
-        "@types/vscode": "^1.102.0",
+        "@types/vscode": "^1.104.0",
         "source-map": "^0.8.0-beta.0"
     },
     "scripts": {
