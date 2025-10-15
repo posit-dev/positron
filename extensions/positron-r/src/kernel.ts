@@ -160,7 +160,7 @@ function determineWindowsKernelArch(options?: ArkKernelLookupOptions): WindowsKe
  * @param value The architecture string to normalize.
  * @returns The normalized architecture, or undefined if not recognized.
  */
-function normalizeWindowsArch(value: string | undefined): WindowsKernelArch | undefined {
+export function normalizeWindowsArch(value: string | undefined): WindowsKernelArch | undefined {
 	if (!value) {
 		return undefined;
 	}

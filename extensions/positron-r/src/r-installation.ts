@@ -11,7 +11,7 @@ import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
 import { arePathsSame } from './path-utils';
 import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
-import { sniffWindowsBinaryArchitecture } from './kernel.js';
+import { normalizeWindowsArch, sniffWindowsBinaryArchitecture } from './kernel.js';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -263,8 +263,11 @@ export class RInstallation {
 
 			// Double check against the binary itself and log a warning if there's a mismatch.
 			const detectedArch = sniffWindowsBinaryArchitecture(this.binpath);
-			if (detectedArch && detectedArch !== derivedArch) {
-				LOGGER.warn(`Sniffed Windows architecture from R binary: ${detectedArch}, which differs from the derived architecture ${derivedArch} for R ${this.version} at ${this.binpath}`);
+			if (detectedArch) {
+				const normalizedArch = normalizeWindowsArch(derivedArch);
+				if (normalizedArch && detectedArch !== normalizedArch) {
+					LOGGER.warn(`Discrepancy between derived Windows architecture ${derivedArch} and sniffed architecture ${detectedArch} for R ${this.version} at ${this.binpath}`);
+				}
 			}
 		}
 
