@@ -101,6 +101,16 @@ export interface RuntimeSessionReference {
 }
 
 /**
+ * A prompt instructions file reference.
+ */
+export interface PromptInstructionsReference {
+	id: string;
+	modelDescription: string;
+	name: string;
+	value: vscode.Uri;
+}
+
+/**
  * A single variable in the runtime.
  *
  * This is from positronVariablesComm.ts, but it is not exported in positron.d.ts.
