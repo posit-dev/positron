@@ -11,6 +11,7 @@ import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
 import { arePathsSame } from './path-utils';
 import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
+import { sniffWindowsBinaryArchitecture } from './kernel.js';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -258,6 +259,12 @@ export class RInstallation {
 				derivedArch = 'arm64';
 			} else if (!derivedArch && pathSegments.some(segment => segment === 'x64' || segment.endsWith('-x64'))) {
 				derivedArch = 'x86_64';
+			}
+
+			// Double check against the binary itself and log a warning if there's a mismatch.
+			const detectedArch = sniffWindowsBinaryArchitecture(this.binpath);
+			if (detectedArch && detectedArch !== derivedArch) {
+				LOGGER.warn(`Sniffed Windows architecture from R binary: ${detectedArch}, which differs from the derived architecture ${derivedArch} for R ${this.version} at ${this.binpath}`);
 			}
 		}
 

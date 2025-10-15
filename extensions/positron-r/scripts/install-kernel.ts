@@ -39,9 +39,17 @@ const readResponseBody = async (response: IncomingMessage): Promise<Buffer> => {
 	});
 };
 
+/**
+ * Information about a specific Ark asset to download.
+ */
 interface ArkAssetTarget {
+	/// The suffix of the asset file to download.
 	readonly assetSuffix: string;
+
+	/// An optional subdirectory into which the asset should be extracted.
 	readonly subdirectory?: string;
+
+	/// A human-readable label for the asset.
 	readonly label: string;
 }
 
@@ -49,16 +57,28 @@ const redirectStatusCodes = new Set([301, 302, 307, 308]);
 
 type NodeArch = ReturnType<typeof arch>;
 
+/**
+ * Get the download targets for a specific platform and architecture.
+ *
+ * @param currentPlatform The current platform (e.g., 'win32', 'darwin', 'linux').
+ * @param currentArch The desired architecture (e.g., 'x64', 'arm64').
+ *
+ * @returns An array of ArkAssetTarget objects representing the download targets.
+ */
 function getDownloadTargets(currentPlatform: NodeJS.Platform, currentArch: NodeArch): ArkAssetTarget[] {
 	switch (currentPlatform) {
 		case 'win32':
+			// On Windows, we always download both the x64 and arm64 builds, since
+			// Windows on ARM can run x64 binaries via emulation.
 			return [
 				{ assetSuffix: 'windows-arm64', subdirectory: 'windows-arm64', label: 'Windows ARM64' },
 				{ assetSuffix: 'windows-x64', subdirectory: 'windows-x64', label: 'Windows x64' }
 			];
 		case 'darwin':
+			// Use the universal binary on macOS.
 			return [{ assetSuffix: 'darwin-universal', label: 'macOS Universal' }];
 		case 'linux':
+			// On Linux, we only download the build for the current architecture.
 			return [{
 				assetSuffix: currentArch === 'arm64' ? 'linux-arm64' : 'linux-x64',
 				label: currentArch === 'arm64' ? 'Linux ARM64' : 'Linux x64'
@@ -68,6 +88,13 @@ function getDownloadTargets(currentPlatform: NodeJS.Platform, currentArch: NodeA
 	}
 }
 
+/**
+ * Build the request options for downloading an Ark asset.
+ *
+ * @param url The URL of the asset to download.
+ * @param headers The headers to include in the request.
+ * @returns The request options for the HTTPS request.
+ */
 function buildRequestOptions(url: URL, headers: Record<string, string>): https.RequestOptions {
 	return {
 		headers,
@@ -78,6 +105,13 @@ function buildRequestOptions(url: URL, headers: Record<string, string>): https.R
 	};
 }
 
+/**
+ * Downloads a release asset from GitHub.
+ *
+ * @param assetUrl The URL of the asset to download.
+ * @param headers The headers to include in the request.
+ * @returns The downloaded asset as a Buffer.
+ */
 async function downloadReleaseAsset(assetUrl: string, headers: Record<string, string>): Promise<Buffer> {
 	let requestUrl = new URL(assetUrl);
 	let response = await httpsGetAsync(buildRequestOptions(requestUrl, headers));

@@ -10,13 +10,21 @@ import * as vscode from 'vscode';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR } from './constants';
 
+/**
+ * Options that help locate the Ark kernel binary.
+ */
 interface ArkKernelLookupOptions {
+	/// The path to the R binary, if known.
 	readonly rBinaryPath?: string;
+
+	/// The R_HOME path, if known.
 	readonly rHomePath?: string;
+
+	/// The architecture of the R binary, if known.
 	readonly rArch?: string;
 }
 
-type WindowsKernelArch = 'arm64' | 'x64' | 'x86';
+type WindowsKernelArch = 'arm64' | 'x64';
 
 /**
  * Attempts to locate a copy of the Ark kernel. The kernel is searched for in the following
@@ -64,6 +72,8 @@ export function getArkKernelPath(options?: ArkKernelLookupOptions): string | und
 	const arkRoot = path.join(EXTENSION_ROOT_DIR, 'resources', 'ark');
 
 	if (os.platform() === 'win32') {
+		// On Windows, we need additional logic to locate the correct kernel
+		// binary since it may be in a subdirectory based on architecture.
 		const embeddedKernel = resolveWindowsEmbeddedKernel(arkRoot, kernelName, options);
 		if (embeddedKernel) {
 			return embeddedKernel;
@@ -78,6 +88,15 @@ export function getArkKernelPath(options?: ArkKernelLookupOptions): string | und
 	return undefined;
 }
 
+/**
+ * Resolves the path to the embedded Ark kernel on Windows.
+ *
+ * @param arkRoot The root directory of the Ark installation.
+ * @param kernelName The name of the kernel executable.
+ * @param options Additional options for kernel resolution.
+ *
+ * @returns The path to the embedded kernel, or undefined if not found.
+ */
 function resolveWindowsEmbeddedKernel(
 	arkRoot: string,
 	kernelName: string,
@@ -101,24 +120,46 @@ function resolveWindowsEmbeddedKernel(
 	return undefined;
 }
 
+/**
+ * Determines the architecture of the Ark kernel on Windows.
+ *
+ * @param options Kernel lookup options.
+ * @returns The architecture of the kernel, or undefined if not found.
+ */
 function determineWindowsKernelArch(options?: ArkKernelLookupOptions): WindowsKernelArch | undefined {
 	if (!options) {
 		return undefined;
 	}
 
+	// First, see if the architecture was explicitly specified.
 	const normalized = normalizeWindowsArch(options.rArch);
 	if (normalized) {
+		LOGGER.debug(`Using previously detected Windows architecture: ${normalized}`);
 		return normalized;
 	}
 
+	// If unknown, peek at the R binary, if we have one.
 	const sniffed = sniffWindowsBinaryArchitecture(options.rBinaryPath);
 	if (sniffed) {
+		LOGGER.debug(`Sniffed Windows architecture from R binary: ${sniffed}`);
 		return sniffed;
 	}
 
-	return deriveArchFromPaths([options.rBinaryPath, options.rHomePath]);
+	// In the absence of any other information, try to derive the architecture
+	// from the R binary and R_HOME paths, if we have them.
+	const arch = deriveArchFromPaths([options.rBinaryPath, options.rHomePath]);
+	if (arch) {
+		LOGGER.debug(`Derived Windows architecture from ${options.rBinaryPath} and ${options.rHomePath}: ${arch}`);
+		return arch;
+	}
 }
 
+/**
+ * Normalizes a Windows architecture string.
+ *
+ * @param value The architecture string to normalize.
+ * @returns The normalized architecture, or undefined if not recognized.
+ */
 function normalizeWindowsArch(value: string | undefined): WindowsKernelArch | undefined {
 	if (!value) {
 		return undefined;
@@ -130,12 +171,15 @@ function normalizeWindowsArch(value: string | undefined): WindowsKernelArch | un
 	if (normalized === 'x64' || normalized === 'x86_64' || normalized === 'amd64') {
 		return 'x64';
 	}
-	if (normalized === 'x86' || normalized === 'i386' || normalized === 'ia32') {
-		return 'x86';
-	}
 	return undefined;
 }
 
+/**
+ * Derives the architecture of the Ark kernel from a list of paths.
+ *
+ * @param paths
+ * @returns The derived architecture, or undefined if not found.
+ */
 function deriveArchFromPaths(paths: Array<string | undefined>): WindowsKernelArch | undefined {
 	for (const candidate of paths) {
 		if (!candidate) {
@@ -145,21 +189,25 @@ function deriveArchFromPaths(paths: Array<string | undefined>): WindowsKernelArc
 		if (/(^|\/)arm64(\/|$)/.test(normalized) || normalized.includes('-arm64')) {
 			return 'arm64';
 		}
+		if (/(^|\/)aarch64(\/|$)/.test(normalized) || normalized.includes('-aarch64')) {
+			return 'arm64';
+		}
 		if (/(^|\/)(x64|amd64)(\/|$)/.test(normalized)) {
 			return 'x64';
-		}
-		if (/(^|\/)(x86|i386)(\/|$)/.test(normalized)) {
-			return 'x86';
 		}
 	}
 	return undefined;
 }
 
+/***
+ * Get the search order for Windows kernel architectures, based on a preferred
+ * architecture.
+ */
 function getWindowsSearchOrder(preferred?: WindowsKernelArch): string[] {
 	if (preferred === 'arm64') {
 		return ['windows-arm64', 'windows-x64'];
 	}
-	if (preferred === 'x64' || preferred === 'x86') {
+	if (preferred === 'x64') {
 		return ['windows-x64', 'windows-arm64'];
 	}
 	if (process.arch === 'arm64') {
@@ -168,6 +216,13 @@ function getWindowsSearchOrder(preferred?: WindowsKernelArch): string[] {
 	return ['windows-x64', 'windows-arm64'];
 }
 
+/**
+ * Wrapper around `fs.statSync` that returns `undefined` if the path does not exist
+ * or is otherwise inaccessible.
+ *
+ * @param targetPath The path to check.
+ * @returns The file stats, or undefined if the path is inaccessible.
+ */
 function safeStatSync(targetPath: string): fs.Stats | undefined {
 	try {
 		return fs.statSync(targetPath);
@@ -176,29 +231,41 @@ function safeStatSync(targetPath: string): fs.Stats | undefined {
 	}
 }
 
-function sniffWindowsBinaryArchitecture(binaryPath?: string): WindowsKernelArch | undefined {
+/**
+ * Sniffs the architecture of a Windows binary by examining its PE header.
+ *
+ * @param binaryPath The path to the binary file.
+ * @returns The detected architecture, or undefined if not recognized.
+ */
+export function sniffWindowsBinaryArchitecture(binaryPath?: string): WindowsKernelArch | undefined {
 	if (!binaryPath) {
 		return undefined;
 	}
 	try {
 		const fd = fs.openSync(binaryPath, 'r');
 		try {
+			// Read the PE header to determine the architecture.
 			const header = Buffer.alloc(64);
 			fs.readSync(fd, header, 0, header.length, 0);
 			const peOffset = header.readUInt32LE(0x3C);
 			const peHeader = Buffer.alloc(6);
 			fs.readSync(fd, peHeader, 0, peHeader.length, peOffset);
 			if (peHeader.toString('utf8', 0, 2) !== 'PE') {
+				// Not a PE file.
 				return undefined;
 			}
+			// Read the machine type from the PE header.
 			const machine = peHeader.readUInt16LE(4);
 			switch (machine) {
 				case 0xAA64:
+					LOGGER.debug(`Detected ARM64 architecture for Windows binary at ${binaryPath}`);
 					return 'arm64';
 				case 0x8664:
+					LOGGER.debug(`Detected x64 architecture for Windows binary at ${binaryPath}`);
 					return 'x64';
 				case 0x14c:
-					return 'x86';
+					LOGGER.debug(`Detected x86 architecture for Windows binary at ${binaryPath} (unsupported)`);
+					return undefined; // 32 bit x86, which we don't support
 				default:
 					return undefined;
 			}

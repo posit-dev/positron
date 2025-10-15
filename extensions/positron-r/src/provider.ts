@@ -677,18 +677,28 @@ function rHeadquarters(): string[] {
 		case 'linux':
 			return [path.join('/opt', 'R')];
 		case 'win32': {
-			const defaultProgramFiles = 'C:\\Program Files';
+			// If the environment variable PROGRAMFILES is set, use that.
 			const programFilesDirs = new Set<string>();
 			const programFilesEnv = process.env['PROGRAMFILES'] || process.env['ProgramFiles'];
 			if (programFilesEnv) {
 				programFilesDirs.add(programFilesEnv);
 			}
+
+			// Respect the PROGRAMW6432 environment variable if it is set, too
 			if (process.env['ProgramW6432']) {
 				programFilesDirs.add(process.env['ProgramW6432']);
 			}
+
+			// If no environment variables provided a location to look, fall
+			// back to C:\Program Files
 			if (programFilesDirs.size === 0) {
-				programFilesDirs.add(defaultProgramFiles);
+				programFilesDirs.add('C:\\Program Files');
 			}
+
+			// In each of the Program Files directories, look for R installations
+			// in both R\ and R-aarch64\ (on ARM64 Windows)
+			// Also look in %LOCALAPPDATA%\Programs\R and R-aarch64
+			// (on ARM64 Windows)
 			const paths: string[] = [];
 			for (const baseDir of programFilesDirs) {
 				paths.push(path.join(baseDir, 'R'));
@@ -707,7 +717,7 @@ function rHeadquarters(): string[] {
 			return [...new Set(paths)];
 		}
 		default:
-			throw new Error('Unsupported platform');
+			throw new Error(`Unsupported platform: ${process.platform}`);
 	}
 }
 

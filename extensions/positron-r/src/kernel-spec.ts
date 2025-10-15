@@ -18,6 +18,7 @@ import { EXTENSION_ROOT_DIR } from './constants';
  * @param rHomePath The R_HOME path for the R version
  * @param runtimeName The (display) name of the runtime
  * @param sessionMode The mode in which to create the session
+ * @param options Additional options: specifically, the R binary path and architecture
  *
  * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
  *  metadata.
