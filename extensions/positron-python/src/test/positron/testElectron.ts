@@ -127,7 +127,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         );
         const { stdout } = await executeCommand(
             'git credential fill',
-            `protocol=https\nhost=github.com\npath=/repos/posit-dev/positron/releases\n`,
+            `protocol=https\nhost=github.com\npath=/repos/posit-dev/positron-builds/releases\n`,
         );
 
         gitCredential = true;
