@@ -213,25 +213,6 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         );
     }
 
-    let responseBody = '';
-    response.on('data', (chunk) => {
-        responseBody += chunk;
-    });
-
-    const releases = await new Promise((resolve, reject) => {
-        response.once('end', async () => {
-            if (response.statusCode !== 200) {
-                reject(new Error(`Failed to download Positron: HTTP ${response.statusCode}\n\n${responseBody}`));
-            } else {
-                resolve(JSON.parse(responseBody));
-            }
-        });
-    });
-
-    if (!Array.isArray(releases)) {
-        throw new Error(`Unexpected response from Github:\n\n${responseBody}`);
-    }
-
     // Get releases from the Positron CDN instead of GitHub releases
     const cdnResponse = await httpsGetAsync({
         headers: {
@@ -248,7 +229,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         cdnResponseBody += chunk;
     });
 
-    const cdnReleases = await new Promise((resolve, reject) => {
+    const cdnRelease = await new Promise<any>((resolve, reject) => {
         cdnResponse.once('end', async () => {
             if (cdnResponse.statusCode !== 200) {
                 reject(
@@ -262,14 +243,8 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         });
     });
 
-    if (!Array.isArray(cdnReleases)) {
+    if (!cdnRelease) {
         throw new Error(`Unexpected response from CDN:\n\n${cdnResponseBody}`);
-    }
-
-    const release = cdnReleases[0];
-
-    if (!release) {
-        throw new Error(`Unexpected error, no releases found.`);
     }
 
     const { platform } = process;
@@ -283,7 +258,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         }
     }
 
-    const version = release.version;
+    const version = cdnRelease.version;
     console.log(`Using ${version} build of Positron`);
 
     // Exit early if the version has already been downloaded and unzipped.
