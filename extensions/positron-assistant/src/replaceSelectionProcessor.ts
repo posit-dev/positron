@@ -91,8 +91,8 @@ export class ReplaceSelectionProcessor {
 			this._response.textEdit(this._uri, vscode.TextEdit.delete(this._selection));
 			this._didDeleteSelection = true;
 
-			// Update the insert position to the end of the deleted text.
-			this._insertPosition = this._selection.anchor;
+			// Update the insert position to the start of the removed text.
+			this._insertPosition = this._selection.start;
 		}
 
 		// Insert the new chunk at the start of the selection.

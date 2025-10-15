@@ -154,7 +154,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		},
 		{ scope: 'test' }],
 
-	// ex: await packages.manage('ipykernel', 'install');
+	// ex: await packages.manage('snowflake', 'install');
 	// ex: await packages.manage('renv', 'uninstall');
 	packages: [async ({ app }, use) => {
 		const packageManager = new PackageManager(app);

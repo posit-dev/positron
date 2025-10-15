@@ -182,8 +182,8 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2025.7.0",
-			"sha256sum": "aa051fc2e5d292c35121a3cb2b369116406e0a72dd5215b4b659af367e019b6a",
+			"version": "2025.8.0",
+			"sha256sum": "3e0373fe1b309660e6e53189ab7ad34f7e374d3c7a76b8e4621d6a5b93d4caae",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -214,7 +214,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.10.0",
+			"version": "2025.14.1",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.9",
+			"version": "1.23.12",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -281,8 +281,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.116.1",
-			"sha256": "004f371e8b58581b7ce8daf229bc34465c4c6451350106489463a3fd7df5a299",
+			"version": "0.118.2",
+			"sha256": "c397647f9b4286292abb85e07ad466a968d0aa6c120e75f770a4f421b4c3d9bd",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
