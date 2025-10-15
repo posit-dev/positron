@@ -277,7 +277,7 @@ export class PromptRenderer {
 	private _renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
 		const matchingDocuments = this.getModePromptDocuments(mode);
 		if (matchingDocuments.length === 0) {
-			throw new Error(`No prompt documents found for mode: ${mode}`);
+			return { content: '', metadata: {} };
 		}
 
 		// Merge prompts
@@ -286,7 +286,7 @@ export class PromptRenderer {
 
 		// Render prompt template
 		log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
-		const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
+		const result = Sqrl.render(mergedContent, data, { varName: 'positron' }) as string;
 
 		return {
 			content: result,
