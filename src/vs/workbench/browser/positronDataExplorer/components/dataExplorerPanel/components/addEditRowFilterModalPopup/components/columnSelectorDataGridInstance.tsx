@@ -343,4 +343,38 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion Private Methods
+
+	/**
+	 * Moves the cursor down.
+	 * Override to work with visual positions instead of data indices.
+	 */
+	override moveCursorDown() {
+		// Calculate the next visual position
+		const nextRowIndex = this.cursorRowIndex + 1;
+		// Check if we're at the last row
+		if (nextRowIndex >= this.rows) {
+			return;
+		}
+		// Set the cursor row index to the next visual position
+		this.setCursorRow(nextRowIndex);
+		// Scroll to the cursor
+		this.scrollToCursor();
+	}
+
+	/**
+	 * Moves the cursor up.
+	 * Override to work with visual positions instead of data indices.
+	 */
+	override moveCursorUp() {
+		// Calculate the previous visual position
+		const prevRowIndex = this.cursorRowIndex - 1;
+		// Check if we're at the first row
+		if (prevRowIndex < 0) {
+			return;
+		}
+		// Set the cursor row index to the previous visual position
+		this.setCursorRow(prevRowIndex);
+		// Scroll to the cursor
+		this.scrollToCursor();
+	}
 }
