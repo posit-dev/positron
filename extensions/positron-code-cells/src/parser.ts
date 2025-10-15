@@ -64,9 +64,13 @@ const pythonMarkdownRegExp = new RegExp(/^#\s*%%[^[]*\[markdown\]/);
 const rIsCellStartRegExp = new RegExp(/^#\s*(%%|\+)/);
 const rIsSectionHeaderRegExp = new RegExp(/^#+.*[-=]{4,}\s*$/);
 
+function getAdditionalCellDelimiter(): string {
+	return vscode.workspace.getConfiguration('codeCells').get('additionalCellDelimiter', '# COMMAND ----------');
+}
+
 // TODO: Expose an API to let extensions register parsers
 const pythonCellParser: CellParser = {
-	isCellStart: (line) => pythonIsCellStartRegExp.test(line),
+	isCellStart: (line) => pythonIsCellStartRegExp.test(line) || line === getAdditionalCellDelimiter(),
 	isCellEnd: (_line) => false,
 	getCellType: (line) => pythonMarkdownRegExp.test(line) ? CellType.Markdown : CellType.Code,
 	getCellText: (cell, document) =>
@@ -77,8 +81,8 @@ const pythonCellParser: CellParser = {
 };
 
 const rCellParser: CellParser = {
-	isCellStart: (line) => rIsCellStartRegExp.test(line),
-	isCellEnd: (_line) => rIsSectionHeaderRegExp.test(_line),
+	isCellStart: (line) => rIsCellStartRegExp.test(line) || line === getAdditionalCellDelimiter(),
+	isCellEnd: (_line) => _line !== getAdditionalCellDelimiter() && rIsSectionHeaderRegExp.test(_line),
 	getCellType: (_line) => CellType.Code,
 	getCellText: getCellText,
 	newCell: () => '\n# %%\n'
