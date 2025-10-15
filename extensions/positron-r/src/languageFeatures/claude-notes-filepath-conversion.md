@@ -109,10 +109,19 @@ For future console implementation, investigate:
 
 Example: `\\localhost\c$\Users\jenny\readxl\inst\extdata\geometry.xlsx`
 
-## Interesting example to study
+## Interesting code to study
 
-Recent discovery: the markdown-language-features has a similar feature for pasting or dragging-and-dropping of files into markdown documents. I will look at this later. Key files:
+The markdown-language-features extension has a similar feature for pasting or dragging-and-dropping of files into markdown documents. I will look at this later. Key files:
 
 * `extensions\markdown-language-features\src\languageFeatures\copyFiles\dropOrPasteResource.ts`
 * `extensions\markdown-language-features\src\extension.shared.ts`
 * `extensions\markdown-language-features\src\languageFeatures\copyFiles\shared.ts` (look at `getRelativeMdPath()`)
+
+Other potentially interesting files:
+* `src\vs\editor\contrib\dropOrPasteInto\browser\defaultProviders.ts`
+
+## RStudio's implementation
+
+* `onDesktopPaste()`: <https://github.com/rstudio/rstudio/blob/5364b4eb3fd7333c15b5e637007bf93d48963c50/src/gwt/src/org/rstudio/studio/client/workbench/views/source/editors/text/AceEditorWidget.java#L428-L490>
+* `makeProjectRelative()`: <https://github.com/rstudio/rstudio/blob/4f7258ad7728bca57e8635c9011f351801620e22/src/cpp/session/modules/SessionFiles.cpp#L781-L815>
+* `FilePath::createAliasedPath()`: <https://github.com/rstudio/rstudio/blob/5364b4eb3fd7333c15b5e637007bf93d48963c50/src/cpp/shared_core/FilePath.cpp#L444-L472>

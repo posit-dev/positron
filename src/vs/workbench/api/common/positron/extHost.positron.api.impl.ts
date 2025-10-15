@@ -6,6 +6,7 @@
 import { ExtHostLanguageRuntime } from './extHostLanguageRuntime.js';
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
+import { URI } from '../../../../base/common/uri.js';
 import { IExtHostRpcService } from '../extHostRpcService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -269,26 +270,34 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			/**
 			 * Extract file paths from clipboard for use in data analysis code.
 			 */
-			async extractClipboardFilePaths(dataTransfer: vscode.DataTransfer): Promise<string[] | null> {
-				// Convert VS Code DataTransfer to browser-compatible format
+			async extractClipboardFilePaths(
+				dataTransfer: vscode.DataTransfer,
+				options?: {
+					preferRelative?: boolean;
+					baseUri?: vscode.Uri;
+				}
+			): Promise<string[] | null> {
+				// Get URI list data from VS Code DataTransfer
 				const uriListItem = dataTransfer.get('text/uri-list');
 				if (!uriListItem) {
 					return null;
 				}
 
-				const uriList = await uriListItem.asString();
-				if (!uriList) {
+				try {
+					const uriListData = await uriListItem.asString();
+					if (!uriListData) {
+						return null;
+					}
+
+					const convertOptions = options ? {
+						...options,
+						baseUri: options.baseUri ? URI.from(options.baseUri) : undefined
+					} : undefined;
+					return convertClipboardFiles(uriListData, convertOptions);
+				} catch {
+					// Item was not text data
 					return null;
 				}
-
-				// Create mock DataTransfer for the core utility
-				const mockDataTransfer: Pick<DataTransfer, 'getData' | 'types'> = {
-					getData: (format: string) => format === 'text/uri-list' ? uriList : '',
-					types: ['text/uri-list']
-				};
-
-				// Use the core utility directly
-				return convertClipboardFiles(mockDataTransfer as DataTransfer);
 			}
 		};
 
