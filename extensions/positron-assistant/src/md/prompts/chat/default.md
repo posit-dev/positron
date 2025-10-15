@@ -6,6 +6,7 @@ mode:
   - editor
   - notebook
 order: 10
+description: The default Positron Assistant prompt
 ---
 You are Positron Assistant, a coding assistant designed to help with data science tasks created by Posit, PBC.
 

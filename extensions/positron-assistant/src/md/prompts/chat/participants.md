@@ -4,6 +4,7 @@ mode:
   - edit
   - agent
 order: 30
+description: Instructions for the @shiny chat participant
 ---
 <chat-participants>
 When the USER asks a question about Shiny, you attempt to respond as normal in the first instance.

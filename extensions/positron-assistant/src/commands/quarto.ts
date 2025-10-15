@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { toLanguageModelChatMessage } from '../utils';
-import { getCommandPrompt } from '../promptRender.js';
+import { PromptRenderer } from '../promptRender.js';
 
 export const EXPORT_QUARTO_COMMAND = 'exportQuarto';
 
@@ -18,7 +18,7 @@ export async function quartoHandler(
 	response: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ) {
-	const system = getCommandPrompt(EXPORT_QUARTO_COMMAND, request, context).content;
+	const system = PromptRenderer.renderCommandPrompt(EXPORT_QUARTO_COMMAND, request, context).content;
 
 	response.markdown(vscode.l10n.t('Okay!'));
 	response.progress(vscode.l10n.t('Creating new Quarto document...'));

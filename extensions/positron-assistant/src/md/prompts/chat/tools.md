@@ -4,6 +4,7 @@ mode:
   - edit
   - agent
 order: 20
+description: Instructions for using tools
 ---
 <tools>
 We will provide you with a collection of tools to interact with the current Positron session.

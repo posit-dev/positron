@@ -12,6 +12,12 @@ import * as Sqrl from 'squirrelly';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
 
+const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
+
+type StoredPromptSelectionConfig = Partial<Record<PromptMetadataMode, { file: string; enabled: boolean }[]>>;
+
+//#region Prompt templating
+
 /**
  * YAML frontmatter metadata for prompt files
  */
@@ -54,193 +60,337 @@ interface PromptRenderData {
 	streamingEdits?: boolean;
 }
 
-/**
- * Parse YAML frontmatter from markdown content
- */
-function parseYamlFrontmatter(content: string): PromptDocument {
-	const yamlMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-
-	if (!yamlMatch) {
-		return { metadata: {}, content };
+export class PromptRenderer {
+	private static _instance: PromptRenderer | undefined;
+	constructor(public extensionContext: vscode.ExtensionContext) {
+		if (!PromptRenderer._instance) {
+			PromptRenderer._instance = this;
+		}
 	}
 
-	const yamlContent = yamlMatch[1];
-	const markdownContent = yamlMatch[2];
-
-	try {
-		const metadata = yaml.parse(yamlContent) as PromptMetadata;
-		return { metadata: metadata || {}, content: markdownContent };
-	} catch (error) {
-		log.warn('[PromptRender] Failed to parse YAML frontmatter:', error);
-		return { metadata: {}, content: markdownContent };
+	/**
+	 * Get the singleton instance of PromptRenderer
+	 */
+	static get instance(): PromptRenderer {
+		if (!PromptRenderer._instance) {
+			throw new Error('PromptRenderer has not been initialized');
+		}
+		return PromptRenderer._instance;
 	}
-}
+
+	/**
+	 * Parse YAML frontmatter from markdown content
+	 */
+	private parseYamlFrontmatter(content: string): PromptDocument {
+		const yamlMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+
+		if (!yamlMatch) {
+			return { metadata: {}, content };
+		}
+
+		const yamlContent = yamlMatch[1];
+		const markdownContent = yamlMatch[2];
+
+		try {
+			const metadata = yaml.parse(yamlContent) as PromptMetadata;
+			return { metadata: metadata || {}, content: markdownContent };
+		} catch (error) {
+			log.warn('[PromptRender] Failed to parse YAML frontmatter:', error);
+			return { metadata: {}, content: markdownContent };
+		}
+	}
 
 
-/**
- * Recursively find all .md files in a directory
- */
-function findMarkdownFiles(dir: string): string[] {
-	const files: string[] = [];
+	/**
+	 * Recursively find all .md files in a directory
+	 */
+	private findMarkdownFiles(dir: string): string[] {
+		const files: string[] = [];
 
-	try {
-		const entries = fs.readdirSync(dir, { withFileTypes: true });
-		for (const entry of entries) {
-			const fullPath = path.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				files.push(...findMarkdownFiles(fullPath));
-			} else if (entry.isFile() && entry.name.endsWith('.md')) {
-				files.push(fullPath);
+		try {
+			const entries = fs.readdirSync(dir, { withFileTypes: true });
+			for (const entry of entries) {
+				const fullPath = path.join(dir, entry.name);
+				if (entry.isDirectory()) {
+					files.push(...this.findMarkdownFiles(fullPath));
+				} else if (entry.isFile() && entry.name.endsWith('.md')) {
+					files.push(fullPath);
+				}
+			}
+		} catch (error) {
+			log.warn('[PromptRender] Cannot read prompt files from prompt directory:', error);
+		}
+
+		return files;
+	}
+
+	/**
+	 * Load and parse all prompt documents
+	 */
+	private loadPromptDocuments(promptsDir: string): ParsedPromptDocument[] {
+		const documents: ParsedPromptDocument[] = [];
+		const markdownFiles = this.findMarkdownFiles(promptsDir);
+
+		for (const filePath of markdownFiles) {
+			try {
+				const fileContent = fs.readFileSync(filePath, 'utf8');
+				const { metadata, content } = this.parseYamlFrontmatter(fileContent);
+				documents.push({ metadata, content, filePath });
+			} catch (error) {
+				log.warn(`[PromptRender] Failed to load prompt file ${filePath}:`, error);
 			}
 		}
-	} catch (error) {
-		log.warn('[PromptRender] Cannot read prompt files from prompt directory:', error);
+
+		return documents;
 	}
 
-	return files;
+	/**
+	 * Merge metadata from multiple documents
+	 */
+	private mergeMetadata(documents: ParsedPromptDocument[]) {
+		const merged: PromptMetadata<PromptMetadataMode[]> = {};
+		const allTools = new Set<string>();
+		const allModes = new Set<PromptMetadataMode>();
+
+		for (const doc of documents) {
+			// Combine tools arrays
+			if (doc.metadata.tools) {
+				doc.metadata.tools.forEach(tool => allTools.add(tool));
+			}
+
+			// Combine modes
+			if (doc.metadata.mode && typeof doc.metadata.mode === 'string') {
+				allModes.add(doc.metadata.mode);
+			} else if (doc.metadata.mode) {
+				doc.metadata.mode.forEach(mode => allModes.add(mode));
+			}
+
+			// Set command
+			if (doc.metadata.command) {
+				merged.command = doc.metadata.command;
+			}
+		}
+
+		merged.tools = Array.from(allTools);
+		merged.mode = Array.from(allModes);
+
+		return merged;
+	}
+
+	/**
+	 * Merge content from multiple documents
+	 */
+	private mergeContent(documents: ParsedPromptDocument[]): string {
+		return documents.map(doc => doc.content.trim()).join('\n\n');
+	}
+
+	/**
+	 * Get combined prompt metadata for a specific command
+	 */
+	static getCommandMetadata(command: string) {
+		return PromptRenderer.instance._getCommandMetadata(command);
+	}
+
+	private _getCommandMetadata(command: string) {
+		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
+		const documents = this.loadPromptDocuments(commandsPath);
+		const matchingDocuments: ParsedPromptDocument[] = [];
+		for (const doc of documents) {
+			if (doc.metadata.command === command) {
+				matchingDocuments.push(doc);
+			}
+		}
+
+		if (matchingDocuments.length === 0) {
+			throw new Error(`No prompt documents found for command: ${command}`);
+		}
+		return this.mergeMetadata(matchingDocuments);
+	}
+
+	/**
+	 * Get combined prompt for a specific command
+	 */
+	static renderCommandPrompt(command: string, request: vscode.ChatRequest, context: vscode.ChatContext): PromptDocument {
+		return PromptRenderer.instance._renderCommandPrompt(command, request, context);
+	}
+
+	private _renderCommandPrompt(command: string, request: vscode.ChatRequest, context: vscode.ChatContext): PromptDocument {
+		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
+		const documents = this.loadPromptDocuments(commandsPath);
+		const matchingDocuments: ParsedPromptDocument[] = [];
+		for (const doc of documents) {
+			if (doc.metadata.command === command) {
+				matchingDocuments.push(doc);
+			}
+		}
+
+		if (matchingDocuments.length === 0) {
+			throw new Error(`No prompt documents found for command: ${command}`);
+		}
+
+		// Merge prompts
+		const mergedContent = this.mergeContent(matchingDocuments);
+		const mergedMetadata = this.mergeMetadata(matchingDocuments);
+
+		// Render prompt template
+		const data: PromptRenderData = { context, request };
+		log.trace('[PromptRender] Rendering prompt for command:', command, 'with data:', JSON.stringify(data));
+		const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
+
+		return {
+			content: result,
+			metadata: mergedMetadata,
+		};
+	}
+
+	/**
+	 * Get all prompt documents for a specific mode, optionally filtering by saved selections
+	 */
+	getModePromptDocuments(mode: PromptMetadataMode, fromSaved: boolean = true): ParsedPromptDocument[] {
+		const dir = path.join(MARKDOWN_DIR, 'prompts', 'chat');
+		const documents = this.loadPromptDocuments(dir);
+
+		// Read saved selections from storage
+		const savedSelections = this.extensionContext.globalState.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
+		const selections = savedSelections[mode];
+
+		const matchingDocuments: ParsedPromptDocument[] = documents
+			.filter(doc => doc.metadata.mode === mode || (Array.isArray(doc.metadata.mode) && doc.metadata.mode.includes(mode)))
+			.filter(doc => {
+				const selection = selections?.find(s => s.file === path.basename(doc.filePath));
+				return (fromSaved && selection) ? selection.enabled : true;
+			});
+
+		// Sort entries by order metadata
+		matchingDocuments.sort((a, b) => (a.metadata.order ?? 0) - (b.metadata.order ?? 0));
+
+		return matchingDocuments;
+	}
+
+	/**
+	 * Get combined prompt for a specific command
+	 */
+	static renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
+		return PromptRenderer.instance._renderModePrompt(mode, data);
+	}
+
+	private _renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
+		const matchingDocuments = this.getModePromptDocuments(mode);
+		if (matchingDocuments.length === 0) {
+			throw new Error(`No prompt documents found for mode: ${mode}`);
+		}
+
+		// Merge prompts
+		const mergedContent = this.mergeContent(matchingDocuments);
+		const mergedMetadata = this.mergeMetadata(matchingDocuments);
+
+		// Render prompt template
+		log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
+		const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
+
+		return {
+			content: result,
+			metadata: mergedMetadata,
+		};
+	}
 }
 
-/**
- * Load and parse all prompt documents
- */
-function loadPromptDocuments(promptsDir: string): ParsedPromptDocument[] {
-	const documents: ParsedPromptDocument[] = [];
-	const markdownFiles = findMarkdownFiles(promptsDir);
+//#region Prompt management
 
-	for (const filePath of markdownFiles) {
-		try {
-			const fileContent = fs.readFileSync(filePath, 'utf8');
-			const { metadata, content } = parseYamlFrontmatter(fileContent);
-			documents.push({ metadata, content, filePath });
-		} catch (error) {
-			log.warn(`[PromptRender] Failed to load prompt file ${filePath}:`, error);
+async function showInitialPromptPick(renderer: PromptRenderer) {
+	const context = renderer.extensionContext;
+	const quickPick = vscode.window.createQuickPick();
+	quickPick.placeholder = 'Select a mode';
+
+	quickPick.items = [
+		{ label: 'Built-in Modes', kind: vscode.QuickPickItemKind.Separator },
+		{ label: 'Ask', description: 'Ask mode in the chat panel' },
+		{ label: 'Edit', description: 'Edit mode in the chat panel' },
+		{ label: 'Agent', description: 'Agent mode in the chat panel' },
+		{ label: 'Editor', description: 'Inline editor chat' },
+		{ label: 'Terminal', description: 'Inline Terminal chat' },
+		{ label: 'Notebook', description: 'Notebook chat' },
+		{ label: 'Miscelleaneous', kind: vscode.QuickPickItemKind.Separator },
+		{ label: 'Reset', description: 'Reset all prompt configuration to the default values.' },
+	];
+
+	quickPick.onDidAccept(() => {
+		const selected = quickPick.selectedItems[0];
+		quickPick.hide();
+
+		switch (selected?.label) {
+			case 'Ask':
+				showPromptModePick(context, positron.PositronChatMode.Ask);
+				break;
+			case 'Edit':
+				showPromptModePick(context, positron.PositronChatMode.Edit);
+				break;
+			case 'Agent':
+				showPromptModePick(context, positron.PositronChatMode.Agent);
+				break;
+			case 'Editor':
+				showPromptModePick(context, positron.PositronChatAgentLocation.Editor);
+				break;
+			case 'Terminal':
+				showPromptModePick(context, positron.PositronChatAgentLocation.Terminal);
+				break;
+			case 'Notebook':
+				showPromptModePick(context, positron.PositronChatAgentLocation.Notebook);
+				break;
+			case 'Reset':
+				context.globalState.update(PROMPT_MODE_SELECTIONS_KEY, undefined);
+				break;
 		}
-	}
+	});
 
-	return documents;
+	quickPick.onDidHide(() => quickPick.dispose());
+	quickPick.show();
 }
 
-/**
- * Merge metadata from multiple documents
- */
-function mergeMetadata(documents: ParsedPromptDocument[]) {
-	const merged: PromptMetadata<PromptMetadataMode[]> = {};
-	const allTools = new Set<string>();
-	const allModes = new Set<PromptMetadataMode>();
+async function showPromptModePick(context: vscode.ExtensionContext, mode: PromptMetadataMode) {
+	const savedSelections = context.globalState.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
 
-	for (const doc of documents) {
-		// Combine tools arrays
-		if (doc.metadata.tools) {
-			doc.metadata.tools.forEach(tool => allTools.add(tool));
-		}
+	const quickPick = vscode.window.createQuickPick();
+	quickPick.canSelectMany = true;
+	quickPick.placeholder = 'Select prompts';
 
-		// Combine modes
-		if (doc.metadata.mode && typeof doc.metadata.mode === 'string') {
-			allModes.add(doc.metadata.mode);
-		} else if (doc.metadata.mode) {
-			doc.metadata.mode.forEach(mode => allModes.add(mode));
-		}
+	// Built-in prompts
+	const docs = PromptRenderer.instance.getModePromptDocuments(mode, false);
+	const builtinItems = docs.map(doc => {
+		const label = path.basename(doc.filePath);
+		const description = doc.metadata.description;
+		const picked = savedSelections[mode]?.find(s => s.file === label)?.enabled ?? true;
+		return { label, picked, description };
+	});
 
-		// Set command
-		if (doc.metadata.command) {
-			merged.command = doc.metadata.command;
-		}
-	}
+	quickPick.items = [
+		{ label: 'Built-in Prompts', kind: vscode.QuickPickItemKind.Separator },
+		...builtinItems,
+	];
+	quickPick.selectedItems = quickPick.items.filter(item => item.picked);
 
-	merged.tools = Array.from(allTools);
-	merged.mode = Array.from(allModes);
+	quickPick.onDidAccept(() => {
+		const selectedItems = quickPick.items
+			.filter(item => item.kind !== vscode.QuickPickItemKind.Separator)
+			.map(item => ({ file: item.label, enabled: quickPick.selectedItems.includes(item) }));
 
-	return merged;
+		const newSelections = { ...savedSelections, [mode]: selectedItems };
+		context.globalState.update(PROMPT_MODE_SELECTIONS_KEY, newSelections);
+		quickPick.hide();
+	});
+
+	quickPick.onDidHide(() => quickPick.dispose());
+	quickPick.show();
 }
 
-/**
- * Merge content from multiple documents
- */
-function mergeContent(documents: ParsedPromptDocument[]): string {
-	return documents.map(doc => doc.content.trim()).join('\n\n');
-}
+export function registerPromptManagement(context: vscode.ExtensionContext) {
+	// Intialise prompt renderer
+	const renderer = new PromptRenderer(context);
 
-/**
- * Get combined prompt metadata for a specific command
- */
-export function getCommandMetadata(command: string) {
-	const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
-	const documents = loadPromptDocuments(commandsPath);
-	const matchingDocuments: ParsedPromptDocument[] = [];
-	for (const doc of documents) {
-		if (doc.metadata.command === command) {
-			matchingDocuments.push(doc);
-		}
-	}
-
-	if (matchingDocuments.length === 0) {
-		throw new Error(`No prompt documents found for command: ${command}`);
-	}
-	return mergeMetadata(matchingDocuments);
-}
-
-/**
- * Get combined prompt for a specific command
- */
-export function getCommandPrompt(command: string, request: vscode.ChatRequest, context: vscode.ChatContext): PromptDocument {
-	const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
-	const documents = loadPromptDocuments(commandsPath);
-	const matchingDocuments: ParsedPromptDocument[] = [];
-	for (const doc of documents) {
-		if (doc.metadata.command === command) {
-			matchingDocuments.push(doc);
-		}
-	}
-
-	if (matchingDocuments.length === 0) {
-		throw new Error(`No prompt documents found for command: ${command}`);
-	}
-
-	// Merge prompts
-	const mergedContent = mergeContent(matchingDocuments);
-	const mergedMetadata = mergeMetadata(matchingDocuments);
-
-	// Render prompt template
-	const data: PromptRenderData = { context, request };
-	log.trace('[PromptRender] Rendering prompt for command:', command, 'with data:', JSON.stringify(data));
-	const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
-
-	return {
-		content: result,
-		metadata: mergedMetadata,
-	};
-}
-
-/**
- * Get combined prompt for a specific command
- */
-export function getModePrompt(mode: PromptMetadataMode, data: PromptRenderData, promptDir?: string): PromptDocument {
-	const commandsPath = promptDir ?? path.join(MARKDOWN_DIR, 'prompts', 'chat');
-	const documents = loadPromptDocuments(commandsPath);
-	const matchingDocuments: ParsedPromptDocument[] = [];
-	for (const doc of documents) {
-		if (doc.metadata.mode === mode || (Array.isArray(doc.metadata.mode) && doc.metadata.mode.includes(mode))) {
-			matchingDocuments.push(doc);
-		}
-	}
-
-	// Sort entries by order metadata
-	matchingDocuments.sort((a, b) => (a.metadata.order ?? 0) - (b.metadata.order ?? 0));
-
-	if (matchingDocuments.length === 0) {
-		throw new Error(`No prompt documents found for mode: ${mode}`);
-	}
-
-	// Merge prompts
-	const mergedContent = mergeContent(matchingDocuments);
-	const mergedMetadata = mergeMetadata(matchingDocuments);
-
-	// Render prompt template
-	log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
-	const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
-
-	return {
-		content: result,
-		metadata: mergedMetadata,
-	};
+	// Register prompt management quickpick command
+	const disposable = vscode.commands.registerCommand(
+		'positron-assistant.managePromptFiles',
+		() => showInitialPromptPick(renderer)
+	);
+	context.subscriptions.push(disposable);
 }

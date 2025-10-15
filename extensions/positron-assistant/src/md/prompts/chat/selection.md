@@ -3,6 +3,7 @@ mode:
  - editor
  - notebook
 order: 70
+description: Prompt for when text is selected in Edit mode
 ---
 {{@if(!positron.request.location2.selection.isEmpty)}}
 {{@if(positron.streamingEdits)}}

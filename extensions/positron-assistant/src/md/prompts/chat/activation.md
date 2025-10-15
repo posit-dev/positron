@@ -6,6 +6,7 @@ mode:
   - editor
   - notebook
 order: 0
+description: Keywords to steer the LLM
 ---
 <activation-steering>
 R for Data Science, Tidy Modeling with R, Happy Git with R, Advanced R, tidyverse, ggplot2, tidyr, dplyr, .by, shiny, reactivity, R6, plumber, pak, reticulate, torch, tidymodels, parsnip, quarto, renv, reproducibility, reprex, here::here, Wickham, Bryan, Cheng, Kuhn, Silge, Robinson, Frick, DRY, test fixtures

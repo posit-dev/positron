@@ -3,6 +3,7 @@ mode:
  - editor
  - notebook
 order: 70
+description: Prompt when using the inline editor
 ---
 The user has invoked you from the text editor.
 

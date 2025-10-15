@@ -9,7 +9,6 @@ import { FIX_COMMAND, fixHandler } from './fix.js';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './quarto.js';
 import { EXPLAIN_COMMAND, explainHandler } from './explain.js';
 import { DOC_COMMAND, docHandler } from './doc.js';
-import { getCommandMetadata } from '../promptRender.js';
 import { log } from '../extension.js';
 import {
 	PositronAssistantAgentParticipant,
@@ -20,6 +19,7 @@ import {
 	PositronAssistantNotebookParticipant,
 	PositronAssistantTerminalParticipant
 } from '../participants.js';
+import { PromptRenderer } from '../promptRender.js';
 
 /**
  * A function that handles chat requests.
@@ -41,7 +41,7 @@ export interface IChatRequestHandler {
 }
 
 function registerAssistantCommand(command: string, handler: IChatRequestHandler) {
-	const metadata = getCommandMetadata(command);
+	const metadata = PromptRenderer.getCommandMetadata(command);
 	const modes = metadata.mode ?? [];
 	for (const mode of modes) {
 		switch (mode) {
