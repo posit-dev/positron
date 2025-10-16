@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
@@ -41,6 +41,7 @@ import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
+import { ICellRange } from '../../notebook/common/notebookRange.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -836,6 +837,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return options;
 	}
 
+	/**
+	 * Gets the current selected cells.
+	 * @returns An array of cell ranges, where each range represents a group of consecutive selected cells.
+	 */
+	getSelections(): ICellRange[] {
+		return toCellRanges(this.selectionStateMachine.state.get());
+	}
 
 	/**
 	 * Gets the current state of the editor. This should

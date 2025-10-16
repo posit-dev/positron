@@ -41,13 +41,13 @@ export enum KernelStatus {
  * - Controls cell selection and editing states
  * - Provides methods for common notebook operations
  */
-export interface IPositronNotebookInstance extends Pick<INotebookEditor, 'getId'> {
+export interface IPositronNotebookInstance extends Pick<INotebookEditor, 'getId' | 'textModel' | 'getSelections'> {
 	// ===== Properties =====
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier
 	 * for the notebook's content on disk.
 	 */
-	get uri(): URI;
+	readonly uri: URI;
 
 	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
 
