@@ -255,7 +255,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
-	 * @param rowIndex The row index.
+	 * @param rowIndex The row index from the original dataset.
 	 * @returns The cell.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
@@ -264,16 +264,19 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the column schema for the row index.
+		// Get the column schema for the data at this row index.
 		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
 
+		// Get the visual index position for the data at this row index
+		const visualPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
+
 		// Return the cell.
 		return (
 			<ColumnSelectorCell
-				columnIndex={rowIndex}
+				columnIndex={visualPosition ?? -1}
 				columnSchema={columnSchema}
 				instance={this}
 				onPressed={() => this._onDidSelectColumnEmitter.fire(columnSchema)}
