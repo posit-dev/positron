@@ -29,8 +29,9 @@ import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInst
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
-import { INotebookKernel, INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, observableValue } from '../../../../base/common/observable.js';
@@ -215,11 +216,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	contextManager;
 
 	/**
-	 * Selected kernel for the notebook.
-	 */
-	kernel;
-
-	/**
 	 * Status of kernel for the notebook.
 	 */
 	kernelStatus;
@@ -337,29 +333,46 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					d.dispose();
 					this.runtimeSession.set(undefined, undefined);
 				}));
+				// Also update the observable when runtime state changes
+				// This ensures derived observables like kernelStatus stay in sync
+				this._register(session.onDidChangeRuntimeState(() => {
+					this.runtimeSession.set(session, undefined);
+				}));
 			}
 		}));
 
-		// Track the current selected kernel for this notebook
-		this.kernel = observableValue<INotebookKernel | undefined>('positronNotebookKernel', undefined);
-		this._register(this.notebookKernelService.onDidChangeSelectedNotebooks(e => {
-			if (e && this._isThisNotebook(e.notebook) && this.textModel) {
-				const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
-				const kernel = matching.all.find(k => k.id === e.newKernel);
-				this.kernel.set(kernel, undefined);
+		// Derive the kernel connection status from the runtime session state
+		// This is a simple derived observable that maps runtime state to kernel status
+		this.kernelStatus = this.runtimeSession.map(session => {
+			if (!session) {
+				return KernelStatus.Uninitialized;
 			}
-		}));
 
-		// Derive the kernel connection status
-		this.kernelStatus = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookKernelStatus */ kernel ? KernelStatus.Connected : KernelStatus.Disconnected
-		);
+			// Map runtime state to kernel status
+			const runtimeState = session.getRuntimeState();
+			switch (runtimeState) {
+				case RuntimeState.Uninitialized:
+				case RuntimeState.Initializing:
+				case RuntimeState.Starting:
+				case RuntimeState.Restarting:
+					return KernelStatus.Connecting;
+				case RuntimeState.Ready:
+				case RuntimeState.Idle:
+				case RuntimeState.Busy:
+				case RuntimeState.Interrupting:
+					return KernelStatus.Connected;
+				case RuntimeState.Exiting:
+				case RuntimeState.Exited:
+				case RuntimeState.Offline:
+					return KernelStatus.Disconnected;
+				default:
+					return KernelStatus.Errored;
+			}
+		});
 
-		// Derive the notebook language from the selected kernel
-		this._language = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookLanguage */ kernel?.supportedLanguages[0] ?? 'plaintext'
+		// Derive the notebook language from the runtime session
+		this._language = this.runtimeSession.map(
+			session => /** @description positronNotebookLanguage */ session?.runtimeMetadata.languageId ?? 'plaintext'
 		);
 
 		this.contextManager = this._register(
@@ -800,13 +813,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * fully determine the view we see.
 	 */
 	getEditorViewState(): INotebookEditorViewState {
+		this._assertTextModel();
+		const selectedKernel = this.notebookKernelService.getSelectedOrSuggestedKernel(this.textModel);
 		return {
 			editingCells: {},
 			cellLineNumberStates: {},
 			editorViewStates: {},
 			collapsedInputCells: {},
 			collapsedOutputCells: {},
-			selectedKernelId: this.kernel.get()?.id,
+			selectedKernelId: selectedKernel?.id,
 		};
 	}
 
