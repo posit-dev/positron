@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../base/common/codicons.js';
-import { URI } from '../../../../base/common/uri.js';
+import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -78,12 +78,12 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 		let notebookUri: URI | undefined;
 		let source: string;
 		if (context) {
-			if ('notebookEditor' in context) {
-				source = 'User clicked restart button in VSCode notebook editor toolbar';
-				notebookUri = context.notebookEditor.textModel?.uri;
-			} else {
+			if (isUriComponents(context)) {
 				source = 'User clicked restart button in Positron notebook editor toolbar';
 				notebookUri = context;
+			} else {
+				source = 'User clicked restart button in VSCode notebook editor toolbar';
+				notebookUri = context.notebookEditor.textModel?.uri;
 			}
 		} else {
 			source = `Restart notebook kernel command ${RuntimeNotebookKernelRestartAction.ID} executed`;
