@@ -341,8 +341,20 @@ function getRHomePathLinux(binpath: string): string | undefined {
 		return undefined;
 	}
 	const prefix = prefixMatch[1]
-	const libnn = ['x64', 'arm64', 'ppc64', 's390x'].includes(process.arch) ? 'lib64' : 'lib';
-	const libnnFallback = libnn === 'lib64' ? 'lib' : 'lib64';
+    // Replicating special linux logic in R's official shell script
+    // https://github.com/wch/r-source/blob/8898619c430a383ceb401dee3e492ba386ea5967/src/scripts/R.sh.in#L5C1-L27C3
+    const is64BitArch = [
+        // Actual values returned by Node.js process.arch
+        'x64',      // Node.js equivalent of x86_64
+        'arm64',    // not in official shell script (but maybe should be?)
+        'ppc64',    // PowerPC 64-bit
+        's390x',    // IBM System z
+        // Remaining values from official script values, just to be safe
+        'x86_64', 'mips64', 'powerpc64', 'sparc64'
+].includes(process.arch);
+
+    const libnn = is64BitArch ? 'lib64' : 'lib';
+    const libnnFallback = is64BitArch ? 'lib' : 'lib64';
 	const libnnPath = path.join(prefix, libnn, 'R/bin/exec/R')
 	const libnnFallbackPath = path.join(prefix, libnnFallback, 'R/bin/exec/R')
 	if (isExecutable(libnnPath)) {
