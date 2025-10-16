@@ -232,8 +232,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Select the column schema at the specified position.
-	 * @param rowIndex The row index (positionally) of the selected item.
+	 * Select the column schema at the visual index provided.
+	 * @param rowIndex The row index (visual positional) of the selected item.
 	 */
 	selectItem(rowIndex: number): void {
 		// The row index is the visible row index, so we need to map it to the actual index.
