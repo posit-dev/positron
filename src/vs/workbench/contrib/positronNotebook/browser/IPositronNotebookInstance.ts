@@ -10,7 +10,7 @@ import { SelectionStateMachine } from './selectionMachine.js';
 import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { IBaseCellEditorOptions, INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -41,14 +41,8 @@ export enum KernelStatus {
  * - Controls cell selection and editing states
  * - Provides methods for common notebook operations
  */
-export interface IPositronNotebookInstance {
+export interface IPositronNotebookInstance extends Pick<INotebookEditor, 'getId'> {
 	// ===== Properties =====
-	/**
-	 * Unique identifier for the notebook instance. Used for debugging and claiming
-	 * ownership of various resources.
-	 */
-	readonly id: string;
-
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier
 	 * for the notebook's content on disk.

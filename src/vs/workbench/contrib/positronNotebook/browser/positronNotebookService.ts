@@ -11,6 +11,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
 import { isEqual } from '../../../../base/common/resources.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -18,6 +19,16 @@ export interface IPositronNotebookService {
 	 * Needed for service branding in dependency injector.
 	 */
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Event that fires when a new notebook instance is added.
+	 */
+	readonly onDidAddNotebookInstance: Event<IPositronNotebookInstance>;
+
+	/**
+	 * Event that fires when a notebook instance is removed.
+	 */
+	readonly onDidRemoveNotebookInstance: Event<IPositronNotebookInstance>;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronNotebookService.
@@ -54,6 +65,13 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	// Needed for service branding in dependency injector.
 	_serviceBrand: undefined;
 
+	//#region Events
+	private readonly _onDidAddNotebookInstance = this._register(new Emitter<IPositronNotebookInstance>());
+	private readonly _onDidRemoveNotebookInstance = this._register(new Emitter<IPositronNotebookInstance>());
+	readonly onDidAddNotebookInstance = this._onDidAddNotebookInstance.event;
+	readonly onDidRemoveNotebookInstance = this._onDidRemoveNotebookInstance.event;
+	//#endregion Events
+
 	//#region Private Properties
 	private _instanceById = new Map<string, IPositronNotebookInstance>();
 	private _activeInstance: IPositronNotebookInstance | null = null;
@@ -85,16 +103,17 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {
-		if (!this._instanceById.has(instance.id)) {
-			this._instanceById.set(instance.id, instance);
+		if (!this._instanceById.has(instance.getId())) {
+			this._instanceById.set(instance.getId(), instance);
 		}
 		this._activeInstance = instance;
 	}
 
 	public unregisterInstance(instance: IPositronNotebookInstance): void {
-		this._instanceById.delete(instance.id);
-		if (this._activeInstance === instance) {
-			this._activeInstance = null;
+		if (this._instanceById.delete(instance.getId())) {
+			if (this._activeInstance === instance) {
+				this._activeInstance = null;
+			}
 		}
 	}
 
