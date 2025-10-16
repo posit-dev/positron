@@ -142,7 +142,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 			const vignette = await session.callMethod('get_package_vignette', options.input.packageName, options.input.vignetteName);
 			if (vignette) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(vignette.toString()),
+					new vscode.LanguageModelTextPart(JSON.stringify(vignette)),
 				]);
 			} else {
 				return new vscode.LanguageModelToolResult([
@@ -172,7 +172,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 			const helpPage = await session.callMethod('get_help_page', options.input.helpTopic, options.input.packageName);
 			if (helpPage) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(helpPage.toString()),
+					new vscode.LanguageModelTextPart(JSON.stringify(helpPage)),
 				]);
 			} else {
 				return new vscode.LanguageModelToolResult([
