@@ -214,10 +214,12 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		if (rowDescriptor) {
 			// Get the layout indices for visible data.
 			const columnIndices = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR);
-			await this._columnSchemaCache.update({
-				columnIndices,
-				invalidateCache: !!invalidateCache
-			});
+			if (columnIndices.length > 0 || invalidateCache) {
+				await this._columnSchemaCache.update({
+					columnIndices,
+					invalidateCache: !!invalidateCache
+				});
+			}
 		}
 	}
 
