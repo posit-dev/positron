@@ -28,14 +28,10 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 			return undefined;
 		}
 
-		// Always prefer relative paths when any workspace is open
-		const workspaceFolders = vscode.workspace.workspaceFolders;
-		const options = workspaceFolders && workspaceFolders.length > 0
-			? { preferRelative: true, baseUri: workspaceFolders[0].uri }
-			: { preferRelative: false };
+		const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer, {
+			preferRelative: true
+		});
 
-		// Use Positron's paths API to extract and convert file paths
-		const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer, options);
 		if (!filePaths) {
 			return undefined;
 		}
