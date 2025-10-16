@@ -23,6 +23,8 @@ product.overrides.json
 *.snap.actual
 *.tsbuildinfo
 .vscode-test
+vscode-telemetry-docs/
+pwb-version
 
 # --- Start Positron ---
 # Ignore Claude local/personal files but keep commands
