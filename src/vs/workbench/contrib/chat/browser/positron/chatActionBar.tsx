@@ -19,8 +19,8 @@ interface ChatActionBarProps {
 	onModelSelect: (newLanguageModel: IPositronChatProvider | undefined) => void;
 }
 
-const addModelProviderLabel = () => localize('positronChatSelector.addModelProvider', 'Add Model Provider...');
-const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider');
+const addModelProviderLabel = () => localize('positronChatSelector.addModelProvider', 'Configure Model Providers...');
+const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add and Configure Language Model Providers');
 
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const services = usePositronReactServicesContext();
