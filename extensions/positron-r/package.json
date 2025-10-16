@@ -163,6 +163,12 @@
             "default": false,
             "description": "%r.configuration.restoreWorkspace.description%"
           },
+          "positron.r.saveWorkspace": {
+            "scope": "window",
+            "type": "boolean",
+            "default": false,
+            "description": "%r.configuration.saveWorkspace.description%"
+          },
           "positron.r.quietMode": {
             "scope": "window",
             "type": "boolean",
