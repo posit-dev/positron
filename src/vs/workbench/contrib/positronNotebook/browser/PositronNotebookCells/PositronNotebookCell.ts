@@ -32,6 +32,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
 	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
+	public readonly hasError = observableValue<boolean, void>('hasError', false);
 
 	constructor(
 		public readonly cellModel: NotebookCellTextModel,

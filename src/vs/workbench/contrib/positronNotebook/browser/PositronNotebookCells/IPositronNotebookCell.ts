@@ -180,6 +180,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 * Detach the editor from the cell
 	 */
 	detachEditor(): void;
+
+	/**
+	 * Whether the cell has error output
+	 */
+	readonly hasError: IObservable<boolean>;
 }
 
 

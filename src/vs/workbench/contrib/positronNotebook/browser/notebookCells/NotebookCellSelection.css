@@ -70,3 +70,9 @@
 	top: var(--_positron-notebook-selection-bar-inset);
 	border-top-left-radius: var(--_positron-notebook-selection-bar-radius);
 }
+
+/* Error state styling - use error color for selection bar */
+.positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-editor-container::before,
+.positron-notebook-cell[data-has-error="true"]:is(.selected, .editing) .positron-notebook-cell-outputs::before {
+	background-color: var(--vscode-errorForeground);
+}
