@@ -898,7 +898,7 @@ def test_inspect_ibis_exprs() -> None:
 
     test_df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
     _, columns = test_df.shape
-    t = ibis.memtable(test_df, name="df")
+    t = ibis.memtable(test_df)
     table_type = "ibis.Table"
 
     verify_inspector(
