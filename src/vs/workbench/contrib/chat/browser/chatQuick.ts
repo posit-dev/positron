@@ -374,26 +374,38 @@ class QuickChat extends Disposable {
 	private syncWithMainChat() {
 		// Update with any existing context from other chat widgets
 		// Look for a chat widget that is in a panel and is not a quick chat
-		const widget = this.chatWidgetService.getWidgetsByLocations(ChatAgentLocation.Panel).find(w => w !== this.widget && w.location === ChatAgentLocation.Panel && (!('isQuickChat' in w.viewContext) || !w.viewContext.isQuickChat));
-		if (widget) {
+		const mainChatWidget = this.chatWidgetService
+			.getWidgetsByLocations(ChatAgentLocation.Panel)
+			.find(w =>
+				// Make sure it's not this quick chat widget
+				w !== this.widget &&
+				// Make sure it's in the panel
+				w.location === ChatAgentLocation.Panel &&
+				(
+					// And that it is not another quick chat
+					!('isQuickChat' in w.viewContext) ||
+					!w.viewContext.isQuickChat
+				)
+			);
+		if (mainChatWidget) {
 			// Update language model
-			const languageModel = widget.input.selectedLanguageModel;
+			const languageModel = mainChatWidget.input.selectedLanguageModel;
 			if (languageModel) {
 				this.widget.input.setCurrentLanguageModel(languageModel);
 			}
 			// Update implicit context
-			if (widget.input.implicitContext && this.widget.input.implicitContext) {
-				this.widget.input.implicitContext.setValue(widget.input.implicitContext.value, widget.input.implicitContext.isSelection);
-				this.widget.input.implicitContext.enabled = widget.input.implicitContext.enabled;
+			if (mainChatWidget.input.implicitContext && this.widget.input.implicitContext) {
+				this.widget.input.implicitContext.setValue(mainChatWidget.input.implicitContext.value, mainChatWidget.input.implicitContext.isSelection);
+				this.widget.input.implicitContext.enabled = mainChatWidget.input.implicitContext.enabled;
 			}
 			// Update attachments
-			this.widget.attachmentModel.clearAndSetContext(...widget.attachmentModel.attachments);
+			this.widget.attachmentModel.clearAndSetContext(...mainChatWidget.attachmentModel.attachments);
 			// Update console context
 			if (this.widget.input.runtimeContext) {
 				// Set the Console context
-				this.widget.input.runtimeContext.setValue(widget.input.runtimeContext?.value);
+				this.widget.input.runtimeContext.setValue(mainChatWidget.input.runtimeContext?.value);
 				// Set whether the Console context is enabled
-				this.widget.input.runtimeContext.enabled = widget.input.runtimeContext?.enabled ?? false;
+				this.widget.input.runtimeContext.enabled = mainChatWidget.input.runtimeContext?.enabled ?? false;
 			}
 
 		}
