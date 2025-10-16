@@ -34,6 +34,7 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
+	const hasError = useObservedValue(cell.hasError);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -85,6 +86,7 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 		aria-label={localize('notebookCell', '{0} cell', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		data-has-error={hasError}
 		data-is-running={executionStatus === 'running'}
 		data-testid='notebook-cell'
 		role='article'

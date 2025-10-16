@@ -51,6 +51,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const duration = useObservedValue(cell.lastExecutionDuration);
 	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
+	const hasError = useObservedValue(cell.hasError);
 
 	// Derived state
 	const isRunning = executionStatus === 'running';
@@ -110,6 +111,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 					cellSelected={isSelected}
 					executionOrder={executionOrder}
 					executionStatus={dataExecutionStatus}
+					hasError={hasError}
 					isHovered={isHovered}
 					showPending={showPending}
 				/>
