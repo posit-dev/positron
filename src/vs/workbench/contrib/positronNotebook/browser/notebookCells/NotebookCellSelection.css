@@ -33,7 +33,7 @@
 .positron-notebook-cell.editing .positron-notebook-cell-outputs::before {
 	content: "";
 	position: absolute;
-	width: var(--positron-notebook-selection-bar-width);
+	width: var(--_positron-notebook-selection-bar-width);
 	background-color: var(--vscode-focusBorder);
 	z-index: 1;
 	left: var(--_positron-notebook-selection-bar-inset);

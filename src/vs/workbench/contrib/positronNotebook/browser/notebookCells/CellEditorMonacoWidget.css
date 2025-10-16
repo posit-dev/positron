@@ -15,6 +15,6 @@
 
 	.monaco-editor {
 		/* Offset the editor to allow space for the selection bar. */
-		padding-left: var(--positron-notebook-selection-bar-width);
+		padding-left: var(--_positron-notebook-selection-bar-width);
 	}
 }
