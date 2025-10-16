@@ -73,8 +73,7 @@ test.describe('Notebook Focus and Selection', {
 		});
 
 
-		// BUG: https://github.com/posit-dev/positron/issues/9876
-		await test.step.skip('Test 6: Cell regains edit mode when clicking away and back', async () => {
+		await test.step('Test 6: Cell regains edit mode when clicking away and back', async () => {
 			// verify we are starting with 5 cells
 			await notebooksPositron.expectCellCountToBe(5);
 			await notebooksPositron.selectCellAtIndex(1);

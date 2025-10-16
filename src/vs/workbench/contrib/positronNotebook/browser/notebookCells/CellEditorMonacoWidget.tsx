@@ -81,12 +81,16 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
-			instance.setEditingCell(cell);
+			// enterEditor() automatically detects that editor has focus and skips focus management
+			instance.selectionStateMachine.enterEditor(cell);
 			cellEditorFocusedKey.set(true);
 		}));
 
 		disposables.add(editor.onDidBlurEditorWidget(() => {
 			cellEditorFocusedKey.set(false);
+			// Pass the cell so we only exit if THIS specific cell is being edited (not a different one)
+			// This handles the race condition where a user clicks from one cell editor into another.
+			instance.selectionStateMachine.exitEditor(cell);
 		}));
 
 		/**

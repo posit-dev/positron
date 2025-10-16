@@ -195,13 +195,6 @@ export interface IPositronNotebookInstance {
 	moveCells(cells: IPositronNotebookCell[], targetIndex: number): void;
 
 	/**
-	 * Updates the currently editing cell state.
-	 *
-	 * @param cell The cell to set as editing, or undefined to clear editing state
-	 */
-	setEditingCell(cell: IPositronNotebookCell | undefined): void;
-
-	/**
 	 * Checks if the notebook instance contains a code editor.
 	 *
 	 * @param editor The code editor to check for.
