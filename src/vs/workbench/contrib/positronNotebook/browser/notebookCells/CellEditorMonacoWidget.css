@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 .positron-cell-editor-monaco-widget {
-	/* Override the default editor background */
-	--vscode-editor-background: var(--vscode-checkbox-background, #f8f8f8);
-	--vscode-editorGutter-background: var(--vscode-editor-background);
 	border: var(--vscode-positronNotebook-border);
 	border-left: none; /* The selection bar on the left handles the left-side border */
 	border-radius: var(--vscode-positronNotebook-cell-radius);
+	/* The selection bar handles the left-side border radius */
+	border-bottom-left-radius: 0;
+	border-top-left-radius: 0;
 	padding: 0;
 	overflow: hidden; /* Clip content to respect rounded corners */
 }
