@@ -83,8 +83,13 @@ test.describe('Notebook Focus and Selection', {
 			const box = await active.boundingBox();
 			if (box) {
 				const page = app.code.driver.page;
-				const x = box.x + box.width / 2 - 300;
-				const y = box.y + box.height + 20;
+				// We want to offset the click as little as possible to avoid
+				// clicking other interactive elements. Here we're clicking just
+				// below the bottom right of the cell which should be a safe
+				// area due to that being where the cell padding is.
+				const OFFSET = 10;
+				const x = box.x + box.width - OFFSET;
+				const y = box.y + box.height + OFFSET;
 
 				await page.mouse.click(x, y);
 			}
