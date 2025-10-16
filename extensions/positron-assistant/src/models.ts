@@ -154,7 +154,11 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
-		const message = _messages.length > 1 ? _messages[_messages.length - 2] : _messages[0]; // Get the last user message, the last message is the context
+		const message = this.getUserPrompt(_messages);
+
+		if (!message) {
+			throw new Error('No user prompt provided to echo language model.');
+		}
 
 		if (typeof message.content === 'string') {
 			message.content = [{ type: 'text', text: message.content }];
@@ -224,6 +228,22 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		return Promise.resolve(this.availableModels);
+	}
+
+	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
+		if (messages.length === 0) {
+			return undefined;
+		}
+		if (messages.length === 1) {
+			return messages[0];
+		}
+		// If there are multiple messages, the last message is the user message.
+		// See defaultRequestHandler in extensions/positron-assistant/src/participants.ts for the message ordering.
+		const userPrompt = messages[messages.length - 1];
+		if (userPrompt.role !== 'user') {
+			return undefined;
+		}
+		return userPrompt;
 	}
 }
 

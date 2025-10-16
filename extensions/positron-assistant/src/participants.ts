@@ -321,9 +321,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
+		// The context message is the second-last message in the chat messages.
 		const contextInfo = await attachContextInfo(messages);
 
 		// Add the user's prompt.
+		// The user's prompt is the last message in the chat messages.
+		// If this ordering changes, also update getUserPrompt for the EchoLanguageModel in extensions/positron-assistant/src/models.ts.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
 		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
 
