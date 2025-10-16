@@ -8,6 +8,7 @@
 	"commands.generateCommitMessage.title": "Generate Commit Message",
 	"commands.cancelGenerateCommitMessage.title": "Cancel Generate Commit Message",
 	"commands.toggleInlineCompletions.title": "Toggle (Enable/Disable) Completions",
+	"commands.managePromptFiles.title": "Manage Prompt Files",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",

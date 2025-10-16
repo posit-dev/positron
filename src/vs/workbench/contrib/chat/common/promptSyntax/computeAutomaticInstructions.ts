@@ -202,7 +202,20 @@ export class ComputeAutomaticInstructions {
 			const resolvedRoots = await this._fileService.resolveAll(folders.map(f => ({ resource: f.uri })));
 			for (const root of resolvedRoots) {
 				if (root.success && root.stat?.children) {
+					// --- Start Positron ---
+					// Also check for additional agent instructions files
+					/*
 					const agentMd = root.stat.children.find(c => c.isFile && c.name.toLowerCase() === 'agents.md');
+					*/
+					const agentMd = root.stat.children.find(
+						c => c.isFile && c.name.toLowerCase() === 'agents.md' ||
+							c.name.toLowerCase() === 'agent.md' ||
+							c.name.toLowerCase() === 'positron.md' ||
+							c.name.toLowerCase() === 'claude.md' ||
+							c.name.toLowerCase() === 'gemini.md' ||
+							c.name.toLowerCase() === 'llms.txt'
+					);
+					// --- End Positron ---
 					if (agentMd) {
 						entries.add(toPromptFileVariableEntry(agentMd.resource, PromptFileVariableKind.Instruction, localize('instruction.file.reason.agentsmd', 'Automatically attached as setting {0} is enabled', PromptsConfig.USE_AGENT_MD), true));
 						telemetryEvent.agentInstructionsCount++;

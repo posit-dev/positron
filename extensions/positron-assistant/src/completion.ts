@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import * as fs from 'fs';
+import * as path from 'path';
 
 import { ModelConfig } from './config';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { MD_DIR } from './constants';
+import { MARKDOWN_DIR } from './constants';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
@@ -404,7 +405,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		const signal = controller.signal;
 		token.onCancellationRequested(() => controller.abort());
 
-		const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/completion/fim.md`, 'utf8');
+		const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'completion', 'fim.md'), 'utf8');
 		const { textStream } = await ai.streamText({
 			model: this.model,
 			system: system,

@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { JSONTree } from '@vscode/prompt-tsx';
-import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName, RuntimeSessionReference } from './types.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName, PromptInstructionsReference, RuntimeSessionReference } from './types.js';
 import { log } from './extension.js';
 
 /**
@@ -629,4 +629,16 @@ export function isRuntimeSessionReference(value: unknown): value is RuntimeSessi
 		'activeSession' in value &&
 		'variables' in value &&
 		Array.isArray(value.variables);
+}
+
+/**
+ * Type guard to check if a reference is a prompt instructions file
+ */
+export function isPromptInstructionsReference(reference: unknown): reference is PromptInstructionsReference {
+	return typeof reference === 'object' && reference !== null &&
+		'modelDescription' in reference &&
+		'name' in reference &&
+		'id' in reference && typeof reference.id === 'string' &&
+		'value' in reference && reference.value instanceof vscode.Uri &&
+		reference.id.includes('vscode.prompt.instructions');
 }

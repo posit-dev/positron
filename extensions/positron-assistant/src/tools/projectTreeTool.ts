@@ -8,13 +8,13 @@ import { PositronAssistantToolName } from '../types.js';
 import { log } from '../extension.js';
 
 /**
- * Represents either a file (string) or a directory (tuple with string and children).
+ * Represents either a file or a directory
  */
-type DirectoryItem = string | [string, DirectoryItem[]];
+type DirectoryItem = string;
 
 type DirectoryInfo = {
 	folder: vscode.WorkspaceFolder;
-	items: DirectoryItem;
+	items: DirectoryItem[];
 	totalFiles: number;
 };
 
@@ -99,132 +99,28 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 				findOptions,
 				token
 			);
-			const items = convertUrisToDirectoryItems(folder, matchedFileUris);
+			const items = matchedFileUris.map(uri => vscode.workspace.asRelativePath(uri, false));
 			workspaceTrees.push({ folder, items, totalFiles: matchedFileUris.length });
 		}
 
 		const totalFiles = workspaceTrees.reduce((sum, obj) => sum + obj.totalFiles, 0);
 
 		log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree constructed with ${totalFiles} items across ${workspaceFolders.length} workspace folders.`);
+		if (totalFiles > filesLimit) {
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree exceeds the limit of ${filesLimit} items. A summary will be returned for each workspace folder.`);
+		}
 
 		// Return a compressed description of the project tree if there are too many items
-		if (totalFiles > filesLimit) {
-			const itemLimit = Math.floor(filesLimit / workspaceTrees.length);
-			log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree exceeds the limit of ${filesLimit} items. A summary will be returned for each workspace folder.`);
-			const summarizedTree = await getSummarizedProjectTree(workspaceTrees, itemLimit);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Project tree contains ${totalFiles} files, which exceeds the limit of ${filesLimit}. Here is a summary of each workspace, including the first ${itemLimit} files and directories:`),
-				new vscode.LanguageModelTextPart(JSON.stringify(summarizedTree)),
-			]);
-		}
+		const itemLimit = Math.floor(filesLimit / workspaceTrees.length);
+		const results = workspaceTrees.map(obj => obj.items
+			.sort((a, b) => a.length - b.length) // Shortest paths first
+			.slice(0, itemLimit) // Remove deepest paths to fit within the limit
+			.sort((a, b) => a.localeCompare(b)) // Resort alphabetically
+			.join('\n'));
 
-		// Return the project tree as a JSON string to the model
-		return new vscode.LanguageModelToolResult(
-			workspaceTrees.map(obj => new vscode.LanguageModelTextPart(JSON.stringify(obj)))
-		);
+		return new vscode.LanguageModelToolResult(results.map(r => new vscode.LanguageModelTextPart(r)));
 	}
 });
-
-/**
- * Constructs a summarized project tree from the workspace trees.
- * @param workspaceTrees An array of DirectoryInfo objects representing the workspace folders and their contents.
- * @param itemLimit The maximum number of items to include in the summary for each workspace.
- *                  This is split evenly between files and directories.
- *                  For example, if itemLimit is 10, it will include 5 files and 5 directories.
- * @returns A summarized project tree object.
- */
-async function getSummarizedProjectTree(workspaceTrees: DirectoryInfo[], itemLimit: number) {
-	if (workspaceTrees.length === 0) {
-		return {};
-	}
-
-	const summary = new Map<string, { files: string[]; directories: string[]; totalFiles: number; workspaceUri: string }>();
-	for (const workspace of workspaceTrees) {
-		summary.set(workspace.folder.name, {
-			totalFiles: workspace.totalFiles,
-			files: [],
-			directories: [],
-			workspaceUri: workspace.folder.uri.toString(),
-		});
-
-		// Get the top-level items in the workspace folder
-		const items = (await vscode.workspace.fs.readDirectory(workspace.folder.uri));
-		if (items.length === 0) {
-			continue;
-		}
-
-		// Separate files and directories
-		const files: string[] = [];
-		const directories: string[] = [];
-		for (const [name, type] of items) {
-			if (type === vscode.FileType.File) {
-				files.push(name);
-			} else if (type === vscode.FileType.Directory) {
-				directories.push(name);
-			}
-		}
-
-		// Sort files and directories alphabetically
-		files.sort();
-		directories.sort();
-
-		// Use half the limit for files and half for directories
-		const fileLimit = Math.floor(itemLimit / 2);
-		const dirLimit = itemLimit - fileLimit;
-
-		// Slice the files and directories to fit within the limits
-		summary.get(workspace.folder.name)!.files = files.slice(0, fileLimit);
-		summary.get(workspace.folder.name)!.directories = directories.slice(0, dirLimit);
-	}
-
-	return Object.fromEntries(summary);
-}
-
-/**
- * Convert an array of URIs to a directory structure for a workspace folder.
- * @param folder The workspace folder to which the URIs belong.
- * @param uris The URIs of items in the project tree.
- * @returns DirectoryItem representing the directory structure of the workspace folder.
- */
-function convertUrisToDirectoryItems(folder: vscode.WorkspaceFolder, uris: vscode.Uri[]): DirectoryItem {
-	// If there are no URIs, return an empty directory structure for the folder
-	if (uris.length === 0) {
-		return [folder.name, []];
-	}
-
-	// Sort the URIs alphabetically (folders and files are sorted together)
-	uris.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
-
-	const root: Record<string, any> = {};
-	for (const uri of uris) {
-		// Get the path relative to the workspace folder, e.g. src/myfolder/myfile.txt
-		const relativePath = vscode.workspace.asRelativePath(uri, false);
-
-		// Split the relative path into segments, e.g. ['src', 'myfolder', 'myfile.txt']
-		const segments = relativePath.split('/');
-		let node = root;
-
-		// Iterate through the segments to build the directory structure
-		for (let i = 0; i < segments.length; i++) {
-			const segment = segments[i];
-			const isLastSegment = i === segments.length - 1;
-			if (isLastSegment) {
-				node[segment] = null;
-			} else {
-				node[segment] = node[segment] || {};
-				node = node[segment];
-			}
-		}
-	}
-
-	// Convert the nested object structure to an array of DirectoryItems
-	const toDirectoryItems = (node: Record<string, any>): DirectoryItem[] =>
-		Object.entries(node).map(([name, value]) =>
-			value === null ? name : [name, toDirectoryItems(value)]
-		);
-
-	return [folder.name, toDirectoryItems(root)];
-}
 
 /**
  * Convert from the tool input excludeSettings to the vscode.ExcludeSettingOptions

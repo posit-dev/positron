@@ -49,7 +49,7 @@ import { ILanguageModelsService, LanguageModelsService } from '../common/languag
 import { ILanguageModelStatsService, LanguageModelStatsService } from '../common/languageModelStats.js';
 import { ILanguageModelToolsService } from '../common/languageModelToolsService.js';
 import { PromptsConfig } from '../common/promptSyntax/config/config.js';
-import { INSTRUCTIONS_DEFAULT_SOURCE_FOLDER, INSTRUCTION_FILE_EXTENSION, MODE_DEFAULT_SOURCE_FOLDER, MODE_FILE_EXTENSION, PROMPT_DEFAULT_SOURCE_FOLDER, PROMPT_FILE_EXTENSION } from '../common/promptSyntax/config/promptFileLocations.js';
+import { INSTRUCTIONS_DEFAULT_SOURCE_FOLDER, INSTRUCTIONS_POSITRON_SOURCE_FOLDER, INSTRUCTION_FILE_EXTENSION, MODE_DEFAULT_SOURCE_FOLDER, MODE_FILE_EXTENSION, MODE_POSITRON_SOURCE_FOLDER, PROMPT_DEFAULT_SOURCE_FOLDER, PROMPT_FILE_EXTENSION, PROMPT_POSITRON_SOURCE_FOLDER } from '../common/promptSyntax/config/promptFileLocations.js';
 import { registerPromptFileContributions } from '../common/promptSyntax/promptFileContributions.js';
 import { INSTRUCTIONS_DOCUMENTATION_URL, MODE_DOCUMENTATION_URL, PROMPT_DOCUMENTATION_URL } from '../common/promptSyntax/promptTypes.js';
 import { IPromptsService } from '../common/promptSyntax/service/promptsService.js';
@@ -541,6 +541,9 @@ configurationRegistry.registerConfiguration({
 			),
 			default: {
 				[INSTRUCTIONS_DEFAULT_SOURCE_FOLDER]: true,
+				// --- Start Positron ---
+				[INSTRUCTIONS_POSITRON_SOURCE_FOLDER]: true,
+				// --- End Positron ---
 			},
 			additionalProperties: { type: 'boolean' },
 			restricted: true,
@@ -569,6 +572,9 @@ configurationRegistry.registerConfiguration({
 			),
 			default: {
 				[PROMPT_DEFAULT_SOURCE_FOLDER]: true,
+				// --- Start Positron ---
+				[PROMPT_POSITRON_SOURCE_FOLDER]: true,
+				// --- End Positron ---
 			},
 			additionalProperties: { type: 'boolean' },
 			unevaluatedProperties: { type: 'boolean' },
@@ -598,6 +604,9 @@ configurationRegistry.registerConfiguration({
 			),
 			default: {
 				[MODE_DEFAULT_SOURCE_FOLDER]: true,
+				// --- Start Positron ---
+				[MODE_POSITRON_SOURCE_FOLDER]: true,
+				// --- End Positron ---
 			},
 			additionalProperties: { type: 'boolean' },
 			unevaluatedProperties: { type: 'boolean' },

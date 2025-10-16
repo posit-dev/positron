@@ -34,8 +34,5 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
  */
 export const TOOL_TAG_REQUIRES_ACTIVE_SESSION = 'requires-session';
 
-/** The absolute path to the directory containing markdown files (e.g. prompt templates). */
-export const MD_DIR = `${EXTENSION_ROOT_DIR}/src/md/`;
-
 /** Max number of variables to include in language session context */
 export const MAX_CONTEXT_VARIABLES = 400;

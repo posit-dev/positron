@@ -41,5 +41,3 @@ baz = 789
   qux = foo + bar + baz
 </assistant>
 </example>
-
-The next messages you see will be from the user.
