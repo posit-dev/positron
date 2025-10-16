@@ -289,13 +289,25 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 						return null;
 					}
 
-					const convertOptions = options ? {
-						...options,
-						baseUri: options.baseUri ? URI.from(options.baseUri) : undefined
+					// Provide workspace fallback if no baseUri specified
+					let resolvedOptions = options;
+					if (options?.preferRelative && !options.baseUri) {
+						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
+						if (workspaceFolders && workspaceFolders.length > 0) {
+							resolvedOptions = {
+								...options,
+								baseUri: workspaceFolders[0].uri
+							};
+						}
+					}
+
+					const convertOptions = resolvedOptions ? {
+						...resolvedOptions,
+						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined
 					} : undefined;
+
 					return convertClipboardFiles(uriListData, convertOptions);
 				} catch {
-					// Item was not text data
 					return null;
 				}
 			}
