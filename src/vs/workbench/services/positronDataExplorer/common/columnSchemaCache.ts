@@ -76,6 +76,17 @@ export class ColumnSchemaCache extends Disposable {
 		));
 	}
 
+	/**
+	 * Dispose method
+	 */
+	override dispose(): void {
+		// Clear the pending trim cache timeout
+		this.clearTrimCacheTimeout();
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region Public Properties
