@@ -43,9 +43,9 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 			title: localize2('positron.command.restartNotebookInterpreter', 'Restart Kernel'),
 			positronActionBarOptions: {
 				controlType: 'button',
-				displayTitle: true
+				displayTitle: false
 			},
-			icon: Codicon.debugRestart,
+			icon: Codicon.positronRestartRuntimeThin,
 			f1: true,
 			category,
 			precondition: ActiveNotebookHasRunningRuntime,
@@ -59,9 +59,9 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 				},
 				// Positron notebooks
 				{
-					id: MenuId.EditorActionsLeft,
+					id: MenuId.EditorActionsRight,
 					group: 'navigation',
-					order: 25,
+					order: 0,
 					when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 				}
 			]
