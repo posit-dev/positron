@@ -46,6 +46,36 @@ interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookIn
 }
 
 /**
+ * Maps runtime states to their corresponding kernel status values. This mapping
+ * defines how the notebook UI interprets runtime session states and displays
+ * them to the user as kernel connection status. As we expand the states we
+ * report this map will evolve.
+ *
+ * States are grouped by their semantic meaning:
+ * - Connecting: Runtime is initializing or starting
+ * - Connected: Runtime is operational and ready to execute code
+ * - Disconnected: Runtime has ended or is shutting down
+ */
+const RUNTIME_STATE_TO_KERNEL_STATUS: Partial<Record<RuntimeState, KernelStatus>> = {
+	// Runtime is starting up
+	[RuntimeState.Uninitialized]: KernelStatus.Connecting,
+	[RuntimeState.Initializing]: KernelStatus.Connecting,
+	[RuntimeState.Starting]: KernelStatus.Connecting,
+	[RuntimeState.Restarting]: KernelStatus.Connecting,
+
+	// Runtime is operational
+	[RuntimeState.Ready]: KernelStatus.Connected,
+	[RuntimeState.Idle]: KernelStatus.Connected,
+	[RuntimeState.Busy]: KernelStatus.Connected,
+	[RuntimeState.Interrupting]: KernelStatus.Connected,
+
+	// Runtime is shutting down or ended
+	[RuntimeState.Exiting]: KernelStatus.Disconnected,
+	[RuntimeState.Exited]: KernelStatus.Disconnected,
+	[RuntimeState.Offline]: KernelStatus.Disconnected,
+} as const;
+
+/**
  * Implementation of IPositronNotebookInstance that handles the core notebook functionality
  * and state management. This class serves as the bridge between the UI and the underlying
  * notebook model.
@@ -342,32 +372,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		// Derive the kernel connection status from the runtime session state
-		// This is a simple derived observable that maps runtime state to kernel status
+		// Uses the RUNTIME_STATE_TO_KERNEL_STATUS map for the conversion
 		this.kernelStatus = this.runtimeSession.map(session => {
 			if (!session) {
 				return KernelStatus.Uninitialized;
 			}
 
-			// Map runtime state to kernel status
 			const runtimeState = session.getRuntimeState();
-			switch (runtimeState) {
-				case RuntimeState.Uninitialized:
-				case RuntimeState.Initializing:
-				case RuntimeState.Starting:
-				case RuntimeState.Restarting:
-					return KernelStatus.Connecting;
-				case RuntimeState.Ready:
-				case RuntimeState.Idle:
-				case RuntimeState.Busy:
-				case RuntimeState.Interrupting:
-					return KernelStatus.Connected;
-				case RuntimeState.Exiting:
-				case RuntimeState.Exited:
-				case RuntimeState.Offline:
-					return KernelStatus.Disconnected;
-				default:
-					return KernelStatus.Errored;
-			}
+			// Return the mapped status, or Errored if the runtime state is unknown
+			return RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState] ?? KernelStatus.Errored;
 		});
 
 		// Derive the notebook language from the runtime session
