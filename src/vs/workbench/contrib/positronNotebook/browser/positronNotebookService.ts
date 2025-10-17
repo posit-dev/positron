@@ -36,6 +36,13 @@ export interface IPositronNotebookService {
 	getActiveInstance(): IPositronNotebookInstance | null;
 
 	/**
+	 * Set the currently active notebook instance.
+	 * This should be called when a notebook editor receives focus.
+	 * @param instance The instance to set as active.
+	 */
+	setActiveInstance(instance: IPositronNotebookInstance): void;
+
+	/**
 	 * Register a new notebook instance.
 	 * @param instance The instance to register.
 	 */
@@ -92,6 +99,10 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 
 	public getActiveInstance(): IPositronNotebookInstance | null {
 		return this._activeInstance;
+	}
+
+	public setActiveInstance(instance: IPositronNotebookInstance): void {
+		this._activeInstance = instance;
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {

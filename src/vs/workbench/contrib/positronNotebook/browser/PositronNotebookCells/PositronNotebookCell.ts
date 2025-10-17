@@ -143,6 +143,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._container = container;
 	}
 
+	get container(): HTMLElement | undefined {
+		return this._container;
+	}
 
 	attachEditor(editor: CodeEditorWidget): void {
 		this._editor.set(editor, undefined);
