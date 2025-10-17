@@ -31,11 +31,6 @@ export interface IPositronNotebookService {
 	listInstances(uri?: URI): Array<IPositronNotebookInstance>;
 
 	/**
-	 * Get the currently active notebook instance, if it exists.
-	 */
-	getActiveInstance(): IPositronNotebookInstance | null;
-
-	/**
 	 * Register a new notebook instance.
 	 * @param instance The instance to register.
 	 */
@@ -68,7 +63,6 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
-		// Call the disposable constrcutor.
 		super();
 	}
 
@@ -88,10 +82,6 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 			instances = instances.filter(instance => isEqual(instance.uri, uri));
 		}
 		return instances;
-	}
-
-	public getActiveInstance(): IPositronNotebookInstance | null {
-		return this._activeInstance;
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {
