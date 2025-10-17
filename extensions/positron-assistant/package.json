@@ -349,7 +349,7 @@
         "managementCommand": "positron-assistant.configureModels"
       },
       {
-        "vendor": "openai",
+        "vendor": "openai-api",
         "displayName": "OpenAI",
         "managementCommand": "positron-assistant.configureModels"
       },
