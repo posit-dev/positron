@@ -10,7 +10,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize2 } from '../../../../../nls.js';
 import { Action2 } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, ContextKeyTrueExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { ChatContextKeys } from '../../common/chatContextKeys.js';
@@ -36,6 +36,9 @@ export class ManageModelsAction extends Action2 {
 			title: localize2('manageLanguageModels', 'Manage Language Models...'),
 			category: CHAT_CATEGORY,
 			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(
+				// --- Start Positron ---
+				ContextKeyTrueExpr.INSTANCE,
+				// --- End Positron ---
 				ChatContextKeys.Entitlement.planFree,
 				ChatContextKeys.Entitlement.planPro,
 				ChatContextKeys.Entitlement.planProPlus,
