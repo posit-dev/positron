@@ -260,16 +260,22 @@ export class TableSummaryCache extends Disposable {
 			return this.update(pendingUpdateDescriptor);
 		}
 
-		// Schedule trimming the cache if we have actual column indices to preserve.
-		// This prevents accidentally clearing all cached data when columnIndices is an empty array
-		// which happens during UI state transitions (e.g. during resizing when layoutHeight is 0).
-		if (!updateDescriptor.invalidateCache && columnIndices.length) {
+		// Schedule trimming the cache if we didn't already invalidate the cache and we have
+		// column indices to keep. We don't want to schedule a trim if columnIndices is empty
+		// which can happen during UI rendering transitions (e.g.during resizing when layoutHeight
+		// is 0) because that would clear all cached data.
+		if (!updateDescriptor.invalidateCache && updateDescriptor.columnIndices.length) {
+			// Clear previously scheduled trim calls before scheduling a new one
+			// to prevent previously scheduled trim calls from clearing data that
+			// is now visible and should be in the cache. This can happen when a
+			// user is scrolling rapidly.
+			this.clearTrimCacheTimeout();
 			// Set the trim cache timeout.
 			this._trimCacheTimeout = setTimeout(() => {
 				// Release the trim cache timeout.
 				this._trimCacheTimeout = undefined;
 				// Trim the cache.
-				this.trimCache(new Set(columnIndices));
+				this.trimCache(new Set(updateDescriptor.columnIndices));
 			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
