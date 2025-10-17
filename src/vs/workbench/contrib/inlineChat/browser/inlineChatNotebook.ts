@@ -17,7 +17,7 @@ import { NotebookTextDiffEditor } from '../../notebook/browser/diff/notebookDiff
 import { NotebookMultiTextDiffEditor } from '../../notebook/browser/diff/notebookMultiDiffEditor.js';
 // --- Start Positron ---
 // Imports to support inline chat in Positron notebooks.
-import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { getAllPositronNotebookInstances } from '../../positronNotebook/browser/notebookUtils.js';
 // --- End Positron ---
 
 export class InlineChatNotebookContribution {
@@ -28,10 +28,6 @@ export class InlineChatNotebookContribution {
 		@IInlineChatSessionService sessionService: IInlineChatSessionService,
 		@IEditorService editorService: IEditorService,
 		@INotebookEditorService notebookEditorService: INotebookEditorService,
-		// --- Start Positron ---
-		// Imports to support inline chat in Positron notebooks.
-		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 	) {
 
 		this._store.add(sessionService.registerSessionKeyComputer(Schemas.vscodeNotebookCell, {
@@ -68,7 +64,7 @@ export class InlineChatNotebookContribution {
 				// --- Start Positron ---
 				// To support inline chat in Positron notebooks:
 				// construct a session comparison key from the corresponding notebook
-				for (const positronInstance of positronNotebookService.listInstances(data.notebook)) {
+				for (const positronInstance of getAllPositronNotebookInstances(editorService, data.notebook)) {
 					const candidate = `<positron-notebook>${positronInstance.id}#${uri}`;
 					if (!fallback) {
 						fallback = candidate;
@@ -120,7 +116,7 @@ export class InlineChatNotebookContribution {
 			// --- Start Positron ---
 			// To support inline chat in Positron notebooks:
 			// cancel existing chat sessions when a new one is started.
-			for (const positronInstance of positronNotebookService.listInstances(candidate.notebook)) {
+			for (const positronInstance of getAllPositronNotebookInstances(editorService, candidate.notebook)) {
 				if (positronInstance.hasCodeEditor(newSessionEditor)) {
 					for (const { editor } of positronInstance.cells.get()) {
 						if (editor && editor !== newSessionEditor) {

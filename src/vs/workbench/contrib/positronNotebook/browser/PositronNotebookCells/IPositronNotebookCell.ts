@@ -166,6 +166,11 @@ export interface IPositronNotebookCell extends Disposable {
 	attachContainer(container: HTMLElement): void;
 
 	/**
+	 * Get the container that the cell is attached to
+	 */
+	get container(): HTMLElement | undefined;
+
+	/**
 	 *
 	 * @param editor Code editor widget associated with cell.
 	 */

@@ -11,8 +11,9 @@ import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickin
 import { selectKernelIcon } from '../../notebook/browser/notebookIcons.js';
 import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
-import { IPositronNotebookService } from './positronNotebookService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { getActiveNotebook } from './notebookUtils.js';
 
 export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
 const NOTEBOOK_ACTIONS_CATEGORY_POSITRON = localize2('positronNotebookActions.category', 'Positron Notebook');
@@ -38,8 +39,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 	async run(accessor: ServicesAccessor, context?: SelectPositronNotebookKernelContext): Promise<boolean> {
 		const { forceDropdown } = context || { forceDropdown: false };
 		const notebookKernelService = accessor.get(INotebookKernelService);
-		const notebookService = accessor.get(IPositronNotebookService);
-		const activeNotebook = notebookService.getActiveInstance();
+		const activeNotebook = getActiveNotebook(accessor.get(IEditorService));
 		const quickInputService = accessor.get(IQuickInputService);
 
 		if (!activeNotebook) {

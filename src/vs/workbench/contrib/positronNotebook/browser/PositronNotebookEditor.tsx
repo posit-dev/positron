@@ -277,13 +277,20 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		notebookInstance.attachView(this._parentDiv, scopedContextKeyService);
 	}
 
+	/**
+	 * Called when this composite should receive keyboard focus.
+	 */
+	override focus(): void {
+		super.focus();
+
+		// Drive focus into the notebook instance based on selection state
+		if (this.notebookInstance) {
+			this.notebookInstance.grabFocus();
+		}
+	}
+
 	override clearInput(): void {
 		this._logService.info(this._identifier, 'clearInput');
-
-		if (this.notebookInstance && this._parentDiv) {
-			this.notebookInstance.detachView();
-			console.log('isVisible', this._isVisible.get());
-		}
 
 		if (this.notebookInstance) {
 			this.notebookInstance.detachView();
@@ -353,7 +360,11 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// Create a scoped context key service rooted at the notebook container so cell scopes inherit it.
 		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
-		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? new PositronReactRenderer(this._parentDiv);
+		// Create renderer if it doesn't exist, otherwise reuse existing renderer
+		if (!this._positronReactRenderer) {
+			this._positronReactRenderer = new PositronReactRenderer(this._parentDiv);
+		}
+		const reactRenderer = this._positronReactRenderer;
 
 		reactRenderer.render(
 			<NotebookVisibilityProvider isVisible={this._isVisible}>
