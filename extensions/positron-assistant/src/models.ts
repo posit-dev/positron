@@ -449,7 +449,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 					properties: {},
 				};
 				if (!input_schema.type) {
-					log.warn(`Tool ${tool.name} input schema missing 'type' property; defaulting to 'object'`);
+					log.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 					input_schema.type = 'object';
 				}
 				acc[tool.name] = ai.tool({
