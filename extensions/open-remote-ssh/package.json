@@ -103,6 +103,12 @@
 					"description": "**Experimental:** The name of the server binary, use this **only if** you are using a client without a corresponding server release",
 					"scope": "application",
 					"default": ""
+				},
+				"remoteSSH.serverInstallPath": {
+					"type": "string",
+					"markdownDescription": "A custom directory to install the Positron server data on the remote machine. By default, the server data is installed in `~/.positron-server`.",
+					"scope": "application",
+					"default": ""
 				}
 			}
 		},
