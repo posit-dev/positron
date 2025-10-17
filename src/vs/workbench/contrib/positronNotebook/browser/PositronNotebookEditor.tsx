@@ -43,7 +43,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookService } from './positronNotebookService.js';
 
 
 /**
@@ -92,7 +91,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
 		@IEditorService editorService: IEditorService,
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 	) {
 		// Call the base class's constructor.
 		super(
@@ -287,8 +285,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 		// Drive focus into the notebook instance based on selection state
 		if (this.notebookInstance) {
-			// Update the active instance so cell commands target this notebook
-			this._positronNotebookService.setActiveInstance(this.notebookInstance);
 			this.notebookInstance.grabFocus();
 		}
 	}

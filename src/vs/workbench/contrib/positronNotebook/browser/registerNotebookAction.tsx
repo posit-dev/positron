@@ -13,11 +13,12 @@ import { ContextKeyExpr, ContextKeyExpression } from '../../../../platform/conte
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { PositronActionBarWidgetRegistry } from '../../../../platform/positronActionBar/browser/positronActionBarWidgetRegistry.js';
-import { IPositronNotebookService } from './positronNotebookService.js';
 import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { getActiveNotebook } from './notebookUtils.js';
 
 /**
  * Keybinding configuration for notebook actions.
@@ -260,8 +261,8 @@ function registerNotebookCommandInternal(options: INotebookCommandOptions): IDis
 	const commandDisposable = CommandsRegistry.registerCommand({
 		id: options.commandId,
 		handler: (accessor: ServicesAccessor) => {
-			const notebookService = accessor.get(IPositronNotebookService);
-			const activeNotebook = notebookService.getActiveInstance();
+			const editorService = accessor.get(IEditorService);
+			const activeNotebook = getActiveNotebook(editorService);
 			if (!activeNotebook) {
 				return;
 			}
@@ -354,11 +355,9 @@ function registerNotebookWidgetInternal(options: INotebookWidgetOptions): IDispo
 		componentFactory: (accessor) => {
 			// Return a wrapper component that provides notebook context
 			return () => {
-				// Get the active notebook instance from the service
-				const notebookService = accessor.get(IPositronNotebookService);
-				const notebook = notebookService.getActiveInstance();
-
-				// If no active notebook, don't render anything
+				// Get the active notebook using the VS Code pattern
+				const editorService = accessor.get(IEditorService);
+				const notebook = getActiveNotebook(editorService);
 				if (!notebook) {
 					return null;
 				}
