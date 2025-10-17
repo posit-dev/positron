@@ -14,7 +14,7 @@
 	"serverLicense": [],
 	"serverLicensePrompt": "",
 	"serverApplicationName": "positron-server",
-	"serverDataFolderName": ".positron-server",
+	"serverDataFolderName": "$HOME/.positron-server",
 	"serverDownloadUrlTemplate": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz",
 	"tunnelApplicationName": "positron-tunnel",
 	"win32DirName": "Positron",

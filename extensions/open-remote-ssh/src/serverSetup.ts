@@ -94,11 +94,15 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 
 	let commandOutput: { stdout: string; stderr: string };
 	if (platform === 'windows') {
+		// If the default was not changed, adjust the path for PowerShell on Windows
+		if (installOptions.serverDataFolderName === '$HOME/.positron-server') {
+			installOptions.serverDataFolderName = '$HOME\\.positron-server';
+		}
 		const installServerScript = generatePowerShellInstallScript(installOptions);
 
 		logger.trace('Server install command:', installServerScript);
 
-		const installDir = `$HOME\\${vscodeServerConfig.serverDataFolderName}\\install`;
+		const installDir = `${vscodeServerConfig.serverDataFolderName}\\install`;
 		const installScript = `${installDir}\\${vscodeServerConfig.commit}.ps1`;
 		const endRegex = new RegExp(`${scriptId}: end`);
 		// investigate if it's possible to use `-EncodedCommand` flag
@@ -226,7 +230,7 @@ DISTRO_VSCODIUM_RELEASE="${release ?? ''}"
 SERVER_APP_NAME="${serverApplicationName}"
 SERVER_INITIAL_EXTENSIONS="${extensions}"
 SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-sock-${crypto.randomUUID()}"` : '--port=0'}"
-SERVER_DATA_DIR="$HOME/${serverDataFolderName}"
+SERVER_DATA_DIR="${serverDataFolderName}"
 SERVER_DIR="$SERVER_DATA_DIR/bin/$DISTRO_COMMIT"
 SERVER_SCRIPT="$SERVER_DIR/bin/$SERVER_APP_NAME"
 SERVER_LOGFILE="$SERVER_DATA_DIR/.$DISTRO_COMMIT.log"
@@ -467,7 +471,7 @@ $DISTRO_VSCODIUM_RELEASE="${release ?? ''}"
 $SERVER_APP_NAME="${serverApplicationName}"
 $SERVER_INITIAL_EXTENSIONS="${extensions}"
 $SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-sock-${crypto.randomUUID()}"` : '--port=0'}"
-$SERVER_DATA_DIR="$(Resolve-Path ~)\\${serverDataFolderName}"
+$SERVER_DATA_DIR="${serverDataFolderName}"
 $SERVER_DIR="$SERVER_DATA_DIR\\bin\\$DISTRO_COMMIT"
 $SERVER_SCRIPT="$SERVER_DIR\\bin\\$SERVER_APP_NAME.cmd"
 $SERVER_LOGFILE="$SERVER_DATA_DIR\\.$DISTRO_COMMIT.log"
