@@ -142,7 +142,7 @@ import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetada
 import { NotebookOutputEditor } from './outputEditor/notebookOutputEditor.js';
 import { NotebookOutputEditorInput } from './outputEditor/notebookOutputEditorInput.js';
 // --- Start Positron ---
-import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { hasConnectedNotebookForUri } from '../../positronNotebook/browser/notebookUtils.js';
 // --- End Positron ---
 
 /*--------------------------------------------------------------------------------------------- */
@@ -774,9 +774,6 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
-		// --- Start Positron ---
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -808,8 +805,7 @@ class NotebookEditorManager implements IWorkbenchContribution {
 				// --- Start Positron ---
 				// Make sure that we dont try and open the same editor twice if we're using positron
 				// notebooks.
-				const positronInstances = this._positronNotebookService.listInstances(model.resource);
-				if (positronInstances.some(instance => instance.connectedToEditor)) {
+				if (hasConnectedNotebookForUri(this._editorService, model.resource)) {
 					continue;
 				}
 				// --- End Positron ---

@@ -4,13 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookCommon.js';
-import { isEqual } from '../../../../base/common/resources.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -23,12 +21,6 @@ export interface IPositronNotebookService {
 	 * Placeholder that gets called to "initialize" the PositronNotebookService.
 	 */
 	initialize(): void;
-
-	/**
-	 * Get all notebook instances currently running.
-	 * @param uri The optional notebook URI to filter instances by.
-	 */
-	listInstances(uri?: URI): Array<IPositronNotebookInstance>;
 
 	/**
 	 * Register a new notebook instance.
@@ -74,14 +66,6 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	//#region Public Methods
 	public initialize(): void {
 		// Placeholder.
-	}
-
-	public listInstances(uri?: URI): Array<IPositronNotebookInstance> {
-		let instances = Array.from(this._instanceById.values());
-		if (uri) {
-			instances = instances.filter(instance => isEqual(instance.uri, uri));
-		}
-		return instances;
 	}
 
 	public registerInstance(instance: IPositronNotebookInstance): void {
