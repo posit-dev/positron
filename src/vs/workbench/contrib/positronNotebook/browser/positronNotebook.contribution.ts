@@ -821,7 +821,7 @@ registerNotebookAction({
 		icon: ThemeIcon.fromId('notebook-execute-all'),
 		positronActionBarOptions: {
 			controlType: 'button',
-			displayTitle: true
+			displayTitle: false
 		}
 	},
 	keybinding: {
@@ -841,7 +841,7 @@ registerNotebookAction({
 		icon: ThemeIcon.fromId('positron-clean'),
 		positronActionBarOptions: {
 			controlType: 'button',
-			displayTitle: true
+			displayTitle: false
 		}
 	},
 	keybinding: {
@@ -854,10 +854,10 @@ registerNotebookAction({
 	commandId: 'positronNotebook.showConsole',
 	handler: (notebook) => notebook.showNotebookConsole(),
 	menu: {
-		id: MenuId.EditorActionsLeft,
-		group: 'navigation',
+		id: MenuId.EditorTitle,
+		group: 'kernel',
 		order: 30,
-		title: { value: localize('showConsole', 'Show Console'), original: 'Show Console' },
+		title: { value: localize('showConsole', 'Show Notebook Console'), original: 'Show Notebook Console' },
 		icon: ThemeIcon.fromId('terminal'),
 		positronActionBarOptions: {
 			controlType: 'button',
@@ -874,9 +874,9 @@ registerNotebookAction({
 		notebook.addCell(CellKind.Code, cellCount);
 	},
 	menu: {
-		id: MenuId.EditorActionsRight,
+		id: MenuId.EditorActionsLeft,
 		group: 'navigation',
-		order: 10,
+		order: 30,
 		title: { value: localize('addCodeCell', 'Code'), original: 'Code' },
 		icon: ThemeIcon.fromId('add'),
 		positronActionBarOptions: {
@@ -894,9 +894,9 @@ registerNotebookAction({
 		notebook.addCell(CellKind.Markup, cellCount);
 	},
 	menu: {
-		id: MenuId.EditorActionsRight,
+		id: MenuId.EditorActionsLeft,
 		group: 'navigation',
-		order: 20,
+		order: 40,
 		title: { value: localize('addMarkdownCell', 'Markdown'), original: 'Markdown' },
 		icon: ThemeIcon.fromId('add'),
 		positronActionBarOptions: {
