@@ -69,11 +69,12 @@ export const renderHtml = (html: string, opts: HTMLRendererOptions = {}): React.
 
 		if (node.type === 'text') {
 			// Create <span> elements to host the text content.
-			if (node.content && node.content.trim().length > 0) {
+			// Preserve all text content, including whitespace-only nodes, as they may be
+			// semantically significant (e.g., spaces between inline elements).
+			if (node.content && node.content.length > 0) {
 				return React.createElement('span', {}, node.content);
 			}
-			// Text nodes with no content (or only whitespae content) are
-			// currently ignored.
+			// Only ignore truly empty text nodes (null, undefined, or empty string).
 			return undefined;
 		} else if (node.type === 'tag' && node.children) {
 			if (node.children.length === 1 && node.children[0].type === 'text') {

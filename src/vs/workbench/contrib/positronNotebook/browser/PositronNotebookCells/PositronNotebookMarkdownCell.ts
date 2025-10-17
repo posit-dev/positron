@@ -12,7 +12,6 @@ import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { IPositronNotebookMarkdownCell } from './IPositronNotebookCell.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
-import { CellSelectionType } from '../selectionMachine.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 
@@ -36,18 +35,25 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 		);
 	}
 
-	toggleEditor(): void {
+	async toggleEditor(): Promise<void> {
 		const editorStartingOpen = this.editorShown.get();
-		this.editorShown.set(!editorStartingOpen, undefined);
-		// Make sure cell stays selected if we're closing the editor
 		if (editorStartingOpen) {
-			this.select(CellSelectionType.Normal);
+			// Closing the editor - exit editing mode and return to selected state
+			this._instance.selectionStateMachine.exitEditor(this);
+			this.editorShown.set(false, undefined);
+		} else {
+			// Opening the editor - enter editing mode through the selection machine
+			// This will properly handle state transitions and focus management
+			await this._instance.selectionStateMachine.enterEditor(this);
 		}
 	}
 
 	override async showEditor(): Promise<ICodeEditor | undefined> {
 		this.editorShown.set(true, undefined);
 		await waitForState(this._editor, (editor) => editor !== undefined);
+		// Wait for the text model to be loaded before returning
+		// This ensures the editor is fully ready for focus operations
+		await this.getTextEditorModel();
 		return super.showEditor();
 	}
 
