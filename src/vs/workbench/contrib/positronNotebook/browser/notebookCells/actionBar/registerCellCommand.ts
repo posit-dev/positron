@@ -5,7 +5,6 @@
 
 import { CommandsRegistry, ICommandMetadata } from '../../../../../../platform/commands/common/commands.js';
 import { ServicesAccessor } from '../../../../../../platform/instantiation/common/instantiation.js';
-import { IPositronNotebookService } from '../../positronNotebookService.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { IDisposable, DisposableStore } from '../../../../../../base/common/lifecycle.js';
@@ -15,6 +14,8 @@ import { IPositronNotebookCommandKeybinding } from './commandUtils.js';
 import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { getSelectedCell, getSelectedCells, getEditingCell } from '../../selectionMachine.js';
 import { ContextKeyExpr, ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { IEditorService } from '../../../../../services/editor/common/editorService.js';
+import { getActiveNotebook } from '../../notebookUtils.js';
 
 /**
  * Options for registering a cell command.
@@ -80,8 +81,8 @@ export function registerCellCommand({
 	const commandDisposable = CommandsRegistry.registerCommand({
 		id: commandId,
 		handler: (accessor: ServicesAccessor) => {
-			const notebookService = accessor.get(IPositronNotebookService);
-			const activeNotebook = notebookService.getActiveInstance();
+			const editorService = accessor.get(IEditorService);
+			const activeNotebook = getActiveNotebook(editorService);
 			if (!activeNotebook) {
 				return;
 			}
