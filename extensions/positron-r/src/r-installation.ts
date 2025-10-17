@@ -6,7 +6,7 @@
 import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
-import { extractValue, readLines, removeSurroundingQuotes } from './util';
+import { extractValue, readLines, isExecutable, removeSurroundingQuotes } from './util';
 import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
 import { arePathsSame } from './path-utils';
@@ -264,8 +264,9 @@ export class RInstallation {
 export function getRHomePath(binpath: string): string | undefined {
 	switch (process.platform) {
 		case 'darwin':
+			return getRHomePathDarwin(binpath);
 		case 'linux':
-			return getRHomePathNotWindows(binpath);
+			return getRHomePathLinux(binpath);
 		case 'win32':
 			return getRHomePathWindows(binpath);
 		default:
@@ -273,7 +274,7 @@ export function getRHomePath(binpath: string): string | undefined {
 	}
 }
 
-function getRHomePathNotWindows(binpath: string): string | undefined {
+function getRHomePathDarwin(binpath: string): string | undefined {
 	const binLines = readLines(binpath);
 	const re = new RegExp('Shell wrapper for R executable');
 	if (!binLines.some(x => re.test(x))) {
@@ -287,6 +288,27 @@ function getRHomePathNotWindows(binpath: string): string | undefined {
 	}
 	// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
 	// macOS non-orthogonal: R_HOME_DIR=/Library/Frameworks/R.framework/Resources
+	const R_HOME_DIR = removeSurroundingQuotes(extractValue(targetLine, 'R_HOME_DIR'));
+	const homepath = R_HOME_DIR;
+	if (homepath === '') {
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
+		return undefined;
+	}
+	return homepath;
+}
+
+function getRHomePathLinux(binpath: string): string | undefined {
+	const binLines = readLines(binpath);
+	const re = new RegExp('Shell wrapper for R executable');
+	if (!binLines.some(x => re.test(x))) {
+		LOGGER.info(`Binary is not a shell script wrapping the executable: ${binpath}`);
+		return undefined;
+	}
+	const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
+	if (!targetLine) {
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
+		return undefined;
+	}
 	// linux: R_HOME_DIR=/opt/R/4.2.3/lib/R
 	// On linux we have seen the path surrounded with double quotes, which must be removed (#3696).
 	const R_HOME_DIR = removeSurroundingQuotes(extractValue(targetLine, 'R_HOME_DIR'));
@@ -294,6 +316,52 @@ function getRHomePathNotWindows(binpath: string): string | undefined {
 	if (homepath === '') {
 		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
 		return undefined;
+	}
+
+	// on linux 64bit machines, lib64 is preferred over lib
+	// "/usr/lib64/R" <-- we prefer this, if both are present
+	// "/usr/lib/R"
+	const testLine = binLines.find(line => line.match('if test "\\${R_HOME_DIR}" = ".*"; then'));
+	if (!testLine) {
+		LOGGER.info(`Can't determine R_HOME_DIR from the binary: ${binpath}`);
+		return undefined;
+	}
+	const testPathMatch = testLine.match('= "(.*)"; then');
+	if (!testPathMatch) {
+		LOGGER.info(`Can't determine R_HOME_DIR from the binary: ${binpath}`);
+		return undefined;
+	}
+	const testPath = testPathMatch[1]
+	if (testPath != R_HOME_DIR) {
+		return homepath;
+	}
+	const prefixMatch = testPath.match('(.*)\/.*\/R');
+	if (!prefixMatch) {
+		LOGGER.info(`Can't determine R_HOME_DIR from the binary: ${binpath}`);
+		return undefined;
+	}
+	const prefix = prefixMatch[1]
+    // Replicating special linux logic in R's official shell script
+    // https://github.com/wch/r-source/blob/8898619c430a383ceb401dee3e492ba386ea5967/src/scripts/R.sh.in#L5C1-L27C3
+    const is64BitArch = [
+        // Actual values returned by Node.js process.arch
+        'x64',      // Node.js equivalent of x86_64
+        'arm64',    // not in official shell script (but maybe should be?)
+        'ppc64',    // PowerPC 64-bit
+        's390x',    // IBM System z
+        // Remaining values from official script values, just to be safe
+        'x86_64', 'mips64', 'powerpc64', 'sparc64'
+].includes(process.arch);
+
+    const libnn = is64BitArch ? 'lib64' : 'lib';
+    const libnnFallback = is64BitArch ? 'lib' : 'lib64';
+	const libnnPath = path.join(prefix, libnn, 'R/bin/exec/R')
+	const libnnFallbackPath = path.join(prefix, libnnFallback, 'R/bin/exec/R')
+	if (isExecutable(libnnPath)) {
+		return path.join(prefix, libnn, "R");
+	}
+	if (isExecutable(libnnFallbackPath)) {
+		return path.join(prefix, libnnFallback, "R");
 	}
 	return homepath;
 }
