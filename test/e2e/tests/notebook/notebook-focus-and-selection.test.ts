@@ -216,9 +216,8 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
 		});
 
-		// BUG: https://github.com/posit-dev/positron/issues/9849
 		// Switch between notebooks to ensure selection is preserved
-		await test.step.skip('Selection is preserved when switching between editors', async () => {
+		await test.step('Selection is preserved when switching between editors', async () => {
 			// Switch back to tab 1 and verify selection is still at cell 2
 			await clickTab(TAB_1);
 			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });
