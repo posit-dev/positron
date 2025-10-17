@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "prerelease/**"
+      - "release/**"
 
 jobs:
   e2e-electron:
