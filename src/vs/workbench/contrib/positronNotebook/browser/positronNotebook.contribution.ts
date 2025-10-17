@@ -423,7 +423,7 @@ registerCellCommand({
 		category: 'Cell'
 	},
 	metadata: {
-		description: localize('positronNotebook.cell.insertAbove', "Insert code cell above")
+		description: localize('positronNotebook.codeCell.insertAbove', "Insert code cell above")
 	}
 });
 
@@ -440,7 +440,35 @@ registerCellCommand({
 		category: 'Cell'
 	},
 	metadata: {
-		description: localize('positronNotebook.cell.insertBelow', "Insert code cell below")
+		description: localize('positronNotebook.codeCell.insertBelow', "Insert code cell below")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.insertMarkdownCellAboveAndFocusContainer',
+	handler: (cell) => cell.insertMarkdownCellAbove(),
+	actionBar: {
+		icon: 'codicon-arrow-up',
+		position: 'menu',
+		order: 100,
+		category: 'Cell'
+	},
+	metadata: {
+		description: localize('positronNotebook.markdownCell.insertAbove', "Insert markdown cell above")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.insertMarkdownCellBelowAndFocusContainer',
+	handler: (cell) => cell.insertMarkdownCellBelow(),
+	actionBar: {
+		icon: 'codicon-arrow-down',
+		position: 'menu',
+		order: 100,
+		category: 'Cell'
+	},
+	metadata: {
+		description: localize('positronNotebook.markdownCell.insertBelow', "Insert markdown cell below")
 	}
 });
 
@@ -462,8 +490,7 @@ registerCellCommand({
 	metadata: {
 		description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
 	}
-}
-);
+});
 
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
