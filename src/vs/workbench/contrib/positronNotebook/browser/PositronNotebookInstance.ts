@@ -29,8 +29,9 @@ import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInst
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
-import { INotebookKernel, INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, observableValue } from '../../../../base/common/observable.js';
@@ -43,6 +44,36 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
 }
+
+/**
+ * Maps runtime states to their corresponding kernel status values. This mapping
+ * defines how the notebook UI interprets runtime session states and displays
+ * them to the user as kernel connection status. As we expand the states we
+ * report this map will evolve.
+ *
+ * States are grouped by their semantic meaning:
+ * - Connecting: Runtime is initializing or starting
+ * - Connected: Runtime is operational and ready to execute code
+ * - Disconnected: Runtime has ended or is shutting down
+ */
+const RUNTIME_STATE_TO_KERNEL_STATUS: Partial<Record<RuntimeState, KernelStatus>> = {
+	// Runtime is starting up
+	[RuntimeState.Uninitialized]: KernelStatus.Connecting,
+	[RuntimeState.Initializing]: KernelStatus.Connecting,
+	[RuntimeState.Starting]: KernelStatus.Connecting,
+	[RuntimeState.Restarting]: KernelStatus.Connecting,
+
+	// Runtime is operational
+	[RuntimeState.Ready]: KernelStatus.Connected,
+	[RuntimeState.Idle]: KernelStatus.Connected,
+	[RuntimeState.Busy]: KernelStatus.Connected,
+	[RuntimeState.Interrupting]: KernelStatus.Connected,
+
+	// Runtime is shutting down or ended
+	[RuntimeState.Exiting]: KernelStatus.Disconnected,
+	[RuntimeState.Exited]: KernelStatus.Disconnected,
+	[RuntimeState.Offline]: KernelStatus.Disconnected,
+} as const;
 
 /**
  * Implementation of IPositronNotebookInstance that handles the core notebook functionality
@@ -215,11 +246,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	contextManager;
 
 	/**
-	 * Selected kernel for the notebook.
-	 */
-	kernel;
-
-	/**
 	 * Status of kernel for the notebook.
 	 */
 	kernelStatus;
@@ -337,29 +363,29 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					d.dispose();
 					this.runtimeSession.set(undefined, undefined);
 				}));
+				// Also update the observable when runtime state changes
+				// This ensures derived observables like kernelStatus stay in sync
+				this._register(session.onDidChangeRuntimeState(() => {
+					this.runtimeSession.set(session, undefined);
+				}));
 			}
 		}));
 
-		// Track the current selected kernel for this notebook
-		this.kernel = observableValue<INotebookKernel | undefined>('positronNotebookKernel', undefined);
-		this._register(this.notebookKernelService.onDidChangeSelectedNotebooks(e => {
-			if (e && this._isThisNotebook(e.notebook) && this.textModel) {
-				const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
-				const kernel = matching.all.find(k => k.id === e.newKernel);
-				this.kernel.set(kernel, undefined);
+		// Derive the kernel connection status from the runtime session state
+		// Uses the RUNTIME_STATE_TO_KERNEL_STATUS map for the conversion
+		this.kernelStatus = this.runtimeSession.map(session => {
+			if (!session) {
+				return KernelStatus.Uninitialized;
 			}
-		}));
 
-		// Derive the kernel connection status
-		this.kernelStatus = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookKernelStatus */ kernel ? KernelStatus.Connected : KernelStatus.Disconnected
-		);
+			const runtimeState = session.getRuntimeState();
+			// Return the mapped status, or Errored if the runtime state is unknown
+			return RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState] ?? KernelStatus.Errored;
+		});
 
-		// Derive the notebook language from the selected kernel
-		this._language = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookLanguage */ kernel?.supportedLanguages[0] ?? 'plaintext'
+		// Derive the notebook language from the runtime session
+		this._language = this.runtimeSession.map(
+			session => /** @description positronNotebookLanguage */ session?.runtimeMetadata.languageId ?? 'plaintext'
 		);
 
 		this.contextManager = this._register(
@@ -800,13 +826,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * fully determine the view we see.
 	 */
 	getEditorViewState(): INotebookEditorViewState {
+		this._assertTextModel();
+		const selectedKernel = this.notebookKernelService.getSelectedOrSuggestedKernel(this.textModel);
 		return {
 			editingCells: {},
 			cellLineNumberStates: {},
 			editorViewStates: {},
 			collapsedInputCells: {},
 			collapsedOutputCells: {},
-			selectedKernelId: this.kernel.get()?.id,
+			selectedKernelId: selectedKernel?.id,
 		};
 	}
 
