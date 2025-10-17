@@ -37,7 +37,11 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 		this.outputs = observableFromEvent(this, this.cellModel.onDidChangeOutputs, () => {
 			/** @description cellOutputs */
-			return this.parseCellOutputs();
+			const parsedOutputs = this.parseCellOutputs();
+			// Update hasError when outputs change
+			const hasError = parsedOutputs.some(o => o.parsed.type === 'error');
+			this.hasError.set(hasError, undefined);
+			return parsedOutputs;
 		});
 
 		// Execution timing observables
