@@ -317,19 +317,18 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			...toLanguageModelChatMessage(context.history),
 		];
 
-		// Add the user's prompt.
-		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
-		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
-
 		// Add cache breakpoints to at-most the last 2 user messages.
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
-		// NOTE: We add the context message after the user prompt so that the context message is
-		// not cached. Since the context message is transiently added to each request, caching it
-		// will write a prompt prefix to the cache that will never be read. We will want to keep
-		// an eye on whether the order of user prompt and context message affects model responses.
+		// The context message is the second-last message in the chat messages.
 		const contextInfo = await attachContextInfo(messages);
+
+		// Add the user's prompt.
+		// The user's prompt is the last message in the chat messages.
+		// If this ordering changes, also update getUserPrompt for the EchoLanguageModel in extensions/positron-assistant/src/models.ts.
+		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
+		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
 
 		// Send the request to the language model.
 		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools);
