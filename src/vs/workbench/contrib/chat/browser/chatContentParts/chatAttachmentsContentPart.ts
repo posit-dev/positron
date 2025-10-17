@@ -16,6 +16,10 @@ import { IChatRequestVariableEntry, isElementVariableEntry, isImageVariableEntry
 import { ChatResponseReferencePartStatusKind, IChatContentReference } from '../../common/chatService.js';
 import { DefaultChatAttachmentWidget, ElementChatAttachmentWidget, FileAttachmentWidget, ImageAttachmentWidget, NotebookCellOutputChatAttachmentWidget, PasteAttachmentWidget, PromptFileAttachmentWidget, PromptTextAttachmentWidget, SCMHistoryItemAttachmentWidget, SCMHistoryItemChangeAttachmentWidget, SCMHistoryItemChangeRangeAttachmentWidget, ToolSetOrToolItemAttachmentWidget } from '../chatAttachmentWidgets.js';
 
+// --- Start Positron ---
+import { isRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
+// --- End Positron ---
+
 export interface IChatAttachmentsContentPartOptions {
 	readonly variables: IChatRequestVariableEntry[];
 	readonly contentReferences?: ReadonlyArray<IChatContentReference>;

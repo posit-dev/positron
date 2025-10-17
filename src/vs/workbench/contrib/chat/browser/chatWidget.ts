@@ -815,7 +815,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.onDidStyleChange();
 
 		// --- Start Positron ---
-		if (this.location === ChatAgentLocation.Panel) {
+		if (this.location === ChatAgentLocation.Chat) {
 			this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
 			this.actionBarContainer.render(this.container);
 			// When a provider is selected in the UI, update it in the language models service.
@@ -1056,14 +1056,23 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			let welcomeContent: IChatViewWelcomeContent;
 			const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentModeKind);
 			let additionalMessage = defaultAgent?.metadata.additionalWelcomeMessage;
+			// --- Start Positron ---
+			// Hide additional messages for Positron Assistant
+			/*
 			if (!additionalMessage) {
+			*/
+			if (!additionalMessage && numItems) {
 				additionalMessage = this._getGenerateInstructionsMessage();
 			}
+			// --- End Positron ---
 			if (this.contextKeyService.contextMatchesRules(ChatContextKeyExprs.chatSetupTriggerContext)) {
 				welcomeContent = this.getNewWelcomeViewContent();
 				this.container.classList.add('new-welcome-view');
 			} else if (expEmptyState) {
-				welcomeContent = this.getWelcomeViewContent(additionalMessage, expEmptyState);
+				// --- Start Positron ---
+				// welcomeContent = this.getWelcomeViewContent(additionalMessage, expEmptyState);
+				welcomeContent = this.getPositronWelcomeViewContent(additionalMessage);
+				// --- End Positron ---
 			} else {
 				const tips = this.input.currentModeKind === ChatModeKind.Ask
 					? new MarkdownString(localize('chatWidget.tips', "{0} or type {1} to attach context\n\n{2} to chat with extensions\n\nType {3} to use commands", '$(attach)', '#', '$(mention)', '/'), { supportThemeIcons: true })

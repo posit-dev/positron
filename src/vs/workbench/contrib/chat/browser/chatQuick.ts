@@ -407,12 +407,12 @@ class QuickChat extends Disposable {
 		// Update with any existing context from other chat widgets
 		// Look for a chat widget that is in a panel and is not a quick chat
 		const mainChatWidget = this.chatWidgetService
-			.getWidgetsByLocations(ChatAgentLocation.Panel)
+			.getWidgetsByLocations(ChatAgentLocation.Chat)
 			.find(w =>
 				// Make sure it's not this quick chat widget
 				w !== this.widget &&
 				// Make sure it's in the panel
-				w.location === ChatAgentLocation.Panel &&
+				w.location === ChatAgentLocation.Chat &&
 				(
 					// And that it is not another quick chat
 					!('isQuickChat' in w.viewContext) ||

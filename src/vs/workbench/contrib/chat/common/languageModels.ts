@@ -534,21 +534,27 @@ export class LanguageModelsService implements ILanguageModelsService {
 				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
 				// Re-resolve all registered providers to apply new filters
 				const allVendors = Array.from(this._vendors.keys());
-				if (allVendors.length > 0) {
-					this.resolveLanguageModels(allVendors, true).then(() => {
-						// if the current provider is now filtered out, switch to another available provider
-						const currentProvider = this._currentProvider;
-						const availableProviders = this.getLanguageModelProviders();
-						if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
-							this._logService.trace('[LM] Current provider was filtered out, switching to next available', currentProvider.id);
-							if (availableProviders.length > 0) {
-								this.currentProvider = availableProviders[0];
-							} else {
-								this.currentProvider = undefined;
-							}
-						}
-					});
+				if (allVendors.length === 0) {
+					return;
 				}
+				// Re-resolve all vendors
+				const vendorPromises = allVendors.map(
+					vendor => this._resolveLanguageModels(vendor, true));
+
+				// After all are resolved, check if the current provider is still valid
+				Promise.all(vendorPromises).then(() => {
+					// if the current provider is now filtered out, switch to another available provider
+					const currentProvider = this._currentProvider;
+					const availableProviders = this.getLanguageModelProviders();
+					if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
+						this._logService.trace('[LM] Current provider was filtered out, switching to next available', currentProvider.id);
+						if (availableProviders.length > 0) {
+							this.currentProvider = availableProviders[0];
+						} else {
+							this.currentProvider = undefined;
+						}
+					}
+				});
 			}
 		}));
 		// --- End Positron ---
@@ -684,6 +690,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 				if (!silent && modelsAndIdentifiers.some(m => m.metadata.isUserSelectable)) {
 					modelsAndIdentifiers = modelsAndIdentifiers.filter(m => m.metadata.isUserSelectable || this._modelPickerUserPreferences[m.identifier] === true);
 				}
+
+				// --- Start Positron ---
+				// Track included models after applying configuration filters for logging
+				const includedModels = [];
+				// --- End Positron ---
+
 				this._clearModelCache(vendor);
 				for (const modelAndIdentifier of modelsAndIdentifiers) {
 					if (this._modelCache.has(modelAndIdentifier.identifier)) {

@@ -683,8 +683,11 @@ class ChatStatusDashboard extends Disposable {
 			this.createCompletionsSnooze(snooze, localize('settings.snooze', "Snooze"), disposables);
 		}
 
-		/*
 		// New to Copilot / Signed out
+		// --- Start Positron ---
+		// Disable this section since we don't to prompt users to sign in or set up Copilot.
+		if (!this.entryDisposables)
+		// --- End Positron ---
 		{
 			const newUser = isNewUser(this.chatEntitlementService);
 			const anonymousUser = this.chatEntitlementService.anonymous;
@@ -738,8 +741,6 @@ class ChatStatusDashboard extends Disposable {
 				disposables.add(button.onDidClick(() => this.runCommandAndClose(commandId)));
 			}
 		}
-		*/
-		// --- End Positron ---
 
 		return this.element;
 	}
