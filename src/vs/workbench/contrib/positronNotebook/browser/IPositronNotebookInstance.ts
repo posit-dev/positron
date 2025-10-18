@@ -163,6 +163,15 @@ export interface IPositronNotebookInstance {
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
 
 	/**
+	 * Inserts a new markdown cell either above or below the current selection
+	 * and focuses the container.
+	 *
+	 * @param aboveOrBelow Whether to insert the cell above or below the current selection
+	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
+	 */
+	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
+
+	/**
 	 * Removes a cell from the notebook.
 	 *
 	 * @param cell Optional cell to delete. If not provided, deletes the currently selected cell
