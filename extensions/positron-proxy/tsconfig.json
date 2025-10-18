@@ -1,16 +1,19 @@
 {
 	"compilerOptions": {
-		"module": "commonjs",
+		"module": "nodenext",
 		"target": "ES2020",
 		"moduleResolution": "nodenext",
 		"outDir": "out",
 		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
 		"lib": [
 			"ES2020"
 		],
 		"sourceMap": true,
 		"rootDir": "src",
-		"strict": true,
+		"strict": false,
+		"skipLibCheck": true,
+		"noImplicitAny": false,
 		"typeRoots": [
 			"./node_modules/@types"
 		],

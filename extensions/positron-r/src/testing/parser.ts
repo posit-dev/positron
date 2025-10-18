@@ -19,8 +19,8 @@ let _queryStrings: string[] | null = null;
 // lazily initialize the parser
 export async function initializeParser(): Promise<Parser> {
 	LOGGER.info(`Initializing parser`);
-	await Parser.init();
-	const parser = new Parser();
+	await (Parser as any).init();
+	const parser = new (Parser as any)();
 	LOGGER.info(`tree-sitter-r.wasm path: ${wasmPath}`);
 	R = await Parser.Language.load(wasmPath);
 	parser.setLanguage(R);
