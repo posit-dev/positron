@@ -10,12 +10,17 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize2 } from '../../../../../nls.js';
 import { Action2 } from '../../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { ContextKeyExpr, ContextKeyTrueExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../../platform/quickinput/common/quickInput.js';
 import { ChatContextKeys } from '../../common/chatContextKeys.js';
 import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../common/languageModels.js';
 import { CHAT_CATEGORY } from './chatActions.js';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { ContextKeyTrueExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
 
 interface IVendorQuickPickItem extends IQuickPickItem {
 	managementCommand?: string;
