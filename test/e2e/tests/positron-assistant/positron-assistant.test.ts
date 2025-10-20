@@ -96,6 +96,11 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickCloseButton();
 	});
 
+	test('Verify Manage Models is available', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.verifyManageModelsOptionVisible();
+	});
+
 });
 /**
  * Test suite Positron Assistant actions from the chat interface.
