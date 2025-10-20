@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -421,7 +422,7 @@ from io import BytesIO
 
 w = WorkspaceClient(host="https://${uri.authority}")
 ${varname} = pd.read_csv(
-    BytesIO(w.files.download("${uri.path}").contents.read())
+	BytesIO(w.files.download("${uri.path}").contents.read())
 )
 `;
 	return { code, dependencies };
@@ -447,13 +448,13 @@ import pandas as pd
 from databricks import sql
 
 conn = sql.connect(
-  server_hostname="https://${uri.authority}",
-  http_path="${httpPath}",
+	server_hostname="https://${uri.authority}",
+	http_path="${httpPath}",
 )
 
 with conn.cursor() as cursor:
-    cursor.execute("SELECT * FROM \`${catalog}\`.\`${schema}\`.\`${table}\` LIMIT 1000;")
-    ${varname} = cursor.fetchall_arrow().to_pandas()
+	cursor.execute("SELECT * FROM \`${catalog}\`.\`${schema}\`.\`${table}\` LIMIT 1000;")
+	${varname} = cursor.fetchall_arrow().to_pandas()
 `;
 	return { code, dependencies };
 }
@@ -472,18 +473,18 @@ function getRCodeForFile(uri: vscode.Uri): {
 		case '.tsv':
 			dependencies.push('readr');
 			code = `${varname} <- readr::read_csv(
-  brickster::db_volume_read(
-    "${uri.path}",
-    tempfile(pattern = "${ext}"),
-    host = "${uri.authority}"
-  )
+	brickster::db_volume_read(
+		"${uri.path}",
+		tempfile(pattern = "${ext}"),
+		host = "${uri.authority}"
+	)
 )`;
 			break;
 		default:
 			code = `${varname}_path <- brickster::db_volume_read(
-  "${uri.path}",
-  tempfile(pattern = "${ext}"),
-  host = "${uri.authority}"
+	"${uri.path}",
+	tempfile(pattern = "${ext}"),
+	host = "${uri.authority}"
 )`;
 			break;
 	}
@@ -505,9 +506,9 @@ function getRCodeForTable(uri: vscode.Uri): {
 	const dependencies = ['odbc', 'dplyr'];
 	const varname = nameToIdentifier(table);
 	const code = `conn <- DBI::dbConnect(
-  odbc::databricks(),
-  workspace = "${uri.authority}",
-  httpPath = "${httpPath}"
+	odbc::databricks(),
+	workspace = "${uri.authority}",
+	httpPath = "${httpPath}"
 )
 ${varname} <- dplyr::tbl(conn, I("${catalog}.${schema}.${table}"))
 `;

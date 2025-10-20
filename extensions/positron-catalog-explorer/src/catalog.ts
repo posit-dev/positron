@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -56,7 +57,7 @@ export class CatalogNode {
 		public readonly type: CatalogNodeType,
 		public readonly provider: CatalogProvider,
 		public readonly resourceUri?: vscode.Uri,
-	) {}
+	) { }
 
 	async getDetails(): Promise<string | undefined> {
 		return await this.provider.getDetails(this);
@@ -112,8 +113,7 @@ export async function registerTreeViewProvider(
 type CatalogElement = CatalogNode | CatalogProvider;
 
 class CatalogTreeDataProvider
-	implements vscode.TreeDataProvider<CatalogElement>, vscode.Disposable
-{
+	implements vscode.TreeDataProvider<CatalogElement>, vscode.Disposable {
 	private listeners: vscode.Disposable[] = [];
 	private emitter = new vscode.EventEmitter<CatalogElement | void>();
 
@@ -439,7 +439,7 @@ export function registerCatalogCommands(
 							const label =
 								p.getTreeItem().label?.toString() || 'Unnamed Provider';
 
-							let description = p.getTreeItem().description?.toString() || p.id;
+							const description = p.getTreeItem().description?.toString() || p.id;
 
 							return {
 								label,

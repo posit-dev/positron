@@ -1,5 +1,6 @@
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
@@ -13,8 +14,7 @@ export interface DatabricksCredentialProvider {
  * for a Databricks PAT, with some basic in-memory caching.
  */
 export class DefaultDatabricksCredentialProvider
-	implements DatabricksCredentialProvider
-{
+	implements DatabricksCredentialProvider {
 	private cache = new Map<string, string>();
 
 	constructor(private store: vscode.SecretStorage) {

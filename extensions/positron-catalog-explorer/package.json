@@ -1,6 +1,6 @@
 {
   "name": "catalog-explorer",
-  "publisher": "posit",
+  "publisher": "positron",
   "author": "Posit Software, PBC",
   "displayName": "Catalog Explorer",
   "description": "Explore tables, views, and files backed by data catalogs.",
@@ -21,6 +21,16 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Catalog Explorer",
+      "properties": {
+        "positronCatalogExplorer.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable the Catalog Explorer extension. When disabled, the extension will not activate."
+        }
+      }
+    },
     "commands": [
       {
         "command": "posit.catalog-explorer.addCatalogProvider",
