@@ -10,6 +10,7 @@ import {
 	CatalogProviderRegistration,
 	CatalogProviderRegistry,
 } from '../catalog';
+import { resourceUri } from '../resources';
 
 // Track provider instances at the module level
 export const mockProviderInstances: Set<MockCatalogProvider> = new Set();
@@ -91,10 +92,10 @@ export class MockCatalogProvider implements CatalogProvider {
 			return Promise.resolve([
 				new CatalogNode('table', 'table', this),
 				new CatalogNode(
-					`${node.path}/file.csv`,
+					`${resourceUri('file.csv')}`,
 					'file',
 					this,
-					vscode.Uri.parse(`mock://${node.path}/file.csv`),
+					vscode.Uri.parse(`${resourceUri('file.csv')}`),
 				),
 			]);
 		}
