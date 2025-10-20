@@ -96,11 +96,6 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickCloseButton();
 	});
 
-	test('Verify Manage Models is available', async function ({ app }) {
-		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.verifyManageModelsOptionVisible();
-	});
-
 });
 /**
  * Test suite Positron Assistant actions from the chat interface.
@@ -153,6 +148,10 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
 		await app.workbench.console.waitForConsoleContents('foo <- 200');
 		await app.workbench.variables.expectVariableToBe('foo', '200');
+	});
+
+	test('Verify Manage Models is available', async function ({ app }) {
+		await app.workbench.assistant.verifyManageModelsOptionVisible();
 	});
 });
 
