@@ -191,8 +191,9 @@ test.describe('Notebook Focus and Selection', {
 		const { notebooks, notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
-		const clickTab = (name: string) => app.code.driver.page.getByRole('tab', { name }).click();
-		const TAB_1 = 'Untitled-1.ipynb';
+		const clickTab = (name: string | RegExp) => app.code.driver.page.getByRole('tab', { name }).click();
+		// Depending on when this test is run, the untitled notebook may have a different number
+		const TAB_1 = /Untitled-\d+\.ipynb/;
 		const TAB_2 = 'bitmap-notebook.ipynb';
 
 		// Start a new notebook (tab 1)
