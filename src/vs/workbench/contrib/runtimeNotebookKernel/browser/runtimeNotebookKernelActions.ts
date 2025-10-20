@@ -12,7 +12,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookEditorWidget } from '../../notebook/browser/notebookEditorWidget.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
@@ -24,16 +24,78 @@ const category = localize2('positron.runtimeNotebookKernel.category', "Notebook"
 /** Whether a Positron kernel is selected for the active notebook. */
 const NOTEBOOK_POSITRON_KERNEL_SELECTED = ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, new RegExp(`${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}\/.*`));
 
-/** The context for actions run from the notebook editor toolbar. */
+/** The context for actions run from the VSCode notebook editor toolbar. */
 interface INotebookEditorToolbarContext {
 	ui: boolean;
 	notebookEditor: NotebookEditorWidget;
 	source: 'notebookToolbar';
 }
 
+/** The context for actions in a notebook using a language runtime kernel. */
+interface IRuntimeNotebookKernelActionContext {
+	/** The notebook's language runtime session, if any */
+	runtimeSession: INotebookLanguageRuntimeSession | undefined;
+	source: {
+		/** The source of the action */
+		id: 'positronNotebookActionBar' | 'vscodeNotebookToolbar' | 'command';
+		/** Debug message noting the source of the action */
+		debugMessage: string;
+	};
+}
+
+abstract class BaseRuntimeNotebookKernelAction extends Action2 {
+	abstract runWithContext(accessor: ServicesAccessor, context?: IRuntimeNotebookKernelActionContext): Promise<void>;
+
+	override async run(accessor: ServicesAccessor, context?: INotebookEditorToolbarContext | URI): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		// Try to use the notebook URI from the context - set if run via the notebook editor toolbar.
+		let notebookUri: URI | undefined;
+		let source: IRuntimeNotebookKernelActionContext['source'];
+		if (context) {
+			if (isUriComponents(context)) {
+				source = {
+					id: 'positronNotebookActionBar',
+					debugMessage: 'User clicked restart button in Positron notebook editor toolbar',
+				};
+				notebookUri = context;
+			} else {
+				source = {
+					id: 'vscodeNotebookToolbar',
+					debugMessage: 'User clicked restart button in VSCode notebook editor toolbar'
+				};
+				notebookUri = context.notebookEditor.textModel?.uri;
+			}
+		} else {
+			source = {
+				id: 'command',
+				debugMessage: `Restart notebook kernel command ${RuntimeNotebookKernelRestartAction.ID} executed`,
+			};
+			const activeEditor = editorService.activeEditor;
+			if (!isNotebookEditorInput(activeEditor)) {
+				throw new Error('No active notebook. This command should only be available when a notebook is active.');
+			}
+			notebookUri = activeEditor.resource;
+		}
+
+		// If no context was provided, try to get the active notebook URI.
+		if (!notebookUri) {
+			const activeEditor = editorService.activeEditor;
+			if (!isNotebookEditorInput(activeEditor)) {
+				throw new Error('No active notebook. This command should only be available when a notebook is active.');
+			}
+			notebookUri = activeEditor.resource;
+		}
+
+		const runtimeSession = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+
+		return this.runWithContext(accessor, { runtimeSession, source });
+	}
+}
+
 /** Restart the active runtime notebook kernel. */
-export class RuntimeNotebookKernelRestartAction extends Action2 {
-	/** The action's ID. */
+export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKernelAction {
 	public static readonly ID = 'positron.runtimeNotebookKernel.restart';
 
 	constructor() {
@@ -65,58 +127,27 @@ export class RuntimeNotebookKernelRestartAction extends Action2 {
 		});
 	}
 
-	override async run(accessor: ServicesAccessor, context?: INotebookEditorToolbarContext | URI): Promise<void> {
-		const editorService = accessor.get(IEditorService);
-		const progressService = accessor.get(IProgressService);
-		const notificationService = accessor.get(INotificationService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-
-		// Try to use the notebook URI from the context - set if run via the notebook editor toolbar.
-		let notebookUri: URI | undefined;
-		let source: string;
-		if (context) {
-			if (isUriComponents(context)) {
-				source = 'User clicked restart button in Positron notebook editor toolbar';
-				notebookUri = context;
-			} else {
-				source = 'User clicked restart button in VSCode notebook editor toolbar';
-				notebookUri = context.notebookEditor.textModel?.uri;
-			}
-		} else {
-			source = `Restart notebook kernel command ${RuntimeNotebookKernelRestartAction.ID} executed`;
-			const activeEditor = editorService.activeEditor;
-			if (!isNotebookEditorInput(activeEditor)) {
-				throw new Error('No active notebook. This command should only be available when a notebook is active.');
-			}
-			notebookUri = activeEditor.resource;
-		}
-
-		// If no context was provided, try to get the active notebook URI.
-		if (!notebookUri) {
-			const activeEditor = editorService.activeEditor;
-			if (!isNotebookEditorInput(activeEditor)) {
-				throw new Error('No active notebook. This command should only be available when a notebook is active.');
-			}
-			notebookUri = activeEditor.resource;
-		}
-
-		// Get the session for the active notebook.
-		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+	override async runWithContext(accessor: ServicesAccessor, context?: IRuntimeNotebookKernelActionContext): Promise<void> {
+		const session = context?.runtimeSession;
 		if (!session) {
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
+
+		const progressService = accessor.get(IProgressService);
+		const notificationService = accessor.get(INotificationService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 		// Restart the session with a progress bar.
 		try {
 			await progressService.withProgress({
 				location: ProgressLocation.Notification,
 				title: localize("positron.notebook.restart.restarting", "Restarting {0} interpreter for '{1}'",
-					session.runtimeMetadata.runtimeName, notebookUri.fsPath),
-			}, () => runtimeSessionService.restartSession(session.metadata.sessionId, source));
+					session.runtimeMetadata.runtimeName, session.metadata.notebookUri.fsPath),
+			}, () => runtimeSessionService.restartSession(session.metadata.sessionId, context.source.debugMessage));
 		} catch (error) {
 			notificationService.error(
 				localize("positron.notebook.restart.failed", "Restarting {0} interpreter for '{1}' failed. Reason: {2}",
-					session.runtimeMetadata.runtimeName, notebookUri.fsPath, error.message));
+					session.runtimeMetadata.runtimeName, session.metadata.notebookUri.fsPath, error.message));
 		}
 	}
 }
