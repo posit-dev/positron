@@ -19,6 +19,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Check if the extension is enabled via configuration
 	const config = vscode.workspace.getConfiguration('positronCatalogExplorer');
 	const isEnabled = config.get<boolean>('enabled', true);
+	const viewTestCatalog = config.get<boolean>('viewTestCatalog', false);
 
 	// If the extension is disabled, return early without activating
 	if (!isEnabled) {
@@ -29,7 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	setExtensionUri(context);
 	const registry = new CatalogProviderRegistry();
 
-	if (context.extensionMode !== vscode.ExtensionMode.Production) {
+	if (viewTestCatalog) {
 		context.subscriptions.push(registerMockProvider(registry));
 	}
 	context.subscriptions.push(
