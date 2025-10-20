@@ -248,7 +248,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Status of kernel for the notebook.
 	 */
-	kernelStatus;
+	kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 	/**
 	 * Current runtime for the notebook.
@@ -355,33 +355,33 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		}));
 
-		// Clear the runtime session observable when the session ends
+		// Clear the runtime session observable when the session ends and update kernel status
 		this._register(autorun(reader => {
 			const session = this.runtimeSession.read(reader);
 			if (session) {
+				// Update kernel status based on current runtime state
+				const runtimeState = session.getRuntimeState();
+				const kernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState] ?? KernelStatus.Errored;
+				this.kernelStatus.set(kernelStatus, undefined);
+
+				// Listen for runtime state changes and update kernel status accordingly
+				this._register(session.onDidChangeRuntimeState((newState) => {
+					const newKernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[newState] ?? KernelStatus.Errored;
+					this.kernelStatus.set(newKernelStatus, undefined);
+				}));
+
 				const d = this._register(session.onDidEndSession(() => {
+					// Clean up the previous listener. The final one will get
+					// taken care of by the main disposal logic
 					d.dispose();
 					this.runtimeSession.set(undefined, undefined);
+					this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 				}));
-				// Also update the observable when runtime state changes
-				// This ensures derived observables like kernelStatus stay in sync
-				this._register(session.onDidChangeRuntimeState(() => {
-					this.runtimeSession.set(session, undefined);
-				}));
+			} else {
+				// No session - reset to uninitialized
+				this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 			}
 		}));
-
-		// Derive the kernel connection status from the runtime session state
-		// Uses the RUNTIME_STATE_TO_KERNEL_STATUS map for the conversion
-		this.kernelStatus = this.runtimeSession.map(session => {
-			if (!session) {
-				return KernelStatus.Uninitialized;
-			}
-
-			const runtimeState = session.getRuntimeState();
-			// Return the mapped status, or Errored if the runtime state is unknown
-			return RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState] ?? KernelStatus.Errored;
-		});
 
 		// Derive the notebook language from the runtime session
 		this._language = this.runtimeSession.map(
