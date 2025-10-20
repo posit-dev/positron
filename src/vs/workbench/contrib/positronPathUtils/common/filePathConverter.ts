@@ -5,7 +5,7 @@
 
 import { isUNC, toSlashes } from '../../../../base/common/extpath.js';
 import { URI } from '../../../../base/common/uri.js';
-import { relativePath } from '../../../../base/common/resources.js';
+import { relativePath, isEqualOrParent } from '../../../../base/common/resources.js';
 
 /**
  * Options for clipboard file conversion
@@ -20,6 +20,11 @@ export interface ConvertClipboardFilesOptions {
 	 * Base URI for relative path calculation
 	 */
 	baseUri?: URI;
+
+	/**
+	 * User home directory URI for home-relative path calculation
+	 */
+	homeUri?: URI;
 }
 
 /**
@@ -64,10 +69,11 @@ export function convertClipboardFiles(
 /**
  * Formats a file path to forward-slash format with double quotes.
  * Uses relative path if base URI provided and the file is within that workspace.
+ * Priority: workspace-relative > home-relative > absolute
  *
  * @param filePath The file path to format
  * @param options Options for path formatting
- * @returns Quoted forward-slash path: "C:/path/file.txt" or "./relative/path.txt"
+ * @returns Quoted forward-slash path: "C:/path/file.txt", "relative/path.txt", or "~/relative/path.txt"
  */
 function formatForwardSlashPath(filePath: string, options?: ConvertClipboardFilesOptions): string {
 	if (!filePath) {
@@ -76,14 +82,20 @@ function formatForwardSlashPath(filePath: string, options?: ConvertClipboardFile
 
 	let processedPath = filePath;
 
-	// Use relative path if requested and base URI provided (follows RelativePathProvider pattern)
-	if (options?.preferRelative && options.baseUri) {
+	// If requested and possible, make a relative path
+	if (options?.preferRelative) {
 		const fileUri = URI.file(filePath);
-		const relativePathResult = relativePath(options.baseUri, fileUri);
 
-		// Only use relative path if it was successfully calculated
-		if (relativePathResult) {
-			processedPath = relativePathResult;
+		// Try workspace-relative first
+		const workspaceRelative = getRelativePathIfInside(fileUri, options.baseUri);
+		if (workspaceRelative) {
+			processedPath = workspaceRelative;
+		} else {
+			// If workspace-relative failed, try home-relative
+			const homeRelative = getRelativePathIfInside(fileUri, options.homeUri);
+			if (homeRelative) {
+				processedPath = `~/${homeRelative}`;
+			}
 		}
 	}
 
@@ -93,4 +105,30 @@ function formatForwardSlashPath(filePath: string, options?: ConvertClipboardFile
 	// Escape existing quotes and wrap in double quotes
 	const escaped = normalized.replace(/"/g, '\\"');
 	return `"${escaped}"`;
+}
+
+/**
+ * Returns a relative path from parent to child if child is inside parent, otherwise undefined.
+ *
+ * @param childUri The file URI to make relative
+ * @param parentUri The parent directory URI
+ * @returns Relative path string if child is inside parent, undefined otherwise
+ */
+function getRelativePathIfInside(childUri: URI, parentUri: URI | undefined): string | undefined {
+	if (!parentUri) {
+		return undefined;
+	}
+
+	// Normalize both URIs to ensure consistent formatting
+	// Known to be necessary on Windows to avoid issues with drive letter casing
+	const normalizedChild = URI.file(childUri.fsPath);
+	const normalizedParent = URI.file(parentUri.fsPath);
+
+	// Check if file is inside the parent directory
+	if (!isEqualOrParent(normalizedChild, normalizedParent)) {
+		return undefined;
+	}
+
+	// Get the relative path using the normalized parent URI
+	return relativePath(normalizedParent, normalizedChild);
 }

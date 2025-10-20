@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as os from 'os';
 
 /**
  * Document paste edit provider for R files that converts files on the clipboard
@@ -29,7 +30,8 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 		}
 
 		const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer, {
-			preferRelative: true
+			preferRelative: true,
+			homeUri: vscode.Uri.file(os.homedir())
 		});
 
 		if (!filePaths) {
