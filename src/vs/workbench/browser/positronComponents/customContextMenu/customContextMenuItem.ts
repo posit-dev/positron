@@ -15,6 +15,7 @@ export interface CustomContextMenuItemOptions {
 	readonly label: string;
 	readonly disabled?: boolean;
 	readonly onSelected: (e: KeyboardModifiers) => void;
+	readonly getArgs?: () => unknown;
 }
 
 /**

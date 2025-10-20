@@ -16,7 +16,6 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { NotebookEditorWidget } from '../../notebook/browser/notebookEditorWidget.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { ActiveNotebookHasRunningRuntime } from '../common/activeRuntimeNotebookContextManager.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 

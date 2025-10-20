@@ -15,11 +15,16 @@ import { useObservedValue } from './useObservedValue.js';
 import { KernelStatus } from './IPositronNotebookInstance.js';
 import { RuntimeStatus, RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';
 import { localize } from '../../../../nls.js';
-import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { IAction } from '../../../../base/common/actions.js';
+// import { IAction } from '../../../../base/common/actions.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { IMenu, IMenuService, MenuId } from '../../../../platform/actions/common/actions.js';
+import { IMenu, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ActionBarButton } from '../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
+// import { POSITRON_NOTEBOOK_SHOW_CONSOLE_ID } from './positronNotebook.contribution.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 
 const kernelStatusToRuntimeStatus = {
 	[KernelStatus.Uninitialized]: RuntimeStatus.Disconnected,
@@ -27,6 +32,15 @@ const kernelStatusToRuntimeStatus = {
 	[KernelStatus.Connected]: RuntimeStatus.Idle,
 	[KernelStatus.Connecting]: RuntimeStatus.Active,
 	[KernelStatus.Errored]: RuntimeStatus.Disconnected,
+};
+
+// const actionIdToIcon: Record<string, string> = {
+// 	[SELECT_KERNEL_ID_POSITRON]: 'gear',
+// 	[POSITRON_NOTEBOOK_SHOW_CONSOLE_ID]: ''
+// };
+
+const actionIdToLabel: Record<string, string> = {
+	[SELECT_KERNEL_ID_POSITRON]: localize('positronNotebook.kernelStatusBadge.changeKernel', 'Change Kernel'),
 };
 
 const noRuntimeLabel = localize('positronNotebook.kernelStatusBadge.noRuntimeLabel', 'No Kernel Selected');
@@ -127,7 +141,7 @@ export function KernelStatusBadge() {
 		if (!menu) {
 			return [];
 		}
-		const actions: IAction[] = [];
+		const actions: (MenuItemAction | SubmenuItemAction)[] = [];
 		for (const [_group, groupActions] of menu.getActions({
 			// TODO: Could/should we match the upstream arg type for compatibility?
 			arg: notebookInstance.uri,
@@ -138,18 +152,64 @@ export function KernelStatusBadge() {
 		return actions;
 	}, [menu, notebookInstance.uri, menuVersion]);
 
+	const buttonRef = React.useRef<HTMLButtonElement>(null);
+	const onPressed = () => {
+		if (!buttonRef.current) {
+			return;
+		}
+		// Build the context menu entries.
+		// const entries: CustomContextMenuEntry[] = [];
+		const entries: CustomContextMenuEntry[] = getActions().map(action => {
+			return new CustomContextMenuItem({
+				label: actionIdToLabel[action.id] ?? (typeof action.item.title === 'string' ? action.item.title : action.item.title.value),
+				disabled: !action.enabled,
+				commandId: action.id,
+				icon: ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined,
+				onSelected: () => { },
+				getArgs: action.id === SELECT_KERNEL_ID_POSITRON ?
+					() => ({ forceDropdown: true }) :
+					undefined,
+				// action.id === SELECT_KERNEL_ID_POSITRON ?
+				//  () => action.run({ forceDropdown: true }) :
+				//  () => action.run(notebookInstance.uri),
+			})
+		});
+		// entries.push(new CustomContextMenuItem({
+		// 	commandId: SELECT_KERNEL_ID_POSITRON,
+		// 	icon: 'gear',
+		// 	label: localize('positronNotebook.kernelStatusBadge.changeKernel', 'Change Kernel'),
+		// 	onSelected: () => {},
+		// 	// TODO: Then we'd need to track enablemenet stuff...
+		// 	// disabled: !canFilter,
+		// 	// onSelected: () => addRowFilterHandler(
+		// 	// 	rowFilterButtonRef.current,
+		// 	// 	rowFilterDescriptors.length === 0
+		// 	// )
+		// }));
+		// entries.push(new CustomContextMenuSeparator());
+		showCustomContextMenu({
+			anchorElement: buttonRef.current,
+			popupPosition: 'auto',
+			popupAlignment: 'left',
+			width: 250,
+			entries
+		})
+	};
+
 	return (
-		<ActionBarMenuButton
-			actions={getActions}
+		<ActionBarButton
+			ref={buttonRef}
+			// onDropdownPressed={}
 			align='left'
 			ariaLabel={localize('kernelActions', 'Kernel actions')}
 			tooltip={localize('kernelActionsTooltip', 'Click to see kernel actions')}
+			onPressed={() => onPressed()}
 		>
 			<div className='positron-notebook-kernel-status-badge' data-testid='notebook-kernel-status'>
 				<RuntimeStatusIcon status={runtimeStatus} />
 				{/* TODO: Runtime name or session name? */}
 				<p className='session-name'>{runtimeName}</p>
 			</div>
-		</ActionBarMenuButton>
+		</ActionBarButton>
 	);
 }
