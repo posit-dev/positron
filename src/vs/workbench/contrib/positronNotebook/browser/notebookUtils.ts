@@ -14,7 +14,7 @@ import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js
  * @param editorService The editor service
  * @returns The active notebook instance, or undefined if no Positron notebook is active
  */
-export function getActiveNotebook(editorService: IEditorService): IPositronNotebookInstance | undefined {
+export function getNotebookInstanceFromEditorPane(editorService: IEditorService): IPositronNotebookInstance | undefined {
 	const activeEditorPane = editorService.activeEditorPane;
 
 	// Check if the active editor is a Positron Notebook Editor

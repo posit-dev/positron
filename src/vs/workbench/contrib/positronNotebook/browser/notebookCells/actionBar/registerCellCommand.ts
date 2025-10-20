@@ -15,7 +15,7 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { getSelectedCell, getSelectedCells, getEditingCell } from '../../selectionMachine.js';
 import { ContextKeyExpr, ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
-import { getActiveNotebook } from '../../notebookUtils.js';
+import { getNotebookInstanceFromEditorPane } from '../../notebookUtils.js';
 
 /**
  * Options for registering a cell command.
@@ -82,7 +82,7 @@ export function registerCellCommand({
 		id: commandId,
 		handler: (accessor: ServicesAccessor) => {
 			const editorService = accessor.get(IEditorService);
-			const activeNotebook = getActiveNotebook(editorService);
+			const activeNotebook = getNotebookInstanceFromEditorPane(editorService);
 			if (!activeNotebook) {
 				return;
 			}
