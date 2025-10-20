@@ -109,7 +109,7 @@ jobs:
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
 
