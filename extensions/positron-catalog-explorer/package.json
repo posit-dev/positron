@@ -26,8 +26,8 @@
       "properties": {
         "positronCatalogExplorer.enabled": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable or disable the Catalog Explorer extension. When disabled, the extension will not activate."
+          "default": false,
+          "description": " **Experimental:** Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate."
         }
       }
     },
@@ -96,7 +96,7 @@
     "viewsWelcome": [
       {
         "view": "catalog-explorer",
-        "contents": "Explore tables, views, and more in Databricks Unity Catalog, AWS Glue, Azure Data Lake Storage, or any Apache Iceberg-compatible catalog.\n[Configure a Catalog Provider](command:posit.catalog-explorer.addCatalogProvider)"
+        "contents": "Explore tables, views, and more.\n[Configure a Catalog Provider](command:posit.catalog-explorer.addCatalogProvider)"
       }
     ],
     "menus": {
