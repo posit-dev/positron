@@ -2087,6 +2087,11 @@ declare module 'positron' {
 			 * If not provided and preferRelative is true, uses the first workspace folder.
 			 */
 			baseUri?: vscode.Uri;
+
+			/**
+			 * User home directory URI for home-relative path calculation.
+			 */
+			homeUri?: vscode.Uri;
 		}
 
 		/**

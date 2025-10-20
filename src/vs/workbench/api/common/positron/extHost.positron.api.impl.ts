@@ -275,6 +275,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				options?: {
 					preferRelative?: boolean;
 					baseUri?: vscode.Uri;
+					homeUri?: vscode.Uri;
 				}
 			): Promise<string[] | null> {
 				// Get URI list data from VS Code DataTransfer
@@ -303,7 +304,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 					const convertOptions = resolvedOptions ? {
 						...resolvedOptions,
-						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined
+						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined,
+						homeUri: resolvedOptions.homeUri ? URI.from(resolvedOptions.homeUri) : undefined
 					} : undefined;
 
 					return convertClipboardFiles(uriListData, convertOptions);
