@@ -138,6 +138,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _container: HTMLElement | undefined = undefined;
 
+	private _scopedContextKeyService: IScopedContextKeyService | undefined;
+
 	/**
 	 * The DOM element that contains the cells for the notebook.
 	 */
@@ -212,6 +214,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get cellsContainer(): HTMLElement | undefined {
 		return this._cellsContainer;
+	}
+
+	get scopedContextKeyService(): IScopedContextKeyService | undefined {
+		return this._scopedContextKeyService;
 	}
 
 	/**
@@ -793,6 +799,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
 		this.detachView();
 		this._container = container;
+		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
 		this._logService.info(this.id, 'attachView');

@@ -39,7 +39,11 @@ const noRuntimeLabel = localize('positronNotebook.kernelStatusBadge.noRuntimeLab
  * It uses ActionBarMenuButton to display a menu when clicked.
  */
 export function KernelStatusBadge() {
+	// Context
 	const notebookInstance = useNotebookInstance();
+	const menuService = usePositronReactServicesContext().get(IMenuService);
+
+	// State
 	const runtimeStatus = useObservedValue(
 		notebookInstance.kernelStatus.map((kernelStatus) => kernelStatusToRuntimeStatus[kernelStatus])
 	);
@@ -47,43 +51,96 @@ export function KernelStatusBadge() {
 		notebookInstance.runtimeSession.map((runtimeSession) =>
 			runtimeSession ? runtimeSession.runtimeMetadata.runtimeName : noRuntimeLabel)
 	);
-
-	const menuService = usePositronReactServicesContext().get(IMenuService);
-
 	const [menu, setMenu] = React.useState<IMenu | undefined>();
+	const [menuVersion, incrementMenuVersion] = React.useReducer(x => x + 1, 0);
+	// const [actions, setActions] = React.useState<IAction[]>([]);
+
+	// TODO: Extract useMenuActions?
+	// React.useEffect(() => {
+	// 	if (!notebookInstance.scopedContextKeyService) {
+	// 		// Can't create a menu without the context key service
+	// 		return;
+	// 	}
+
+	// 	// Create the menu
+	// 	const disposables = new DisposableStore();
+	// 	const menu = disposables.add(menuService.createMenu(
+	// 		MenuId.PositronNotebookKernelSubmenu, notebookInstance.scopedContextKeyService,
+	// 	));
+
+	// 	/** Helper to set the actions state from the menu */
+	// 	const refreshActions = () => {
+	// 		const actions: IAction[] = [];
+	// 		for (const [_group, actions] of menu.getActions({
+	// 			// TODO: Could/should we match the upstream arg type for compatibility?
+	// 			arg: notebookInstance.uri,
+	// 			shouldForwardArgs: true,
+	// 		})) {
+	// 			actions.push(...actions);
+	// 		}
+	// 		setActions(actions);
+	// 	};
+
+	// 	// Refresh actions when the menu changes
+	// 	disposables.add(menu.onDidChange(() => {
+	// 		refreshActions();
+	// 	}));
+
+	// 	// Load current actions
+	// 	refreshActions();
+
+	// 	return () => {
+	// 		// Clear actions
+	// 		disposables.dispose();
+	// 		setActions([]);
+	// 	};
+	// }, [menuService, notebookInstance.scopedContextKeyService, notebookInstance.uri]);
 
 	React.useEffect(() => {
 		if (!notebookInstance.scopedContextKeyService) {
+			// Can't create a menu without the context key service
 			return;
 		}
+
+		// Create the menu
 		const disposables = new DisposableStore();
-		// TODO: When to dispose? Should this menu live on the notebook instance instead?...
-		setMenu(disposables.add(menuService.createMenu(MenuId.PositronNotebookKernelSubmenu, notebookInstance.scopedContextKeyService)));
+		const menu = disposables.add(menuService.createMenu(
+			MenuId.PositronNotebookKernelSubmenu, notebookInstance.scopedContextKeyService,
+		));
+		setMenu(menu);
+
+		// Refresh actions when the menu changes
+		disposables.add(menu.onDidChange(() => {
+			incrementMenuVersion();
+		}));
+
 		return () => {
+			// Clear the menu
 			disposables.dispose();
 			setMenu(undefined);
 		};
-	}, [menuService, notebookInstance.scopedContextKeyService]);
+	}, [menuService, notebookInstance.scopedContextKeyService, notebookInstance.uri]);
 
-	const actions = React.useCallback(() => {
+	/** Load the actions from the menu. */
+	const getActions = React.useCallback(() => {
+		void menuVersion;  // reference menuVersion for eslint
 		if (!menu) {
 			return [];
 		}
-		// Populate actions from menu
-		const allActions: IAction[] = [];
-		for (const [_group, actions] of menu.getActions({
-			// TODO: We could pass the notebookinstance if we impl inotebookeditor...
+		const actions: IAction[] = [];
+		for (const [_group, groupActions] of menu.getActions({
+			// TODO: Could/should we match the upstream arg type for compatibility?
 			arg: notebookInstance.uri,
 			shouldForwardArgs: true,
 		})) {
-			allActions.push(...actions);
+			actions.push(...groupActions);
 		}
-		return allActions;
-	}, [menu, notebookInstance.uri]);
+		return actions;
+	}, [menu, notebookInstance.uri, menuVersion]);
 
 	return (
 		<ActionBarMenuButton
-			actions={actions}
+			actions={getActions}
 			align='left'
 			ariaLabel={localize('kernelActions', 'Kernel actions')}
 			tooltip={localize('kernelActionsTooltip', 'Click to see kernel actions')}

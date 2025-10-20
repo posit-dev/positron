@@ -10,24 +10,23 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	max-width: 200px;
+	margin-right: 4px;
 
-	& span.kernel-status {
-		font-weight: bold;
-	}
+	/* Use this property to take padding into account when sizing (prevents overflow) */
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	/* TODO: Use margin? */
+	gap: 4px;
 
-	& .Uninitialized {
-		color: grey;
-	}
+	.session-name {
+		/* Grow items after session name to fill available space */
+		flex: 1;
 
-	& .Connected {
-		color: forestgreen;
-	}
-
-	& .Disconnected {
-		color: red;
-	}
-
-	& .Connecting {
-		color: orange;
+		margin: 0;
+		line-height: 22px;
+		overflow: hidden;
+		min-width: 0;
+		text-overflow: ellipsis;
 	}
 }

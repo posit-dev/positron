@@ -78,6 +78,7 @@ export class MenuId {
 	static readonly EditorContextPeek = new MenuId('EditorContextPeek');
 	static readonly EditorContextShare = new MenuId('EditorContextShare');
 	// --- Start Positron ---
+	static readonly PositronNotebookKernelSubmenu = new MenuId('PositronNotebookKernelSubmenu');
 	static readonly EditorActionsLeft = new MenuId('EditorActionsLeft');
 	static readonly EditorActionsRight = new MenuId('EditorActionsRight');
 	// --- End Positron ---

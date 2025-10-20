@@ -854,10 +854,10 @@ registerNotebookAction({
 	commandId: 'positronNotebook.showConsole',
 	handler: (notebook) => notebook.showNotebookConsole(),
 	menu: {
-		id: MenuId.EditorTitle,
-		group: 'kernel',
-		order: 30,
-		title: { value: localize('showConsole', 'Show Notebook Console'), original: 'Show Notebook Console' },
+		id: MenuId.PositronNotebookKernelSubmenu,
+		// group: 'kernel',
+		order: 100,
+		title: { value: localize('showConsole', 'Open Notebook Console'), original: 'Open Notebook Console' },
 		icon: ThemeIcon.fromId('terminal'),
 		positronActionBarOptions: {
 			controlType: 'button',
@@ -907,15 +907,12 @@ registerNotebookAction({
 });
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
-// Widget is command-driven: clicking opens the kernel picker dropdown
+// Widget is self-contained: manages its own menu interactions via ActionBarMenuButton
 registerNotebookAction({
 	id: 'positronNotebook.kernelStatus',
 	widget: {
 		component: KernelStatusBadge,
-		commandId: 'positronNotebook.selectKernel',
-		commandArgs: { forceDropdown: true },
-		ariaLabel: 'Select notebook kernel',
-		tooltip: 'Click to select a kernel'
+		selfContained: true
 	},
 	menu: {
 		id: MenuId.EditorActionsRight,

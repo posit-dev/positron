@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize2, localize } from '../../../../nls.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
@@ -33,6 +33,10 @@ class SelectPositronNotebookKernelAction extends Action2 {
 			icon: selectKernelIcon,
 			f1: true,
 			precondition: NOTEBOOK_IS_ACTIVE_EDITOR,
+			menu: [{
+				id: MenuId.PositronNotebookKernelSubmenu,
+				order: 0,
+			}]
 		});
 	}
 

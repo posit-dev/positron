@@ -33,7 +33,7 @@ interface INotebookEditorToolbarContext {
 }
 
 /** Restart the active runtime notebook kernel. */
-class RuntimeNotebookKernelRestartAction extends Action2 {
+export class RuntimeNotebookKernelRestartAction extends Action2 {
 	/** The action's ID. */
 	public static readonly ID = 'positron.runtimeNotebookKernel.restart';
 
@@ -59,10 +59,8 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 				},
 				// Positron notebooks
 				{
-					id: MenuId.EditorActionsRight,
-					group: 'navigation',
-					order: 0,
-					when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					id: MenuId.PositronNotebookKernelSubmenu,
+					order: 10,
 				}
 			]
 		});
