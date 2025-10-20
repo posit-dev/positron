@@ -168,7 +168,7 @@ export function KernelStatusBadge() {
 				onSelected: () => { },
 				getArgs: action.id === SELECT_KERNEL_ID_POSITRON ?
 					() => ({ forceDropdown: true }) :
-					undefined,
+					() => notebookInstance.uri,
 				// action.id === SELECT_KERNEL_ID_POSITRON ?
 				//  () => action.run({ forceDropdown: true }) :
 				//  () => action.run(notebookInstance.uri),
