@@ -86,4 +86,9 @@ export class Connections {
 			await this.code.driver.page.locator('.button', { hasText: 'Connect' }).click();
 		});
 	}
+
+	async expandConnectionDetails(name: string) {
+		const item = this.code.driver.page.locator('.connections-details', { hasText: name });
+		await item.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
+	}
 }
