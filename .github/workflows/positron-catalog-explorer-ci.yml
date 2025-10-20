@@ -1,37 +1,30 @@
-name: PR Test
+name: 'Catalog Explorer CI'
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+      - 'prerelease/**'
+    paths:
+      - '.github/workflows/positron-catalog-explorer-ci.yml'
+      - 'extensions/positron-catalog-explorer/**'
   pull_request:
     branches:
       - main
-  workflow_dispatch:
+      - 'prerelease/**'
+    paths:
+      - '.github/workflows/positron-catalog-explorer-ci.yml'
+      - 'extensions/positron-catalog-explorer/**'
 
 env:
   NODE_VERSION: '22.17.0'
 
+defaults:
+ run:
+   working-directory: 'extensions/positron-catalog-explorer'
+
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install Node ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v5
-        with:
-          cache: 'npm'
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Node dependencies
-        run: npm ci --fetch-timeout 120000
-
-      - name: Lint TypeScript code
-        run: npm run lint-check
-
   test:
     name: Extension test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

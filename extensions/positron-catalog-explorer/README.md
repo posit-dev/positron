@@ -15,42 +15,8 @@ The extension makes it easy to explore and work with data stored in data catalog
 
 ## Development
 
-### Setup
+To enable the Mock Catalog Explorer for development and testing, set the following in your `settings.json`:
 
-1. Clone the repository
-2. Install dependencies:
-      ```bash
-      npm install
-      ```
-
-### Build
-
-- Development build with source maps:
-
-     ```bash
-     npm run compile
-     ```
-
-- Production build (minified):
-
-     ```bash
-     npm run package
-     ```
-
-- Watch mode (for development with auto-rebuild):
-     ```bash
-     npm run watch
-     ```
-
-### Package
-
-- Create a VSIX package for distribution or testing:
-
-     ```bash
-     npm run vsix
-     ```
-
-- Create a pre-release VSIX package:
-     ```bash
-     npm run prerelease
-     ```
+```json
+"positronCatalogExplorer.viewTestCatalog": true
+```
