@@ -191,8 +191,9 @@ test.describe('Notebook Focus and Selection', {
 		const { notebooks, notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
-		const clickTab = (name: string) => app.code.driver.page.getByRole('tab', { name }).click();
-		const TAB_1 = 'Untitled-1.ipynb';
+		const clickTab = (name: string | RegExp) => app.code.driver.page.getByRole('tab', { name }).click();
+		// Depending on when this test is run, the untitled notebook may have a different number
+		const TAB_1 = /Untitled-\d+\.ipynb/;
 		const TAB_2 = 'bitmap-notebook.ipynb';
 
 		// Start a new notebook (tab 1)
@@ -216,9 +217,8 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellIndexToBeSelected(0, { inEditMode: false });
 		});
 
-		// BUG: https://github.com/posit-dev/positron/issues/9849
 		// Switch between notebooks to ensure selection is preserved
-		await test.step.skip('Selection is preserved when switching between editors', async () => {
+		await test.step('Selection is preserved when switching between editors', async () => {
 			// Switch back to tab 1 and verify selection is still at cell 2
 			await clickTab(TAB_1);
 			await notebooksPositron.expectCellIndexToBeSelected(2, { inEditMode: false });

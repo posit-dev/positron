@@ -1008,6 +1008,41 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
+	 * Grabs focus for this notebook based on the current selection state.
+	 * Called when the notebook editor receives focus from the workbench.
+	 *
+	 * Note: This method may be called twice during tab switches:
+	 * - First call: Early, cells may not be rendered yet (no-op via optional chaining)
+	 * - Second call: After render completes, focus succeeds
+	 */
+	grabFocus(): void {
+		const state = this.selectionStateMachine.state.get();
+
+		switch (state.type) {
+			case SelectionState.EditingSelection:
+				// Focus the editor - enterEditor() already has idempotency checks
+				this.selectionStateMachine.enterEditor(state.selected);
+				break;
+
+			case SelectionState.SingleSelection:
+			case SelectionState.MultiSelection: {
+				// Focus the first selected cell's container
+				// Optional chaining handles undefined containers gracefully
+				const cell = state.type === SelectionState.SingleSelection
+					? state.selected
+					: state.selected[0];
+				cell.container?.focus();
+				break;
+			}
+
+			case SelectionState.NoCells:
+				// Fall back to notebook container
+				this._container?.focus();
+				break;
+		}
+	}
+
+	/**
 	 * Clears the outputs of all cells in the notebook.
 	 */
 	clearAllCellOutputs(): void {
