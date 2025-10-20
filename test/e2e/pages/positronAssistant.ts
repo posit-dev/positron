@@ -38,6 +38,7 @@ const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
+const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage language models"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -94,6 +95,11 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(INSERT_AT_CURSOR_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(COPY_BUTTON)).toHaveCount(1);
 		await expect(this.code.driver.page.locator(INSERT_NEW_FILE_BUTTON)).toHaveCount(1);
+	}
+
+	async verifyManageModelsOptionVisible() {
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		await expect(this.code.driver.page.locator(MANAGE_MODELS_ITEM)).toBeVisible();
 	}
 
 	async selectModelProvider(provider: string) {

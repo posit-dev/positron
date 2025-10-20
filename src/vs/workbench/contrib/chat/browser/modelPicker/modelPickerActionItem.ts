@@ -56,7 +56,12 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 	const actionProvider: IActionProvider = {
 		getActions: () => {
 			const additionalActions: IAction[] = [];
+			// --- Start Positron ---
+			// override the entitlement check to always show manage models option
+			const useManageModelsAction = true;
 			if (
+				useManageModelsAction ||
+				// --- End Positron ---
 				chatEntitlementService.entitlement === ChatEntitlement.Free ||
 				chatEntitlementService.entitlement === ChatEntitlement.Pro ||
 				chatEntitlementService.entitlement === ChatEntitlement.ProPlus ||
