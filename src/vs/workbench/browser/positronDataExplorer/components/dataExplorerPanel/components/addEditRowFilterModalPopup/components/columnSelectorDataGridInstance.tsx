@@ -25,8 +25,8 @@ const OVERSCAN_FACTOR = 3
  *
  * This class is used to display a list of the column names from a dataset
  * in the column selector modal popup. The column selector modal popup is
- * a DataGridWaffle component. This instance manages the list of columns
- * and supports searching for columns by name.
+ * a DataGrid component. This instance manages the list of columns and
+ * supports searching for columns by name.
  */
 export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	//#region Private Properties
@@ -266,13 +266,13 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the column schema for the data at this row index.
+		// Get the column schema for the row index from the original dataset.
 		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
 
-		// Get the visual index position for the data at this row index
+		// Get the visual position for the row index from the original dataset.
 		const visualPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
 
 		// Return the cell.
