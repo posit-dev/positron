@@ -85,6 +85,29 @@ const voidElements: Record<string, boolean> = {
 };
 
 /**
+ * Checks if a node is nested inside a <pre> element.
+ * In <pre> elements, whitespace must be preserved per HTML spec.
+ *
+ * This is an O(n) operation, where n is the depth of the node in the tree which
+ * is not super ideal and could be optimized with additional state tracking if
+ * needed but until we see performance issues the encapsulation provided by
+ * this implementation is worth it.
+ *
+ * @param node The node to check (typically parent of a text node)
+ * @returns true if node is inside a <pre> element
+ */
+function isInsidePreElement(node: HtmlNode | undefined): boolean {
+	let current = node;
+	while (current) {
+		if (current.name === 'pre') {
+			return true;
+		}
+		current = current.parent;
+	}
+	return false;
+}
+
+/**
  * Parses a single HTML tag.
  *
  * @param tag The tag to parse
@@ -355,7 +378,8 @@ export function parseHtml(html: string): Array<HtmlNode> {
 
 				// If a node is nothing but whitespace, collapse it as the spec states:
 				// https://www.w3.org/TR/html4/struct/text.html#h-9.1
-				if (whitespaceRE.test(content)) {
+				// However, preserve whitespace inside <pre> elements where it's semantically significant
+				if (whitespaceRE.test(content) && !isInsidePreElement(current)) {
 					content = ' ';
 				}
 

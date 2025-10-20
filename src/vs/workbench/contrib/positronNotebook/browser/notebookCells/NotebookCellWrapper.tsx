@@ -110,10 +110,11 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 				return;
 			}
 
+			// If already selected, do nothing - maintain selection invariant
 			if (selectionStatus === CellSelectionStatus.Selected) {
-				cell.deselect();
 				return;
 			}
+
 			const addMode = e.shiftKey || e.ctrlKey || e.metaKey;
 			selectionStateMachine.selectCell(cell, addMode ? CellSelectionType.Add : CellSelectionType.Normal);
 		}}
