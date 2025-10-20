@@ -7,7 +7,7 @@ import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
-import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
@@ -91,7 +91,7 @@ export interface IPositronNotebookInstance {
 	 * Observable reference to the current runtime session for the notebook.
 	 * This manages the connection to the kernel and execution environment.
 	 */
-	readonly runtimeSession: IObservable<ILanguageRuntimeSession | undefined>;
+	readonly runtimeSession: IObservable<INotebookLanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.
