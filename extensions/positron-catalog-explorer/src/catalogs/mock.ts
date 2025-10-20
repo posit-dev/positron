@@ -10,12 +10,34 @@ import {
 	CatalogProviderRegistry,
 } from '../catalog';
 
+// Track provider instances at the module level
+export const mockProviderInstances: Set<MockCatalogProvider> = new Set();
+
 const mockRegistration: CatalogProviderRegistration = {
 	label: 'Demo Catalog',
 	detail: 'A demo catalog for testing purposes',
 	iconPath: new vscode.ThemeIcon('beaker'),
-	addProvider: () => Promise.resolve(new MockCatalogProvider()),
-	listProviders: () => Promise.resolve([]),
+	addProvider: () => {
+		// Create a new provider instance and track it
+		const provider = new MockCatalogProvider();
+		mockProviderInstances.add(provider);
+		return Promise.resolve(provider);
+	},
+	removeProvider: (
+		_context: vscode.ExtensionContext,
+		provider: CatalogProvider,
+	): Promise<void> => {
+		// Remove from our tracking set
+		if (provider instanceof MockCatalogProvider) {
+			mockProviderInstances.delete(provider);
+		}
+
+		return Promise.resolve();
+	},
+	listProviders: (_context: vscode.ExtensionContext) => {
+		// Return all tracked instances
+		return Promise.resolve(Array.from(mockProviderInstances));
+	},
 };
 
 export function registerMockProvider(
@@ -31,8 +53,14 @@ export class MockCatalogProvider implements CatalogProvider {
 	private onDidChangeEmitter = new vscode.EventEmitter<void>();
 	onDidChange = this.onDidChangeEmitter.event;
 
+	/**
+	 * Unique identifier for this provider instance
+	 */
+	public readonly id: string = 'mock:demo';
+
 	dispose() {
 		this.onDidChangeEmitter.dispose();
+		mockProviderInstances.delete(this);
 	}
 
 	getTreeItem(): vscode.TreeItem {
@@ -42,6 +70,7 @@ export class MockCatalogProvider implements CatalogProvider {
 		);
 		item.description = mockRegistration.detail;
 		item.iconPath = mockRegistration.iconPath;
+		item.contextValue = 'provider';
 		return item;
 	}
 

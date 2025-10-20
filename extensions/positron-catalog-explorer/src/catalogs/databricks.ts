@@ -21,6 +21,40 @@ const registration: CatalogProviderRegistration = {
 	label: 'Databricks',
 	detail: 'Explore tables, volumes, and files in the Unity Catalog',
 	addProvider: registerDatabricksCatalog,
+	removeProvider: async (
+		context: vscode.ExtensionContext,
+		provider: DatabricksCatalogProvider,
+	): Promise<void> => {
+		const workspaceUrl = provider.workspace;
+
+		// Important: First check if the workspace exists in storage before deleting
+		const registered = context.globalState.get<string[]>(STATE_KEY);
+		if (!registered || !registered.includes(workspaceUrl)) {
+			// If not in storage, could be a duplicate removal or already removed
+			console.log(
+				`Workspace ${workspaceUrl} not found in registered workspaces`,
+			);
+
+			// Still attempt to clean up any stray credentials that might exist
+			const credProvider = new DefaultDatabricksCredentialProvider(
+				context.secrets,
+			);
+			await credProvider.removeToken(workspaceUrl);
+			return;
+		}
+
+		// Ensure the workspace is removed from storage and credentials are cleaned up
+		await unregisterDatabricksCatalog(context, workspaceUrl);
+
+		// Verify removal succeeded
+		const updatedRegistered =
+			context.globalState.get<string[]>(STATE_KEY) || [];
+		if (updatedRegistered.includes(workspaceUrl)) {
+			throw new Error(
+				`Failed to remove workspace ${workspaceUrl} from storage`,
+			);
+		}
+	},
 	listProviders: getDatabricksCatalogs,
 };
 
@@ -87,16 +121,31 @@ async function registerDatabricksCatalog(
 
 /**
  * Unregister a previously-registered Databricks catalog provider.
+ * This removes both the registration from global state and all credentials.
  */
 export async function unregisterDatabricksCatalog(
 	context: vscode.ExtensionContext,
 	workspace: string,
 ): Promise<void> {
+	// Normalize workspace ID
+	const normalizedWorkspace = workspace.startsWith('https://')
+		? workspace
+		: `https://${workspace}`;
+
+	// Remove from registration list
 	const registered = context.globalState.get<string[]>(STATE_KEY);
 	const next: Set<string> = registered ? new Set(registered) : new Set();
 	next.delete(workspace);
+	next.delete(normalizedWorkspace);
+	next.delete(normalizedWorkspace.replace('https://', ''));
 	await context.globalState.update(STATE_KEY, Array.from(next));
-	await context.secrets.delete(workspace);
+
+	// Create credential provider to properly clear cache
+	const credProvider = new DefaultDatabricksCredentialProvider(context.secrets);
+
+	// Remove credentials using the proper method that also cleans the cache
+	await credProvider.removeToken(workspace);
+	await credProvider.removeToken(normalizedWorkspace);
 }
 
 /**
@@ -129,16 +178,20 @@ export class DatabricksCatalogProvider implements CatalogProvider {
 	private emitter = new vscode.EventEmitter<void>();
 	private catalogClient: UnityCatalogClient;
 	private fsClient: DatabricksFilesClient;
-	private workspace: string;
+	public workspace: string;
 	private warehousePath: string | undefined;
+	public readonly id: string;
 
 	constructor(
 		workspace: string,
 		private token: string,
 	) {
-		this.workspace = workspace.startsWith('https://')
-			? workspace.substring(8)
-			: workspace;
+		// Normalize workspace URL consistently - strip https:// prefix
+		this.workspace = workspace.replace(/^https:\/\//, '');
+
+		// Create a unique ID for this provider using the normalized workspace
+		this.id = `databricks:${this.workspace}`;
+
 		this.catalogClient = new UnityCatalogClient(
 			`https://${this.workspace}`,
 			token,
@@ -149,7 +202,14 @@ export class DatabricksCatalogProvider implements CatalogProvider {
 		);
 	}
 
-	dispose() {}
+	dispose() {
+		// Clean up resources
+		this.emitter.dispose();
+
+		// Clear references to potentially sensitive data
+		this.token = '';
+		this.warehousePath = undefined;
+	}
 
 	onDidChange = this.emitter.event;
 

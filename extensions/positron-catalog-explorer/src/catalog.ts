@@ -10,6 +10,11 @@ import * as vscode from 'vscode';
  */
 export interface CatalogProvider extends vscode.Disposable {
 	/**
+	 * A unique identifier for this provider instance.
+	 */
+	id: string;
+
+	/**
 	 * Get the {@link vscode.TreeItem} representation of this provider.
 	 */
 	getTreeItem(): vscode.TreeItem;
@@ -87,10 +92,21 @@ export async function registerTreeViewProvider(
 	context: vscode.ExtensionContext,
 	registry: CatalogProviderRegistry,
 ): Promise<vscode.Disposable> {
-	return vscode.window.registerTreeDataProvider(
-		'catalog-explorer',
-		await CatalogTreeDataProvider.from(context, registry),
+	const treeDataProvider = await CatalogTreeDataProvider.from(
+		context,
+		registry,
 	);
+	const treeView = vscode.window.createTreeView('catalog-explorer', {
+		treeDataProvider: treeDataProvider,
+		showCollapseAll: true,
+	});
+
+	context.subscriptions.push(treeView);
+	return {
+		dispose: () => {
+			treeView.dispose();
+		},
+	};
 }
 
 type CatalogElement = CatalogNode | CatalogProvider;
@@ -117,6 +133,26 @@ class CatalogTreeDataProvider
 			registry.onCatalogAdded((provider) => {
 				this.providers.push(provider);
 				this.emitter.fire();
+			}),
+		);
+		this.listeners.push(
+			registry.onCatalogRemoved((provider) => {
+				// Try to match by id
+				try {
+					const providerId = provider.id;
+					const matchIndex = this.providers.findIndex(
+						(p) => p.id === providerId,
+					);
+
+					if (matchIndex >= 0) {
+						// Remove the provider from our list
+						this.providers.splice(matchIndex, 1);
+						// Notify tree view to refresh
+						this.emitter.fire();
+					}
+				} catch (e) {
+					console.error('Error in provider removal by id:', e);
+				}
 			}),
 		);
 		for (const p of this.providers) {
@@ -228,14 +264,20 @@ export interface CatalogProviderRegistration {
 	addProvider(
 		context: vscode.ExtensionContext,
 	): Promise<CatalogProvider | undefined>;
+	removeProvider?(
+		context: vscode.ExtensionContext,
+		provider: CatalogProvider,
+	): Promise<void>;
 	listProviders(context: vscode.ExtensionContext): Promise<CatalogProvider[]>;
 }
 
 export class CatalogProviderRegistry {
 	private registry: CatalogProviderRegistration[] = [];
 	private addCatalog = new vscode.EventEmitter<CatalogProvider>();
+	private removeCatalog = new vscode.EventEmitter<CatalogProvider>();
 
 	onCatalogAdded = this.addCatalog.event;
+	onCatalogRemoved = this.removeCatalog.event;
 
 	register(registration: CatalogProviderRegistration): vscode.Disposable {
 		this.registry.push(registration);
@@ -272,6 +314,41 @@ export class CatalogProviderRegistry {
 			return;
 		}
 		this.addCatalog.fire(added);
+	}
+	async removeProvider(
+		provider: CatalogProvider,
+		context: vscode.ExtensionContext,
+	): Promise<boolean> {
+		try {
+			const providerId = provider.id;
+
+			for (const registration of this.registry) {
+				const providers = await registration.listProviders(context);
+				const matchingProvider = providers.find((p) => p.id === providerId);
+
+				if (!matchingProvider) {
+					continue;
+				}
+
+				// Call the registration's removeProvider method if available
+				if (registration.removeProvider) {
+					await registration.removeProvider(context, matchingProvider);
+				}
+
+				// Notify listeners to update UI
+				// Ensure resources are properly cleaned up
+				this.removeCatalog.fire(matchingProvider);
+				matchingProvider.dispose();
+
+				return true;
+			}
+
+			// Did not find a matching provider
+			return false;
+		} catch (error) {
+			console.error('Error removing provider:', error);
+			return false;
+		}
 	}
 
 	private unregister(registration: CatalogProviderRegistration) {
@@ -340,6 +417,82 @@ export function registerCatalogCommands(
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.addCatalogProvider',
 			async () => await registry.addProvider(context),
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.removeCatalogProvider',
+			async (provider?: CatalogProvider) => {
+				try {
+					// If provider is not specified (when invoked from command palette),
+					// show a quick pick to select a provider
+					if (!provider) {
+						console.log('No provider specified, showing provider selection');
+						const allProviders = await registry.listAllProviders(context);
+
+						if (allProviders.length === 0) {
+							vscode.window.showInformationMessage(
+								'No catalog providers found to remove.',
+							);
+							return;
+						}
+
+						const providerItems = allProviders.map((p) => {
+							const label =
+								p.getTreeItem().label?.toString() || 'Unnamed Provider';
+
+							let description = p.getTreeItem().description?.toString() || p.id;
+
+							return {
+								label,
+								description,
+								provider: p,
+							};
+						});
+
+						const selected = await vscode.window.showQuickPick(providerItems, {
+							title: 'Select a catalog provider to remove',
+							placeHolder: 'Choose a provider to remove',
+						});
+
+						if (!selected) {
+							console.log('User cancelled provider selection');
+							return;
+						}
+
+						provider = selected.provider;
+					}
+
+					if (!provider) {
+						console.error('Provider is undefined after selection attempt');
+						vscode.window.showErrorMessage(
+							'Cannot remove connection: No provider selected',
+						);
+						return;
+					}
+
+					// Ask for confirmation before removing
+					const providerLabel =
+						provider.getTreeItem().label?.toString() || 'Unknown';
+
+					const confirmation = await vscode.window.showWarningMessage(
+						`Are you sure you want to remove the ${providerLabel} connection?`,
+						{ modal: true },
+						'Yes',
+						'No',
+					);
+
+					if (confirmation !== 'Yes') {
+						console.log('User cancelled removal');
+						return;
+					}
+
+					await registry.removeProvider(provider, context);
+				} catch (error) {
+					console.error('Error in command handler:', error);
+					vscode.window.showErrorMessage(
+						`Failed to remove connection: ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
+			},
 		),
 	);
 }

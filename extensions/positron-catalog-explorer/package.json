@@ -29,6 +29,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "posit.catalog-explorer.removeCatalogProvider",
+        "category": "Catalogs",
+        "title": "Remove Catalog Provider",
+        "icon": "$(trash)"
+      },
+      {
         "command": "posit.catalog-explorer.refresh",
         "category": "Catalogs",
         "title": "Refresh Provider",
@@ -94,6 +100,11 @@
       "view/item/context": [
         {
           "command": "posit.catalog-explorer.refresh",
+          "when": "view == catalog-explorer && viewItem == provider",
+          "group": "inline"
+        },
+        {
+          "command": "posit.catalog-explorer.removeCatalogProvider",
           "when": "view == catalog-explorer && viewItem == provider",
           "group": "inline"
         },

@@ -17,6 +17,7 @@ import { setExtensionUri } from './resources';
 export async function activate(context: vscode.ExtensionContext) {
 	setExtensionUri(context);
 	const registry = new CatalogProviderRegistry();
+
 	if (context.extensionMode !== vscode.ExtensionMode.Production) {
 		context.subscriptions.push(registerMockProvider(registry));
 	}

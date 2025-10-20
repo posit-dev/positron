@@ -41,4 +41,12 @@ export class DefaultDatabricksCredentialProvider
 		}
 		return value;
 	}
+
+	async removeToken(workspace: string): Promise<void> {
+		const key = workspace.startsWith('https://')
+			? workspace
+			: `https://${workspace}`;
+		this.cache.delete(key);
+		await this.store.delete(key);
+	}
 }

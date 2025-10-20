@@ -75,10 +75,16 @@ async function getAzureCatalogs(
  */
 class AzureCatalogProvider implements CatalogProvider {
 	private emitter = new vscode.EventEmitter<void>();
+	public readonly id: string;
 
-	constructor(private session: vscode.AuthenticationSession) {}
+	constructor(private session: vscode.AuthenticationSession) {
+		this.id = `azure:${session.account.id}`;
+	}
 
-	dispose() {}
+	dispose() {
+		// Clean up resources
+		this.emitter.dispose();
+	}
 
 	onDidChange = this.emitter.event;
 
