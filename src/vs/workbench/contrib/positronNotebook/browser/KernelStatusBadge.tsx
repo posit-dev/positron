@@ -18,6 +18,7 @@ import { localize } from '../../../../nls.js';
 import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { useMenu } from './useMenu.js';
+import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
 
 const kernelStatusToRuntimeStatus = {
 	[KernelStatus.Uninitialized]: RuntimeStatus.Disconnected,
@@ -51,7 +52,10 @@ export function KernelStatusBadge() {
 		}
 		const actions: (MenuItemAction | SubmenuItemAction)[] = [];
 		for (const [_group, groupActions] of menu.current.getActions({
-			arg: notebookInstance.uri,
+			arg: {
+				uri: notebookInstance.uri,
+				ui: true,
+			} satisfies IPositronNotebookActionBarContext,
 			shouldForwardArgs: true,
 		})) {
 			actions.push(...groupActions);

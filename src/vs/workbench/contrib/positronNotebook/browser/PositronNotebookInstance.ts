@@ -28,7 +28,7 @@ import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
+import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -960,10 +960,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
 			this._logService.info(this.id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
-			await this._commandService.executeCommand(
-				SELECT_KERNEL_ID_POSITRON,
-				{ forceDropdown: false } satisfies SelectPositronNotebookKernelContext
-			);
+			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}
 
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));

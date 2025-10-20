@@ -36,6 +36,16 @@ interface INotebookEditorToolbarContext {
 	source: 'notebookToolbar';
 }
 
+export interface IPositronNotebookActionBarContext {
+	ui: boolean;
+	uri: URI;
+}
+
+function isPositronNotebookActionBarContext(obj: unknown): obj is IPositronNotebookActionBarContext {
+	const context = obj as IPositronNotebookActionBarContext;
+	return !!context && typeof context.ui === 'boolean' && isUriComponents(context.uri);
+}
+
 /** The context for actions in a notebook using a language runtime kernel. */
 interface IRuntimeNotebookKernelActionContext {
 	/** The notebook's language runtime session, if any */
@@ -51,7 +61,7 @@ interface IRuntimeNotebookKernelActionContext {
 abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 	abstract runWithContext(accessor: ServicesAccessor, context?: IRuntimeNotebookKernelActionContext): Promise<void>;
 
-	override async run(accessor: ServicesAccessor, context?: INotebookEditorToolbarContext | URI): Promise<void> {
+	override async run(accessor: ServicesAccessor, context?: INotebookEditorToolbarContext | IPositronNotebookActionBarContext): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
@@ -59,12 +69,12 @@ abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 		let notebookUri: URI | undefined;
 		let source: IRuntimeNotebookKernelActionContext['source'];
 		if (context) {
-			if (isUriComponents(context)) {
+			if (isPositronNotebookActionBarContext(context)) {
 				source = {
 					id: 'positronNotebookActionBar',
 					debugMessage: 'User clicked restart button in Positron notebook editor toolbar',
 				};
-				notebookUri = context;
+				notebookUri = context.uri;
 			} else {
 				source = {
 					id: 'vscodeNotebookToolbar',
