@@ -19,7 +19,6 @@ import { INotebookExecutionStateService } from '../../../notebook/common/noteboo
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
 	outputs;
-	override hasError;
 
 	// Execution timing observables
 	lastExecutionDuration;
@@ -40,9 +39,6 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
-
-		// Derive hasError from outputs to maintain separation of concerns
-		this.hasError = this.outputs.map(outputs => outputs.some(o => o.parsed.type === 'error'));
 
 		// Execution timing observables
 		this.lastExecutionDuration = this._internalMetadata.map(({ runStartTime, runEndTime }) => {

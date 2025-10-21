@@ -39,10 +39,12 @@ function CellOutputsSection({ outputs }: CellOutputsSectionProps) {
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
+	const hasError = outputContents.some(o => o.parsed.type === 'error');
 
 	return (
 		<NotebookCellWrapper
 			cell={cell}
+			hasError={hasError}
 		>
 			<div className='positron-notebook-code-cell-contents'>
 				<div className='positron-notebook-editor-container'>
@@ -50,7 +52,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 				</div>
 				<CellOutputsSection outputs={outputContents} />
 			</div>
-			<CellLeftActionMenu cell={cell} />
+			<CellLeftActionMenu cell={cell} hasError={hasError} />
 		</NotebookCellWrapper>
 	);
 }
