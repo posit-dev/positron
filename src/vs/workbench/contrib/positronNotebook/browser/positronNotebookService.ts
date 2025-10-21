@@ -105,6 +105,7 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	public registerInstance(instance: IPositronNotebookInstance): void {
 		if (!this._instanceById.has(instance.getId())) {
 			this._instanceById.set(instance.getId(), instance);
+			this._onDidAddNotebookInstance.fire(instance);
 		}
 		this._activeInstance = instance;
 	}
@@ -114,6 +115,7 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 			if (this._activeInstance === instance) {
 				this._activeInstance = null;
 			}
+			this._onDidRemoveNotebookInstance.fire(instance);
 		}
 	}
 
