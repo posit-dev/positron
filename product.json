@@ -258,7 +258,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.16.0",
+			"version": "0.18.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
