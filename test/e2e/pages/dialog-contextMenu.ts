@@ -28,9 +28,9 @@ export class ContextMenu {
 	 * @param menuItemLabel The label of the menu item to click
 	 * @param menuItemType The type of the menu item, either 'menuitemcheckbox' or 'menuitem'
 	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left' }: ContextMenuClick): Promise<void> {
+	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left', nativeMenu = 'default' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
-			if (this.isNativeMenu) {
+			if (this.isNativeMenu || nativeMenu === 'always') {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
 				await menuTrigger.click({ button: menuTriggerButton });
@@ -157,7 +157,7 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton = 'left' }: Omit<ContextMenuClick, 'menuItemType'> & { clickButton?: ClickButton }): Promise<void> {
+	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton = 'left' }: Omit<ContextMenuClick, 'menuItemType' | 'nativeMenu'>): Promise<void> {
 		// Show the context menu by clicking on the trigger element
 		const menuItems = await this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
 
@@ -202,4 +202,5 @@ interface ContextMenuClick {
 	menuItemLabel: string | RegExp;
 	menuItemType?: 'menuitemcheckbox' | 'menuitem';
 	menuTriggerButton?: ClickButton;
+	nativeMenu?: 'always' | 'default';
 }
