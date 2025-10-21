@@ -16,8 +16,7 @@
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	/* TODO: Use margin? */
-	gap: 4px;
+	column-gap: 4px;
 
 	.session-name {
 		/* Grow items after session name to fill available space */

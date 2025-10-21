@@ -35,7 +35,7 @@ const statusToIconClass: Record<RuntimeStatus, StatusIconClassName> = {
 const statusToIconColor: Record<RuntimeStatus, ColorIdentifier> = {
 	[RuntimeStatus.Active]: POSITRON_CONSOLE_STATE_ICON_ACTIVE,
 	[RuntimeStatus.Disconnected]: POSITRON_CONSOLE_STATE_ICON_DISCONNECTED,
-	[RuntimeStatus.Idle]: POSITRON_CONSOLE_STATE_ICON_DISCONNECTED,
+	[RuntimeStatus.Idle]: POSITRON_CONSOLE_STATE_ICON_IDLE,
 };
 
 export interface RuntimeStatusIconProps {

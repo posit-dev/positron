@@ -26,7 +26,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		super({
 			id: SELECT_KERNEL_ID_POSITRON,
 			category: NOTEBOOK_ACTIONS_CATEGORY_POSITRON,
-			title: localize2('positronNotebookActions.selectKernel', 'Change Kernel...'),
+			title: localize2('positronNotebookActions.changeKernel', 'Change Kernel...'),
 			icon: Codicon.gear,
 			f1: true,
 			precondition: NOTEBOOK_IS_ACTIVE_EDITOR,
