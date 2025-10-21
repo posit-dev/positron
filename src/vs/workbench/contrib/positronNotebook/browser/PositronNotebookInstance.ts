@@ -549,12 +549,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
-	/**
-	 * Inserts a new code cell above or below the reference cell (or selected cell if no reference is provided).
-	 * @param aboveOrBelow Whether to insert the cell above or below the reference
-	 * @param referenceCell Optional reference cell. If not provided, uses the currently selected cell
-	 */
-	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+	private _insertCellAndFocusContainer(type: CellKind, aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
 		let index: number | undefined;
 
 		this._assertTextModel();
@@ -570,7 +565,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(CellKind.Code, index + (aboveOrBelow === 'above' ? 0 : 1));
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1));
+	}
+
+	/**
+	 * Inserts a new code cell above or below the reference cell (or selected cell if no reference is provided).
+	 * @param aboveOrBelow Whether to insert the cell above or below the reference
+	 * @param referenceCell Optional reference cell. If not provided, uses the currently selected cell
+	 */
+	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		this._insertCellAndFocusContainer(CellKind.Code, aboveOrBelow, referenceCell);
+	}
+
+	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		this._insertCellAndFocusContainer(CellKind.Markup, aboveOrBelow, referenceCell);
 	}
 
 	/**
