@@ -18,10 +18,8 @@ import { RuntimeExitReason } from '../../../services/languageRuntime/common/lang
 import { INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookEditorWidget } from '../../notebook/browser/notebookEditorWidget.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
-import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
 import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
-import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../positronNotebook/common/positronNotebookCommon.js';
-import { ActiveNotebookHasRunningRuntime } from '../common/activeRuntimeNotebookContextManager.js';
+import { ActiveNotebookHasRunningRuntime, isNotebookEditorInput } from '../common/activeRuntimeNotebookContextManager.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 
 const category = localize2('positron.runtimeNotebookKernel.category', "Notebook");
@@ -88,9 +86,7 @@ abstract class BaseRuntimeNotebookKernelAction extends Action2 {
 				debugMessage: `Restart notebook kernel command ${RuntimeNotebookKernelRestartAction.ID} executed`,
 			};
 			const activeEditor = editorService.activeEditor;
-			if (!(isNotebookEditorInput(activeEditor) ||
-				// TODO: Wasn't there a function for this?
-				(activeEditor?.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID))) {
+			if (!isNotebookEditorInput(activeEditor)) {
 				throw new Error('No active notebook. This command should only be available when a notebook is active.');
 			}
 			notebookUri = activeEditor.resource;

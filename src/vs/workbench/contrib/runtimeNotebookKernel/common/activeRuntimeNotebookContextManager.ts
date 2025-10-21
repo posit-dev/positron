@@ -166,7 +166,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 	}
 }
 
-function isNotebookEditorInput(editor: EditorInput | undefined): editor is EditorInput & { resource: URI } {
+export function isNotebookEditorInput(editor: EditorInput | undefined): editor is EditorInput & { resource: URI } {
 	return editor !== undefined && (
 		isVSCodeNotebookEditorInput(editor) ||
 		(editor.typeId === POSITRON_NOTEBOOK_EDITOR_INPUT_ID && editor.resource !== undefined)
