@@ -122,6 +122,11 @@
 	font-family: var(--monaco-monospace-font);
 }
 
+/* Error state styling - use error color for execution badge */
+.execution-order-badge-container[data-has-error="true"] {
+	color: var(--vscode-errorForeground);
+}
+
 /* Animation for running state */
 @keyframes spin {
 	0% {

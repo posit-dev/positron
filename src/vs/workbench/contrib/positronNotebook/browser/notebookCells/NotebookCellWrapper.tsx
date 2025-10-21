@@ -23,10 +23,11 @@ import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
-export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
+export function NotebookCellWrapper({ cell, actionBarChildren, children, hasError }: {
 	cell: IPositronNotebookCell;
 	actionBarChildren?: React.ReactNode;
 	children: React.ReactNode;
+	hasError?: boolean;
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
@@ -85,6 +86,7 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 		aria-label={localize('notebookCell', '{0} cell', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		data-has-error={hasError}
 		data-is-running={executionStatus === 'running'}
 		data-testid='notebook-cell'
 		role='article'
