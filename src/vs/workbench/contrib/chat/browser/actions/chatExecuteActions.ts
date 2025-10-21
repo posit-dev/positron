@@ -587,6 +587,10 @@ export class CreateRemoteAgentJobAction extends Action2 {
 	constructor() {
 		const precondition = ContextKeyExpr.and(
 			whenNotInProgress,
+			// --- Start Positron ---
+			// Never enable this action in Positron
+			ContextKeyExpr.false(),
+			// --- End Positron ---
 			ChatContextKeys.remoteJobCreating.negate(),
 		);
 
