@@ -166,8 +166,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				onPressed={e => {
 					dismiss();
 					if (options.commandId) {
-						const args = options.getArgs?.();
-						services.commandService.executeCommand(options.commandId, args);
+						services.commandService.executeCommand(options.commandId);
 					}
 					options.onSelected(e);
 				}}
