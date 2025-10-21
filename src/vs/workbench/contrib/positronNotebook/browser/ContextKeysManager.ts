@@ -8,7 +8,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
-	 * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
+ * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
  */
 export const POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorContainerFocused', false);
 
@@ -21,14 +21,30 @@ export const POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED = new RawContextKey<boolean>(
 // Cell state context keys
 export const POSITRON_NOTEBOOK_CELL_IS_CODE = new RawContextKey<boolean>('positronNotebookCellIsCode', false);
 export const POSITRON_NOTEBOOK_CELL_IS_MARKDOWN = new RawContextKey<boolean>('positronNotebookCellIsMarkdown', false);
+/**
+ * A raw cell is one that contains plain text without any rendered outputs or execution capabilities.
+ */
 export const POSITRON_NOTEBOOK_CELL_IS_RAW = new RawContextKey<boolean>('positronNotebookCellIsRaw', false);
 export const POSITRON_NOTEBOOK_CELL_IS_RUNNING = new RawContextKey<boolean>('positronNotebookCellIsRunning', false);
 export const POSITRON_NOTEBOOK_CELL_IS_PENDING = new RawContextKey<boolean>('positronNotebookCellIsPending', false);
 export const POSITRON_NOTEBOOK_CELL_IS_FIRST = new RawContextKey<boolean>('positronNotebookCellIsFirst', false);
 export const POSITRON_NOTEBOOK_CELL_IS_LAST = new RawContextKey<boolean>('positronNotebookCellIsLast', false);
 export const POSITRON_NOTEBOOK_CELL_IS_ONLY = new RawContextKey<boolean>('positronNotebookCellIsOnly', false);
+/**
+ * Context key that is true when the markdown editor of a cell is open for editing.
+ * This does not necessarily mean the cell is focused, just that the editor is visible.
+ */
 export const POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN = new RawContextKey<boolean>('positronNotebookCellMarkdownEditorOpen', false);
+/**
+ * Context key that is true when the cell is selected (active for selection/navigation, but not necessarily being edited).
+ * This is similar to "command mode" in Vim, allowing for cell navigation and selection without entering edit mode.
+ * Relevant for multi-cell selection scenarios.
+ */
 export const POSITRON_NOTEBOOK_CELL_IS_SELECTED = new RawContextKey<boolean>('positronNotebookCellIsSelected', false);
+/**
+ * POSITRON_NOTEBOOK_CELL_IS_EDITING looks to be a duplicate of POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.
+ * The context key value is set but never actually read anywhere in the codebase. Consider removing it if it's not needed.
+ */
 export const POSITRON_NOTEBOOK_CELL_IS_EDITING = new RawContextKey<boolean>('positronNotebookCellIsEditing', false);
 export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_UP = new RawContextKey<boolean>('positronNotebookCellCanMoveUp', false);
 export const POSITRON_NOTEBOOK_CELL_CAN_MOVE_DOWN = new RawContextKey<boolean>('positronNotebookCellCanMoveDown', false);
