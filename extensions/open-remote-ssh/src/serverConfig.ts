@@ -35,7 +35,6 @@ export async function getVSCodeServerConfig(): Promise<IServerConfig> {
 	const productJson = await getVSCodeProductJson();
 
 	const customServerBinaryName = vscode.workspace.getConfiguration('remoteSSH.experimental').get<string>('serverBinaryName', '');
-	const customDataFolderName = vscode.workspace.getConfiguration('remoteSSH').get<string>('serverInstallPath', '');
 
 	const version = `${positron.version}-${positron.buildNumber}`;
 
@@ -45,7 +44,7 @@ export async function getVSCodeServerConfig(): Promise<IServerConfig> {
 		quality: productJson.quality,
 		release: productJson.release,
 		serverApplicationName: customServerBinaryName || productJson.serverApplicationName,
-		serverDataFolderName: customDataFolderName || productJson.serverDataFolderName,
+		serverDataFolderName: productJson.serverDataFolderName,
 		serverDownloadUrlTemplate: productJson.serverDownloadUrlTemplate
 	};
 }

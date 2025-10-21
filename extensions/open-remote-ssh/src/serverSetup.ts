@@ -6,6 +6,7 @@
 // The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
 // which is licensed under the MIT license.
 
+import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import Log from './common/logger';
 import { getVSCodeServerConfig } from './serverConfig';
@@ -45,7 +46,7 @@ export class ServerInstallError extends Error {
 
 const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
-export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log): Promise<ServerInstallResult> {
+export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log, hostname: string, hostAlias: string): Promise<ServerInstallResult> {
 	let shell = 'powershell';
 
 	// detect platform and shell for windows
@@ -78,6 +79,15 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 	const scriptId = crypto.randomBytes(12).toString('hex');
 
 	const vscodeServerConfig = await getVSCodeServerConfig();
+
+	let serverDataFolderName = vscodeServerConfig.serverDataFolderName;
+	const dataFolderSetting = vscode.workspace.getConfiguration('remoteSSH').get<{ [key: string]: string }>('serverInstallPath', {});
+	if (dataFolderSetting.hasOwnProperty(hostname)) {
+		serverDataFolderName = dataFolderSetting[hostname];
+	} else if (dataFolderSetting.hasOwnProperty(hostAlias)) {
+		serverDataFolderName = dataFolderSetting[hostAlias];
+	}
+
 	const installOptions: ServerInstallOptions = {
 		id: scriptId,
 		version: vscodeServerConfig.version,
@@ -88,21 +98,18 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 		envVariables,
 		useSocketPath,
 		serverApplicationName: vscodeServerConfig.serverApplicationName,
-		serverDataFolderName: vscodeServerConfig.serverDataFolderName,
+		serverDataFolderName,
 		serverDownloadUrlTemplate: serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
 	};
 
 	let commandOutput: { stdout: string; stderr: string };
 	if (platform === 'windows') {
-		// If the default was not changed, adjust the path for PowerShell on Windows
-		if (installOptions.serverDataFolderName === '$HOME/.positron-server') {
-			installOptions.serverDataFolderName = '$HOME\\.positron-server';
-		}
 		const installServerScript = generatePowerShellInstallScript(installOptions);
 
 		logger.trace('Server install command:', installServerScript);
 
-		const installDir = `${vscodeServerConfig.serverDataFolderName}\\install`;
+		// TODO upon supporting windows hosts: respect the remoteSSH.serverInstallPath setting here
+		const installDir = `$HOME\\${vscodeServerConfig.serverDataFolderName}\\install`;
 		const installScript = `${installDir}\\${vscodeServerConfig.commit}.ps1`;
 		const endRegex = new RegExp(`${scriptId}: end`);
 		// investigate if it's possible to use `-EncodedCommand` flag
@@ -231,6 +238,13 @@ SERVER_APP_NAME="${serverApplicationName}"
 SERVER_INITIAL_EXTENSIONS="${extensions}"
 SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-sock-${crypto.randomUUID()}"` : '--port=0'}"
 SERVER_DATA_DIR="${serverDataFolderName}"
+
+# If SERVER_DATA_DIR is relative, make it relative to $HOME
+if [[ "$SERVER_DATA_DIR" != /* ]] && [[ "$SERVER_DATA_DIR" != ~* ]]; then
+	SERVER_DATA_DIR="$HOME/$SERVER_DATA_DIR"
+fi
+echo "Using server data dir: $SERVER_DATA_DIR"
+
 SERVER_DIR="$SERVER_DATA_DIR/bin/$DISTRO_COMMIT"
 SERVER_SCRIPT="$SERVER_DIR/bin/$SERVER_APP_NAME"
 SERVER_LOGFILE="$SERVER_DATA_DIR/.$DISTRO_COMMIT.log"
@@ -471,7 +485,8 @@ $DISTRO_VSCODIUM_RELEASE="${release ?? ''}"
 $SERVER_APP_NAME="${serverApplicationName}"
 $SERVER_INITIAL_EXTENSIONS="${extensions}"
 $SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-sock-${crypto.randomUUID()}"` : '--port=0'}"
-$SERVER_DATA_DIR="${serverDataFolderName}"
+# TODO upon supporting windows hosts: respect the remoteSSH.serverInstallPath setting here
+$SERVER_DATA_DIR="$(Resolve-Path ~)\\${serverDataFolderName}"
 $SERVER_DIR="$SERVER_DATA_DIR\\bin\\$DISTRO_COMMIT"
 $SERVER_SCRIPT="$SERVER_DIR\\bin\\$SERVER_APP_NAME.cmd"
 $SERVER_LOGFILE="$SERVER_DATA_DIR\\.$DISTRO_COMMIT.log"

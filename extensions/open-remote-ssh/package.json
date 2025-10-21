@@ -105,10 +105,13 @@
 					"default": ""
 				},
 				"remoteSSH.serverInstallPath": {
-					"type": "string",
-					"markdownDescription": "A custom directory to install the Positron server data on the remote machine. By default, the server data is installed in `~/.positron-server`.",
+					"type": "object",
+					"markdownDescription": "A map of remote host to the remote directory where the Positron server data will be installed. You may include tildes or environment variables of the form `$ENV_VAR`, which will be resolved on the remote host upon connecting. Relative paths will be parsed relative to `$HOME`. For any host not included here, the server is installed in `$HOME/.positron-server`.",
 					"scope": "application",
-					"default": ""
+					"additionalProperties": {
+						"type": "string"
+					},
+					"default": {}
 				}
 			}
 		},
