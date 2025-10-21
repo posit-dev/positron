@@ -9,7 +9,6 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
-import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
@@ -48,7 +47,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 			return false;
 		}
 
-		const notebook = (activeNotebook as PositronNotebookInstance).textModel;
+		const notebook = activeNotebook.textModel;
 		if (!notebook) {
 			return false;
 		}
