@@ -31,6 +31,36 @@ export enum KernelStatus {
 }
 
 /**
+ * Subset of INotebookEditor required to integrate with the extension API,
+ * so we don't have to implement the entire INotebookEditor interface (...yet)
+ * See mainThreadNotebookDocumentsAndEditors.ts and mainThreadNotebookEditors.ts.
+ */
+type INotebookEditorForExtensionApi = Pick<
+	INotebookEditor,
+	// Basic
+	| 'getId'
+	// Text/view model
+	| 'textModel'  // only used for .uri
+	| 'hasModel'
+	| 'getViewModel'  // only used for .viewType
+	// Selected cells: vscode.NotebookEditor.selections
+	| 'getSelections'
+	| 'setSelections'
+	| 'onDidChangeSelection'
+	// Visible cells: vscode.NotebookEditor.visibleRanges
+	| 'visibleRanges'
+	| 'onDidChangeVisibleRanges'
+	// Cell structure: to retrieve a cell to be revealed and to ensure the revealed range is within the notebook length
+	| 'getLength'
+	| 'cellAt'  // returned ICellViewModel is only used by passing to a reveal method below
+	// Reveal: to reveal a cell
+	| 'revealInCenter'
+	| 'revealCellRangeInView'
+	| 'revealInCenterIfOutsideViewport'
+	| 'revealInViewAtTop'
+>;
+
+/**
  * Interface defining the public API for interacting with a Positron notebook instance.
  * This interface abstracts away the complexity of notebook management and provides
  * a clean contract for the React UI layer to interact with notebook functionality.
@@ -41,7 +71,7 @@ export enum KernelStatus {
  * - Controls cell selection and editing states
  * - Provides methods for common notebook operations
  */
-export interface IPositronNotebookInstance extends Pick<INotebookEditor, 'getId' | 'textModel' | 'getSelections'> {
+export interface IPositronNotebookInstance extends INotebookEditorForExtensionApi {
 	// ===== Properties =====
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier

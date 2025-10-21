@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
+import { CellRevealType, IActiveNotebookEditor, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState, INotebookViewModel } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
@@ -34,7 +34,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorun, observableValue } from '../../../../base/common/observable.js';
+import { autorun, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
@@ -158,11 +158,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
 	/**
-	 * View model for the notebook.
-	 */
-	// private _viewModel: NotebookViewModel | undefined = undefined;
-
-	/**
 	 * Model for the notebook contents.
 	 */
 	private readonly _textModel = observableValue<NotebookTextModel | undefined>('positronNotebookTextModel', undefined);
@@ -252,6 +247,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	cells;
 	selectionStateMachine;
 	contextManager;
+	visibleRanges: ICellRange[] = [];
 
 	/**
 	 * Status of kernel for the notebook.
@@ -401,10 +397,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
 		);
 
-		this._register(autorun(reader => {
-			const state = this.selectionStateMachine.state.read(reader);
+		this._register(runOnChange(this.selectionStateMachine.state, (state) => {
 			const isEditing = state.type === SelectionState.EditingSelection;
 			this.contextManager.setContainerFocused(!isEditing);
+			this._onDidChangeSelection.fire();
 		}));
 
 		this._webviewPreloadService.attachNotebookInstance(this);
@@ -416,6 +412,102 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._syncCells();
 		}));
 	}
+
+	//#region INotebookEditor
+	private readonly _onDidChangeSelection = this._register(new Emitter<void>());
+	private readonly _onDidChangeVisibleRanges = this._register(new Emitter<void>());
+
+	/**
+	 * Event fired when the cell selection changes.
+	 */
+	readonly onDidChangeSelection = this._onDidChangeSelection.event;
+
+	/**
+	 * Event fired when the visible range of cells changes.
+	 */
+	readonly onDidChangeVisibleRanges = this._onDidChangeVisibleRanges.event;
+
+	// The assertion isn't really true; we only implement parts needed by the extension API,
+	// see the note in IPositronNotebookInstance.ts
+	hasModel(): this is IActiveNotebookEditor {
+		return this.textModel !== undefined;
+	}
+
+	getViewModel(): INotebookViewModel | undefined {
+		// Only implementing parts needed by the extension API, see the note in IPositronNotebookInstance.ts
+		return {
+			viewType: 'jupyter-notebook',
+		} satisfies Partial<INotebookViewModel> as INotebookViewModel;
+	}
+
+	setSelections(selections: ICellRange[]): void {
+		// TODO: Implement this to be able to set selections via extension API vscode.NotebookEditor.selections
+	}
+
+	getLength(): number {
+		return this.cells.get().length;
+	}
+
+	cellAt(index: number): ICellViewModel | undefined {
+		// Implement ICellViewModel as needed. Not currently needed since the extension API
+		// only uses the returned value in calls to our own reveal* methods
+		return this.cells.get()[index] as unknown as ICellViewModel;
+	}
+
+	/**
+	 * Reveals a range of cells in the viewport.
+	 * @param range The cell range to reveal
+	 */
+	revealCellRangeInView(range: ICellRange): void {
+		// For now, just reveal the first cell in the range
+		if (range.start < this.cells.get().length) {
+			const cellToReveal = this.cellAt(range.start);
+			if (cellToReveal) {
+				this._revealCell(cellToReveal);
+			}
+		}
+	}
+
+	/**
+	 * Reveals a cell in the center only if it's outside the viewport.
+	 * @param cell The cell to reveal
+	 */
+	async revealInCenterIfOutsideViewport(cell: ICellViewModel): Promise<void> {
+		this._revealCell(cell, CellRevealType.CenterIfOutsideViewport);
+	}
+
+	/**
+	 * Reveals a cell in the center of the viewport.
+	 * @param cell The cell to reveal
+	 */
+	revealInCenter(cell: ICellViewModel): void {
+		this._revealCell(cell, CellRevealType.Center);
+	}
+
+	/**
+	 * Reveals a cell at the top of the viewport.
+	 * @param cell The cell to reveal
+	 */
+	revealInViewAtTop(cell: ICellViewModel): void {
+		this._revealCell(cell, CellRevealType.Top);
+	}
+
+	private _toPositronCell(cell: ICellViewModel): IPositronNotebookCell {
+		for (const c of this.cells.get()) {
+			if (c.handleId === cell.handle) {
+				return c;
+			}
+		}
+		throw new Error(`Could not find cell to reveal, handle: ${cell.handle}`);
+	}
+
+	/**
+	 * @param cell The cell to reveal
+	 */
+	private _revealCell(cell: ICellViewModel, type?: CellRevealType): void {
+		this._toPositronCell(cell).reveal(type);
+	}
+	//#endregion INotebookEditor
 
 	override dispose() {
 
