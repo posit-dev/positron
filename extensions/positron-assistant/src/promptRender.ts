@@ -251,7 +251,7 @@ export class PromptRenderer {
 		const documents = this.loadPromptDocuments(dir);
 
 		// Read saved selections from storage
-		const savedSelections = this.extensionContext.globalState.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
+		const savedSelections = this.extensionContext.globalState?.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
 		const selections = savedSelections[mode];
 
 		const matchingDocuments: ParsedPromptDocument[] = documents
@@ -348,7 +348,7 @@ async function showInitialPromptPick(renderer: PromptRenderer) {
 }
 
 async function showPromptModePick(context: vscode.ExtensionContext, mode: PromptMetadataMode) {
-	const savedSelections = context.globalState.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
+	const savedSelections = context.globalState?.get<StoredPromptSelectionConfig>(PROMPT_MODE_SELECTIONS_KEY) || {};
 
 	const quickPick = vscode.window.createQuickPick();
 	quickPick.canSelectMany = true;
