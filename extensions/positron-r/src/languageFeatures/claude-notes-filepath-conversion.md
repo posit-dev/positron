@@ -125,3 +125,28 @@ Other potentially interesting files:
 * `onDesktopPaste()`: <https://github.com/rstudio/rstudio/blob/5364b4eb3fd7333c15b5e637007bf93d48963c50/src/gwt/src/org/rstudio/studio/client/workbench/views/source/editors/text/AceEditorWidget.java#L428-L490>
 * `makeProjectRelative()`: <https://github.com/rstudio/rstudio/blob/4f7258ad7728bca57e8635c9011f351801620e22/src/cpp/session/modules/SessionFiles.cpp#L781-L815>
 * `FilePath::createAliasedPath()`: <https://github.com/rstudio/rstudio/blob/5364b4eb3fd7333c15b5e637007bf93d48963c50/src/cpp/shared_core/FilePath.cpp#L444-L472>
+
+## Possible Next Steps
+
+### Quarto Document Support via Extension Collaboration
+
+**Problem**: R file paste provider currently doesn't work in R chunks within Quarto documents (`.qmd` files) because document paste providers are registered by document language ID (`'quarto'`), not embedded language context.
+
+**Proposed Solution**: Use VS Code's `prepareDocumentPaste` API for inter-extension collaboration:
+
+1. **Quarto extension registers paste provider** for `.qmd` files with `prepareDocumentPaste` implementation
+2. **During copy operations**: Quarto extension detects source language context (R, Python, etc.) and attaches metadata via `DataTransfer.set('application/vnd.code.editor-context', ...)`
+3. **During paste operations**: Language-specific paste providers (R, Python) check for context metadata and activate accordingly
+4. **Clean separation**: Quarto handles language detection, language extensions handle language-specific formatting
+
+**Benefits**:
+- **No document parsing in language extensions**: R extension doesn't need to understand Quarto syntax
+- **Extensible pattern**: Works for Python chunks, Julia chunks, etc.
+- **Uses intended VS Code APIs**: `prepareDocumentPaste` is designed exactly for this metadata attachment scenario
+- **Performance**: Language context computed once during copy, not during every paste
+- **Standard DataTransfer**: Uses VS Code's standard mechanism, no custom protocols needed
+
+**Implementation approach**:
+- Quarto extension: `prepareDocumentPaste` detects language at cursor, attaches `{ language: 'r', sourceType: 'quarto-chunk' }` metadata
+- R extension: Check for metadata in `provideDocumentPasteEdits`, activate if present
+- Custom MIME type: Use `application/vnd.code.editor-context` to avoid conflicts
