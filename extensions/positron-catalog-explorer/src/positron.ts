@@ -3,15 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
+import type * as positronApi from 'positron';
+
+export type PositronApi = typeof positronApi;
+
+declare global {
+	function acquirePositronApi(): PositronApi;
+}
+
+export function getPositronAPI(): PositronApi | undefined {
+	if (typeof globalThis?.acquirePositronApi !== 'function') {
+		return;
+	}
+	return globalThis.acquirePositronApi();
+}
 
 /**
  * Ensures that a given set of packages are installed in a Positron session.
  */
 export async function ensureDependencies(
-	session: positron.LanguageRuntimeSession,
+	session: positronApi.LanguageRuntimeSession,
 	packages: string[],
 ): Promise<boolean> {
+	const positron = getPositronAPI();
+	if (!positron) {
+		throw new Error('Not running in Positron');
+	}
 	if (session.runtimeMetadata.languageId !== 'r') {
 		// Only R supports package installation.
 		return true;

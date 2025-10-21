@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
+
 import {
 	CatalogNode,
 	CatalogNodeType,
@@ -16,6 +16,7 @@ import { UnityCatalogClient } from './unityCatalogClient';
 import { DatabricksFilesClient, dbfsUri, dbfsVolumeUri } from '../fs/dbfs';
 import { resourceUri } from '../resources';
 import { DefaultDatabricksCredentialProvider } from '../credentials';
+import { getPositronAPI } from '../positron';
 import path from 'path';
 
 const registration: CatalogProviderRegistration = {
@@ -321,6 +322,10 @@ export class DatabricksCatalogProvider implements CatalogProvider {
 	async openInSession(node: CatalogNode): Promise<void> {
 		const uri = await this.uriWithWarehouse(node);
 		if (!uri) {
+			return;
+		}
+		const positron = getPositronAPI();
+		if (!positron) {
 			return;
 		}
 		const session = await positron.runtime.getForegroundSession();
