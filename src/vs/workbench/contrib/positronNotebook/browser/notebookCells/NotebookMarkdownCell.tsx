@@ -15,6 +15,11 @@ import { useObservedValue } from '../useObservedValue.js';
 import { Markdown } from './Markdown.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
+import { localize } from '../../../../../nls.js';
+
+// Localized strings.
+const emptyMarkdownCell = localize('positron.notebooks.markdownCell.empty', "Empty markdown cell.");
+const doubleClickToEdit = localize('positron.notebooks.markdownCell.doubleClickToEdit', " Double click to edit.");
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 
@@ -36,7 +41,8 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 						markdownString.length > 0 ?
 							<Markdown content={markdownString} />
 							: <div className='empty-output-msg'>
-								Empty markup cell. {editorShown ? '' : 'Double click to edit.'}
+								{emptyMarkdownCell}
+								{!editorShown && doubleClickToEdit}
 							</div>
 					}
 				</div>
