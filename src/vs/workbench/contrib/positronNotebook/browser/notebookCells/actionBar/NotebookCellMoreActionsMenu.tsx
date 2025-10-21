@@ -36,10 +36,7 @@ export function NotebookCellMoreActionsMenu({
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 	const commandService = usePositronReactServicesContext().commandService;
-	const showMoreActionsMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
-		// Prevent click from bubbling to cell wrapper which would deselect the cell
-		e.preventDefault();
-		e.stopPropagation();
+	const showMoreActionsMenu = () => {
 
 		if (!buttonRef.current) {
 			return;
