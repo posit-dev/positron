@@ -392,7 +392,19 @@ registerNotebookAction({
 registerNotebookAction({
 	commandId: 'positronNotebook.cell.quitEdit',
 	handler: (notebook) => {
-		notebook.selectionStateMachine.exitEditor();
+		const state = notebook.selectionStateMachine.state.get();
+		// check if we are in editing mode
+		if (state.type === SelectionState.EditingSelection) {
+			// get the selected cell that is being edited
+			const cell = state.selected;
+			// handle markdown cells differently
+			if (cell.isMarkdownCell() && cell.editorShown?.get()) {
+				// This handles updating selection state and closing the editor
+				cell.toggleEditor();
+			} else {
+				notebook.selectionStateMachine.exitEditor();
+			}
+		}
 	},
 	keybinding: {
 		primary: KeyCode.Escape,
