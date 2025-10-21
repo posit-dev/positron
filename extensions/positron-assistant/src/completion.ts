@@ -462,7 +462,7 @@ class OpenAICompletion extends FimPromptCompletion {
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'openai',
+			id: 'openai-api',
 			displayName: 'OpenAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
@@ -691,7 +691,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 		'google': GoogleCompletion,
 		'mistral': MistralCompletion,
 		'ollama': OllamaCompletion,
-		'openai': OpenAICompletion,
+		'openai-api': OpenAICompletion,
 		'openai-compatible': OpenAICompatibleCompletion,
 		'openai-legacy': OpenAILegacyCompletion,
 		'openrouter': OpenRouterCompletion,

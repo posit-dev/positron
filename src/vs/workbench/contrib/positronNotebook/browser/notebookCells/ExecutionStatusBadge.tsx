@@ -11,6 +11,7 @@ interface ExecutionStatusBadgeProps {
 	executionOrder?: number;
 	showPending: boolean;
 	executionStatus: string;
+	hasError: boolean;
 }
 
 /**
@@ -18,7 +19,7 @@ interface ExecutionStatusBadgeProps {
  * Used when the cell is not selected/hovered and showing static execution status.
  * Only renders when the cell is in the 'idle' execution state.
  */
-export function ExecutionStatusBadge({ cellSelected, isHovered, executionOrder, showPending, executionStatus }: ExecutionStatusBadgeProps) {
+export function ExecutionStatusBadge({ cellSelected, isHovered, executionOrder, showPending, executionStatus, hasError }: ExecutionStatusBadgeProps) {
 
 	if (cellSelected || isHovered) {
 		// We show action buttons in this case
@@ -36,7 +37,7 @@ export function ExecutionStatusBadge({ cellSelected, isHovered, executionOrder, 
 
 	if (executionOrder !== undefined) {
 		return (
-			<div className='execution-order-badge-container'>
+			<div className='execution-order-badge-container' data-has-error={hasError}>
 				<span className='execution-order-badge-bracket'>[</span>
 				<span className='execution-order-badge'> {String(executionOrder)} </span>
 				<span className='execution-order-badge-bracket'>]</span>

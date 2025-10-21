@@ -143,6 +143,9 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._container = container;
 	}
 
+	get container(): HTMLElement | undefined {
+		return this._container;
+	}
 
 	attachEditor(editor: CodeEditorWidget): void {
 		this._editor.set(editor, undefined);
@@ -222,7 +225,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		this._instance.insertCodeCellAndFocusContainer('below', this);
 	}
 
+	insertMarkdownCellAbove(): void {
+		this._instance.insertMarkdownCellAndFocusContainer('above', this);
+	}
+
+	insertMarkdownCellBelow(): void {
+		this._instance.insertMarkdownCellAndFocusContainer('below', this);
+	}
 }
-
-
-

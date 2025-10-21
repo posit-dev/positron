@@ -442,9 +442,19 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
+				// Some providers like AWS Bedrock require a type for all tool input schemas; default to 'object' if not provided.
+				// See similar handling for Anthropic in toAnthropicTool in extensions/positron-assistant/src/anthropic.ts
+				const input_schema = tool.inputSchema as Record<string, any> ?? {
+					type: 'object',
+					properties: {},
+				};
+				if (!input_schema.type) {
+					log.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+					input_schema.type = 'object';
+				}
 				acc[tool.name] = ai.tool({
 					description: tool.description,
-					parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
+					parameters: ai.jsonSchema(input_schema),
 				});
 				return acc;
 			}, {});
@@ -678,7 +688,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'openai',
+			id: 'openai-api',
 			displayName: 'OpenAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
@@ -1183,17 +1193,6 @@ export const availableModels = new Map<string, ModelDefinition[]>(
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
-			{
-				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Haiku',
-				identifier: 'claude-3-5-haiku',
-				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
 		]],
 		['google', [
 			{
@@ -1227,16 +1226,6 @@ export const availableModels = new Map<string, ModelDefinition[]>(
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
 				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
-			},
-			{
-				name: 'Claude 3.5 Sonnet v2 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Sonnet v1 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]]
 	]

@@ -655,7 +655,30 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 
 	private async doOpenShellExternal(windowId: number | undefined, url: string): Promise<void> {
 		try {
-			await shell.openExternal(url);
+			// --- Start Positron ---
+			// On Windows, use the more specific shell.openPath() for file URIs
+			// Documented as: "Open the given file in the desktop's default manner."
+			// See https://github.com/electron/electron/issues/6302
+			// shell.openPath() is equipped to properly handle non-ASCII characters
+			// (at the time of #6302, shell.openItem() was the right move, but
+			// has since been deprecated in favor of shell.openPath())
+			//
+			// Related work has also been necessary in RStudio:
+			// https://github.com/rstudio/rstudio/issues/12467
+			// https://github.com/rstudio/rstudio/pull/13926
+			if (isWindows && url.startsWith('file:///')) {
+				// Convert file URI to local path for shell.openPath()
+				const uri = URI.parse(url);
+				const filePath = uri.fsPath;
+				const result = await shell.openPath(filePath);
+				if (result) {
+					// shell.openPath returns error string if failed, empty string if successful
+					throw new Error(result);
+				}
+			} else {
+				await shell.openExternal(url);
+			}
+			// --- End Positron ---
 		} catch (error) {
 			let isLink: boolean;
 			let message: string;

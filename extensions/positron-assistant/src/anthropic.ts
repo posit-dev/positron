@@ -589,11 +589,12 @@ function toAnthropicTools(tools: readonly vscode.LanguageModelChatTool[]): Anthr
 }
 
 function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnion {
+	// Anthropic requires a type for all tools; default to 'object' if not provided.
+	// See similar handling for the vercel SDK in AILanguageModel provideLanguageModelChatResponse in extensions/positron-assistant/src/models.ts
 	const input_schema = tool.inputSchema as Anthropic.Tool.InputSchema ?? {
 		type: 'object',
 		properties: {},
 	};
-	// Anthropic requires a type for all tools; default to 'object' if not provided.
 	if (!input_schema.type) {
 		log.warn(`[anthropic] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 		input_schema.type = 'object';

@@ -116,7 +116,7 @@ jobs:
           uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
 
       - name: Run Pyright
-        uses: jakebailey/pyright-action@b5d50e5cde6547546a5c4ac92e416a8c2c1a1dfe # v2.3.2
+        uses: jakebailey/pyright-action@6cabc0f01c4994be48fd45cd9dbacdd6e1ee6e5e # v2.3.3
         with:
           version: 1.1.308
           working-directory: ${{ env.PYTHON_SRC_DIR }}
@@ -283,7 +283,7 @@ jobs:
           cache-dependency-path: ${{ env.special-working-directory-relative }}/${{ env.PROJECT_DIR }}/package-lock.json
 
       - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
           cache: 'pip'
