@@ -11,7 +11,7 @@ Catalog Explorer is a VSIX extension that provides a convenient interface for br
 - Generating code snippets for Python and R to access data
 - Opening data objects in Positron sessions
 
-The extension makes it easy to explore and work with data stored in data catalogs directly from your VS Code or Positron environment.
+The extension makes it easy to explore and work with data stored in data catalogs directly from your Positron environment.
 
 ## Development
 

@@ -13,9 +13,6 @@
   "categories": [
     "Data Science"
   ],
-  "keywords": [
-    "Positron"
-  ],
   "activationEvents": [
     "onFileSystem:dbfs"
   ],
@@ -60,7 +57,6 @@
         "command": "posit.catalog-explorer.openInSession",
         "category": "Catalogs",
         "title": "Open in Session",
-        "when": "isPositron",
         "enablement": "view == catalog-explorer"
       },
       {
@@ -125,7 +121,7 @@
         },
         {
           "command": "posit.catalog-explorer.openInSession",
-          "when": "isPositron && view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
           "group": "1_primary@3"
         },
         {
