@@ -12,6 +12,7 @@ import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
+import { PromptRenderer } from '../promptRender.js';
 
 /** We expect 3 messages by default: 1 for the system prompt, 1 for the user's prompt, and 1 containing at least the default context */
 const DEFAULT_EXPECTED_MESSAGE_COUNT = 3;
@@ -118,6 +119,8 @@ suite('PositronAssistantParticipant', () => {
 		disposables.push(participantService);
 		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
 		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
+
+		new PromptRenderer(extensionContext);
 	});
 
 	teardown(() => {
