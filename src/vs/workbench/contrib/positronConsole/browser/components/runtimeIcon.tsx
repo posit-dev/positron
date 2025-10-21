@@ -11,6 +11,9 @@ import React from 'react';
 
 // Other dependencies.
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 export interface RuntimeIconProps {
 	base64EncodedIconSvg: string | undefined;
@@ -18,14 +21,16 @@ export interface RuntimeIconProps {
 }
 
 export const RuntimeIcon = ({ base64EncodedIconSvg, sessionMode }: RuntimeIconProps) => {
+	const classNames = ['icon']
 	if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
-		return <span className='codicon codicon-notebook icon'></span>;
+		classNames.push(...ThemeIcon.asClassNameArray(Codicon.notebook));
+		return <span className={positronClassNames(...classNames)}></span>;
 	}
 	if (base64EncodedIconSvg === undefined) {
 		return null;
 	}
 	return <img
-		className='icon'
+		className={positronClassNames(...classNames)}
 		src={`data:image/svg+xml;base64,${base64EncodedIconSvg}`}
 	/>;
 };
