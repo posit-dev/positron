@@ -12,7 +12,7 @@ import { INotebookKernelService, INotebookKernel } from '../../notebook/common/n
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromEditorPane } from './notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
 
@@ -41,7 +41,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		// Force the dropdown if the action was invoked by the user in the UI
 		const forceDropdown = context?.ui ?? false;
 		const notebookKernelService = accessor.get(INotebookKernelService);
-		const activeNotebook = getNotebookInstanceFromEditorPane(accessor.get(IEditorService));
+		const activeNotebook = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
 		const quickInputService = accessor.get(IQuickInputService);
 
 		if (!activeNotebook) {
