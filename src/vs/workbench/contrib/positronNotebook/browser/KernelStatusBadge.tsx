@@ -72,8 +72,7 @@ export function KernelStatusBadge() {
 		>
 			<div className='positron-notebook-kernel-status-badge' data-testid='notebook-kernel-status'>
 				<RuntimeStatusIcon status={runtimeStatus} />
-				{/* TODO: Runtime name or session name? */}
-				<p className='session-name'>{runtimeName}</p>
+				<p className='runtime-name'>{runtimeName}</p>
 			</div>
 		</ActionBarMenuButton>
 	);

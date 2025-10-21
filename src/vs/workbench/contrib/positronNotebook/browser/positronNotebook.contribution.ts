@@ -855,7 +855,6 @@ registerNotebookAction({
 	handler: (notebook) => notebook.showNotebookConsole(),
 	menu: {
 		id: MenuId.PositronNotebookKernelSubmenu,
-		// group: 'kernel',
 		order: 100,
 		title: { value: localize('showConsole', 'Open Notebook Console'), original: 'Open Notebook Console' },
 		icon: ThemeIcon.fromId('terminal'),
