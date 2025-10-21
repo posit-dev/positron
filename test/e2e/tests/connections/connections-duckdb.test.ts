@@ -9,6 +9,8 @@ test.use({
 	suiteId: __filename
 });
 
+const randomText = Math.random().toString(36).substring(7);
+
 test.describe('DuckDB Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN]
 }, () => {
@@ -32,7 +34,7 @@ test.describe('DuckDB Connection', {
 
 const connectionCode = `import duckdb
 
-con = duckdb.connect(database='db.duckdb')
+con = duckdb.connect(database='db.duckdb.${randomText}')
 
 con.execute("CREATE TABLE items (item_id INTEGER, item_name VARCHAR, price DECIMAL)")
 con.execute("INSERT INTO items VALUES (1, 'item1', 10.5), (2, 'item2', 20.0), (3, 'item3', 15.75)")
