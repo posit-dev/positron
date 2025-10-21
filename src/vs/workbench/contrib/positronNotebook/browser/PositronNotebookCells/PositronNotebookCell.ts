@@ -13,7 +13,7 @@ import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMark
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { derived, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
+import { derived, IObservable, IObservableSignal, observableFromEvent, observableSignal, observableValue } from '../../../../../base/common/observable.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { ITextEditorOptions } from '../../../../../platform/editor/common/editor.js';
 import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.js';
@@ -32,7 +32,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
 	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
-	public readonly hasError = observableValue<boolean, void>('hasError', false);
+	public abstract readonly hasError: IObservable<boolean>;
 
 	constructor(
 		public readonly cellModel: NotebookCellTextModel,

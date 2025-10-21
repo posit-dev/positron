@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { observableFromEvent, observableValue, waitForState } from '../../../../../base/common/observable.js';
+import { constObservable, observableFromEvent, observableValue, waitForState } from '../../../../../base/common/observable.js';
 import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
@@ -18,6 +18,8 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 	readonly markdownString;
 	readonly editorShown = observableValue('editorShown', false);
 	override kind: CellKind.Markup = CellKind.Markup;
+	// Markdown cells cannot have errors since they don't execute
+	readonly hasError = constObservable(false);
 
 	constructor(
 		cellModel: NotebookCellTextModel,
