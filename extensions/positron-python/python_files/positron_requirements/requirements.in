@@ -2,7 +2,7 @@
 # To update requirements.txt, run the following commands.
 # Use Python 3.9 when creating the environment or using pip-tools
 # 1) Install `uv` https://docs.astral.sh/uv/getting-started/installation/
-# 2) uv pip compile --generate-hashes --upgrade python_files/positron_requirements/requirements.in > python_files/positron_requirements/requirements.txt
+# 2) uv pip compile --python-version 3.9 --generate-hashes --upgrade python_files/positron_requirements/requirements.in > python_files/positron_requirements/requirements.txt
 
 docstring-to-markdown==0.13
 jedi-language-server>=0.44.0

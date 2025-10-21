@@ -35,16 +35,6 @@ import { untildify } from '../../../../base/common/labels.js';
 import { Schemas } from '../../../../base/common/network.js';
 
 /**
- * The maximum number of active sessions a user can have running at a time.
- * This value is arbitrary and a limit to use for sanity purposes for the
- * multiple console sessions feature. This should be removed in the future
- * or made a setting if limiting concurrent active sessions is required.
- *
- * Only to be used with `console.multipleConsoleSessions` feaeture flag.
- */
-const MAX_CONCURRENT_SESSIONS = 15;
-
-/**
  * Get a map key corresponding to a session.
  *
  * @returns A composite of the session mode, runtime ID, and notebook URI - assuming that there
@@ -1990,23 +1980,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`is already starting for the language.` +
 					(source ? ` Request source: ${source}` : ``));
 			}
-
-			// Restrict the number of console sessions that can be created to 15.
-			// This value is arbitrary and should be made a configuration setting
-			// in the future for users once this feature has stabilized!
-			if (this._activeSessionsBySessionId.size >= MAX_CONCURRENT_SESSIONS) {
-				this._notificationService.notify({
-					severity: Severity.Info,
-					message: localize('positron.console.maxError', "Cannot start console session.\
-							The maximum number of consoles ({0}) has been reached", MAX_CONCURRENT_SESSIONS)
-				});
-
-				throw new Error(`Session for language runtime ` +
-					`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
-					`cannot be started because the maximum number of ` +
-					`runtime sessions has been reached.`
-				);
-			}
 		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			// If no notebook URI is provided, throw an error.
 			if (!notebookUri) {
@@ -2483,7 +2456,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					return p;
 				}
 				return path.join(workspaceFolderName, relativePath);
-			}
+			};
 
 			const currentWorkingDirectoryDisplay = makeDisplayPath(currentWorkingDirectoryResolved);
 			const newWorkingDirectoryDisplay = makeDisplayPath(newWorkingDirectoryResolved);

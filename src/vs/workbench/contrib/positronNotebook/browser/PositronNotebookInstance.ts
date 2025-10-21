@@ -29,8 +29,9 @@ import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInst
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
-import { INotebookKernel, INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, observableValue } from '../../../../base/common/observable.js';
@@ -43,6 +44,36 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
 }
+
+/**
+ * Maps runtime states to their corresponding kernel status values. This mapping
+ * defines how the notebook UI interprets runtime session states and displays
+ * them to the user as kernel connection status. As we expand the states we
+ * report this map will evolve.
+ *
+ * States are grouped by their semantic meaning:
+ * - Connecting: Runtime is initializing or starting
+ * - Connected: Runtime is operational and ready to execute code
+ * - Disconnected: Runtime has ended or is shutting down
+ */
+const RUNTIME_STATE_TO_KERNEL_STATUS: Partial<Record<RuntimeState, KernelStatus>> = {
+	// Runtime is starting up
+	[RuntimeState.Uninitialized]: KernelStatus.Connecting,
+	[RuntimeState.Initializing]: KernelStatus.Connecting,
+	[RuntimeState.Starting]: KernelStatus.Connecting,
+	[RuntimeState.Restarting]: KernelStatus.Connecting,
+
+	// Runtime is operational
+	[RuntimeState.Ready]: KernelStatus.Connected,
+	[RuntimeState.Idle]: KernelStatus.Connected,
+	[RuntimeState.Busy]: KernelStatus.Connected,
+	[RuntimeState.Interrupting]: KernelStatus.Connected,
+
+	// Runtime is shutting down or ended
+	[RuntimeState.Exiting]: KernelStatus.Disconnected,
+	[RuntimeState.Exited]: KernelStatus.Disconnected,
+	[RuntimeState.Offline]: KernelStatus.Disconnected,
+} as const;
 
 /**
  * Implementation of IPositronNotebookInstance that handles the core notebook functionality
@@ -215,14 +246,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	contextManager;
 
 	/**
-	 * Selected kernel for the notebook.
-	 */
-	kernel;
-
-	/**
 	 * Status of kernel for the notebook.
 	 */
-	kernelStatus;
+	kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 
 	/**
 	 * Current runtime for the notebook.
@@ -329,37 +355,37 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		}));
 
-		// Clear the runtime session observable when the session ends
+		// Clear the runtime session observable when the session ends and update kernel status
 		this._register(autorun(reader => {
 			const session = this.runtimeSession.read(reader);
 			if (session) {
+				// Update kernel status based on current runtime state
+				const runtimeState = session.getRuntimeState();
+				const kernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState] ?? KernelStatus.Errored;
+				this.kernelStatus.set(kernelStatus, undefined);
+
+				// Listen for runtime state changes and update kernel status accordingly
+				this._register(session.onDidChangeRuntimeState((newState) => {
+					const newKernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[newState] ?? KernelStatus.Errored;
+					this.kernelStatus.set(newKernelStatus, undefined);
+				}));
+
 				const d = this._register(session.onDidEndSession(() => {
+					// Clean up the previous listener. The final one will get
+					// taken care of by the main disposal logic
 					d.dispose();
 					this.runtimeSession.set(undefined, undefined);
+					this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 				}));
+			} else {
+				// No session - reset to uninitialized
+				this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 			}
 		}));
 
-		// Track the current selected kernel for this notebook
-		this.kernel = observableValue<INotebookKernel | undefined>('positronNotebookKernel', undefined);
-		this._register(this.notebookKernelService.onDidChangeSelectedNotebooks(e => {
-			if (e && this._isThisNotebook(e.notebook) && this.textModel) {
-				const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
-				const kernel = matching.all.find(k => k.id === e.newKernel);
-				this.kernel.set(kernel, undefined);
-			}
-		}));
-
-		// Derive the kernel connection status
-		this.kernelStatus = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookKernelStatus */ kernel ? KernelStatus.Connected : KernelStatus.Disconnected
-		);
-
-		// Derive the notebook language from the selected kernel
-		this._language = this.kernel.map(
-			this,
-			kernel => /** @description positronNotebookLanguage */ kernel?.supportedLanguages[0] ?? 'plaintext'
+		// Derive the notebook language from the runtime session
+		this._language = this.runtimeSession.map(
+			session => /** @description positronNotebookLanguage */ session?.runtimeMetadata.languageId ?? 'plaintext'
 		);
 
 		this.contextManager = this._register(
@@ -523,12 +549,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._onDidChangeContent.fire();
 	}
 
-	/**
-	 * Inserts a new code cell above or below the reference cell (or selected cell if no reference is provided).
-	 * @param aboveOrBelow Whether to insert the cell above or below the reference
-	 * @param referenceCell Optional reference cell. If not provided, uses the currently selected cell
-	 */
-	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+	private _insertCellAndFocusContainer(type: CellKind, aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
 		let index: number | undefined;
 
 		this._assertTextModel();
@@ -544,7 +565,20 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(CellKind.Code, index + (aboveOrBelow === 'above' ? 0 : 1));
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1));
+	}
+
+	/**
+	 * Inserts a new code cell above or below the reference cell (or selected cell if no reference is provided).
+	 * @param aboveOrBelow Whether to insert the cell above or below the reference
+	 * @param referenceCell Optional reference cell. If not provided, uses the currently selected cell
+	 */
+	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		this._insertCellAndFocusContainer(CellKind.Code, aboveOrBelow, referenceCell);
+	}
+
+	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void {
+		this._insertCellAndFocusContainer(CellKind.Markup, aboveOrBelow, referenceCell);
 	}
 
 	/**
@@ -800,13 +834,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * fully determine the view we see.
 	 */
 	getEditorViewState(): INotebookEditorViewState {
+		this._assertTextModel();
+		const selectedKernel = this.notebookKernelService.getSelectedOrSuggestedKernel(this.textModel);
 		return {
 			editingCells: {},
 			cellLineNumberStates: {},
 			editorViewStates: {},
 			collapsedInputCells: {},
 			collapsedOutputCells: {},
-			selectedKernelId: this.kernel.get()?.id,
+			selectedKernelId: selectedKernel?.id,
 		};
 	}
 
@@ -977,6 +1013,41 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	showNotebookConsole(): void {
 		this._positronConsoleService.showNotebookConsole(this.uri, true);
+	}
+
+	/**
+	 * Grabs focus for this notebook based on the current selection state.
+	 * Called when the notebook editor receives focus from the workbench.
+	 *
+	 * Note: This method may be called twice during tab switches:
+	 * - First call: Early, cells may not be rendered yet (no-op via optional chaining)
+	 * - Second call: After render completes, focus succeeds
+	 */
+	grabFocus(): void {
+		const state = this.selectionStateMachine.state.get();
+
+		switch (state.type) {
+			case SelectionState.EditingSelection:
+				// Focus the editor - enterEditor() already has idempotency checks
+				this.selectionStateMachine.enterEditor(state.selected);
+				break;
+
+			case SelectionState.SingleSelection:
+			case SelectionState.MultiSelection: {
+				// Focus the first selected cell's container
+				// Optional chaining handles undefined containers gracefully
+				const cell = state.type === SelectionState.SingleSelection
+					? state.selected
+					: state.selected[0];
+				cell.container?.focus();
+				break;
+			}
+
+			case SelectionState.NoCells:
+				// Fall back to notebook container
+				this._container?.focus();
+				break;
+		}
 	}
 
 	/**

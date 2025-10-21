@@ -34,7 +34,7 @@ export interface KeyboardModifiers {
 /**
  * ButtonProps interface.
  */
-interface ButtonProps {
+export interface ButtonProps {
 	readonly ariaLabel?: string;
 	readonly className?: string;
 	readonly disabled?: boolean;

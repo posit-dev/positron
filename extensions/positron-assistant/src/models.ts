@@ -154,7 +154,11 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
-		const message = _messages.length > 1 ? _messages[_messages.length - 2] : _messages[0]; // Get the last user message, the last message is the context
+		const message = this.getUserPrompt(_messages);
+
+		if (!message) {
+			throw new Error('No user prompt provided to echo language model.');
+		}
 
 		if (typeof message.content === 'string') {
 			message.content = [{ type: 'text', text: message.content }];
@@ -224,6 +228,22 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		return Promise.resolve(this.availableModels);
+	}
+
+	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
+		if (messages.length === 0) {
+			return undefined;
+		}
+		if (messages.length === 1) {
+			return messages[0];
+		}
+		// If there are multiple messages, the last message is the user message.
+		// See defaultRequestHandler in extensions/positron-assistant/src/participants.ts for the message ordering.
+		const userPrompt = messages[messages.length - 1];
+		if (userPrompt.role !== 'user') {
+			return undefined;
+		}
+		return userPrompt;
 	}
 }
 
@@ -422,9 +442,19 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
+				// Some providers like AWS Bedrock require a type for all tool input schemas; default to 'object' if not provided.
+				// See similar handling for Anthropic in toAnthropicTool in extensions/positron-assistant/src/anthropic.ts
+				const input_schema = tool.inputSchema as Record<string, any> ?? {
+					type: 'object',
+					properties: {},
+				};
+				if (!input_schema.type) {
+					log.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+					input_schema.type = 'object';
+				}
 				acc[tool.name] = ai.tool({
 					description: tool.description,
-					parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
+					parameters: ai.jsonSchema(input_schema),
 				});
 				return acc;
 			}, {});
@@ -658,7 +688,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
-			id: 'openai',
+			id: 'openai-api',
 			displayName: 'OpenAI'
 		},
 		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
@@ -1163,17 +1193,6 @@ export const availableModels = new Map<string, ModelDefinition[]>(
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
-			{
-				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Haiku',
-				identifier: 'claude-3-5-haiku',
-				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
 		]],
 		['google', [
 			{
@@ -1207,16 +1226,6 @@ export const availableModels = new Map<string, ModelDefinition[]>(
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
 				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
-			},
-			{
-				name: 'Claude 3.5 Sonnet v2 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Sonnet v1 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]]
 	]

@@ -525,7 +525,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 			if (!model) {
 				// --- Start Positron ---
 				// TODO: make this more generic once we support more model providers https://github.com/posit-dev/positron/issues/8301
-				throw new Error('No language models available for chat. Please ensure you have logged into Anthropic as a language model provider by clicking `Add Model Provider...` or running the command `Positron Assistant: Configure Language Model Providers` and authenticating with Anthropic.');
+				throw new Error('No language models available for chat. Please ensure you have logged into Anthropic as a language model provider by clicking `Configure Model Providers...` or running the command `Positron Assistant: Configure Language Model Providers` and authenticating with Anthropic.');
 				/*
 				throw new Error('Language model unavailable');
 				*/
