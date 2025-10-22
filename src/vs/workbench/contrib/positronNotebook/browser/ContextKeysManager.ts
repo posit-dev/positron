@@ -32,7 +32,6 @@ export const POSITRON_NOTEBOOK_CELL_IS_LAST = new RawContextKey<boolean>('positr
 export const POSITRON_NOTEBOOK_CELL_IS_ONLY = new RawContextKey<boolean>('positronNotebookCellIsOnly', false);
 /**
  * Context key that is true when the markdown editor of a cell is open for editing.
- * This does not necessarily mean the cell is focused, just that the editor is visible.
  */
 export const POSITRON_NOTEBOOK_CELL_MARKDOWN_EDITOR_OPEN = new RawContextKey<boolean>('positronNotebookCellMarkdownEditorOpen', false);
 /**
