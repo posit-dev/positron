@@ -86,6 +86,13 @@ const dirs = [
 	'.vscode/extensions/vscode-selfhost-test-provider',
 ];
 
+// --- Start Positron ---
+// Add the open-remote-wsl extension on Windows
+if (process.platform === 'win32') {
+	dirs.push('extensions/open-remote-wsl');
+}
+// --- End Positron ---
+
 if (fs.existsSync(`${__dirname}/../../.build/distro/npm`)) {
 	dirs.push('.build/distro/npm');
 	dirs.push('.build/distro/npm/remote');
