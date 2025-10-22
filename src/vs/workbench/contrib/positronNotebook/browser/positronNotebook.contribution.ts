@@ -398,7 +398,7 @@ registerNotebookAction({
 			// get the selected cell that is being edited
 			const cell = state.selected;
 			// handle markdown cells differently
-			if (cell.isMarkdownCell() && cell.editorShown?.get()) {
+			if (cell.isMarkdownCell() && cell.editorShown.get()) {
 				// This handles updating selection state and closing the editor
 				cell.toggleEditor();
 			} else {
