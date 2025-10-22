@@ -27,6 +27,11 @@ import { TokenUsage } from './tokens.js';
  * Models used by chat participants and for vscode.lm.* API functionality.
  */
 
+export interface ProviderVariables {
+	AWS_REGION?: string;
+	AWS_PROFILE?: string;
+}
+
 //#region Test Models
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
@@ -989,13 +994,6 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
-namespace AWSLanguageModel {
-	export interface Environment {
-		AWS_REGION?: string;
-		AWS_PROFILE?: string;
-	}
-}
-
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AmazonBedrockProvider;
 
@@ -1022,8 +1020,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		}
 		super(_config, _context);
 
-		const environmentSettings = vscode.workspace.getConfiguration('positron.assistant').get<AWSLanguageModel.Environment>('environment', {});
-		const environment: AWSLanguageModel.Environment = { ...process.env as AWSLanguageModel.Environment, ...environmentSettings };
+		const environmentSettings = vscode.workspace.getConfiguration('positron.assistant').get<ProviderVariables>('providerVariables', {});
+		const environment: ProviderVariables = { ...process.env as ProviderVariables, ...environmentSettings };
 
 		this.aiProvider = createAmazonBedrock({
 			// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
