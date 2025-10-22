@@ -93,6 +93,16 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children, hasErro
 		tabIndex={0}
 		onClick={(e) => {
 			const clickTarget = e.nativeEvent.target as HTMLElement;
+
+			// Close any open markdown cell editors when clicking on a different cell
+			// This must happen before any early returns to ensure markdown cells always close
+			const cells = notebookInstance.cells.get();
+			for (const otherCell of cells) {
+				if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
+					otherCell.toggleEditor();
+				}
+			}
+
 			// If any of the element or its parents have the class
 			// 'positron-cell-editor-monaco-widget' then don't run the select code as the editor
 			// widget itself handles that logic
