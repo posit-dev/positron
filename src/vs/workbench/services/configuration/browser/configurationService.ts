@@ -47,6 +47,7 @@ import { IBrowserWorkbenchEnvironmentService } from '../../environment/browser/e
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 import { mainWindow } from '../../../../base/browser/window.js';
 import { runWhenWindowIdle } from '../../../../base/browser/dom.js';
+import { AdminPolicyService, IAdminPolicyService } from '../../../../platform/policy/common/adminPolicyService.js';
 
 function getLocalUserConfigurationScopes(userDataProfile: IUserDataProfile, hasRemote: boolean): ConfigurationScope[] | undefined {
 	const isDefaultProfile = userDataProfile.isDefault || userDataProfile.useDefaultFlags?.settings;
@@ -125,7 +126,33 @@ export class WorkspaceService extends Disposable implements IWorkbenchConfigurat
 		this.initRemoteUserConfigurationBarrier = new Barrier();
 		this.completeWorkspaceBarrier = new Barrier();
 		this.defaultConfiguration = this._register(new DefaultConfiguration(configurationCache, environmentService, logService));
-		this.policyConfiguration = policyService instanceof NullPolicyService ? new NullPolicyConfiguration() : this._register(new PolicyConfiguration(this.defaultConfiguration, policyService, logService));
+
+		// --- Start PWB: Admin Policy (enforced settings) ---
+		let adminPolicyService: IAdminPolicyService | undefined;
+		// In native (Electron) environment, admin policies data is passed through window configuration
+		// In web (browser) environment, it's passed through options (IWorkbenchConstructionOptions)
+		const nativeEnv = environmentService as any;
+		const enforcedSettings = nativeEnv.configuration?.adminPoliciesData || nativeEnv.options?.adminPoliciesData;
+		logService.info(`[Browser ConfigService] Checking for adminPoliciesData...`);
+		logService.info(`[Browser ConfigService] nativeEnv.configuration exists: ${!!nativeEnv.configuration}`);
+		logService.info(`[Browser ConfigService] nativeEnv.options exists: ${!!nativeEnv.options}`);
+		logService.info(`[Browser ConfigService] adminPoliciesData value: ${enforcedSettings}`);
+		if (enforcedSettings) {
+			logService.info(`[Browser ConfigService] Creating AdminPolicyService with: ${enforcedSettings}`);
+			adminPolicyService = this._register(new AdminPolicyService(enforcedSettings, logService));
+		} else {
+			logService.info('[Browser ConfigService] No adminPoliciesData found in configuration or options');
+		}
+
+		// If we have admin policies, we need to use PolicyConfiguration even if policyService is NullPolicyService
+		// This applies to the web where we may have admin policies but no other policies
+		if (policyService instanceof NullPolicyService && !adminPolicyService) {
+			this.policyConfiguration = new NullPolicyConfiguration();
+		} else {
+			this.policyConfiguration = this._register(new PolicyConfiguration(this.defaultConfiguration, policyService, logService, adminPolicyService));
+		}
+		// --- End PWB ---
+
 		this.configurationCache = configurationCache;
 		this._configuration = new Configuration(this.defaultConfiguration.configurationModel, this.policyConfiguration.configurationModel, ConfigurationModel.createEmptyModel(logService), ConfigurationModel.createEmptyModel(logService), ConfigurationModel.createEmptyModel(logService), ConfigurationModel.createEmptyModel(logService), new ResourceMap(), ConfigurationModel.createEmptyModel(logService), new ResourceMap<ConfigurationModel>(), this.workspace, logService);
 		this.applicationConfigurationDisposables = this._register(new DisposableStore());

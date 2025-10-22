@@ -464,6 +464,9 @@ export interface INativeWindowConfiguration extends IWindowConfiguration, Native
 
 	os: IOSConfiguration;
 	policiesData?: IStringDictionary<{ definition: PolicyDefinition; value: PolicyValue }>;
+	// --- Start PWB ---
+	adminPoliciesData?: string; // JSON string of enforced settings from POSITRON_ENFORCED_SETTINGS
+	// --- End PWB ---
 }
 
 /**
