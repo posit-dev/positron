@@ -28,7 +28,7 @@ import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
+import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -40,6 +40,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -138,6 +139,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _container: HTMLElement | undefined = undefined;
 
+	private _scopedContextKeyService: IScopedContextKeyService | undefined;
+
 	/**
 	 * The DOM element that contains the cells for the notebook.
 	 */
@@ -212,6 +215,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	get cellsContainer(): HTMLElement | undefined {
 		return this._cellsContainer;
+	}
+
+	get scopedContextKeyService(): IScopedContextKeyService | undefined {
+		return this._scopedContextKeyService;
 	}
 
 	/**
@@ -350,7 +357,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Track the current runtime session for this notebook
 		this.runtimeSession = observableValue('positronNotebookRuntimeSession', this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri));
 		this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
-			if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
+			if (isNotebookLanguageRuntimeSession(session) && this._isThisNotebook(session.metadata.notebookUri)) {
 				this.runtimeSession.set(session, undefined);
 			}
 		}));
@@ -801,6 +808,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	async attachView(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
 		this.detachView();
 		this._container = container;
+		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
 		this._logService.info(this.id, 'attachView');
@@ -960,10 +968,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
 			this._logService.info(this.id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
-			await this._commandService.executeCommand(
-				SELECT_KERNEL_ID_POSITRON,
-				{ forceDropdown: false } satisfies SelectPositronNotebookKernelContext
-			);
+			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}
 
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));

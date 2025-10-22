@@ -10,6 +10,7 @@ import { QuickAccess } from './quickaccess';
 import { Clipboard } from './clipboard.js';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
+import { ContextMenu } from './dialog-contextMenu.js';
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -35,7 +36,7 @@ export class PositronNotebooks extends Notebooks {
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 	}
 
@@ -378,13 +379,17 @@ export class PositronNotebooks extends Notebooks {
 				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
 				await expect(async () => {
 					// we shouldn't need to retry this, but the input closes immediately sometimes
-					await this.kernelStatusBadge.click();
+					await this.contextMenu.triggerAndClick({
+						menuTrigger: this.kernelStatusBadge,
+						menuItemLabel: `Change Kernel...`
+					});
+					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
 					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-				}).toPass({ timeout: 10000 });
 
-				// Select the desired kernel
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-				await this.quickinput.waitForQuickInputClosed();
+					// Select the desired kernel
+					await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+					await this.quickinput.waitForQuickInputClosed();
+				}).toPass({ timeout: 10000 });
 
 				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 			} catch (e) {
@@ -393,7 +398,7 @@ export class PositronNotebooks extends Notebooks {
 			}
 
 			// Wait for the kernel status to show "Connected"
-			await expect(this.kernelStatusBadge).toContainText('Connected', { timeout: 30000 });
+			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout: 30000 });
 			this.code.logger.log('Kernel is connected and ready');
 		});
 	}

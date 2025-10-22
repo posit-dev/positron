@@ -7,7 +7,7 @@
 import './actionBarMenuButton.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { ActionBarButton } from './actionBarButton.js';
@@ -48,7 +48,7 @@ interface ActionBarMenuButtonProps {
  * @param props An ActionBarMenuButtonProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
+export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButtonProps>) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
@@ -74,15 +74,16 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 		}
 	}, [positronActionBarContext.menuShowing]);
 
+	const { actions: getActions } = props;
 	const getMenuActions = React.useCallback(async () => {
-		const actions = await props.actions();
+		const actions = await getActions();
 		const defaultAction = actions.find(action => action.checked);
 
 		setDefaultAction(defaultAction);
 		setActions(actions);
 
 		return actions;
-	}, [props]);
+	}, [getActions]);
 
 	useEffect(() => {
 		getMenuActions();

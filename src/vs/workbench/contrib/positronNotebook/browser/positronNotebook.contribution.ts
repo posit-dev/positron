@@ -848,7 +848,7 @@ registerNotebookAction({
 		icon: ThemeIcon.fromId('notebook-execute-all'),
 		positronActionBarOptions: {
 			controlType: 'button',
-			displayTitle: true
+			displayTitle: false
 		}
 	},
 	keybinding: {
@@ -868,7 +868,7 @@ registerNotebookAction({
 		icon: ThemeIcon.fromId('positron-clean'),
 		positronActionBarOptions: {
 			controlType: 'button',
-			displayTitle: true
+			displayTitle: false
 		}
 	},
 	keybinding: {
@@ -881,10 +881,9 @@ registerNotebookAction({
 	commandId: 'positronNotebook.showConsole',
 	handler: (notebook) => notebook.showNotebookConsole(),
 	menu: {
-		id: MenuId.EditorActionsLeft,
-		group: 'navigation',
-		order: 30,
-		title: { value: localize('showConsole', 'Show Console'), original: 'Show Console' },
+		id: MenuId.PositronNotebookKernelSubmenu,
+		order: 100,
+		title: { value: localize('showConsole', 'Open Notebook Console'), original: 'Open Notebook Console' },
 		icon: ThemeIcon.fromId('terminal'),
 		positronActionBarOptions: {
 			controlType: 'button',
@@ -901,9 +900,9 @@ registerNotebookAction({
 		notebook.addCell(CellKind.Code, cellCount);
 	},
 	menu: {
-		id: MenuId.EditorActionsRight,
+		id: MenuId.EditorActionsLeft,
 		group: 'navigation',
-		order: 10,
+		order: 30,
 		title: { value: localize('addCodeCell', 'Code'), original: 'Code' },
 		icon: ThemeIcon.fromId('add'),
 		positronActionBarOptions: {
@@ -921,9 +920,9 @@ registerNotebookAction({
 		notebook.addCell(CellKind.Markup, cellCount);
 	},
 	menu: {
-		id: MenuId.EditorActionsRight,
+		id: MenuId.EditorActionsLeft,
 		group: 'navigation',
-		order: 20,
+		order: 40,
 		title: { value: localize('addMarkdownCell', 'Markdown'), original: 'Markdown' },
 		icon: ThemeIcon.fromId('add'),
 		positronActionBarOptions: {
@@ -934,15 +933,12 @@ registerNotebookAction({
 });
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
-// Widget is command-driven: clicking opens the kernel picker dropdown
+// Widget is self-contained: manages its own menu interactions via ActionBarMenuButton
 registerNotebookAction({
 	id: 'positronNotebook.kernelStatus',
 	widget: {
 		component: KernelStatusBadge,
-		commandId: 'positronNotebook.selectKernel',
-		commandArgs: { forceDropdown: true },
-		ariaLabel: 'Select notebook kernel',
-		tooltip: 'Click to select a kernel'
+		selfContained: true
 	},
 	menu: {
 		id: MenuId.EditorActionsRight,
