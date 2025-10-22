@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as Parser from 'web-tree-sitter';
+import Parser from 'web-tree-sitter';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { LOGGER } from '../extension';
 import { EXTENSION_ROOT_DIR } from '../constants';
@@ -19,8 +19,8 @@ let _queryStrings: string[] | null = null;
 // lazily initialize the parser
 export async function initializeParser(): Promise<Parser> {
 	LOGGER.info(`Initializing parser`);
-	await (Parser as any).init();
-	const parser = new (Parser as any)();
+	await Parser.init();
+	const parser = new Parser();
 	LOGGER.info(`tree-sitter-r.wasm path: ${wasmPath}`);
 	R = await Parser.Language.load(wasmPath);
 	parser.setLanguage(R);
