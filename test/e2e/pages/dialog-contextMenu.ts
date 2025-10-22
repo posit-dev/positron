@@ -33,6 +33,7 @@ export class ContextMenu {
 			if (this.isNativeMenu) {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
+				await menuTrigger.hover();
 				await menuTrigger.click({ button: menuTriggerButton });
 
 				// Hover over the menu item

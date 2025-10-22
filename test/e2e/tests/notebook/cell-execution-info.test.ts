@@ -26,7 +26,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test.skip('Cell Execution Tooltip - Basic Functionality', async function ({ app }) {
+	test('Cell Execution Tooltip - Basic Functionality', async function ({ app }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		await test.step('Test Setup: Create notebook and select kernel', async () => {
