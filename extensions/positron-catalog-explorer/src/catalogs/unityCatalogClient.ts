@@ -651,6 +651,7 @@ export class UnityCatalogClient {
 				throw await UnityCatalogError.from(response);
 			}
 			if (response.status === 204) {
+				// eslint-disable-next-line local/code-no-dangerous-type-assertions
 				return {} as T;
 			}
 			return (await response.json()) as T;
