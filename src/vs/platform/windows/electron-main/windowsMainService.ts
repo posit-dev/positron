@@ -1538,6 +1538,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			accessibilitySupport: app.accessibilitySupportEnabled,
 			colorScheme: this.themeMainService.getColorScheme(),
 			policiesData: this.policyService.serialize(),
+			// --- Start PWB ---
+			adminPoliciesData: process.env['POSITRON_ENFORCED_SETTINGS'], // Start PWB: Pass enforced settings to renderer
+			// --- End PWB ---
 			continueOn: this.environmentMainService.continueOn,
 
 			cssModules: this.cssDevelopmentService.isEnabled ? await this.cssDevelopmentService.getCssModules() : undefined
