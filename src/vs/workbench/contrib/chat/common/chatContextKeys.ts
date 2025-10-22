@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, ContextKeyFalseExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { RemoteNameContext } from '../../../common/contextkeys.js';
 import { ViewContainerLocation } from '../../../common/views.js';
@@ -102,8 +102,16 @@ export namespace ChatContextKeyExprs {
 	/**
 	 * Context expression that indicates when the welcome/setup view should be shown
 	 */
+	// --- Start Positron ---
+	// Don't show this upstream view in Positron
+	/*
 	export const chatSetupTriggerContext = ContextKeyExpr.or(
 		ChatContextKeys.Setup.installed.negate(),
 		ChatContextKeys.Entitlement.canSignUp
 	);
+	*/
+	export const chatSetupTriggerContext = ContextKeyExpr.and(
+		ContextKeyFalseExpr.INSTANCE
+	);
+	// --- End Positron ---
 }
