@@ -14,6 +14,7 @@ import path = require('path');
 import fs = require('fs');
 import { log } from './extension.js';
 import { CopilotService } from './copilot.js';
+import { PromptRenderer } from './promptRender.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -43,9 +44,17 @@ export class PositronAssistantApi {
 	 * @param request The chat request to generate content for.
 	 * @returns A string containing the assistant prompt content.
 	 */
-	public async generateAssistantPrompt(request: any): Promise<string> {
+	public async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
+		// Determine the chat mode based on the participant ID
+		let mode = positron.PositronChatMode.Ask;
+		if (request.id === ParticipantID.Edit) {
+			mode = positron.PositronChatMode.Edit;
+		} else if (request.id === ParticipantID.Agent) {
+			mode = positron.PositronChatMode.Agent;
+		}
+
 		// Start with the system prompt
-		let prompt = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		let prompt = PromptRenderer.renderModePrompt(mode, { request }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
