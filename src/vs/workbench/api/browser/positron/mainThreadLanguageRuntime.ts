@@ -17,6 +17,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -145,6 +146,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		private readonly _commandService: ICommandService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
+		private readonly _pathService: IPathService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape,
 		private readonly _openerService: IOpenerService
 	) {
@@ -251,7 +253,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			} else if (ev.name === UiFrontendEvent.OpenWorkspace) {
 				// Open a workspace
 				const ws = ev.data as OpenWorkspaceEvent;
-				const uri = URI.file(ws.path);
+				const uri = URI.from({
+					scheme: this._pathService.defaultUriScheme,
+					path: ws.path
+				});
 				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
 			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
 				// Open a file or folder with system default application
@@ -1424,6 +1429,7 @@ export class MainThreadLanguageRuntime
 		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPositronConnectionsService private readonly _positronConnectionsService: IPositronConnectionsService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPathService private readonly _pathService: IPathService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -1849,6 +1855,7 @@ export class MainThreadLanguageRuntime
 			this._commandService,
 			this._notebookService,
 			this._editorService,
+			this._pathService,
 			this._proxy,
 			this._openerService);
 	}
