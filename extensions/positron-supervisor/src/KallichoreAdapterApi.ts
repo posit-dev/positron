@@ -413,7 +413,10 @@ export class KCApi implements PositronSupervisorApi {
 
 
 		// Start the server in a new terminal
-		this.log(`Starting Kallichore server ${shellPath} with connection file ${connectionFile}`);
+		this.log(`Starting Kallichore server ${shellPath} ` +
+			`with connection file ${connectionFile} and ` +
+			`${startupTimeout}ms startup timeout`);
+
 		this._terminal = vscode.window.createTerminal({
 			name: 'Kallichore',
 			shellPath: wrapperPath,
@@ -529,7 +532,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		if (!connectionData) {
 			let message = `Timed out waiting for connection file to be ` +
-				`created at ${connectionFile} after 10 seconds`;
+				`created at ${connectionFile} after ${startupTimeout}ms`;
 
 			// Include any output from the server process to help diagnose the problem
 			if (fs.existsSync(outFile)) {
@@ -583,8 +586,8 @@ export class KCApi implements PositronSupervisorApi {
 
 				// ECONNREFUSED (for TCP) and ENOENT (for sockets) are normal
 				// conditions during startup; the server isn't ready yet. Keep
-				// trying up to 10 seconds from the time we got a process ID
-				// established.
+				// trying up to the startup timeout from the time we got a
+				// process ID established.
 				if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
 					if (elapsed < startupTimeout) {
 						// Log every few attempts. We don't want to overwhelm
@@ -619,8 +622,8 @@ export class KCApi implements PositronSupervisorApi {
 				}
 
 				// If the request times out, go ahead and try again as long as
-				// it hasn't been more than 10 seconds since we started. This
-				// can happen if the server is slow to start.
+				// the startup timeout hasn't been reached. This can happen if
+				// the server is slow to start.
 				if (err.code === 'ETIMEDOUT' && elapsed < startupTimeout) {
 					this.log(`Request for server status timed out; retrying (attempt ${retry + 1}, ${elapsed}ms)`);
 					continue;
