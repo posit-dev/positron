@@ -94,16 +94,18 @@ export class PositronNotebooks extends Notebooks {
 	 * @param settings - The settings fixture
 	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
 	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
+	 * @param enableNotebooks - Whether to enable Positron notebooks (defaults to true, set to false to explicitly disable)
 	 */
 	async setNotebookEditor(
 		settings: {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 		editor: 'positron' | 'default',
-		waitMs = 800
+		waitMs = 800,
+		enableNotebooks = true
 	) {
 		await settings.set({
-			'positron.notebook.enabled': true,
+			'positron.notebook.enabled': enableNotebooks,
 			'workbench.editorAssociations': editor === 'positron'
 				? { '*.ipynb': 'workbench.editor.positronNotebook' }
 				: {}
@@ -111,7 +113,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Enable Positron notebooks in settings and set to 'positron' editor.
+	 * Action: Configure editor associations to use Positron notebook editor for .ipynb files.
 	 * @param settings - The settings fixture
 	 */
 	async enablePositronNotebooks(
@@ -120,7 +122,6 @@ export class PositronNotebooks extends Notebooks {
 		},
 	) {
 		const config: Record<string, unknown> = {
-			'positron.notebook.enabled': true,
 			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
 		};
 		await settings.set(config, { reload: true });
