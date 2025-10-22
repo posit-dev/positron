@@ -328,6 +328,22 @@
                 "anthropic-api": "Claude Sonnet 4.5"
               }
             ]
+          },
+          "positron.assistant.environment": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "%configuration.environment.description%",
+            "properties": {
+              "AWS_PROFILE": {
+                "type": "string",
+                "default": null
+              },
+              "AWS_REGION": {
+                "type": "string",
+                "default": null
+              }
+            },
+            "additionalProperties": false
           }
         }
       }
