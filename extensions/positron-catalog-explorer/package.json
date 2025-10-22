@@ -1,12 +1,11 @@
 {
-  "name": "catalog-explorer",
-  "publisher": "positron",
-  "author": "Posit Software, PBC",
+  "name": "positron-catalog-explorer",
   "displayName": "Catalog Explorer",
   "description": "Explore tables, views, and files backed by data catalogs.",
-  "icon": "resources/icon.png",
   "version": "0.0.1",
-  "preview": true,
+  "publisher": "positron",
+  "icon": "resources/icon.png",
+  "private": true,
   "engines": {
     "vscode": "^1.87.0"
   },
@@ -14,7 +13,7 @@
     "Data Science"
   ],
   "activationEvents": [
-    "onFileSystem:dbfs"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -157,13 +156,11 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "compile:production": "tsc -p ./ --sourceMap false",
-    "package": "npm run compile:production",
     "check-types": "tsc --noEmit",
     "watch": "tsc -p ./ --watch",
-    "pretest": "npm run compile",
     "lint-check": "prettier --check 'src/**/*.ts' 'package.json' 'package-lock.json'",
     "lint": "prettier --write 'src/**/*.ts' 'package.json' 'package-lock.json'",
     "test": "vscode-test",
