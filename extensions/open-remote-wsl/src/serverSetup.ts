@@ -1,137 +1,145 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The code in extensions/open-remote-wsl has been adapted from https://github.com/jeanp413/open-remote-wsl,
+// which is licensed under the MIT license.
+
 import * as crypto from 'crypto';
 import Log from './common/logger';
 import { getVSCodeServerConfig } from './serverConfig';
 import { WSLManager } from './wsl/wslManager';
 
 export interface ServerInstallOptions {
-    id: string;
-    quality: string;
-    commit: string;
-    version: string;
-    release?: string; // vscodium specific
-    extensionIds: string[];
-    envVariables: string[];
-    serverApplicationName: string;
-    serverDataFolderName: string;
-    serverDownloadUrlTemplate: string;
+	id: string;
+	quality: string;
+	commit: string;
+	version: string;
+	release?: string; // vscodium specific
+	extensionIds: string[];
+	envVariables: string[];
+	serverApplicationName: string;
+	serverDataFolderName: string;
+	serverDownloadUrlTemplate: string;
 }
 
 export interface ServerInstallResult {
-    exitCode: number;
-    listeningOn: number;
-    connectionToken: string;
-    logFile: string;
-    osReleaseId: string;
-    arch: string;
-    platform: string;
-    tmpDir: string;
-    [key: string]: any;
+	exitCode: number;
+	listeningOn: number;
+	connectionToken: string;
+	logFile: string;
+	osReleaseId: string;
+	arch: string;
+	platform: string;
+	tmpDir: string;
+	[key: string]: any;
 }
 
 export class ServerInstallError extends Error {
-    constructor(message: string) {
-        super(message);
-    }
+	constructor(message: string) {
+		super(message);
+	}
 }
 
 const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://github.com/VSCodium/vscodium/releases/download/${version}.${release}/vscodium-reh-${os}-${arch}-${version}.${release}.tar.gz';
 
 export async function installCodeServer(wslManager: WSLManager, distroName: string, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], logger: Log): Promise<ServerInstallResult> {
-    const scriptId = crypto.randomBytes(12).toString('hex');
+	const scriptId = crypto.randomBytes(12).toString('hex');
 
-    const vscodeServerConfig = await getVSCodeServerConfig();
-    const installOptions: ServerInstallOptions = {
-        id: scriptId,
-        version: vscodeServerConfig.version,
-        commit: vscodeServerConfig.commit,
-        quality: vscodeServerConfig.quality,
-        release: vscodeServerConfig.release,
-        extensionIds,
-        envVariables,
-        serverApplicationName: vscodeServerConfig.serverApplicationName,
-        serverDataFolderName: vscodeServerConfig.serverDataFolderName,
-        serverDownloadUrlTemplate: serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
-    };
+	const vscodeServerConfig = await getVSCodeServerConfig();
+	const installOptions: ServerInstallOptions = {
+		id: scriptId,
+		version: vscodeServerConfig.version,
+		commit: vscodeServerConfig.commit,
+		quality: vscodeServerConfig.quality,
+		release: vscodeServerConfig.release,
+		extensionIds,
+		envVariables,
+		serverApplicationName: vscodeServerConfig.serverApplicationName,
+		serverDataFolderName: vscodeServerConfig.serverDataFolderName,
+		serverDownloadUrlTemplate: serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
+	};
 
-    const installServerScript = generateBashInstallScript(installOptions);
+	const installServerScript = generateBashInstallScript(installOptions);
 
-    // Fish shell does not support heredoc so let's workaround it using -c option,
-    // also replace single quotes (') within the script with ('\'') as there's no quoting within single quotes, see https://unix.stackexchange.com/a/24676
-    const resp = await wslManager.exec('bash', ['-c', `'${installServerScript.replace(/'/g, `'\\''`)}'`], distroName);
+	// Fish shell does not support heredoc so let's workaround it using -c option,
+	// also replace single quotes (') within the script with ('\'') as there's no quoting within single quotes, see https://unix.stackexchange.com/a/24676
+	const resp = await wslManager.exec('bash', ['-c', `'${installServerScript.replace(/'/g, `'\\''`)}'`], distroName);
 
-    const endScriptRegex = new RegExp(`${scriptId}: Server installation script done`, 'm');
-    const commandOutput = await Promise.race([
-        resp.exitPromise.then(result => ({ stdout: resp.stdout, stderr: resp.stderr, exitCode: result.exitCode })),
-        new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) => {
-            resp.onStdoutData(buffer => {
-                if (endScriptRegex.test(buffer.toString('utf8'))) {
-                    resolve({ stdout: resp.stdout, stderr: resp.stderr, exitCode: 0 });
-                }
-            });
-        })
-    ]);
+	const endScriptRegex = new RegExp(`${scriptId}: Server installation script done`, 'm');
+	const commandOutput = await Promise.race([
+		resp.exitPromise.then(result => ({ stdout: resp.stdout, stderr: resp.stderr, exitCode: result.exitCode })),
+		new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) => {
+			resp.onStdoutData(buffer => {
+				if (endScriptRegex.test(buffer.toString('utf8'))) {
+					resolve({ stdout: resp.stdout, stderr: resp.stderr, exitCode: 0 });
+				}
+			});
+		})
+	]);
 
-    if (commandOutput.exitCode) {
-        logger.trace('Server install command stderr:', commandOutput.stderr);
-    }
-    logger.trace('Server install command stdout:', commandOutput.stdout);
+	if (commandOutput.exitCode) {
+		logger.trace('Server install command stderr:', commandOutput.stderr);
+	}
+	logger.trace('Server install command stdout:', commandOutput.stdout);
 
-    const resultMap = parseServerInstallOutput(commandOutput.stdout, scriptId);
-    if (!resultMap) {
-        throw new ServerInstallError(`Failed parsing install script output`);
-    }
+	const resultMap = parseServerInstallOutput(commandOutput.stdout, scriptId);
+	if (!resultMap) {
+		throw new ServerInstallError(`Failed parsing install script output`);
+	}
 
-    const exitCode = parseInt(resultMap.exitCode, 10);
-    if (exitCode !== 0) {
-        throw new ServerInstallError(`Couldn't install vscode server on remote server, install script returned non-zero exit status`);
-    }
+	const exitCode = parseInt(resultMap.exitCode, 10);
+	if (exitCode !== 0) {
+		throw new ServerInstallError(`Couldn't install vscode server on remote server, install script returned non-zero exit status`);
+	}
 
-    const listeningOn = parseInt(resultMap.listeningOn, 10);
+	const listeningOn = parseInt(resultMap.listeningOn, 10);
 
-    const remoteEnvVars = Object.fromEntries(Object.entries(resultMap).filter(([key,]) => envVariables.includes(key)));
+	const remoteEnvVars = Object.fromEntries(Object.entries(resultMap).filter(([key,]) => envVariables.includes(key)));
 
-    return {
-        exitCode,
-        listeningOn,
-        connectionToken: resultMap.connectionToken,
-        logFile: resultMap.logFile,
-        osReleaseId: resultMap.osReleaseId,
-        arch: resultMap.arch,
-        platform: resultMap.platform,
-        tmpDir: resultMap.tmpDir,
-        ...remoteEnvVars
-    };
+	return {
+		exitCode,
+		listeningOn,
+		connectionToken: resultMap.connectionToken,
+		logFile: resultMap.logFile,
+		osReleaseId: resultMap.osReleaseId,
+		arch: resultMap.arch,
+		platform: resultMap.platform,
+		tmpDir: resultMap.tmpDir,
+		...remoteEnvVars
+	};
 }
 
 function parseServerInstallOutput(str: string, scriptId: string): { [k: string]: string } | undefined {
-    const startResultStr = `${scriptId}: start`;
-    const endResultStr = `${scriptId}: end`;
+	const startResultStr = `${scriptId}: start`;
+	const endResultStr = `${scriptId}: end`;
 
-    const startResultIdx = str.indexOf(startResultStr);
-    if (startResultIdx < 0) {
-        return undefined;
-    }
+	const startResultIdx = str.indexOf(startResultStr);
+	if (startResultIdx < 0) {
+		return undefined;
+	}
 
-    const endResultIdx = str.indexOf(endResultStr, startResultIdx + startResultStr.length);
-    if (endResultIdx < 0) {
-        return undefined;
-    }
+	const endResultIdx = str.indexOf(endResultStr, startResultIdx + startResultStr.length);
+	if (endResultIdx < 0) {
+		return undefined;
+	}
 
-    const installResult = str.substring(startResultIdx + startResultStr.length, endResultIdx);
+	const installResult = str.substring(startResultIdx + startResultStr.length, endResultIdx);
 
-    const resultMap: { [k: string]: string } = {};
-    const resultArr = installResult.split(/\r?\n/);
-    for (const line of resultArr) {
-        const [key, value] = line.split('==');
-        resultMap[key] = value;
-    }
+	const resultMap: { [k: string]: string } = {};
+	const resultArr = installResult.split(/\r?\n/);
+	for (const line of resultArr) {
+		const [key, value] = line.split('==');
+		resultMap[key] = value;
+	}
 
-    return resultMap;
+	return resultMap;
 }
 
 function generateBashInstallScript({ id, quality, version, commit, release, extensionIds, envVariables, serverApplicationName, serverDataFolderName, serverDownloadUrlTemplate }: ServerInstallOptions) {
-    const extensions = extensionIds.map(id => '--install-extension ' + id).join(' ');
-    return `
+	const extensions = extensionIds.map(id => '--install-extension ' + id).join(' ');
+	return `
 # Server installation script
 
 TMP_DIR="\${XDG_RUNTIME_DIR:-"/tmp"}"
