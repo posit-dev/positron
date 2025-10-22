@@ -124,7 +124,7 @@ export class PositronNotebooks extends Notebooks {
 		const config: Record<string, unknown> = {
 			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
 		};
-		await settings.set(config, { reload: true });
+		await settings.set(config);
 	}
 
 	/**
