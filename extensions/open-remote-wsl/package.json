@@ -279,13 +279,11 @@
 		}
 	},
 	"scripts": {
-		"postinstall": "yarn update-dts",
-		"vscode:prepublish": "webpack --mode production",
-		"webpack": "webpack --mode development",
-		"compile": "tsc -b",
-		"watch": "tsc -b -w",
-		"package": "npx vsce package --yarn",
-		"update-dts": "npx vscode-dts dev && npx vscode-dts main"
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts"
 	},
 	"devDependencies": {
 		"@types/node": "^16.17.1",
