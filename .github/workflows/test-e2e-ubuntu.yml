@@ -264,6 +264,14 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
+      - name: Upload Test Results File
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: test-results/junit.xml
+          if-no-files-found: ignore
+
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
         uses: actions/upload-artifact@v4
