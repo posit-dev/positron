@@ -381,8 +381,7 @@ export class PositronNotebooks extends Notebooks {
 					// we shouldn't need to retry this, but the input closes immediately sometimes
 					await this.contextMenu.triggerAndClick({
 						menuTrigger: this.kernelStatusBadge,
-						menuItemLabel: `Change Kernel...`,
-						nativeMenu: 'always'
+						menuItemLabel: `Change Kernel...`
 					});
 					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
 					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
