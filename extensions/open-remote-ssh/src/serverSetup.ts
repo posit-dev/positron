@@ -46,6 +46,47 @@ export class ServerInstallError extends Error {
 
 const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
+/**
+ * Converts a wildcard pattern to a regular expression.
+ * Supports patterns like:
+ * - "*" matches everything
+ * - "posit.*" matches strings starting with "posit."
+ * - "posit.co" matches exactly "posit.co"
+ */
+function wildcardToRegex(pattern: string): RegExp {
+	if (pattern === '*') {
+		return /.*/;
+	}
+
+	// Escape special regex characters except *
+	const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+	// Replace * with .*
+	const regexPattern = '^' + escaped.replace(/\*/g, '.*') + '$';
+
+	return new RegExp(regexPattern);
+}
+
+/**
+ * Finds the first matching path from the serverInstallPath setting.
+ * Iterates through the setting keys in order and returns the path for the first pattern
+ * that matches either the hostname or hostAlias.
+ *
+ * @param hostname - The hostname to match
+ * @param hostAlias - The host alias to match
+ * @returns The matching path or undefined if no match is found
+ */
+function findFirstMatchingPath(hostname: string, hostAlias: string): string | undefined {
+	const settings = vscode.workspace.getConfiguration('remoteSSH').get<{ [key: string]: string }>('serverInstallPath', {});
+	for (const [pattern, path] of Object.entries(settings)) {
+		const regex = wildcardToRegex(pattern);
+		if (regex.test(hostname) || regex.test(hostAlias)) {
+			return path;
+		}
+	}
+	return undefined;
+}
+
 export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log, hostname: string, hostAlias: string): Promise<ServerInstallResult> {
 	let shell = 'powershell';
 
@@ -80,12 +121,11 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 
 	const vscodeServerConfig = await getVSCodeServerConfig();
 
+	// Check the remoteSSH.serverInstallPath setting
 	let serverDataFolderName = vscodeServerConfig.serverDataFolderName;
-	const dataFolderSetting = vscode.workspace.getConfiguration('remoteSSH').get<{ [key: string]: string }>('serverInstallPath', {});
-	if (dataFolderSetting.hasOwnProperty(hostname)) {
-		serverDataFolderName = dataFolderSetting[hostname];
-	} else if (dataFolderSetting.hasOwnProperty(hostAlias)) {
-		serverDataFolderName = dataFolderSetting[hostAlias];
+	const matchedPath = findFirstMatchingPath(hostname, hostAlias);
+	if (matchedPath) {
+		serverDataFolderName = matchedPath;
 	}
 
 	const installOptions: ServerInstallOptions = {
