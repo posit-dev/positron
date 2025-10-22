@@ -42,7 +42,7 @@ export class ServerInstallError extends Error {
 	}
 }
 
-const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://github.com/VSCodium/vscodium/releases/download/${version}.${release}/vscodium-reh-${os}-${arch}-${version}.${release}.tar.gz';
+const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
 export async function installCodeServer(wslManager: WSLManager, distroName: string, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], logger: Log): Promise<ServerInstallResult> {
 	const scriptId = crypto.randomBytes(12).toString('hex');
@@ -214,6 +214,43 @@ case $ARCH in
         ;;
 esac
 
+# Check machine architecture
+ARCH="$(uname -m)"
+case $ARCH in
+	x86_64 | amd64)
+		SERVER_ARCH="x64"
+		ARCH_LONG="x86_64"
+		;;
+	armv7l | armv8l)
+		SERVER_ARCH="armhf"
+		ARCH_LONG="armhf"
+		;;
+	arm64 | aarch64)
+		SERVER_ARCH="arm64"
+		ARCH_LONG="arm64"
+		;;
+	ppc64le)
+		SERVER_ARCH="ppc64le"
+		ARCH_LONG="ppc64le"
+		;;
+	riscv64)
+		SERVER_ARCH="riscv64"
+		ARCH_LONG="riscv64"
+		;;
+	loongarch64)
+		SERVER_ARCH="loong64"
+		ARCH_LONG="loong64"
+		;;
+	s390x)
+		SERVER_ARCH="s390x"
+		ARCH_LONG="s390x"
+		;;
+	*)
+		echo "Error architecture not supported: $ARCH"
+		print_install_results_and_exit 1
+		;;
+esac
+
 # https://www.freedesktop.org/software/systemd/man/os-release.html
 OS_RELEASE_ID="$(grep -i '^ID=' /etc/os-release 2>/dev/null | sed 's/^ID=//gi' | sed 's/"//g')"
 if [[ -z $OS_RELEASE_ID ]]; then
@@ -232,7 +269,8 @@ if [[ ! -d $SERVER_DIR ]]; then
     fi
 fi
 
-SERVER_DOWNLOAD_URL="$(echo "${serverDownloadUrlTemplate.replace(/\$\{/g, '\\${')}" | sed "s/\\\${quality}/$DISTRO_QUALITY/g" | sed "s/\\\${version}/$DISTRO_VERSION/g" | sed "s/\\\${commit}/$DISTRO_COMMIT/g" | sed "s/\\\${os}/$SERVER_OS/g" | sed "s/\\\${arch}/$SERVER_ARCH/g" | sed "s/\\\${release}/$DISTRO_VSCODIUM_RELEASE/g")"
+SERVER_DOWNLOAD_URL="$(echo "${serverDownloadUrlTemplate.replace(/\$\{/g, '\\${')}" | sed "s/\\\${quality}/$DISTRO_QUALITY/g" | sed "s/\\\${version}/$DISTRO_VERSION/g" | sed "s/\\\${commit}/$DISTRO_COMMIT/g" | sed "s/\\\${os}/$PLATFORM/g" | sed "s/\\\${arch}/$SERVER_ARCH/g" | sed "s/\\\${arch-long}/$ARCH_LONG/g" | sed "s/\\\${release}/$DISTRO_VSCODIUM_RELEASE/g")"
+
 
 # Check if server script is already installed
 if [[ ! -f $SERVER_SCRIPT ]]; then
