@@ -18,5 +18,5 @@ The extension makes it easy to explore and work with data stored in data catalog
 To enable the Mock Catalog Explorer for development and testing, set the following in your `settings.json`:
 
 ```json
-"positronCatalogExplorer.viewTestCatalog": true
+"catalogExplorer.viewTestCatalog": true
 ```

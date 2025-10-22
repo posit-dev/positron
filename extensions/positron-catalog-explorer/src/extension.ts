@@ -17,7 +17,7 @@ import { setExtensionUri } from './resources';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Check if the extension is enabled via configuration
-	const config = vscode.workspace.getConfiguration('positronCatalogExplorer');
+	const config = vscode.workspace.getConfiguration('catalogExplorer');
 	const isEnabled = config.get<boolean>('enabled', true);
 	const viewTestCatalog = config.get<boolean>('viewTestCatalog', false);
 

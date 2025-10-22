@@ -21,10 +21,13 @@
     "configuration": {
       "title": "Catalog Explorer",
       "properties": {
-        "positronCatalogExplorer.enabled": {
+        "catalogExplorer.enabled": {
           "type": "boolean",
           "default": false,
-          "description": " **Experimental:** Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate."
+          "markdownDescription": "**Experimental:** Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },
@@ -85,7 +88,8 @@
       "explorer": [
         {
           "id": "catalog-explorer",
-          "name": "Catalog Explorer"
+          "name": "Catalog Explorer",
+          "when": "config.catalogExplorer.enabled"
         }
       ]
     },
