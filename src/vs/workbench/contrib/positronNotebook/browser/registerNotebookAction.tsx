@@ -290,7 +290,7 @@ function registerNotebookCommandInternal(options: INotebookCommandOptions): IDis
 				icon: options.menu.icon,
 				positronActionBarOptions: options.menu.positronActionBarOptions
 			},
-			group: options.menu.group ?? 'navigation',
+			group: options.menu.group,
 			order: options.menu.order,
 			when: menuWhen
 		});

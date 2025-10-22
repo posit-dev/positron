@@ -4,24 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize2, localize } from '../../../../nls.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { selectKernelIcon } from '../../notebook/browser/notebookIcons.js';
 import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromEditorPane } from './notebookUtils.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
 
 export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
 const NOTEBOOK_ACTIONS_CATEGORY_POSITRON = localize2('positronNotebookActions.category', 'Positron Notebook');
 const NOTEBOOK_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', 'workbench.editor.positronNotebook');
-
-export interface SelectPositronNotebookKernelContext {
-	forceDropdown: boolean;
-}
 
 class SelectPositronNotebookKernelAction extends Action2 {
 
@@ -29,15 +26,20 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		super({
 			id: SELECT_KERNEL_ID_POSITRON,
 			category: NOTEBOOK_ACTIONS_CATEGORY_POSITRON,
-			title: localize2('positronNotebookActions.selectKernel', 'Select Positron Notebook Kernel'),
-			icon: selectKernelIcon,
+			title: localize2('positronNotebookActions.changeKernel', 'Change Kernel...'),
+			icon: Codicon.gear,
 			f1: true,
 			precondition: NOTEBOOK_IS_ACTIVE_EDITOR,
+			menu: [{
+				id: MenuId.PositronNotebookKernelSubmenu,
+				order: 0,
+			}]
 		});
 	}
 
-	async run(accessor: ServicesAccessor, context?: SelectPositronNotebookKernelContext): Promise<boolean> {
-		const { forceDropdown } = context || { forceDropdown: false };
+	async run(accessor: ServicesAccessor, context?: IPositronNotebookActionBarContext): Promise<boolean> {
+		// Force the dropdown if the action was invoked by the user in the UI
+		const forceDropdown = context?.ui ?? false;
 		const notebookKernelService = accessor.get(INotebookKernelService);
 		const activeNotebook = getNotebookInstanceFromEditorPane(accessor.get(IEditorService));
 		const quickInputService = accessor.get(IQuickInputService);
