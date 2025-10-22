@@ -28,6 +28,7 @@ product.overrides.json
 # Ignore Claude local/personal files but keep commands
 .claude/*
 !.claude/commands/
+!.claude/skills/
 !.claude/hooks/
 !.claude/settings.json
 
