@@ -47,6 +47,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 
 
 /**
@@ -1028,3 +1029,4 @@ registerNotebookAction({
 
 // Register actions
 registerAction2(ExecuteSelectionInConsoleAction);
+registerAction2(UpdateNotebookWorkingDirectoryAction);
