@@ -381,16 +381,14 @@ export class PositronNotebooks extends Notebooks {
 					// we shouldn't need to retry this, but the input closes immediately sometimes
 					await this.contextMenu.triggerAndClick({
 						menuTrigger: this.kernelStatusBadge,
-						menuItemLabel: `Change Kernel...`
+						menuItemLabel: /Change Kernel...|No Kernel Selected/
 					});
 					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
 					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-
-					// Select the desired kernel
-					await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-					await this.quickinput.waitForQuickInputClosed();
+					await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
 				}).toPass({ timeout: 10000 });
 
+				await this.quickinput.waitForQuickInputClosed();
 				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 			} catch (e) {
 				this.code.logger.log(`Failed to select kernel: ${e}`);
