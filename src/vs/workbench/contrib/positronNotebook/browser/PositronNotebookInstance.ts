@@ -433,7 +433,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.textModel !== undefined;
 	}
 
-	getViewModel(): INotebookViewModel | undefined {
+	getViewModel(): INotebookViewModel {
 		// Only implementing parts needed by the extension API, see the note in IPositronNotebookInstance.ts
 		return {
 			viewType: 'jupyter-notebook',
@@ -449,9 +449,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	cellAt(index: number): ICellViewModel | undefined {
-		// Implement ICellViewModel as needed. Not currently needed since the extension API
-		// only uses the returned value in calls to our own reveal* methods
-		return this.cells.get()[index] as unknown as ICellViewModel;
+		const cell = this.cells.get().at(index);
+		if (cell) {
+			assertNotebookCellIsCellViewModel(cell);
+			return cell;
+		}
+		return undefined;
 	}
 
 	/**
@@ -1353,4 +1356,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	// #endregion
+}
+
+function assertNotebookCellIsCellViewModel(cell: IPositronNotebookCell): asserts cell is IPositronNotebookCell & ICellViewModel {
+	// No-op; used for type assertion.
+	// Implement ICellViewModel as needed. Not currently needed since the extension API
+	// only uses the returned value in calls to our own reveal* methods
 }
