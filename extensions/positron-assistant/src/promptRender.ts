@@ -53,7 +53,6 @@ interface PromptDocument {
  * Metadata for the `positron` data object passed to prompt templates
  */
 interface PromptRenderData {
-	context?: vscode.ChatContext;
 	request?: vscode.ChatRequest;
 	document?: vscode.TextDocument;
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
@@ -210,11 +209,11 @@ export class PromptRenderer {
 	/**
 	 * Get combined prompt for a specific command
 	 */
-	static renderCommandPrompt(command: string, request: vscode.ChatRequest, context: vscode.ChatContext): PromptDocument {
-		return PromptRenderer.instance._renderCommandPrompt(command, request, context);
+	static renderCommandPrompt(command: string, request: vscode.ChatRequest): PromptDocument {
+		return PromptRenderer.instance._renderCommandPrompt(command, request);
 	}
 
-	private _renderCommandPrompt(command: string, request: vscode.ChatRequest, context: vscode.ChatContext): PromptDocument {
+	private _renderCommandPrompt(command: string, request: vscode.ChatRequest): PromptDocument {
 		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
 		const documents = this.loadPromptDocuments(commandsPath);
 		const matchingDocuments: ParsedPromptDocument[] = [];
@@ -233,7 +232,7 @@ export class PromptRenderer {
 		const mergedMetadata = this.mergeMetadata(matchingDocuments);
 
 		// Render prompt template
-		const data: PromptRenderData = { context, request };
+		const data: PromptRenderData = { request };
 		log.trace('[PromptRender] Rendering prompt for command:', command, 'with data:', JSON.stringify(data));
 		const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
 

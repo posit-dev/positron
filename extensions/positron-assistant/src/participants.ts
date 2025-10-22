@@ -127,7 +127,7 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 	participantId: ParticipantID;
 
 	/** The system prompt to use for the participant. */
-	systemPrompt?: string;
+	systemPrompt: string;
 
 	/** The tools allowed for the participant. */
 	toolAvailability: Map<PositronAssistantToolName, boolean>;
@@ -253,6 +253,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		incomingContext: vscode.ChatContext,
 		response: vscode.ChatResponseStream
 	): Promise<PositronAssistantChatContext> {
+		// System prompt
+		const systemPrompt = await this.getSystemPrompt(request);
+
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
@@ -269,6 +272,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			...incomingContext,
 			participantId: this.id,
 			positronContext,
+			systemPrompt,
 			toolAvailability,
 			contextInfo: undefined,
 			async attachContextInfo(messages: vscode.LanguageModelChatMessage2[]) {
@@ -283,8 +287,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				return info;
 			}
 		};
-
-		assistantContext.systemPrompt = await this.getSystemPrompt(request, assistantContext);
 
 		// Append upstream Code OSS "custom chat mode" instructions
 		if (request.modeInstructions) {
@@ -314,14 +316,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
 
-		// Start with the system prompt if available.
-		const messages: vscode.LanguageModelChatMessage2[] = systemPrompt ? [
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, systemPrompt)
-		] : [];
-
-		// Add the current chat history.
+		// Start with the chat history.
 		// Note that context.history excludes tool calls and results.
-		messages.push(...toLanguageModelChatMessage(context.history));
+		const messages = [
+			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.System, systemPrompt),
+			...toLanguageModelChatMessage(context.history),
+		];
 
 		// Add cache breakpoints to at-most the last 2 user messages.
 		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
@@ -355,7 +355,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		};
 	}
 
-	protected abstract getSystemPrompt(request: vscode.ChatRequest, assistantContext: PositronAssistantChatContext): Promise<string>;
+	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
 
 	protected mapDiagnostics(diagnostics: vscode.Diagnostic[], selection?: vscode.Position | vscode.Range | vscode.Selection): string {
 		const severityMap = {
@@ -731,10 +731,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, sessions });
 		return prompt.content;
 	}
 }
@@ -743,10 +743,10 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 export class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Edit;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, { request, sessions });
 		return prompt.content;
 	}
 }
@@ -755,10 +755,10 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 export class PositronAssistantAgentParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Agent;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { request, sessions });
 		return prompt.content;
 	}
 }
@@ -767,11 +767,11 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 export class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		// The terminal prompt includes how to handle warnings in the response.
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Terminal, { request, context, sessions });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Terminal, { request, sessions });
 		return prompt.content;
 	}
 }
@@ -780,13 +780,13 @@ export class PositronAssistantTerminalParticipant extends PositronAssistantParti
 export class PositronAssistantEditorParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Editor;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest, context: PositronAssistantChatContext): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		if (!isTextEditRequest(request)) {
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
 		const streamingEdits = isStreamingEditsEnabled();
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { request, context, streamingEdits });
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatAgentLocation.Editor, { request, streamingEdits });
 		return prompt.content;
 	}
 

@@ -22,7 +22,7 @@ export async function docHandler(
 ) {
 	response.progress(vscode.l10n.t('Generating documentation...'));
 
-	const prompt = PromptRenderer.renderCommandPrompt(DOC_COMMAND, _request, context).content;
+	const prompt = PromptRenderer.renderCommandPrompt(DOC_COMMAND, _request).content;
 	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();

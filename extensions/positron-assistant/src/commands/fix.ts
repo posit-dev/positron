@@ -21,7 +21,7 @@ export async function fixHandler(
 ) {
 	response.progress('Preparing edits...');
 
-	const prompt = PromptRenderer.renderCommandPrompt(FIX_COMMAND, _request, context).content;
+	const prompt = PromptRenderer.renderCommandPrompt(FIX_COMMAND, _request).content;
 	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();

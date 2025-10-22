@@ -20,7 +20,7 @@ export async function explainHandler(
 	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
 
-	const prompt = PromptRenderer.renderCommandPrompt(EXPLAIN_COMMAND, _request, context).content;
+	const prompt = PromptRenderer.renderCommandPrompt(EXPLAIN_COMMAND, _request).content;
 	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();
