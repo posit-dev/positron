@@ -94,7 +94,7 @@ const compilations = [
 // --- Start Positron ---
 // Add the open-remote-wsl extension on Windows
 if (process.platform === 'win32') {
-	extensions.push('extensions/open-remote-wsl/tsconfig.json');
+	compilations.push('extensions/open-remote-wsl/tsconfig.json');
 }
 // --- End Positron ---
 
