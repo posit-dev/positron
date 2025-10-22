@@ -388,7 +388,16 @@ registerNotebookAction({
 	}
 });
 
-// Escape key: Exit edit mode when cell editor is focused
+/**
+ * Escape key: Exit edit mode when cell editor is focused.
+ * This command handles the keybinding for all cell types.
+ *
+ * This action has a counterpart command called
+ * `positronNotebook.cell.collapseMarkdownEditor` that is
+ * used to contribute the same functionality to markdown
+ * cell action bars. We should keep both commands in sync
+ * to ensure consistent behavior.
+ */
 registerNotebookAction({
 	commandId: 'positronNotebook.cell.quitEdit',
 	handler: (notebook) => {
@@ -606,8 +615,14 @@ registerCellCommand({
 	}
 });
 
-
-// Collapse markdown editor (For action bar)
+/**
+ * Collapse markdown editor (For action bar)
+ *
+ * Handles contributing the behavior of
+ * `positronNotebook.cell.quitEdit` to markdown cell
+ * action bar. We should keep both commands in sync to
+ * ensure consistent behavior.
+ */
 registerCellCommand({
 	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
 	handler: (cell) => {
