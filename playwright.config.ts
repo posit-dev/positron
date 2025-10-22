@@ -48,7 +48,7 @@ export default defineConfig<ExtendedTestOptions>({
 				showAnnotations: false,
 				includeResults: ['fail', 'flaky']
 			}],
-			['junit', { outputFile: 'test-results/junit.xml' }],
+			['json', { outputFile: 'test-results/results.json' }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
 				? [currentsReporter({

@@ -268,8 +268,8 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: junit-results
-          path: test-results/junit.xml
+          name: ${{ inputs.project }}-json-results
+          path: test-results/results.json
           if-no-files-found: ignore
 
       - name: Upload inspect-ai JSON Responses
