@@ -54,7 +54,10 @@ export class PositronAssistantApi {
 		}
 
 		// Start with the system prompt
-		let prompt = PromptRenderer.renderModePrompt(mode, { request }).content;
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const sessions = activeSessions.map(session => session.runtimeMetadata);
+		const streamingEdits = isStreamingEditsEnabled();
+		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);

@@ -18,7 +18,7 @@ export async function quartoHandler(
 	response: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ) {
-	const system = PromptRenderer.renderCommandPrompt(EXPORT_QUARTO_COMMAND, request, context).content;
+	const system = PromptRenderer.renderCommandPrompt(EXPORT_QUARTO_COMMAND, request).content;
 
 	response.markdown(vscode.l10n.t('Okay!'));
 	response.progress(vscode.l10n.t('Creating new Quarto document...'));
