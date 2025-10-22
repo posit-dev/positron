@@ -90,8 +90,13 @@ export async function installCodeServer(wslManager: WSLManager, distroName: stri
 	}
 
 	const exitCode = parseInt(resultMap.exitCode, 10);
-	if (exitCode !== 0) {
-		throw new ServerInstallError(`Couldn't install vscode server on remote server, install script returned non-zero exit status`);
+	if (exitCode === 66) {
+		throw new ServerInstallError(
+			`There is no available Positron server with version ${installOptions.version} for WSL ${resultMap.platform} ${resultMap.arch}.`
+			+ `\nPlease check the [system requirements](https://positron.posit.co/remote-ssh.html#system-requirements) and [troubleshooting guides](https://positron.posit.co/remote-ssh.html#how-it-works-troubleshooting).`
+		);
+	} else if (exitCode !== 0) {
+		throw new ServerInstallError(`Couldn't install Positron server on WSL, install script returned non-zero exit status`);
 	}
 
 	const listeningOn = parseInt(resultMap.listeningOn, 10);
