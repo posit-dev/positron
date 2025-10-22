@@ -13,6 +13,7 @@ import { DefaultDatabricksCredentialProvider } from './credentials';
 import { registerDatabricksProvider } from './catalogs/databricks';
 import { registerMockProvider } from './catalogs/mock';
 import { registerDbfsProvider } from './fs/dbfs';
+import { registerSnowflakeProvider } from './catalogs/snowflake';
 import { setExtensionUri } from './resources';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -35,6 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	context.subscriptions.push(
 		registerDatabricksProvider(registry),
+		registerSnowflakeProvider(registry),
 		await registerTreeViewProvider(context, registry),
 		registerDbfsProvider(
 			new DefaultDatabricksCredentialProvider(context.secrets),
