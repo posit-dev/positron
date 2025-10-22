@@ -269,7 +269,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			...incomingContext,
 			participantId: this.id,
 			positronContext,
-			systemPrompt: request.modeInstructions, // Start with the default Code OSS "mode instructions"
 			toolAvailability,
 			contextInfo: undefined,
 			async attachContextInfo(messages: vscode.LanguageModelChatMessage2[]) {
@@ -285,9 +284,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		};
 
-		// Append this participant's additional system prompt
-		assistantContext.systemPrompt ??= '';
-		assistantContext.systemPrompt += await this.getSystemPrompt(request, assistantContext);
+		assistantContext.systemPrompt = await this.getSystemPrompt(request, assistantContext);
+
+		// Append upstream Code OSS "custom chat mode" instructions
+		if (request.modeInstructions) {
+			assistantContext.systemPrompt += request.modeInstructions;
+		}
+
 		return assistantContext;
 	}
 
