@@ -25,11 +25,7 @@ The extension integrates with VS Code to provide:
 2. **Build the extension**:
 
       ```bash
-      # Development build with source maps
       npm run compile
-
-      # Production build (minified)
-      npm run package
       ```
 
 3. **Watch mode** (for development with auto-rebuild):
@@ -48,13 +44,6 @@ The extension integrates with VS Code to provide:
 
       ```bash
       npm run lint
-      ```
-
-6. **Creating a VSIX package** (for distribution or testing):
-
-      ```bash
-      npm run vsix
-      ```
 
 ## Architecture
 

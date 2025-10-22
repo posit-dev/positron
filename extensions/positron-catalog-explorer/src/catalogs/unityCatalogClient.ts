@@ -220,7 +220,7 @@ export interface CreateSchemaRequest {
  * Error specialization for the Unity Catalog REST API.
  */
 export class UnityCatalogError extends Error {
-	name = 'UnityCatalogAPIError';
+	override name = 'UnityCatalogAPIError';
 	public readonly type: string;
 	public readonly code: number;
 

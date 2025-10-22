@@ -10,9 +10,5 @@
   "typescript.tsc.autoDetect": "off",
   "editor.formatOnSave": true,
   "editor.detectIndentation": false,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnPaste": true,
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
 }

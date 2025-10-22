@@ -3,7 +3,6 @@
 	// for the documentation about the extensions.json format
 	"recommendations": [
 		"dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
 		"ms-vscode.extension-test-runner"
 	]
 }

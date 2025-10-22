@@ -4,7 +4,7 @@ Explore tables, views, and files backed by data catalogs.
 
 ## Overview
 
-Catalog Explorer is a VSIX extension that provides a convenient interface for browsing and accessing data in various catalog systems. It includes features for:
+Catalog Explorer is a builtin extension that provides a convenient interface for browsing and accessing data in various catalog systems. It includes features for:
 
 - Browsing catalogs, schemas, tables, and files in a tree view
 - Copying paths to data objects
