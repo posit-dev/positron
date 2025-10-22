@@ -36,19 +36,22 @@
         "command": "posit.catalog-explorer.addCatalogProvider",
         "category": "Catalogs",
         "title": "Add Catalog Provider",
-        "icon": "$(add)"
+        "icon": "$(add)",
+        "when": "config.catalogExplorer.enabled"
       },
       {
         "command": "posit.catalog-explorer.removeCatalogProvider",
         "category": "Catalogs",
         "title": "Remove Catalog Provider",
-        "icon": "$(trash)"
+        "icon": "$(trash)",
+        "when": "config.catalogExplorer.enabled"
       },
       {
         "command": "posit.catalog-explorer.refresh",
         "category": "Catalogs",
         "title": "Refresh Provider",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "when": "config.catalogExplorer.enabled"
       },
       {
         "command": "posit.catalog-explorer.openWith",
