@@ -666,12 +666,28 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				}
 
 				log.debug(`[tool] Invoking tool ${req.name} with input: ${JSON.stringify(req.input, null, 2)}`);
-				const result = await vscode.lm.invokeTool(req.name, {
-					input: req.input,
-					toolInvocationToken: request.toolInvocationToken,
-					model: request.model,
-					chatRequestId: request.id,
-				}, token);
+
+				// VS Code Core tools always throw errors, while many extension
+				// tools just return error messages as normal tool results.
+				// Capture errors and pass along to the model to react to
+				// rather than stopping the conversation (#9861).
+				let result: vscode.LanguageModelToolResult;
+				try {
+					result = await vscode.lm.invokeTool(req.name, {
+						input: req.input,
+						toolInvocationToken: request.toolInvocationToken,
+						model: request.model,
+						chatRequestId: request.id,
+					}, token);
+				} catch (error) {
+					const errorMessage = error instanceof Error ? error.message : String(error);
+
+					// Return the error message as a tool result
+					result = new vscode.LanguageModelToolResult([
+						new vscode.LanguageModelTextPart(errorMessage)
+					]);
+				}
+
 				log.debug(`[tool] Tool ${req.name} returned result: ${JSON.stringify(result.content, null, 2)}`);
 				toolResponses[req.callId] = result;
 			}
