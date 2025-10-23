@@ -18,7 +18,7 @@ import { resourceUri } from '../resources';
 import { DefaultDatabricksCredentialProvider } from '../credentials';
 import { getPositronAPI } from '../positron';
 import path from 'path';
-import { traceLog, traceWarn } from '../logging.js';
+import { traceError, traceLog, traceWarn } from '../logging.js';
 
 const registration: CatalogProviderRegistration = {
 	label: 'Databricks',
@@ -114,6 +114,25 @@ async function registerDatabricksCatalog(
 	if (!token) {
 		return;
 	}
+
+	// Validate the token by checking if the user is available
+	try {
+		const userResponse = await fetch(`https://${workspace}/api/2.0/preview/scim/v2/Me`, {
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+		});
+
+		if (!userResponse.ok) {
+			throw new Error(`Invalid credentials: ${userResponse.status} ${userResponse.statusText}`);
+		}
+	} catch (error) {
+		traceError(`Failed to validate Databricks credentials for ${workspace}: ${error}`);
+		vscode.window.showErrorMessage(`Failed to validate Databricks credentials: ${error}`);
+		throw error;
+	}
+
 	const registered = context.globalState.get<string[]>(STATE_KEY);
 	const next: Set<string> = registered ? new Set(registered) : new Set();
 	next.add(workspace);

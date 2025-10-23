@@ -225,40 +225,28 @@ export class UnityCatalogError extends Error {
 	override name = 'UnityCatalogAPIError';
 	public readonly type: string;
 	public readonly code: number;
-	public readonly operation: string;
 
-	static async from(
-		response: Response,
-		operation: string = 'perform operation',
-	): Promise<UnityCatalogError> {
+	static async from(response: Response): Promise<UnityCatalogError> {
 		try {
 			const body = (await response.json()) as ErrorResponse;
 			return new UnityCatalogError(
-				`Failed to ${operation}: ${body.error.message}. This may be due to authentication issues.`,
+				body.error.message,
 				body.error.type,
 				body.error.code,
-				operation,
 			);
 		} catch (_e) {
 			return new UnityCatalogError(
-				`Failed to ${operation}: Non-JSON response with status ${response.status}. This may be due to authentication issues.`,
+				`Non-JSON response with status ${response.status}`,
 				'Unknown',
 				response.status,
-				operation,
 			);
 		}
 	}
 
-	private constructor(
-		message: string,
-		type: string,
-		code: number,
-		operation: string,
-	) {
+	private constructor(message: string, type: string, code: number) {
 		super(message);
 		this.type = type;
 		this.code = code;
-		this.operation = operation;
 	}
 }
 
@@ -646,44 +634,11 @@ export class UnityCatalogClient {
 	}
 
 	/**
-	 * Get the name of the function that called fetch()
-	 * This helps provide context in error messages
-	 */
-	private getCallerFunctionName(): string {
-		try {
-			// Create an error to get the stack trace
-			const stack = new Error().stack;
-			if (!stack) return 'perform operation';
-
-			const lines = stack.split('\n');
-
-			// We need to look for the caller of fetch, which should be 3 levels up
-			// (error creation, getCallerFunctionName, fetch, actualCallingFunction)
-			if (lines.length >= 4) {
-				const callerLine = lines[3].trim();
-				// Extract function name, typically format: "at functionName (...)"
-				const match = callerLine.match(/at\s+([^(\s]+)/);
-				if (match && match[1]) {
-					return match[1].replace(/^[A-Z]/, (c) => c.toLowerCase());
-				}
-			}
-
-			// If we can't determine the specific function, return a generic message
-			return 'perform operation';
-		} catch (_) {
-			return 'perform operation';
-		}
-	}
-
-	/**
 	 * Fetch the given URL and parse the JSON response as T.
 	 */
 	private async fetch<T>(url: string, options: RequestInit = {}): Promise<T> {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-		// Determine the calling function name for better error context
-		const callerName = this.getCallerFunctionName();
 
 		try {
 			const fetchOptions: RequestInit = {
@@ -697,7 +652,7 @@ export class UnityCatalogClient {
 			const response = await fetch(url, fetchOptions);
 			if (!response.ok) {
 				// Create the error with the operation name but don't show a message yet
-				const error = await UnityCatalogError.from(response, callerName);
+				const error = await UnityCatalogError.from(response);
 
 				// Only show the error message from this point
 				vscode.window.showErrorMessage(error.message);
@@ -712,24 +667,11 @@ export class UnityCatalogClient {
 			return (await response.json()) as T;
 		} catch (error) {
 			if (error instanceof Error && error.name === 'AbortError') {
-				// Create a custom error message for timeouts
-				const timeoutMessage = `Failed to ${callerName}: Request timed out after ${this.timeout}ms`;
+				const timeoutMessage = `Request timed out after ${this.timeout}ms`;
 
-				// Show only one toast message
 				vscode.window.showErrorMessage(timeoutMessage);
-
-				// Throw the error without generating another toast
 				throw new Error(timeoutMessage);
 			}
-
-			// If it's not a UnityCatalogError or AbortError that we've already handled,
-			// show a generic error message
-			if (!(error instanceof UnityCatalogError)) {
-				const errorMessage = `Failed to ${callerName}: ${error instanceof Error ? error.message : String(error)}`;
-				throw new Error(errorMessage);
-			}
-
-			// For UnityCatalogError, we've already shown the toast, so just rethrow
 			throw error;
 		} finally {
 			clearTimeout(timeoutId);
