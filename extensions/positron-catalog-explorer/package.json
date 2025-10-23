@@ -23,7 +23,7 @@
         "catalogExplorer.enabled": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "**Experimental:** Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate.",
+          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate.",
           "tags": [
             "experimental"
           ]
