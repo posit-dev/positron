@@ -37,7 +37,7 @@ import { registerCellCommand } from './notebookCells/actionBar/registerCellComma
 import { registerNotebookAction } from './registerNotebookAction.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
-import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
+import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
@@ -45,6 +45,7 @@ import { registerAction2, MenuId } from '../../../../platform/actions/common/act
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 
 /**
@@ -495,7 +496,7 @@ registerCellCommand({
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
 registerCellCommand({
-	commandId: 'positronNotebook.cell.execute',
+	commandId: POSITRON_EXECUTE_CELL_COMMAND_ID,
 	handler: (cell) => {
 		cell.run();
 	},
@@ -533,6 +534,36 @@ registerCellCommand({
 	},
 	metadata: {
 		description: localize('positronNotebook.cell.stopExecution', "Stop cell execution")
+	}
+});
+
+registerCellCommand({
+	commandId: 'positronNotebook.cell.debug',
+	handler: async (cell, notebook, accessor) => {
+		await accessor.get(ICommandService).executeCommand('notebook.debugCell', {
+			// Args expected by the notebook.debugCell command,
+			// a subset of vscode.NotebookCell
+			notebook: {
+				uri: notebook.uri,
+			},
+			document: {
+				uri: cell.uri,
+			},
+		});
+	},
+	editMode: true,
+	keybinding: {
+		primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
+	},
+	when: CELL_CONTEXT_KEYS.isCode,
+	actionBar: {
+		icon: 'codicon-debug-alt-small',
+		position: 'main',
+		order: 10,
+		category: 'Execution',
+	},
+	metadata: {
+		description: localize('positronNotebook.cell.debug', "Debug cell"),
 	}
 });
 

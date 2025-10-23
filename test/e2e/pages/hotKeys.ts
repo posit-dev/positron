@@ -117,6 +117,14 @@ export class HotKeys {
 	}
 
 	// ------------------------
+	// --- Terminal Actions ---
+	// ------------------------
+
+	public async killAllTerminals() {
+		await this.pressHotKeys('Cmd+J T', 'Kill all terminals');
+	}
+
+	// ------------------------
 	// --- Console & Visuals ---
 	// ------------------------
 

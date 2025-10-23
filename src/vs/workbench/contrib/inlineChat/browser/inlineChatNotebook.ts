@@ -69,7 +69,7 @@ export class InlineChatNotebookContribution {
 				// To support inline chat in Positron notebooks:
 				// construct a session comparison key from the corresponding notebook
 				for (const positronInstance of positronNotebookService.listInstances(data.notebook)) {
-					const candidate = `<positron-notebook>${positronInstance.id}#${uri}`;
+					const candidate = `<positron-notebook>${positronInstance.getId()}#${uri}`;
 					if (!fallback) {
 						fallback = candidate;
 					}

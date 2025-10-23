@@ -311,7 +311,14 @@ export interface IWorkbenchConstructionOptions {
 	 */
 	readonly userDataPath?: string;
 	// --- End PWB ---
-  
+
+	// --- Start PWB: Admin enforced settings ---
+	/**
+	 * JSON string of enforced settings from POSITRON_ENFORCED_SETTINGS environment variable.
+	 */
+	readonly adminPoliciesData?: string;
+	// --- End PWB ---
+
 	// --- Start PWB: disable file downloads ---
 	/**
 	 * Whether the "Download..." option is enabled for files.

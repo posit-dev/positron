@@ -18,6 +18,10 @@ import { getErrorMessage } from '../../../base/common/errors.js';
 import * as json from '../../../base/common/json.js';
 import { PolicyName } from '../../../base/common/policy.js';
 
+// --- Start PWB ---
+import { IAdminPolicyService } from '../../policy/common/adminPolicyService.js';
+// --- End PWB ---
+
 export class DefaultConfiguration extends Disposable {
 
 	private readonly _onDidChangeConfiguration = this._register(new Emitter<{ defaults: ConfigurationModel; properties: string[] }>());
@@ -101,7 +105,10 @@ export class PolicyConfiguration extends Disposable implements IPolicyConfigurat
 	constructor(
 		private readonly defaultConfiguration: DefaultConfiguration,
 		@IPolicyService private readonly policyService: IPolicyService,
-		@ILogService private readonly logService: ILogService
+		// --- Start PWB ---
+		@ILogService private readonly logService: ILogService,
+		private readonly adminPolicyService?: IAdminPolicyService
+		// --- End PWB ---
 	) {
 		super();
 		this._configurationModel = ConfigurationModel.createEmptyModel(this.logService);
@@ -110,6 +117,21 @@ export class PolicyConfiguration extends Disposable implements IPolicyConfigurat
 
 	async initialize(): Promise<ConfigurationModel> {
 		this.logService.trace('PolicyConfiguration#initialize');
+
+		// --- Start PWB ---
+		// Add admin policy settings to the configuration model FIRST
+		// This ensures they are present before any update() calls
+		if (this.adminPolicyService) {
+			const adminSettings = this.adminPolicyService.getAllSettings();
+			this.logService.info(`[PolicyConfiguration] Applying ${adminSettings.length} admin policy settings`);
+			for (const setting of adminSettings) {
+				this.logService.info(`[PolicyConfiguration] Setting admin policy: ${setting.key} = ${JSON.stringify(setting.value)}`);
+				this._configurationModel.setValue(setting.key, setting.value);
+			}
+		} else {
+			this.logService.info('[PolicyConfiguration] No admin policy service provided');
+		}
+		// --- End PWB ---
 
 		this.update(await this.updatePolicyDefinitions(this.defaultConfiguration.configurationModel.keys), false);
 		this.update(await this.updatePolicyDefinitions(Object.keys(this.configurationRegistry.getExcludedConfigurationProperties())), false);
@@ -204,6 +226,17 @@ export class PolicyConfiguration extends Disposable implements IPolicyConfigurat
 					this._configurationModel.setValue(key, policyValue);
 				}
 			}
+
+			// --- Start PWB ---
+			// Re-apply admin policy settings to ensure they always take precedence
+			if (this.adminPolicyService) {
+				const adminSettings = this.adminPolicyService.getAllSettings();
+				for (const setting of adminSettings) {
+					this._configurationModel.setValue(setting.key, setting.value);
+				}
+			}
+			// --- End PWB ---
+
 			if (trigger) {
 				this._onDidChangeConfiguration.fire(this._configurationModel);
 			}

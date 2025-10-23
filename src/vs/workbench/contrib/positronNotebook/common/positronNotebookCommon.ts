@@ -8,6 +8,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 export const POSITRON_NOTEBOOK_EDITOR_ID = 'workbench.editor.positronNotebook';
 export const POSITRON_NOTEBOOK_EDITOR_INPUT_ID = 'workbench.input.positronNotebook';
 
+export const POSITRON_EXECUTE_CELL_COMMAND_ID = 'positronNotebook.cell.execute';
+
 /**
  * Check if Positron notebooks are configured as the default editor for .ipynb files
  * @param configurationService Configuration service
@@ -16,5 +18,5 @@ export const POSITRON_NOTEBOOK_EDITOR_INPUT_ID = 'workbench.input.positronNotebo
 
 export function usingPositronNotebooks(configurationService: IConfigurationService): boolean {
 	const editorAssociations = configurationService.getValue<Record<string, string>>('workbench.editorAssociations') || {};
-	return editorAssociations['*.ipynb'] === 'workbench.editor.positronNotebook';
+	return editorAssociations['*.ipynb'] === POSITRON_NOTEBOOK_EDITOR_ID;
 }

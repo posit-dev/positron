@@ -13,8 +13,15 @@ import { NotebookDto } from './mainThreadNotebookDto.js';
 import { MainThreadNotebookEditors } from './mainThreadNotebookEditors.js';
 import { extHostCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
+// --- Start Positron ---
+/* Swap out implementations for proxies that include Positron notebooks as well
 import { getNotebookEditorFromEditorPane, IActiveNotebookEditor, INotebookEditor } from '../../contrib/notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
+*/
+import { IActiveNotebookEditor, INotebookEditor } from '../../contrib/notebook/browser/notebookBrowser.js';
+import { getNotebookEditorFromEditorPane } from '../../contrib/positronNotebook/browser/NotebookEditorProxyService.js';
+import { INotebookEditorProxyService } from '../../contrib/positronNotebook/browser/INotebookEditorProxyService.js';
+// --- End Positron ---
 import { NotebookTextModel } from '../../contrib/notebook/common/model/notebookTextModel.js';
 import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
 import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
@@ -97,7 +104,11 @@ export class MainThreadNotebooksAndEditors {
 		extHostContext: IExtHostContext,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
+		// --- Start Positron ---
+		// Swap out the notebook editor service for a proxy that includes Positron notebooks as well
+		// @INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
+		@INotebookEditorProxyService private readonly _notebookEditorService: INotebookEditorProxyService,
+		// --- End Positron ---
 		@IEditorService private readonly _editorService: IEditorService,
 		@IEditorGroupsService private readonly _editorGroupService: IEditorGroupsService,
 		@ILogService private readonly _logService: ILogService,

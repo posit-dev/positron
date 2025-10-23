@@ -43,6 +43,12 @@
 			aspect-ratio: 1;
 		}
 
+		/* The debug codicon (the icon itself) is misaligned with run above / run below icons by 1 pixel */
+		&.codicon-debug-alt-small {
+			position: relative;
+			top: -1px;
+		}
+
 		&.disabled {
 			color: var(--vscode-positronActionBar-disabledForeground);
 		}

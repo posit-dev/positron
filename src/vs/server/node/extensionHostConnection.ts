@@ -140,7 +140,7 @@ export class ExtensionHostConnection extends Disposable {
 
 	override dispose(): void {
 		// --- Start PWB ---
-                // cleanResources made async so it can flush the socket buffer before closing
+		// cleanResources made async so it can flush the socket buffer before closing
 		this._cleanResources().catch((error) => {
 			this._logError('Error during async cleanup:' + error.toString());
 		});
@@ -249,10 +249,10 @@ export class ExtensionHostConnection extends Disposable {
 		this._sendSocketToExtensionHost(this._extensionHostProcess, connectionData);
 	}
 
-        // --- Start PWB ---
-        // Need to make this async to flush the socket before closing
+	// --- Start PWB ---
+	// Need to make this async to flush the socket before closing
 	private async _cleanResources(): Promise<void> {
-        // --- End PWB ---
+		// --- End PWB ---
 
 		if (this._disposed) {
 			// already called
@@ -260,13 +260,13 @@ export class ExtensionHostConnection extends Disposable {
 		}
 		this._disposed = true;
 		if (this._connectionData) {
-		        // --- Start PWB ---
+			// --- Start PWB ---
 			try {
 				await this._connectionData.socketDrain();
 			} catch (error) {
 				this._logError('Failed to drain socket during cleanup: ' + error.toString());
 			}
-		        // --- End PWB ---
+			// --- End PWB ---
 			this._connectionData.socket.end();
 			this._connectionData = null;
 		}
@@ -333,22 +333,22 @@ export class ExtensionHostConnection extends Disposable {
 			this._extensionHostProcess.on('error', (err) => {
 				this._logError(`<${pid}> Extension Host Process had an error`);
 				this._logService.error(err);
-		                // --- Start PWB ---
-                                // Made async to flush buffer before closing
+				// --- Start PWB ---
+				// Made async to flush buffer before closing
 				this._cleanResources().catch((error) => {
 					this._logError('Error during async cleanup after extension host error: ' + error.toString());
 				});
-		                // --- End PWB ---
+				// --- End PWB ---
 			});
 
 			this._extensionHostProcess.on('exit', (code: number, signal: string) => {
 				this._extensionHostStatusService.setExitInfo(this._reconnectionToken, { code, signal });
 				this._log(`<${pid}> Extension Host Process exited with code: ${code}, signal: ${signal}.`);
-		                // --- Start PWB ---
+				// --- Start PWB ---
 				this._cleanResources().catch((error) => {
 					this._logError('Error during async cleanup after extension host exit ' + error.toString());
 				});
-		                // --- End PWB ---
+				// --- End PWB ---
 			});
 
 			if (extHostNamedPipeServer) {
