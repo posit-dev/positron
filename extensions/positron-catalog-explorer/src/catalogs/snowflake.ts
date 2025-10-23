@@ -14,10 +14,39 @@ import {
 import { resourceUri } from '../resources';
 import { getPositronAPI } from '../positron';
 
+// Key for storing recent Snowflake account names
+const RECENT_SNOWFLAKE_ACCOUNTS_KEY = 'recentSnowflakeAccounts';
+
 const registration: CatalogProviderRegistration = {
 	label: 'Snowflake',
 	detail: 'Explore tables and stages in a Snowflake account',
 	addProvider: registerSnowflakeCatalog,
+	removeProvider: async (
+		context: vscode.ExtensionContext,
+		provider: SnowflakeCatalogProvider,
+	): Promise<void> => {
+		const accountName = provider.accountName;
+
+		// Also remove from recent accounts list
+		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+		if (recentAccounts.includes(accountName)) {
+			const updatedRecent = recentAccounts.filter(account => account !== accountName);
+			await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, updatedRecent);
+			console.log(`Removed ${accountName} from recent accounts list`);
+		}
+
+		// Clean up any stored credentials (for future expansion)
+		if (accountName) {
+			const credentialKey = `snowflake-account:${accountName}`;
+			try {
+				await context.secrets.delete(credentialKey);
+			} catch (error) {
+				console.log(`No credentials found for ${accountName}`);
+			}
+		}
+
+		console.log(`Successfully removed Snowflake account: ${accountName}`);
+	},
 	listProviders: getSnowflakeCatalogs,
 };
 
@@ -39,24 +68,74 @@ export function registerSnowflakeProvider(
  * Register a Snowflake catalog provider using External Browser SSO authentication.
  */
 async function registerSnowflakeCatalog(
-	_context: vscode.ExtensionContext,
+	context: vscode.ExtensionContext,
 ): Promise<CatalogProvider | undefined> {
 	try {
-		// Prompt user for Snowflake account identifier
-		const account = await vscode.window.showInputBox({
-			prompt: 'Enter your Snowflake account identifier',
-			placeHolder: 'orgname-accountname',
-		});
+		// Get recent account names to suggest to the user
+		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+
+		let account: string | undefined;
+
+		// If we have recent accounts, show a quick pick first
+		if (recentAccounts.length > 0) {
+			// Add a "New Account" option at the end
+			const items = [
+				...recentAccounts.map(name => ({
+					label: name,
+					description: 'Recent account'
+				})),
+				{
+					label: 'Enter New Account...',
+					description: 'Provide a different account identifier'
+				}
+			];
+
+			const selection = await vscode.window.showQuickPick(items, {
+				placeHolder: 'Select a recent account or enter a new one',
+				ignoreFocusOut: true
+			});
+
+			if (!selection) {
+				return undefined; // User canceled
+			}
+
+			if (selection.label === 'Enter New Account...') {
+				// User wants to enter a new account
+				account = await vscode.window.showInputBox({
+					prompt: 'Enter your Snowflake account identifier',
+					placeHolder: 'orgname-accountname',
+					validateInput: (value) => {
+						return value.trim() === '' ? 'Account name cannot be empty' : null;
+					},
+					ignoreFocusOut: true
+				});
+			} else {
+				// User selected an existing account
+				account = selection.label;
+			}
+		} else {
+			// No recent accounts, just show the input box
+			account = await vscode.window.showInputBox({
+				prompt: 'Enter your Snowflake account identifier',
+				placeHolder: 'orgname-accountname',
+				validateInput: (value) => {
+					return value.trim() === '' ? 'Account name cannot be empty' : null;
+				},
+				ignoreFocusOut: true
+			});
+		}
 
 		if (!account) {
 			return undefined;
 		}
 
+		// Save this account to recent accounts
+		await saveRecentAccount(context, account);
+
 		const connection = snowflake.createConnection({
 			account: account,
 			authenticator: 'EXTERNALBROWSER',
 		});
-
 
 		return await vscode.window.withProgress(
 			{
@@ -88,13 +167,31 @@ async function registerSnowflakeCatalog(
 }
 
 /**
- * Get a provider for all Snowflake accounts for which we have connections.
+ * Save an account name to the recent accounts list
  */
-function getSnowflakeCatalogs(): Promise<CatalogProvider[]> {
-	// For the browser authentication flow, we create a new
-	// connection each time rather than listing existing ones.
-	// TODO: Maintain Snowflake sessions and list or regenerate them.
-	return Promise.resolve([]);
+async function saveRecentAccount(context: vscode.ExtensionContext, account: string): Promise<void> {
+	const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+
+	// Create a new Set to remove duplicates and ensure the most recently used account is first
+	const accountSet = new Set([account, ...recentAccounts]);
+
+	await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, accountSet);
+}
+
+/**
+ * Get a provider for all Snowflake accounts for which we have connections.
+ *
+ * Note: For the browser authentication flow, we don't automatically maintain active sessions.
+ * Users will need to re-authenticate when they restart VS Code or the extension is reloaded.
+ * However, we remember their account names to make reconnecting easier.
+ */
+async function getSnowflakeCatalogs(
+	_context: vscode.ExtensionContext
+): Promise<CatalogProvider[]> {
+
+	// Currently active providers list - we don't persist connections between sessions
+	// TODO: implement full persistence, and handle reconnection logic
+	return [];
 }
 
 /**
@@ -103,7 +200,7 @@ function getSnowflakeCatalogs(): Promise<CatalogProvider[]> {
 class SnowflakeCatalogProvider implements CatalogProvider {
 	private emitter = new vscode.EventEmitter<void>();
 	public readonly id: string;
-	private accountName: string;
+	public readonly accountName: string;
 
 	constructor(
 		private connection: snowflake.Connection,
