@@ -1074,6 +1074,15 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return this.modelListing || [];
 	}
 
+
+	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		// The Vercel and Bedrock SDKs both use the node provider chain for credentials so getting a listing
+		// means the credentials are valid.
+		await this.resolveModels(token);
+
+		return undefined;
+	}
+
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		const modelListing: vscode.LanguageModelChatInformation[] = [];
 		const command = new ListFoundationModelsCommand();
@@ -1112,6 +1121,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			if (!modelId) {
 				return;
 			}
+
 			modelListing.push({
 				id: modelId,
 				name: m.modelName ?? modelId,
@@ -1120,7 +1130,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 				maxInputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
 				maxOutputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT,
 				capabilities: this.capabilities,
-				isDefault: true,
+				isDefault: this.isDefaultUserModel(modelId, m.modelName),
 				isUserSelectable: true,
 			});
 		});
