@@ -377,31 +377,20 @@ export class PositronNotebooks extends Notebooks {
 				this.code.logger.log('Could not check current kernel status');
 			}
 
-			// Need to select the kernel
-			try {
-				// Click on kernel status badge to open selection
-				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
-				await expect(async () => {
-					// we shouldn't need to retry this, but the input closes immediately sometimes
-					await this.kernelStatusBadge.click({ timeout: 1000, force: true });
-					await this.code.driver.page.getByText('Change Kernel').click();
-					if (false) {
-						await this.contextMenu.triggerAndClick({
-							menuTrigger: this.kernelStatusBadge,
-							menuItemLabel: /Change Kernel/
-						});
-					}
-					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
-					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-					await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
-				}).toPass({ timeout: 10000 });
+			// Click on kernel status badge to open selection
+			await expect(async () => {
+				// we shouldn't need to retry this, but the input closes immediately sometimes
+				await this.contextMenu.triggerAndClick({
+					menuTrigger: this.kernelStatusBadge,
+					menuItemLabel: /Change Kernel/
+				});
+				// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
+				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			}).toPass({ timeout: 10000 });
 
-				await this.quickinput.waitForQuickInputClosed();
-				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
-			} catch (e) {
-				this.code.logger.log(`Failed to select kernel: ${e}`);
-				throw e;
-			}
+			await this.quickinput.waitForQuickInputClosed();
+			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
 			// Wait for the kernel status to show "Connected"
 			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout: 30000 });

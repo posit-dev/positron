@@ -40,7 +40,7 @@ export class ContextMenu {
 				const menuItem = menuItemType === 'menuitemcheckbox'
 					? this.getContextMenuCheckboxItem(menuItemLabel)
 					: this.getContextMenuItem(menuItemLabel);
-				await menuItem.hover();
+				await menuItem.hover({ timeout: 1000 });
 				await this.page.waitForTimeout(500);
 
 				// Either selects the menu item or dismisses the tooltip
