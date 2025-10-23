@@ -684,6 +684,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 					// Return the error message as a tool result
 					result = new vscode.LanguageModelToolResult([
+						new vscode.LanguageModelTextPart(`Error invoking tool ${req.name}.`),
 						new vscode.LanguageModelTextPart(errorMessage)
 					]);
 				}
