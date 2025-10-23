@@ -993,6 +993,8 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AmazonBedrockProvider;
 	static SUPPORTED_BEDROCK_PROVIDERS = ['Anthropic'];
+	static DEFAULT_MAX_TOKENS_INPUT = DEFAULT_MAX_TOKEN_INPUT;
+	static DEFAULT_MAX_TOKENS_OUTPUT = 8192;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -1115,8 +1117,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 				name: m.modelName ?? modelId,
 				family: 'Amazon Bedrock',
 				version: '',
-				maxInputTokens: this._config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
-				maxOutputTokens: this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+				maxInputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_INPUT,
+				maxOutputTokens: AWSLanguageModel.DEFAULT_MAX_TOKENS_OUTPUT,
 				capabilities: this.capabilities,
 				isDefault: true,
 				isUserSelectable: true,
