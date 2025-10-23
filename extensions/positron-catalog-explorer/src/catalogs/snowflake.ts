@@ -12,6 +12,7 @@ import {
 	CatalogProviderRegistry,
 } from '../catalog';
 import { resourceUri } from '../resources';
+import { getPositronAPI } from '../positron';
 
 const registration: CatalogProviderRegistration = {
 	label: 'Snowflake',
@@ -90,8 +91,9 @@ async function registerSnowflakeCatalog(
  * Get a provider for all Snowflake accounts for which we have connections.
  */
 function getSnowflakeCatalogs(): Promise<CatalogProvider[]> {
-	// For the browser authentication flow, we need to create a new
+	// For the browser authentication flow, we create a new
 	// connection each time rather than listing existing ones.
+	// TODO: Maintain Snowflake sessions and list or regenerate them.
 	return Promise.resolve([]);
 }
 
@@ -152,13 +154,10 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	async getChildren(node?: CatalogNode): Promise<CatalogNode[]> {
 		try {
 			if (!node) {
-				// Top level - get databases
 				return await this.listDatabases();
 			} else if (node.type === 'catalog') {
-				// Database level - get schemas
 				return await this.listSchemas(node.path);
 			} else if (node.type === 'schema') {
-				// Schema level - get tables
 				return await this.listTables(node.path);
 			}
 
@@ -171,6 +170,54 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 			);
 			return [];
 		}
+	}
+
+	/**
+	 * Generate code for accessing a Snowflake resource in the specified language.
+	 *
+	 * @param languageId The language to generate code for (e.g., 'python', 'r')
+	 * @param node The catalog node to generate code for
+	 * @returns Generated code as a string, or undefined if not supported
+	 */
+	async getCode(
+		languageId: string,
+		node: CatalogNode,
+	): Promise<string | undefined> {
+
+		const code = await generateCode(languageId, node, this.accountName);
+		return code.code;
+	}
+
+	/**
+	 * Open a Snowflake resource in an active Positron session
+	 *
+	 * @param node The catalog node to open in a session
+	 */
+	async openInSession(node: CatalogNode): Promise<void> {
+		const positron = getPositronAPI();
+		if (!positron) {
+			return;
+		}
+
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return;
+		}
+
+		// Get the code to execute
+		const { code } = await generateCode(
+			session.runtimeMetadata.languageId,
+			node,
+			this.accountName
+		);
+
+		// Skip dependency checking
+		session.execute(
+			code,
+			session.runtimeMetadata.languageId,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue,
+		);
 	}
 
 	/**
@@ -196,7 +243,6 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	 */
 	private async listDatabases(): Promise<CatalogNode[]> {
 		try {
-			// Use SHOW DATABASES command which works without requiring a current database
 			const sql = `SHOW DATABASES`;
 			const databases = await this.executeQuery<{ name: string }>(sql);
 
@@ -217,7 +263,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	 */
 	private async listSchemas(databaseName: string): Promise<CatalogNode[]> {
 		try {
-			// Use SHOW SCHEMAS command which works without requiring warehouse resources
+
 			const sql = `SHOW SCHEMAS IN DATABASE "${databaseName}"`;
 			const schemas = await this.executeQuery<{ name: string }>(sql);
 
@@ -246,7 +292,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	private async listTables(schemaPath: string): Promise<CatalogNode[]> {
 		try {
 			const [databaseName, schemaName] = schemaPath.split('.');
-			// Use SHOW TABLES command which works without requiring warehouse resources
+
 			const sql = `SHOW TABLES IN SCHEMA "${databaseName}"."${schemaName}"`;
 			const tables = await this.executeQuery<{ name: string }>(sql);
 
@@ -261,4 +307,142 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 			return [];
 		}
 	}
+}
+
+/**
+ * Generate code for accessing a Snowflake resource based on the node type and language
+ *
+ * @param languageId Language identifier (python, r)
+ * @param node The catalog node to generate code for
+ * @param accountName The Snowflake account name
+ * @returns Generated code and required dependencies
+ */
+async function generateCode(
+	languageId: string,
+	node: CatalogNode,
+	accountName: string,
+
+): Promise<{ code: string }> {
+	const username = await vscode.window.showInputBox({
+		prompt: 'Enter your Snowflake username',
+		placeHolder: 'your-username@example.com'
+	});
+
+	if (!username) {
+		throw new Error('Username is required for code generation');
+	}
+
+	// Extract database, schema, and table names from the path
+	const pathParts = node.path.split('.');
+	const tableName = pathParts.pop() || '';
+	const schemaName = pathParts.pop() || '';
+	const databaseName = pathParts.pop() || '';
+
+	switch (languageId) {
+		case 'python':
+			return getPythonCodeForSnowflakeTable(accountName, databaseName, schemaName, tableName, username);
+		case 'r':
+			return getRCodeForSnowflakeTable(accountName, databaseName, schemaName, tableName);
+		default:
+			throw new Error(`Code generation for language '${languageId}' is not supported for Snowflake`);
+	}
+}
+
+/**
+ * Generate Python code for accessing a Snowflake table
+ *
+ * @param accountName The Snowflake account name
+ * @param database The database name
+ * @param schema The schema name
+ * @param table The table name
+ * @returns Generated code and required dependencies
+ */
+function getPythonCodeForSnowflakeTable(
+	accountName: string,
+	username: string,
+	database?: string,
+	schema?: string,
+	table?: string
+): { code: string; dependencies: string[] } {
+	const dependencies = ['snowflake-connector-python', 'pandas'];
+
+	let code = `# pip install ${dependencies.join(' ')}\n`;
+
+	if (database && schema && table) {
+		code += `# For ${accountName}.${database}.${schema}.${table}\n`;
+	} else {
+		code += `# For ${accountName}\n`;
+	}
+
+	code += `
+import snowflake.connector as sc
+
+conn_params = {
+	'account': '${accountName}',
+	'user': '${username}',
+	'authenticator': 'externalbrowser',
+`;
+
+	// add database if provided
+	if (database) {
+		code += `	'database': '${database}',`;
+	}
+
+	// add schema if provided
+	if (schema) {
+		code += `\n	'schema': '${schema}'`;
+	}
+
+	// complete the connection parameters dict and establish connection
+	code += `
+}
+
+# Establish the connection
+conn = sc.connect(**conn_params)
+cursor = conn.cursor()
+`;
+	// add query to fetch data from the specified table or default info
+	if (table) {
+		code += `query = "SELECT * FROM ${table} LIMIT 10"`;
+	} else {
+		code += `query = "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()"`;
+	}
+
+	// execute the query
+	code += `
+cursor.execute(query)
+
+# Fetch and display results
+results = cursor.fetchall()
+for row in results:
+	print(row)
+
+cursor.close()
+`;
+
+	return { code, dependencies };
+}
+
+/**
+ * Generate R code for accessing a Snowflake table
+ *
+ * @param accountName The Snowflake account name
+ * @param database The database name
+ * @param schema The schema name
+ * @param table The table name
+ * @returns Generated code and required dependencies
+ */
+function getRCodeForSnowflakeTable(
+	accountName: string,
+	database: string,
+	schema: string,
+	table: string
+): { code: string; dependencies: string[] } {
+	const dependencies = ['DBI', 'odbc'];
+
+	// This is just a placeholder structure - the actual R code will be implemented by the user
+	const code = `# R code for Snowflake table access will go here
+# For ${accountName}.${database}.${schema}.${table} `;
+
+	return { code, dependencies };
 }
