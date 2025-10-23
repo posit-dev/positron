@@ -18,7 +18,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { IQuickInputService, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 // Constants
@@ -154,7 +154,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		const quickInputService = accessor.get(IQuickInputService);
 
 		// Create options for quick-pick
-		const quickPickItems: QuickPickItem[] = [
+		const quickPickItems: IQuickPickItem[] = [
 			{
 				label: localize('positron.notebook.updateWorkingDirectory.quickPick.update', 'Update'),
 				id: UPDATE_ID
@@ -165,7 +165,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			}
 		];
 
-		// TODO: add the following localized string as description to quickpick
+		// Create the description for the quick pick
 		const description = localize(
 			'positron.notebook.workingDirectoryChanged',
 			// eslint-disable-next-line local/code-no-unexternalized-strings
@@ -177,13 +177,26 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			newWorkingDirectory,
 		);
 
-		const result = await quickInputService.pick(
-			quickPickItems,
-			{
-				title: localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),
-				canPickMany: false,
-			}
-		);
+		// Create a custom quick pick with description
+		const quickPick = quickInputService.createQuickPick<IQuickPickItem>();
+		quickPick.title = localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?');
+		quickPick.description = description;
+		quickPick.items = quickPickItems;
+		quickPick.canSelectMany = false;
+
+		// Show the quick pick and wait for user selection
+		quickPick.show();
+
+		const result = await new Promise<IQuickPickItem | undefined>((resolve) => {
+			quickPick.onDidAccept(() => {
+				resolve(quickPick.selectedItems[0]);
+				quickPick.dispose();
+			});
+			quickPick.onDidHide(() => {
+				resolve(undefined);
+				quickPick.dispose();
+			});
+		});
 
 		if (result?.id === UPDATE_ID) {
 			try {
