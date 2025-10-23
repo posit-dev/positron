@@ -392,7 +392,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await verifyPlotInNewWindow(app, 'R', rBasicPlot);
 		});
 
-		test('R - Verify saving an R plot', { tag: [tags.WIN, tags.CRITICAL, tags.CRITICAL] }, async function ({ app }) {
+		test('R - Verify saving an R plot', { tag: [tags.WIN, tags.CRITICAL] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('R', rSavePlot);
 				await app.workbench.plots.waitForCurrentPlot();
