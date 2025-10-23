@@ -240,8 +240,8 @@ export class KCApi implements PositronSupervisorApi {
 		// Check to see if there's a server already running for this workspace,
 		// if reconnect is permitted.
 		const serverState = this._reconnect ?
-			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY) :
-			undefined
+			this.loadServerState() :
+			undefined;
 
 		// If there is, and we can reconnect to it, do so
 		if (serverState) {
@@ -670,7 +670,37 @@ export class KCApi implements PositronSupervisorApi {
 				// For named pipes, also save the original named_pipe from connection data
 				named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined)
 			};
+			this.saveServerState(state);
+		}
+	}
+
+	/**
+	 * Save the current server state for reconnect.
+	 *
+	 * @param state The server state to save, or undefined to clear the saved state.
+	 */
+	private saveServerState(state: KallichoreServerState | undefined) {
+		if (vscode.workspace.workspaceFolders) {
+			// If there's a workspace, save the state in workspace storage
 			this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
+		} else {
+			// Otherwise, save it in global storage
+			this._context.globalState.update(KALLICHORE_STATE_KEY, state);
+		}
+	}
+
+	/**
+	 * Load the current server state for reconnect.
+	 *
+	 * @returns The saved server state, or undefined if not found.
+	 */
+	private loadServerState(): KallichoreServerState | undefined {
+		if (vscode.workspace.workspaceFolders) {
+			// If there's a workspace, load the state from workspace storage
+			return this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		} else {
+			// Otherwise, load it from global storage
+			return this._context.globalState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 		}
 	}
 
@@ -1045,7 +1075,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Clean up the state so we don't try to reconnect to a server that
 		// isn't running.
 		if (this._reconnect) {
-			this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+			this.saveServerState(undefined);
 		}
 
 		// We need to mark all sessions as exited since (at least right now)
@@ -1325,7 +1355,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Clear the workspace state so we don't try to reconnect to the old
 		// server
-		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+		this.saveServerState(undefined);
 
 		// Do the same with the environment variable, and clean up the
 		// connection file if it exists.
