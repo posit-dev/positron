@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Execution Tooltip', {
-	tag: [tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS, tags.WEB]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Deletion Action Bar Behavior', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS, tags.WEB]
+	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {
