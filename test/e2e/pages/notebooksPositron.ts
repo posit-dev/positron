@@ -381,11 +381,12 @@ export class PositronNotebooks extends Notebooks {
 				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
 				await expect(async () => {
 					// we shouldn't need to retry this, but the input closes immediately sometimes
-					// await this.kernelStatusBadge.click();
-					await this.contextMenu.triggerAndClick({
-						menuTrigger: this.kernelStatusBadge,
-						menuItemLabel: /Change Kernel/
-					});
+					await this.kernelStatusBadge.click();
+					await this.code.driver.page.getByText('Change Kernel').click();
+					// await this.contextMenu.triggerAndClick({
+					// 	menuTrigger: this.kernelStatusBadge,
+					// 	menuItemLabel: /Change Kernel/
+					// });
 					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
 					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
 					await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });

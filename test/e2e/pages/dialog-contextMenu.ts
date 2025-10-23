@@ -31,11 +31,11 @@ export class ContextMenu {
 	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
+				this.code.logger.log(`Using native menu to select: ${menuItemLabel}`);
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
-				// await menuTrigger.click({ button: menuTriggerButton });
-				await menuTrigger.click();
-
+				this.code.logger.log(`Using web menu to select: ${menuItemLabel}`);
+				await menuTrigger.click({ button: menuTriggerButton });
 				// Hover over the menu item
 				const menuItem = menuItemType === 'menuitemcheckbox'
 					? this.getContextMenuCheckboxItem(menuItemLabel)
