@@ -329,7 +329,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		// If we've already got a session going, no need to do anything
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
-		if (session) {
+		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId) {
 			return;
 		}
 

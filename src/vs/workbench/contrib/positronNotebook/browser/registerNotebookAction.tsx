@@ -18,7 +18,7 @@ import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromEditorPane } from './notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 
 /**
  * Keybinding configuration for notebook actions.
@@ -262,7 +262,7 @@ function registerNotebookCommandInternal(options: INotebookCommandOptions): IDis
 		id: options.commandId,
 		handler: (accessor: ServicesAccessor) => {
 			const editorService = accessor.get(IEditorService);
-			const activeNotebook = getNotebookInstanceFromEditorPane(editorService);
+			const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
 			if (!activeNotebook) {
 				return;
 			}
@@ -357,7 +357,7 @@ function registerNotebookWidgetInternal(options: INotebookWidgetOptions): IDispo
 			return () => {
 				// Get the active notebook using the VS Code pattern
 				const editorService = accessor.get(IEditorService);
-				const notebook = getNotebookInstanceFromEditorPane(editorService);
+				const notebook = getNotebookInstanceFromActiveEditorPane(editorService);
 				if (!notebook) {
 					return null;
 				}
