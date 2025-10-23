@@ -651,13 +651,8 @@ export class UnityCatalogClient {
 			};
 			const response = await fetch(url, fetchOptions);
 			if (!response.ok) {
-				// Create the error with the operation name but don't show a message yet
 				const error = await UnityCatalogError.from(response);
-
-				// Only show the error message from this point
 				vscode.window.showErrorMessage(error.message);
-
-				// Throw the error for upstream handling without showing another toast
 				throw error;
 			}
 			if (response.status === 204) {

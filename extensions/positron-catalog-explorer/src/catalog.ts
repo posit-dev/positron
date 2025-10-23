@@ -352,8 +352,8 @@ export class CatalogProviderRegistry {
 			// Did not find a matching provider
 			traceWarn(`No matching provider found for ID: ${providerId}`);
 			return false;
-		} catch (err) {
-			traceError(`Error removing provider: ${err}`);
+		} catch (error) {
+			traceError(`Error removing provider: ${error}`);
 			return false;
 		}
 	}
@@ -489,7 +489,7 @@ export function registerCatalogCommands(
 					);
 
 					if (confirmation !== 'Yes') {
-						traceLog('User cancelled removal confirmation');
+						traceLog('User cancelled removal');
 						return;
 					}
 
