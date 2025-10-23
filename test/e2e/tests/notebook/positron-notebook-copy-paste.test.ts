@@ -12,7 +12,7 @@ test.use({
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
 test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async ({ app, settings }) => {
