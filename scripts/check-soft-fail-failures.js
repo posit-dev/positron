@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 if (process.argv.length < 3) {
-	console.error('Usage: node check-provisional-failures.js <path-to-playwright-json>');
+	console.error('Usage: node check-soft-fail-failures.js <path-to-playwright-json>');
 	process.exit(2);
 }
 
@@ -122,17 +122,17 @@ if (failedSpecs.length === 0) {
 	process.exit(0);
 }
 
-// For failures, check :provisional
-const nonProvisionalFailures = failedSpecs.filter(spec => {
+// For failures, check :soft-fail tag
+const nonSoftFailFailures = failedSpecs.filter(spec => {
 	const tags = getSpecTags(spec);
-	return !tags.includes(':provisional');
+	return !tags.includes(':soft-fail');
 });
 
-// If there are any failures that are NOT provisional → failed
-if (nonProvisionalFailures.length > 0) {
+// If there are any failures that are NOT soft fail → failed
+if (nonSoftFailFailures.length > 0) {
 	console.log('failed');
 	// Helpful summary for triage
-	for (const spec of nonProvisionalFailures) {
+	for (const spec of nonSoftFailFailures) {
 		const file = spec.__file || spec.file || '<unknown file>';
 		const title = spec.title || '<untitled spec>';
 		const tags = getSpecTags(spec);
@@ -143,6 +143,6 @@ if (nonProvisionalFailures.length > 0) {
 	process.exit(1);
 }
 
-// Otherwise, all failures are provisional → passed
+// Otherwise, all failures are soft fail → passed
 console.log('passed');
 process.exit(0);

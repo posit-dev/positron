@@ -58,6 +58,11 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: true
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -205,6 +210,7 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_JSON_FILE: test-results/rhel.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
@@ -249,9 +255,13 @@ jobs:
 
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
 
-          node ./scripts/check-provisional-failures.js "${PW_JSON_FILE}"
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          fi
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}

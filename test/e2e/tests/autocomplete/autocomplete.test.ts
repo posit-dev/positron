@@ -128,7 +128,7 @@ test.describe('Autocomplete', {
 	});
 
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', {
-		tag: [tags.ARK, tags.PROVISIONAL]
+		tag: [tags.ARK]
 	}, async function ({ app, sessions, hotKeys }) {
 		const { console } = app.workbench;
 

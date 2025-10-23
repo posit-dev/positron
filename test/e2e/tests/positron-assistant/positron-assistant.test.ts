@@ -150,7 +150,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 		await app.workbench.variables.expectVariableToBe('foo', '200');
 	});
 
-	test('Verify Manage Models is available', { tag: [tags.PROVISIONAL] }, async function ({ app }) {
+	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app }) {
 		await app.workbench.assistant.verifyManageModelsOptionVisible();
 	});
 });
