@@ -381,7 +381,7 @@ export class PositronNotebooks extends Notebooks {
 				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
 				await expect(async () => {
 					// we shouldn't need to retry this, but the input closes immediately sometimes
-					await this.kernelStatusBadge.click({ timeout: 1000 });
+					await this.kernelStatusBadge.click({ timeout: 1000, force: true });
 					await this.code.driver.page.getByText('Change Kernel').click();
 					if (false) {
 						await this.contextMenu.triggerAndClick({
