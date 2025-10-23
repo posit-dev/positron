@@ -420,7 +420,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 		});
 
-		test('R - Verify rplot plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('R - Verify rplot plot', { tag: [tags.WEB, tags.WIN, tags.PROVISIONAL] }, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole(rplot);
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForCurrentPlot();

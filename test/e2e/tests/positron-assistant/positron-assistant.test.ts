@@ -150,8 +150,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 		await app.workbench.variables.expectVariableToBe('foo', '200');
 	});
 
-	// Skipping due to flakiness. We can re-enable as part of the PROVISIONAL tag work
-	test.skip('Verify Manage Models is available', { tag: [tags.PROVISIONAL] }, async function ({ app }) {
+	test('Verify Manage Models is available', { tag: [tags.PROVISIONAL] }, async function ({ app }) {
 		await app.workbench.assistant.verifyManageModelsOptionVisible();
 	});
 });

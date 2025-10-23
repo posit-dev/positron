@@ -12,6 +12,7 @@ import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@cur
 type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorkerFixtures;
 
 process.env.PW_TEST = '1';
+const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -48,7 +49,7 @@ export default defineConfig<ExtendedTestOptions>({
 				showAnnotations: false,
 				includeResults: ['fail', 'flaky']
 			}],
-			['json', { outputFile: 'test-results/results.json' }],
+			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
 				? [currentsReporter({
