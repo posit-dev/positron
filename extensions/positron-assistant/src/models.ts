@@ -15,13 +15,14 @@ import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createMistral, MistralProvider } from '@ai-sdk/mistral';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
 import { createOpenRouter, OpenRouterProvider } from '@openrouter/ai-sdk-provider';
-import { markBedrockCacheBreakpoint, processMessages, toAIMessage } from './utils';
+import { processMessages, toAIMessage } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
+import { BedrockClient, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -413,7 +414,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
 		const toolResultExperimentalContent = this.provider === 'anthropic-api' ||
-			aiModel.modelId.startsWith('us.anthropic');
+			aiModel.modelId.includes('anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
@@ -421,7 +422,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
 		const bedrockCacheBreakpoint = this.provider === 'amazon-bedrock' &&
-			!aiModel.modelId.startsWith('us.anthropic.claude-3-5');
+			!aiModel.modelId.includes('anthropic.claude-3-5');
 
 		// Add system prompt from `modelOptions.system`, if provided.
 		// TODO: Once extensions such as databot no longer use `modelOptions.system`,
@@ -991,6 +992,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AmazonBedrockProvider;
+	static SUPPORTED_BEDROCK_PROVIDERS = ['Anthropic'];
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -1005,6 +1007,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			toolCalls: true,
 		},
 	};
+	bedrockClient: BedrockClient;
+	inferenceProfiles: InferenceProfileSummary[] = [];
 
 	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
 		// Update a stale model configuration to the latest defaults
@@ -1021,6 +1025,13 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			region: process.env.AWS_REGION ?? 'us-east-1',
 			credentialProvider: fromNodeProviderChain(),
 		});
+
+		// This is used to get available models
+		this.bedrockClient = new BedrockClient({
+			region: process.env.AWS_REGION ?? 'us-east-1',
+			credentials: fromNodeProviderChain(),
+		});
+		this.modelListing = [];
 	}
 
 	get providerName(): string {
@@ -1055,6 +1066,87 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
 	}
+
+	override async provideLanguageModelChatInformation(options: { silent: boolean; }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		await this.resolveModels(token);
+		return this.modelListing || [];
+	}
+
+	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		const modelListing: vscode.LanguageModelChatInformation[] = [];
+		const command = new ListFoundationModelsCommand();
+
+		const response = await this.bedrockClient.send(command);
+		const modelSummaries = response.modelSummaries;
+
+		log.trace('[BedrockLanguageModel] Fetching available Amazon Bedrock models for these providers: ' + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
+
+		if (!modelSummaries || modelSummaries.length === 0) {
+			log.error('No Amazon Bedrock models available');
+			return modelListing;
+		}
+
+		const inferenceResponse = await this.bedrockClient.send(new ListInferenceProfilesCommand());
+		this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
+
+		if (this.inferenceProfiles.length === 0) {
+			log.error('No Amazon Bedrock inference profiles available');
+			return modelListing;
+		}
+
+		const availableModels = modelSummaries.filter(m => m.modelLifecycle?.status === 'ACTIVE'
+			&& AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.includes(m.providerName as string)
+			// INFERENCE_PROFILE doesn't exist in the Bedrock types but it can actually return it so it casts the field to string[] to avoid typescript errors
+			&& (m.inferenceTypesSupported && (m.inferenceTypesSupported as string[]).includes('INFERENCE_PROFILE')));
+
+		availableModels.forEach(m => {
+			log.trace(`[BedrockLanguageModel] ${m.modelName} ${m.modelId}`);
+
+			if (!m.modelArn) {
+				return;
+			}
+
+			const modelId = this.findInferenceProfileForModel(m.modelArn, this.inferenceProfiles);
+			if (!modelId) {
+				return;
+			}
+			modelListing.push({
+				id: modelId,
+				name: m.modelName ?? modelId,
+				family: 'Amazon Bedrock',
+				version: '',
+				maxInputTokens: this._config.maxInputTokens ?? DEFAULT_MAX_TOKEN_INPUT,
+				maxOutputTokens: this._config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+				capabilities: this.capabilities,
+				isDefault: true,
+				isUserSelectable: true,
+			});
+		});
+
+		this.modelListing = modelListing;
+
+		return modelListing;
+	}
+
+	/**
+	 * Find the inference profile ARN for a specific model.
+	 * This ensures that we can use the model and AWS will handle
+	 * routing for regions and resource allocation.
+	 *
+	 * @param modelArn the model ARN to get the inference ARN
+	 * @param inferenceProfiles profiles that the authenticated client can use
+	 * @returns the inference profile ARN or undefined if not found
+	 */
+	private findInferenceProfileForModel(modelArn: string, inferenceProfiles: InferenceProfileSummary[]): string | undefined {
+		for (const profile of inferenceProfiles) {
+			const models = profile.models?.map(m => m.modelArn);
+			if (models?.includes(modelArn)) {
+				return profile.inferenceProfileArn;
+			}
+		}
+		return undefined;
+	}
+
 }
 
 //#endregion
