@@ -73,7 +73,10 @@ export enum TestTags {
 	WORKBENCH = '@:workbench',
 
 	// exclude tags
-	NIGHTLY_ONLY = '@:nightly-only'
+	NIGHTLY_ONLY = '@:nightly-only',
+
+	// Provisional tag for tests that won't report in PR runs yet
+	PROVISIONAL = '@:provisional'
 }
 
 
