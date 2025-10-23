@@ -31,6 +31,22 @@ export enum KernelStatus {
 }
 
 /**
+ * Represents the types of operations that can be performed on a notebook.
+ * Used to track the context of cell additions and modifications to control
+ * automatic behavior like entering edit mode.
+ */
+export enum NotebookOperationType {
+	/** Normal cell insertion via UI or command */
+	Insert = 'Insert',
+	/** Cells added via paste operation */
+	Paste = 'Paste',
+	/** Cells restored via undo operation */
+	Undo = 'Undo',
+	/** Cells restored via redo operation */
+	Redo = 'Redo'
+}
+
+/**
  * Subset of INotebookEditor required to integrate with the extension API,
  * so we don't have to implement the entire INotebookEditor interface (...yet)
  * See mainThreadNotebookDocumentsAndEditors.ts and mainThreadNotebookEditors.ts.
@@ -272,6 +288,31 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 * Returns whether there are cells available to paste from the clipboard.
 	 */
 	canPaste(): boolean;
+
+	/**
+	 * Gets the current notebook operation type that is in progress, if any.
+	 * This is used to track the context of cell additions and modifications to
+	 * control automatic behavior like entering edit mode. Operation is cleared
+	 * after being retrieved to ensure it only applies to the immediate next
+	 * action.
+	 * @returns The current operation type, or undefined if no operation is in
+	 * progress
+	 */
+	getAndResetCurrentOperation(): NotebookOperationType | undefined;
+
+	/**
+	 * Sets the current notebook operation type.
+	 * This should be called at the beginning of operations like paste, undo, or redo
+	 * to provide context for subsequent cell additions.
+	 * @param type The operation type to set
+	 */
+	setCurrentOperation(type: NotebookOperationType): void;
+
+	/**
+	 * Clears the current notebook operation type.
+	 * This should be called after the operation context is no longer needed.
+	 */
+	clearCurrentOperation(): void;
 
 	/**
 	 * Shows or focuses the notebook console for this notebook instance.
