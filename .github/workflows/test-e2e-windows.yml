@@ -47,6 +47,11 @@ on:
         description: "Whether to skip the bootstrap extensions test."
         type: boolean
         default: false
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -257,6 +262,8 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
+          PW_JSON_FILE: test-results/windows.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${PW_TAGS}" ]; then
@@ -276,9 +283,14 @@ jobs:
             export SKIP_CLONE=false
           fi
 
-          # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+            eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          fi
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -305,6 +317,14 @@ jobs:
         with:
           name: e2e-win-logs
           path: test-logs
+          if-no-files-found: ignore
+
+      - name: Upload Test Results File
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-json-results
+          path: test-results/windows.json
           if-no-files-found: ignore
 
       # - name: Fail workflow if extension tests failed
