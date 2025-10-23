@@ -7,7 +7,6 @@ import { Notebooks } from './notebooks';
 import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
-import { Clipboard } from './clipboard.js';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu } from './dialog-contextMenu.js';
@@ -36,7 +35,7 @@ export class PositronNotebooks extends Notebooks {
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard, private contextMenu: ContextMenu) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 	}
 
@@ -292,21 +291,24 @@ export class PositronNotebooks extends Notebooks {
 			// Press escape to ensure focus is out of the cell editor
 			await this.code.driver.page.keyboard.press('Escape');
 
+			// Note: We use direct keyboard shortcuts instead of hotKeys/clipboard helpers
+			// because Positron Notebooks uses Jupyter-style single-key shortcuts (C/X/V/Z)
+			// in command mode, not the standard Cmd+C/X/V/Z shortcuts
 			switch (action) {
 				case 'copy':
-					await this.clipboard.copy();
+					await this.code.driver.page.keyboard.press('KeyC');
 					break;
 				case 'cut':
-					await this.clipboard.cut();
+					await this.code.driver.page.keyboard.press('KeyX');
 					break;
 				case 'paste':
-					await this.clipboard.paste();
+					await this.code.driver.page.keyboard.press('KeyV');
 					break;
 				case 'undo':
-					await this.hotKeys.undo();
+					await this.code.driver.page.keyboard.press('KeyZ');
 					break;
 				case 'redo':
-					await this.hotKeys.redo();
+					await this.code.driver.page.keyboard.press('Shift+KeyZ');
 					break;
 				case 'delete':
 					await this.code.driver.page.keyboard.press('Backspace');
