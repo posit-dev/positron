@@ -46,6 +46,8 @@ test.describe('Python Applications', {
 					: editorFrameLocator.getByText('Hello World')
 			).toBeVisible({ timeout: 30000 });
 		});
+
+		expect(1).toBe(2); // provisional failure example
 	});
 
 	test('Python - Verify Basic FastAPI App', {
