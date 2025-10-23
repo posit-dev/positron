@@ -220,7 +220,7 @@ export interface CreateSchemaRequest {
  * Error specialization for the Unity Catalog REST API.
  */
 export class UnityCatalogError extends Error {
-	name = 'UnityCatalogAPIError';
+	override name = 'UnityCatalogAPIError';
 	public readonly type: string;
 	public readonly code: number;
 
@@ -651,6 +651,7 @@ export class UnityCatalogClient {
 				throw await UnityCatalogError.from(response);
 			}
 			if (response.status === 204) {
+				// eslint-disable-next-line local/code-no-dangerous-type-assertions
 				return {} as T;
 			}
 			return (await response.json()) as T;

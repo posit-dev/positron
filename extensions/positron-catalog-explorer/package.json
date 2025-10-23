@@ -1,12 +1,11 @@
 {
-  "name": "catalog-explorer",
-  "publisher": "positron",
-  "author": "Posit Software, PBC",
+  "name": "positron-catalog-explorer",
   "displayName": "Catalog Explorer",
   "description": "Explore tables, views, and files backed by data catalogs.",
-  "icon": "resources/icon.png",
   "version": "0.0.1",
-  "preview": true,
+  "publisher": "positron",
+  "icon": "resources/icon.png",
+  "private": true,
   "engines": {
     "vscode": "^1.87.0"
   },
@@ -14,18 +13,20 @@
     "Data Science"
   ],
   "activationEvents": [
-    "onFileSystem:dbfs",
-    "onView:catalog-explorer"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
       "title": "Catalog Explorer",
       "properties": {
-        "positronCatalogExplorer.enabled": {
+        "catalogExplorer.enabled": {
           "type": "boolean",
           "default": false,
-          "description": " **Experimental:** Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate."
+          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate.",
+          "tags": [
+            "experimental"
+          ]
         }
       }
     },
@@ -86,7 +87,8 @@
       "explorer": [
         {
           "id": "catalog-explorer",
-          "name": "Catalog Explorer"
+          "name": "Catalog Explorer",
+          "when": "config.catalogExplorer.enabled"
         }
       ]
     },
@@ -97,22 +99,36 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "posit.catalog-explorer.addCatalogProvider",
+          "when": "config.catalogExplorer.enabled"
+        },
+        {
+          "command": "posit.catalog-explorer.removeCatalogProvider",
+          "when": "config.catalogExplorer.enabled"
+        },
+        {
+          "command": "posit.catalog-explorer.refresh",
+          "when": "config.catalogExplorer.enabled"
+        }
+      ],
       "view/title": [
         {
           "command": "posit.catalog-explorer.addCatalogProvider",
-          "when": "view == catalog-explorer",
+          "when": "view == catalog-explorer && config.catalogExplorer.enabled",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "posit.catalog-explorer.refresh",
-          "when": "view == catalog-explorer && viewItem == provider",
+          "when": "view == catalog-explorer && viewItem == provider && config.catalogExplorer.enabled",
           "group": "inline"
         },
         {
           "command": "posit.catalog-explorer.removeCatalogProvider",
-          "when": "view == catalog-explorer && viewItem == provider",
+          "when": "view == catalog-explorer && viewItem == provider && config.catalogExplorer.enabled",
           "group": "inline"
         },
         {
@@ -151,13 +167,11 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "compile:production": "tsc -p ./ --sourceMap false",
-    "package": "npm run compile:production",
     "check-types": "tsc --noEmit",
     "watch": "tsc -p ./ --watch",
-    "pretest": "npm run compile",
     "lint-check": "prettier --check 'src/**/*.ts' 'package.json' 'package-lock.json'",
     "lint": "prettier --write 'src/**/*.ts' 'package.json' 'package-lock.json'",
     "test": "vscode-test",
