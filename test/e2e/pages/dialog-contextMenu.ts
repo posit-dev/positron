@@ -34,6 +34,7 @@ export class ContextMenu {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
 				await menuTrigger.click({ button: menuTriggerButton, force: true });
+				// await menuTrigger.click();
 
 				// Hover over the menu item
 				const menuItem = menuItemType === 'menuitemcheckbox'
