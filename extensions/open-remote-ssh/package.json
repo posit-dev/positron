@@ -103,6 +103,15 @@
 					"description": "**Experimental:** The name of the server binary, use this **only if** you are using a client without a corresponding server release",
 					"scope": "application",
 					"default": ""
+				},
+				"remoteSSH.serverInstallPath": {
+					"type": "object",
+					"markdownDescription": "A map of remote hostname to the remote directory where the Positron server data will be installed.\n\nFor the keys, you may use the `*` character to match 0 or more characters in the hostname or host's alias. The first matching host will be used.\n\nFor the values, you may include tildes or environment variables of the form `$ENV_VAR`, which will be resolved on the remote host upon connecting. Relative paths will be parsed relative to `$HOME`.\n\nFor any host not matched here, the server is installed in `$HOME/.positron-server`.",
+					"scope": "application",
+					"additionalProperties": {
+						"type": "string"
+					},
+					"default": {}
 				}
 			}
 		},

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Autocomplete', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR, tags.CRITICAL]
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {

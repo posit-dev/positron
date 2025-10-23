@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: Delete', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.SESSIONS, tags.CRITICAL]
+	tag: [tags.WEB, tags.WIN, tags.SESSIONS]
 }, () => {
 
 	test('Python - Validate can delete a single session', async function ({ sessions }) {
