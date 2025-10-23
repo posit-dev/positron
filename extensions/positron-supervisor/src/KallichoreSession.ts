@@ -222,6 +222,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
 		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
+
+		// Open the established barrier immediately if we're restoring an
+		// existing session
+		if (!this._new) {
+			this._established.open();
+		}
 	}
 
 	/**
@@ -945,10 +951,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Save the kernel info
 		this.runtimeInfoFromKernelInfo(session.kernel_info as KernelInfoReply);
-
-		// Open the established barrier so that we can start sending messages
 		this._activeSession = session;
-		this._established.open();
 	}
 
 	/**
