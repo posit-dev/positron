@@ -37,6 +37,7 @@ export class SessionExecutionHistory extends Disposable {
 		private readonly _sessionId: string,
 		private readonly _startMode: RuntimeStartMode,
 		private readonly _storageService: IStorageService,
+		private readonly _storageScope: StorageScope,
 		private readonly _logService: ILogService
 	) {
 		super();
@@ -304,7 +305,7 @@ export class SessionExecutionHistory extends Disposable {
 		// history in this "session"
 		this._storageService.store(this._storageKey,
 			storageState,
-			StorageScope.WORKSPACE,
+			this._storageScope,
 			StorageTarget.MACHINE);
 
 		// Successfully saved; state is no longer dirty

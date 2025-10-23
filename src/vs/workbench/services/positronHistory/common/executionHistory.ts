@@ -214,6 +214,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				session.metadata.sessionId,
 				startMode,
 				this._storageService,
+				this.getStorageScope(),
 				this._logService);
 			history.attachSession(session);
 			this._executionHistories.set(session.sessionId, history);
@@ -290,6 +291,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			sessionId,
 			RuntimeStartMode.Reconnecting,
 			this._storageService,
+			this.getStorageScope(),
 			this._logService);
 		this._executionHistories.set(sessionId, history);
 		this._register(history);
