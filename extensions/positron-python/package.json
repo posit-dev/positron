@@ -797,7 +797,7 @@
                     "type": "string"
                 },
                 "python.locator": {
-                    "default": "js",
+                    "default": "native",
                     "markdownDescription": "%python.locator.description%",
                     "enum": [
                         "js",
