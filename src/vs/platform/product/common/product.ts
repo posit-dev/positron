@@ -75,6 +75,7 @@ else {
 			// during the build. See INSERT_PRODUCT_CONFIGURATION above.
 			positronVersion: '2025.11.0',
 			positronBuildNumber: '0',
+			date: new Date().toISOString(),
 			nameShort: 'Positron Dev',
 			nameLong: 'Positron Dev',
 			applicationName: 'positron',
