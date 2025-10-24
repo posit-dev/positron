@@ -680,6 +680,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						chatRequestId: request.id,
 					}, token);
 				} catch (error) {
+					const propagateToolErrors = vscode.workspace.getConfiguration('positron.assistant.toolErrors').get('propagate', false);
+					if (propagateToolErrors) {
+						throw error;
+					}
+
 					const errorMessage = error instanceof Error ? error.message : String(error);
 					log.error(`[tool] Tool ${req.name} threw error: ${errorMessage}`);
 
