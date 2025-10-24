@@ -5,21 +5,18 @@
 
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Schemas } from '../../../../base/common/network.js';
-import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 
 // Constants
 const UPDATE_ID = 'update';
@@ -56,57 +53,49 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		// Get services
-		const editorService = accessor.get(IEditorService);
-		const logService = accessor.get(ILogService);
 		const notificationService = accessor.get(INotificationService);
-		const notebookService = accessor.get(IPositronNotebookService);
 		const pathService = accessor.get(IPathService);
 		const workspaceContextService = accessor.get(IWorkspaceContextService);
 
-		// Get the active notebook context
-		const context = getContextFromActiveEditor(editorService);
-		if (!context) {
-			logService.warn('[Positron Notebook]: No active notebook editor found when trying to update working directory');
+		const notebookInstance = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
+		if (!notebookInstance) {
 			return;
 		}
-		// Get the notebook URI
-		const newUri = context.notebookEditor.textModel.uri;
+
+		const notebook = notebookInstance.textModel;
+		if (!notebook) {
+			return;
+		}
+
 		// Skip untitled notebooks
-		if (newUri.scheme === Schemas.untitled) {
+		if (notebook.uri.scheme === Schemas.untitled) {
 			notificationService.info(localize(
 				'positron.notebook.updateWorkingDirectory.untitledNotebook',
 				'Cannot update working directory for untitled notebooks. Please save the notebook first.'
 			));
 			return;
 		}
-		// Resolve the new URI to a working directory
-		const newWorkingDirectory = await this.resolveNotebookWorkingDirectory(newUri);
+
+		// Get the new working directory based on the notebook location
+		const newWorkingDirectory = await this.resolveNotebookWorkingDirectory(notebook.uri);
 		if (!newWorkingDirectory) {
 			return;
 		}
 
-		// Get the current session object tied to the active notebook
-		const notebookInstance = notebookService.listInstances().find((instance: IPositronNotebookInstance) =>
-			instance.uri.toString() === newUri.toString()
-		);
-		if (!notebookInstance) {
-			logService.warn(`[Positron Notebook]: No notebook instance found for ${newUri.toString()}`);
-			return;
-		}
 		const session = notebookInstance.runtimeSession.read(undefined);
 		if (!session) {
 			notificationService.warn(localize(
 				'positron.notebook.updateWorkingDirectory.noNotebookSession',
-				'Cannot update working directory. No interpreter session is running for notebook {0}', newUri.toString()
+				'Cannot update working directory. No interpreter session is running'
 			));
 			return;
 		}
-		// Get the current working directory
+
+		// Get the current working directory based on the session state
 		const currentWorkingDirectory = session.dynState.currentNotebookUri;
 		if (!currentWorkingDirectory) {
 			return;
 		}
-
 
 		// Resolve both paths (untildify + symlink resolution) for comparison
 		const currentWorkingDirectoryResolved = await this.resolvePath(currentWorkingDirectory);
@@ -115,7 +104,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
 			// Format the paths for display
 			const path = await pathService.path;
-			const workspaceFolder = workspaceContextService.getWorkspaceFolder(newUri) || undefined;
+			const workspaceFolder = workspaceContextService.getWorkspaceFolder(notebook.uri) || undefined;
 			const workspaceFolderName = workspaceFolder ? workspaceFolder.name : '';
 
 			// Convert an absolute path to a display path relative to the workspace folder if it's inside it
@@ -168,11 +157,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		// Create the description for the quick pick
 		const description = localize(
 			'positron.notebook.workingDirectoryChanged',
-			// eslint-disable-next-line local/code-no-unexternalized-strings
-			'This notebook was moved to a new location but your session is still running from the original directory.'
-			+ '<br><br>Saved at: <code>{0}</code>'
-			+ '<br>Running from: <code>{1}</code>'
-			+ '<br><br>Update the running working directory to match where the notebook is saved? (Recommended)',
+			'This notebook was moved to a new location but your session is still running from the original directory.<br><br>Saved at: <code>{0}</code><br>Running from: <code>{1}</code><br><br>Update the running working directory to match where the notebook is saved? (Recommended)',
 			currentWorkingDirectory,
 			newWorkingDirectory,
 		);
