@@ -24,6 +24,10 @@ import { FileOperationError, FileOperationResult, IFileService } from '../../fil
 import { ILogService } from '../../log/common/log.js';
 import { IPolicyService, NullPolicyService } from '../../policy/common/policy.js';
 
+// --- Start PWB ---
+import { IAdminPolicyService } from '../../policy/common/adminPolicyService.js';
+// --- End PWB ---
+
 export class ConfigurationService extends Disposable implements IConfigurationService, IDisposable {
 
 	declare readonly _serviceBrand: undefined;
@@ -44,10 +48,15 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 		fileService: IFileService,
 		policyService: IPolicyService,
 		private readonly logService: ILogService,
+		// --- Start PWB ---
+		adminPolicyService?: IAdminPolicyService,
+		// --- End PWB ---
 	) {
 		super();
 		this.defaultConfiguration = this._register(new DefaultConfiguration(logService));
-		this.policyConfiguration = policyService instanceof NullPolicyService ? new NullPolicyConfiguration() : this._register(new PolicyConfiguration(this.defaultConfiguration, policyService, logService));
+		// --- Start PWB ---
+		this.policyConfiguration = policyService instanceof NullPolicyService ? new NullPolicyConfiguration() : this._register(new PolicyConfiguration(this.defaultConfiguration, policyService, logService, adminPolicyService));
+		// --- End PWB ---
 		this.userConfiguration = this._register(new UserSettings(this.settingsResource, {}, extUriBiasedIgnorePathCase, fileService, logService));
 		this.configuration = new Configuration(
 			this.defaultConfiguration.configurationModel,

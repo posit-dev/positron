@@ -1,7 +1,7 @@
-duckdb<1.4.0
+duckdb
 fastcore
 geopandas; python_version < '3.14'
-haystack-ai; python_version < '3.14'
+haystack-ai
 holoviews
 hvplot
 ibis-framework[polars]; python_version == '3.9'
@@ -9,7 +9,7 @@ ibis-framework[duckdb]; python_version >= '3.10' and python_version < '3.14'
 ipykernel
 ipython
 ipywidgets
-lightning; python_version < '3.14'
+lightning
 matplotlib
 numpy
 pandas
@@ -22,7 +22,7 @@ pytest
 pytest-asyncio
 pytest-mock
 syrupy
-torch; python_version < '3.14'
+torch
 scipy
 snowflake-connector-python; python_version < '3.14'
 sqlalchemy

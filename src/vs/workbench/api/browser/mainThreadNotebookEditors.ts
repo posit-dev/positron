@@ -3,16 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// --- Start Positron ---
-import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
-import { checkPositronNotebookEnabled } from '../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
-// --- End Positron ---
 import { DisposableStore, dispose } from '../../../base/common/lifecycle.js';
 import { equals } from '../../../base/common/objects.js';
 import { URI, UriComponents } from '../../../base/common/uri.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { EditorActivation } from '../../../platform/editor/common/editor.js';
+// --- Start Positron ---
+import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
+import { checkPositronNotebookEnabled } from '../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
+/* Swap out implementations for proxies that include Positron notebooks as well
 import { getNotebookEditorFromEditorPane, INotebookEditor, INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
+*/
+import { INotebookEditor, INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
+import { getNotebookEditorFromEditorPane } from '../../contrib/positronNotebook/browser/NotebookEditorProxyService.js';
+// --- End Positron ---
 import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
 import { ICellRange } from '../../contrib/notebook/common/notebookRange.js';
 import { columnToEditorGroup, editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
@@ -122,15 +126,6 @@ export class MainThreadNotebookEditors implements MainThreadNotebookEditorsShape
 		// --- End Positron ---
 
 		const editorPane = await this._editorService.openEditor({ resource: URI.revive(resource), options: editorOptions }, columnToEditorGroup(this._editorGroupService, this._configurationService, options.position));
-		// --- Start Positron ---
-		if (editorPane?.getId() === POSITRON_NOTEBOOK_EDITOR_ID) {
-			// Positron notebook is already open, just return a synthetic ID
-			// We can't return the actual notebook editor ID because Positron notebooks
-			// don't implement INotebookEditor interface yet (https://github.com/posit-dev/positron/issues/9440)
-			const uri = URI.revive(resource);
-			return `positron-notebook-${uri.toString()}`;
-		}
-		// --- End Positron ---
 		const notebookEditor = getNotebookEditorFromEditorPane(editorPane);
 
 		if (notebookEditor) {

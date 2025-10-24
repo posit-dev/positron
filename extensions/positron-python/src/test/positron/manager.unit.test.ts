@@ -304,7 +304,10 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         });
         hasFilesStub.withArgs(['.venv/**/*']).resolves(true);
 
-        const venvPythonPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+        const venvPythonPath =
+            process.platform === 'win32'
+                ? path.join(workspaceUri.fsPath, '.venv', 'Scripts', 'python.exe')
+                : path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
         interpreter.setup((i) => i.path).returns(() => venvPythonPath);
         interpreterService
             .setup((i) =>
@@ -336,7 +339,10 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
         hasFilesStub.withArgs(['.conda/**/*']).resolves(true);
 
-        const condaPythonPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+        const condaPythonPath =
+            process.platform === 'win32'
+                ? path.join(workspaceUri.fsPath, '.conda', 'Scripts', 'python.exe')
+                : path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
         interpreter.setup((i) => i.path).returns(() => condaPythonPath);
         interpreterService
             .setup((i) =>

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Autocomplete', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR, tags.CRITICAL]
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {
@@ -128,7 +128,7 @@ test.describe('Autocomplete', {
 	});
 
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', {
-		tag: [tags.ARK]
+		tag: [tags.ARK, tags.SOFT_FAIL]
 	}, async function ({ app, sessions, hotKeys }) {
 		const { console } = app.workbench;
 

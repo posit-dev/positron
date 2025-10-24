@@ -22,6 +22,7 @@ import { CellActionButton } from './actionBar/CellActionButton.js';
 
 interface CellLeftActionMenuProps {
 	cell: PositronNotebookCodeCell;
+	hasError: boolean;
 }
 
 const POPUP_DELAY = 100;
@@ -32,7 +33,7 @@ const POPUP_DELAY = 100;
  * - Action buttons (play, stop, etc.) when selected or hovered
  * - Execution info popup on hover with timing details
  */
-export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
+export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) {
 	// Reference hooks.
 	const containerRef = useRef<HTMLDivElement>(null);
 	const hoverTimeoutIdRef = useRef<number | null>(null);
@@ -110,6 +111,7 @@ export function CellLeftActionMenu({ cell }: CellLeftActionMenuProps) {
 					cellSelected={isSelected}
 					executionOrder={executionOrder}
 					executionStatus={dataExecutionStatus}
+					hasError={hasError}
 					isHovered={isHovered}
 					showPending={showPending}
 				/>

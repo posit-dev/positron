@@ -241,6 +241,14 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	updateSessionName(sessionName: string): void;
 }
 
+export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
+	notebookUri: URI;
+}
+
+export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
+	metadata: INotebookRuntimeSessionMetadata;
+}
+
 /**
  * A manager for runtime sessions.
  */
@@ -385,7 +393,7 @@ export interface IRuntimeSessionService {
 	 * Gets a specific notebook session by notebook URI. Currently, only one
 	 * notebook session can exist per notebook URI.
 	 */
-	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined;
+	getNotebookSessionForNotebookUri(notebookUri: URI): INotebookLanguageRuntimeSession | undefined;
 
 	/**
 	 * List all active runtime sessions.
