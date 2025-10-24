@@ -35,7 +35,7 @@ export function AddCodeCellButton({ notebookInstance, index, bordered }: { noteb
 		codicon='code'
 		fullLabel={fullLabel}
 		label={label}
-		onClick={() => notebookInstance.addCell(CellKind.Code, index)}
+		onClick={() => notebookInstance.addCell(CellKind.Code, index, true)}
 	/>;
 
 }
@@ -50,7 +50,7 @@ export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { n
 		codicon='markdown'
 		fullLabel={fullLabel}
 		label={label}
-		onClick={() => notebookInstance.addCell(CellKind.Markup, index)}
+		onClick={() => notebookInstance.addCell(CellKind.Markup, index, true)}
 	/>;
 
 }

@@ -612,15 +612,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param index The position where the cell should be inserted
 	 * @throws Error if no language is set for the notebook
 	 */
-	addCell(type: CellKind, index: number): void {
+	addCell(type: CellKind, index: number, enterEditMode: boolean): void {
 		this._assertTextModel();
 
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
 
-		// Set operation type to enable automatic edit mode entry for normal inserts
-		this.setCurrentOperation(NotebookOperationType.Insert);
+		if (enterEditMode) {
+			// Set operation type to enable automatic edit mode entry for normal inserts
+			this.setCurrentOperation(NotebookOperationType.InsertAndEdit);
+		}
 
 		const textModel = this.textModel;
 		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
@@ -677,7 +679,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1));
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false);
 	}
 
 	/**
@@ -1406,5 +1408,5 @@ function assertNotebookCellIsCellViewModel(cell: IPositronNotebookCell): asserts
 
 function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined): boolean {
 	// Don't auto-enter edit mode for paste, undo, or redo operations
-	return currentOp === NotebookOperationType.Insert;
+	return currentOp === NotebookOperationType.InsertAndEdit;
 }

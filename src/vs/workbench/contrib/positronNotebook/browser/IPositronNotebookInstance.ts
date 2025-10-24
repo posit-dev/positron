@@ -37,7 +37,7 @@ export enum KernelStatus {
  */
 export enum NotebookOperationType {
 	/** Normal cell insertion via UI or command */
-	Insert = 'Insert',
+	InsertAndEdit = 'InsertAndEdit',
 	/** Cells added via paste operation */
 	Paste = 'Paste',
 	/** Cells restored via undo operation */
@@ -193,8 +193,9 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 *
 	 * @param type The kind of cell to create (e.g., code, markdown)
 	 * @param index The position at which to insert the new cell
+	 * @param enterEditMode Whether to put the new cell into edit mode immediately
 	 */
-	addCell(type: CellKind, index: number): void;
+	addCell(type: CellKind, index: number, enterEditMode: boolean): void;
 
 	/**
 	 * Inserts a new code cell either above or below the current selection
