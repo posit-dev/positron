@@ -8,7 +8,7 @@ import * as positron from 'positron';
 
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreServerState } from './ServerState.js';
-import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList, SessionMode } from './kcclient/api';
+import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList, SessionMode, Status } from './kcclient/api';
 import { summarizeAxiosError } from './util';
 
 /**
@@ -43,6 +43,7 @@ interface SupervisorSessionQuickPickItem extends vscode.QuickPickItem {
 	action?: 'shutdown' | 'openWorkspace' | 'showLogs';
 	session?: ActiveSession;
 	workspaceUri?: vscode.Uri;
+	sessionCount?: number;
 }
 
 /**
@@ -204,6 +205,7 @@ export class KallichoreInstances {
 		const supervisorLabel = result.record.workspaceName ?? vscode.l10n.t("Unnamed Workspace");
 		const workspaceUri = this.parseWorkspaceUri(result.record);
 		const items: SupervisorSessionQuickPickItem[] = [];
+		const sessionCount = sessions ? sessions.sessions.length : result.status?.sessions;
 
 		items.push({
 			label: vscode.l10n.t("Actions"),
@@ -228,7 +230,8 @@ export class KallichoreInstances {
 		items.push({
 			label: `$(trash) ${vscode.l10n.t("Shutdown")}`,
 			detail: vscode.l10n.t("Stop this supervisor and terminate all sessions"),
-			action: 'shutdown'
+			action: 'shutdown',
+			sessionCount
 		});
 
 		items.push({
@@ -262,9 +265,14 @@ export class KallichoreInstances {
 			return;
 		}
 
+		if (selection.session) {
+			await this.showSessionSummary(selection.session);
+			return;
+		}
+
 		switch (selection.action) {
 			case 'shutdown':
-				await this.handleShutdownAction(result, supervisorLabel);
+				await this.handleShutdownAction(result, supervisorLabel, selection.sessionCount);
 				return;
 			case 'showLogs':
 				await this.handleShowLogsAction(result);
@@ -295,6 +303,7 @@ export class KallichoreInstances {
 			: vscode.l10n.t("PID {0} • {1}", result.record.state.server_pid, this.formatTransport(result.record.state.transport));
 
 		const detailParts: string[] = [];
+		const isCurrentWindowSupervisor = this.isCurrentWindowSupervisor(result.record);
 		if (result.status) {
 			if (result.status.sessions === 1) {
 				detailParts.push(vscode.l10n.t("1 session"));
@@ -306,7 +315,9 @@ export class KallichoreInstances {
 				detailParts.push(idleDetail);
 			}
 		}
-		if (result.configuration) {
+		if (isCurrentWindowSupervisor) {
+			detailParts.push(vscode.l10n.t("Connected to this window"));
+		} else if (result.configuration) {
 			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours, result.status));
 		}
 		if (result.error) {
@@ -627,6 +638,20 @@ export class KallichoreInstances {
 	}
 
 	/**
+	 * Determines whether the supervisor is associated with the currently open workspace.
+	 *
+	 * @param record The stored supervisor record to evaluate.
+	 * @returns  True if the supervisor is tied to the current window, false otherwise.
+	 */
+	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance): boolean {
+		const supervisorUri = this.parseWorkspaceUri(record);
+		if (!supervisorUri) {
+			return false;
+		}
+		return vscode.workspace.workspaceFolders?.some(folder => folder.uri.toString() === supervisorUri.toString()) ?? false;
+	}
+
+	/**
 	 * Locates a workspace folder by name within the current VS Code session.
 	 *
 	 * @param workspaceName The display name of the workspace folder.
@@ -645,12 +670,25 @@ export class KallichoreInstances {
 	 *
 	 * @param result The supervisor inspection result containing the API client and state.
 	 * @param supervisorLabel The user-facing label of the supervisor being shut down.
+	 * @param sessionCountHint Optional session count supplied when the status call was unavailable.
 	 * @returns A promise that resolves once the shutdown flow completes.
 	 */
-	private static async handleShutdownAction(result: SupervisorInspectionResult, supervisorLabel: string): Promise<void> {
+	private static async handleShutdownAction(result: SupervisorInspectionResult, supervisorLabel: string, sessionCountHint?: number): Promise<void> {
+		const sessionCount = sessionCountHint ?? result.status?.sessions;
+		const messageParts: string[] = [
+			vscode.l10n.t("Are you sure you want to shut down the supervisor for {0}?", supervisorLabel)
+		];
+		if (sessionCount !== undefined && sessionCount > 0) {
+			const sessionLabel = sessionCount === 1
+				? vscode.l10n.t("1 session will be ended.")
+				: vscode.l10n.t("{0} sessions will be ended.", sessionCount);
+			messageParts.push(sessionLabel);
+		} else {
+			messageParts.push(vscode.l10n.t("This will terminate any running sessions."));
+		}
 		const confirmed = await positron.window.showSimpleModalDialogPrompt(
 			vscode.l10n.t("Shut Down Supervisor"),
-			vscode.l10n.t("Are you sure you want to shut down the supervisor for {0}? This will terminate all running sessions.", supervisorLabel),
+			messageParts.join(' '),
 			vscode.l10n.t("Shut Down"),
 			vscode.l10n.t("Cancel")
 		);
@@ -705,6 +743,170 @@ export class KallichoreInstances {
 			const message = err instanceof Error ? err.message : String(err);
 			await vscode.window.showErrorMessage(vscode.l10n.t("Failed to open workspace {0}: {1}", supervisorLabel, message));
 		}
+	}
+
+	/**
+	 * Presents a modal dialog summarizing a single session returned from the supervisor.
+	 *
+	 * @param session The session whose details should be surfaced to the user.
+	 * @returns A promise that resolves after the dialog has been dismissed.
+	 */
+	private static async showSessionSummary(session: ActiveSession): Promise<void> {
+		const message = this.composeSessionSummary(session);
+		await positron.window.showSimpleModalDialogMessage(
+			vscode.l10n.t("Session Details"),
+			message,
+			vscode.l10n.t("Close")
+		);
+	}
+
+	/**
+	 * Composes a short narrative describing the key attributes of a session.
+	 *
+	 * @param session The session whose metadata should be converted into prose.
+	 * @returns A localized summary sentence suitable for dialog display.
+	 */
+	private static composeSessionSummary(session: ActiveSession): string {
+		const sentences: string[] = [];
+		sentences.push(vscode.l10n.t(
+			"Session '{0}' (ID {1}, PID {2}) runs {3} in {4}.",
+			session.display_name,
+			session.session_id,
+			session.process_id ? session.process_id.toString() : vscode.l10n.t("N/A"),
+			session.language,
+			this.describeSessionMode(session.session_mode)
+		));
+
+		const startedSentence = this.describeSessionStartSentence(session.started);
+		if (startedSentence) {
+			sentences.push(startedSentence);
+		}
+
+		const connectionSentence = this.describeSessionConnectionSentence(session);
+		if (connectionSentence) {
+			sentences.push(connectionSentence);
+		}
+		return sentences.join(' ');
+	}
+
+	/**
+	 * Produces a human-readable label describing a session mode.
+	 *
+	 * @param mode The session mode enumeration value.
+	 * @returns A localized description of the session mode.
+	 */
+	private static describeSessionMode(mode: SessionMode): string {
+		switch (mode) {
+			case SessionMode.Notebook:
+				return vscode.l10n.t("notebook mode");
+			case SessionMode.Background:
+				return vscode.l10n.t("background mode");
+			case SessionMode.Console:
+			default:
+				return vscode.l10n.t("console mode");
+		}
+	}
+
+	/**
+	 * Converts the session start timestamp into a descriptive sentence when possible.
+	 *
+	 * @param started The ISO timestamp returned by the supervisor.
+	 * @returns A localized sentence indicating when the session started, or undefined.
+	 */
+	private static describeSessionStartSentence(started: string | undefined): string | undefined {
+		if (!started) {
+			return undefined;
+		}
+		const startedMs = Date.parse(started);
+		if (Number.isNaN(startedMs)) {
+			return undefined;
+		}
+		const diffSeconds = Math.max(0, Math.floor((Date.now() - startedMs) / 1000));
+		const relative = this.formatUptime(diffSeconds);
+		if (!relative) {
+			return undefined;
+		}
+		return vscode.l10n.t("It started {0}.", relative);
+	}
+
+	/**
+	 * Assembles a sentence describing a session's runtime status and activity.
+	 *
+	 * @param session The session whose status should be summarized.
+	 * @returns A localized status sentence, or undefined when no details are available.
+	 */
+	private static describeSessionStatusSentence(session: ActiveSession): string | undefined {
+		const statusLabel = this.describeStatusLabel(session.status);
+		const activityDetail = this.describeSessionActivityDetail(session);
+		if (activityDetail) {
+			return vscode.l10n.t("It is currently {0} and {1}.", statusLabel, activityDetail);
+		}
+		return vscode.l10n.t("It is currently {0}.", statusLabel);
+	}
+
+	/**
+	 * Maps a raw session status string into a localized, user-friendly label.
+	 *
+	 * @param status The status value reported by the supervisor.
+	 * @returns The localized label corresponding to the status.
+	 */
+	private static describeStatusLabel(status: string): string {
+		switch (status) {
+			case Status.Busy:
+				return vscode.l10n.t("busy");
+			case Status.Idle:
+				return vscode.l10n.t("idle");
+			case Status.Starting:
+				return vscode.l10n.t("starting");
+			case Status.Ready:
+				return vscode.l10n.t("ready");
+			case Status.Offline:
+				return vscode.l10n.t("offline");
+			case Status.Exited:
+				return vscode.l10n.t("exited");
+			case Status.Uninitialized:
+				return vscode.l10n.t("uninitialized");
+			default:
+				return status;
+		}
+	}
+
+	/**
+	 * Generates additional context about a session's busy or idle duration.
+	 *
+	 * @param session The session whose activity durations should be described.
+	 * @returns A localized clause describing busy or idle time, or undefined if unavailable.
+	 */
+	private static describeSessionActivityDetail(session: ActiveSession): string | undefined {
+		if (session.status === Status.Busy && session.busy_seconds > 0) {
+			return vscode.l10n.t("has been busy for {0}", this.formatDuration(session.busy_seconds));
+		}
+		if (session.status !== Status.Busy && session.idle_seconds > 0) {
+			return vscode.l10n.t("has been idle for {0}", this.formatDuration(session.idle_seconds));
+		}
+		return undefined;
+	}
+
+	/**
+	 * Describes the connection state of a session along with any pending executions.
+	 *
+	 * @param session The session whose connection status should be narrated.
+	 * @returns A localized sentence about the session's connection state.
+	 */
+	private static describeSessionConnectionSentence(session: ActiveSession): string | undefined {
+		const queueLength = session.execution_queue?.length ?? 0;
+		if (queueLength > 0) {
+			const queueLabel = queueLength === 1
+				? vscode.l10n.t("1 pending execution")
+				: vscode.l10n.t("{0} pending executions", queueLength);
+			if (session.connected) {
+				return vscode.l10n.t("The session is connected to a client with {0}.", queueLabel);
+			}
+			return vscode.l10n.t("The session is not connected to any client and has {0}.", queueLabel);
+		}
+		return session.connected
+			? vscode.l10n.t("The session is connected to a client.")
+			: vscode.l10n.t("The session is not connected to any client.");
 	}
 
 	/**
