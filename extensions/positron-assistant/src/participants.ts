@@ -681,6 +681,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					}, token);
 				} catch (error) {
 					const errorMessage = error instanceof Error ? error.message : String(error);
+					log.error(`[tool] Tool ${req.name} threw error: ${errorMessage}`);
 
 					// Return the error message as a tool result
 					result = new vscode.LanguageModelToolResult([
