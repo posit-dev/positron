@@ -15,7 +15,9 @@ Name | Type | Description | Notes
 **initial_env** | **{ [key: string]: string; }** | The environment variables set when the session was started | [optional] [default to undefined]
 **connected** | **boolean** | Whether the session is connected to a client | [default to undefined]
 **started** | **string** | An ISO 8601 timestamp of when the session was started | [default to undefined]
+**session_mode** | [**SessionMode**](SessionMode.md) |  | [default to undefined]
 **working_directory** | **string** | The session\&#39;s current working directory | [default to undefined]
+**notebook_uri** | **string** | For notebook sessions, the URI of the notebook file | [optional] [default to undefined]
 **input_prompt** | **string** | The text to use to prompt for input | [default to undefined]
 **continuation_prompt** | **string** | The text to use to prompt for input continuations | [default to undefined]
 **execution_queue** | [**ExecutionQueue**](ExecutionQueue.md) |  | [default to undefined]
@@ -41,7 +43,9 @@ const instance: ActiveSession = {
     initial_env,
     connected,
     started,
+    session_mode,
     working_directory,
+    notebook_uri,
     input_prompt,
     continuation_prompt,
     execution_queue,

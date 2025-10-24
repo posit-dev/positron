@@ -422,6 +422,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			session_id: this.metadata.sessionId,
 			language: kernelSpec.language,
 			display_name: this.dynState.sessionName,
+			session_mode: this.metadata.sessionMode,
+			notebook_uri: this.metadata.notebookUri?.toString(),
 			input_prompt: '',
 			continuation_prompt: '',
 			env: varActions,
