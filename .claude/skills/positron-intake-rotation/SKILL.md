@@ -11,6 +11,22 @@ This skill provides comprehensive guidance for handling issue intake rotation fo
 
 The goal is to respond to new items within approximately one business day and ensure all issues have the details required to be actionable.
 
+## 🚨 CRITICAL: Manual Action Protocol
+
+**This skill assists with intake rotation but NEVER executes GitHub actions directly.**
+
+All GitHub interactions must be performed manually by the user:
+- ✅ Draft responses for review before posting
+- ✅ Suggest labels and categorization
+- ✅ Prepare commands for user to execute
+- ✅ Search and analyze issues/discussions
+- ❌ NEVER post comments or responses directly
+- ❌ NEVER edit issues, add labels, or change status
+- ❌ NEVER close issues or create new ones
+- ❌ NEVER execute `gh` commands that modify GitHub state
+
+**Workflow:** Analyze → Recommend → Draft → User executes manually
+
 ## When to Use This Skill
 
 Use this skill when:
@@ -65,29 +81,32 @@ Follow this process each day during rotation:
    - Check documentation at https://positron.posit.co/welcome.html
    - Look for existing discussions on the topic
 
-4. **Categorize and organize**
+4. **Recommend categorization and organization**
    - Run `scripts/fetch_labels.sh` to see available labels
-   - Apply appropriate labels (area, type, priority)
-   - Set status to "Triage" once organized
-   - Add to "Positron Backlog" project if applicable
+   - **Suggest** appropriate labels (area, type, priority) for user to apply
+   - **Recommend** setting status to "Triage" once organized
+   - **Suggest** adding to "Positron Backlog" project if applicable
+   - **Prepare** `gh` commands for user to execute manually
 
-5. **Draft and post response**
+5. **Draft response for user review**
    - Consult `references/response_examples.md` for patterns
-   - Welcome the contributor and thank them
-   - Ask clarifying questions if information is missing
-   - Provide workarounds or links to related content when available
+   - Draft welcoming message thanking the contributor
+   - Include clarifying questions if information is missing
+   - Suggest workarounds or links to related content when available
    - Set realistic expectations about next steps
+   - **Present draft to user for review before posting**
 
-6. **Follow through**
-   - Tag relevant team members if specialized knowledge is needed
-   - Close duplicates with reference to canonical issue
-   - Convert discussions to issues when appropriate
-   - Continue following up even after rotation ends, or explicitly hand off
+6. **Recommend follow-through actions**
+   - **Suggest** tagging relevant team members if specialized knowledge is needed
+   - **Draft** duplicate closure message with reference to canonical issue
+   - **Recommend** converting discussions to issues when appropriate
+   - **Advise** continuing follow-up even after rotation ends, or explicit handoff
 
 ### Using GitHub CLI
 
-Prefer using GitHub CLI (`gh`) over other methods for consistency:
+Prefer using GitHub CLI (`gh`) over other methods for consistency. **All commands below are for the USER to execute manually.**
 
+**Read-only commands** (can be executed to gather information):
 ```bash
 # View issue with all comments
 gh issue view <number> --repo posit-dev/positron --comments
@@ -95,15 +114,20 @@ gh issue view <number> --repo posit-dev/positron --comments
 # Search issues
 gh issue list --repo posit-dev/positron --search "<query>" --state all
 
-# Add labels
-gh issue edit <number> --repo posit-dev/positron --add-label "area: console,Bug"
-
 # View discussion
 gh api graphql -f query='...' # (see scripts for examples)
+```
 
-# Close as duplicate
+**Modification commands** (prepare for user, NEVER execute directly):
+```bash
+# Add labels - DRAFT THIS COMMAND for user to run
+gh issue edit <number> --repo posit-dev/positron --add-label "area: console,Bug"
+
+# Close as duplicate - DRAFT THIS COMMAND for user to run
 gh issue close <number> --repo posit-dev/positron --comment "Closing as duplicate of #<canonical-number>"
 ```
+
+**Important:** Present modification commands to the user in a code block with clear instructions to review and execute manually.
 
 ## Handling Different Scenarios
 
@@ -119,38 +143,38 @@ For bug reports, assess completeness:
 
 If complete:
 1. Search for duplicates using `scripts/search_related.sh`
-2. Apply labels (area, "Bug" type)
-3. Set status to "Triage"
-4. Thank reporter and acknowledge the issue
+2. **Suggest** labels (area, "Bug" type) for user to apply
+3. **Recommend** setting status to "Triage"
+4. **Draft** response thanking reporter and acknowledging the issue
 
 If incomplete:
-1. Thank the reporter
-2. Ask specific questions about missing information
-3. Reference the bug report template if helpful
-4. Keep issue open until information is provided
+1. **Draft** message thanking the reporter
+2. **Include** specific questions about missing information
+3. **Suggest** referencing the bug report template if helpful
+4. **Advise** keeping issue open until information is provided
 
 **Refer to `references/intake_workflow.md` for detailed bug handling workflows.**
 
 ### Feature Requests
 
 For feature requests:
-1. Thank the user for the suggestion
+1. **Draft** message thanking the user for the suggestion
 2. Search for existing related feature requests
-3. If duplicate, link to existing issue and close
-4. If new, apply labels and add to backlog
-5. Set realistic expectations about prioritization
+3. If duplicate, **draft** message linking to existing issue (user closes manually)
+4. If new, **suggest** labels and recommend adding to backlog
+5. **Draft** message setting realistic expectations about prioritization
 
 ### Discussions
 
 For discussions:
 1. Determine discussion type (question, idea, bug report, announcement)
-2. Respond appropriately:
-   - **Questions:** Answer or link to docs
+2. **Draft** appropriate response:
+   - **Questions:** Provide answer or link to docs
    - **Ideas:** Acknowledge and link to related issues
    - **Bug reports:** Ask user to create formal issue
    - **Off-topic:** Politely redirect
 
-**Convert discussions to issues** when they contain clear, actionable bug reports or feature requests.
+**Recommend converting discussions to issues** when they contain clear, actionable bug reports or feature requests (user performs conversion manually).
 
 ### Support Tickets
 
@@ -160,17 +184,17 @@ Support tickets require special handling:
 
 1. Review ticket context in Jira
 2. Search for related public issues
-3. Respond in Jira (not publicly)
-4. Create sanitized public issue if needed
-5. Link between ticket and issue
+3. **Draft** response in Jira (not publicly) for user to post
+4. **Recommend** creating sanitized public issue if needed
+5. **Suggest** linking between ticket and issue
 
 ### Security Issues
 
 If an issue describes a security vulnerability:
 1. **Do NOT discuss details publicly**
-2. Ask reporter to email security@posit.co
-3. Close public issue with note about private reporting
-4. Alert team privately
+2. **Draft** message asking reporter to email security@posit.co
+3. **Recommend** closing public issue with note about private reporting (user closes manually)
+4. **Advise** alerting team privately
 
 ## Response Guidelines
 
@@ -239,14 +263,17 @@ If recurring issues or common questions emerge:
 ## Workflow Summary
 
 ```
-Daily Intake:
+Daily Intake (Assistant Mode - Draft & Recommend):
 1. Fetch new items (scripts/fetch_intake_issues.sh, scripts/fetch_discussions.sh)
 2. Review and assess each item
 3. Search for related content (scripts/search_related.sh)
-4. Categorize with labels (scripts/fetch_labels.sh)
-5. Draft response (references/response_examples.md)
-6. Set status to "Triage"
-7. Follow through or hand off
+4. SUGGEST labels and categorization (scripts/fetch_labels.sh)
+5. DRAFT response (references/response_examples.md) for user review
+6. PREPARE gh commands for user to execute
+7. RECOMMEND setting status to "Triage" (user executes)
+8. ADVISE on follow-through or handoff
 
-Remember: The goal is timely response and actionable organization, not solving every issue.
+Remember: The goal is to ASSIST the user with timely response and actionable
+organization. NEVER execute GitHub modification commands directly - always
+present drafts and recommendations for the user to review and execute manually.
 ```
