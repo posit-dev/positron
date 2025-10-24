@@ -20,7 +20,7 @@ import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInsta
 import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 
-const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
+export const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
 /**
  * Determines if a base path is using a domain socket transport

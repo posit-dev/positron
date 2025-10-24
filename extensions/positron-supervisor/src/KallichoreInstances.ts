@@ -10,6 +10,7 @@ import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInsta
 import { KallichoreServerState } from './ServerState.js';
 import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList, SessionMode, Status } from './kcclient/api';
 import { summarizeAxiosError } from './util';
+import { KALLICHORE_STATE_KEY } from './KallichoreAdapterApi.js';
 
 /**
  * Snapshot of a running Kallichore supervisor persisted in global storage.
@@ -121,11 +122,11 @@ export class KallichoreInstances {
 
 			for (const record of stored) {
 				// Update the toast so users see which entry is under inspection.
-				progress.report({ message: record.workspaceName ?? vscode.l10n.t("Unnamed Workspace") });
+				progress.report({ message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 
 				if (!this.isProcessAlive(record.state.server_pid)) {
 					// Mark work complete for the progress UI even though we prune this entry.
-					progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Unnamed Workspace") });
+					progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 					this.log?.appendLine(`${this.timestamp()} [Positron] Pruned exited supervisor PID ${record.state.server_pid}`);
 					continue;
 				}
@@ -156,7 +157,7 @@ export class KallichoreInstances {
 
 				liveResults.push(inspection);
 				// Record progress after both process validation and status probe complete.
-				progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Unnamed Workspace") });
+				progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 			}
 
 			await this.saveInstances(survivors);
@@ -202,7 +203,7 @@ export class KallichoreInstances {
 			error = summarizeAxiosError(err);
 		}
 
-		const supervisorLabel = result.record.workspaceName ?? vscode.l10n.t("Unnamed Workspace");
+		const supervisorLabel = result.record.workspaceName ?? vscode.l10n.t("Empty Workspace");
 		const workspaceUri = this.parseWorkspaceUri(result.record);
 		const items: SupervisorSessionQuickPickItem[] = [];
 		const sessionCount = sessions ? sessions.sessions.length : result.status?.sessions;
@@ -296,7 +297,7 @@ export class KallichoreInstances {
 	 * @returns The Quick Pick item bound to the supervisor.
 	 */
 	private static createQuickPickItem(result: SupervisorInspectionResult): SupervisorQuickPickItem {
-		const workspaceLabel = result.record.workspaceName ?? vscode.l10n.t("Unnamed Workspace");
+		const workspaceLabel = result.record.workspaceName ?? vscode.l10n.t("Empty Workspace");
 		const uptimeLabel = this.formatUptime(result.status?.uptime_seconds);
 		const description = uptimeLabel
 			? vscode.l10n.t("PID {0} • Started {1}", result.record.state.server_pid, uptimeLabel)
@@ -644,11 +645,33 @@ export class KallichoreInstances {
 	 * @returns  True if the supervisor is tied to the current window, false otherwise.
 	 */
 	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance): boolean {
-		const supervisorUri = this.parseWorkspaceUri(record);
-		if (!supervisorUri) {
+		const currentPid = this.getCurrentWindowSupervisorPid();
+		if (currentPid === undefined || !record.state.server_pid) {
 			return false;
 		}
-		return vscode.workspace.workspaceFolders?.some(folder => folder.uri.toString() === supervisorUri.toString()) ?? false;
+		return record.state.server_pid === currentPid;
+	}
+
+	/**
+	 * Retrieves the PID of the supervisor currently associated with this window.
+	 *
+	 * @returns The supervisor PID if one is persisted, otherwise undefined.
+	 */
+	private static getCurrentWindowSupervisorPid(): number | undefined {
+		return this.getStoredSupervisorState()?.server_pid;
+	}
+
+	/**
+	 * Loads the persisted supervisor state for the active window.
+	 *
+	 * @returns The stored supervisor state, if any.
+	 */
+	private static getStoredSupervisorState(): KallichoreServerState | undefined {
+		const context = this.getContext();
+		if (vscode.workspace.workspaceFolders) {
+			return context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		}
+		return context.globalState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 	}
 
 	/**
