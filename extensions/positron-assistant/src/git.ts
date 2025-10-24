@@ -10,7 +10,7 @@ import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
 import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
-import { MD_DIR } from './constants';
+import { MARKDOWN_DIR } from './constants';
 
 const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
@@ -155,7 +155,7 @@ export async function generateCommitMessage(
 	const gitChanges = stagedChanges.length > 0 ? stagedChanges : allChanges;
 	log.trace(`[git] Sending changes ${JSON.stringify(gitChanges)} to model provider.`);
 
-	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/git/commit.md`, 'utf8');
+	const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'git', 'commit.md'), 'utf8');
 	try {
 		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
 			if (changes.length > 0) {
