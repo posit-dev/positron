@@ -8,7 +8,7 @@ import * as positron from 'positron';
 
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreServerState } from './ServerState.js';
-import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList } from './kcclient/api';
+import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList, SessionMode } from './kcclient/api';
 import { summarizeAxiosError } from './util';
 
 /**
@@ -210,18 +210,6 @@ export class KallichoreInstances {
 			kind: vscode.QuickPickItemKind.Separator
 		});
 
-		items.push({
-			label: `$(trash) ${vscode.l10n.t("Shutdown")}`,
-			detail: vscode.l10n.t("Stop this supervisor and terminate all sessions"),
-			action: 'shutdown'
-		});
-
-		items.push({
-			label: `$(note) ${vscode.l10n.t("Show Logs")}`,
-			detail: vscode.l10n.t("Open the supervisor log file"),
-			action: 'showLogs'
-		});
-
 		if (workspaceUri && result.record.workspaceName) {
 			items.push({
 				label: `$(folder) ${vscode.l10n.t("Open Workspace '{0}'", result.record.workspaceName)}`,
@@ -230,6 +218,18 @@ export class KallichoreInstances {
 				workspaceUri
 			});
 		}
+
+		items.push({
+			label: `$(note) ${vscode.l10n.t("Show Logs")}`,
+			detail: vscode.l10n.t("Open the supervisor log file"),
+			action: 'showLogs'
+		});
+
+		items.push({
+			label: `$(trash) ${vscode.l10n.t("Shutdown")}`,
+			detail: vscode.l10n.t("Stop this supervisor and terminate all sessions"),
+			action: 'shutdown'
+		});
 
 		items.push({
 			label: vscode.l10n.t("Sessions"),
@@ -289,20 +289,25 @@ export class KallichoreInstances {
 	 */
 	private static createQuickPickItem(result: SupervisorInspectionResult): SupervisorQuickPickItem {
 		const workspaceLabel = result.record.workspaceName ?? vscode.l10n.t("Unnamed Workspace");
-		const transportLabel = this.formatTransport(result.record.state.transport);
-		const description = vscode.l10n.t("PID {0} • {1}", result.record.state.server_pid, transportLabel);
+		const uptimeLabel = this.formatUptime(result.status?.uptime_seconds);
+		const description = uptimeLabel
+			? vscode.l10n.t("PID {0} • Started {1}", result.record.state.server_pid, uptimeLabel)
+			: vscode.l10n.t("PID {0} • {1}", result.record.state.server_pid, this.formatTransport(result.record.state.transport));
 
 		const detailParts: string[] = [];
 		if (result.status) {
-			detailParts.push(vscode.l10n.t("Sessions: {0}", result.status.sessions));
-			detailParts.push(vscode.l10n.t("Active: {0}", result.status.active));
+			if (result.status.sessions === 1) {
+				detailParts.push(vscode.l10n.t("1 session"));
+			} else {
+				detailParts.push(vscode.l10n.t("{0} sessions", result.status.sessions));
+			}
 			const idleDetail = this.describeActivity(result.status);
 			if (idleDetail) {
 				detailParts.push(idleDetail);
 			}
 		}
 		if (result.configuration) {
-			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours, result.status?.idle_seconds));
+			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours, result.status));
 		}
 		if (result.error) {
 			detailParts.push(vscode.l10n.t("Status unavailable: {0}", result.error));
@@ -337,10 +342,10 @@ export class KallichoreInstances {
 	 * Builds user-facing text describing the idle shutdown policy in effect.
 	 *
 	 * @param hours The idle shutdown threshold reported by the server.
-	 * @param idleSeconds The reported idle duration in seconds, used to compute remaining time.
+	 * @param status The server status used to determine remaining idle time, if available.
 	 * @returns User-friendly description of the shutdown behaviour.
 	 */
-	private static describeIdleShutdown(hours: number | undefined, idleSeconds: number | undefined): string {
+	private static describeIdleShutdown(hours: number | undefined, status: ServerStatus | undefined): string {
 		if (hours === undefined) {
 			return vscode.l10n.t("Idle shutdown: default");
 		}
@@ -351,6 +356,10 @@ export class KallichoreInstances {
 			return vscode.l10n.t("Idle shutdown: immediate");
 		}
 		const baseLabel = hours === 1 ? vscode.l10n.t("Idle shutdown: 1 hour") : vscode.l10n.t("Idle shutdown: {0} hours", hours);
+		if (!status || status.busy) {
+			return baseLabel;
+		}
+		const idleSeconds = status.idle_seconds;
 		if (idleSeconds === undefined) {
 			return baseLabel;
 		}
@@ -358,6 +367,40 @@ export class KallichoreInstances {
 		const remainingSeconds = Math.max(0, totalSeconds - idleSeconds);
 		const remainingLabel = this.formatHoursMinutes(remainingSeconds);
 		return vscode.l10n.t("{0} ({1} remaining)", baseLabel, remainingLabel);
+	}
+
+	/**
+	 * Converts an uptime duration into a relative "time ago" label.
+	 *
+	 * @param uptimeSeconds The reported uptime in seconds.
+	 * @returns A localized "time ago" label, if the uptime is valid.
+	 */
+	private static formatUptime(uptimeSeconds: number | undefined): string | undefined {
+		if (uptimeSeconds === undefined || !Number.isFinite(uptimeSeconds) || uptimeSeconds < 0) {
+			return undefined;
+		}
+		const seconds = Math.floor(uptimeSeconds);
+		if (seconds < 60) {
+			return seconds === 1 ? vscode.l10n.t("1 second ago") : vscode.l10n.t("{0} seconds ago", seconds);
+		}
+		const minutes = Math.floor(seconds / 60);
+		if (minutes < 60) {
+			return minutes === 1 ? vscode.l10n.t("1 minute ago") : vscode.l10n.t("{0} minutes ago", minutes);
+		}
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) {
+			return hours === 1 ? vscode.l10n.t("1 hour ago") : vscode.l10n.t("{0} hours ago", hours);
+		}
+		const days = Math.floor(hours / 24);
+		if (days < 30) {
+			return days === 1 ? vscode.l10n.t("1 day ago") : vscode.l10n.t("{0} days ago", days);
+		}
+		const months = Math.floor(days / 30);
+		if (months < 12) {
+			return months === 1 ? vscode.l10n.t("1 month ago") : vscode.l10n.t("{0} months ago", months);
+		}
+		const years = Math.floor(months / 12);
+		return years === 1 ? vscode.l10n.t("1 year ago") : vscode.l10n.t("{0} years ago", years);
 	}
 
 	/**
@@ -511,18 +554,20 @@ export class KallichoreInstances {
 		return this.context;
 	}
 
+	/**
+	 * Creates a Quick Pick entry that summarizes an active session for the inspector UI.
+	 *
+	 * @param session The active session returned from the supervisor.
+	 * @returns A Quick Pick item with session metadata bound to it.
+	 */
 	private static createSessionQuickPickItem(session: ActiveSession): SupervisorSessionQuickPickItem {
-		const icon = this.getSessionIcon(session.status);
+		const icon = this.getSessionIcon(session.session_mode);
 		const label = `${icon} ${session.display_name} (${session.language})`;
 		const connectionState = session.connected ? vscode.l10n.t("Connected") : vscode.l10n.t("Disconnected");
 		const parts: string[] = [
 			vscode.l10n.t("Status: {0}", session.status),
 			connectionState
 		];
-		const modeDetail = this.describeSessionMode(session);
-		if (modeDetail) {
-			parts.unshift(modeDetail);
-		}
 		const activity = this.describeSessionActivity(session);
 		if (activity) {
 			parts.push(activity);
@@ -535,6 +580,12 @@ export class KallichoreInstances {
 		};
 	}
 
+	/**
+	 * Summarizes session activity so it can be displayed in the inspector UI.
+	 *
+	 * @param session The active session whose activity should be described.
+	 * @returns A localized description of recent activity, or undefined when not applicable.
+	 */
 	private static describeSessionActivity(session: ActiveSession): string | undefined {
 		if (session.status === 'busy' && session.busy_seconds > 0) {
 			return vscode.l10n.t("Busy {0}", this.formatDuration(session.busy_seconds));
@@ -545,61 +596,25 @@ export class KallichoreInstances {
 		return undefined;
 	}
 
-	private static describeSessionMode(session: ActiveSession): string | undefined {
-		const mode = this.getSessionMode(session);
-		switch (mode) {
-			case 'console':
-				return `$(terminal) ${vscode.l10n.t("Console session")}`;
-			case 'notebook':
-				return `$(notebook) ${vscode.l10n.t("Notebook session")}`;
-			default:
-				return undefined;
+	/**
+	 * Selects an icon string that represents the session mode in the Quick Pick UI.
+	 *
+	 * @param mode The session mode reported by the supervisor.
+	 * @returns The codicon identifier to prefix the session label with.
+	 */
+	private static getSessionIcon(mode: SessionMode): string {
+		if (mode === 'notebook') {
+			return '$(notebook)';
 		}
+		return '$(terminal)';
 	}
 
-	private static getSessionMode(session: ActiveSession): string | undefined {
-		const direct = this.extractModeFromSource(session);
-		if (direct) {
-			return direct;
-		}
-		return this.extractModeFromKernelInfo(session.kernel_info);
-	}
-
-	private static extractModeFromKernelInfo(kernelInfo: object): string | undefined {
-		if (typeof kernelInfo !== 'object' || kernelInfo === null) {
-			return undefined;
-		}
-		const kernelInfoRecord = kernelInfo as Record<string, unknown>;
-		const metadata = kernelInfoRecord.metadata;
-		if (typeof metadata !== 'object' || metadata === null) {
-			return undefined;
-		}
-		const metadataRecord = metadata as Record<string, unknown>;
-		const positronMetadata = metadataRecord.positron;
-		return this.extractModeFromSource(positronMetadata) ?? this.extractModeFromSource(metadataRecord);
-	}
-
-	private static extractModeFromSource(source: unknown): string | undefined {
-		if (typeof source !== 'object' || source === null) {
-			return undefined;
-		}
-		const record = source as Record<string, unknown>;
-		for (const key of ['mode', 'sessionMode', 'session_mode']) {
-			const value = record[key];
-			if (typeof value === 'string' && value.trim().length > 0) {
-				return value.trim().toLowerCase();
-			}
-		}
-		return undefined;
-	}
-
-	private static getSessionIcon(status: string): string {
-		if (status === 'busy') {
-			return '$(circle-large-filled)';
-		}
-		return '$(circle-large-outline)';
-	}
-
+	/**
+	 * Resolves a stored supervisor record to a workspace URI if one is known.
+	 *
+	 * @param record The supervisor record that may contain a serialized workspace URI.
+	 * @returns The parsed workspace URI, or undefined when unavailable.
+	 */
 	private static parseWorkspaceUri(record: StoredKallichoreInstance): vscode.Uri | undefined {
 		if (record.workspaceUri) {
 			try {
@@ -611,6 +626,12 @@ export class KallichoreInstances {
 		return this.resolveWorkspaceUri(record.workspaceName);
 	}
 
+	/**
+	 * Locates a workspace folder by name within the current VS Code session.
+	 *
+	 * @param workspaceName The display name of the workspace folder.
+	 * @returns The URI of the workspace folder if it is open, otherwise undefined.
+	 */
 	private static resolveWorkspaceUri(workspaceName: string | undefined): vscode.Uri | undefined {
 		if (!workspaceName) {
 			return undefined;
@@ -619,6 +640,13 @@ export class KallichoreInstances {
 		return folder?.uri;
 	}
 
+	/**
+	 * Handles the shutdown action by prompting the user and invoking the server shutdown API.
+	 *
+	 * @param result The supervisor inspection result containing the API client and state.
+	 * @param supervisorLabel The user-facing label of the supervisor being shut down.
+	 * @returns A promise that resolves once the shutdown flow completes.
+	 */
 	private static async handleShutdownAction(result: SupervisorInspectionResult, supervisorLabel: string): Promise<void> {
 		const confirmed = await positron.window.showSimpleModalDialogPrompt(
 			vscode.l10n.t("Shut Down Supervisor"),
@@ -641,6 +669,12 @@ export class KallichoreInstances {
 		}
 	}
 
+	/**
+	 * Opens the supervisor log file in an editor when available, reporting failures to the user.
+	 *
+	 * @param result The supervisor inspection result that includes the log path.
+	 * @returns A promise that resolves after the log open workflow finishes.
+	 */
 	private static async handleShowLogsAction(result: SupervisorInspectionResult): Promise<void> {
 		const logPath = result.record.state.log_path;
 		if (!logPath) {
@@ -657,6 +691,13 @@ export class KallichoreInstances {
 		}
 	}
 
+	/**
+	 * Opens the workspace tied to a supervisor in a new VS Code window when possible.
+	 *
+	 * @param workspaceUri The URI of the workspace folder that should be opened.
+	 * @param supervisorLabel The label shown in the UI for the supervisor being opened.
+	 * @returns A promise that resolves after the open workspace command completes.
+	 */
 	private static async handleOpenWorkspaceAction(workspaceUri: vscode.Uri, supervisorLabel: string): Promise<void> {
 		try {
 			await vscode.commands.executeCommand('vscode.openFolder', workspaceUri, true);
