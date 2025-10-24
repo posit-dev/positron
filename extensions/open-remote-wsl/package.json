@@ -1,7 +1,7 @@
 {
   "name": "open-remote-wsl",
-  "displayName": "Open Remote - WSL",
-  "description": "Open any folder in the Windows Subsystem for Linux (WSL).",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "0.0.5",
   "publisher": "jeanp413",
   "repository": {
@@ -40,11 +40,11 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "WSL",
+      "title": "%configuration.title%",
       "properties": {
         "remote.WSL.serverDownloadUrlTemplate": {
           "type": "string",
-          "description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64\n- ${arch-long}: Positron server arch in long format, e.g. x86_64, arm64",
+          "description": "%configuration.remote.WSL.serverDownloadUrlTemplate.description%",
           "scope": "application",
           "default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
         }
@@ -54,7 +54,7 @@
       "remote": [
         {
           "id": "wslTargets",
-          "name": "WSL Targets",
+          "name": "%views.remote.wslTargets.name%",
           "group": "targets@1",
           "when": "(isWindows && !isWeb)",
           "remoteName": "wsl"
@@ -64,69 +64,69 @@
     "commands": [
       {
         "command": "openremotewsl.connect",
-        "title": "Connect to WSL",
-        "category": "Remote-WSL"
+        "title": "%command.openremotewsl.connect.title%",
+        "category": "%command.openremotewsl.category%"
       },
       {
         "command": "openremotewsl.connectInNewWindow",
-        "title": "Connect to WSL in New Window",
-        "category": "Remote-WSL"
+        "title": "%command.openremotewsl.connectInNewWindow.title%",
+        "category": "%command.openremotewsl.category%"
       },
       {
         "command": "openremotewsl.connectUsingDistro",
-        "title": "Connect to WSL using Distro...",
-        "category": "Remote-WSL"
+        "title": "%command.openremotewsl.connectUsingDistro.title%",
+        "category": "%command.openremotewsl.category%"
       },
       {
         "command": "openremotewsl.connectUsingDistroInNewWindow",
-        "title": "Connect to WSL using Distro in New Window...",
-        "category": "Remote-WSL"
+        "title": "%command.openremotewsl.connectUsingDistroInNewWindow.title%",
+        "category": "%command.openremotewsl.category%"
       },
       {
         "command": "openremotewsl.showLog",
-        "title": "Show Log",
-        "category": "Remote-WSL"
+        "title": "%command.openremotewsl.showLog.title%",
+        "category": "%command.openremotewsl.category%"
       },
       {
         "command": "openremotewsl.explorer.emptyWindowInNewWindow",
-        "title": "Connect in New Window",
+        "title": "%command.openremotewsl.explorer.emptyWindowInNewWindow.title%",
         "icon": "$(empty-window)"
       },
       {
         "command": "openremotewsl.explorer.emptyWindowInCurrentWindow",
-        "title": "Connect in Current Window"
+        "title": "%command.openremotewsl.explorer.emptyWindowInCurrentWindow.title%"
       },
       {
         "command": "openremotewsl.explorer.reopenFolderInCurrentWindow",
-        "title": "Open in Current Window"
+        "title": "%command.openremotewsl.explorer.reopenFolderInCurrentWindow.title%"
       },
       {
         "command": "openremotewsl.explorer.reopenFolderInNewWindow",
-        "title": "Open in New Window",
+        "title": "%command.openremotewsl.explorer.reopenFolderInNewWindow.title%",
         "icon": "$(folder-opened)"
       },
       {
         "command": "openremotewsl.explorer.deleteFolderHistoryItem",
-        "title": "Remove From Recent List",
+        "title": "%command.openremotewsl.explorer.deleteFolderHistoryItem.title%",
         "icon": "$(x)"
       },
       {
         "command": "openremotewsl.explorer.refresh",
-        "title": "Refresh",
+        "title": "%command.openremotewsl.explorer.refresh.title%",
         "icon": "$(refresh)"
       },
       {
         "command": "openremotewsl.explorer.addDistro",
-        "title": "Add a Distro",
+        "title": "%command.openremotewsl.explorer.addDistro.title%",
         "icon": "$(plus)"
       },
       {
         "command": "openremotewsl.explorer.setDefaultDistro",
-        "title": "Set as Default Distro"
+        "title": "%command.openremotewsl.explorer.setDefaultDistro.title%"
       },
       {
         "command": "openremotewsl.explorer.deleteDistro",
-        "title": "Delete Distro"
+        "title": "%command.openremotewsl.explorer.deleteDistro.title%"
       }
     ],
     "resourceLabelFormatters": [
@@ -137,7 +137,7 @@
           "label": "${path}",
           "separator": "/",
           "tildify": true,
-          "workspaceSuffix": "WSL"
+          "workspaceSuffix": "%resourceLabelFormatters.workspaceSuffix%"
         }
       }
     ],
@@ -174,6 +174,10 @@
         },
         {
           "command": "openremotewsl.connectUsingDistroInNewWindow",
+          "when": "(isWindows && !isWeb)"
+        },
+        {
+          "command": "openremotewsl.showLog",
           "when": "(isWindows && !isWeb)"
         },
         {
