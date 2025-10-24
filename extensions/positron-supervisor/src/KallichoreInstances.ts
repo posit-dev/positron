@@ -8,7 +8,7 @@ import * as positron from 'positron';
 
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreServerState } from './ServerState.js';
-import { DefaultApi, ServerConfiguration, ServerStatus, SessionList } from './kcclient/api';
+import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList } from './kcclient/api';
 import { summarizeAxiosError } from './util';
 
 /**
@@ -16,6 +16,7 @@ import { summarizeAxiosError } from './util';
  */
 interface StoredKallichoreInstance {
 	workspaceName?: string;
+	workspaceUri?: string;
 	state: KallichoreServerState;
 	lastSeen: number;
 }
@@ -36,6 +37,12 @@ interface SupervisorInspectionResult {
  */
 interface SupervisorQuickPickItem extends vscode.QuickPickItem {
 	instance: SupervisorInspectionResult;
+}
+
+interface SupervisorSessionQuickPickItem extends vscode.QuickPickItem {
+	action?: 'shutdown' | 'openWorkspace' | 'showLogs';
+	session?: ActiveSession;
+	workspaceUri?: vscode.Uri;
 }
 
 /**
@@ -69,7 +76,8 @@ export class KallichoreInstances {
 	public static async recordSupervisor(workspaceName: string | undefined, state: KallichoreServerState): Promise<void> {
 		const instances = await this.getStoredInstances();
 		const filtered = instances.filter(instance => !this.matchesInstance(instance.state, state));
-		filtered.push({ workspaceName, state, lastSeen: Date.now() });
+		const workspaceUri = this.resolveWorkspaceUri(workspaceName);
+		filtered.push({ workspaceName, workspaceUri: workspaceUri?.toString(), state, lastSeen: Date.now() });
 		await this.saveInstances(filtered);
 		this.log?.appendLine(`${this.timestamp()} [Positron] Added supervisor PID ${state.server_pid} to registry`);
 	}
@@ -125,6 +133,7 @@ export class KallichoreInstances {
 				// only retains valid entries.
 				const refreshedRecord: StoredKallichoreInstance = {
 					workspaceName: record.workspaceName,
+					workspaceUri: record.workspaceUri ?? this.resolveWorkspaceUri(record.workspaceName)?.toString(),
 					state: record.state,
 					lastSeen: Date.now()
 				};
@@ -193,30 +202,83 @@ export class KallichoreInstances {
 		}
 
 		const supervisorLabel = result.record.workspaceName ?? vscode.l10n.t("Unnamed Workspace");
-		const title = vscode.l10n.t("Sessions on {0}", supervisorLabel);
+		const workspaceUri = this.parseWorkspaceUri(result.record);
+		const items: SupervisorSessionQuickPickItem[] = [];
 
-		if (sessions) {
-			const content = sessions.sessions.length > 0 ? sessions.sessions.map(session => {
-				const status = session.status;
-				const duration = session.idle_seconds > 0 ? this.formatDuration(session.idle_seconds) : undefined;
-				const connectionState = session.connected ? vscode.l10n.t("Connected") : vscode.l10n.t("Disconnected");
-				const parts: string[] = [
-					`${session.display_name} (${session.language})`,
-					vscode.l10n.t("Status: {0}", status),
-					connectionState
-				];
-				if (duration) {
-					parts.push(vscode.l10n.t("Idle {0}", duration));
-				}
-				return parts.join(" • ");
-			}).join("\n") : vscode.l10n.t("No sessions are currently running.");
+		items.push({
+			label: vscode.l10n.t("Actions"),
+			kind: vscode.QuickPickItemKind.Separator
+		});
 
-			await positron.window.showSimpleModalDialogMessage(title, content, vscode.l10n.t("Close"));
+		items.push({
+			label: `$(trash) ${vscode.l10n.t("Shutdown")}`,
+			detail: vscode.l10n.t("Stop this supervisor and terminate all sessions"),
+			action: 'shutdown'
+		});
+
+		items.push({
+			label: `$(note) ${vscode.l10n.t("Show Logs")}`,
+			detail: vscode.l10n.t("Open the supervisor log file"),
+			action: 'showLogs'
+		});
+
+		if (workspaceUri && result.record.workspaceName) {
+			items.push({
+				label: `$(folder) ${vscode.l10n.t("Open Workspace '{0}'", result.record.workspaceName)}`,
+				detail: vscode.l10n.t("Open the workspace in a new window"),
+				action: 'openWorkspace',
+				workspaceUri
+			});
+		}
+
+		items.push({
+			label: vscode.l10n.t("Sessions"),
+			kind: vscode.QuickPickItemKind.Separator
+		});
+
+		if (sessions && sessions.sessions.length > 0) {
+			for (const session of sessions.sessions) {
+				items.push(this.createSessionQuickPickItem(session));
+			}
+		} else if (sessions) {
+			items.push({
+				label: `$(circle-large-outline) ${vscode.l10n.t("No sessions are currently running.")}`,
+				alwaysShow: true
+			});
+		} else if (error) {
+			items.push({
+				label: `$(warning) ${vscode.l10n.t("Unable to retrieve sessions")}`,
+				detail: error,
+				alwaysShow: true
+			});
+		}
+
+		const selection = await vscode.window.showQuickPick<SupervisorSessionQuickPickItem>(items, {
+			placeHolder: vscode.l10n.t("Select an action or session for {0}", supervisorLabel),
+			ignoreFocusOut: true
+		});
+
+		if (!selection) {
 			return;
 		}
 
-		const message = vscode.l10n.t("Unable to retrieve sessions: {0}", error ?? vscode.l10n.t("Unknown error"));
-		await positron.window.showSimpleModalDialogMessage(title, message, vscode.l10n.t("Close"));
+		switch (selection.action) {
+			case 'shutdown':
+				await this.handleShutdownAction(result, supervisorLabel);
+				return;
+			case 'showLogs':
+				await this.handleShowLogsAction(result);
+				return;
+			case 'openWorkspace':
+				if (selection.workspaceUri) {
+					await this.handleOpenWorkspaceAction(selection.workspaceUri, supervisorLabel);
+				} else {
+					await vscode.window.showErrorMessage(vscode.l10n.t("Workspace location is unavailable."));
+				}
+				return;
+			default:
+				return;
+		}
 	}
 
 	/**
@@ -248,7 +310,7 @@ export class KallichoreInstances {
 		const detail = detailParts.length ? detailParts.join(" • ") : undefined;
 
 		return {
-			label: workspaceLabel,
+			label: `$(folder) ${workspaceLabel}`,
 			description,
 			detail,
 			instance: result
@@ -447,6 +509,161 @@ export class KallichoreInstances {
 			throw new Error('KallichoreInstances has not been initialized');
 		}
 		return this.context;
+	}
+
+	private static createSessionQuickPickItem(session: ActiveSession): SupervisorSessionQuickPickItem {
+		const icon = this.getSessionIcon(session.status);
+		const label = `${icon} ${session.display_name} (${session.language})`;
+		const connectionState = session.connected ? vscode.l10n.t("Connected") : vscode.l10n.t("Disconnected");
+		const parts: string[] = [
+			vscode.l10n.t("Status: {0}", session.status),
+			connectionState
+		];
+		const modeDetail = this.describeSessionMode(session);
+		if (modeDetail) {
+			parts.unshift(modeDetail);
+		}
+		const activity = this.describeSessionActivity(session);
+		if (activity) {
+			parts.push(activity);
+		}
+
+		return {
+			label,
+			detail: parts.join(' • '),
+			session
+		};
+	}
+
+	private static describeSessionActivity(session: ActiveSession): string | undefined {
+		if (session.status === 'busy' && session.busy_seconds > 0) {
+			return vscode.l10n.t("Busy {0}", this.formatDuration(session.busy_seconds));
+		}
+		if (session.status !== 'busy' && session.idle_seconds > 0) {
+			return vscode.l10n.t("Idle {0}", this.formatDuration(session.idle_seconds));
+		}
+		return undefined;
+	}
+
+	private static describeSessionMode(session: ActiveSession): string | undefined {
+		const mode = this.getSessionMode(session);
+		switch (mode) {
+			case 'console':
+				return `$(terminal) ${vscode.l10n.t("Console session")}`;
+			case 'notebook':
+				return `$(notebook) ${vscode.l10n.t("Notebook session")}`;
+			default:
+				return undefined;
+		}
+	}
+
+	private static getSessionMode(session: ActiveSession): string | undefined {
+		const direct = this.extractModeFromSource(session);
+		if (direct) {
+			return direct;
+		}
+		return this.extractModeFromKernelInfo(session.kernel_info);
+	}
+
+	private static extractModeFromKernelInfo(kernelInfo: object): string | undefined {
+		if (typeof kernelInfo !== 'object' || kernelInfo === null) {
+			return undefined;
+		}
+		const kernelInfoRecord = kernelInfo as Record<string, unknown>;
+		const metadata = kernelInfoRecord.metadata;
+		if (typeof metadata !== 'object' || metadata === null) {
+			return undefined;
+		}
+		const metadataRecord = metadata as Record<string, unknown>;
+		const positronMetadata = metadataRecord.positron;
+		return this.extractModeFromSource(positronMetadata) ?? this.extractModeFromSource(metadataRecord);
+	}
+
+	private static extractModeFromSource(source: unknown): string | undefined {
+		if (typeof source !== 'object' || source === null) {
+			return undefined;
+		}
+		const record = source as Record<string, unknown>;
+		for (const key of ['mode', 'sessionMode', 'session_mode']) {
+			const value = record[key];
+			if (typeof value === 'string' && value.trim().length > 0) {
+				return value.trim().toLowerCase();
+			}
+		}
+		return undefined;
+	}
+
+	private static getSessionIcon(status: string): string {
+		if (status === 'busy') {
+			return '$(circle-large-filled)';
+		}
+		return '$(circle-large-outline)';
+	}
+
+	private static parseWorkspaceUri(record: StoredKallichoreInstance): vscode.Uri | undefined {
+		if (record.workspaceUri) {
+			try {
+				return vscode.Uri.parse(record.workspaceUri);
+			} catch {
+				return undefined;
+			}
+		}
+		return this.resolveWorkspaceUri(record.workspaceName);
+	}
+
+	private static resolveWorkspaceUri(workspaceName: string | undefined): vscode.Uri | undefined {
+		if (!workspaceName) {
+			return undefined;
+		}
+		const folder = vscode.workspace.workspaceFolders?.find(candidate => candidate.name === workspaceName);
+		return folder?.uri;
+	}
+
+	private static async handleShutdownAction(result: SupervisorInspectionResult, supervisorLabel: string): Promise<void> {
+		const confirmed = await positron.window.showSimpleModalDialogPrompt(
+			vscode.l10n.t("Shut Down Supervisor"),
+			vscode.l10n.t("Are you sure you want to shut down the supervisor for {0}? This will terminate all running sessions.", supervisorLabel),
+			vscode.l10n.t("Shut Down"),
+			vscode.l10n.t("Cancel")
+		);
+		if (!confirmed) {
+			return;
+		}
+
+		try {
+			await result.api!.shutdownServer({ timeout: 3000 });
+			await this.removeByPid(result.record.state.server_pid);
+			this.log?.appendLine(`${this.timestamp()} [Positron] Requested shutdown for supervisor PID ${result.record.state.server_pid}`);
+			await vscode.window.showInformationMessage(vscode.l10n.t("Supervisor shutdown requested."));
+		} catch (err) {
+			const message = summarizeAxiosError(err);
+			await vscode.window.showErrorMessage(vscode.l10n.t("Failed to shut down supervisor: {0}", message));
+		}
+	}
+
+	private static async handleShowLogsAction(result: SupervisorInspectionResult): Promise<void> {
+		const logPath = result.record.state.log_path;
+		if (!logPath) {
+			await vscode.window.showErrorMessage(vscode.l10n.t("No log file path is available for this supervisor."));
+			return;
+		}
+
+		try {
+			const document = await vscode.workspace.openTextDocument(vscode.Uri.file(logPath));
+			await vscode.window.showTextDocument(document, { preview: false });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			await vscode.window.showErrorMessage(vscode.l10n.t("Failed to open supervisor log file: {0}", message));
+		}
+	}
+
+	private static async handleOpenWorkspaceAction(workspaceUri: vscode.Uri, supervisorLabel: string): Promise<void> {
+		try {
+			await vscode.commands.executeCommand('vscode.openFolder', workspaceUri, true);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			await vscode.window.showErrorMessage(vscode.l10n.t("Failed to open workspace {0}: {1}", supervisorLabel, message));
+		}
 	}
 
 	/**
