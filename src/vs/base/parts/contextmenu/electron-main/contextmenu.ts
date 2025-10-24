@@ -66,7 +66,13 @@ export function registerContextMenuListener(): void {
 			// Notify Playwright that a context menu has opened and list its items
 			menu.on('menu-will-show', () => {
 				contextMenus.set(contextMenuId, menu);
-				app.emit('e2e:contextMenuShown', contextMenuId, menu.items.map(item => item.label));
+				// Emit a richer representation for each menu item so tests can inspect enabled/checked/visible
+				app.emit('e2e:contextMenuShown', contextMenuId, menu.items.map(item => ({
+					label: item.label,
+					enabled: item.enabled,
+					visible: item.visible,
+					checked: (typeof (item as any).checked !== 'undefined') ? !!(item as any).checked : undefined
+				})));
 			});
 
 			// Clean up context menu reference after it closes

@@ -60,6 +60,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+Shift+Enter', 'Run file in console');
 	}
 
+	public async selectNotebookKernel() {
+		await this.pressHotKeys('Cmd+J D', 'Select notebook kernel');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------

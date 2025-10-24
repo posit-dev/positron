@@ -4,7 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../infra/code.js';
-import test, { Locator, Page } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
+
+export type MenuItemState = {
+	label: string;
+	enabled?: boolean;
+	visible?: boolean;
+	checked?: boolean;
+};
 
 export class ContextMenu {
 	private get page(): Page { return this.code.driver.page; }
@@ -18,6 +25,23 @@ export class ContextMenu {
 		// Check if we're on macOS AND we have an Electron app instance
 		// Only macOS + Electron combination uses native context menus
 		this.isNativeMenu = process.platform === 'darwin' && !!this.code.electronApp;
+	}
+
+	/**
+	 * Trigger only: opens the context menu without selecting a submenu item.
+	 * - For native menus this returns the menu id/items from showContextMenu.
+	 * - For web menus this clicks the trigger and waits for the in-page menu to appear.
+	 */
+	private async triggerMenu(menuTrigger: Locator, menuTriggerButton: ClickButton = 'left'): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
+		if (this.isNativeMenu) {
+			// showContextMenu returns the native menu details
+			return this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
+		}
+
+		// Web: perform the same simple click as triggerAndClick originally did.
+		// Avoid waiting for '.monaco-menu' here to prevent flaky timing/race issues.
+		await menuTrigger.click({ button: menuTriggerButton });
+		return undefined;
 	}
 
 	/**
@@ -35,7 +59,8 @@ export class ContextMenu {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
 				this.code.logger.log(`Using web menu to select: ${menuItemLabel}`);
-				await menuTrigger.click({ button: menuTriggerButton });
+				await this.triggerMenu(menuTrigger, menuTriggerButton);
+
 				// Hover over the menu item
 				const menuItem = menuItemType === 'menuitemcheckbox'
 					? this.getContextMenuCheckboxItem(menuItemLabel)
@@ -58,9 +83,9 @@ export class ContextMenu {
 	 * Note: This method is designed to work in both browser and electron!
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
-	 * @returns Array of menu item labels
+	 * @returns Array of menu item objects { label, enabled?, checked? }
 	 */
-	async getMenuItems(menuTrigger: Locator): Promise<string[]> {
+	async getMenuItems(menuTrigger: Locator): Promise<{ label: string; enabled?: boolean; visible?: boolean; checked?: boolean }[]> {
 		return await test.step(`Get context menu items`, async () => {
 			if (this.isNativeMenu) {
 				const menuItems = await this.showContextMenu(() => menuTrigger.click());
@@ -73,17 +98,22 @@ export class ContextMenu {
 				await menuTrigger.click();
 				const menuItems = this.contextMenuItems;
 				const count = await menuItems.count();
-				const labels: string[] = [];
+				const items: { label: string; enabled?: boolean; visible?: boolean; checked?: boolean }[] = [];
 
 				for (let i = 0; i < count; i++) {
 					const menuItem = menuItems.nth(i);
 					const label = await menuItem.textContent();
 					if (label) {
-						labels.push(label.trim());
+						const trimmed = label.trim();
+						const enabled = await menuItem.isEnabled().catch(() => true);
+						const ariaChecked = await menuItem.getAttribute('aria-checked').catch(() => null);
+						const cls = (await menuItem.getAttribute('class')) || '';
+						const checked = ariaChecked !== null ? ariaChecked === 'true' : (cls.includes('checked') || cls.includes('checkbox-checked')) || undefined;
+						items.push({ label: trimmed, enabled, visible: await menuItem.isVisible().catch(() => true), checked });
 					}
 				}
 				await this.closeContextMenu();
-				return labels;
+				return items;
 			}
 		});
 	}
@@ -110,15 +140,15 @@ export class ContextMenu {
 	 * @param trigger A function that triggers the context menu (e.g., a click on a button)
 	 * @returns
 	 */
-	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: string[] } | undefined> {
+	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
 		try {
 			if (!this.code.electronApp) {
 				throw new Error(`Electron app is not available. Platform: ${process.platform}`);
 			}
 
-			const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
+			const shownPromise: Promise<[number, MenuItemState[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
 				return new Promise((resolve) => {
-					const listener: any = (...args: [number, string[]]) => {
+					const listener: any = (...args: [number, MenuItemState[]]) => {
 						app.removeListener('e2e:contextMenuShown' as any, listener);
 						resolve(args);
 					};
@@ -130,7 +160,7 @@ export class ContextMenu {
 
 			const [shownEvent] = await Promise.all([shownPromise, trigger()]);
 			if (shownEvent) {
-				const [menuId, items] = shownEvent;
+				const [menuId, items] = shownEvent as [number, MenuItemState[]];
 				return { menuId, items };
 			}
 			return undefined;
@@ -166,20 +196,20 @@ export class ContextMenu {
 		if (menuItems) {
 			// Verify the requested menu item exists
 			const menuItemExists = typeof menuItemLabel === 'string'
-				? menuItems.items.includes(menuItemLabel)
-				: menuItems.items.some(item => menuItemLabel.test(item));
+				? menuItems.items.some(item => item.label === menuItemLabel)
+				: menuItems.items.some(item => menuItemLabel.test(item.label));
 
 			if (!menuItemExists) {
 				const labelStr = typeof menuItemLabel === 'string'
 					? menuItemLabel
 					: menuItemLabel.toString();
-				throw new Error(`Context menu '${labelStr}' not found. Available items: ${menuItems.items.join(', ')}`);
+				throw new Error(`Context menu '${labelStr}' not found. Available items: ${menuItems.items.map(i => i.label).join(', ')}`);
 			}
 
 			// For RegExp, find the first matching item
 			const actualItemLabel = typeof menuItemLabel === 'string'
 				? menuItemLabel
-				: menuItems.items.find(item => menuItemLabel.test(item));
+				: menuItems.items.find(item => menuItemLabel.test(item.label))!.label;
 
 			if (!actualItemLabel) {
 				throw new Error('Failed to find matching menu item');
@@ -193,6 +223,73 @@ export class ContextMenu {
 				: menuItemLabel.toString();
 			throw new Error(`Context menu '${labelStr}' did not appear or no menu items found.`);
 		}
+	}
+
+	/**
+	 * Verify: Verifies the states of multiple context menu items.
+	 * @param param0 - menuTrigger, menuTriggerButton, menuItemStates
+	 */
+	async triggerAndVerify({ menuTrigger, menuTriggerButton = 'left', menuItemStates }:
+		Omit<ContextMenuClick, 'menuItemType' | 'menuItemLabel'> & { clickButton?: ClickButton; menuItemStates: MenuItemState[] }): Promise<void> {
+
+		const menuItems = await this.triggerMenu(menuTrigger, menuTriggerButton);
+
+		if (this.isNativeMenu) {
+			if (!menuItems) {
+				throw new Error('Context menu did not appear or no menu items found.');
+			}
+
+			// Verify each requested menu item state
+			for (const expectedItem of menuItemStates) {
+				const menuItem = menuItems.items.find(item =>
+					typeof expectedItem.label === 'string'
+						? item.label.includes(expectedItem.label)
+						: (expectedItem.label as RegExp).test(item.label)
+				);
+
+				if (!menuItem) {
+					throw new Error(`Context menu item '${expectedItem.label}' not found.`);
+				}
+
+				// verify enabled state
+				if (typeof expectedItem.enabled === 'boolean' && menuItem.enabled !== expectedItem.enabled) {
+					throw new Error(`Context menu item '${expectedItem.label}' enabled state mismatch.`);
+				}
+
+				// verify visibility state
+				if (typeof expectedItem.visible === 'boolean' && menuItem.visible !== expectedItem.visible) {
+					throw new Error(`Context menu item '${expectedItem.label}' visibility state mismatch.`);
+				}
+
+				// verify checked state
+				if (typeof expectedItem.checked === 'boolean' && menuItem.checked !== expectedItem.checked) {
+					throw new Error(`Context menu item '${expectedItem.label}' checked state mismatch.`);
+				}
+			}
+
+		} else {
+			for (const { label: menuLabel, visible, enabled } of menuItemStates) {
+				const menuItem = this.getContextMenuItem(menuLabel);
+
+				// verify visibility state
+				if (typeof visible === 'boolean') {
+					visible
+						? await expect(menuItem).toBeVisible({ timeout: 2000 })
+						: await expect(menuItem).not.toBeVisible({ timeout: 2000 });
+				}
+
+				// verify enabled state
+				if (typeof enabled === 'boolean') {
+					enabled
+						? await expect(menuItem).toBeEnabled({ timeout: 2000 })
+						: await expect(menuItem).toBeDisabled({ timeout: 2000 });
+				}
+
+				// verify checked state
+				// todo: not dealing with this right now. :)
+			}
+		}
+		await this.closeContextMenu();
 	}
 }
 

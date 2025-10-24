@@ -9,7 +9,7 @@ import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
-import { ContextMenu } from './dialog-contextMenu.js';
+import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -27,16 +27,18 @@ export class PositronNotebooks extends Notebooks {
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
-	private detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
-	private cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
-	private kernelStatusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' })
+	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
+	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
+
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
+	kernel: Kernel;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
+		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
 
 	// #region GETTERS
@@ -146,6 +148,7 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < numCellsToAdd; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 			}
+			await this.expectCellCountToBe(numCellsToAdd);
 		}
 	}
 
@@ -340,60 +343,6 @@ export class PositronNotebooks extends Notebooks {
 
 			// Give a small delay for focus to settle
 			await this.code.driver.page.waitForTimeout(100);
-		});
-	}
-
-	/**
-	 * Action: Select interpreter and wait for the kernel to be ready.
-	 * This combines selecting the interpreter with waiting for kernel connection to prevent flakiness.
-	 * Directly implements Positron-specific logic without unnecessary notebook type detection.
-	 */
-	async selectAndWaitForKernel(
-		kernelGroup: 'Python' | 'R',
-		desiredKernel = kernelGroup === 'Python'
-			? process.env.POSITRON_PY_VER_SEL!
-			: process.env.POSITRON_R_VER_SEL!
-	): Promise<void> {
-		await test.step(`Select kernel and wait for ready: ${desiredKernel}`, async () => {
-			// Ensure notebook is visible
-			await this.expectToBeVisible();
-
-			// Wait for kernel detection to complete
-			await expect(this.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
-			await expect(this.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
-
-			// Get the kernel status badge using data-testid
-			await expect(this.kernelStatusBadge).toBeVisible({ timeout: 5000 });
-
-			try {
-				// Check if the desired kernel is already selected
-				const currentKernelText = await this.kernelStatusBadge.textContent();
-				if (currentKernelText && currentKernelText.includes(desiredKernel) && currentKernelText.includes('Connected')) {
-					this.code.logger.log(`Kernel already selected and connected: ${desiredKernel}`);
-					return;
-				}
-			} catch (e) {
-				this.code.logger.log('Could not check current kernel status');
-			}
-
-			// Click on kernel status badge to open selection
-			await expect(async () => {
-				// we shouldn't need to retry this, but the input closes immediately sometimes
-				await this.contextMenu.triggerAndClick({
-					menuTrigger: this.kernelStatusBadge,
-					menuItemLabel: /Change Kernel/
-				});
-				// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
-				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
-			}).toPass({ timeout: 10000 });
-
-			await this.quickinput.waitForQuickInputClosed();
-			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
-
-			// Wait for the kernel status to show "Connected"
-			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout: 30000 });
-			this.code.logger.log('Kernel is connected and ready');
 		});
 	}
 
@@ -619,6 +568,120 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 	// #endregion
+
+
 }
 
+// -----------------
+//     Kernel
+// -----------------
+export class Kernel {
+	kernelStatusBadge: Locator;
 
+	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
+		this.kernelStatusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
+	}
+
+	// #region ACTIONS
+
+	async expectMenuToContain(menuItemStates: MenuItemState[]): Promise<void> {
+		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
+			await this.contextMenu.triggerAndVerify({
+				menuTrigger: this.kernelStatusBadge,
+				menuItemStates: menuItemStates
+			});
+		});
+	}
+
+	async select(
+		kernelGroup: 'Python' | 'R',
+		desiredKernel = kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!
+	): Promise<void> {
+		await test.step(`Select kernel: ${desiredKernel}`, async () => {
+			// sometimes the input closes immediately the 1st attempt in Playwright :(
+			await expect(async () => {
+				// select the kernel
+				await this.hotKeys.selectNotebookKernel();
+				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+				await this.quickinput.waitForQuickInputClosed();
+				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
+			}).toPass({ timeout: 10000 });
+		});
+	}
+
+	async restart(): Promise<void> {
+		await test.step('Restart kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.kernelStatusBadge,
+				menuItemLabel: 'Restart Kernel'
+			});
+		});
+	}
+
+	/**
+	 * Action: Select interpreter and wait for the kernel to be ready.
+	 * This combines selecting the interpreter with waiting for kernel connection to prevent flakiness.
+	 * Directly implements Positron-specific logic without unnecessary notebook type detection.
+	 */
+	async selectAndWaitForReady(
+		kernelGroup: 'Python' | 'R',
+		desiredKernel = kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!
+	): Promise<void> {
+		await test.step(`Select kernel and wait for ready: ${desiredKernel}`, async () => {
+			// Ensure notebook is visible
+			await this.notebooks.expectToBeVisible();
+
+			// Wait for kernel detection to complete
+			await expect(this.notebooks.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
+			await expect(this.notebooks.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
+
+			// Get the kernel status badge using data-testid
+			await expect(this.kernelStatusBadge).toBeVisible({ timeout: 5000 });
+
+			try {
+				// Check if the desired kernel is already selected
+				const currentKernelText = await this.kernelStatusBadge.textContent();
+				if (currentKernelText && currentKernelText.includes(desiredKernel) && currentKernelText.includes('Connected')) {
+					this.code.logger.log(`Kernel already selected and connected: ${desiredKernel}`);
+					return;
+				}
+			} catch (e) {
+				this.code.logger.log('Could not check current kernel status');
+			}
+
+			// we shouldn't need to retry this, but the input closes immediately the 1st attempt in Playwright
+			await expect(async () => {
+				// select the kernel
+				await this.hotKeys.selectNotebookKernel();
+				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			}).toPass({ timeout: 10000 });
+
+			await this.quickinput.waitForQuickInputClosed();
+			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
+
+			// wait for kernel
+			await this.expectBadgeToContain(kernelGroup, desiredKernel, 30000);
+			this.code.logger.log('Kernel is connected and ready');
+		});
+	}
+	// #endregion
+
+	// #region VERIFICATIONS
+
+	async expectBadgeToContain(kernelGroup: 'Python' | 'R',
+		desiredKernel = kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel badge to contain text: ${desiredKernel}`, async () => {
+			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout });
+		});
+	}
+	// #endregion
+
+}

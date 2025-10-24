@@ -96,7 +96,7 @@ export class Console {
 	async expectSessionContextMenuToContain(runtimes: string[]) {
 		await test.step('Verify `+` menu contains runtime(s)', async () => {
 			const menuItems = await this.contextMenu.getMenuItems(this.addSessionExpandMenuButton);
-			const filteredMenuItems = menuItems.filter(item => item !== 'Start Another...');
+			const filteredMenuItems = menuItems.filter(item => item.label !== 'Start Another...');
 
 			// Check if expected runtimes are present
 			expect(filteredMenuItems).toHaveLength(runtimes.length);
