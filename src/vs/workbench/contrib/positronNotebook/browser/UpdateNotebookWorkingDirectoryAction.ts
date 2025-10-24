@@ -17,6 +17,11 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
+import { resolveNotebookWorkingDirectory, resolvePath, makeDisplayPath } from '../../../services/runtimeSession/common/notebookWorkingDirectoryUtils.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 // Constants
 const UPDATE_ID = 'update';
@@ -56,6 +61,10 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const pathService = accessor.get(IPathService);
 		const workspaceContextService = accessor.get(IWorkspaceContextService);
+		const fileService = accessor.get(IFileService);
+		const configurationService = accessor.get(IConfigurationService);
+		const configurationResolverService = accessor.get(IConfigurationResolverService);
+		const logService = accessor.get(ILogService);
 
 		const notebookInstance = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
 		if (!notebookInstance) {
@@ -77,7 +86,15 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		}
 
 		// Get the new working directory based on the notebook location
-		const newWorkingDirectory = await this.resolveNotebookWorkingDirectory(notebook.uri);
+		const newWorkingDirectory = await resolveNotebookWorkingDirectory(
+			notebook.uri,
+			fileService,
+			configurationService,
+			configurationResolverService,
+			workspaceContextService,
+			pathService,
+			logService
+		);
 		if (!newWorkingDirectory) {
 			return;
 		}
@@ -92,36 +109,39 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		}
 
 		// Get the current working directory based on the session state
-		const currentWorkingDirectory = session.dynState.currentNotebookUri;
+		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
 		if (!currentWorkingDirectory) {
 			return;
 		}
 
 		// Resolve both paths (untildify + symlink resolution) for comparison
-		const currentWorkingDirectoryResolved = await this.resolvePath(currentWorkingDirectory);
-		const newWorkingDirectoryResolved = await this.resolvePath(newWorkingDirectory);
+		const currentWorkingDirectoryResolved = await resolvePath(
+			currentWorkingDirectory,
+			fileService,
+			pathService,
+			logService
+		);
+		const newWorkingDirectoryResolved = await resolvePath(
+			newWorkingDirectory,
+			fileService,
+			pathService,
+			logService
+		);
 
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
 			// Format the paths for display
-			const path = await pathService.path;
-			const workspaceFolder = workspaceContextService.getWorkspaceFolder(notebook.uri) || undefined;
-			const workspaceFolderName = workspaceFolder ? workspaceFolder.name : '';
-
-			// Convert an absolute path to a display path relative to the workspace folder if it's inside it
-			const makeDisplayPath = function (p: string): string {
-				if (!workspaceFolder) {
-					return p;
-				}
-				const workspaceFolderPath = workspaceFolder.uri.scheme === Schemas.file ? workspaceFolder.uri.fsPath : workspaceFolder.uri.path;
-				const relativePath = path.relative(workspaceFolderPath, p);
-				if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-					return p;
-				}
-				return path.join(workspaceFolderName, relativePath);
-			};
-
-			const currentWorkingDirectoryDisplay = makeDisplayPath(currentWorkingDirectoryResolved);
-			const newWorkingDirectoryDisplay = makeDisplayPath(newWorkingDirectoryResolved);
+			const currentWorkingDirectoryDisplay = await makeDisplayPath(
+				currentWorkingDirectoryResolved,
+				notebook.uri,
+				pathService,
+				workspaceContextService
+			);
+			const newWorkingDirectoryDisplay = await makeDisplayPath(
+				newWorkingDirectoryResolved,
+				notebook.uri,
+				pathService,
+				workspaceContextService
+			);
 
 			this.updateWorkingDirectory(
 				accessor,
