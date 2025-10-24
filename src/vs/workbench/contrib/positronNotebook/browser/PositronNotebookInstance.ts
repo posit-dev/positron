@@ -1242,11 +1242,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _clipboardCells: ICellDto2[] = [];
 
 	/**
-	 * Flag to track if the clipboard contains cut cells (vs copied cells)
-	 */
-	private _isClipboardCut: boolean = false;
-
-	/**
 	 * Copies the specified cells to the clipboard.
 	 * @param cells The cells to copy. If not provided, copies the currently selected cells
 	 */
@@ -1259,7 +1254,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Store internally for full-fidelity paste
 		this._clipboardCells = cellsToCopy.map(cell => cellToCellDto2(cell));
-		this._isClipboardCut = false;
 
 		// Also write to system clipboard as text
 		const clipboardText = serializeCellsToClipboard(cellsToCopy);
@@ -1282,7 +1276,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Copy cells first
 		this.copyCells(cellsToCut);
-		this._isClipboardCut = true;
 
 		// Delete the cells (this handles selection and focus automatically)
 		this.deleteCells(cellsToCut);
@@ -1336,12 +1329,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				},
 				() => endSelections, undefined, computeUndoRedo
 			);
-
-			// If this was a cut operation, clear the clipboard
-			if (this._isClipboardCut) {
-				this._clipboardCells = [];
-				this._isClipboardCut = false;
-			}
 
 			this._onDidChangeContent.fire();
 			// If successful, _syncCells() will have cleared the flag
