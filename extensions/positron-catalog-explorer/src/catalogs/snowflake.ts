@@ -28,13 +28,12 @@ const registration: CatalogProviderRegistration = {
 		let accountName: string | undefined;
 
 		if (provider instanceof SnowflakeCatalogProvider) {
-			// For authenticated providers
+			// Authenticated provider
 			accountName = provider.accountName;
 		} else {
-			// For placeholder providers, extract from ID
-			const idMatch = provider.id.match(/^snowflake:(.+)$/);
-			if (idMatch && idMatch[1]) {
-				accountName = idMatch[1];
+			// For placeholder providers
+			if (provider.id && provider.id.startsWith('snowflake:')) {
+				accountName = provider.id.substring('snowflake:'.length);
 			}
 		}
 		if (!accountName) {
@@ -43,21 +42,14 @@ const registration: CatalogProviderRegistration = {
 		}
 
 		// Remove from recent accounts list so it doesn't reappear on reload
-		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
-		if (recentAccounts.includes(accountName)) {
+		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY);
+		if (recentAccounts && recentAccounts.includes(accountName)) {
 			const updatedRecent = recentAccounts.filter(account => account !== accountName);
 			await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, updatedRecent);
-			console.log(`Removed ${accountName} from recent accounts list`);
 		}
-
-		// Clean up any stored credentials
-		const credentialKey = `snowflake-account:${accountName}`;
-		try {
-			await context.secrets.delete(credentialKey);
-		} catch (error) {
-			console.log(`No credentials found for ${accountName}`);
-		}
-
+		// We don't have any stored credentials to clear since we use browser SSO
+		// Just dispose the provider, which will close the connection if needed
+		provider.dispose();
 		console.log(`Successfully removed Snowflake account: ${accountName}`);
 
 	},
@@ -253,7 +245,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	public readonly accountName: string;
 
 	constructor(
-		private connection: snowflake.Connection,
+		public connection: snowflake.Connection,
 		accountName: string,
 	) {
 		this.accountName = accountName;
@@ -489,7 +481,7 @@ async function generateCode(
 		case 'python':
 			return getPythonCodeForSnowflakeTable(accountName, username, databaseName, schemaName, tableName);
 		case 'r':
-			return getRCodeForSnowflakeTable(accountName, databaseName, schemaName, tableName);
+			return await getRCodeForSnowflakeTable(accountName, username, databaseName, schemaName, tableName);
 		default:
 			throw new Error(`Code generation for language '${languageId}' is not supported for Snowflake`);
 	}
@@ -575,22 +567,69 @@ cursor.close()
  * Generate R code for accessing a Snowflake table
  *
  * @param accountName The Snowflake account name
- * @param database The database name
- * @param schema The schema name
- * @param table The table name
+ * @param username The Snowflake username
+ * @param database Optional database name
+ * @param schema Optional schema name
+ * @param table Optional table name
  * @returns Generated code and required dependencies
  */
-function getRCodeForSnowflakeTable(
+async function getRCodeForSnowflakeTable(
 	accountName: string,
-	database: string,
-	schema: string,
-	table: string
-): { code: string; dependencies: string[] } {
+	username: string,
+	database?: string,
+	schema?: string,
+	table?: string
+): Promise<{ code: string; dependencies: string[] }> {
 	const dependencies = ['DBI', 'odbc'];
 
-	// This is just a placeholder structure - the actual R code will be implemented by the user
-	const code = `# R code for Snowflake table access will go here
-# For ${accountName}.${database}.${schema}.${table} `;
+	const warehouse = await vscode.window.showInputBox({
+		prompt: 'Enter your warehouse name',
+		placeHolder: 'my-warehouse'
+	});
+
+	// Build a code template with the available parameters
+	let code = `library(odbc)
+library(DBI)
+
+con <- dbConnect(
+	odbc::odbc(),
+	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
+	server = "${accountName}.snowflakecomputing.com",
+	uid = "${username}",
+	pwd = "YOUR_CREDENTIALS",`; // pragma: allowlist secret
+
+	code += `\n\twarehouse = "${warehouse}",`;
+
+	// Add database if available
+	if (database) {
+		code += `,\n\tdatabase = "${database}"`;
+	}
+
+	// Add schema if available
+	if (schema) {
+		code += `,\n\tschema = "${schema}"`;
+	}
+
+	// Close the connection parameters
+	code += `
+)
+
+# Query data`;
+
+	// Add table-specific query if table is provided
+	if (table) {
+		code += `
+df <- dbGetQuery(con, "SELECT * FROM ${table} LIMIT 10")`;
+	} else {
+		code += `
+df <- dbGetQuery(con, "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()")`;
+	}
+
+	// Add disconnect statement
+	code += `
+
+# Disconnect when done
+dbDisconnect(con)`;
 
 	return { code, dependencies };
 }
