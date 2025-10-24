@@ -1,35 +1,54 @@
 ---
 name: positron-issue-creator
-description: This skill should be used when creating new GitHub issues for the Positron repository. It provides workflows for searching duplicates, selecting appropriate labels, gathering complete context through questioning, and writing terse, fluff-free issues that precisely describe what is needed or wrong. Use this skill when the user asks to file or create an issue for Positron.
+description: This skill should be used when drafting GitHub issues for the Positron repository. It provides workflows for searching duplicates, selecting appropriate labels, gathering complete context through questioning, and writing terse, fluff-free issues that precisely describe what is needed or wrong. The skill prepares issues for manual submission by the user. Use this skill when the user asks to draft or prepare an issue for Positron.
 ---
 
 # Positron Issue Creator
 
 ## Purpose
 
-This skill guides the creation of high-quality GitHub issues for the Positron IDE repository. It ensures issues are:
-- Thoroughly checked for duplicates before creation
+This skill guides the drafting of high-quality GitHub issues for the Positron IDE repository. It ensures issues are:
+- Thoroughly checked for duplicates before drafting
 - Properly labeled for efficient triage
 - Written with complete, specific information
 - Free of unnecessary fluff and filler
 - Actionable by the development team
+- Ready for manual submission by the user
 
 ## When to Use This Skill
 
 Use this skill when:
-- User explicitly asks to create, file, or report an issue
+- User explicitly asks to draft, create, file, or report an issue
 - User describes a bug or feature request that should be tracked
-- Creating documentation or improvement requests
-- User says "can you file an issue for..." or similar
+- Drafting documentation or improvement requests
+- User says "can you draft an issue for..." or similar
 
 Do NOT use this skill for:
 - Intake rotation duties (use `positron-intake-rotation` instead)
 - Responding to existing issues
 - General Positron development tasks
 
+## GitHub Access Policy
+
+**Read operations (ALLOWED):**
+- Search for existing issues and discussions via `gh` CLI
+- Fetch repository labels via `gh` CLI
+- View issue details for duplicate checking
+- Read any public repository information
+
+**Write operations (NOT ALLOWED):**
+- Creating issues directly via `gh issue create`
+- Commenting on issues
+- Modifying labels on existing issues
+- Any other GitHub write operations
+
+**Instead:** Prepare issues in markdown files or clipboard-ready format for manual user submission.
+
 ## Core Workflow
 
-Follow this workflow for every issue creation request:
+**Important:** This skill prepares issues for manual submission. It does NOT automatically create GitHub issues. The user maintains full control over submitting to GitHub.
+
+Follow this workflow for every issue drafting request:
 
 ### 1. Gather Complete Context
 
@@ -227,27 +246,60 @@ Ask user: "Does this accurately capture the issue? Would you like any changes be
 
 Make requested changes and show updated draft.
 
-### 6. Create the Issue
+### 6. Prepare Issue for Manual Submission
 
-Once user approves, create the issue using GitHub CLI:
+Once user approves the draft, offer options for how they want to use it:
+
+**Ask the user:** "How would you like me to prepare this issue?"
+- **Option 1:** Save to a markdown file
+- **Option 2:** Format for clipboard (provide text ready to copy)
+
+#### Option 1: Save to Markdown File
+
+Create a markdown file with all issue details:
 
 ```bash
-# Create the issue with title, body, and labels
-gh issue create \
-  --repo posit-dev/positron \
-  --title "Issue title here" \
-  --body "$(cat <<'EOF'
+# Create file with timestamp in name for uniqueness
+cat > "positron-issue-$(date +%Y%m%d-%H%M%S).md" <<'EOF'
+---
+title: Issue title here
+labels: area: console, Bug
+repository: posit-dev/positron
+---
+
 Full issue body here
 with multiple lines
 EOF
-)" \
-  --label "area: console,Bug"
 ```
 
-**After creation:**
-- Show the user the issue URL
-- Confirm issue was created successfully
-- Offer to add any additional comments or screenshots if needed
+**After saving:**
+- Show the file path
+- Remind user to manually create the issue on GitHub
+- Provide quick link: `https://github.com/posit-dev/positron/issues/new`
+
+#### Option 2: Format for Clipboard
+
+Present the issue in a format ready to copy:
+
+```markdown
+**Title:**
+Issue title here
+
+**Labels:**
+area: console, Bug
+
+**Body:**
+Full issue body here
+with multiple lines
+
+---
+Create this issue at: https://github.com/posit-dev/positron/issues/new
+```
+
+**After presenting:**
+- Explain that user should copy this text
+- Remind them to paste into GitHub's new issue form
+- Note that they'll need to manually select labels in the UI
 
 ## Important Guidelines
 
@@ -373,18 +425,19 @@ Load these reference documents when drafting issues:
 5. **Multiple issues in one** - Split into separate, focused issues
 6. **Assuming context** - Ask user to confirm unclear details
 7. **Skipping labels** - Always fetch and apply appropriate labels
-8. **Creating without user approval** - Always show draft and get confirmation
+8. **Preparing without user approval** - Always show draft and get confirmation before preparing files
 
 ## Success Criteria
 
-A successful issue creation means:
+A successful issue draft means:
 - No duplicates exist (or user confirmed it's distinct)
 - All necessary information is included
 - Issue is terse and free of fluff
 - Title accurately summarizes the issue
-- Appropriate labels applied
+- Appropriate labels identified
 - User approved the draft
-- Issue was successfully created on GitHub
+- Issue prepared in user's preferred format (markdown file or clipboard text)
+- User has clear instructions for manual submission to GitHub
 
 ## Workflow Summary
 
@@ -417,11 +470,13 @@ A successful issue creation means:
    ↓
    Iterate based on feedback
    ↓
-6. Create Issue
+6. Prepare for Submission
    ↓
-   Use gh issue create with approved content
+   Offer markdown file or clipboard format
    ↓
-   Provide issue URL to user
+   Save to file OR format for copying
+   ↓
+   Provide GitHub link and submission instructions
 ```
 
-Remember: The goal is to create clear, actionable issues that respect both the reporter's intent and the development team's time.
+Remember: The goal is to draft clear, actionable issues that respect both the reporter's intent and the development team's time. The user maintains full control over the final submission to GitHub.
