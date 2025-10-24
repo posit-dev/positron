@@ -23,11 +23,26 @@ const registration: CatalogProviderRegistration = {
 	addProvider: registerSnowflakeCatalog,
 	removeProvider: async (
 		context: vscode.ExtensionContext,
-		provider: SnowflakeCatalogProvider,
+		provider: CatalogProvider,
 	): Promise<void> => {
-		const accountName = provider.accountName;
+		let accountName: string | undefined;
 
-		// Also remove from recent accounts list
+		if (provider instanceof SnowflakeCatalogProvider) {
+			// For authenticated providers
+			accountName = provider.accountName;
+		} else {
+			// For placeholder providers, extract from ID
+			const idMatch = provider.id.match(/^snowflake:(.+)$/);
+			if (idMatch && idMatch[1]) {
+				accountName = idMatch[1];
+			}
+		}
+		if (!accountName) {
+			console.log('Could not determine account name for provider being removed');
+			return;
+		}
+
+		// Remove from recent accounts list so it doesn't reappear on reload
 		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
 		if (recentAccounts.includes(accountName)) {
 			const updatedRecent = recentAccounts.filter(account => account !== accountName);
@@ -35,17 +50,16 @@ const registration: CatalogProviderRegistration = {
 			console.log(`Removed ${accountName} from recent accounts list`);
 		}
 
-		// Clean up any stored credentials (for future expansion)
-		if (accountName) {
-			const credentialKey = `snowflake-account:${accountName}`;
-			try {
-				await context.secrets.delete(credentialKey);
-			} catch (error) {
-				console.log(`No credentials found for ${accountName}`);
-			}
+		// Clean up any stored credentials
+		const credentialKey = `snowflake-account:${accountName}`;
+		try {
+			await context.secrets.delete(credentialKey);
+		} catch (error) {
+			console.log(`No credentials found for ${accountName}`);
 		}
 
 		console.log(`Successfully removed Snowflake account: ${accountName}`);
+
 	},
 	listProviders: getSnowflakeCatalogs,
 };
@@ -65,42 +79,57 @@ export function registerSnowflakeProvider(
 }
 
 /**
- * Register a Snowflake catalog provider using External Browser SSO authentication.
+ * Register a Snowflake catalog provider using SSO authentication.
  */
 async function registerSnowflakeCatalog(
 	context: vscode.ExtensionContext,
+	account?: string,
 ): Promise<CatalogProvider | undefined> {
 	try {
 		// Get recent account names to suggest to the user
 		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
 
-		let account: string | undefined;
+		// User is not re-authenticating an existing account, prompt for account name
+		if (!account) {
+			// If we have recent accounts, show a quick pick first
+			if (recentAccounts.length > 0) {
+				// Add a "New Account" option at the end
+				const items = [
+					...recentAccounts.map(name => ({
+						label: name,
+						description: 'Recent account'
+					})),
+					{
+						label: 'Enter New Account...',
+						description: 'Provide a different account identifier'
+					}
+				];
 
-		// If we have recent accounts, show a quick pick first
-		if (recentAccounts.length > 0) {
-			// Add a "New Account" option at the end
-			const items = [
-				...recentAccounts.map(name => ({
-					label: name,
-					description: 'Recent account'
-				})),
-				{
-					label: 'Enter New Account...',
-					description: 'Provide a different account identifier'
+				const selection = await vscode.window.showQuickPick(items, {
+					placeHolder: 'Select a recent account or enter a new one',
+					ignoreFocusOut: true
+				});
+
+				if (!selection) {
+					return undefined; // User canceled
 				}
-			];
 
-			const selection = await vscode.window.showQuickPick(items, {
-				placeHolder: 'Select a recent account or enter a new one',
-				ignoreFocusOut: true
-			});
-
-			if (!selection) {
-				return undefined; // User canceled
-			}
-
-			if (selection.label === 'Enter New Account...') {
-				// User wants to enter a new account
+				if (selection.label === 'Enter New Account...') {
+					// User wants to enter a new account
+					account = await vscode.window.showInputBox({
+						prompt: 'Enter your Snowflake account identifier',
+						placeHolder: 'orgname-accountname',
+						validateInput: (value) => {
+							return value.trim() === '' ? 'Account name cannot be empty' : null;
+						},
+						ignoreFocusOut: true
+					});
+				} else {
+					// User selected an existing account
+					account = selection.label;
+				}
+			} else {
+				// No recent accounts, just show the input box
 				account = await vscode.window.showInputBox({
 					prompt: 'Enter your Snowflake account identifier',
 					placeHolder: 'orgname-accountname',
@@ -109,28 +138,13 @@ async function registerSnowflakeCatalog(
 					},
 					ignoreFocusOut: true
 				});
-			} else {
-				// User selected an existing account
-				account = selection.label;
 			}
-		} else {
-			// No recent accounts, just show the input box
-			account = await vscode.window.showInputBox({
-				prompt: 'Enter your Snowflake account identifier',
-				placeHolder: 'orgname-accountname',
-				validateInput: (value) => {
-					return value.trim() === '' ? 'Account name cannot be empty' : null;
-				},
-				ignoreFocusOut: true
-			});
 		}
 
+		// If still no account, user canceled
 		if (!account) {
 			return undefined;
 		}
-
-		// Save this account to recent accounts
-		await saveRecentAccount(context, account);
 
 		const connection = snowflake.createConnection({
 			account: account,
@@ -154,8 +168,9 @@ async function registerSnowflakeCatalog(
 					});
 				});
 
-				// Return new provider with established connection
-				return new SnowflakeCatalogProvider(connection, account);
+				// account will not be undefined here because we check for it earlier
+				await saveRecentAccount(context, account!);
+				return new SnowflakeCatalogProvider(connection, account!);
 			},
 		);
 	} catch (error) {
@@ -170,12 +185,11 @@ async function registerSnowflakeCatalog(
  * Save an account name to the recent accounts list
  */
 async function saveRecentAccount(context: vscode.ExtensionContext, account: string): Promise<void> {
-	const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+	const stored = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+	// Create a new array with the current account at the front and no duplicates
+	const updatedAccounts = [account, ...stored.filter(a => a !== account)];
 
-	// Create a new Set to remove duplicates and ensure the most recently used account is first
-	const accountSet = new Set([account, ...recentAccounts]);
-
-	await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, accountSet);
+	await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, updatedAccounts);
 }
 
 /**
@@ -184,14 +198,50 @@ async function saveRecentAccount(context: vscode.ExtensionContext, account: stri
  * Note: For the browser authentication flow, we don't automatically maintain active sessions.
  * Users will need to re-authenticate when they restart VS Code or the extension is reloaded.
  * However, we remember their account names to make reconnecting easier.
+ * TODO: Investigate persistent authentication options.
  */
 async function getSnowflakeCatalogs(
-	_context: vscode.ExtensionContext
+	context: vscode.ExtensionContext
 ): Promise<CatalogProvider[]> {
+	const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
 
-	// Currently active providers list - we don't persist connections between sessions
-	// TODO: implement full persistence, and handle reconnection logic
-	return [];
+	// Create a minimal placeholder provider for each account
+	return recentAccounts.map(accountName => {
+		return {
+			id: `snowflake:${accountName}`,
+
+			dispose() { },
+
+			getTreeItem() {
+				const item = new vscode.TreeItem(
+					'Snowflake',
+					vscode.TreeItemCollapsibleState.None
+				);
+				item.description = accountName;
+				item.iconPath = registration.iconPath;
+				item.tooltip = `${accountName} (Click to authenticate)`;
+				item.contextValue = 'provider:snowflake:placeholder';
+				item.command = {
+					title: 'Authenticate',
+					// This will use the addProvider method with our registration and account name
+					// which will then call our registerSnowflakeCatalog function with the account name
+					command: 'posit.catalog-explorer.addCatalogProvider',
+					arguments: [registration, accountName],
+					tooltip: 'Click to authenticate with this Snowflake account'
+				};
+
+				return item;
+			},
+
+			getDetails() {
+				return Promise.resolve(`Snowflake account: ${accountName}`);
+			},
+
+			getChildren() {
+				return Promise.resolve([]);
+			}
+		};
+	});
 }
 
 /**
@@ -437,7 +487,7 @@ async function generateCode(
 
 	switch (languageId) {
 		case 'python':
-			return getPythonCodeForSnowflakeTable(accountName, databaseName, schemaName, tableName, username);
+			return getPythonCodeForSnowflakeTable(accountName, username, databaseName, schemaName, tableName);
 		case 'r':
 			return getRCodeForSnowflakeTable(accountName, databaseName, schemaName, tableName);
 		default:
@@ -449,6 +499,7 @@ async function generateCode(
  * Generate Python code for accessing a Snowflake table
  *
  * @param accountName The Snowflake account name
+ * @param username The Snowflake username
  * @param database The database name
  * @param schema The schema name
  * @param table The table name

@@ -223,6 +223,7 @@ class CatalogItem extends vscode.TreeItem {
 		switch (node.type) {
 			case 'provider':
 				this.iconPath = DEFAULT_PROVIDER_ICON;
+				this.tooltip = `${node.provider.id}`;
 				// Expand only "provider" entries by default.
 				this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 				break;
@@ -263,6 +264,7 @@ export interface CatalogProviderRegistration {
 	iconPath?: vscode.IconPath;
 	addProvider(
 		context: vscode.ExtensionContext,
+		account?: string,
 	): Promise<CatalogProvider | undefined>;
 	removeProvider?(
 		context: vscode.ExtensionContext,
@@ -302,14 +304,36 @@ export class CatalogProviderRegistry {
 		return sorted.map((v) => v.providers).flat();
 	}
 
-	async addProvider(context: vscode.ExtensionContext): Promise<void> {
-		const item = await vscode.window.showQuickPick(this.registry, {
-			title: 'Choose a Catalog Provider',
-		});
+	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string): Promise<void> {
+		let item = provider;
+		if (!provider) {
+			item = await vscode.window.showQuickPick(this.registry, {
+				title: 'Choose a Catalog Provider',
+			});
+		}
 		if (!item) {
 			return;
 		}
-		const added = await item.addProvider(context);
+
+		if (account) {
+			try {
+				const allProviders = await this.listAllProviders(context);
+
+				// Look for placeholder providers with the same account name
+				const placeholders = allProviders.filter(p =>
+					p.getTreeItem().contextValue?.includes('placeholder')
+				);
+
+				// Remove any matching placeholders
+				for (const placeholder of placeholders) {
+					await this.removeProvider(placeholder, context);
+				}
+			} catch (error) {
+				console.warn('Error removing placeholder provider:', error);
+				// Continue with adding the new provider even if removing placeholder fails
+			}
+		}
+		const added = await item.addProvider(context, account);
 		if (!added) {
 			return;
 		}
@@ -416,7 +440,7 @@ export function registerCatalogCommands(
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.addCatalogProvider',
-			async () => await registry.addProvider(context),
+			async (provider?, account?) => await registry.addProvider(context, provider, account),
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.removeCatalogProvider',
