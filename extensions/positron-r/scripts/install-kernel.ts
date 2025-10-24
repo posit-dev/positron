@@ -21,12 +21,114 @@ const mkdtempAsync = promisify(fs.mkdtemp);
 
 // Create a promisified version of https.get. We can't use the built-in promisify
 // because the callback doesn't follow the promise convention of (error, result).
-const httpsGetAsync = (opts: https.RequestOptions) => {
+const httpsGetAsync = (opts: https.RequestOptions | string | URL) => {
 	return new Promise<IncomingMessage>((resolve, reject) => {
 		const req = https.get(opts, resolve);
 		req.once('error', reject);
 	});
 };
+
+const readResponseBody = async (response: IncomingMessage): Promise<Buffer> => {
+	return await new Promise((resolve, reject) => {
+		const chunks: Buffer[] = [];
+		response.on('data', chunk => {
+			chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+		});
+		response.once('end', () => resolve(Buffer.concat(chunks)));
+		response.once('error', reject);
+	});
+};
+
+/**
+ * Information about a specific Ark asset to download.
+ */
+interface ArkAssetTarget {
+	/// The suffix of the asset file to download.
+	readonly assetSuffix: string;
+
+	/// An optional subdirectory into which the asset should be extracted.
+	readonly subdirectory?: string;
+
+	/// A human-readable label for the asset.
+	readonly label: string;
+}
+
+const redirectStatusCodes = new Set([301, 302, 307, 308]);
+
+type NodeArch = ReturnType<typeof arch>;
+
+/**
+ * Get the download targets for a specific platform and architecture.
+ *
+ * @param currentPlatform The current platform (e.g., 'win32', 'darwin', 'linux').
+ * @param currentArch The desired architecture (e.g., 'x64', 'arm64').
+ *
+ * @returns An array of ArkAssetTarget objects representing the download targets.
+ */
+function getDownloadTargets(currentPlatform: NodeJS.Platform, currentArch: NodeArch): ArkAssetTarget[] {
+	switch (currentPlatform) {
+		case 'win32':
+			// On Windows, we always download both the x64 and arm64 builds, since
+			// Windows on ARM can run x64 binaries via emulation.
+			return [
+				{ assetSuffix: 'windows-arm64', subdirectory: 'windows-arm64', label: 'Windows ARM64' },
+				{ assetSuffix: 'windows-x64', subdirectory: 'windows-x64', label: 'Windows x64' }
+			];
+		case 'darwin':
+			// Use the universal binary on macOS.
+			return [{ assetSuffix: 'darwin-universal', label: 'macOS Universal' }];
+		case 'linux':
+			// On Linux, we only download the build for the current architecture.
+			return [{
+				assetSuffix: currentArch === 'arm64' ? 'linux-arm64' : 'linux-x64',
+				label: currentArch === 'arm64' ? 'Linux ARM64' : 'Linux x64'
+			}];
+		default:
+			throw new Error(`Unsupported platform ${currentPlatform}.`);
+	}
+}
+
+/**
+ * Build the request options for downloading an Ark asset.
+ *
+ * @param url The URL of the asset to download.
+ * @param headers The headers to include in the request.
+ * @returns The request options for the HTTPS request.
+ */
+function buildRequestOptions(url: URL, headers: Record<string, string>): https.RequestOptions {
+	return {
+		headers,
+		method: 'GET',
+		protocol: url.protocol,
+		hostname: url.hostname,
+		path: `${url.pathname}${url.search}`
+	};
+}
+
+/**
+ * Downloads a release asset from GitHub.
+ *
+ * @param assetUrl The URL of the asset to download.
+ * @param headers The headers to include in the request.
+ * @returns The downloaded asset as a Buffer.
+ */
+async function downloadReleaseAsset(assetUrl: string, headers: Record<string, string>): Promise<Buffer> {
+	let requestUrl = new URL(assetUrl);
+	let response = await httpsGetAsync(buildRequestOptions(requestUrl, headers));
+	while (response.statusCode && redirectStatusCodes.has(response.statusCode)) {
+		const location = response.headers.location;
+		if (!location) {
+			throw new Error('Redirect response missing Location header while downloading Ark asset.');
+		}
+		requestUrl = new URL(location);
+		response = await httpsGetAsync(buildRequestOptions(requestUrl, headers));
+	}
+	if (response.statusCode !== 200) {
+		const body = await readResponseBody(response);
+		throw new Error(`Failed to download Ark: HTTP ${response.statusCode}\n\n${body.toString('utf-8')}`);
+	}
+	return await readResponseBody(response);
+}
 
 /**
  * Gets the version of Ark specified in package.json.
@@ -107,120 +209,81 @@ async function downloadAndReplaceArk(version: string,
 	githubPat: string | undefined): Promise<void> {
 
 	try {
-		const headers: Record<string, string> = {
+		const baseHeaders: Record<string, string> = {
 			'Accept': 'application/vnd.github.v3.raw',
 			'User-Agent': 'positron-ark-downloader'
 		};
-		// If we have a githubPat, set it for better rate limiting.
 		if (githubPat) {
-			headers.Authorization = `token ${githubPat}`;
+			baseHeaders.Authorization = `token ${githubPat}`;
 		}
-		const requestOptions: https.RequestOptions = {
-			headers,
+
+		const releasesResponse = await httpsGetAsync({
+			headers: baseHeaders,
 			method: 'GET',
 			protocol: 'https:',
 			hostname: 'api.github.com',
-			path: `/repos/posit-dev/ark/releases`
-		};
+			path: '/repos/posit-dev/ark/releases'
+		} as https.RequestOptions);
+		const releasesBuffer = await readResponseBody(releasesResponse);
+		if (releasesResponse.statusCode !== 200) {
+			throw new Error(`Failed to download Ark: HTTP ${releasesResponse.statusCode}\n\n${releasesBuffer.toString('utf-8')}`);
+		}
 
-		const response = await httpsGetAsync(requestOptions as any) as any;
+		const releases = JSON.parse(releasesBuffer.toString('utf-8'));
+		if (!Array.isArray(releases)) {
+			throw new Error(`Unexpected response from Github:\n\n${releasesBuffer.toString('utf-8')}`);
+		}
+		const release = releases.find((asset: any) => asset.tag_name === version);
+		if (!release) {
+			throw new Error(`Could not find Ark ${version} in the releases.`);
+		}
 
-		let responseBody = '';
+		const currentPlatform = platform() as NodeJS.Platform;
+		const currentArch = arch();
+		const targets = getDownloadTargets(currentPlatform, currentArch);
+		const arkDir = path.join('resources', 'ark');
+		await fs.promises.mkdir(arkDir, { recursive: true });
 
-		response.on('data', (chunk: any) => {
-			responseBody += chunk;
-		});
-
-		response.on('end', async () => {
-			if (response.statusCode !== 200) {
-				throw new Error(`Failed to download Ark: HTTP ${response.statusCode}\n\n` +
-					`${responseBody}`);
+		if (currentPlatform === 'win32') {
+			const legacyKernelPath = path.join(arkDir, 'ark.exe');
+			if (await existsAsync(legacyKernelPath)) {
+				await fs.promises.unlink(legacyKernelPath);
 			}
-			const releases = JSON.parse(responseBody);
-			if (!Array.isArray(releases)) {
-				throw new Error(`Unexpected response from Github:\n\n` +
-					`${responseBody}`);
-			}
-			const release = releases.find((asset: any) => asset.tag_name === version);
-			if (!release) {
-				throw new Error(`Could not find Ark ${version} in the releases.`);
-			}
+		}
 
-			let os: string;
-			switch (platform()) {
-				case 'win32': os = 'windows-x64'; break;
-				case 'darwin': os = 'darwin-universal'; break;
-				case 'linux': os = (arch() === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
-				default: {
-					throw new Error(`Unsupported platform ${platform()}.`);
-				}
-			}
-
-			const assetName = `ark-${version}-${os}.zip`;
-			const asset = release.assets.find((asset: any) => asset.name === assetName);
+		for (const target of targets) {
+			const assetName = `ark-${version}-${target.assetSuffix}.zip`;
+			const asset = release.assets?.find((item: any) => item.name === assetName);
 			if (!asset) {
 				throw new Error(`Could not find Ark with asset name ${assetName} in the release.`);
 			}
-			console.log(`Downloading Ark ${version} from ${asset.url}...`);
-			const url = new URL(asset.url);
-			// Reset the Accept header to download the asset.
-			headers.Accept = 'application/octet-stream';
-			const requestOptions: https.RequestOptions = {
-				headers,
-				method: 'GET',
-				protocol: url.protocol,
-				hostname: url.hostname,
-				path: url.pathname
+
+			console.log(`Downloading Ark ${version} (${target.label}) from ${asset.url}...`);
+			const assetHeaders = {
+				...baseHeaders,
+				Accept: 'application/octet-stream'
 			};
+			const binaryData = await downloadReleaseAsset(asset.url, assetHeaders);
 
-			let dlResponse = await httpsGetAsync(requestOptions) as any;
-			while (dlResponse.statusCode === 302) {
-				// Follow redirects.
-				dlResponse = await httpsGetAsync(dlResponse.headers.location) as any;
-			}
-			let binaryData = Buffer.alloc(0);
-
-			// Ensure we got a 200 response on the final request.
-			if (dlResponse.statusCode !== 200) {
-				throw new Error(`Failed to download Ark: HTTP ${dlResponse.statusCode}`);
+			if (binaryData.length < 1024) {
+				console.error(binaryData.toString('utf-8'));
+				throw new Error(`Binary data is too small (${binaryData.length} bytes); download probably failed.`);
 			}
 
-			dlResponse.on('data', (chunk: any) => {
-				binaryData = Buffer.concat([binaryData, chunk]);
-			});
-			dlResponse.on('end', async () => {
-				const arkDir = path.join('resources', 'ark');
+			const targetDir = target.subdirectory ? path.join(arkDir, target.subdirectory) : arkDir;
+			if (target.subdirectory) {
+				await fs.promises.rm(targetDir, { recursive: true, force: true });
+			}
+			await fs.promises.mkdir(targetDir, { recursive: true });
 
-				// Ensure we got some bytes. Less than 1024 bytes is probably
-				// an error; none of our assets are under 1mb
-				if (binaryData.length < 1024) {
-					// Log the data we did get
-					console.error(binaryData.toString('utf-8'));
-					throw new Error(
-						`Binary data is too small (${binaryData.length} bytes); download probably failed.`);
-				}
+			const zipFileDest = path.join(targetDir, 'ark.zip');
+			await writeFileAsync(zipFileDest, binaryData);
+			await decompress(zipFileDest, targetDir);
+			await fs.promises.unlink(zipFileDest);
+			console.log(`Successfully installed Ark ${version} (${target.label}).`);
+		}
 
-				// Create the resources/ark directory if it doesn't exist.
-				if (!await existsAsync(arkDir)) {
-					await fs.promises.mkdir(arkDir);
-				}
-
-				console.log(`Successfully downloaded Ark ${version} (${binaryData.length} bytes).`);
-				const zipFileDest = path.join(arkDir, 'ark.zip');
-				await writeFileAsync(zipFileDest, binaryData);
-
-				await decompress(zipFileDest, arkDir).then(files => {
-					console.log(`Successfully unzipped Ark ${version}.`);
-				});
-
-				// Clean up the zipfile.
-				await fs.promises.unlink(zipFileDest);
-
-				// Write a VERSION file with the version number.
-				await writeFileAsync(path.join('resources', 'ark', 'VERSION'), version);
-
-			});
-		});
+		await writeFileAsync(path.join('resources', 'ark', 'VERSION'), version);
 	} catch (error) {
 		throw new Error(`Error downloading Ark: ${error}`);
 	}
@@ -297,12 +360,18 @@ async function downloadFromGitHubRepository(
 
 		// Create the resources/ark directory if it doesn't exist
 		const arkDir = path.join('resources', 'ark');
-		if (!await existsAsync(arkDir)) {
-			await fs.promises.mkdir(arkDir, { recursive: true });
-		}
+		await fs.promises.mkdir(arkDir, { recursive: true });
 
-		// Copy the binary to the resources directory
+		// Copy the binary to the resources directory (root) so packaging picks it up
 		await fs.promises.copyFile(binaryPath, path.join(arkDir, kernelName));
+
+		// On Windows, also place the binary inside the architecture-specific subdirectory
+		if (platform() === 'win32') {
+			const windowsSubdir = process.arch === 'arm64' ? 'windows-arm64' : 'windows-x64';
+			const targetDir = path.join(arkDir, windowsSubdir);
+			await fs.promises.mkdir(targetDir, { recursive: true });
+			await fs.promises.copyFile(binaryPath, path.join(targetDir, kernelName));
+		}
 		console.log(`Successfully built and installed Ark from ${org}/${repo}@${revision}`);
 
 		// Write the version information to VERSION file

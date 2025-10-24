@@ -64,7 +64,10 @@ async function main() {
 		// On macOS, we need both the x64 and arm64 versions of the language
 		// server. By default npm just installs the one for the current CPU
 		// architecture.
-		if (platform() === 'darwin') {
+		//
+		// We also need to force the platform on windows since there is no arm64
+		// build of the copilot language server yet.
+		if (platform() === 'darwin' || platform() === 'win32') {
 			console.log(`Installing ${packageName} (${targetArch})...`);
 
 			// Use --force to prevent npm from blocking the installation due to
