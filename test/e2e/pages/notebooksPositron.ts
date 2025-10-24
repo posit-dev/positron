@@ -29,7 +29,7 @@ export class PositronNotebooks extends Notebooks {
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 	private cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
-	private kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
+	private kernelStatusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' })
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
@@ -123,7 +123,7 @@ export class PositronNotebooks extends Notebooks {
 		const config: Record<string, unknown> = {
 			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
 		};
-		await settings.set(config);
+		await settings.set(config, { reload: 'web' });
 	}
 
 	/**
@@ -376,29 +376,20 @@ export class PositronNotebooks extends Notebooks {
 				this.code.logger.log('Could not check current kernel status');
 			}
 
-			// Need to select the kernel
-			try {
-				// Click on kernel status badge to open selection
-				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
-				await expect(async () => {
-					// we shouldn't need to retry this, but the input closes immediately sometimes
-					await this.contextMenu.triggerAndClick({
-						menuTrigger: this.kernelStatusBadge,
-						menuItemLabel: `Change Kernel...`
-					});
-					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
-					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			// Click on kernel status badge to open selection
+			await expect(async () => {
+				// we shouldn't need to retry this, but the input closes immediately sometimes
+				await this.contextMenu.triggerAndClick({
+					menuTrigger: this.kernelStatusBadge,
+					menuItemLabel: /Change Kernel/
+				});
+				// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
+				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			}).toPass({ timeout: 10000 });
 
-					// Select the desired kernel
-					await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-					await this.quickinput.waitForQuickInputClosed();
-				}).toPass({ timeout: 10000 });
-
-				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
-			} catch (e) {
-				this.code.logger.log(`Failed to select kernel: ${e}`);
-				throw e;
-			}
+			await this.quickinput.waitForQuickInputClosed();
+			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
 			// Wait for the kernel status to show "Connected"
 			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout: 30000 });
