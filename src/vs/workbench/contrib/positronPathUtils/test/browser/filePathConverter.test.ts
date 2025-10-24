@@ -36,14 +36,14 @@ suite('File Path Converter Tests', () => {
 
 	// The isUNC() utility used to detect UNC paths literally only works on
 	// Windows.
-	(isWindows ? test : test.skip)('UNC path (URI-decoded format) is skipped entirely', () => {
+	(isWindows ? test : test.skip)('UNC path is not converted [can only be tested on Windows]', () => {
 		// This tests the real-world scenario where \\localhost\C$\path becomes localhost/C$/path after URI decoding
 		const uriListData = 'file://localhost/C$/Users/test/file.txt';
 		const result = convertClipboardFiles(uriListData);
 		assert.strictEqual(result, null);
 	});
 
-	(isWindows ? test : test.skip)('Mixed regular and UNC paths skips all conversion', () => {
+	(isWindows ? test : test.skip)('No conversion for mix of regular and UNC paths [can only be tested on Windows]', () => {
 		const uriListData = 'file:///c%3A/Users/test/file.txt\r\nfile://localhost/C$/Users/test/file.txt';
 		const result = convertClipboardFiles(uriListData);
 		assert.strictEqual(result, null);
