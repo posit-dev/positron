@@ -158,7 +158,8 @@ export class KallichoreInstances {
 			return;
 		}
 
-		const items = results.map(result => this.createQuickPickItem(result));
+		const sortedResults = [...results].sort((left, right) => this.getIdleSeconds(left) - this.getIdleSeconds(right));
+		const items = sortedResults.map(result => this.createQuickPickItem(result));
 		const selection = await vscode.window.showQuickPick(items, {
 			placeHolder: vscode.l10n.t("Select a kernel supervisor to inspect"),
 			ignoreFocusOut: true
@@ -239,7 +240,7 @@ export class KallichoreInstances {
 			}
 		}
 		if (result.configuration) {
-			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours));
+			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours, result.status?.idle_seconds));
 		}
 		if (result.error) {
 			detailParts.push(vscode.l10n.t("Status unavailable: {0}", result.error));
@@ -274,9 +275,10 @@ export class KallichoreInstances {
 	 * Builds user-facing text describing the idle shutdown policy in effect.
 	 *
 	 * @param hours The idle shutdown threshold reported by the server.
+	 * @param idleSeconds The reported idle duration in seconds, used to compute remaining time.
 	 * @returns User-friendly description of the shutdown behaviour.
 	 */
-	private static describeIdleShutdown(hours?: number): string {
+	private static describeIdleShutdown(hours: number | undefined, idleSeconds: number | undefined): string {
 		if (hours === undefined) {
 			return vscode.l10n.t("Idle shutdown: default");
 		}
@@ -286,10 +288,14 @@ export class KallichoreInstances {
 		if (hours === 0) {
 			return vscode.l10n.t("Idle shutdown: immediate");
 		}
-		if (hours === 1) {
-			return vscode.l10n.t("Idle shutdown: 1 hour");
+		const baseLabel = hours === 1 ? vscode.l10n.t("Idle shutdown: 1 hour") : vscode.l10n.t("Idle shutdown: {0} hours", hours);
+		if (idleSeconds === undefined) {
+			return baseLabel;
 		}
-		return vscode.l10n.t("Idle shutdown: {0} hours", hours);
+		const totalSeconds = hours * 3600;
+		const remainingSeconds = Math.max(0, totalSeconds - idleSeconds);
+		const remainingLabel = this.formatHoursMinutes(remainingSeconds);
+		return vscode.l10n.t("{0} ({1} remaining)", baseLabel, remainingLabel);
 	}
 
 	/**
@@ -341,6 +347,19 @@ export class KallichoreInstances {
 	}
 
 	/**
+	 * Converts a duration in seconds to a string formatted as H:MM.
+	 *
+	 * @param totalSeconds The total number of seconds remaining.
+	 * @returns A compact hours/minutes string suitable for UI display.
+	 */
+	private static formatHoursMinutes(totalSeconds: number): string {
+		const seconds = Math.max(0, Math.floor(totalSeconds));
+		const hours = Math.floor(seconds / 3600);
+		const minutes = Math.floor((seconds % 3600) / 60);
+		return `${hours}:${minutes.toString().padStart(2, '0')}`;
+	}
+
+	/**
 	 * Reads the current set of persisted supervisor entries.
 	 *
 	 * @returns A clone of the stored supervisor list.
@@ -373,6 +392,19 @@ export class KallichoreInstances {
 		const apiInstance = new KallichoreApiInstance(transport);
 		apiInstance.loadState(state);
 		return apiInstance.api;
+	}
+
+	/**
+	 * Retrieves the idle duration reported for a supervisor. Missing data sorts to the end.
+	 *
+	 * @param result The inspection result containing status information.
+	 * @returns Idle time in seconds, or a large sentinel when unavailable.
+	 */
+	private static getIdleSeconds(result: SupervisorInspectionResult): number {
+		if (!result.status) {
+			return Number.POSITIVE_INFINITY;
+		}
+		return result.status.idle_seconds;
 	}
 
 	/**
