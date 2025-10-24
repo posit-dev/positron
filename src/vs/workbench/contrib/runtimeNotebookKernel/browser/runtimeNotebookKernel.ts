@@ -10,6 +10,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -25,6 +26,8 @@ import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
+import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { NotebookExecutionQueue } from '../common/notebookExecutionQueue.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { RuntimeNotebookCellExecution } from './runtimeNotebookCellExecution.js';
@@ -103,6 +106,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 	constructor(
 		public readonly runtime: ILanguageRuntimeMetadata,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -169,20 +173,25 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 			if (!session) {
 				// There's no active session for the notebook, start one.
-				await this._progressService.withProgress({
-					location: ProgressLocation.Notification,
-					title: localize(
-						"positron.notebook.kernel.starting",
-						"Starting {0} interpreter for '{1}'",
-						this.label,
-						notebookUri.fsPath,
-					),
-				}, async () => {
-					return await this.ensureSessionStarted(
-						notebookUri,
-						`Runtime kernel ${this.id} executed cells for notebook`,
-					);
-				});
+				const ensureSessionStartedForNotebook = () => this.ensureSessionStarted(
+					notebookUri,
+					`Runtime kernel ${this.id} executed cells for notebook`,
+				);
+				// Don't show a progress bar if using Positron notebooks
+				if (checkPositronNotebookEnabled(this._configurationService) &&
+					usingPositronNotebooks(this._configurationService)) {
+					await ensureSessionStartedForNotebook();
+				} else {
+					await this._progressService.withProgress({
+						location: ProgressLocation.Notification,
+						title: localize(
+							"positron.notebook.kernel.starting",
+							"Starting {0} interpreter for '{1}'",
+							this.label,
+							notebookUri.fsPath,
+						),
+					}, ensureSessionStartedForNotebook);
+				}
 				session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 				if (!session) {
 					// We shouldn't get here since ensureSessionStarted should
