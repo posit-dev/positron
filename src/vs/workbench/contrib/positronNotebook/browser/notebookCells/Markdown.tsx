@@ -16,6 +16,8 @@ import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/Extern
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { renderNotebookMarkdown } from '../markdownRenderer.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 
 /**
  * Component that render markdown content from a string.
@@ -56,7 +58,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 	React.useEffect(() => {
 
 		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
-			services.commandService.executeCommand('markdown.api.render', content),
+			renderNotebookMarkdown(content, services.get(IExtensionService), services.languageService),
 			5000,
 		));
 

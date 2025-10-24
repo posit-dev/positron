@@ -22,6 +22,7 @@ import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { basename } from '../../../../../base/common/path.js';
+import { RuntimeIcon } from './runtimeIcon.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -67,8 +68,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
 	// Variables
-	const sessionId = positronConsoleInstance.sessionId;
-	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId;
+	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -91,8 +91,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		// the session, pick it up.
 		disposableStore.add(
 			services.runtimeSessionService.onDidUpdateNotebookSessionUri(e => {
-				if (e.sessionId === sessionId) {
-					const session = services.runtimeSessionService.getActiveSession(sessionId);
+				if (e.sessionId === positronConsoleInstance.sessionId) {
+					const session = services.runtimeSessionService.getActiveSession(positronConsoleInstance.sessionId);
 					if (session) {
 						setSessionName(session.session.getLabel());
 					}
@@ -251,15 +251,15 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		try {
 			// Updated to support proper deletion of sessions that have
 			// been shutdown or exited.
-			if (services.runtimeSessionService.getSession(sessionId)) {
+			if (services.runtimeSessionService.getSession(positronConsoleInstance.sessionId)) {
 				// Attempt to delete the session from the runtime session service.
 				// This will throw an error if the session is not found.
-				await services.runtimeSessionService.deleteSession(sessionId);
+				await services.runtimeSessionService.deleteSession(positronConsoleInstance.sessionId);
 			} else {
 				// If the session is not found, it may have been deleted already
 				// or is a provisional session. In this case, we can delete the
 				// session from the Positron Console service.
-				services.positronConsoleService.deletePositronConsoleSession(sessionId);
+				services.positronConsoleService.deletePositronConsoleSession(positronConsoleInstance.sessionId);
 			}
 		} catch (error) {
 			// Show an error notification if the session could not be deleted.
@@ -370,8 +370,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			ref={tabRef}
 			aria-controls={`console-panel-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			aria-label={positronConsoleInstance.sessionName}
-			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId}
-			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId && 'tab-button--active'}`}
+			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId}
+			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			role='tab'
 			tabIndex={isActiveTab ? 0 : -1}
@@ -379,16 +379,10 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onMouseDown={handleMouseDown}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			{
-				!isNotebookSession &&
-				<img
-					className='icon'
-					src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
-				/>
-			}
-			{isNotebookSession &&
-				<span className='codicon codicon-notebook icon'></span>
-			}
+			<RuntimeIcon
+				base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
+				sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
+			/>
 			{isRenamingSession ? (
 				<input
 					ref={inputRef}

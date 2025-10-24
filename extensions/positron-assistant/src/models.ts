@@ -1193,17 +1193,6 @@ export const availableModels = new Map<string, ModelDefinition[]>(
 				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
-			{
-				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Haiku',
-				identifier: 'claude-3-5-haiku',
-				maxInputTokens: 200_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
 		]],
 		['google', [
 			{
@@ -1237,16 +1226,6 @@ export const availableModels = new Map<string, ModelDefinition[]>(
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
 				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
-			},
-			{
-				name: 'Claude 3.5 Sonnet v2 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
-			},
-			{
-				name: 'Claude 3.5 Sonnet v1 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]]
 	]

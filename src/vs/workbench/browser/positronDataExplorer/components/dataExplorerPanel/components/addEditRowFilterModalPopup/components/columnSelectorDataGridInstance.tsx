@@ -18,9 +18,15 @@ import { DataExplorerClientInstance } from '../../../../../../../services/langua
  * Constants.
  */
 const ROW_HEIGHT = 26;
+const OVERSCAN_FACTOR = 3
 
 /**
  * ColumnSelectorDataGridInstance class.
+ *
+ * This class is used to display a list of the column names from a dataset
+ * in the column selector modal popup. The column selector modal popup is
+ * a DataGrid component. This instance manages the list of columns and
+ * supports searching for columns by name.
  */
 export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	//#region Private Properties
@@ -117,48 +123,39 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		);
 
 		// Set the column layout entries. There is always one column.
+		// The single column contains all the column names.
 		this._columnLayoutManager.setEntries(1);
 
 		// Set the row layout entries.
 		this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
-		/**
-		 * Updates the data grid instance.
-		 * @param backendState The backend state, if known; otherwise, undefined.
-		 */
-		const updateDataGridInstance = async (backendState?: BackendState) => {
-			// Get the backend state, if it was not supplied.
-			if (!backendState) {
-				backendState = await this._dataExplorerClientInstance.getBackendState();
-			}
-
-			// Update the backend state.
-			this._backendState = backendState;
-
-			// Set the layout entries in the row layout manager.
-			this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
-
-			// Scroll to the top.
-			await this.setScrollOffsets(0, 0);
-		};
-
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () =>
-			// Update the data grid instance.
-			updateDataGridInstance()
-		));
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the layout entries.
+			await this.updateLayoutEntries()
+
+			// Perform a soft reset.
+			this.softReset();
+
+			// Fetch data.
+			await this.fetchData(true);
+		}));
 
 		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () =>
-			// Update the data grid instance.
-			updateDataGridInstance()
-		));
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Update the layout entries.
+			await this.updateLayoutEntries()
+
+			// Fetch data.
+			await this.fetchData(true);
+		}));
 
 		// Add the onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState =>
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState => {
 			// Update the data grid instance.
-			updateDataGridInstance(backendState)
-		));
+			await this.updateLayoutEntries(backendState);
+			await this.fetchData(true);
+		}));
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._columnSchemaCache.onDidUpdateCache(() =>
@@ -209,16 +206,20 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Fetches data.
+	 * @param invalidateCache A value which indicates whether to invalidate the cache.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override async fetchData() {
+	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
 		if (rowDescriptor) {
-			await this._columnSchemaCache.update({
-				searchText: this._searchText,
-				firstColumnIndex: rowDescriptor.rowIndex,
-				visibleColumns: this.screenRows
-			});
+			// Get the layout indices for visible data.
+			const columnIndices = this._rowLayoutManager.getLayoutIndexes(this.verticalScrollOffset, this.layoutHeight, OVERSCAN_FACTOR);
+			if (columnIndices.length > 0 || invalidateCache) {
+				await this._columnSchemaCache.update({
+					columnIndices,
+					invalidateCache: !!invalidateCache
+				});
+			}
 		}
 	}
 
@@ -232,10 +233,23 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		return columnIndex === 0 ? this.layoutWidth - 8 : undefined;
 	}
 
+	/**
+	 * Select the column schema at the visual index provided.
+	 * @param rowIndex The row index (visual positional) of the selected item.
+	 */
 	selectItem(rowIndex: number): void {
-		// Get the column schema for the row index.
-		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
-		if (!columnSchema) { return; }
+		// The row index is the visible row index, so we need to map it to the actual index.
+		// For example, if the user has searched for a column name, the visible row index
+		// may not match the actual index in the dataset.
+		const index = this._rowLayoutManager.mapPositionToIndex(rowIndex);
+		if (index === undefined) {
+			return;
+		}
+		// Get the column schema using the actual index in the dataset
+		const columnSchema = this._columnSchemaCache.getColumnSchema(index);
+		if (!columnSchema) {
+			return;
+		}
 
 		this._onDidSelectColumnEmitter.fire(columnSchema);
 	}
@@ -243,7 +257,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
-	 * @param rowIndex The row index.
+	 * @param rowIndex The row index from the original dataset.
 	 * @returns The cell.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
@@ -252,16 +266,19 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			return undefined;
 		}
 
-		// Get the column schema for the row index.
+		// Get the column schema for the row index from the original dataset.
 		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
 
+		// Get the visual position for the row index from the original dataset.
+		const visualPosition = this._rowLayoutManager.mapIndexToPosition(rowIndex);
+
 		// Return the cell.
 		return (
 			<ColumnSelectorCell
-				columnIndex={rowIndex}
+				columnIndex={visualPosition ?? -1}
 				columnSchema={columnSchema}
 				instance={this}
 				onPressed={() => this._onDidSelectColumnEmitter.fire(columnSchema)}
@@ -290,16 +307,79 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 			// Set the search text and fetch data.
 			this._searchText = searchText;
-			await this.fetchData();
+			await this.updateLayoutEntries();
+			// Always invalidate the cache when search text changes,
+			// so the layout manager and cache are in sync.
+			await this.fetchData(true);
 
-			// select the first available row after fetching so that users cat hit "enter"
+			// select the first available row after fetching so that users can hit "enter"
 			// to make an immediate confirmation on what they were searching for
 			if (this.rows > 0) {
 				this.showCursor();
 				this.setCursorRow(0);
 			}
+
+			// Force a re-render when the search changes
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
 	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	* Updates the layout entries to render.
+	* @param backendState The backend state, if known; otherwise, undefined.
+	*/
+	private async updateLayoutEntries(backendState?: BackendState) {
+		if (!this._searchText) {
+			// Get the backend state, if it was not supplied.
+			if (!backendState) {
+				backendState = await this._dataExplorerClientInstance.getBackendState();
+			}
+			this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
+		} else {
+			const searchResults = await this._dataExplorerClientInstance.searchSchema2({
+				searchText: this._searchText,
+			});
+			this._rowLayoutManager.setEntries(searchResults.matches.length, undefined, searchResults.matches);
+		}
+	}
+
+	//#endregion Private Methods
+
+	/**
+	 * Moves the cursor down.
+	 * Override to work with visual positions instead of data indices.
+	 */
+	override moveCursorDown() {
+		// Calculate the next visual position
+		const nextRowIndex = this.cursorRowIndex + 1;
+		// Check if we're at the last row
+		if (nextRowIndex >= this.rows) {
+			return;
+		}
+		// Set the cursor row index to the next visual position
+		this.setCursorRow(nextRowIndex);
+		// Scroll to the cursor
+		this.scrollToCursor();
+	}
+
+	/**
+	 * Moves the cursor up.
+	 * Override to work with visual positions instead of data indices.
+	 */
+	override moveCursorUp() {
+		// Calculate the previous visual position
+		const prevRowIndex = this.cursorRowIndex - 1;
+		// Check if we're at the first row
+		if (prevRowIndex < 0) {
+			return;
+		}
+		// Set the cursor row index to the previous visual position
+		this.setCursorRow(prevRowIndex);
+		// Scroll to the cursor
+		this.scrollToCursor();
+	}
 }

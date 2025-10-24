@@ -48,6 +48,9 @@ import { getPiiPathsFromEnvironment, isInternalTelemetry, isLoggingOnly, ITeleme
 import ErrorTelemetry from '../../platform/telemetry/node/errorTelemetry.js';
 import { IPtyService, TerminalSettingId } from '../../platform/terminal/common/terminal.js';
 import { PtyHostService } from '../../platform/terminal/node/ptyHostService.js';
+// --- Start PWB ---
+import { AdminPolicyService, IAdminPolicyService } from '../../platform/policy/common/adminPolicyService.js';
+// --- End PWB ---
 import { IUriIdentityService } from '../../platform/uriIdentity/common/uriIdentity.js';
 import { UriIdentityService } from '../../platform/uriIdentity/common/uriIdentityService.js';
 import { RemoteAgentEnvironmentChannel } from './remoteAgentEnvironmentImpl.js';
@@ -144,8 +147,23 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	const uriIdentityService = new UriIdentityService(fileService);
 	services.set(IUriIdentityService, uriIdentityService);
 
+	// --- Start PWB ---
+	// Admin Policy (enforced settings from environment variable)
+	const enforcedSettings = process.env['POSITRON_ENFORCED_SETTINGS'];
+	let adminPolicyService: IAdminPolicyService | undefined;
+	if (enforcedSettings) {
+		logService.info(`[Admin Policy] Found POSITRON_ENFORCED_SETTINGS: ${enforcedSettings}`);
+		adminPolicyService = disposables.add(new AdminPolicyService(enforcedSettings, logService));
+	} else {
+		logService.info('[Admin Policy] No POSITRON_ENFORCED_SETTINGS environment variable found');
+	}
+	// --- End PWB ---
+
 	// Configuration
-	const configurationService = new ConfigurationService(environmentService.machineSettingsResource, fileService, new NullPolicyService(), logService);
+	// --- Start PWB ---
+	// Add adminPolicyService to constructor
+	const configurationService = new ConfigurationService(environmentService.machineSettingsResource, fileService, new NullPolicyService(), logService, adminPolicyService);
+	// --- End PWB ---
 	services.set(IConfigurationService, configurationService);
 
 	// User Data Profiles

@@ -29,14 +29,14 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
 			</div>
 			<div className='cell-contents positron-notebook-cell-outputs'>
-				<div className='positron-notebook-markup-rendered' onDoubleClick={() => {
+				<div className='positron-notebook-markdown-rendered' onDoubleClick={() => {
 					cell.toggleEditor();
 				}}>
 					{
 						markdownString.length > 0 ?
 							<Markdown content={markdownString} />
 							: <div className='empty-output-msg'>
-								Empty markup cell. {editorShown ? '' : 'Double click to edit'}
+								Empty markup cell. {editorShown ? '' : 'Double click to edit.'}
 							</div>
 					}
 				</div>

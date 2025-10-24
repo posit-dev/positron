@@ -99,6 +99,16 @@ export interface IPositronNotebookCell extends Disposable {
 	insertCodeCellBelow(): void;
 
 	/**
+	 * Insert a new markdown cell above this cell
+	 */
+	insertMarkdownCellAbove(): void;
+
+	/**
+	 * Insert a new markdown cell below this cell
+	 */
+	insertMarkdownCellBelow(): void;
+
+	/**
 	 * Type guard for checking if cell is a markdown cell
 	 */
 	isMarkdownCell(): this is IPositronNotebookMarkdownCell;
@@ -164,6 +174,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 * Attach the cell to a container. Used for things like focus management
 	 */
 	attachContainer(container: HTMLElement): void;
+
+	/**
+	 * Get the container that the cell is attached to
+	 */
+	get container(): HTMLElement | undefined;
 
 	/**
 	 *

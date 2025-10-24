@@ -7,12 +7,13 @@ import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
-import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { IBaseCellEditorOptions, INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -30,6 +31,36 @@ export enum KernelStatus {
 }
 
 /**
+ * Subset of INotebookEditor required to integrate with the extension API,
+ * so we don't have to implement the entire INotebookEditor interface (...yet)
+ * See mainThreadNotebookDocumentsAndEditors.ts and mainThreadNotebookEditors.ts.
+ */
+type INotebookEditorForExtensionApi = Pick<
+	INotebookEditor,
+	// Basic
+	| 'getId'
+	// Text/view model
+	| 'textModel'  // only used for .uri
+	| 'hasModel'
+	| 'getViewModel'  // only used for .viewType
+	// Selected cells: vscode.NotebookEditor.selections
+	| 'getSelections'
+	| 'setSelections'
+	| 'onDidChangeSelection'
+	// Visible cells: vscode.NotebookEditor.visibleRanges
+	| 'visibleRanges'
+	| 'onDidChangeVisibleRanges'
+	// Cell structure: to retrieve a cell to be revealed and to ensure the revealed range is within the notebook length
+	| 'getLength'
+	| 'cellAt'  // returned ICellViewModel is only used by passing to a reveal method below
+	// Reveal: to reveal a cell
+	| 'revealInCenter'
+	| 'revealCellRangeInView'
+	| 'revealInCenterIfOutsideViewport'
+	| 'revealInViewAtTop'
+>;
+
+/**
  * Interface defining the public API for interacting with a Positron notebook instance.
  * This interface abstracts away the complexity of notebook management and provides
  * a clean contract for the React UI layer to interact with notebook functionality.
@@ -40,19 +71,15 @@ export enum KernelStatus {
  * - Controls cell selection and editing states
  * - Provides methods for common notebook operations
  */
-export interface IPositronNotebookInstance {
+export interface IPositronNotebookInstance extends INotebookEditorForExtensionApi {
 	// ===== Properties =====
-	/**
-	 * Unique identifier for the notebook instance. Used for debugging and claiming
-	 * ownership of various resources.
-	 */
-	readonly id: string;
-
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier
 	 * for the notebook's content on disk.
 	 */
-	get uri(): URI;
+	readonly uri: URI;
+
+	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
 	 * Indicates whether this notebook instance is currently connected to a view/editor.
@@ -88,7 +115,7 @@ export interface IPositronNotebookInstance {
 	 * Observable reference to the current runtime session for the notebook.
 	 * This manages the connection to the kernel and execution environment.
 	 */
-	readonly runtimeSession: IObservable<ILanguageRuntimeSession | undefined>;
+	readonly runtimeSession: IObservable<INotebookLanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.
@@ -161,6 +188,15 @@ export interface IPositronNotebookInstance {
 	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
 	 */
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
+
+	/**
+	 * Inserts a new markdown cell either above or below the current selection
+	 * and focuses the container.
+	 *
+	 * @param aboveOrBelow Whether to insert the cell above or below the current selection
+	 * @param referenceCell Optional cell to insert relative to. If not provided, uses the currently selected cell
+	 */
+	insertMarkdownCellAndFocusContainer(aboveOrBelow: 'above' | 'below', referenceCell?: IPositronNotebookCell): void;
 
 	/**
 	 * Removes a cell from the notebook.

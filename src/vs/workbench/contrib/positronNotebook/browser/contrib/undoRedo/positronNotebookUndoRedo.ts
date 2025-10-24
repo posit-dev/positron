@@ -6,10 +6,11 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../../../common/contributions.js';
 import { UndoCommand, RedoCommand } from '../../../../../../editor/browser/editorExtensions.js';
-import { IPositronNotebookService } from '../../positronNotebookService.js';
 import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../ContextKeysManager.js';
 import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/undoRedo.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
+import { IEditorService } from '../../../../../services/editor/common/editorService.js';
+import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 
 class PositronNotebookUndoRedoContribution extends Disposable {
 
@@ -17,7 +18,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 
 	constructor(
 		@IUndoRedoService private readonly undoRedoService: IUndoRedoService,
-		@IPositronNotebookService private readonly positronNotebookService: IPositronNotebookService,
+		@IEditorService private readonly editorService: IEditorService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService
 	) {
 		super();
@@ -30,7 +31,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 
 	private shouldHandleUndoRedo(): boolean {
 		// Get the active notebook instance to access its scoped context key service
-		const instance = this.positronNotebookService.getActiveInstance();
+		const instance = getNotebookInstanceFromActiveEditorPane(this.editorService);
 		if (!instance) {
 			return false;
 		}
@@ -61,7 +62,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const instance = this.positronNotebookService.getActiveInstance();
+		const instance = getNotebookInstanceFromActiveEditorPane(this.editorService);
 		if (!instance) {
 			return false;
 		}
@@ -79,7 +80,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const instance = this.positronNotebookService.getActiveInstance();
+		const instance = getNotebookInstanceFromActiveEditorPane(this.editorService);
 		if (!instance) {
 			return false;
 		}

@@ -7,6 +7,7 @@ import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/pos
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
+import { ICellRange } from '../../notebook/common/notebookRange.js';
 
 /**
  * Represents the possible selection states for the notebook.
@@ -136,6 +137,43 @@ export function getEditingCell(state: SelectionStates): IPositronNotebookCell | 
 		return null;
 	}
 	return state.selected;
+}
+
+/**
+ * Converts the current selection state into an array of cell ranges.
+ *
+ * @returns An array of cell ranges, where each range represents a group of consecutive selected cells.
+ */
+export function toCellRanges(state: SelectionStates): ICellRange[] {
+	// TODO: Should we work with cell ranges directly in the state machine instead of converting?
+	const selectedCells = getSelectedCells(state);
+
+	if (selectedCells.length === 0) {
+		return [];
+	}
+
+	// Group consecutive cells into ranges
+	const ranges: ICellRange[] = [];
+	let currentStart = selectedCells[0].index;
+	let currentEnd = currentStart + 1;
+
+	for (let i = 1; i < selectedCells.length; i++) {
+		const cellIndex = selectedCells[i].index;
+		if (cellIndex === currentEnd) {
+			// Consecutive cell, extend the range
+			currentEnd++;
+		} else {
+			// Non-consecutive, save current range and start new one
+			ranges.push({ start: currentStart, end: currentEnd });
+			currentStart = cellIndex;
+			currentEnd = currentStart + 1;
+		}
+	}
+
+	// Add the last range
+	ranges.push({ start: currentStart, end: currentEnd });
+
+	return ranges;
 }
 
 /**

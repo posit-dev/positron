@@ -199,7 +199,7 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 					envVariables['SSH_AUTH_SOCK'] = null;
 				}
 
-				const installResult = await installCodeServer(this.sshConnection, serverDownloadUrlTemplate, defaultExtensions, Object.keys(envVariables), remotePlatformMap[sshDest.hostname], remoteServerListenOnSocket, this.logger);
+				const installResult = await installCodeServer(this.sshConnection, serverDownloadUrlTemplate, defaultExtensions, Object.keys(envVariables), remotePlatformMap[sshDest.hostname], remoteServerListenOnSocket, this.logger, sshHostName, sshDest.hostname);
 
 				for (const key of Object.keys(envVariables)) {
 					if (installResult[key] !== undefined) {

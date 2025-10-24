@@ -174,6 +174,7 @@ export const ActionBarButton = forwardRef<
 						{props.label}
 					</div>
 				}
+				{props.children}
 				{props.dropdownIndicator === 'enabled' &&
 					<div className='action-bar-button-drop-down-container'>
 						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
@@ -205,7 +206,6 @@ export const ActionBarButton = forwardRef<
 				onPressed={props.onPressed}
 			>
 				<ActionBarButtonFace />
-				{props.children}
 			</Button>
 		);
 	} else {
@@ -242,7 +242,6 @@ export const ActionBarButton = forwardRef<
 				>
 					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 				</Button>
-				{props.children}
 			</div>
 		);
 	}
