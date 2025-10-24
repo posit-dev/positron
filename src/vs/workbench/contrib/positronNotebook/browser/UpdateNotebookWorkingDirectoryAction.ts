@@ -142,24 +142,26 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const quickInputService = accessor.get(IQuickInputService);
 
-		// Create options for quick-pick
+		// Create options for quick-pick with detailed descriptions
 		const quickPickItems: IQuickPickItem[] = [
 			{
-				label: localize('positron.notebook.updateWorkingDirectory.quickPick.update', 'Update'),
+				label: localize('positron.notebook.updateWorkingDirectory.quickPick.update', 'Update (Recommended)'),
+				detail: localize('positron.notebook.updateWorkingDirectory.quickPick.update.detail',
+					'Update working directory to: {0}', newWorkingDirectory),
 				id: UPDATE_ID
 			},
 			{
-				label: localize('positron.notebook.updateWorkingDirectory.quickPick.keep', 'Keep'),
+				label: localize('positron.notebook.updateWorkingDirectory.quickPick.keep', 'Keep Current'),
+				detail: localize('positron.notebook.updateWorkingDirectory.quickPick.keep.detail',
+					'Keep working directory at: {0}', currentWorkingDirectory),
 				id: KEEP_ID
 			}
 		];
 
 		// Create the description for the quick pick
 		const description = localize(
-			'positron.notebook.workingDirectoryChanged',
-			'This notebook was moved to a new location but your session is still running from the original directory.<br><br>Saved at: <code>{0}</code><br>Running from: <code>{1}</code><br><br>Update the running working directory to match where the notebook is saved? (Recommended)',
-			currentWorkingDirectory,
-			newWorkingDirectory,
+			'positron.notebook.updateWorkingDirectory.workingDirectoryChanged.description',
+			'This notebook was moved to a new location but your session is still running from the original directory. Update the running working directory to match where the notebook is saved?',
 		);
 
 		// Create a custom quick pick with description
