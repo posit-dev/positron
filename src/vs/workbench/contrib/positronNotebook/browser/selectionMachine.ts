@@ -7,6 +7,7 @@ import { CellSelectionStatus, IPositronNotebookCell } from '../../../contrib/pos
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
+import { ICellRange } from '../../notebook/common/notebookRange.js';
 
 /**
  * Represents the possible selection states for the notebook.
@@ -57,6 +58,7 @@ const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> =
 	[SelectionState.MultiSelection]: [
 		SelectionState.MultiSelection,   // Modify selection
 		SelectionState.SingleSelection,  // Reduce to single cell
+		SelectionState.EditingSelection, // Enter edit mode for single cell
 		SelectionState.NoCells,          // All cells removed
 	],
 	[SelectionState.EditingSelection]: [
@@ -139,6 +141,43 @@ export function getEditingCell(state: SelectionStates): IPositronNotebookCell | 
 }
 
 /**
+ * Converts the current selection state into an array of cell ranges.
+ *
+ * @returns An array of cell ranges, where each range represents a group of consecutive selected cells.
+ */
+export function toCellRanges(state: SelectionStates): ICellRange[] {
+	// TODO: Should we work with cell ranges directly in the state machine instead of converting?
+	const selectedCells = getSelectedCells(state);
+
+	if (selectedCells.length === 0) {
+		return [];
+	}
+
+	// Group consecutive cells into ranges
+	const ranges: ICellRange[] = [];
+	let currentStart = selectedCells[0].index;
+	let currentEnd = currentStart + 1;
+
+	for (let i = 1; i < selectedCells.length; i++) {
+		const cellIndex = selectedCells[i].index;
+		if (cellIndex === currentEnd) {
+			// Consecutive cell, extend the range
+			currentEnd++;
+		} else {
+			// Non-consecutive, save current range and start new one
+			ranges.push({ start: currentStart, end: currentEnd });
+			currentStart = cellIndex;
+			currentEnd = currentStart + 1;
+		}
+	}
+
+	// Add the last range
+	ranges.push({ start: currentStart, end: currentEnd });
+
+	return ranges;
+}
+
+/**
  * Determines if two selection states are equal.
  */
 function isSelectionStateEqual(a: SelectionStates, b: SelectionStates): boolean {
@@ -210,10 +249,10 @@ export class SelectionStateMachine extends Disposable {
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 		switch (selectType) {
 			case CellSelectionType.Normal:
-				this._selectCellNormal(cell);
+				this._setState({ type: SelectionState.SingleSelection, selected: cell });
 				break;
 			case CellSelectionType.Edit:
-				this._selectCellEdit(cell);
+				this._setState({ type: SelectionState.EditingSelection, selected: cell });
 				break;
 			case CellSelectionType.Add:
 				this._selectCellAdd(cell);
@@ -281,16 +320,40 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Enters the editor for the selected cell.
+	 * Enters edit mode for a cell, automatically managing focus as needed.
+	 *
+	 * This method intelligently handles focus:
+	 * - If the editor already has focus (e.g., from a focus event), it only updates state
+	 * - If the editor doesn't have focus (e.g., from a keyboard shortcut), it gives focus
+	 *
+	 * @param cell The cell to edit. If omitted, uses currently selected cell.
 	 */
-	async enterEditor(): Promise<void> {
-		const state = this._state.get();
-		if (state.type !== SelectionState.SingleSelection) {
+	async enterEditor(cell?: IPositronNotebookCell): Promise<void> {
+		// Determine which cell to edit
+		let cellToEdit: IPositronNotebookCell | null = null;
+
+		if (cell) {
+			// Use the provided cell
+			cellToEdit = cell;
+		} else {
+			// Use currently selected cell
+			const state = this._state.get();
+			if (state.type !== SelectionState.SingleSelection) {
+				return;
+			}
+			cellToEdit = state.selected;
+		}
+
+		// Update state to editing mode
+		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
+
+		// Automatically detect if editor already has focus
+		// If it does, skip focus management to avoid double-focusing
+		if (cellToEdit.editor?.hasWidgetFocus()) {
 			return;
 		}
 
-		const cellToEdit = state.selected;
-		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
+		// Editor doesn't have focus - perform focus management
 		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
 		await cellToEdit.showEditor();
 		// Request editor focus through observable - React will handle it
@@ -298,11 +361,15 @@ export class SelectionStateMachine extends Disposable {
 	}
 
 	/**
-	 * Reset the selection to the cell so user can navigate between cells
+	 * Exits edit mode, returning to single selection state.
+	 * @param cell Optional - if provided, only exit if this specific cell is being edited.
+	 *             This prevents race conditions when focus moves between cell editors.
 	 */
-	exitEditor(): void {
+	exitEditor(cell?: IPositronNotebookCell): void {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
+		// If a specific cell is provided, only exit if THAT cell is being edited
+		if (cell && state.selected !== cell) { return; }
 		this._setState({ type: SelectionState.SingleSelection, selected: state.selected });
 	}
 
@@ -310,23 +377,6 @@ export class SelectionStateMachine extends Disposable {
 
 
 	//#region Private Methods
-
-	/**
-	 * Performs a normal selection - replaces current selection with the specified cell.
-	 * @param cell The cell to select.
-	 */
-	private _selectCellNormal(cell: IPositronNotebookCell): void {
-		this._setState({ type: SelectionState.SingleSelection, selected: cell });
-	}
-
-	/**
-	 * Selects a cell for editing - enters edit mode with the specified cell.
-	 *
-	 * @param cell The cell to select and edit.
-	 */
-	private _selectCellEdit(cell: IPositronNotebookCell): void {
-		this._setState({ type: SelectionState.EditingSelection, selected: cell });
-	}
 
 	/**
 	 * Adds a cell to the current selection (multi-select mode).
@@ -461,7 +511,7 @@ export class SelectionStateMachine extends Disposable {
 		} else {
 			this._setState({ type: SelectionState.NoCells });
 		}
-	};
+	}
 
 	/**
 	 * Validates and corrects state to maintain invariants.

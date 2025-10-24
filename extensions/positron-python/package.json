@@ -1490,6 +1490,13 @@
                     "when": "controllerId == 'python-tests'"
                 }
             ],
+            "testing/item/gutter": [
+                {
+                    "command": "python.copyTestId",
+                    "group": "navigation",
+                    "when": "controllerId == 'python-tests'"
+                }
+            ],
             "commandPalette": [
                 {
                     "category": "Python",
@@ -1889,7 +1896,10 @@
                 "name": "getAttachedPythonPackages",
                 "displayName": "Get attached Python packages",
                 "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
-                "canBeReferencedInPrompt": false,
+                "toolReferenceName": "getAttachedPythonPackages",
+                "icon": "$(package)",
+                "userDescription": "Gets a list of Python packages that are loaded in the current Python session.",
+                "canBeReferencedInPrompt": true,
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1908,7 +1918,10 @@
                 "name": "getInstalledPythonPackageVersion",
                 "displayName": "Get installed Python package version",
                 "modelDescription": "Given the name of a Python package, returns the version of the package that's installed in the current Python session, or NULL if the package is not installed.",
-                "canBeReferencedInPrompt": false,
+                "toolReferenceName": "getInstalledPythonPackageVersion",
+                "icon": "$(package)",
+                "userDescription": "Gets the version of an installed Python package in the current session.",
+                "canBeReferencedInPrompt": true,
                 "inputSchema": {
                     "type": "object",
                     "properties": {

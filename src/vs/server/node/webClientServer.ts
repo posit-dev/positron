@@ -30,6 +30,7 @@ import { IExtensionManifest } from '../../platform/extensions/common/extensions.
 import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 
 // --- Start PWB: Server proxy support ---
+// eslint-disable-next-line local/code-import-patterns
 import httpProxy from 'http-proxy';
 import { kProxyRegex } from './pwbConstants.js';
 // --- End PWB ---
@@ -427,6 +428,15 @@ export class WebClientServer {
 			} catch (err) {/* Ignore Error */ }
 		}
 
+		// --- Start PWB: Admin enforced settings ---
+		const enforcedSettings = process.env['POSITRON_ENFORCED_SETTINGS'];
+		if (enforcedSettings) {
+			this._logService.info(`[WebClientServer] Passing POSITRON_ENFORCED_SETTINGS to browser: ${enforcedSettings}`);
+		} else {
+			this._logService.info('[WebClientServer] No POSITRON_ENFORCED_SETTINGS environment variable found');
+		}
+		// --- End PWB ---
+
 		const workbenchWebConfiguration = {
 			remoteAuthority,
 			serverBasePath: basePath,
@@ -451,7 +461,10 @@ export class WebClientServer {
 			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
 			// --- End Positron ---
 			productConfiguration,
-			callbackRoute: callbackRoute
+			callbackRoute: callbackRoute,
+			// --- Start PWB: Admin enforced settings ---
+			adminPoliciesData: enforcedSettings
+			// --- End PWB ---
 		};
 
 		const cookies = cookie.parse(req.headers.cookie || '');

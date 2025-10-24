@@ -23,6 +23,7 @@ import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNo
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
+import { SelectionState } from '../selectionMachine.js';
 
 /**
  *
@@ -81,12 +82,16 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
-			instance.setEditingCell(cell);
+			// enterEditor() automatically detects that editor has focus and skips focus management
+			instance.selectionStateMachine.enterEditor(cell);
 			cellEditorFocusedKey.set(true);
 		}));
 
 		disposables.add(editor.onDidBlurEditorWidget(() => {
 			cellEditorFocusedKey.set(false);
+			// Pass the cell so we only exit if THIS specific cell is being edited (not a different one)
+			// This handles the race condition where a user clicks from one cell editor into another.
+			instance.selectionStateMachine.exitEditor(cell);
 		}));
 
 		/**
@@ -129,13 +134,22 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const disposable = autorun(reader => {
 			cell.editorFocusRequested.read(reader);
 			const editor = cell.editor;
+			// Check if THIS cell is still the one being edited
+			// This prevents stale focus requests when user rapidly navigates between cells
+			const state = instance.selectionStateMachine.state.read(reader);
+			const shouldFocus = state.type === SelectionState.EditingSelection && state.selected === cell;
+
+			if (!shouldFocus) {
+				return;
+			}
+
 			if (editor) {
 				editor.focus();
 			}
 		});
 
 		return () => disposable.dispose();
-	}, [cell]);
+	}, [cell, instance.selectionStateMachine]);
 
 	return { editorPartRef };
 }

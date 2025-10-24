@@ -63,6 +63,7 @@ import './contrib/wordOperations/browser/wordOperations.js';
 import './contrib/wordPartOperations/browser/wordPartOperations.js';
 import './contrib/readOnlyMessage/browser/contribution.js';
 import './contrib/diffEditorBreadcrumbs/browser/contribution.js';
+import './contrib/floatingMenu/browser/floatingMenu.contribution.js';
 
 // --- Start Positron ---
 import './contrib/positronEditorActions/browser/positronEditorActions.js';

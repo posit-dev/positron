@@ -3617,6 +3617,10 @@ declare namespace monaco.editor {
 		 */
 		multiCursorLimit?: number;
 		/**
+		 * Enables middle mouse button to open links and Go To Definition
+		 */
+		mouseMiddleClickAction?: MouseMiddleClickAction;
+		/**
 		 * Configure the editor's accessibility support.
 		 * Defaults to 'auto'. It is best to leave this to 'auto'.
 		 */
@@ -4795,6 +4799,7 @@ declare namespace monaco.editor {
 		syntaxHighlightingEnabled?: boolean;
 		suppressSuggestions?: boolean;
 		minShowDelay?: number;
+		suppressInSnippetMode?: boolean;
 		/**
 		 * Does not clear active inline suggestions when the editor loses focus.
 		 */
@@ -5169,93 +5174,94 @@ declare namespace monaco.editor {
 		mouseWheelZoom = 85,
 		multiCursorMergeOverlapping = 86,
 		multiCursorModifier = 87,
-		multiCursorPaste = 88,
-		multiCursorLimit = 89,
-		occurrencesHighlight = 90,
-		occurrencesHighlightDelay = 91,
-		overtypeCursorStyle = 92,
-		overtypeOnPaste = 93,
-		overviewRulerBorder = 94,
-		overviewRulerLanes = 95,
-		padding = 96,
-		pasteAs = 97,
-		parameterHints = 98,
-		peekWidgetDefaultFocus = 99,
-		placeholder = 100,
-		definitionLinkOpensInPeek = 101,
-		quickSuggestions = 102,
-		quickSuggestionsDelay = 103,
-		readOnly = 104,
-		readOnlyMessage = 105,
-		renameOnType = 106,
-		renderRichScreenReaderContent = 107,
-		renderControlCharacters = 108,
-		renderFinalNewline = 109,
-		renderLineHighlight = 110,
-		renderLineHighlightOnlyWhenFocus = 111,
-		renderValidationDecorations = 112,
-		renderWhitespace = 113,
-		revealHorizontalRightPadding = 114,
-		roundedSelection = 115,
-		rulers = 116,
-		scrollbar = 117,
-		scrollBeyondLastColumn = 118,
-		scrollBeyondLastLine = 119,
-		scrollPredominantAxis = 120,
-		selectionClipboard = 121,
-		selectionHighlight = 122,
-		selectionHighlightMaxLength = 123,
-		selectionHighlightMultiline = 124,
-		selectOnLineNumbers = 125,
-		showFoldingControls = 126,
-		showUnused = 127,
-		snippetSuggestions = 128,
-		smartSelect = 129,
-		smoothScrolling = 130,
-		stickyScroll = 131,
-		stickyTabStops = 132,
-		stopRenderingLineAfter = 133,
-		suggest = 134,
-		suggestFontSize = 135,
-		suggestLineHeight = 136,
-		suggestOnTriggerCharacters = 137,
-		suggestSelection = 138,
-		tabCompletion = 139,
-		tabIndex = 140,
-		trimWhitespaceOnDelete = 141,
-		unicodeHighlighting = 142,
-		unusualLineTerminators = 143,
-		useShadowDOM = 144,
-		useTabStops = 145,
-		wordBreak = 146,
-		wordSegmenterLocales = 147,
-		wordSeparators = 148,
-		wordWrap = 149,
-		wordWrapBreakAfterCharacters = 150,
-		wordWrapBreakBeforeCharacters = 151,
-		wordWrapColumn = 152,
-		wordWrapOverride1 = 153,
-		wordWrapOverride2 = 154,
-		wrappingIndent = 155,
-		wrappingStrategy = 156,
-		showDeprecated = 157,
-		inertialScroll = 158,
-		inlayHints = 159,
-		wrapOnEscapedLineFeeds = 160,
-		effectiveCursorStyle = 161,
-		editorClassName = 162,
-		pixelRatio = 163,
-		tabFocusMode = 164,
-		layoutInfo = 165,
-		wrappingInfo = 166,
-		defaultColorDecorators = 167,
-		colorDecoratorsActivatedOn = 168,
-		inlineCompletionsAccessibilityVerbose = 169,
-		effectiveEditContext = 170,
-		scrollOnMiddleClick = 171,
-		effectiveAllowVariableFonts = 172,
-		quickSuggestionsMinimumLength = 173,
-		tabSuggest = 174
+		mouseMiddleClickAction = 88,
+		multiCursorPaste = 89,
+		multiCursorLimit = 90,
+		occurrencesHighlight = 91,
+		occurrencesHighlightDelay = 92,
+		overtypeCursorStyle = 93,
+		overtypeOnPaste = 94,
+		overviewRulerBorder = 95,
+		overviewRulerLanes = 96,
+		padding = 97,
+		pasteAs = 98,
+		parameterHints = 99,
+		peekWidgetDefaultFocus = 100,
+		placeholder = 101,
+		definitionLinkOpensInPeek = 102,
+		quickSuggestions = 103,
+		quickSuggestionsDelay = 104,
+		readOnly = 105,
+		readOnlyMessage = 106,
+		renameOnType = 107,
+		renderRichScreenReaderContent = 108,
+		renderControlCharacters = 109,
+		renderFinalNewline = 110,
+		renderLineHighlight = 111,
+		renderLineHighlightOnlyWhenFocus = 112,
+		renderValidationDecorations = 113,
+		renderWhitespace = 114,
+		revealHorizontalRightPadding = 115,
+		roundedSelection = 116,
+		rulers = 117,
+		scrollbar = 118,
+		scrollBeyondLastColumn = 119,
+		scrollBeyondLastLine = 120,
+		scrollPredominantAxis = 121,
+		selectionClipboard = 122,
+		selectionHighlight = 123,
+		selectionHighlightMaxLength = 124,
+		selectionHighlightMultiline = 125,
+		selectOnLineNumbers = 126,
+		showFoldingControls = 127,
+		showUnused = 128,
+		snippetSuggestions = 129,
+		smartSelect = 130,
+		smoothScrolling = 131,
+		stickyScroll = 132,
+		stickyTabStops = 133,
+		stopRenderingLineAfter = 134,
+		suggest = 135,
+		suggestFontSize = 136,
+		suggestLineHeight = 137,
+		suggestOnTriggerCharacters = 138,
+		suggestSelection = 139,
+		tabCompletion = 140,
+		tabIndex = 141,
+		trimWhitespaceOnDelete = 142,
+		unicodeHighlighting = 143,
+		unusualLineTerminators = 144,
+		useShadowDOM = 145,
+		useTabStops = 146,
+		wordBreak = 147,
+		wordSegmenterLocales = 148,
+		wordSeparators = 149,
+		wordWrap = 150,
+		wordWrapBreakAfterCharacters = 151,
+		wordWrapBreakBeforeCharacters = 152,
+		wordWrapColumn = 153,
+		wordWrapOverride1 = 154,
+		wordWrapOverride2 = 155,
+		wrappingIndent = 156,
+		wrappingStrategy = 157,
+		showDeprecated = 158,
+		inertialScroll = 159,
+		inlayHints = 160,
+		wrapOnEscapedLineFeeds = 161,
+		effectiveCursorStyle = 162,
+		editorClassName = 163,
+		pixelRatio = 164,
+		tabFocusMode = 165,
+		layoutInfo = 166,
+		wrappingInfo = 167,
+		defaultColorDecorators = 168,
+		colorDecoratorsActivatedOn = 169,
+		inlineCompletionsAccessibilityVerbose = 170,
+		effectiveEditContext = 171,
+		scrollOnMiddleClick = 172,
+		effectiveAllowVariableFonts = 173,
+		quickSuggestionsMinimumLength = 174,
+		tabSuggest = 175
 	}
 
 	export const EditorOptions: {
@@ -5352,6 +5358,7 @@ declare namespace monaco.editor {
 		mouseWheelZoom: IEditorOption<EditorOption.mouseWheelZoom, boolean>;
 		multiCursorMergeOverlapping: IEditorOption<EditorOption.multiCursorMergeOverlapping, boolean>;
 		multiCursorModifier: IEditorOption<EditorOption.multiCursorModifier, 'altKey' | 'metaKey' | 'ctrlKey'>;
+		mouseMiddleClickAction: IEditorOption<EditorOption.mouseMiddleClickAction, MouseMiddleClickAction>;
 		multiCursorPaste: IEditorOption<EditorOption.multiCursorPaste, 'spread' | 'full'>;
 		multiCursorLimit: IEditorOption<EditorOption.multiCursorLimit, number>;
 		occurrencesHighlight: IEditorOption<EditorOption.occurrencesHighlight, 'off' | 'singleFile' | 'multiFile'>;
@@ -5445,6 +5452,8 @@ declare namespace monaco.editor {
 	type ComputedEditorOptionValue<T extends IEditorOption<any, any>> = T extends IEditorOption<any, infer R> ? R : never;
 
 	export type FindComputedEditorOptionValueById<T extends EditorOption> = NonNullable<ComputedEditorOptionValue<EditorOptionsType[FindEditorOptionsKeyById<T>]>>;
+
+	export type MouseMiddleClickAction = 'default' | 'openLink' | 'ctrlLeftClick';
 
 	export interface IEditorConstructionOptions extends IEditorOptions {
 		/**
@@ -6539,6 +6548,16 @@ declare namespace monaco.editor {
 
 declare namespace monaco.languages {
 
+
+	export class EditDeltaInfo {
+		readonly linesAdded: number;
+		readonly linesRemoved: number;
+		readonly charsAdded: number;
+		readonly charsRemoved: number;
+		static fromText(text: string): EditDeltaInfo;
+		static tryCreate(linesAdded: number | undefined, linesRemoved: number | undefined, charsAdded: number | undefined, charsRemoved: number | undefined): EditDeltaInfo | undefined;
+		constructor(linesAdded: number, linesRemoved: number, charsAdded: number, charsRemoved: number);
+	}
 	export interface IRelativePattern {
 		/**
 		 * A base file path to which this pattern will be matched against relatively.
@@ -7611,7 +7630,7 @@ declare namespace monaco.languages {
 		 * Will be called when an item is shown.
 		 * @param updatedInsertText Is useful to understand bracket completion.
 		*/
-		handleItemDidShow?(completions: T, item: T['items'][number], updatedInsertText: string): void;
+		handleItemDidShow?(completions: T, item: T['items'][number], updatedInsertText: string, editDeltaInfo: EditDeltaInfo): void;
 		/**
 		 * Will be called when an item is partially accepted. TODO: also handle full acceptance here!
 		 * @param acceptedCharacters Deprecated. Use `info.acceptedCharacters` instead.
@@ -7680,6 +7699,7 @@ declare namespace monaco.languages {
 		timeUntilShown: number | undefined;
 		timeUntilProviderRequest: number;
 		timeUntilProviderResponse: number;
+		notShownReason: string | undefined;
 		editorType: string;
 		viewKind: string | undefined;
 		error: string | undefined;
@@ -7696,6 +7716,8 @@ declare namespace monaco.languages {
 		sameShapeReplacements?: boolean;
 		typingInterval: number;
 		typingIntervalCharacterCount: number;
+		selectedSuggestionInfo: boolean;
+		availableProviders: string;
 	};
 
 	export interface CodeAction {

@@ -9,6 +9,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { fromNow } from '../../../../base/common/date.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { basename } from '../../../../base/common/resources.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { ITextModel } from '../../../../editor/common/model.js';
@@ -23,15 +24,11 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IChatWidget, showChatView } from '../../chat/browser/chat.js';
 import { IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPickService, picksWithPromiseFn } from '../../chat/browser/chatContextPickService.js';
 import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
-import { ISCMHistoryItemVariableEntry } from '../../chat/common/chatVariableEntries.js';
+import { ISCMHistoryItemChangeVariableEntry, ISCMHistoryItemVariableEntry } from '../../chat/common/chatVariableEntries.js';
 import { ScmHistoryItemResolver } from '../../multiDiffEditor/browser/scmMultiDiffSourceResolver.js';
-import { ISCMHistoryItem } from '../common/history.js';
+import { ISCMHistoryItem, ISCMHistoryItemChange } from '../common/history.js';
 import { ISCMProvider, ISCMService, ISCMViewService } from '../common/scm.js';
 
-// --- Start Positron ---
-import { isWeb } from '../../../../base/common/platform.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-// --- End Positron ---
 
 export interface SCMHistoryItemTransferData {
 	readonly name: string;
@@ -68,6 +65,10 @@ export class SCMHistoryItemContextContribution extends Disposable implements IWo
 		this._store.add(textModelResolverService.registerTextModelContentProvider(
 			ScmHistoryItemResolver.scheme,
 			instantiationService.createInstance(SCMHistoryItemContextContentProvider)));
+
+		this._store.add(textModelResolverService.registerTextModelContentProvider(
+			SCMHistoryItemChangeRangeContentProvider.scheme,
+			instantiationService.createInstance(SCMHistoryItemChangeRangeContentProvider)));
 	}
 }
 
@@ -95,25 +96,12 @@ class SCMHistoryItemContext implements IChatContextPickerItem {
 	}
 
 	constructor(
-		// --- Start Positron ---
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		// --- End Positron ---
 		@ISCMViewService private readonly _scmViewService: ISCMViewService
 	) { }
 
 	isEnabled(_widget: IChatWidget): Promise<boolean> | boolean {
 		const activeRepository = this._scmViewService.activeRepository.get();
-		// --- Start Positron ---
-		// Disable SCM History Chat Context in Positron Web due to path error
-		// See https://github.com/posit-dev/positron/issues/9181
-		const schContextEnabled = this._configurationService.getValue<boolean>('positron.assistant.sourceControlHistoryContext.enable');
-		// if schContextEnabled is configured, follow the config to enable/disable scm history context
-		// if schContextEnabled is undefined, enable scm history context on desktop, but disable on web
-		return activeRepository?.provider.historyProvider.get() !== undefined && (schContextEnabled ?? !isWeb);
-		/*
 		return activeRepository?.provider.historyProvider.get() !== undefined;
-		*/
-		// --- End Positron ---
 	}
 
 	asPicker(_widget: IChatWidget) {
@@ -199,6 +187,70 @@ class SCMHistoryItemContextContentProvider implements ITextModelContentProvider 
 	}
 }
 
+export interface ScmHistoryItemChangeRangeUriFields {
+	readonly repositoryId: string;
+	readonly start: string;
+	readonly end: string;
+}
+
+export class SCMHistoryItemChangeRangeContentProvider implements ITextModelContentProvider {
+	static readonly scheme = 'scm-history-item-change-range';
+	constructor(
+		@IModelService private readonly _modelService: IModelService,
+		@ISCMService private readonly _scmService: ISCMService
+	) { }
+
+	async provideTextContent(resource: URI): Promise<ITextModel | null> {
+		const uriFields = this._parseUri(resource);
+		if (!uriFields) {
+			return null;
+		}
+
+		const textModel = this._modelService.getModel(resource);
+		if (textModel) {
+			return textModel;
+		}
+
+		const { repositoryId, start, end } = uriFields;
+		const repository = this._scmService.getRepository(repositoryId);
+		const historyProvider = repository?.provider.historyProvider.get();
+		if (!repository || !historyProvider) {
+			return null;
+		}
+
+		const historyItemChangeRangeContext = await historyProvider.resolveHistoryItemChangeRangeChatContext(end, start, resource.path);
+		if (!historyItemChangeRangeContext) {
+			return null;
+		}
+
+		return this._modelService.createModel(historyItemChangeRangeContext, null, resource, false);
+	}
+
+	private _parseUri(uri: URI): ScmHistoryItemChangeRangeUriFields | undefined {
+		if (uri.scheme !== SCMHistoryItemChangeRangeContentProvider.scheme) {
+			return undefined;
+		}
+
+		let query: ScmHistoryItemChangeRangeUriFields;
+		try {
+			query = JSON.parse(uri.query) as ScmHistoryItemChangeRangeUriFields;
+		} catch (e) {
+			return undefined;
+		}
+
+		if (typeof query !== 'object' || query === null) {
+			return undefined;
+		}
+
+		const { repositoryId, start, end } = query;
+		if (typeof repositoryId !== 'string' || typeof start !== 'string' || typeof end !== 'string') {
+			return undefined;
+		}
+
+		return { repositoryId, start, end };
+	}
+}
+
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
@@ -221,6 +273,7 @@ registerAction2(class extends Action2 {
 			return;
 		}
 
+		await widget.waitForReady();
 		widget.attachmentModel.addContext(SCMHistoryItemContext.asAttachment(provider, historyItem));
 	}
 });
@@ -249,5 +302,37 @@ registerAction2(class extends Action2 {
 
 		widget.attachmentModel.addContext(SCMHistoryItemContext.asAttachment(provider, historyItem));
 		await widget.acceptInput('Summarize the attached history item');
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'workbench.scm.action.graph.addHistoryItemChangeToChat',
+			title: localize('chat.action.scmHistoryItemContext', 'Add to Chat'),
+			f1: false,
+			menu: {
+				id: MenuId.SCMHistoryItemChangeContext,
+				group: 'z_chat',
+				order: 1,
+				when: ChatContextKeys.enabled
+			}
+		});
+	}
+
+	override async run(accessor: ServicesAccessor, historyItem: ISCMHistoryItem, historyItemChange: ISCMHistoryItemChange): Promise<void> {
+		const viewsService = accessor.get(IViewsService);
+		const widget = await showChatView(viewsService);
+		if (!historyItem || !historyItemChange.modifiedUri || !widget) {
+			return;
+		}
+
+		widget.attachmentModel.addContext({
+			id: historyItemChange.uri.toString(),
+			name: `${basename(historyItemChange.modifiedUri)}`,
+			value: historyItemChange.modifiedUri,
+			historyItem: historyItem,
+			kind: 'scmHistoryItemChange',
+		} satisfies ISCMHistoryItemChangeVariableEntry);
 	}
 });

@@ -58,8 +58,8 @@ executing==2.2.1 \
 importlib-metadata==8.7.0 \
     --hash=sha256:e5dd1551894c77868a30651cef00984d50e1002d06942a7101d34870c5f02afd
     # via jupyter-client
-ipykernel==6.30.1 \
-    --hash=sha256:aa6b9fb93dca949069d8b85b6c79b2518e32ac583ae9c7d37c51d119e18b3fb4
+ipykernel==6.31.0 \
+    --hash=sha256:abe5386f6ced727a70e0eb0cf1da801fa7c5fa6ff82147747d5a0406cd8c94af
     # via python scripts/pip-compile-ipykernel.py
 ipython==8.18.1 \
     --hash=sha256:e8267419d72d81955ec1177f8a29aaa90ac80ad647499201119e2f05e99aa397

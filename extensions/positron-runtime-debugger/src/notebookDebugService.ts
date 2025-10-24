@@ -6,8 +6,7 @@
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { log } from './extension.js';
-import { Disposable, isUriEqual } from './util.js';
+import { Disposable } from './util.js';
 import { NotebookDebugAdapterFactory } from './notebookDebugAdapterFactory.js';
 
 const DebugCellCommand = 'notebook.debugCell';
@@ -29,11 +28,24 @@ export class NotebookDebugService extends Disposable {
 }
 
 /**
+ * Context provided if the command is called from a Positron notebook.
+ * Currently a subset of vscode.NotebookCell.
+ */
+interface PositronContext {
+	notebook: {
+		uri: vscode.Uri;
+	};
+	document: {
+		uri: vscode.Uri;
+	};
+}
+
+/**
  * Debug a notebook cell.
  *
  * @param cell The notebook cell to debug. If undefined, the active cell will be used.
  */
-async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
+async function debugCell(cell: vscode.NotebookCell | PositronContext | undefined): Promise<void> {
 	// This command can be called from:
 	// 1. A cell's execute menu (`cell` is defined).
 	// 2. The command palette (`cell` is undefined).
@@ -42,9 +54,9 @@ async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
 	if (!cell) {
 		cell = getActiveNotebookCell();
 
-		// It shouldn't be possible to call this command without a cell, log just in case.
+		// It shouldn't be possible to call this command without a cell.
 		if (!cell) {
-			log.error(`${DebugCellCommand} command called without a cell.`);
+			await vscode.window.showErrorMessage(vscode.l10n.t('Command \'{0}\' called without a cell.', DebugCellCommand));
 			return;
 		}
 	}

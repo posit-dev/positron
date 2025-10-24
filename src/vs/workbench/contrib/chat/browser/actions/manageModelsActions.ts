@@ -17,6 +17,11 @@ import { ChatContextKeys } from '../../common/chatContextKeys.js';
 import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../common/languageModels.js';
 import { CHAT_CATEGORY } from './chatActions.js';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { ContextKeyTrueExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- End Positron ---
+
 interface IVendorQuickPickItem extends IQuickPickItem {
 	managementCommand?: string;
 	vendor: string;
@@ -36,6 +41,9 @@ export class ManageModelsAction extends Action2 {
 			title: localize2('manageLanguageModels', 'Manage Language Models...'),
 			category: CHAT_CATEGORY,
 			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(
+				// --- Start Positron ---
+				ContextKeyTrueExpr.INSTANCE,
+				// --- End Positron ---
 				ChatContextKeys.Entitlement.planFree,
 				ChatContextKeys.Entitlement.planPro,
 				ChatContextKeys.Entitlement.planProPlus,

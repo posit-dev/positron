@@ -9,7 +9,7 @@ import path = require('path');
 import express from 'express';
 import { Server } from 'net';
 import { log, ProxyServerStyles } from './extension';
-// eslint-disable-next-line no-duplicate-imports
+
 import { Disposable, ExtensionContext } from 'vscode';
 // TODO: switch to using createProxyMiddleware when new options format is fixed
 import { legacyCreateProxyMiddleware as createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
@@ -412,13 +412,13 @@ export class PositronProxy implements Disposable {
 		));
 
 		// Add the proxy middleware.
-		app.use('*', createProxyMiddleware({
+		app.use('*', (createProxyMiddleware as any)({
 			target: targetOrigin,
 			changeOrigin: true,
 			selfHandleResponse: true,
 			ws: true,
 			on: {
-				proxyReq: (proxyReq, req, res, _options) => {
+				proxyReq: (proxyReq: any, req: any, res: any, _options: any) => {
 					log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
 						`\n\tmethod: ${proxyReq.method}` +
 						`\n\tprotocol: ${proxyReq.protocol}` +
@@ -428,7 +428,7 @@ export class PositronProxy implements Disposable {
 						`\n\texternal uri: ${externalUri.toString(true)}`
 					);
 				},
-				proxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
+				proxyRes: responseInterceptor(async (responseBuffer: any, proxyRes: any, req: any, _res: any) => {
 					log.trace(`onProxyRes - proxy response ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
 						`\n\tstatus: ${proxyRes.statusCode}` +
 						`\n\tstatusMessage: ${proxyRes.statusMessage}` +

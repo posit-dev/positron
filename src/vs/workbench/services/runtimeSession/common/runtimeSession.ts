@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -33,16 +33,6 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPathService } from '../../path/common/pathService.js';
 import { untildify } from '../../../../base/common/labels.js';
 import { Schemas } from '../../../../base/common/network.js';
-
-/**
- * The maximum number of active sessions a user can have running at a time.
- * This value is arbitrary and a limit to use for sanity purposes for the
- * multiple console sessions feature. This should be removed in the future
- * or made a setting if limiting concurrent active sessions is required.
- *
- * Only to be used with `console.multipleConsoleSessions` feaeture flag.
- */
-const MAX_CONCURRENT_SESSIONS = 15;
 
 /**
  * Get a map key corresponding to a session.
@@ -116,7 +106,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// A map of the currently active notebook sessions. This is keyed by the notebook URI
 	// owning the session.
-	private readonly _notebookSessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
+	private readonly _notebookSessionsByNotebookUri = new ResourceMap<INotebookLanguageRuntimeSession>();
 
 	// An map of sessions that have been disconnected from the extension host,
 	// from sessionId to session. We keep these around so we can reconnect them when
@@ -383,7 +373,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns The notebook session with the given notebook URI, or undefined if
 	 *  no notebook session with the given notebook URI exists.
 	 */
-	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
+	getNotebookSessionForNotebookUri(notebookUri: URI): INotebookLanguageRuntimeSession | undefined {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
 		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
 		return session;
@@ -699,7 +689,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const createConsole =
 			sessionMode === LanguageRuntimeSessionMode.Console || (
 				sessionMode === LanguageRuntimeSessionMode.Notebook &&
-				this._configurationService.getValue<boolean>("console.showNotebookConsoles"));
+				this._configurationService.getValue<boolean>('console.showNotebookConsoles'));
 
 		// Start the runtime.
 		this._logService.info(
@@ -1741,7 +1731,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Append the new session to the list of existing sessions if it hasn't been added
 				this.addSessionToConsoleSessionMap(session);
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				if (session.metadata.notebookUri) {
+				if (isNotebookLanguageRuntimeSession(session)) {
 					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 				} else {
@@ -1847,8 +1837,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					// Restore the session in the case of a restart.
 					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 						this.addSessionToConsoleSessionMap(session);
-					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-						session.metadata.notebookUri &&
+					} else if (isNotebookLanguageRuntimeSession(session) &&
 						!this._notebookSessionsByNotebookUri.has(session.metadata.notebookUri)) {
 						this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 					}
@@ -1989,23 +1978,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`${formatLanguageRuntimeMetadata(startingLanguageRuntime)} ` +
 					`is already starting for the language.` +
 					(source ? ` Request source: ${source}` : ``));
-			}
-
-			// Restrict the number of console sessions that can be created to 15.
-			// This value is arbitrary and should be made a configuration setting
-			// in the future for users once this feature has stabilized!
-			if (this._activeSessionsBySessionId.size >= MAX_CONCURRENT_SESSIONS) {
-				this._notificationService.notify({
-					severity: Severity.Info,
-					message: localize('positron.console.maxError', "Cannot start console session.\
-							The maximum number of consoles ({0}) has been reached", MAX_CONCURRENT_SESSIONS)
-				});
-
-				throw new Error(`Session for language runtime ` +
-					`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
-					`cannot be started because the maximum number of ` +
-					`runtime sessions has been reached.`
-				);
 			}
 		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			// If no notebook URI is provided, throw an error.
@@ -2483,7 +2455,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					return p;
 				}
 				return path.join(workspaceFolderName, relativePath);
-			}
+			};
 
 			const currentWorkingDirectoryDisplay = makeDisplayPath(currentWorkingDirectoryResolved);
 			const newWorkingDirectoryDisplay = makeDisplayPath(newWorkingDirectoryResolved);
@@ -2492,6 +2464,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),
 				localize(
 					'positron.notebook.workingDirectoryChanged',
+					// eslint-disable-next-line local/code-no-unexternalized-strings
 					'This notebook was moved to a new location but your session is still running from the original directory.'
 					+ '<br><br>Saved at: <code>{0}</code>'
 					+ '<br>Running from: <code>{1}</code>'
@@ -2558,4 +2531,13 @@ function awaitStateChange(
 			}));
 		}
 	});
+}
+
+/**
+ * Checks whether a session is for a notebook.
+ * @param session The session to check
+ */
+export function isNotebookLanguageRuntimeSession(session: ILanguageRuntimeSession): session is INotebookLanguageRuntimeSession {
+	return session.metadata.notebookUri !== undefined &&
+		session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
 }

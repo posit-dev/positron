@@ -16,11 +16,10 @@ import { getShellIntegrationInjection, getWindowsBuildNumber, IShellIntegrationC
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { isWeb } from '../../../../base/common/platform.js';
-// --- End Positron ---
 
-const enabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined };
-const disabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: false, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined };
-const winptyProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: false, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined };
+const enabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined, isScreenReaderOptimized: false };
+const disabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: false, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined, isScreenReaderOptimized: false };
+const winptyProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: false, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined, isScreenReaderOptimized: false };
 const pwshExe = process.platform === 'win32' ? 'pwsh.exe' : 'pwsh';
 const repoRoot = process.platform === 'win32' ? process.cwd()[0].toLowerCase() + process.cwd().substring(1) : process.cwd();
 const logService = new NullLogService();
@@ -70,6 +69,7 @@ suite('platform - terminalEnvironment', async () => {
 						POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
 						POSITRON_MODE: isWeb ? 'server' : 'desktop',
 						// --- End Positron ---
+						VSCODE_A11Y_MODE: '0',
 						VSCODE_INJECTION: '1'
 					}
 				});
@@ -108,6 +108,7 @@ suite('platform - terminalEnvironment', async () => {
 						POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
 						POSITRON_MODE: isWeb ? 'server' : 'desktop',
 						// --- End Positron ---
+						VSCODE_A11Y_MODE: '0',
 						VSCODE_INJECTION: '1'
 					}
 				});
@@ -275,7 +276,8 @@ suite('platform - terminalEnvironment', async () => {
 					windowsEnableConpty: true,
 					windowsUseConptyDll: false,
 					environmentVariableCollections: undefined,
-					workspaceFolder: undefined
+					workspaceFolder: undefined,
+					isScreenReaderOptimized: false
 				};
 
 				// Test with an unsupported shell (julia)

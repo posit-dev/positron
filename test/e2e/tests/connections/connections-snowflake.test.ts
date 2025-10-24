@@ -23,13 +23,11 @@ test.describe('Snowflake Connection', {
 
 		await app.workbench.console.pasteCodeToConsole(connectionCode, true);
 
-		await app.code.driver.page.locator('.codicon-arrow-circle-right').click();
+		await app.code.driver.page.locator('.codicon-arrow-circle-right').click({ timeout: 60000 });
 
-		const essentials = app.code.driver.page.locator('.connections-details', { hasText: 'FINANCIAL__ECONOMIC_ESSENTIALS' });
-		await essentials.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
+		await app.workbench.connections.expandConnectionDetails('FINANCIAL__ECONOMIC_ESSENTIALS');
 
-		const cyber = app.code.driver.page.locator('.connections-details', { hasText: 'CYBERSYN' });
-		await cyber.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
+		await app.workbench.connections.expandConnectionDetails('CYBERSYN');
 
 		await app.code.driver.page.locator('.codicon-positron-view-connection').first().click();
 

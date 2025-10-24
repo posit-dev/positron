@@ -40,6 +40,13 @@
           "default": 30,
           "description": "%configuration.connectionTimeout.description%"
         },
+        "kernelSupervisor.startupTimeout": {
+          "scope": "window",
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "%configuration.startupTimeout.description%"
+        },
         "kernelSupervisor.logLevel": {
           "scope": "window",
           "type": "string",

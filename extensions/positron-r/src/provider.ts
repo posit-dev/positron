@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as semver from 'semver';
 import * as vscode from 'vscode';
-import * as which from 'which';
+import which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 

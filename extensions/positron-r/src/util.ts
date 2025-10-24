@@ -53,6 +53,15 @@ export function readLines(pth: string): Array<string> {
 	}
 }
 
+export function isExecutable(filePath: string): boolean {
+	try {
+		fs.accessSync(filePath, fs.constants.X_OK);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 // extractValue('KEY=VALUE', 'KEY')      --> 'VALUE'
 // extractValue('KEY:VALUE', 'KEY', ':') --> 'VALUE'
 // extractValue('KEE:VALUE', 'KEY')      --> ''

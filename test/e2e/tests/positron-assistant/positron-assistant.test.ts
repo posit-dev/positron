@@ -149,6 +149,10 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 		await app.workbench.console.waitForConsoleContents('foo <- 200');
 		await app.workbench.variables.expectVariableToBe('foo', '200');
 	});
+
+	test('Verify Manage Models is available', { tag: [tags.SOFT_FAIL] }, async function ({ app }) {
+		await app.workbench.assistant.verifyManageModelsOptionVisible();
+	});
 });
 
 // Skipping web. See https://github.com/posit-dev/positron/issues/8568

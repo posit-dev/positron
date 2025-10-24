@@ -18,10 +18,10 @@ test.describe('Quarto - R', { tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.ARK] }
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 	});
 
-	test.afterEach(async function ({ app }) {
+	test.afterEach(async function ({ app, hotKeys }) {
 		// Clean up any terminals that may have been created during Quarto operations
 		try {
-			await app.workbench.quickaccess.runCommand('workbench.action.terminal.killAll');
+			await hotKeys.killAllTerminals();
 		} catch (error) {
 			// Ignore errors if no terminals exist
 		}
