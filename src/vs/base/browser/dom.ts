@@ -1592,6 +1592,10 @@ export interface INotification extends IDisposable {
 	readonly onClick: event.Event<void>;
 }
 
+function sanitizeNotificationText(text: string): string {
+	return text.replace(/`/g, '\''); // convert backticks to single quotes
+}
+
 export async function triggerNotification(message: string, options?: { detail?: string; sticky?: boolean }): Promise<INotification | undefined> {
 	const permission = await Notification.requestPermission();
 	if (permission !== 'granted') {
@@ -1600,9 +1604,9 @@ export async function triggerNotification(message: string, options?: { detail?: 
 
 	const disposables = new DisposableStore();
 
-	const notification = new Notification(message, {
-		body: options?.detail,
-		requireInteraction: options?.sticky
+	const notification = new Notification(sanitizeNotificationText(message), {
+		body: options?.detail ? sanitizeNotificationText(options.detail) : undefined,
+		requireInteraction: options?.sticky,
 	});
 
 	const onClick = new event.Emitter<void>();

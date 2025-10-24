@@ -9,7 +9,6 @@ import path = require('path');
 import fs = require('fs');
 import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './positron-supervisor';
 import { Barrier, PromiseHandles, withTimeout } from './async';
-import uuid = require('uuid');
 
 interface ReticulateSessionInfo {
 	reticulateSessionId: string;
@@ -863,7 +862,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 					cancellable: false
 				}, async (progress, _token) => {
 					this.progress.report({ increment: 10, message: vscode.l10n.t('Creating the Python session') });
-					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${uuid.v4()}` };
+					const randomId = Math.floor(Math.random() * 0x100000000).toString(16);
+					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${randomId}` };
 
 					// When the R session is ready, we can start a new Reticulate session.
 					this.pythonSession = this.createPythonRuntimeSession(

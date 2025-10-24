@@ -90,7 +90,7 @@ export class HtmlProxyServer implements Disposable {
 			this._app.use(`/${serverPath}`, express.static(targetPath));
 		} else {
 			// If we're running in the web, we need to inject resources for the preview HTML.
-			this._app.use(`/${serverPath}`, async (req, res, next) => {
+			this._app.use(`/${serverPath}`, async (req: any, res: any, next: any) => {
 				const filePath = path.join(targetPath, req.path);
 				if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
 					const fileExt = path.extname(filePath).toLowerCase();
