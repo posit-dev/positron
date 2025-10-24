@@ -14,7 +14,7 @@ test.afterEach(async function ({ hotKeys }) {
 });
 
 test.describe('Data Explorer - DuckDB Column Summary', {
-	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.DUCK_DB]
+	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
 	test('Verify basic duckdb column summary functionality', async function ({ app, openDataFile, hotKeys }) {
 		const { summaryPanel } = app.workbench.dataExplorer;

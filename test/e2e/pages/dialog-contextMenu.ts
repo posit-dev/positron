@@ -31,15 +31,16 @@ export class ContextMenu {
 	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem', menuTriggerButton = 'left' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
+				this.code.logger.log(`Using native menu to select: ${menuItemLabel}`);
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton });
 			} else {
+				this.code.logger.log(`Using web menu to select: ${menuItemLabel}`);
 				await menuTrigger.click({ button: menuTriggerButton });
-
 				// Hover over the menu item
 				const menuItem = menuItemType === 'menuitemcheckbox'
 					? this.getContextMenuCheckboxItem(menuItemLabel)
 					: this.getContextMenuItem(menuItemLabel);
-				await menuItem.hover();
+				await menuItem.hover({ timeout: 1000 });
 				await this.page.waitForTimeout(500);
 
 				// Either selects the menu item or dismisses the tooltip

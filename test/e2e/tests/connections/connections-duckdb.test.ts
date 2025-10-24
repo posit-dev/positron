@@ -12,7 +12,7 @@ test.use({
 const randomText = Math.random().toString(36).substring(7);
 
 test.describe('DuckDB Connection', {
-	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN]
+	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN, tags.SOFT_FAIL]
 }, () => {
 
 	test('Python - Can establish a DuckDB connection', async function ({ python, app }) {

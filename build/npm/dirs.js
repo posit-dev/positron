@@ -13,6 +13,7 @@ const dirs = [
 	// --- Start Positron ---
 	'extensions/open-remote-ssh',
 	'extensions/positron-assistant',
+	'extensions/positron-catalog-explorer',
 	'extensions/positron-code-cells',
 	'extensions/positron-copilot-chat',
 	'extensions/positron-connections',

@@ -13,7 +13,6 @@ import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNot
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
 
 export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
 const NOTEBOOK_ACTIONS_CATEGORY_POSITRON = localize2('positronNotebookActions.category', 'Positron Notebook');
@@ -36,9 +35,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		});
 	}
 
-	async run(accessor: ServicesAccessor, context?: IPositronNotebookActionBarContext): Promise<boolean> {
-		// Force the dropdown if the action was invoked by the user in the UI
-		const forceDropdown = context?.ui ?? false;
+	async run(accessor: ServicesAccessor): Promise<boolean> {
 		const notebookKernelService = accessor.get(INotebookKernelService);
 		const activeNotebook = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
 		const quickInputService = accessor.get(IQuickInputService);
@@ -50,13 +47,6 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		const notebook = activeNotebook.textModel;
 		if (!notebook) {
 			return false;
-		}
-
-		const kernelMatches = notebookKernelService.getMatchingKernel(notebook);
-
-		if (!forceDropdown && kernelMatches.selected) {
-			// current kernel is wanted kernel -> done
-			return true;
 		}
 
 		// Show quick-pick with all kernels that match notebook, aka positronKernels
