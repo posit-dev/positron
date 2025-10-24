@@ -27,12 +27,11 @@ import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPathService } from '../../path/common/pathService.js';
-import { untildify } from '../../../../base/common/labels.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { resolveNotebookWorkingDirectory, resolvePath } from './notebookWorkingDirectoryUtils.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -388,79 +387,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return Array.from(this._activeSessionsBySessionId.values());
 	}
 
-	/**
-	 * Validates that a URI is an existing directory.
-	 *
-	 * @param uri The URI to validate
-	 * @returns A promise that resolves to true if the URI is a directory and exists,
-	 * false otherwise.
-	 */
-	private async isValidDirectory(uri: URI): Promise<boolean> {
-		try {
-			const stat = await this._fileService.stat(uri);
-			if (!stat.isDirectory) {
-				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri}' exists but is not a directory`);
-				return false;
-			}
-			return true;
-		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri}' does not exist or is not accessible:`, error);
-			return false;
-		}
-	}
 
-	/**
-	 * Resolves the working directory for a notebook based on its URI and the setting.
-	 * If the setting doesn't resolve to an existing directory, use the notebook's directory.
-	 * If the directory doesn't exist, return undefined.
-	 *
-	 * @param notebookUri The URI of the notebook
-	 * @returns The resolved working directory or undefined if it doesn't exist
-	 */
-	private async resolveNotebookWorkingDirectory(notebookUri: URI): Promise<string | undefined> {
-		// The default value is the notebook's parent directory, if it exists.
-		let defaultValue: string | undefined;
-		const notebookParent = URI.joinPath(notebookUri, '..');
-		if (await this.isValidDirectory(notebookParent)) {
-			defaultValue = notebookParent.scheme === Schemas.file ? notebookParent.fsPath : notebookParent.path;
-		}
-
-		const configValue = this._configurationService.getValue<string>(
-			NotebookSetting.workingDirectory, { resource: notebookUri }
-		);
-		if (!configValue || configValue.trim() === '') {
-			this._logService.info(`${NotebookSetting.workingDirectory}: Setting is unset. Using default: '${defaultValue}'`);
-			return defaultValue;
-		}
-		const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(notebookUri);
-
-		// Resolve the variables in the setting
-		let resolvedValue: string;
-		try {
-			resolvedValue = await this._configurationResolverService.resolveAsync(
-				workspaceFolder || undefined, configValue
-			);
-		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Failed to resolve variables in '${configValue}'. Using default: '${defaultValue}'`, error);
-			return defaultValue;
-		}
-
-		// Check if the result is a directory that exists
-		let resolvedValueUri: URI;
-		try {
-			resolvedValueUri = URI.from({ scheme: this._pathService.defaultUriScheme, path: resolvedValue });
-		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Invalid path '${resolvedValue}'. Using default: '${defaultValue}'`, error);
-			return defaultValue;
-		}
-		if (await this.isValidDirectory(resolvedValueUri)) {
-			this._logService.info(`${NotebookSetting.workingDirectory}: Resolved '${configValue}' to '${resolvedValue}'`);
-			return resolvedValue;
-		} else {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Using default value '${defaultValue}'`);
-			return defaultValue;
-		}
-	}
 
 	/**
 	 * Select a session for the provided runtime.
@@ -1658,7 +1585,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Resolve the working directory configuration
 		let workingDirectory: string | undefined;
 		if (notebookUri) {
-			workingDirectory = await this.resolveNotebookWorkingDirectory(notebookUri);
+			workingDirectory = await resolveNotebookWorkingDirectory(
+				notebookUri,
+				this._fileService,
+				this._configurationService,
+				this._configurationResolverService,
+				this._workspaceContextService,
+				this._pathService,
+				this._logService
+			);
 		}
 
 		const sessionMetadata: IRuntimeSessionMetadata = {
@@ -2391,31 +2326,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 	}
 
-	/**
-	 * Resolves a path by expanding tildes and resolving symlinks.
-	 *
-	 * @param path The path to resolve
-	 * @returns The resolved path with tildes expanded and symlinks resolved
-	 */
-	private async resolvePath(path: string): Promise<string> {
-		const userHome = await this._pathService.userHome();
-		const userHomePath = userHome.scheme === Schemas.file ? userHome.fsPath : userHome.path;
-
-		// First expand tildes
-		const untildifiedPath = untildify(path, userHomePath);
-
-		// Then try to resolve symlinks
-		try {
-			const pathUri = URI.from({ scheme: this._pathService.defaultUriScheme, path: untildifiedPath });
-			const realpath = await this._fileService.realpath(pathUri);
-			return realpath ? (realpath.scheme === Schemas.file ? realpath.fsPath : realpath.path) : untildifiedPath;
-		} catch (error) {
-			// If realpath fails (e.g., path doesn't exist, permission issues),
-			// fall back to the untildified path
-			this._logService.debug(`Failed to resolve symlinks for path '${untildifiedPath}': ${error}`);
-			return untildifiedPath;
-		}
-	}
 
 	/**
 	 * Prompts the user to update the session's working directory if it has changed
@@ -2431,14 +2341,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	): Promise<boolean> {
 		let wasChanged = false;
 		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
-		const newWorkingDirectory = await this.resolveNotebookWorkingDirectory(newUri);
+		const newWorkingDirectory = await resolveNotebookWorkingDirectory(
+			newUri,
+			this._fileService,
+			this._configurationService,
+			this._configurationResolverService,
+			this._workspaceContextService,
+			this._pathService,
+			this._logService
+		);
 		if (!newWorkingDirectory) {
 			return false;
 		}
 
 		// Resolve both paths (untildify + symlink resolution) for comparison
-		const currentWorkingDirectoryResolved = await this.resolvePath(currentWorkingDirectory);
-		const newWorkingDirectoryResolved = await this.resolvePath(newWorkingDirectory);
+		const currentWorkingDirectoryResolved = await resolvePath(
+			currentWorkingDirectory,
+			this._fileService,
+			this._pathService,
+			this._logService
+		);
+		const newWorkingDirectoryResolved = await resolvePath(
+			newWorkingDirectory,
+			this._fileService,
+			this._pathService,
+			this._logService
+		);
 
 		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
 			// Format the paths for display
