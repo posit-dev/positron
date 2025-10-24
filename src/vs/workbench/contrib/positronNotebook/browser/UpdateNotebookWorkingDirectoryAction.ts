@@ -149,6 +149,11 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 				newWorkingDirectoryDisplay,
 				session
 			);
+		} else {
+			notificationService.info(localize(
+				'positron.notebook.updateWorkingDirectory.alreadyUpToDate',
+				'The working directory is already up to date.'
+			));
 		}
 	}
 
