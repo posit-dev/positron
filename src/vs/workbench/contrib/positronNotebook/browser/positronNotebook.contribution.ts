@@ -751,7 +751,7 @@ registerCellCommand({
 
 		// If this is the last cell, insert a new cell below of the same type
 		if (cell.isLastCell()) {
-			notebook.addCell(cell.kind, cell.index + 1);
+			notebook.addCell(cell.kind, cell.index + 1, true);
 			// Don't call moveDown - addCell triggers SelectionStateMachine._setCells()
 			// which already handles selection and focus of the new cell in Edit mode
 		} else {
@@ -948,7 +948,7 @@ registerNotebookAction({
 	commandId: 'positronNotebook.addCodeCellAtEnd',
 	handler: (notebook) => {
 		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Code, cellCount);
+		notebook.addCell(CellKind.Code, cellCount, true);
 	},
 	menu: {
 		id: MenuId.EditorActionsLeft,
@@ -968,7 +968,7 @@ registerNotebookAction({
 	commandId: 'positronNotebook.addMarkdownCellAtEnd',
 	handler: (notebook) => {
 		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Markup, cellCount);
+		notebook.addCell(CellKind.Markup, cellCount, true);
 	},
 	menu: {
 		id: MenuId.EditorActionsLeft,

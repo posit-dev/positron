@@ -11,6 +11,7 @@ import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/und
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
+import { NotebookOperationType } from '../../IPositronNotebookInstance.js';
 
 class PositronNotebookUndoRedoContribution extends Disposable {
 
@@ -71,8 +72,16 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const result = this.undoRedoService.undo(instance.uri);
-		return result ?? true;
+		instance.setCurrentOperation(NotebookOperationType.Undo);
+
+		try {
+			const result = this.undoRedoService.undo(instance.uri);
+			// If successful, _syncCells() will clear the flag
+			return result ?? true;
+		} catch (error) {
+			instance.clearCurrentOperation();
+			throw error;
+		}
 	}
 
 	private handleRedo(): boolean | Promise<void> {
@@ -89,8 +98,16 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const result = this.undoRedoService.redo(instance.uri);
-		return result ?? true;
+		instance.setCurrentOperation(NotebookOperationType.Redo);
+
+		try {
+			const result = this.undoRedoService.redo(instance.uri);
+			// If successful, _syncCells() will clear the flag
+			return result ?? true;
+		} catch (error) {
+			instance.clearCurrentOperation();
+			throw error;
+		}
 	}
 }
 
