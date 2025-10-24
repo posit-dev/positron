@@ -117,14 +117,14 @@ async function registerDatabricksCatalog(
 
 	// Validate the token by checking if the user is available
 	try {
-		const userResponse = await fetch(`${workspace}/api/2.0/workspace/list?path=/`, {
+		const userResponse = await fetch(`${workspace}/api/2.0/workspace/list?path=/&limit=1`, {
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${token}`,
 			},
 		});
 
-		if (!userResponse.ok) {
+		if (userResponse.status === 403 || userResponse.status === 404) {
 			throw new Error(`Invalid credentials: ${userResponse.status} ${userResponse.statusText}`);
 		}
 	} catch (error) {
