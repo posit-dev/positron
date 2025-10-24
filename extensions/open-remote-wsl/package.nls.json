@@ -1,0 +1,23 @@
+{
+	"displayName": "Open Remote - WSL",
+	"description": "Open any folder in the Windows Subsystem for Linux (WSL).",
+	"configuration.title": "WSL",
+	"configuration.remote.WSL.serverDownloadUrlTemplate.description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64\n- ${arch-long}: Positron server arch in long format, e.g. x86_64, arm64",
+	"views.remote.wslTargets.name": "WSL Targets",
+	"command.openremotewsl.category": "Remote-WSL",
+	"command.openremotewsl.connect.title": "Connect to WSL",
+	"command.openremotewsl.connectInNewWindow.title": "Connect to WSL in New Window",
+	"command.openremotewsl.connectUsingDistro.title": "Connect to WSL using Distro...",
+	"command.openremotewsl.connectUsingDistroInNewWindow.title": "Connect to WSL using Distro in New Window...",
+	"command.openremotewsl.showLog.title": "Show Log",
+	"command.openremotewsl.explorer.emptyWindowInNewWindow.title": "Connect in New Window",
+	"command.openremotewsl.explorer.emptyWindowInCurrentWindow.title": "Connect in Current Window",
+	"command.openremotewsl.explorer.reopenFolderInCurrentWindow.title": "Open in Current Window",
+	"command.openremotewsl.explorer.reopenFolderInNewWindow.title": "Open in New Window",
+	"command.openremotewsl.explorer.deleteFolderHistoryItem.title": "Remove From Recent List",
+	"command.openremotewsl.explorer.refresh.title": "Refresh",
+	"command.openremotewsl.explorer.addDistro.title": "Add a Distro",
+	"command.openremotewsl.explorer.setDefaultDistro.title": "Set as Default Distro",
+	"command.openremotewsl.explorer.deleteDistro.title": "Delete Distro",
+	"resourceLabelFormatters.workspaceSuffix": "WSL"
+}

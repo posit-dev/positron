@@ -1,0 +1,9 @@
+node_modules/
+out/
+.vscode-test/
+*.vsix
+.DS_Store
+package.insiders.json
+vscode.d.ts
+vscode.proposed.*.d.ts
+*.ignore.ts
