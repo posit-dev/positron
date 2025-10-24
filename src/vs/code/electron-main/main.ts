@@ -74,6 +74,10 @@ import { FileUserDataProvider } from '../../platform/userData/common/fileUserDat
 import { addUNCHostToAllowlist, getUNCHost } from '../../base/node/unc.js';
 import { ThemeMainService } from '../../platform/theme/electron-main/themeMainServiceImpl.js';
 
+// --- Start PWB ---
+import { AdminPolicyService, IAdminPolicyService } from '../../platform/policy/common/adminPolicyService.js';
+// --- End PWB ---
+
 /**
  * The main VS Code entry point.
  *
@@ -198,6 +202,16 @@ class CodeMain {
 		// enable atomic read / write operations.
 		fileService.registerProvider(Schemas.vscodeUserData, new FileUserDataProvider(Schemas.file, diskFileSystemProvider, Schemas.vscodeUserData, userDataProfilesMainService, uriIdentityService, logService));
 
+		// --- Start PWB ---
+		// Admin Policy (enforced settings from environment variable)
+		const enforcedSettings = process.env['POSITRON_ENFORCED_SETTINGS'];
+		let adminPolicyService: IAdminPolicyService | undefined;
+		if (enforcedSettings) {
+			adminPolicyService = disposables.add(new AdminPolicyService(enforcedSettings, logService));
+			services.set(IAdminPolicyService, adminPolicyService);
+		}
+		// --- End PWB ---
+
 		// Policy
 		let policyService: IPolicyService | undefined;
 		if (isWindows && productService.win32RegValueName) {
@@ -212,7 +226,10 @@ class CodeMain {
 		services.set(IPolicyService, policyService);
 
 		// Configuration
-		const configurationService = new ConfigurationService(userDataProfilesMainService.defaultProfile.settingsResource, fileService, policyService, logService);
+		// --- Start PWB ---
+		// Add adminPolicyService to constructor
+		const configurationService = new ConfigurationService(userDataProfilesMainService.defaultProfile.settingsResource, fileService, policyService, logService, adminPolicyService);
+		// --- End PWB ---
 		services.set(IConfigurationService, configurationService);
 
 		// Lifecycle
@@ -523,6 +540,9 @@ class CodeMain {
 			} else if (args.chat['reuse-window']) {
 				// Apply `--reuse-window` flag to the main arguments
 				args['reuse-window'] = true;
+			} else if (args.chat['profile']) {
+				// Apply `--profile` flag to the main arguments
+				args['profile'] = args.chat['profile'];
 			} else {
 				// Unless we are started with specific instructions about
 				// new windows or reusing existing ones, always take the

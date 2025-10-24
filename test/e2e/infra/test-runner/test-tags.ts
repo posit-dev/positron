@@ -73,7 +73,10 @@ export enum TestTags {
 	WORKBENCH = '@:workbench',
 
 	// exclude tags
-	NIGHTLY_ONLY = '@:nightly-only'
+	NIGHTLY_ONLY = '@:nightly-only',
+
+	// soft fail tag for tests that shouldn't fail merge to main
+	SOFT_FAIL = '@:soft-fail'
 }
 
 

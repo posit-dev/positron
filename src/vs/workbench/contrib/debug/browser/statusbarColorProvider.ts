@@ -12,7 +12,7 @@ import { STATUS_BAR_FOREGROUND, STATUS_BAR_BORDER, COMMAND_CENTER_BACKGROUND } f
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { IStatusbarService } from '../../../services/statusbar/browser/statusbar.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { createStyleSheet } from '../../../../base/browser/domStylesheets.js';
 
 // --- Start Positron ---
 import { inputBackground } from '../../../../platform/theme/common/colorRegistry.js';  // eslint-disable-line no-duplicate-imports
@@ -52,6 +52,8 @@ export class StatusBarColorProvider implements IWorkbenchContribution {
 	private readonly disposables = new DisposableStore();
 	private disposable: IDisposable | undefined;
 
+	private readonly styleSheet = createStyleSheet();
+
 	private set enabled(enabled: boolean) {
 		if (enabled === !!this.disposable) {
 			return;
@@ -74,7 +76,6 @@ export class StatusBarColorProvider implements IWorkbenchContribution {
 		@IDebugService private readonly debugService: IDebugService,
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
-		@ILayoutService private readonly layoutService: ILayoutService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		this.debugService.onDidChangeState(this.update, this, this.disposables);
@@ -97,11 +98,12 @@ export class StatusBarColorProvider implements IWorkbenchContribution {
 		}
 
 		const isInCommandCenter = debugConfig.toolBarLocation === 'commandCenter';
-		this.layoutService.mainContainer.style.setProperty(asCssVariableName(COMMAND_CENTER_BACKGROUND), isInCommandCenter && isInDebugMode
-			? asCssVariable(COMMAND_CENTER_DEBUGGING_BACKGROUND)
-			: ''
-		);
 
+		this.styleSheet.textContent = isInCommandCenter && isInDebugMode ? `
+			.monaco-workbench {
+				${asCssVariableName(COMMAND_CENTER_BACKGROUND)}: ${asCssVariable(COMMAND_CENTER_DEBUGGING_BACKGROUND)};
+			}
+		` : '';
 	}
 
 	dispose(): void {

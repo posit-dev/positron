@@ -7,7 +7,6 @@ import { Notebooks } from './notebooks';
 import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
-import { Clipboard } from './clipboard.js';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu } from './dialog-contextMenu.js';
@@ -30,13 +29,13 @@ export class PositronNotebooks extends Notebooks {
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 	private cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
-	private kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
+	private kernelStatusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' })
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private clipboard: Clipboard, private contextMenu: ContextMenu) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
 	}
 
@@ -94,16 +93,18 @@ export class PositronNotebooks extends Notebooks {
 	 * @param settings - The settings fixture
 	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
 	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
+	 * @param enableNotebooks - Whether to enable Positron notebooks (defaults to true, set to false to explicitly disable)
 	 */
 	async setNotebookEditor(
 		settings: {
 			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		},
 		editor: 'positron' | 'default',
-		waitMs = 800
+		waitMs = 800,
+		enableNotebooks = true
 	) {
 		await settings.set({
-			'positron.notebook.enabled': true,
+			'positron.notebook.enabled': enableNotebooks,
 			'workbench.editorAssociations': editor === 'positron'
 				? { '*.ipynb': 'workbench.editor.positronNotebook' }
 				: {}
@@ -111,7 +112,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Enable Positron notebooks in settings and set to 'positron' editor.
+	 * Action: Configure editor associations to use Positron notebook editor for .ipynb files.
 	 * @param settings - The settings fixture
 	 */
 	async enablePositronNotebooks(
@@ -120,10 +121,9 @@ export class PositronNotebooks extends Notebooks {
 		},
 	) {
 		const config: Record<string, unknown> = {
-			'positron.notebook.enabled': true,
 			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
 		};
-		await settings.set(config, { reload: true });
+		await settings.set(config, { reload: 'web' });
 	}
 
 	/**
@@ -290,21 +290,24 @@ export class PositronNotebooks extends Notebooks {
 			// Press escape to ensure focus is out of the cell editor
 			await this.code.driver.page.keyboard.press('Escape');
 
+			// Note: We use direct keyboard shortcuts instead of hotKeys/clipboard helpers
+			// because Positron Notebooks uses Jupyter-style single-key shortcuts (C/X/V/Z)
+			// in command mode, not the standard Cmd+C/X/V/Z shortcuts
 			switch (action) {
 				case 'copy':
-					await this.clipboard.copy();
+					await this.code.driver.page.keyboard.press('KeyC');
 					break;
 				case 'cut':
-					await this.clipboard.cut();
+					await this.code.driver.page.keyboard.press('KeyX');
 					break;
 				case 'paste':
-					await this.clipboard.paste();
+					await this.code.driver.page.keyboard.press('KeyV');
 					break;
 				case 'undo':
-					await this.hotKeys.undo();
+					await this.code.driver.page.keyboard.press('KeyZ');
 					break;
 				case 'redo':
-					await this.hotKeys.redo();
+					await this.code.driver.page.keyboard.press('Shift+KeyZ');
 					break;
 				case 'delete':
 					await this.code.driver.page.keyboard.press('Backspace');
@@ -373,29 +376,20 @@ export class PositronNotebooks extends Notebooks {
 				this.code.logger.log('Could not check current kernel status');
 			}
 
-			// Need to select the kernel
-			try {
-				// Click on kernel status badge to open selection
-				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
-				await expect(async () => {
-					// we shouldn't need to retry this, but the input closes immediately sometimes
-					await this.contextMenu.triggerAndClick({
-						menuTrigger: this.kernelStatusBadge,
-						menuItemLabel: `Change Kernel...`
-					});
-					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
-					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			// Click on kernel status badge to open selection
+			await expect(async () => {
+				// we shouldn't need to retry this, but the input closes immediately sometimes
+				await this.contextMenu.triggerAndClick({
+					menuTrigger: this.kernelStatusBadge,
+					menuItemLabel: /Change Kernel/
+				});
+				// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
+				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			}).toPass({ timeout: 10000 });
 
-					// Select the desired kernel
-					await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-					await this.quickinput.waitForQuickInputClosed();
-				}).toPass({ timeout: 10000 });
-
-				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
-			} catch (e) {
-				this.code.logger.log(`Failed to select kernel: ${e}`);
-				throw e;
-			}
+			await this.quickinput.waitForQuickInputClosed();
+			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
 			// Wait for the kernel status to show "Connected"
 			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout: 30000 });

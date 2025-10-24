@@ -375,6 +375,7 @@ function makeChatRequest(
 ): vscode.ChatRequest {
 	return {
 		id: 'test-request-id',
+		sessionId: 'test-session-id',
 		prompt: 'Hello, world!',
 		command: undefined,
 		references: options.references,

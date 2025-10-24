@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as decompress from 'decompress';
+import decompress from 'decompress';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
@@ -108,8 +108,8 @@ async function downloadAndReplaceArk(version: string,
 
 	try {
 		const headers: Record<string, string> = {
-			'Accept': 'application/vnd.github.v3.raw', // eslint-disable-line
-			'User-Agent': 'positron-ark-downloader' // eslint-disable-line
+			'Accept': 'application/vnd.github.v3.raw',
+			'User-Agent': 'positron-ark-downloader'
 		};
 		// If we have a githubPat, set it for better rate limiting.
 		if (githubPat) {

@@ -17,7 +17,8 @@ import { EditSourceData, IDocumentWithAnnotatedEdits, createDocWithJustReason } 
 import { IAiEditTelemetryService } from './aiEditTelemetry/aiEditTelemetryService.js';
 import { ArcTracker } from '../../common/arcTracker.js';
 import type { ScmRepoBridge } from './editSourceTrackingImpl.js';
-import { forwardToChannelIf, isCopilotLikeExtension } from './forwardingTelemetryService.js';
+import { forwardToChannelIf, isCopilotLikeExtension } from '../../../../../platform/dataChannel/browser/forwardingTelemetryService.js';
+import { ProviderId } from '../../../../../editor/common/languages.js';
 
 export class InlineEditArcTelemetrySender extends Disposable {
 	constructor(
@@ -133,12 +134,15 @@ export class AiEditTelemetryAdapter extends Disposable {
 				feature = 'inlineChat';
 			}
 
+			const providerId = new ProviderId(data.props.$extensionId, data.props.$extensionVersion, data.props.$providerId);
+
 			// TODO@hediet tie this suggestion id to hunks, so acceptance can be correlated.
 			this._aiEditTelemetryService.createSuggestionId({
 				applyCodeBlockSuggestionId,
 				languageId: data.props.$$languageId,
 				presentation: 'highlightedEdit',
 				feature,
+				source: providerId,
 				modelId: data.props.$modelId,
 				modeId: data.props.$$mode as any,
 				editDeltaInfo: EditDeltaInfo.fromEdit(edit, _prev),

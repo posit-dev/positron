@@ -20,6 +20,7 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
+      allow_soft_fail: true
     secrets: inherit
 
   e2e-windows-electron:
@@ -31,6 +32,7 @@ jobs:
       currents_tags: "merge,electron/windows"
       report_testrail: false
       upload_logs: false
+      allow_soft_fail: true
     secrets: inherit
 
   e2e-linux-chromium:
@@ -45,6 +47,7 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
+      allow_soft_fail: true
     secrets: inherit
 
   unit-tests:
