@@ -46,7 +46,7 @@ export class SessionExecutionHistory extends Disposable {
 		this._storageKey = `${EXECUTION_HISTORY_STORAGE_PREFIX}.${_sessionId}`;
 
 		// Load existing history entries
-		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
 		try {
 			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<any>) => {
 				this._entries.push(entry);

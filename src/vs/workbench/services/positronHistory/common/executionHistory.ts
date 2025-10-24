@@ -298,12 +298,12 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		return history.entries;
 	}
 
-	clearExecutionEntries(runtimeId: string): void {
+	clearExecutionEntries(sessionId: string): void {
 		// Return the history entries for the given runtime, if known.
-		if (this._executionHistories.has(runtimeId)) {
-			this._executionHistories.get(runtimeId)?.clear();
+		if (this._executionHistories.has(sessionId)) {
+			this._executionHistories.get(sessionId)?.clear();
 		} else {
-			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
+			throw new Error(`Can't get entries; unknown session ID: ${sessionId}`);
 		}
 	}
 
