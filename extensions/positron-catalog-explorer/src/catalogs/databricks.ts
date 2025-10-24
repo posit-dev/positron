@@ -124,8 +124,8 @@ async function registerDatabricksCatalog(
 			},
 		});
 
-		if (userResponse.status === 403 || userResponse.status === 404) {
-			throw new Error(`Invalid credentials: ${userResponse.status} ${userResponse.statusText}`);
+		if (!userResponse.ok) {
+			throw new Error(`Could not validate login: ${userResponse.status} ${userResponse.statusText}`);
 		}
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to validate Databricks credentials: ${error}`);
