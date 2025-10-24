@@ -25,6 +25,10 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { LANGUAGE_RUNTIME_SELECT_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 import { isEqual } from '../../../../base/common/resources.js';
+import { isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { ResourceMap } from '../../../../base/common/map.js';
+import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 
 /**
  * The service responsible for managing {@link RuntimeNotebookKernel}s.
@@ -46,6 +50,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		@ILogService private readonly _logService: ILogService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
@@ -59,13 +64,32 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// Create a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			this.createRuntimeNotebookKernel(runtime);
+			this.getOrCreateKernel(runtime);
 		}));
 
 		// Create a kernel for each existing runtime.
 		for (const runtime of this._languageRuntimeService.registeredRuntimes) {
-			this.createRuntimeNotebookKernel(runtime);
+			this.getOrCreateKernel(runtime);
 		}
+
+		// Create kernels for any restored sessions,
+		// and select those kernels for any existing notebook instances.
+		// This should occur before any runtimes are registered and any sessions actually started.
+		this._runtimeStartupService.getRestoredSessions().then(serializedSessions => {
+			const instancesByUri = new ResourceMap<IPositronNotebookInstance>();
+			this._positronNotebookService.listInstances().forEach(instance => instancesByUri.set(instance.uri, instance));
+			for (const session of serializedSessions) {
+				if (isNotebookRuntimeSessionMetadata(session.metadata)) {
+					const uri = session.metadata.notebookUri;
+					const instance = instancesByUri.get(uri);
+					if (instance) {
+						const kernel = this.getOrCreateKernel(session.runtimeMetadata);
+						this._notebookKernelService.selectKernelForNotebook(kernel, { uri, notebookType: instance.viewType });
+						return;
+					}
+				}
+			}
+		});
 
 		// When a known kernel is selected for a notebook, select the corresponding runtime.
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
@@ -144,11 +168,15 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	/**
-	 * Create and register a notebook kernel for a given language runtime.
-	 *
-	 * @param runtime The language runtime to create a notebook kernel for.
+	 * Get the kernel for a language runtime if one exist, otherwise create and register a new one.
 	 */
-	private createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
+	private getOrCreateKernel(runtime: ILanguageRuntimeMetadata) {
+		// Check if there's an existing kernel for the runtime
+		const existing = this._kernelsByRuntimeId.get(runtime.runtimeId);
+		if (existing) {
+			return existing;
+		}
+
 		// Create the kernel instance.
 		const kernel = this._register(this._instantiationService.createInstance(RuntimeNotebookKernel, runtime));
 
@@ -168,6 +196,8 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		this._register(kernel.onDidExecuteCode(e => {
 			this._didExecuteCodeEmitter.fire(e);
 		}));
+
+		return kernel;
 	}
 
 	/**
