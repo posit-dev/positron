@@ -209,7 +209,7 @@ async function downloadAndReplaceArk(version: string,
 	githubPat: string | undefined): Promise<void> {
 
 	try {
-		const headers: Record<string, string> = {
+		const baseHeaders: Record<string, string> = {
 			'Accept': 'application/vnd.github.v3.raw',
 			'User-Agent': 'positron-ark-downloader'
 		};
