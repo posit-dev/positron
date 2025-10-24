@@ -39,20 +39,24 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			title: localize2('updateWorkingDirectory', 'Update Working Directory'),
 			positronActionBarOptions: {
 				controlType: 'button',
-				displayTitle: true
+				displayTitle: false
 			},
 			icon: ThemeIcon.fromId('alert'),
 			f1: true,
 			menu: [
 				{
 					id: MenuId.EditorActionsRight,
-					group: 'navigation',
+					// TODO: how show in action bar when there is a cwd mismatch???
+					when: ContextKeyExpr.and(
+						ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+						ContextKeyExpr.false() // Placeholder to disable for now for testing
+					)
+				},
+				{
+					id: MenuId.EditorTitle,
 					when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
-
 				}
 			]
-			// TODO: only show in action bar if the active editor is a Positron notebook
-			// and the notebook working directory differs from the notebook location
 		});
 	}
 
@@ -108,7 +112,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			return;
 		}
 
-		// Get the current working directory based on the session state
+		// TODO: how get the old current working directory???
 		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
 		if (!currentWorkingDirectory) {
 			return;
