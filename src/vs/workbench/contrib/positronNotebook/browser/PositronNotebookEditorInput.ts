@@ -7,9 +7,9 @@ import { IReference } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
-import { EditorInputCapabilities, GroupIdentifier, IRevertOptions, ISaveOptions, IUntypedEditorInput } from '../../../common/editor.js';
+import { EditorInputCapabilities, GroupIdentifier, IRevertOptions, ISaveOptions, isResourceEditorInput, IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IResolvedNotebookEditorModel } from '../../notebook/common/notebookCommon.js';
+import { CellUri, IResolvedNotebookEditorModel } from '../../notebook/common/notebookCommon.js';
 import { INotebookEditorModelResolverService } from '../../notebook/common/notebookEditorModelResolverService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -119,6 +119,10 @@ export class PositronNotebookEditorInput extends EditorInput {
 	override dispose(): void {
 		this.notebookInstance.dispose();
 
+		// Dispose the editor model reference, if one exists
+		this._editorModelReference?.dispose();
+		this._editorModelReference = null;
+
 		// Call the base class's dispose method
 		super.dispose();
 	}
@@ -182,8 +186,13 @@ export class PositronNotebookEditorInput extends EditorInput {
 		if (super.matches(otherInput)) {
 			return true;
 		}
+		// Match other PositronNotebookEditorInputs
 		if (otherInput instanceof PositronNotebookEditorInput) {
 			return this.viewType === otherInput.viewType && isEqual(this.resource, otherInput.resource);
+		}
+		// Match editor inputs that reference a cell in this notebook
+		if (isResourceEditorInput(otherInput) && otherInput.resource.scheme === CellUri.scheme) {
+			return isEqual(this.resource, CellUri.parse(otherInput.resource)?.notebook);
 		}
 		return false;
 	}
@@ -316,10 +325,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
-		if (this.editorOptions) {
-			_options = this.editorOptions;
-		}
-
 		if (!await this._notebookService.canResolve(this.viewType)) {
 			return null;
 		}

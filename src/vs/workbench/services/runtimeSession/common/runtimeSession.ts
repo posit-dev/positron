@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -2335,6 +2335,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// with our mapping, which helps debugging and ensures session properties
 			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
+			// TODO: Is metadata supposed to be immutable?
+			session.metadata.notebookUri = newUri;
 			workingDirectoryWasChanged = await this.promptAndUpdateWorkingDirectoryIfChanged(session, newUri);
 
 			// 3. Finally remove the old mapping - we do this last because it's
@@ -2540,6 +2542,14 @@ function awaitStateChange(
  * @param session The session to check
  */
 export function isNotebookLanguageRuntimeSession(session: ILanguageRuntimeSession): session is INotebookLanguageRuntimeSession {
-	return session.metadata.notebookUri !== undefined &&
-		session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
+	return isNotebookRuntimeSessionMetadata(session.metadata);
+}
+
+/**
+ * Checks whether a session's metadata is for a notebook session.
+ * @param metadata The session metadata to check
+ */
+export function isNotebookRuntimeSessionMetadata(metadata: IRuntimeSessionMetadata): metadata is INotebookRuntimeSessionMetadata {
+	return metadata.notebookUri !== undefined &&
+		metadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
 }
