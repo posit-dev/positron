@@ -22,6 +22,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { Schemas } from '../../../../base/common/network.js';
 import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
+import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 
 /**
  * Options for Positron notebook editor input, including backup support.
@@ -100,6 +101,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		public readonly options: PositronNotebookEditorInputOptions = {},
 		// Borrow notebook resolver service from vscode notebook renderer.
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
+		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService _contextKeyService: IContextKeyService,
@@ -284,6 +286,14 @@ export class PositronNotebookEditorInput extends EditorInput {
 			// 2. Failed session transfer shouldn't prevent the user from saving their work
 			// 3. In the worst case, the notebook will save but users may need to re-run cells
 			this._logService.error('Failed to reassign notebook session URI', error);
+		}
+
+		// Select the kernel for the new URI.
+		// The kernel service should handle deselecting the kernel for the old URI if it was untitled
+		// to ensure that new untitled notebooks start with clean state
+		const kernel = this.notebookInstance.kernel.get();
+		if (kernel) {
+			this._notebookKernelService.selectKernelForNotebook(kernel, { uri: this.resource, notebookType: this.viewType });
 		}
 
 		// Use the model's saveAs method which handles the actual file saving
