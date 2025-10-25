@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
+
 /**
  * A table or namespace identifier, which is a dot-separated string or an array
  * of strings.
@@ -637,6 +639,7 @@ export class UnityCatalogClient {
 	private async fetch<T>(url: string, options: RequestInit = {}): Promise<T> {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
 		try {
 			const fetchOptions: RequestInit = {
 				...options,
@@ -648,7 +651,9 @@ export class UnityCatalogClient {
 			};
 			const response = await fetch(url, fetchOptions);
 			if (!response.ok) {
-				throw await UnityCatalogError.from(response);
+				const error = await UnityCatalogError.from(response);
+				vscode.window.showErrorMessage(error.message);
+				throw error;
 			}
 			if (response.status === 204) {
 				// eslint-disable-next-line local/code-no-dangerous-type-assertions
@@ -657,7 +662,10 @@ export class UnityCatalogClient {
 			return (await response.json()) as T;
 		} catch (error) {
 			if (error instanceof Error && error.name === 'AbortError') {
-				throw new Error(`Request timed out after ${this.timeout}ms`);
+				const timeoutMessage = `Request timed out after ${this.timeout}ms`;
+
+				vscode.window.showErrorMessage(timeoutMessage);
+				throw new Error(timeoutMessage);
 			}
 			throw error;
 		} finally {
