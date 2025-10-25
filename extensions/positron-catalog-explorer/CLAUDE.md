@@ -59,6 +59,7 @@ The extension integrates with VS Code to provide:
 2. **Catalog Providers**:
 
       - `DatabricksCatalogProvider`: Implementation for Databricks Unity Catalog
+      - `SnowflakeCatalogProvider`: Implementation for Snowflake catalogs, utilizing the Snowflake connector node-js driver. Docs are available at https://docs.snowflake.com/en/developer-guide/node-js/nodejs-driver-authenticate to set up authentication and https://docs.snowflake.com/en/developer-guide/node-js/nodejs-driver-execute to execute queries.
       - `MockProvider`: Demo provider for testing during development
 
 3. **File System Integration**:
@@ -75,8 +76,8 @@ The extension integrates with VS Code to provide:
 
 ### Extension Activation Flow
 
-1. The extension is activated when a user accesses a DBFS file system or when the catalog explorer view is accessed
-2. The extension registers catalog providers (Databricks and a mock provider in dev mode)
+1. The extension is activated on Positron startup, if the "catalogExplorer.enabled" setting is true
+2. The extension registers catalog providers (a mock provider is available if "catalogExplorer.viewTestCatalog" is set)
 3. It sets up commands for interacting with the catalog explorer
 4. It registers the tree view provider to display the catalog hierarchy
 
@@ -96,7 +97,6 @@ The extension integrates with VS Code to provide:
 - `src/catalogs/unityCatalogClient.ts`: Client for Databricks Unity Catalog API
 - `src/fs/dbfs.ts`: Implementation of DBFS file system provider
 - `src/credentials.ts`: Credential management for catalog providers
-- `src/positron.ts`: Integration with Posit's VSCode extension (Positron)
 
 ## Testing Structure
 
