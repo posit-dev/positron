@@ -2069,6 +2069,50 @@ declare module 'positron' {
 	}
 
 	/**
+	 * File path utilities for data analysis code.
+	 */
+	namespace paths {
+		/**
+		 * Options for extracting clipboard file paths
+		 */
+		export interface ExtractClipboardFilePathsOptions {
+			/**
+			 * Whether to prefer relative paths when workspace context is available.
+			 * Defaults to true.
+			 */
+			preferRelative?: boolean;
+
+			/**
+			 * Custom base URI for relative path calculation.
+			 * If not provided and preferRelative is true, uses the first workspace folder.
+			 */
+			baseUri?: vscode.Uri;
+
+			/**
+			 * User home directory URI for home-relative path calculation.
+			 */
+			homeUri?: vscode.Uri;
+		}
+
+		/**
+		 * Extract file paths from clipboard for use in data analysis code.
+		 * Detects files copied from file manager and returns their paths for use in scripts.
+		 * Main motivation is the Windows issue of replacing `\` with `/`.
+		 * Also returns paths relative to the workspace folder, when possible.
+		 * Try to use core utilities (versus DIY path hacking).
+
+		 * @param dataTransfer The clipboard data transfer object
+		 * @param options Options for path conversion
+		 * @returns A Thenable that resolves to an array of quoted, forward-slash,
+		 *  possibly relative file paths, or null if no files detected
+		 */
+		export function extractClipboardFilePaths(
+			dataTransfer: vscode.DataTransfer,
+			options?: ExtractClipboardFilePathsOptions
+		): Thenable<string[] | null>;
+	}
+
+	/**
 	 * Experimental AI features.
 	 */
 	namespace ai {
