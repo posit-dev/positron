@@ -1746,9 +1746,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// TODO: Should this fire onDidChangeForegroundSession?
 			//       If so, should it fire immediately or once the session is ready
 			//       (which would already happen if we remove this block)?
-			// Make the newly-started runtime the foreground runtime if it's a console session.
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._foregroundSession = session;
+			// Make the newly-started runtime the foreground runtime if it's a console session
+			// and activate is true.
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console && activate) {
+				this.foregroundSession = session;
 			}
 		} catch (reason) {
 			this.clearStartingSessionMaps(
