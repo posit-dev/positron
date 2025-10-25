@@ -81,7 +81,6 @@ export class KallichoreInstances {
 		const workspaceUri = this.resolveWorkspaceUri(workspaceName);
 		filtered.push({ workspaceName, workspaceUri: workspaceUri?.toString(), state, lastSeen: Date.now() });
 		await this.saveInstances(filtered);
-		this.log?.appendLine(`${this.timestamp()} [Positron] Added supervisor PID ${state.server_pid} to registry`);
 	}
 
 	/**
@@ -96,7 +95,6 @@ export class KallichoreInstances {
 		const filtered = instances.filter(instance => instance.state.server_pid !== pid);
 		if (filtered.length !== instances.length) {
 			await this.saveInstances(filtered);
-			this.log?.appendLine(`${this.timestamp()} [Positron] Removed supervisor PID ${pid} from registry`);
 		}
 	}
 
@@ -722,7 +720,6 @@ export class KallichoreInstances {
 		try {
 			await result.api!.shutdownServer({ timeout: 3000 });
 			await this.removeByPid(result.record.state.server_pid);
-			this.log?.appendLine(`${this.timestamp()} [Positron] Requested shutdown for supervisor PID ${result.record.state.server_pid}`);
 			await vscode.window.showInformationMessage(vscode.l10n.t("Supervisor shutdown requested."));
 		} catch (err) {
 			const message = summarizeAxiosError(err);
