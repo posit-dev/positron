@@ -37,6 +37,7 @@ export class SessionExecutionHistory extends Disposable {
 		private readonly _sessionId: string,
 		private readonly _startMode: RuntimeStartMode,
 		private readonly _storageService: IStorageService,
+		private readonly _storageScope: StorageScope,
 		private readonly _logService: ILogService
 	) {
 		super();
@@ -45,7 +46,7 @@ export class SessionExecutionHistory extends Disposable {
 		this._storageKey = `${EXECUTION_HISTORY_STORAGE_PREFIX}.${_sessionId}`;
 
 		// Load existing history entries
-		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
+		const entries = this._storageService.get(this._storageKey, this._storageScope, '[]');
 		try {
 			JSON.parse(entries).forEach((entry: IExecutionHistoryEntry<any>) => {
 				this._entries.push(entry);
@@ -304,7 +305,7 @@ export class SessionExecutionHistory extends Disposable {
 		// history in this "session"
 		this._storageService.store(this._storageKey,
 			storageState,
-			StorageScope.WORKSPACE,
+			this._storageScope,
 			StorageTarget.MACHINE);
 
 		// Successfully saved; state is no longer dirty

@@ -106,10 +106,10 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 		// Get the set of all history and input keys in storage
 		const historyKeys = this._storageService
-			.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE)
+			.keys(this.getStorageScope(), StorageTarget.MACHINE)
 			.filter(key => key.startsWith(EXECUTION_HISTORY_STORAGE_PREFIX));
 		const inputKeys = this._storageService
-			.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE)
+			.keys(this.getStorageScope(), StorageTarget.MACHINE)
 			.filter(key => key.startsWith(INPUT_HISTORY_STORAGE_PREFIX));
 		historyKeys.push(...inputKeys);
 
@@ -125,7 +125,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			if (!allSessionIds.has(sessionId)) {
 				this._logService.debug(
 					`[Runtime history] Pruning ${key} for expired session ${sessionId}`);
-				this._storageService.remove(key, StorageScope.WORKSPACE);
+				this._storageService.remove(key, this.getStorageScope());
 			}
 		});
 	}
@@ -177,18 +177,11 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 		// We don't have a history for this language, so create one
 		try {
-			// Use the workspace scope if we have a workspace, otherwise use
-			// the profile scope (this handles the empty workspace case)
-			const storageScope =
-				this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
-					StorageScope.PROFILE :
-					StorageScope.WORKSPACE;
-
 			// Create the history
 			const history = new LanguageInputHistory(
 				languageId,
 				this._storageService,
-				storageScope,
+				this.getStorageScope(),
 				this._logService,
 				this._configurationService);
 
@@ -221,6 +214,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 				session.metadata.sessionId,
 				startMode,
 				this._storageService,
+				this.getStorageScope(),
 				this._logService);
 			history.attachSession(session);
 			this._executionHistories.set(session.sessionId, history);
@@ -297,19 +291,31 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			sessionId,
 			RuntimeStartMode.Reconnecting,
 			this._storageService,
+			this.getStorageScope(),
 			this._logService);
 		this._executionHistories.set(sessionId, history);
 		this._register(history);
 		return history.entries;
 	}
 
-	clearExecutionEntries(runtimeId: string): void {
+	clearExecutionEntries(sessionId: string): void {
 		// Return the history entries for the given runtime, if known.
-		if (this._executionHistories.has(runtimeId)) {
-			this._executionHistories.get(runtimeId)?.clear();
+		if (this._executionHistories.has(sessionId)) {
+			this._executionHistories.get(sessionId)?.clear();
 		} else {
-			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
+			throw new Error(`Can't get entries; unknown session ID: ${sessionId}`);
 		}
+	}
+
+	/**
+	 * Get the appropriate storage scope for histories.
+	 *
+	 * @returns The storage scope to use for histories.
+	 */
+	private getStorageScope(): StorageScope {
+		return this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
+			StorageScope.PROFILE :
+			StorageScope.WORKSPACE;
 	}
 }
 
