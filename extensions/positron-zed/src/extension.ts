@@ -18,4 +18,21 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register some dummy commands.
 	registerCommands(context);
+
+	const checkForLanguageSession = async () => {
+		const session = await positron.runtime.getForegroundSession();
+		console.log(
+			"Foreground session language:",
+			session?.runtimeMetadata.runtimeName
+		);
+	};
+
+	context.subscriptions.push(
+		positron.runtime.onDidChangeForegroundSession(async (event) => {
+			console.log("onDidChangeForegroundSession: ", event);
+			await checkForLanguageSession();
+		})
+	);
+
+	checkForLanguageSession();
 }
