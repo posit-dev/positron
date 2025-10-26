@@ -854,6 +854,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
+		// Check if the session is already the foreground session
+		if (session && this._foregroundSession && session.sessionId === this._foregroundSession.sessionId) {
+			return; // No change, don't update or fire events
+		}
+
 		this._foregroundSession = session;
 
 		if (session) {
