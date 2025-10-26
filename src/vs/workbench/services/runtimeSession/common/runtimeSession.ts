@@ -1753,7 +1753,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			//       (which would already happen if we remove this block)?
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._foregroundSession = session;
+				this.foregroundSession = session;
 			}
 		} catch (reason) {
 			this.clearStartingSessionMaps(
