@@ -42,7 +42,7 @@ export class PythonFilePasteProvider implements vscode.DocumentPasteEditProvider
         return [
             {
                 insertText,
-                title: 'Insert file path(s)',
+                title: vscode.l10n.t('Insert file path(s)'),
                 kind: vscode.DocumentDropOrPasteEditKind.Text,
             },
         ];

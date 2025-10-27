@@ -43,13 +43,9 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 			? filePaths[0]
 			: `c(${filePaths.join(', ')})`;
 
-		// TODO @jennybc: at some point, this sort of special paste WAS showing
-		// up when using the "Paste As..." command. Now it doesn't. Presumably
-		// had something to with the code I've since ripped out. Would be nice
-		// to get that back.
 		return [{
 			insertText,
-			title: 'Insert file path(s)',
+			title: vscode.l10n.t('Insert file path(s)'),
 			kind: vscode.DocumentDropOrPasteEditKind.Text
 		}];
 	}
