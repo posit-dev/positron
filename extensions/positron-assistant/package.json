@@ -329,10 +329,10 @@
               }
             ]
           },
-          "positron.assistant.providerVariables": {
+          "positron.assistant.providerVariables.bedrock": {
             "type": "object",
             "default": {},
-            "markdownDescription": "%configuration.providerVariables.description%",
+            "markdownDescription": "%configuration.providerVariables.bedrock.description%",
             "properties": {
               "AWS_PROFILE": {
                 "type": "string",
