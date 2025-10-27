@@ -49,6 +49,9 @@ interface ActionBarMenuButtonProps {
  * @returns The rendered component.
  */
 export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButtonProps>) => {
+	// Destructure props.
+	const { actions: getActions } = props;
+
 	// Context hooks.
 	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
@@ -57,7 +60,6 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
-	const [actions, setActions] = useState<readonly IAction[]>([]);
 	const [defaultAction, setDefaultAction] = useState<IAction | undefined>(undefined);
 
 	// Manage the aria-haspopup and aria-expanded attributes.
@@ -74,20 +76,15 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 		}
 	}, [positronActionBarContext.menuShowing]);
 
-	const { actions: getActions } = props;
-	const getMenuActions = React.useCallback(async () => {
+	const updateDefaultAction = React.useCallback(async () => {
 		const actions = await getActions();
 		const defaultAction = actions.find(action => action.checked);
-
 		setDefaultAction(defaultAction);
-		setActions(actions);
-
-		return actions;
 	}, [getActions]);
 
 	useEffect(() => {
-		getMenuActions();
-	}, [getMenuActions]);
+		updateDefaultAction();
+	}, [updateDefaultAction]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
@@ -97,15 +94,16 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	 * @returns A Promise<void> that resolves when the menu is shown.
 	 */
 	const showMenu = async () => {
-		// Get the actions. If there are no actions, return.
-		if (!actions.length) {
+		// Get fresh actions directly to avoid stale state from rapid clicks
+		const freshActions = await getActions();
+		if (!freshActions.length) {
 			return;
 		}
 
 		// Set the menu showing state and show the context menu.
 		positronActionBarContext.setMenuShowing(true);
 		services.contextMenuService.showContextMenu({
-			getActions: () => actions,
+			getActions: () => freshActions,
 			getAnchor: () => buttonRef.current,
 			getKeyBinding: (action: IAction) => {
 				return services.keybindingService.lookupKeybinding(action.id);
@@ -141,8 +139,13 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
 				} else {
-					// Run the preferred action.
-					defaultAction ? defaultAction.run() : actions[0].run();
+					// Run the preferred action, fetching fresh if needed
+					if (defaultAction) {
+						defaultAction.run();
+					} else {
+						const freshActions = await getActions();
+						freshActions[0]?.run();
+					}
 				}
 			}}
 		/>
