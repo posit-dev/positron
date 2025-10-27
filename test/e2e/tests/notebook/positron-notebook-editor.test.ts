@@ -14,7 +14,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Open & Save', {
-	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
@@ -58,37 +58,38 @@ test.describe('Positron Notebooks: Open & Save', {
 	});
 
 
-	test('Positron notebooks can open new untitled notebooks and saving works properly', async function ({ app, settings, runCommand, cleanup }) {
-		const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
+	test('Positron notebooks can open new untitled notebooks and saving works properly', { tag: [tags.WEB] },
+		async function ({ app, settings, runCommand, cleanup }) {
+			const { notebooks, notebooksPositron, quickInput, editors } = app.workbench;
 
-		// Configure Positron as the default notebook editor
-		await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
+			// Configure Positron as the default notebook editor
+			await app.workbench.notebooksPositron.setNotebookEditor(settings, 'positron');
 
-		// Create a new untitled notebook
-		await notebooks.createNewNotebook();
-		await notebooksPositron.expectToBeVisible();
+			// Create a new untitled notebook
+			await notebooks.createNewNotebook();
+			await notebooksPositron.expectToBeVisible();
 
-		// New notebooks should automatically be named "Untitled-1.ipynb" by default
-		await editors.waitForActiveTab('Untitled-1.ipynb', false);
+			// New notebooks should automatically be named "Untitled-1.ipynb" by default
+			await editors.waitForActiveTab('Untitled-1.ipynb', false);
 
-		// Test save dialog functionality - save with a name that doesn't include .ipynb extension
-		// The enhanced save dialog should automatically handle extension enforcement
-		await runCommand('workbench.action.files.saveAs', { keepOpen: true });
-		await quickInput.waitForQuickInputOpened();
+			// Test save dialog functionality - save with a name that doesn't include .ipynb extension
+			// The enhanced save dialog should automatically handle extension enforcement
+			await runCommand('workbench.action.files.saveAs', { keepOpen: true });
+			await quickInput.waitForQuickInputOpened();
 
-		// Type filename without extension to test automatic extension handling
-		const baseFileName = `saved-positron-notebook-${Math.random().toString(36).substring(7)}`;
-		await quickInput.type(path.join(app.workspacePathOrFolder, baseFileName));
-		await quickInput.clickOkButton();
+			// Type filename without extension to test automatic extension handling
+			const baseFileName = `saved-positron-notebook-${Math.random().toString(36).substring(7)}`;
+			await quickInput.type(path.join(app.workspacePathOrFolder, baseFileName));
+			await quickInput.clickOkButton();
 
-		// Verify the file was saved and the .ipynb extension was automatically added
-		const expectedFileName = `${baseFileName}.ipynb`;
-		await editors.waitForActiveTab(expectedFileName, false);
-		await notebooksPositron.expectToBeVisible();
+			// Verify the file was saved and the .ipynb extension was automatically added
+			const expectedFileName = `${baseFileName}.ipynb`;
+			await editors.waitForActiveTab(expectedFileName, false);
+			await notebooksPositron.expectToBeVisible();
 
-		// Keep the test workspace clean for subsequent test runs
-		await cleanup.removeTestFiles([expectedFileName]);
-	});
+			// Keep the test workspace clean for subsequent test runs
+			await cleanup.removeTestFiles([expectedFileName]);
+		});
 
 	test('Ghost editor issue: Positron notebook does not create duplicate VS Code notebook on reload with dirty notebook', async function ({ app, settings, hotKeys }) {
 		const { notebooks, notebooksPositron, editors } = app.workbench;

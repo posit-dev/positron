@@ -143,14 +143,23 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 return { path: undefined, isImmediate };
             }
         } else if (await hasFiles(['.venv/**/*'])) {
-            interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+            interpreterPath =
+                os.platform() === 'win32'
+                    ? path.join(workspaceUri.fsPath, '.venv', 'Scripts', 'python.exe')
+                    : path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
             isImmediate = true;
         } else if (await hasFiles(['.conda/**/*'])) {
-            interpreterPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+            interpreterPath =
+                os.platform() === 'win32'
+                    ? path.join(workspaceUri.fsPath, '.conda', 'Scripts', 'python.exe')
+                    : path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
             isImmediate = true;
-        } else if (await hasFiles(['*/bin/python'])) {
-            // if we found */bin/python but not .venv or .conda, use the first one we find
-            const files = await vscode.workspace.findFiles('*/bin/python', '**/node_modules/**');
+        } else if (await hasFiles(['*/bin/python', '*/Scripts/python.exe'])) {
+            // if we found */bin/python or */Scripts/python.exe but not .venv or .conda, use the first one we find
+            const files = await vscode.workspace.findFiles(
+                os.platform() === 'win32' ? '*/Scripts/python.exe' : '*/bin/python',
+                '**/node_modules/**',
+            );
             if (files.length > 0) {
                 interpreterPath = files[0].fsPath;
                 isImmediate = true;

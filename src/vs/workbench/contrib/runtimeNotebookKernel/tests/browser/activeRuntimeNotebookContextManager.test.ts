@@ -21,6 +21,7 @@ import { TestEditorInput, TestEditorService } from '../../../../test/browser/wor
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
 import { ActiveRuntimeNotebookContextManager, DebuggerRuntimeSupportedFeature } from '../../common/activeRuntimeNotebookContextManager.js';
 import { isEqual } from '../../../../../base/common/resources.js';
+import { isNotebookLanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSession.js';
 
 /** A TestEditorService that fires the onDidActiveEditorChange event when changing the activeEditor. */
 class TestEditorService2 extends TestEditorService {
@@ -100,7 +101,7 @@ class MockRuntimeSessionService extends Disposable implements Partial<IRuntimeSe
 	}
 
 	getNotebookSessionForNotebookUri(notebookUri: URI) {
-		return this.activeSessions.find(session => isEqual(session.metadata.notebookUri, notebookUri));
+		return this.activeSessions.filter(isNotebookLanguageRuntimeSession).find(session => isEqual(session.metadata.notebookUri, notebookUri));
 	}
 }
 

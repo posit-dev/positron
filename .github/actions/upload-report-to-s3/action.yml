@@ -30,4 +30,4 @@ runs:
         if [[ -n "$WORKDIR" ]]; then
           cd "$WORKDIR"
         fi
-        aws s3 cp playwright-report/. s3://positron-test-reports/${{ inputs.report-dir }} --recursive
+        aws s3 cp playwright-report/. s3://positron-test-reports/${{ inputs.report-dir }} --recursive || true

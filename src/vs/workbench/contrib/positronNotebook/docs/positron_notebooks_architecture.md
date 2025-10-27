@@ -15,19 +15,13 @@
 
 ## Executive Summary
 
-Positron Notebooks is a feature-flagged notebook editor that ships alongside the standard VS Code notebook experience. When `positron.notebook.enabled` is true, the editor registers as an optional handler for `.ipynb` resources while reusing VS Code's notebook models, kernel selection, execution, and working copy services. The user interface is implemented in React with observable-backed components. The implementation coexists with the built-in notebook editor: users can opt into Positron Notebooks via the `Open With…` menu or by configuring an editor association, and the feature can be disabled without impacting the standard experience.
+Positron Notebooks is an alternative notebook editor that ships enabled alongside the standard VS Code notebook experience. The feature is enabled by default (`positron.notebook.enabled: true`), making it available in the `Open With…` menu. It registers as an optional handler for `.ipynb` resources while reusing VS Code's notebook models, kernel selection, execution, and working copy services. The user interface is implemented in React with observable-backed components. Users can make Positron Notebooks the default `.ipynb` handler via editor associations, or disable the feature entirely via the `positron.notebook.enabled` setting without impacting the standard VS Code notebook editor.
 
 ## Quick Start for Contributors
 
-### Enable the editor
+### Using the editor
 
-1. Add the feature flag to your `settings.json` and restart Positron:
-```json
-{
-    "positron.notebook.enabled": true
-}
-```
-2. To make Positron the default handler for `.ipynb` files, add:
+1. Positron Notebooks is enabled by default, making it available in the `Open With…` menu. However, the VS Code notebook editor remains the default for `.ipynb` files. To make Positron Notebooks the default handler, add to your `settings.json`:
 ```json
 {
     "workbench.editorAssociations": {
@@ -37,18 +31,16 @@ Positron Notebooks is a feature-flagged notebook editor that ships alongside the
 ```
 Alternatively, you can right-click a notebook, select `Open With…` -> `Configure Default editor...` -> `Positron Notebook` to avoid editing JSON directly.
 
-Without this association, the Positron editor remains available in the `Open With…` menu.
+2. Open or create an `.ipynb` file. With editor associations configured, the Positron notebook editor will be used by default. Without editor associations, use `Open With…` to access Positron Notebooks.
 
-3. Open or create an `.ipynb` file. The editor resolver constructs the necessary editor input, resolves the backing notebook model, and instantiates the Positron notebook editor.
-
-To revert to the standard VS Code notebook editor, remove the feature flag (and association if set).
+To disable Positron Notebooks entirely, set `"positron.notebook.enabled": false` in your `settings.json` and restart Positron.
 
 ## Architecture Overview
 
 Core design principles:
 
-1. **Feature flagged** – all contributions check `positron.notebook.enabled`, allowing the editor to ship disabled by default.
-2. **Parallel implementation** – registration priority is `RegisteredEditorPriority.option`; the built-in editor remains the default unless the user opts in.
+1. **Feature flagged** – all contributions check `positron.notebook.enabled` (enabled by default), allowing the editor to be disabled if needed.
+2. **Parallel implementation** – registration priority is `RegisteredEditorPriority.option`; the VS Code notebook editor remains the default, and Positron Notebooks is available via `Open With…` unless editor associations are configured.
 3. **Shared infrastructure** – notebook models, kernel discovery, execution, diffing, and working copy management all use VS Code services.
 4. **Observable state + React view** – notebook state lives in observables, consumed by React components.
 5. **Context-key driven UX** – notebook and cell behaviors are controlled through scoped context keys that determine command availability and toolbar visibility.
@@ -59,8 +51,8 @@ Core design principles:
 
 ### Configuration layer (`browser/positronNotebookExperimentalConfig.ts`)
 
-- `positronNotebookExperimentalConfig.ts` registers the `positron.notebook.enabled` setting (machine-overridable, hidden, defaults to `false`).
-- `workbench.editorAssociations` remains the mechanism for making Positron the default `.ipynb` editor. `usingPositronNotebooks()` in `common/positronNotebookCommon.ts` encapsulates the check.
+- `positronNotebookExperimentalConfig.ts` registers the `positron.notebook.enabled` setting (machine-overridable, visible in Settings UI, defaults to `true`).
+- `workbench.editorAssociations` is the mechanism for making Positron the default `.ipynb` editor. `usingPositronNotebooks()` in `common/positronNotebookCommon.ts` encapsulates the check.
 
 ### Editor registration and resolution (`browser/positronNotebook.contribution.ts`)
 
@@ -188,6 +180,15 @@ The test suite includes more end-to-end tests than unit tests due to the visual 
 
 - **End-to-end tests** in `test/e2e/tests/notebook`
 - **Unit tests** in `src/vs/workbench/contrib/positronNotebook/test/browser`
+
+### Running tests
+
+To run all Positron Notebooks end-to-end tests tagged with `@:positron-notebooks`:
+
+```bash
+npx playwright test --project e2e-electron --grep "@:positron-notebooks" --reporter list
+```
+
 
 ### Debugging strategies
 

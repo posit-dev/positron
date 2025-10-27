@@ -7,7 +7,7 @@
 import React from 'react';
 
 // Other dependencies.
-import { autorun, IObservable } from '../../../../base/common/observable.js';
+import { IObservable, runOnChange } from '../../../../base/common/observable.js';
 
 /**
  * Automatically updates the component when the observable changes.
@@ -18,13 +18,8 @@ export function useObservedValue<T>(observable: IObservable<T>): T {
 	const [value, setValue] = React.useState(observable.get());
 
 	React.useEffect(() => {
-		const disposable = autorun(reader => {
-			const val = observable.read(reader);
-			setValue(val);
-		});
-		return () => {
-			disposable.dispose();
-		};
+		const disposable = runOnChange(observable, setValue);
+		return () => disposable.dispose();
 	}, [observable]);
 
 	return value;

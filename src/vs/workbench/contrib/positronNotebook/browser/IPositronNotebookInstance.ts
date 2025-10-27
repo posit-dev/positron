@@ -7,12 +7,13 @@ import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
-import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
+import { IBaseCellEditorOptions, INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
+import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -30,6 +31,52 @@ export enum KernelStatus {
 }
 
 /**
+ * Represents the types of operations that can be performed on a notebook.
+ * Used to track the context of cell additions and modifications to control
+ * automatic behavior like entering edit mode.
+ */
+export enum NotebookOperationType {
+	/** Normal cell insertion via UI or command */
+	InsertAndEdit = 'InsertAndEdit',
+	/** Cells added via paste operation */
+	Paste = 'Paste',
+	/** Cells restored via undo operation */
+	Undo = 'Undo',
+	/** Cells restored via redo operation */
+	Redo = 'Redo'
+}
+
+/**
+ * Subset of INotebookEditor required to integrate with the extension API,
+ * so we don't have to implement the entire INotebookEditor interface (...yet)
+ * See mainThreadNotebookDocumentsAndEditors.ts and mainThreadNotebookEditors.ts.
+ */
+type INotebookEditorForExtensionApi = Pick<
+	INotebookEditor,
+	// Basic
+	| 'getId'
+	// Text/view model
+	| 'textModel'  // only used for .uri
+	| 'hasModel'
+	| 'getViewModel'  // only used for .viewType
+	// Selected cells: vscode.NotebookEditor.selections
+	| 'getSelections'
+	| 'setSelections'
+	| 'onDidChangeSelection'
+	// Visible cells: vscode.NotebookEditor.visibleRanges
+	| 'visibleRanges'
+	| 'onDidChangeVisibleRanges'
+	// Cell structure: to retrieve a cell to be revealed and to ensure the revealed range is within the notebook length
+	| 'getLength'
+	| 'cellAt'  // returned ICellViewModel is only used by passing to a reveal method below
+	// Reveal: to reveal a cell
+	| 'revealInCenter'
+	| 'revealCellRangeInView'
+	| 'revealInCenterIfOutsideViewport'
+	| 'revealInViewAtTop'
+>;
+
+/**
  * Interface defining the public API for interacting with a Positron notebook instance.
  * This interface abstracts away the complexity of notebook management and provides
  * a clean contract for the React UI layer to interact with notebook functionality.
@@ -40,19 +87,15 @@ export enum KernelStatus {
  * - Controls cell selection and editing states
  * - Provides methods for common notebook operations
  */
-export interface IPositronNotebookInstance {
+export interface IPositronNotebookInstance extends INotebookEditorForExtensionApi {
 	// ===== Properties =====
-	/**
-	 * Unique identifier for the notebook instance. Used for debugging and claiming
-	 * ownership of various resources.
-	 */
-	readonly id: string;
-
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier
 	 * for the notebook's content on disk.
 	 */
-	get uri(): URI;
+	readonly uri: URI;
+
+	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
 	 * Indicates whether this notebook instance is currently connected to a view/editor.
@@ -88,7 +131,7 @@ export interface IPositronNotebookInstance {
 	 * Observable reference to the current runtime session for the notebook.
 	 * This manages the connection to the kernel and execution environment.
 	 */
-	readonly runtimeSession: IObservable<ILanguageRuntimeSession | undefined>;
+	readonly runtimeSession: IObservable<INotebookLanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.
@@ -150,8 +193,9 @@ export interface IPositronNotebookInstance {
 	 *
 	 * @param type The kind of cell to create (e.g., code, markdown)
 	 * @param index The position at which to insert the new cell
+	 * @param enterEditMode Whether to put the new cell into edit mode immediately
 	 */
-	addCell(type: CellKind, index: number): void;
+	addCell(type: CellKind, index: number, enterEditMode: boolean): void;
 
 	/**
 	 * Inserts a new code cell either above or below the current selection
@@ -245,6 +289,31 @@ export interface IPositronNotebookInstance {
 	 * Returns whether there are cells available to paste from the clipboard.
 	 */
 	canPaste(): boolean;
+
+	/**
+	 * Gets the current notebook operation type that is in progress, if any.
+	 * This is used to track the context of cell additions and modifications to
+	 * control automatic behavior like entering edit mode. Operation is cleared
+	 * after being retrieved to ensure it only applies to the immediate next
+	 * action.
+	 * @returns The current operation type, or undefined if no operation is in
+	 * progress
+	 */
+	getAndResetCurrentOperation(): NotebookOperationType | undefined;
+
+	/**
+	 * Sets the current notebook operation type.
+	 * This should be called at the beginning of operations like paste, undo, or redo
+	 * to provide context for subsequent cell additions.
+	 * @param type The operation type to set
+	 */
+	setCurrentOperation(type: NotebookOperationType): void;
+
+	/**
+	 * Clears the current notebook operation type.
+	 * This should be called after the operation context is no longer needed.
+	 */
+	clearCurrentOperation(): void;
 
 	/**
 	 * Shows or focuses the notebook console for this notebook instance.

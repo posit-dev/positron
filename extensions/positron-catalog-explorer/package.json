@@ -1,0 +1,195 @@
+{
+  "name": "positron-catalog-explorer",
+  "displayName": "Catalog Explorer",
+  "description": "Explore tables, views, and files backed by data catalogs.",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "icon": "resources/icon.png",
+  "private": true,
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Data Science"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Catalog Explorer",
+      "properties": {
+        "catalogExplorer.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate.",
+          "tags": [
+            "experimental"
+          ]
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "posit.catalog-explorer.addCatalogProvider",
+        "category": "Catalogs",
+        "title": "Add Catalog Provider",
+        "icon": "$(add)"
+      },
+      {
+        "command": "posit.catalog-explorer.removeCatalogProvider",
+        "category": "Catalogs",
+        "title": "Remove Catalog Provider",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "posit.catalog-explorer.refresh",
+        "category": "Catalogs",
+        "title": "Refresh Provider",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "posit.catalog-explorer.openWith",
+        "category": "Catalogs",
+        "title": "Open With...",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.openInSession",
+        "category": "Catalogs",
+        "title": "Open in Session",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyPath",
+        "category": "Catalogs",
+        "title": "Copy Path",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyPythonCode",
+        "category": "Catalogs",
+        "title": "Copy Python Code",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyRCode",
+        "category": "Catalogs",
+        "title": "Copy R Code",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "catalog-explorer",
+          "name": "Catalog Explorer",
+          "when": "config.catalogExplorer.enabled"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "catalog-explorer",
+        "contents": "Explore tables, views, and more.\n[Configure a Catalog Provider](command:posit.catalog-explorer.addCatalogProvider)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "posit.catalog-explorer.addCatalogProvider",
+          "when": "config.catalogExplorer.enabled"
+        },
+        {
+          "command": "posit.catalog-explorer.removeCatalogProvider",
+          "when": "config.catalogExplorer.enabled"
+        },
+        {
+          "command": "posit.catalog-explorer.refresh",
+          "when": "config.catalogExplorer.enabled"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "posit.catalog-explorer.addCatalogProvider",
+          "when": "view == catalog-explorer && config.catalogExplorer.enabled",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "posit.catalog-explorer.refresh",
+          "when": "view == catalog-explorer && viewItem == provider && config.catalogExplorer.enabled",
+          "group": "inline"
+        },
+        {
+          "command": "posit.catalog-explorer.removeCatalogProvider",
+          "when": "view == catalog-explorer && viewItem == provider && config.catalogExplorer.enabled",
+          "group": "inline"
+        },
+        {
+          "command": "posit.catalog-explorer.openWith",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "1_primary@2"
+        },
+        {
+          "command": "posit.catalog-explorer.openInSession",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "group": "1_primary@3"
+        },
+        {
+          "command": "posit.catalog-explorer.copyPath",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == folder || viewItem == volume)",
+          "group": "2_copy@0"
+        },
+        {
+          "command": "posit.catalog-explorer.copyPythonCode",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "posit.catalog-explorer.copyRCode",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "group": "2_copy@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "posit.catalog-explorer.copyPath",
+        "key": "Ctrl+Alt+C",
+        "when": "focusedView == catalog-explorer"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "compile:production": "tsc -p ./ --sourceMap false",
+    "check-types": "tsc --noEmit",
+    "watch": "tsc -p ./ --watch",
+    "lint-check": "prettier --check 'src/**/*.ts' 'package.json' 'package-lock.json'",
+    "lint": "prettier --write 'src/**/*.ts' 'package.json' 'package-lock.json'",
+    "test": "vscode-test",
+    "vsix": "npx --yes @vscode/vsce package --allow-missing-repository --skip-license",
+    "prerelease": "npx --yes @vscode/vsce package --pre-release --allow-missing-repository --skip-license"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/sinon": "^17.0.4",
+    "@types/vscode": "^1.87.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "sinon": "^21.0.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.8.2"
+  }
+}

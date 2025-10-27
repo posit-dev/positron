@@ -22,6 +22,7 @@ import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { basename } from '../../../../../base/common/path.js';
+import { RuntimeIcon } from './runtimeIcon.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -378,16 +379,10 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			onMouseDown={handleMouseDown}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-			{
-				!isNotebookSession &&
-				<img
-					className='icon'
-					src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
-				/>
-			}
-			{isNotebookSession &&
-				<span className='codicon codicon-notebook icon'></span>
-			}
+			<RuntimeIcon
+				base64EncodedIconSvg={positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}
+				sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
+			/>
 			{isRenamingSession ? (
 				<input
 					ref={inputRef}

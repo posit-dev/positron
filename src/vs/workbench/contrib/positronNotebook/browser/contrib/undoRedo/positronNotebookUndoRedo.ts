@@ -10,7 +10,8 @@ import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED, POSITRON_NOTEBOOK_CELL_EDIT
 import { IUndoRedoService } from '../../../../../../platform/undoRedo/common/undoRedo.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromEditorPane } from '../../notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
+import { NotebookOperationType } from '../../IPositronNotebookInstance.js';
 
 class PositronNotebookUndoRedoContribution extends Disposable {
 
@@ -31,7 +32,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 
 	private shouldHandleUndoRedo(): boolean {
 		// Get the active notebook instance to access its scoped context key service
-		const instance = getNotebookInstanceFromEditorPane(this.editorService);
+		const instance = getNotebookInstanceFromActiveEditorPane(this.editorService);
 		if (!instance) {
 			return false;
 		}
@@ -62,7 +63,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const instance = getNotebookInstanceFromEditorPane(this.editorService);
+		const instance = getNotebookInstanceFromActiveEditorPane(this.editorService);
 		if (!instance) {
 			return false;
 		}
@@ -71,8 +72,16 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const result = this.undoRedoService.undo(instance.uri);
-		return result ?? true;
+		instance.setCurrentOperation(NotebookOperationType.Undo);
+
+		try {
+			const result = this.undoRedoService.undo(instance.uri);
+			// If successful, _syncCells() will clear the flag
+			return result ?? true;
+		} catch (error) {
+			instance.clearCurrentOperation();
+			throw error;
+		}
 	}
 
 	private handleRedo(): boolean | Promise<void> {
@@ -80,7 +89,7 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const instance = getNotebookInstanceFromEditorPane(this.editorService);
+		const instance = getNotebookInstanceFromActiveEditorPane(this.editorService);
 		if (!instance) {
 			return false;
 		}
@@ -89,8 +98,16 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 			return false;
 		}
 
-		const result = this.undoRedoService.redo(instance.uri);
-		return result ?? true;
+		instance.setCurrentOperation(NotebookOperationType.Redo);
+
+		try {
+			const result = this.undoRedoService.redo(instance.uri);
+			// If successful, _syncCells() will clear the flag
+			return result ?? true;
+		} catch (error) {
+			instance.clearCurrentOperation();
+			throw error;
+		}
 	}
 }
 

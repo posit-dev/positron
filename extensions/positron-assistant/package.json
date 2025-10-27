@@ -495,10 +495,10 @@
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
         "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
-        "icon": "$(list)",
+        "icon": "$(positron-variables-view)",
         "toolReferenceName": "inspectVariables",
         "userDescription": "Inspect data and variables in the current session",
-        "canBeReferencedInPrompt": false,
+        "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -536,7 +536,7 @@
         "icon": "$(graph)",
         "toolReferenceName": "getPlot",
         "userDescription": "View the current active plot.",
-        "canBeReferencedInPrompt": false,
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
           "requires-session"
@@ -584,7 +584,10 @@
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
         "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
-        "canBeReferencedInPrompt": false,
+        "icon": "$(file-directory)",
+        "toolReferenceName": "projectTree",
+        "userDescription": "Get the project tree of the current workspace.",
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
           "requires-workspace",
@@ -657,7 +660,10 @@
         "name": "installPythonPackage",
         "displayName": "Install Python Package",
         "modelDescription": "Install Python packages using pip. Provide an array of package names to install.",
-        "canBeReferencedInPrompt": false,
+        "icon": "$(package)",
+        "toolReferenceName": "installPythonPackage",
+        "userDescription": "Install Python packages in the current environment",
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
         ],
