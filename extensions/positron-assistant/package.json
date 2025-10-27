@@ -291,7 +291,9 @@
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "**/*"
+              "Claude Opus 4*",
+              "Claude Sonnet 4*",
+              "GPT-5*"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
