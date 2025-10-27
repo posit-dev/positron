@@ -225,14 +225,14 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
-      # - name: Run Extensions Test
-      #   id: extensions
-      #   continue-on-error: true
-      #   shell: bash
-      #   run: |
-      #     set +e
-      #     npm run test-extension -- -l positron-r
-      #     echo "exit_code=$?" >> $GITHUB_OUTPUT
+      - name: Run Extensions Test
+        id: extensions
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test-extension -- -l positron-r
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Run Bootstrap Extensions Test
         if: ${{ inputs.skip_extension_test != true }}
@@ -327,12 +327,12 @@ jobs:
           path: test-results/windows.json
           if-no-files-found: ignore
 
-      # - name: Fail workflow if extension tests failed
-      #   if: |
-      #     steps.extensions.outputs.exit_code != '0'
-      #   run: |
-      #     echo "Extension tests failed."
-      #     exit 1
+      - name: Fail workflow if extension tests failed
+        if: |
+          steps.extensions.outputs.exit_code != '0'
+        run: |
+          echo "Extension tests failed."
+          exit 1
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
