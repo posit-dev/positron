@@ -994,8 +994,8 @@ suite('ExecutionHistoryService', () => {
 		const activeKey = `positron.executionHistory.${activeSessionId}`;
 		const inactiveKey = `positron.executionHistory.${inactiveSessionId}`;
 
-		storageService.store(activeKey, '[]', StorageScope.WORKSPACE, StorageTarget.MACHINE);
-		storageService.store(inactiveKey, '[]', StorageScope.WORKSPACE, StorageTarget.MACHINE);
+		storageService.store(activeKey, '[]', StorageScope.PROFILE, StorageTarget.MACHINE);
+		storageService.store(inactiveKey, '[]', StorageScope.PROFILE, StorageTarget.MACHINE);
 
 		// Create a spy on remove
 		const removeSpy = sinon.spy(storageService, 'remove');
@@ -1006,8 +1006,8 @@ suite('ExecutionHistoryService', () => {
 		]);
 
 		// Verify inactive session storage was removed but active was kept
-		assert.ok(removeSpy.calledWith(inactiveKey, StorageScope.WORKSPACE));
-		assert.ok(!removeSpy.calledWith(activeKey, StorageScope.WORKSPACE));
+		assert.ok(removeSpy.calledWith(inactiveKey, StorageScope.PROFILE));
+		assert.ok(!removeSpy.calledWith(activeKey, StorageScope.PROFILE));
 	});
 
 	test('should delete session history on restore failure', () => {
