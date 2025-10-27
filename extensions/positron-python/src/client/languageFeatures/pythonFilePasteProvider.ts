@@ -12,58 +12,52 @@ import * as os from 'os';
  * into file paths that are usable in Python code.
  */
 export class PythonFilePasteProvider implements vscode.DocumentPasteEditProvider {
+    /**
+     * Provide paste edits for Python filepaths when files are detected on clipboard.
+     */
+    async provideDocumentPasteEdits(
+        _document: vscode.TextDocument,
+        _ranges: readonly vscode.Range[],
+        dataTransfer: vscode.DataTransfer,
+        _context: vscode.DocumentPasteEditContext,
+        _token: vscode.CancellationToken,
+    ): Promise<vscode.DocumentPasteEdit[] | undefined> {
+        const setting = vscode.workspace.getConfiguration('python').get<boolean>('autoConvertFilePaths');
+        if (!setting) {
+            return undefined;
+        }
 
-	/**
-	 * Provide paste edits for Python filepaths when files are detected on clipboard.
-	 */
-	async provideDocumentPasteEdits(
-		_document: vscode.TextDocument,
-		_ranges: readonly vscode.Range[],
-		dataTransfer: vscode.DataTransfer,
-		_context: vscode.DocumentPasteEditContext,
-		_token: vscode.CancellationToken
-	): Promise<vscode.DocumentPasteEdit[] | undefined> {
+        const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer, {
+            preferRelative: true,
+            homeUri: vscode.Uri.file(os.homedir()),
+        });
 
-		const setting = vscode.workspace.getConfiguration('python').get<boolean>('autoConvertFilePaths');
-		if (!setting) {
-			return undefined;
-		}
+        if (!filePaths) {
+            return undefined;
+        }
 
-		const filePaths = await positron.paths.extractClipboardFilePaths(dataTransfer, {
-			preferRelative: true,
-			homeUri: vscode.Uri.file(os.homedir())
-		});
+        // Format for Python: single path or Python list syntax
+        const insertText = filePaths.length === 1 ? filePaths[0] : `[${filePaths.join(', ')}]`;
 
-		if (!filePaths) {
-			return undefined;
-		}
-
-		// Format for Python: single path or Python list syntax
-		const insertText = filePaths.length === 1
-			? filePaths[0]
-			: `[${filePaths.join(', ')}]`;
-
-		return [{
-			insertText,
-			title: 'Insert file path(s)',
-			kind: vscode.DocumentDropOrPasteEditKind.Text
-		}];
-	}
+        return [
+            {
+                insertText,
+                title: 'Insert file path(s)',
+                kind: vscode.DocumentDropOrPasteEditKind.Text,
+            },
+        ];
+    }
 }
 
 /**
  * Register the Python file paste provider for automatic file path conversion.
  */
 export function registerPythonFilePasteProvider(disposables: vscode.Disposable[]): void {
-	const pythonFilePasteProvider = new PythonFilePasteProvider();
-	disposables.push(
-		vscode.languages.registerDocumentPasteEditProvider(
-			{ language: 'python' },
-			pythonFilePasteProvider,
-			{
-				pasteMimeTypes: ['text/uri-list'],
-				providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Text]
-			}
-		)
-	);
+    const pythonFilePasteProvider = new PythonFilePasteProvider();
+    disposables.push(
+        vscode.languages.registerDocumentPasteEditProvider({ language: 'python' }, pythonFilePasteProvider, {
+            pasteMimeTypes: ['text/uri-list'],
+            providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Text],
+        }),
+    );
 }
