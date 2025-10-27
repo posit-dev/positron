@@ -181,6 +181,15 @@ The test suite includes more end-to-end tests than unit tests due to the visual 
 - **End-to-end tests** in `test/e2e/tests/notebook`
 - **Unit tests** in `src/vs/workbench/contrib/positronNotebook/test/browser`
 
+### Running tests
+
+To run all Positron Notebooks end-to-end tests tagged with `@:positron-notebooks`:
+
+```bash
+npx playwright test --project e2e-electron --grep "@:positron-notebooks" --reporter list
+```
+
+
 ### Debugging strategies
 
 - Use log service messages to trace lifecycle events throughout the editor, instance, and kernel components.

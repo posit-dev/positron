@@ -211,7 +211,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 		this._clearModelCache(vendor);
 		// TODO @lramos15 - Remove this old prepare method support in debt week
 		const modelInformation: vscode.LanguageModelChatInformation[] = (data.provider.provideLanguageModelChatInformation ? await data.provider.provideLanguageModelChatInformation(options, token) : await (data.provider as any).prepareLanguageModelChatInformation(options, token)) ?? [];
-		const modelMetadataAndIdentifier: ILanguageModelChatMetadataAndIdentifier[] = modelInformation.map(m => {
+		const modelMetadataAndIdentifier: ILanguageModelChatMetadataAndIdentifier[] = modelInformation.map((m): ILanguageModelChatMetadataAndIdentifier => {
 			let auth;
 			if (m.requiresAuthorization && isProposedApiEnabled(data.extension, 'chatProvider')) {
 				auth = {
@@ -219,6 +219,10 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 					accountLabel: typeof m.requiresAuthorization === 'object' ? m.requiresAuthorization.label : undefined
 				};
 			}
+			if (m.capabilities.editTools) {
+				checkProposedApiEnabled(data.extension, 'chatProvider');
+			}
+
 			return {
 				metadata: {
 					extension: data.extension.identifier,
@@ -241,6 +245,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 					// --- End Positron ---
 					capabilities: m.capabilities ? {
 						vision: m.capabilities.imageInput,
+						editTools: m.capabilities.editTools,
 						toolCalling: !!m.capabilities.toolCalling,
 						agentMode: !!m.capabilities.toolCalling
 					} : undefined,
@@ -402,6 +407,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 				capabilities: {
 					supportsImageToText: model.metadata.capabilities?.vision ?? false,
 					supportsToolCalling: !!model.metadata.capabilities?.toolCalling,
+					editToolsHint: model.metadata.capabilities?.editTools,
 				},
 				maxInputTokens: model.metadata.maxInputTokens,
 				countTokens(text, token) {

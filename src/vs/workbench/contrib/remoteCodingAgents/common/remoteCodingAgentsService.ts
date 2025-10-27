@@ -88,6 +88,14 @@ export class RemoteCodingAgentsService extends Disposable implements IRemoteCodi
 	}
 
 	private updateContextKeys(): void {
+		// --- Start Positron ---
+		// Don't signal availability of remote coding agents in Positron; this
+		// causes UI to show options that are not supported.
+		if (this.getAvailableAgents().length > 0) {
+			return;
+		}
+		// --- End Positron ---
+
 		const hasAvailableAgent = this.getAvailableAgents().length > 0;
 		this._ctxHasRemoteCodingAgent.set(hasAvailableAgent);
 	}

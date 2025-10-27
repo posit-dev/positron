@@ -46,7 +46,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 						group: 'navigation',
 						order: 5,
 						when: ContextKeyExpr.and(
-							ContextKeyExpr.equals(ChatContextKeys.location.key, ChatAgentLocation.Panel),
+							ContextKeyExpr.equals(ChatContextKeys.location.key, ChatAgentLocation.Chat),
 							ChatContextKeys.Editing.hasToolConfirmation.toNegated(),
 							// TODO: We should use a context key so that we can dynamically include languages
 							//       that can execute code in the console i.e. with registered interpreters.

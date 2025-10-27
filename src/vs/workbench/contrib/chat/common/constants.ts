@@ -9,7 +9,6 @@ export enum ChatConfiguration {
 	// --- Start Positron ---
 	UseCopilotParticipantsWithOtherProviders = 'chat.useCopilotParticipantsWithOtherProviders',
 	// --- End Positron ---
-	UseFileStorage = 'chat.useFileStorage',
 	AgentEnabled = 'chat.agent.enabled',
 	Edits2Enabled = 'chat.edits2.enabled',
 	ExtensionToolsEnabled = 'chat.extensionTools.enabled',
@@ -20,9 +19,11 @@ export enum ChatConfiguration {
 	CheckpointsEnabled = 'chat.checkpoints.enabled',
 	AgentSessionsViewLocation = 'chat.agentSessionsViewLocation',
 	ThinkingStyle = 'chat.agent.thinkingStyle',
-	UseChatSessionsForCloudButton = 'chat.useChatSessionsForCloudButton',
+	TodoList = 'chat.agent.todoList',
+	UseCloudButtonV2 = 'chat.useCloudButtonV2',
 	ShowAgentSessionsViewDescription = 'chat.showAgentSessionsViewDescription',
 	EmptyStateHistoryEnabled = 'chat.emptyState.history.enabled',
+	NotifyWindowOnResponseReceived = 'chat.notifyWindowOnResponseReceived',
 }
 
 /**
@@ -54,27 +55,35 @@ export enum ThinkingDisplayMode {
 	Collapsed = 'collapsed',
 	CollapsedPreview = 'collapsedPreview',
 	Expanded = 'expanded',
-	None = 'none'
+	None = 'none',
+	CollapsedPerItem = 'collapsedPerItem'
 }
 
 export type RawChatParticipantLocation = 'panel' | 'terminal' | 'notebook' | 'editing-session';
 
 export enum ChatAgentLocation {
-	Panel = 'panel',
+	/**
+	 * This is chat, whether it's in the sidebar, a chat editor, or quick chat.
+	 * Leaving the values alone as they are in stored data so we don't have to normalize them.
+	 */
+	Chat = 'panel',
 	Terminal = 'terminal',
 	Notebook = 'notebook',
-	Editor = 'editor',
+	/**
+	 * EditorInline means inline chat in a text editor.
+	 */
+	EditorInline = 'editor',
 }
 
 export namespace ChatAgentLocation {
 	export function fromRaw(value: RawChatParticipantLocation | string): ChatAgentLocation {
 		switch (value) {
-			case 'panel': return ChatAgentLocation.Panel;
+			case 'panel': return ChatAgentLocation.Chat;
 			case 'terminal': return ChatAgentLocation.Terminal;
 			case 'notebook': return ChatAgentLocation.Notebook;
-			case 'editor': return ChatAgentLocation.Editor;
+			case 'editor': return ChatAgentLocation.EditorInline;
 		}
-		return ChatAgentLocation.Panel;
+		return ChatAgentLocation.Chat;
 	}
 }
 
@@ -83,3 +92,5 @@ export const COPILOT_CHAT_EXTENSION_ID = 'github.copilot-chat';
 // --- End Positron ---
 
 export const ChatUnsupportedFileSchemes = new Set([Schemas.vscodeChatEditor, Schemas.walkThrough, Schemas.vscodeChatSession, 'ccreq']);
+
+export const VIEWLET_ID = 'workbench.view.chat.sessions';

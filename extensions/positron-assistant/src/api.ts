@@ -273,7 +273,7 @@ export function getEnabledTools(
 		}
 
 		// Check that the request is using a Copilot model.
-		const usingCopilotModel = request.model.family === 'copilot';
+		const usingCopilotModel = request.model.vendor === 'copilot';
 		// Check if the user has opted-in to always include Copilot tools.
 		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.

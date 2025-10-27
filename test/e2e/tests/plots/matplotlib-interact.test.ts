@@ -14,7 +14,7 @@ test.use({
 test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () => {
 
 	test('Python - Matplotlib Interact Test', {
-		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
+		tag: [tags.WEB, tags.WIN],
 	}, async function ({ app, hotKeys, python }) {
 		const { notebooks, quickaccess } = app.workbench;
 
