@@ -46,9 +46,13 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 			? filePaths[0]
 			: `c(${filePaths.join(', ')})`;
 
+		const title = filePaths.length === 1
+			? vscode.l10n.t('Insert file path')
+			: vscode.l10n.t('Insert file paths');
+
 		return [{
 			insertText,
-			title: vscode.l10n.t('Insert file path(s)'),
+			title,
 			kind: RFilePasteProvider.kind
 		}];
 	}

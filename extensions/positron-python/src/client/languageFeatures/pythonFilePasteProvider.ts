@@ -42,10 +42,12 @@ export class PythonFilePasteProvider implements vscode.DocumentPasteEditProvider
         // Format for Python: single path or Python list syntax
         const insertText = filePaths.length === 1 ? filePaths[0] : `[${filePaths.join(', ')}]`;
 
+        const title = filePaths.length === 1 ? vscode.l10n.t('Insert file path') : vscode.l10n.t('Insert file paths');
+
         return [
             {
                 insertText,
-                title: vscode.l10n.t('Insert file path(s)'),
+                title,
                 kind: PythonFilePasteProvider.kind,
             },
         ];
