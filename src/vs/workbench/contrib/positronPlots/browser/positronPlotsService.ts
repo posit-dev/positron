@@ -78,6 +78,9 @@ const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 /** The config key used to store the dark mode setting */
 const DarkFilterModeConfigKey = 'positron.plots.darkFilter';
 
+/** The config key used to store the default plot sizing policy setting */
+const DefaultSizingPolicyConfigKey = 'positron.plots.defaultSizingPolicy';
+
 interface DataUri {
 	mime: string;
 	data: string;
@@ -504,6 +507,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	get darkFilterMode() {
 		return this._selectedDarkFilterMode;
+	}
+
+	/**
+	 * Gets the default sizing policy as defined in the setting.
+	 */
+	getDefaultSizingPolicy(): IPositronPlotSizingPolicy {
+		const defaultPolicyId = this._configurationService.getValue<string>(DefaultSizingPolicyConfigKey) ?? 'auto';
+		const policy = this._sizingPolicies.find(policy => policy.id === defaultPolicyId);
+		return policy ?? this._sizingPolicies.find(policy => policy.id === 'auto')!;
 	}
 
 	/**
@@ -1497,10 +1509,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
-		// for Python plots, use intrinsic sizing policy as default
-		this._selectedSizingPolicy = metadata.language === 'python' ? this._intrinsicSizingPolicy : this._selectedSizingPolicy;
-		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
-			?? this._selectedSizingPolicy;
+		// Get the default sizing policy from configuration
+		let defaultSizingPolicy = this.getDefaultSizingPolicy();
+
+		// for Python plots, use intrinsic sizing policy as default if configured policy is auto
+		if (metadata.language === 'python' && defaultSizingPolicy.id === 'auto') {
+			defaultSizingPolicy = this._intrinsicSizingPolicy;
+		}
+
+		// Use existing sizing policy if specified, otherwise use the default
+		const sizingPolicy =
+			this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
+			?? defaultSizingPolicy;
+
 		metadata.sizing_policy = {
 			id: sizingPolicy.id,
 			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined
