@@ -323,7 +323,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-json-results
+          name: ${{ inputs.project }}-windows-json-results
           path: test-results/windows.json
           if-no-files-found: ignore
 
