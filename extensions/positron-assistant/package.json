@@ -277,6 +277,11 @@
               "preview"
             ]
           },
+          "positron.assistant.toolErrors.propagate": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.toolErrors.propagate.description%"
+          },
           "positron.assistant.alwaysIncludeCopilotTools": {
             "type": "boolean",
             "default": false,
