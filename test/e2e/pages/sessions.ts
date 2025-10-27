@@ -15,7 +15,9 @@ const getAlternateR = () => process.env.POSITRON_R_ALT_VER_SEL;
 const getHiddenPython = () => process.env.POSITRON_HIDDEN_PY;
 const getHiddenR = () => process.env.POSITRON_HIDDEN_R;
 
-const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
+export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
+export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
+export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
 
 /**
  * Class to manage console sessions
@@ -34,8 +36,8 @@ export class Sessions {
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
-	private idleStatus = (session: Locator) => session.locator('.codicon-positron-runtime-status-idle');
-	private disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-runtime-status-disconnected');
+	private idleStatus = (session: Locator) => session.locator(IDLE_STATUS_ICON);
+	private disconnectedStatus = (session: Locator) => session.locator(DISCONNECTED_STATUS_ICON);
 	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 
 	// Session Metadata

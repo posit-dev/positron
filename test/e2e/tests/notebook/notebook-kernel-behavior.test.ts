@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -25,13 +24,12 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	// 	The button is disabled while shutting down after clicking
 	// Existing execution orders shown in cells, and cell outputs shouldn't be cleared.
 	// Can execute a cell afterwards, at which point existing execution should restart at [1]
-	// Variable defined before restart is no longer available
 
 	test('Notebook Session Start Up behavior', async function ({ app }) {
 		const { notebooksPositron, variables } = app.workbench;
 
-		// create new notebook with 1 cell
-		await notebooksPositron.newNotebook(1);
+		// create new notebook
+		await notebooksPositron.newNotebook();
 
 		// workaround issue #
 		if (app.web) {
@@ -42,24 +40,27 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// ensure when no kernel is selected, restart/shutdown are disabled
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Change Kernel', visible: true, enabled: true },
-			{ label: 'Open Notebook Console', visible: true, enabled: true },
-			{ label: 'Restart Kernel', visible: true, enabled: false },
-			{ label: 'Shutdown Kernel', visible: true, enabled: false },
+			{ label: 'Change Kernel', enabled: true },
+			{ label: 'Open Notebook Console', enabled: true },
+			{ label: 'Restart Kernel', enabled: false },
+			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
 		// select kernel and ensure while starting, restart/shutdown are disabled
 		await notebooksPositron.kernel.select('Python');
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', visible: true, enabled: false },
-			{ label: 'Shutdown Kernel', visible: true, enabled: false },
+			{ label: 'Restart Kernel', enabled: false },
+			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
-		// ensure once started, restart/shutdown are enabled
-		await notebooksPositron.kernel.expectBadgeToContain('Python');
+		// ensure once started and ready, restart/shutdown are enabled
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'Idle'
+		});
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', visible: true, enabled: true },
-			{ label: 'Shutdown Kernel', visible: true, enabled: true },
+			{ label: 'Restart Kernel', enabled: true },
+			{ label: 'Shutdown Kernel', enabled: true },
 		]);
 
 		// define variable X in cell 0 and execute
@@ -67,8 +68,27 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await variables.expectVariableToBe('X', '10');
 
 		// restart kernel and ensure variable X is cleared
-		await notebooksPositron.kernel.restart();
+		await notebooksPositron.kernel.restart({ waitForRestart: false });
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'Active'
+		});
 		await variables.expectVariableToNotExist('X');
+		// ISSUE - https://github.com/posit-dev/positron/issues/10145
+		// await notebooksPositron.kernel.expectKernelToBe({
+		// 	kernelGroup: 'Python',
+		// 	status: 'Idle'
+		// })
+		await notebooksPositron.kernel.expectStatusToBe('Idle', 15000);
+
+		// shut down kernel and ensure menu options
+		await notebooksPositron.kernel.shutdown();
+		await notebooksPositron.kernel.expectMenuToContain([
+			{ label: 'Restart Kernel', enabled: false },
+			{ label: 'Shutdown Kernel', enabled: false },
+			{ label: 'Change Kernel', enabled: true },
+			{ label: 'Open Notebook Console', enabled: true },
+		]);
 
 		// restart kernel and ensure variable X is cleared
 		// await notebooksPositron.kernel.restart();

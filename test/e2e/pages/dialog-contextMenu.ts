@@ -85,7 +85,7 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @returns Array of menu item objects { label, enabled?, checked? }
 	 */
-	async getMenuItems(menuTrigger: Locator): Promise<{ label: string; enabled?: boolean; visible?: boolean; checked?: boolean }[]> {
+	async getMenuItems(menuTrigger: Locator): Promise<MenuItemState[]> {
 		return await test.step(`Get context menu items`, async () => {
 			if (this.isNativeMenu) {
 				const menuItems = await this.showContextMenu(() => menuTrigger.click());
@@ -98,7 +98,7 @@ export class ContextMenu {
 				await menuTrigger.click();
 				const menuItems = this.contextMenuItems;
 				const count = await menuItems.count();
-				const items: { label: string; enabled?: boolean; visible?: boolean; checked?: boolean }[] = [];
+				const items: MenuItemState[] = [];
 
 				for (let i = 0; i < count; i++) {
 					const menuItem = menuItems.nth(i);

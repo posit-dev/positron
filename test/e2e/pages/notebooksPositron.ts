@@ -10,16 +10,18 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON } from './sessions.js';
 
 const DEFAULT_TIMEOUT = 10000;
 
-type moreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
-
+type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
+type KernelStatus = 'Active' | 'Idle' | 'Disconnected';
 /**
  * Notebooks functionality exclusive to Positron notebooks.
  */
 export class PositronNotebooks extends Notebooks {
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
@@ -181,7 +183,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to act on
 	 * @param action - The action to perform from the More Actions menu
 	 */
-	async selectFromMoreActionsMenu(cellIndex: number, action: moreActionsMenuItems): Promise<void> {
+	async selectFromMoreActionsMenu(cellIndex: number, action: MoreActionsMenuItems): Promise<void> {
 		await test.step(`Select action from More Actions menu: ${action}`, async () => {
 			await this.moreActionsButtonAtIndex(cellIndex).click();
 			await this.moreActionsOption(action).click();
@@ -577,19 +579,39 @@ export class PositronNotebooks extends Notebooks {
 // -----------------
 export class Kernel {
 	kernelStatusBadge: Locator;
+	private activeStatus: Locator;
+	private idleStatus: Locator;
+	private disconnectedStatus: Locator;
 
 	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
 		this.kernelStatusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
+		this.activeStatus = this.notebooks.editorActionBar.locator(ACTIVE_STATUS_ICON);
+		this.idleStatus = this.notebooks.editorActionBar.locator(IDLE_STATUS_ICON);
+		this.disconnectedStatus = this.notebooks.editorActionBar.locator(DISCONNECTED_STATUS_ICON);
 	}
 
 	// #region ACTIONS
 
-	async expectMenuToContain(menuItemStates: MenuItemState[]): Promise<void> {
-		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
-			await this.contextMenu.triggerAndVerify({
+	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
+		await test.step('Restart kernel', async () => {
+			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.kernelStatusBadge,
-				menuItemStates: menuItemStates
+				menuItemLabel: 'Restart Kernel'
 			});
+
+			if (waitForRestart) {
+				await this.expectStatusToBe('Idle', 30000);
+			}
+		});
+	}
+
+	async shutdown(): Promise<void> {
+		await test.step('Shutdown kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.kernelStatusBadge,
+				menuItemLabel: 'Shutdown Kernel'
+			});
+			await this.expectStatusToBe('Disconnected', 15000);
 		});
 	}
 
@@ -609,15 +631,6 @@ export class Kernel {
 				await this.quickinput.waitForQuickInputClosed();
 				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 			}).toPass({ timeout: 10000 });
-		});
-	}
-
-	async restart(): Promise<void> {
-		await test.step('Restart kernel', async () => {
-			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.kernelStatusBadge,
-				menuItemLabel: 'Restart Kernel'
-			});
 		});
 	}
 
@@ -666,22 +679,64 @@ export class Kernel {
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
 			// wait for kernel
-			await this.expectBadgeToContain(kernelGroup, desiredKernel, 30000);
-			this.code.logger.log('Kernel is connected and ready');
+			await this.expectKernelToBe({
+				kernelGroup,
+				kernelVersion: desiredKernel,
+				status: 'Idle',
+				timeout: 30000
+			});
+			this.code.logger.log('Kernel is connected and ready/idle');
 		});
 	}
 	// #endregion
 
 	// #region VERIFICATIONS
 
-	async expectBadgeToContain(kernelGroup: 'Python' | 'R',
-		desiredKernel = kernelGroup === 'Python'
+	async expectKernelToBe({
+		kernelGroup,
+		kernelVersion = kernelGroup === 'Python'
 			? process.env.POSITRON_PY_VER_SEL!
-			: process.env.POSITRON_R_VER_SEL!, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect kernel badge to contain text: ${desiredKernel}`, async () => {
-			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout });
+			: process.env.POSITRON_R_VER_SEL!,
+		status = 'Idle',
+		timeout = DEFAULT_TIMEOUT
+	}: {
+		kernelGroup: 'Python' | 'R';
+		kernelVersion?: string;
+		status?: KernelStatus;
+		timeout?: number;
+	}): Promise<void> {
+		await test.step(`Expect kernel to be: ${status} - ${kernelVersion}`, async () => {
+			await expect(this.kernelStatusBadge).toContainText(kernelVersion, { timeout });
+			await this.expectStatusToBe(status, timeout);
 		});
 	}
+
+	async expectMenuToContain(menuItemStates: MenuItemState[]): Promise<void> {
+		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
+			await this.contextMenu.triggerAndVerify({
+				menuTrigger: this.kernelStatusBadge,
+				menuItemStates: menuItemStates
+			});
+		});
+	}
+
+	async expectStatusToBe(expectedStatus: KernelStatus, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
+			const statusMap: Record<KernelStatus, Locator> = {
+				Active: this.activeStatus,
+				Idle: this.idleStatus,
+				Disconnected: this.disconnectedStatus
+			};
+
+			// Use the mapped locator for the expected status
+			const locator = statusMap[expectedStatus];
+			if (!locator) {
+				throw new Error(`Unknown expected status: ${expectedStatus}`);
+			}
+			await expect(locator).toBeVisible({ timeout });
+		});
+	}
+
 	// #endregion
 
 }
