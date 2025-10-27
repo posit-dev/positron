@@ -30,8 +30,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPathService } from '../../path/common/pathService.js';
-import { Schemas } from '../../../../base/common/network.js';
-import { resolveNotebookWorkingDirectory, resolvePath } from './notebookWorkingDirectoryUtils.js';
+import { resolveNotebookWorkingDirectory } from './notebookWorkingDirectoryUtils.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -2252,9 +2251,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Remember the session ID and old working directory for return value
 		const sessionId = session.sessionId;
-		const oldWorkingDirectory = session.dynState.currentWorkingDirectory;
-		let workingDirectoryWasChanged = false;
-
 		try {
 			// Operations are performed in a specific order to maintain atomic-like behavior
 			// The ordering ensures that even if interrupted between steps, the system won't lose
@@ -2265,12 +2261,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// so even if the next steps fail, the session is still accessible via some URI
 			this._notebookSessionsByNotebookUri.set(newUri, session);
 
-			// 2. Then update the session's notebook URI and working directory in its dynamic state
+			// 2. Then update the session's notebook URI in its dynamic state
 			// Why: This ensures the session's internal references are consistent
 			// with our mapping, which helps debugging and ensures session properties
 			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
-			workingDirectoryWasChanged = await this.promptAndUpdateWorkingDirectoryIfChanged(session, newUri);
 
 			// 3. Finally remove the old mapping - we do this last because it's
 			// the most likely to fail if ResourceMap has internal inconsistency
@@ -2318,100 +2313,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (session.dynState.currentNotebookUri === newUri) {
 				session.dynState.currentNotebookUri = oldUri;
 			}
-			if (workingDirectoryWasChanged) {
-				await session.setWorkingDirectory(oldWorkingDirectory);
-			}
 
 			return undefined;
 		}
-	}
-
-
-	/**
-	 * Prompts the user to update the session's working directory if it has changed
-	 * due to a notebook URI change, and updates it if the user chooses to do so.
-	 *
-	 * @param session The runtime session to potentially update.
-	 * @param newUri The new notebook URI to resolve the working directory from.
-	 * @returns Whether the working directory was changed
-	 */
-	private async promptAndUpdateWorkingDirectoryIfChanged(
-		session: ILanguageRuntimeSession,
-		newUri: URI
-	): Promise<boolean> {
-		let wasChanged = false;
-		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
-		const newWorkingDirectory = await resolveNotebookWorkingDirectory(
-			newUri,
-			this._fileService,
-			this._configurationService,
-			this._configurationResolverService,
-			this._workspaceContextService,
-			this._pathService,
-			this._logService
-		);
-		if (!newWorkingDirectory) {
-			return false;
-		}
-
-		// Resolve both paths (untildify + symlink resolution) for comparison
-		const currentWorkingDirectoryResolved = await resolvePath(
-			currentWorkingDirectory,
-			this._fileService,
-			this._pathService,
-			this._logService
-		);
-		const newWorkingDirectoryResolved = await resolvePath(
-			newWorkingDirectory,
-			this._fileService,
-			this._pathService,
-			this._logService
-		);
-
-		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
-			// Format the paths for display
-			const path = await this._pathService.path;
-			const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(newUri) || undefined;
-			const workspaceFolderName = workspaceFolder ? workspaceFolder.name : '';
-
-			// Convert an absolute path to a display path relative to the workspace folder if it's inside it
-			const makeDisplayPath = function (p: string): string {
-				if (!workspaceFolder) {
-					return p;
-				}
-				const workspaceFolderPath = workspaceFolder.uri.scheme === Schemas.file ? workspaceFolder.uri.fsPath : workspaceFolder.uri.path;
-				const relativePath = path.relative(workspaceFolderPath, p);
-				if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-					return p;
-				}
-				return path.join(workspaceFolderName, relativePath);
-			};
-
-			const currentWorkingDirectoryDisplay = makeDisplayPath(currentWorkingDirectoryResolved);
-			const newWorkingDirectoryDisplay = makeDisplayPath(newWorkingDirectoryResolved);
-
-			const result = await this._positronModalDialogsService.showSimpleModalDialogPrompt(
-				localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),
-				localize(
-					'positron.notebook.workingDirectoryChanged',
-					// eslint-disable-next-line local/code-no-unexternalized-strings
-					'This notebook was moved to a new location but your session is still running from the original directory.'
-					+ '<br><br>Saved at: <code>{0}</code>'
-					+ '<br>Running from: <code>{1}</code>'
-					+ '<br><br>Update the running working directory to match where the notebook is saved? (Recommended)',
-					newWorkingDirectoryDisplay,
-					currentWorkingDirectoryDisplay,
-				),
-				localize('positron.notebook.updateWorkingDirectory', 'Update'),
-				localize('positron.notebook.keepCurrent', 'Keep'),
-				300,
-			);
-			if (result) {
-				await session.setWorkingDirectory(newWorkingDirectory);
-				wasChanged = true;
-			}
-		}
-		return wasChanged;
 	}
 }
 
