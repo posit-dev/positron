@@ -311,7 +311,7 @@ async function showInitialPromptPick(renderer: PromptRenderer) {
 		{ label: 'Editor', description: 'Inline editor chat' },
 		{ label: 'Terminal', description: 'Inline Terminal chat' },
 		{ label: 'Notebook', description: 'Notebook chat' },
-		{ label: 'Miscelleaneous', kind: vscode.QuickPickItemKind.Separator },
+		{ label: 'Miscellaneous', kind: vscode.QuickPickItemKind.Separator },
 		{ label: 'Reset', description: 'Reset all prompt configuration to the default values.' },
 	];
 
