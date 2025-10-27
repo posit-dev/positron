@@ -168,6 +168,7 @@ export function getEnabledTools(
 	const isEditMode = positronParticipantId === ParticipantID.Edit;
 	const isAgentMode = positronParticipantId === ParticipantID.Agent ||
 		positronParticipantId === undefined;
+	const isAskMode = positronParticipantId === ParticipantID.Chat;
 	const isStreamingInlineEditor = isStreamingEditsEnabled() &&
 		(positronParticipantId === ParticipantID.Editor || positronParticipantId === ParticipantID.Notebook);
 
@@ -259,6 +260,12 @@ export function getEnabledTools(
 			// Only include the inspectVariables tool if there are variables defined.
 			case PositronAssistantToolName.InspectVariables:
 				if (!hasVariables) {
+					continue;
+				}
+				break;
+			// Only include the installPythonPackage tool when NOT in Ask mode.
+			case PositronAssistantToolName.InstallPythonPackage:
+				if (isAskMode) {
 					continue;
 				}
 				break;
