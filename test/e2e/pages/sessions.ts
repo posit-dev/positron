@@ -500,7 +500,7 @@ export class Sessions {
 			await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.page.mouse.move(0, 0);
-			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Reconnecting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
 

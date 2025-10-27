@@ -32,8 +32,10 @@ export class PositronNotebooks extends Notebooks {
 	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
 
+
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
+	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	kernel: Kernel;
@@ -275,7 +277,7 @@ export class PositronNotebooks extends Notebooks {
 
 				if (waitForSpinner) {
 					const spinner = this.spinnerAtIndex(cellIndex);
-					await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
+					await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => {
 						// Spinner might not appear for very fast executions, that's okay
 					});
 					await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
@@ -469,6 +471,18 @@ export class PositronNotebooks extends Notebooks {
 	async expectExecutionStatusToBe(cellIndex: number, expectedStatus: 'running' | 'idle' | 'failed' | 'success', timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Expect execution status to be: ${expectedStatus}`, async () => {
 			await expect(this.executionStatusAtIndex(cellIndex)).toHaveAttribute('data-execution-status', expectedStatus, { timeout });
+		});
+	}
+
+	async expectExecutionOrderAtIndexToBe(cellIndex: number, expectedOrder: number, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect execution order at index ${cellIndex} to be: ${expectedOrder}`, async () => {
+			await this.code.driver.page.keyboard.press('Escape');
+			await this.code.driver.page.mouse.move(0, 0);
+			await this.cell.nth(cellIndex).click();
+			await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
+			await expect(this.cellInfoToolTipAtIndex(cellIndex)).toBeVisible(); // make sure we have the RIGHT tooltip
+			await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
+			await this.expectToolTipToContain({ order: expectedOrder }, timeout);
 		});
 	}
 

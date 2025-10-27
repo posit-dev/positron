@@ -231,8 +231,8 @@ export class ContextMenu {
 	 * @param menuItemLabel The label of the menu item to click
 	 */
 	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton = 'left' }: Omit<ContextMenuClick, 'menuItemType'> & { clickButton?: ClickButton }): Promise<void> {
-		// Native-only behavior: expect native menu to appear and return items.
-		const menuItems = await this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
+		const menuItems = await this.triggerMenu(menuTrigger, menuTriggerButton);
+
 		if (!menuItems) {
 			throw new Error('Native context menu did not appear or no menu items found.');
 		}
