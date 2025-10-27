@@ -7,7 +7,7 @@
 import './actionBarMenuButton.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { ActionBarButton } from './actionBarButton.js';
@@ -59,9 +59,6 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
-	// State hooks.
-	const [defaultAction, setDefaultAction] = useState<IAction | undefined>(undefined);
-
 	// Manage the aria-haspopup and aria-expanded attributes.
 	useEffect(() => {
 		buttonRef.current.setAttribute('aria-haspopup', 'menu');
@@ -75,16 +72,6 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 			buttonRef.current.removeAttribute('aria-expanded');
 		}
 	}, [positronActionBarContext.menuShowing]);
-
-	const updateDefaultAction = React.useCallback(async () => {
-		const actions = await getActions();
-		const defaultAction = actions.find(action => action.checked);
-		setDefaultAction(defaultAction);
-	}, [getActions]);
-
-	useEffect(() => {
-		updateDefaultAction();
-	}, [updateDefaultAction]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
@@ -138,15 +125,19 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 			onPressed={async () => {
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
-				} else {
-					// Run the preferred action, fetching fresh if needed
-					if (defaultAction) {
-						defaultAction.run();
-					} else {
-						const freshActions = await getActions();
-						freshActions[0]?.run();
-					}
+					return;
 				}
+
+				const actions = await getActions();
+
+				const defaultAction = actions.find(action => action.checked);
+				// Run the preferred action if it exists
+				if (defaultAction) {
+					defaultAction.run();
+					return;
+				}
+
+				actions[0]?.run();
 			}}
 		/>
 	);
