@@ -29,7 +29,7 @@ export interface ConvertClipboardFilesOptions {
 
 /**
  * Converts clipboard files to forward-slash, quoted file paths.
- * Uses relative paths when workspace context is available.
+ * Optionally, returns relative paths.
  *
  * @param uriListData Raw URI list data from clipboard
  * @param options Options for path conversion
@@ -43,6 +43,7 @@ export function convertClipboardFiles(
 
 	if (uriListData) {
 		// On Windows, we definitely see \r\n here
+		// On macOS, we see \n
 		const fileUris = uriListData.split(/\r?\n/)
 			.filter(line => line.trim().startsWith('file://'));
 
@@ -68,7 +69,7 @@ export function convertClipboardFiles(
 
 /**
  * Formats a file path to forward-slash format with double quotes.
- * Uses relative path if base URI provided and the file is within that workspace.
+ * Uses relative path if requested and possible.
  * Priority: workspace-relative > home-relative > absolute
  *
  * @param filePath The file path to format

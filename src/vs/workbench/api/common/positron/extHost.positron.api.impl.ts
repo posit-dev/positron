@@ -268,7 +268,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		const paths: typeof positron.paths = {
 			/**
-			 * Extract file paths from clipboard for use in data analysis code.
+			 * Extract file paths from files on the clipboard.
 			 */
 			async extractClipboardFilePaths(
 				dataTransfer: vscode.DataTransfer,

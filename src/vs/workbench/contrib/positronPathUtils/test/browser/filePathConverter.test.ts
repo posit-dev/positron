@@ -13,7 +13,7 @@ suite('File Path Converter Tests', () => {
 
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	// Inputs largely based on real-world examples captured in the debugger on Windows
+	// Inputs largely based on real-world examples captured in the debugger on Windows and macOS
 
 	test('Convert a single Windows file path', () => {
 		const uriListData = 'file:///c%3A/Users/test/file.txt';

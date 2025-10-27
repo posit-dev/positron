@@ -2069,7 +2069,7 @@ declare module 'positron' {
 	}
 
 	/**
-	 * File path utilities for data analysis code.
+	 * Utilities for pasting files as paths.
 	 */
 	namespace paths {
 		/**
@@ -2095,10 +2095,11 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Extract file paths from clipboard for use in data analysis code.
+		 * Extract file paths from clipboard.
 		 * Detects files copied from file manager and returns their paths for use in scripts.
-		 * Main motivation is the Windows issue of replacing `\` with `/`.
-		 * Also returns paths relative to the workspace folder, when possible.
+		 * Windows: Replaces `\` with `/`.
+		 * Surrounds paths with double quotes (and escapes any internal double quotes).
+		 * Optionally returns relative paths (e.g. to workspace or user's home directory).
 		 * Try to use core utilities (versus DIY path hacking).
 
 		 * @param dataTransfer The clipboard data transfer object
