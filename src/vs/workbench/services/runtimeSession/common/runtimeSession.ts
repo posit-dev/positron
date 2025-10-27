@@ -1748,9 +1748,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
-			// TODO: Should this fire onDidChangeForegroundSession?
-			//       If so, should it fire immediately or once the session is ready
-			//       (which would already happen if we remove this block)?
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				this.foregroundSession = session;
