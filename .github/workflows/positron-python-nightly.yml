@@ -77,7 +77,7 @@ jobs:
         run: uv run python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
 
       - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: upstream-test-output-${{ matrix.os }}-${{ matrix.python }}
           path: ${{ github.workspace }}/${{ env.special-working-directory-relative }}/extensions/positron-python/python-unit-test-results.xml
@@ -127,7 +127,7 @@ jobs:
         run: uv run pytest python_files/posit --junit-xml=python-test-results.xml
 
       - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ipykernel-test-output-${{ matrix.os }}-${{ matrix.python }}
           path: extensions/positron-python/python-test-results.xml
