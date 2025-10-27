@@ -301,18 +301,18 @@ export class PromptRenderer {
 async function showInitialPromptPick(renderer: PromptRenderer) {
 	const context = renderer.extensionContext;
 	const quickPick = vscode.window.createQuickPick();
-	quickPick.placeholder = 'Select a mode';
+	quickPick.placeholder = vscode.l10n.t('Select a mode');
 
 	quickPick.items = [
 		{ label: 'Built-in Modes', kind: vscode.QuickPickItemKind.Separator },
-		{ label: 'Ask', description: 'Ask mode in the chat panel' },
-		{ label: 'Edit', description: 'Edit mode in the chat panel' },
-		{ label: 'Agent', description: 'Agent mode in the chat panel' },
-		{ label: 'Editor', description: 'Inline editor chat' },
-		{ label: 'Terminal', description: 'Inline Terminal chat' },
-		{ label: 'Notebook', description: 'Notebook chat' },
+		{ label: 'Ask', description: vscode.l10n.t('Ask mode in the chat panel') },
+		{ label: 'Edit', description: vscode.l10n.t('Edit mode in the chat panel') },
+		{ label: 'Agent', description: vscode.l10n.t('Agent mode in the chat panel') },
+		{ label: 'Editor', description: vscode.l10n.t('Inline editor chat') },
+		{ label: 'Terminal', description: vscode.l10n.t('Inline Terminal chat') },
+		{ label: 'Notebook', description: vscode.l10n.t('Notebook chat') },
 		{ label: 'Miscellaneous', kind: vscode.QuickPickItemKind.Separator },
-		{ label: 'Reset', description: 'Reset all prompt configuration to the default values.' },
+		{ label: 'Reset', description: vscode.l10n.t('Reset all prompt configuration to the default values.') },
 	];
 
 	quickPick.onDidAccept(() => {
