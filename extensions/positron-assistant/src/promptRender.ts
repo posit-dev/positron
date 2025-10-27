@@ -158,10 +158,12 @@ export class PromptRenderer {
 			}
 
 			// Combine modes
-			if (doc.metadata.mode && typeof doc.metadata.mode === 'string') {
-				allModes.add(doc.metadata.mode);
-			} else if (doc.metadata.mode) {
-				doc.metadata.mode.forEach(mode => allModes.add(mode));
+			if (doc.metadata.mode) {
+				if (Array.isArray(doc.metadata.mode)) {
+					doc.metadata.mode.forEach(mode => allModes.add(mode));
+				} else {
+					allModes.add(doc.metadata.mode);
+				}
 			}
 
 			// Set command
