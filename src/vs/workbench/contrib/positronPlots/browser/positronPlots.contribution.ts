@@ -101,7 +101,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 	}
 }
 
-// Register the configuration setting
+// Old configuration with `positron` in name
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
 		properties: {
@@ -121,32 +121,16 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				description: localize('positron.plots.darkFilterSetting', "Use a color filter to make light plots appear dark."),
 				deprecationMessage: localize('positron.plots.darkFilter.deprecated', "This setting is deprecated. Please use 'plots.darkFilter' instead."),
 			},
-			'positron.plots.defaultSizingPolicy': {
-				type: 'string',
-				default: 'auto',
-				enum: [
-					'auto',
-					'fill',
-					'intrinsic',
-					'landscape',
-					'portrait',
-					'square'
-				],
-				enumDescriptions: [
-					localize('positron.plots.defaultSizingPolicyAuto', 'Automatically size the plot'),
-					localize('positron.plots.defaultSizingPolicyFill', 'Fill the entire available space with the plot'),
-					localize('positron.plots.defaultSizingPolicyIntrinsic', 'Use the plot\'s intrinsic size when available'),
-					localize('positron.plots.defaultSizingPolicyLandscape', 'Use 4:3 landscape aspect ratio'),
-					localize('positron.plots.defaultSizingPolicyPortrait', 'Use 3:4 portrait aspect ratio'),
-					localize('positron.plots.defaultSizingPolicySquare', 'Use 1:1 square aspect ratio')
-				],
-				description: localize('positron.plots.defaultSizingPolicySetting', "The default sizing policy to use for newly created plots."),
-				deprecationMessage: localize('positron.plots.defaultSizingPolicy.deprecated', "This setting is deprecated. Please use 'plots.defaultSizingPolicy' instead."),
+			[OldFreezeSlowPlotsConfigKey]: {
+				type: 'boolean',
+				default: true,
+				description: localize('positron.plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
+				deprecationMessage: localize('positron.plots.freezeSlowPlots.deprecated', "This setting is deprecated. Please use 'plots.freezeSlowPlots' instead."),
 			}
 		}
 	});
 
-// Register the new settings without the positron prefix
+// New configuration
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
 		id: 'plots',
@@ -189,30 +173,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					localize('plots.defaultSizingPolicySquare', 'Use 1:1 square aspect ratio')
 				],
 				description: localize('plots.defaultSizingPolicySetting', "The default sizing policy to use for newly created plots."),
-			}
-		}
-	});
-
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
-	.registerConfiguration({
-		properties: {
-			[OldFreezeSlowPlotsConfigKey]: {
-				type: 'boolean',
-				default: true,
-				description: localize('positron.plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
-				deprecationMessage: localize('positron.plots.freezeSlowPlots.deprecated', "This setting is deprecated. Please use 'plots.freezeSlowPlots' instead."),
-			}
-		}
-	});
-
-// Register the new freezeSlowPlots setting
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
-	.registerConfiguration({
-		id: 'plots',
-		order: 100,
-		title: localize('plotsConfigurationTitle', "Plots"),
-		type: 'object',
-		properties: {
+			},
 			[FreezeSlowPlotsConfigKey]: {
 				type: 'boolean',
 				default: true,
