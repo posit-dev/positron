@@ -282,7 +282,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-json-results
+          name: ${{ inputs.project }}-ubuntu-json-results
           path: test-results/ubuntu.json
           if-no-files-found: ignore
 

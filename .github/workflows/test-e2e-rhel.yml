@@ -274,7 +274,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-json-results
+          name: ${{ inputs.project }}-rhel-json-results
           path: test-results/rhel.json
           if-no-files-found: ignore
 
