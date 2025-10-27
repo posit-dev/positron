@@ -168,8 +168,7 @@ export class ContextMenu {
 	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
 		// If electron app is not available, just return undefined so callers can fallback to web flow.
 		if (!this.code.electronApp) {
-			console.warn('[showContextMenu] electronApp not present; cannot show native context menu.');
-			return undefined;
+			throw new Error(`[showContextMenu] Electron app is not available. Platform: ${process.platform}`);
 		}
 
 		try {
@@ -206,7 +205,7 @@ export class ContextMenu {
 			// Timed out waiting for native menu event; return undefined so caller can retry or fall back.
 			return undefined;
 		} catch (err) {
-			// Don't throw — return undefined so caller can fallback to web behavior instead of leaving tests in a bad state.
+			// Return undefined so caller can fallback
 			console.error('[showContextMenu] native evaluate failed:', err);
 			return undefined;
 		}
@@ -264,7 +263,7 @@ export class ContextMenu {
 	 * Verify: Verifies the states of multiple context menu items.
 	 * @param param0 - menuTrigger, menuTriggerButton, menuItemStates
 	 */
-	async triggerAndVerify({ menuTrigger, menuTriggerButton = 'left', menuItemStates }:
+	async triggerAndVerifyMenuItems({ menuTrigger, menuTriggerButton = 'left', menuItemStates }:
 		Omit<ContextMenuClick, 'menuItemType' | 'menuItemLabel'> & { clickButton?: ClickButton; menuItemStates: MenuItemState[] }): Promise<void> {
 
 		const menuItems = await this.triggerMenu(menuTrigger, menuTriggerButton);

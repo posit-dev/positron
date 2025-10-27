@@ -1158,7 +1158,7 @@ export type SessionMetaData = {
 	path: string;
 };
 
-type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
+export type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
 
 // Lazy factory functions for session objects - these will use current environment values when called
 const createPythonSession = (): SessionInfo => ({

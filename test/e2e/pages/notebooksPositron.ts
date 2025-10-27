@@ -10,12 +10,11 @@ import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
-import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON } from './sessions.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 
 const DEFAULT_TIMEOUT = 10000;
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
-type KernelStatus = 'Active' | 'Idle' | 'Disconnected';
 /**
  * Notebooks functionality exclusive to Positron notebooks.
  */
@@ -352,15 +351,6 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-	async expectOutputAtIndex(cellIndex: number, lines: string[]): Promise<void> {
-		await test.step(`Take/compare screenshot at index: ${cellIndex}`, async () => {
-			await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
-			await expect(this.cellOutput(cellIndex)).toBeVisible();
-			for (const line of lines) {
-				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
-			}
-		});
-	}
 	// #endregion
 
 	// #region VERIFICATIONS
@@ -485,8 +475,12 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined; timeout?: number }[]): Promise<void> {
-		for (const { index, order, timeout } of executionOrders) {
+	/**
+	 * Verify: Execution order for multiple cells.
+	 * @param executionOrders - { index, order }[] array specifying cell index, expected order.
+	 */
+	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined }[],): Promise<void> {
+		for (const { index, order } of executionOrders) {
 			await test.step(`Expect execution order at index ${index} to be: ${order}`, async () => {
 				await this.code.driver.page.keyboard.press('Escape');
 				await this.moveMouseAway();
@@ -494,7 +488,7 @@ export class PositronNotebooks extends Notebooks {
 				await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
 				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible(); // make sure we have the RIGHT tooltip
 				await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
-				await this.expectToolTipToContain({ order }, timeout);
+				await this.expectToolTipToContain({ order }, DEFAULT_TIMEOUT);
 			});
 		}
 	}
@@ -596,9 +590,22 @@ export class PositronNotebooks extends Notebooks {
 			await expect(viewLines).toHaveCount(numLines, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
+
+	/**
+	 * Verify: cell output at specified index matches expected output.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param lines - The expected output lines.
+	 */
+	async expectOutputAtIndex(cellIndex: number, lines: string[]): Promise<void> {
+		await test.step(`Take/compare screenshot at index: ${cellIndex}`, async () => {
+			await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
+			await expect(this.cellOutput(cellIndex)).toBeVisible();
+			for (const line of lines) {
+				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
+			}
+		});
+	}
 	// #endregion
-
-
 }
 
 // -----------------
@@ -619,6 +626,10 @@ export class Kernel {
 
 	// #region ACTIONS
 
+	/**
+	 * Action: Restart the notebook kernel and optionally wait for it to be ready.
+	 * @param param0 - { waitForRestart?: boolean } - Whether to wait for the kernel to be idle after restart (default: true).
+	 */
 	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
 		await test.step('Restart kernel', async () => {
 			await this.contextMenu.triggerAndClick({
@@ -627,18 +638,21 @@ export class Kernel {
 			});
 
 			if (waitForRestart) {
-				await this.expectStatusToBe('Idle', 30000);
+				await this.expectStatusToBe('idle', 30000);
 			}
 		});
 	}
 
+	/**
+	 * Action: Shutdown the notebook kernel.
+	 */
 	async shutdown(): Promise<void> {
 		await test.step('Shutdown kernel', async () => {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.kernelStatusBadge,
 				menuItemLabel: /Shutdown Kernel/
 			});
-			await this.expectStatusToBe('Disconnected', 15000);
+			await this.expectStatusToBe('disconnected', 15000);
 		});
 	}
 
@@ -689,7 +703,7 @@ export class Kernel {
 				await this.expectKernelToBe({
 					kernelGroup,
 					kernelVersion: desiredKernel,
-					status: 'Idle',
+					status: 'idle',
 					timeout: 30000
 				});
 				this.code.logger.log('Kernel is connected and ready/idle');
@@ -700,17 +714,21 @@ export class Kernel {
 
 	// #region VERIFICATIONS
 
+	/**
+	 * Verify: Kernel has expected status and version.
+	 * @param param0 - { kernelGroup, kernelVersion, status, timeout }
+	 */
 	async expectKernelToBe({
 		kernelGroup,
 		kernelVersion = kernelGroup === 'Python'
 			? process.env.POSITRON_PY_VER_SEL!
 			: process.env.POSITRON_R_VER_SEL!,
-		status = 'Idle',
+		status = 'idle',
 		timeout = 20000 // longer than should be due to known lag
 	}: {
 		kernelGroup: 'Python' | 'R';
 		kernelVersion?: string;
-		status?: KernelStatus;
+		status?: SessionState;
 		timeout?: number;
 	}): Promise<void> {
 		await test.step(`Expect kernel to be: ${status} - ${kernelVersion}`, async () => {
@@ -719,21 +737,30 @@ export class Kernel {
 		});
 	}
 
+	/**
+	 * Verify: Kernel menu contains expected items.
+	 * @param menuItemStates - Array of expected menu item states.
+	 */
 	async expectMenuToContain(menuItemStates: MenuItemState[]): Promise<void> {
 		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
-			await this.contextMenu.triggerAndVerify({
+			await this.contextMenu.triggerAndVerifyMenuItems({
 				menuTrigger: this.kernelStatusBadge,
 				menuItemStates: menuItemStates
 			});
 		});
 	}
 
-	async expectStatusToBe(expectedStatus: KernelStatus, timeout = DEFAULT_TIMEOUT): Promise<void> {
+	/**
+	 * Verify: Kernel status is as expected.
+	 * @param expectedStatus - the kernel status (idle | active | disconnected)
+	 * @param timeout - the timeout for the expectation
+	 */
+	async expectStatusToBe(expectedStatus: SessionState, timeout = DEFAULT_TIMEOUT): Promise<void> {
 		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
-			const statusMap: Record<KernelStatus, Locator> = {
-				Active: this.activeStatus,
-				Idle: this.idleStatus,
-				Disconnected: this.disconnectedStatus
+			const statusMap: Record<Exclude<SessionState, 'exited'>, Locator> = {
+				active: this.activeStatus,
+				idle: this.idleStatus,
+				disconnected: this.disconnectedStatus
 			};
 
 			// Use the mapped locator for the expected status

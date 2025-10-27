@@ -45,7 +45,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// ensure once started and ready, restart/shutdown are enabled
 		await notebooksPositron.kernel.expectKernelToBe({
 			kernelGroup: 'Python',
-			status: 'Idle'
+			status: 'idle'
 		});
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Restart Kernel', enabled: true },
@@ -56,14 +56,14 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await notebooksPositron.kernel.restart({ waitForRestart: false });
 		await notebooksPositron.kernel.expectKernelToBe({
 			kernelGroup: 'Python',
-			status: 'Active'
+			status: 'active'
 		});
 		// ISSUE - https://github.com/posit-dev/positron/issues/10145
 		// await notebooksPositron.kernel.expectKernelToBe({
 		// 	kernelGroup: 'Python',
-		// 	status: 'Idle'
+		// 	status: 'idle'
 		// })
-		await notebooksPositron.kernel.expectStatusToBe('Idle', 15000); // remove once above issue is resolved
+		await notebooksPositron.kernel.expectStatusToBe('idle', 15000); // remove once above issue is resolved
 
 		// shut down kernel and ensure menu options
 		await notebooksPositron.kernel.shutdown();
