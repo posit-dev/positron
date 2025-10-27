@@ -119,6 +119,27 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					localize('positron.plots.darkFilterAuto', 'Apply the dark filter when Positron is using a dark theme')
 				],
 				description: localize('positron.plots.darkFilterSetting', "Use a color filter to make light plots appear dark."),
+			},
+			'positron.plots.defaultSizingPolicy': {
+				type: 'string',
+				default: 'auto',
+				enum: [
+					'auto',
+					'fill',
+					'intrinsic',
+					'landscape',
+					'portrait',
+					'square'
+				],
+				enumDescriptions: [
+					localize('positron.plots.defaultSizingPolicyAuto', 'Automatically size the plot'),
+					localize('positron.plots.defaultSizingPolicyFill', 'Fill the entire available space with the plot'),
+					localize('positron.plots.defaultSizingPolicyIntrinsic', 'Use the plot\'s intrinsic size when available'),
+					localize('positron.plots.defaultSizingPolicyLandscape', 'Use 4:3 landscape aspect ratio'),
+					localize('positron.plots.defaultSizingPolicyPortrait', 'Use 3:4 portrait aspect ratio'),
+					localize('positron.plots.defaultSizingPolicySquare', 'Use 1:1 square aspect ratio')
+				],
+				description: localize('positron.plots.defaultSizingPolicySetting', "The default sizing policy to use for newly created plots."),
 			}
 		}
 	});
