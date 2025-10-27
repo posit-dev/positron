@@ -698,7 +698,7 @@ export class Kernel {
 			? process.env.POSITRON_PY_VER_SEL!
 			: process.env.POSITRON_R_VER_SEL!,
 		status = 'Idle',
-		timeout = DEFAULT_TIMEOUT
+		timeout = 20000 // longer than should be due to known lag
 	}: {
 		kernelGroup: 'Python' | 'R';
 		kernelVersion?: string;
