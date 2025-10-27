@@ -223,7 +223,7 @@ class CatalogItem extends vscode.TreeItem {
 		switch (node.type) {
 			case 'provider':
 				this.iconPath = DEFAULT_PROVIDER_ICON;
-				this.tooltip = `${node.provider.id}`;
+				this.tooltip = node.provider.id;
 				// Expand only "provider" entries by default.
 				this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 				break;

@@ -202,7 +202,7 @@ async function getSnowflakeCatalogs(
 		return {
 			id: `snowflake:${accountName}`,
 
-			dispose() { },
+			dispose() {},
 
 			getTreeItem() {
 				const item = new vscode.TreeItem(
@@ -596,7 +596,7 @@ con <- dbConnect(
 	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
 	server = "${accountName}.snowflakecomputing.com",
 	uid = "${username}",
-	pwd = "YOUR_CREDENTIALS",`; // pragma: allowlist secret
+	pwd = Sys.getenv("SNOWFLAKE_PASSWORD"),`; // pragma: allowlist secret
 
 	code += `\n\twarehouse = "${warehouse}",`;
 
