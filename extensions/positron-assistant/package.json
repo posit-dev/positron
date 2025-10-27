@@ -293,7 +293,10 @@
             "default": [
               "Claude Opus 4*",
               "Claude Sonnet 4*",
-              "GPT-5*"
+              "Claude 4*",
+              "GPT-5*",
+              "anthropic/claude-*-4*",
+              "openai/gpt-5*"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
