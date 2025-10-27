@@ -16,6 +16,7 @@ import { activateWebAppCommands } from './webAppCommands';
 import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
 import { registerLanguageServerManager } from './languageServerManager';
+import { registerPythonFilePasteProvider } from '../languageFeatures/pythonFilePasteProvider.js';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -96,6 +97,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Register the language server manager to support multiple console sessions.
         registerLanguageServerManager(serviceContainer, disposables);
+
+        // Register Python file paste provider.
+        registerPythonFilePasteProvider(disposables);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {

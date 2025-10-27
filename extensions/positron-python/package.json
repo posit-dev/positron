@@ -974,6 +974,12 @@
                     "markdownDescription": "%python.enableAutoReload.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.autoConvertFilePaths": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically convert file paths when pasting files (from file manager) into Python code. Backslashes are converted to forward slashes and paths are quoted.",
+                    "scope": "resource"
                 }
             },
             "title": "Python",
