@@ -1101,7 +1101,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
 
 		if (this.inferenceProfiles.length === 0) {
-			log.error('No Amazon Bedrock inference profiles available');
+			log.error('[BedrockLanguageModel] No Amazon Bedrock inference profiles available');
 			return modelListing;
 		}
 
