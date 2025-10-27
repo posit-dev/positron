@@ -65,7 +65,7 @@
 	"r.configuration.diagnostics.enable.description": "Enable R diagnostics globally",
 	"r.configuration.symbols.includeAssignmentsInBlocks.description": "Controls whether assigned objects inside `{}` blocks are included as document symbols, in addition to top-level assignments. Reopen files or restart the server for the setting to take effect.",
 	"r.configuration.workspaceSymbols.includeCommentSections.description": "Controls whether comment sections like `# My section ---` are included as workspace symbols.",
-	"r.configuration.autoConvertFilePaths.description": "Automatically convert file paths when pasting files from file manager into R contexts. Converts backslashes (\\) to forward slashes (/), adds quotes, and formats multiple files as R vectors.",
+	"r.configuration.autoConvertFilePaths.description": "Automatically convert file paths when pasting files from file manager into R scripts. Converts backslashes (\\) to forward slashes (/), adds quotes, and formats multiple files as R vectors.",
 	"r.configuration.defaultRepositories.description": "The default repositories to use for R package installation, if no repository is otherwise specified in R startup scripts (restart Positron to apply).\n\nThe default repositories will be set as the `repos` option in R.",
 	"r.configuration.defaultRepositories.auto.description": "Automatically choose a default repository, or use a repos.conf file if it exists.",
 	"r.configuration.defaultRepositories.rstudio.description": "Use the RStudio CRAN mirror (cran.rstudio.com)",
