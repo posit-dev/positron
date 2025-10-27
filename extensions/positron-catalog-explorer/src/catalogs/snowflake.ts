@@ -17,7 +17,7 @@ import { getPositronAPI } from '../positron';
 // Key for storing recent Snowflake account names
 const RECENT_SNOWFLAKE_ACCOUNTS_KEY = 'recentSnowflakeAccounts';
 
-const registration: CatalogProviderRegistration = {
+export const registration: CatalogProviderRegistration = {
 	label: 'Snowflake',
 	detail: 'Explore tables and stages in a Snowflake account',
 	addProvider: registerSnowflakeCatalog,
@@ -73,7 +73,7 @@ export function registerSnowflakeProvider(
 /**
  * Register a Snowflake catalog provider using SSO authentication.
  */
-async function registerSnowflakeCatalog(
+export async function registerSnowflakeCatalog(
 	context: vscode.ExtensionContext,
 	account?: string,
 ): Promise<CatalogProvider | undefined> {
@@ -176,7 +176,7 @@ async function registerSnowflakeCatalog(
 /**
  * Save an account name to the recent accounts list
  */
-async function saveRecentAccount(context: vscode.ExtensionContext, account: string): Promise<void> {
+export async function saveRecentAccount(context: vscode.ExtensionContext, account: string): Promise<void> {
 	const stored = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
 	// Create a new array with the current account at the front and no duplicates
 	const updatedAccounts = [account, ...stored.filter(a => a !== account)];
@@ -192,7 +192,7 @@ async function saveRecentAccount(context: vscode.ExtensionContext, account: stri
  * However, we remember their account names to make reconnecting easier.
  * TODO: Investigate persistent authentication options.
  */
-async function getSnowflakeCatalogs(
+export async function getSnowflakeCatalogs(
 	context: vscode.ExtensionContext
 ): Promise<CatalogProvider[]> {
 	const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
