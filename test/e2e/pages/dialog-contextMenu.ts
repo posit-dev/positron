@@ -33,15 +33,31 @@ export class ContextMenu {
 	 * - For web menus this clicks the trigger and waits for the in-page menu to appear.
 	 */
 	private async triggerMenu(menuTrigger: Locator, menuTriggerButton: ClickButton = 'left'): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
-		if (this.isNativeMenu) {
-			// showContextMenu returns the native menu details
-			return this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
+		if (this.isNativeMenu && this.code.electronApp) {
+			this.code.logger?.log?.('[contextMenu] using native context');
+			let nativeResult: { menuId: number; items: MenuItemState[] } | undefined;
+			try {
+				await expect(async () => {
+					nativeResult = await this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
+					expect(nativeResult).toBeDefined();
+				}).toPass({ timeout: 5000 });
+			} catch {
+				throw new Error('Native context menu did not appear after retries.');
+			}
+			return nativeResult!;
+		} else {
+			this.code.logger?.log?.('[contextMenu] using web context');
+			try {
+				await expect(async () => {
+					try { await menuTrigger.click({ button: menuTriggerButton }); } catch { /* ignore transient */ }
+					const visible = await this.contextMenu.isVisible().catch(() => false);
+					expect(visible).toBeTruthy();
+				}).toPass({ timeout: 5000 });
+			} catch {
+				throw new Error('Web context menu did not appear after retries.');
+			}
+			return undefined;
 		}
-
-		// Web: perform the same simple click as triggerAndClick originally did.
-		// Avoid waiting for '.monaco-menu' here to prevent flaky timing/race issues.
-		await menuTrigger.click({ button: menuTriggerButton });
-		return undefined;
 	}
 
 	/**
@@ -125,9 +141,18 @@ export class ContextMenu {
 	 */
 	private async closeContextMenu(): Promise<void> {
 		if (this.isNativeMenu) {
-			await this.code.electronApp?.evaluate(({ app }) => {
-				app.emit('e2e:contextMenuClose');
-			});
+			if (this.code.electronApp) {
+				try {
+					await this.code.electronApp.evaluate(({ app }) => {
+						app.emit('e2e:contextMenuClose');
+					});
+					return;
+				} catch (err) {
+					console.error('[closeContextMenu] native close failed, falling back to Escape:', err);
+				}
+			}
+			// fallback to keyboard if native IPC isn't available
+			await this.page.keyboard.press('Escape').catch(() => { /* ignore */ });
 		} else {
 			await this.page.keyboard.press('Escape');
 		}
@@ -141,11 +166,14 @@ export class ContextMenu {
 	 * @returns
 	 */
 	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
-		try {
-			if (!this.code.electronApp) {
-				throw new Error(`Electron app is not available. Platform: ${process.platform}`);
-			}
+		// If electron app is not available, just return undefined so callers can fallback to web flow.
+		if (!this.code.electronApp) {
+			console.warn('[showContextMenu] electronApp not present; cannot show native context menu.');
+			return undefined;
+		}
 
+		try {
+			// Ask the main process to wait for the context menu shown event.
 			const shownPromise: Promise<[number, MenuItemState[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
 				return new Promise((resolve) => {
 					const listener: any = (...args: [number, MenuItemState[]]) => {
@@ -158,15 +186,29 @@ export class ContextMenu {
 
 			if (!shownPromise) { return undefined; }
 
-			const [shownEvent] = await Promise.all([shownPromise, trigger()]);
+			// Trigger the menu first, then wait for the native event with a bounded timeout.
+			await trigger();
+
+			const NATIVE_MENU_WAIT_MS = 2000;
+			const shownEvent = await Promise.race<
+				| [number, MenuItemState[]]
+				| undefined
+			>([
+				shownPromise,
+				new Promise(resolve => setTimeout(() => resolve(undefined), NATIVE_MENU_WAIT_MS))
+			]);
+
 			if (shownEvent) {
 				const [menuId, items] = shownEvent as [number, MenuItemState[]];
 				return { menuId, items };
 			}
+
+			// Timed out waiting for native menu event; return undefined so caller can retry or fall back.
 			return undefined;
 		} catch (err) {
-			console.error('[showContextMenu] failed:', err);
-			throw err;
+			// Don't throw — return undefined so caller can fallback to web behavior instead of leaving tests in a bad state.
+			console.error('[showContextMenu] native evaluate failed:', err);
+			return undefined;
 		}
 	}
 
@@ -189,40 +231,33 @@ export class ContextMenu {
 	 * @param menuItemLabel The label of the menu item to click
 	 */
 	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel, menuTriggerButton = 'left' }: Omit<ContextMenuClick, 'menuItemType'> & { clickButton?: ClickButton }): Promise<void> {
-		// Show the context menu by clicking on the trigger element
+		// Native-only behavior: expect native menu to appear and return items.
 		const menuItems = await this.showContextMenu(() => menuTrigger.click({ button: menuTriggerButton }));
+		if (!menuItems) {
+			throw new Error('Native context menu did not appear or no menu items found.');
+		}
 
-		// Handle the menu interaction once it's shown
-		if (menuItems) {
-			// Verify the requested menu item exists
-			const menuItemExists = typeof menuItemLabel === 'string'
-				? menuItems.items.some(item => item.label === menuItemLabel)
-				: menuItems.items.some(item => menuItemLabel.test(item.label));
+		// Handle native menu items
+		const menuItemExists = typeof menuItemLabel === 'string'
+			? menuItems.items.some(item => item.label === menuItemLabel)
+			: menuItems.items.some(item => menuItemLabel.test(item.label));
 
-			if (!menuItemExists) {
-				const labelStr = typeof menuItemLabel === 'string'
-					? menuItemLabel
-					: menuItemLabel.toString();
-				throw new Error(`Context menu '${labelStr}' not found. Available items: ${menuItems.items.map(i => i.label).join(', ')}`);
-			}
-
-			// For RegExp, find the first matching item
-			const actualItemLabel = typeof menuItemLabel === 'string'
-				? menuItemLabel
-				: menuItems.items.find(item => menuItemLabel.test(item.label))!.label;
-
-			if (!actualItemLabel) {
-				throw new Error('Failed to find matching menu item');
-			}
-
-			// Select the menu item through Electron IPC
-			await this.selectContextMenuItem(menuItems.menuId, actualItemLabel);
-		} else {
+		if (!menuItemExists) {
 			const labelStr = typeof menuItemLabel === 'string'
 				? menuItemLabel
 				: menuItemLabel.toString();
-			throw new Error(`Context menu '${labelStr}' did not appear or no menu items found.`);
+			throw new Error(`Context menu '${labelStr}' not found. Available items: ${menuItems.items.map(i => i.label).join(', ')}`);
 		}
+
+		const actualItemLabel = typeof menuItemLabel === 'string'
+			? menuItemLabel
+			: menuItems.items.find(item => menuItemLabel.test(item.label))!.label;
+
+		if (!actualItemLabel) {
+			throw new Error('Failed to find matching menu item');
+		}
+
+		await this.selectContextMenuItem(menuItems.menuId, actualItemLabel);
 	}
 
 	/**

@@ -31,13 +31,6 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// create new notebook
 		await notebooksPositron.newNotebook();
 
-		// workaround issue #
-		if (app.web) {
-			await notebooksPositron.kernel.kernelStatusBadge.click();
-			await app.code.driver.page.waitForTimeout(1000);
-			await app.code.driver.page.mouse.click(0, 0);
-		}
-
 		// ensure when no kernel is selected, restart/shutdown are disabled
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Change Kernel', enabled: true },

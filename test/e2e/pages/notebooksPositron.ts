@@ -596,7 +596,7 @@ export class Kernel {
 		await test.step('Restart kernel', async () => {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.kernelStatusBadge,
-				menuItemLabel: 'Restart Kernel'
+				menuItemLabel: /Restart Kernel/
 			});
 
 			if (waitForRestart) {
@@ -609,7 +609,7 @@ export class Kernel {
 		await test.step('Shutdown kernel', async () => {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.kernelStatusBadge,
-				menuItemLabel: 'Shutdown Kernel'
+				menuItemLabel: /Shutdown Kernel/
 			});
 			await this.expectStatusToBe('Disconnected', 15000);
 		});
