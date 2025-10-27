@@ -12,6 +12,9 @@ import * as os from 'os';
  * into file paths that are usable in Python code.
  */
 export class PythonFilePasteProvider implements vscode.DocumentPasteEditProvider {
+    // Custom kind for Python-formatted file paths
+    public static readonly kind = vscode.DocumentDropOrPasteEditKind.Text.append('path', 'python');
+
     /**
      * Provide paste edits for Python filepaths when files are detected on clipboard.
      */
@@ -43,7 +46,7 @@ export class PythonFilePasteProvider implements vscode.DocumentPasteEditProvider
             {
                 insertText,
                 title: vscode.l10n.t('Insert file path(s)'),
-                kind: vscode.DocumentDropOrPasteEditKind.Text,
+                kind: PythonFilePasteProvider.kind,
             },
         ];
     }
@@ -57,7 +60,7 @@ export function registerPythonFilePasteProvider(disposables: vscode.Disposable[]
     disposables.push(
         vscode.languages.registerDocumentPasteEditProvider({ language: 'python' }, pythonFilePasteProvider, {
             pasteMimeTypes: ['text/uri-list'],
-            providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Text],
+            providedPasteEditKinds: [PythonFilePasteProvider.kind],
         }),
     );
 }

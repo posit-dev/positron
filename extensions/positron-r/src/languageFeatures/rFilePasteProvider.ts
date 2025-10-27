@@ -13,6 +13,9 @@ import * as os from 'os';
  */
 export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 
+	// Custom kind for R-formatted file paths
+	public static readonly kind = vscode.DocumentDropOrPasteEditKind.Text.append('path', 'r');
+
 	/**
 	 * Provide paste edits for R filepaths when files are detected on clipboard.
 	 */
@@ -46,7 +49,7 @@ export class RFilePasteProvider implements vscode.DocumentPasteEditProvider {
 		return [{
 			insertText,
 			title: vscode.l10n.t('Insert file path(s)'),
-			kind: vscode.DocumentDropOrPasteEditKind.Text
+			kind: RFilePasteProvider.kind
 		}];
 	}
 }
@@ -62,7 +65,7 @@ export function registerRFilePasteProvider(context: vscode.ExtensionContext): vo
 			rFilePasteProvider,
 			{
 				pasteMimeTypes: ['text/uri-list'],
-				providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Text]
+				providedPasteEditKinds: [RFilePasteProvider.kind]
 			}
 		)
 	);
