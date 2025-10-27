@@ -1093,7 +1093,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		log.trace('[BedrockLanguageModel] Fetching available Amazon Bedrock models for these providers: ' + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
 
 		if (!modelSummaries || modelSummaries.length === 0) {
-			log.error('No Amazon Bedrock models available');
+			log.error('[BedrockLanguageModel] No Amazon Bedrock models available');
 			return modelListing;
 		}
 
