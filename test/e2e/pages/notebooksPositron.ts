@@ -29,6 +29,7 @@ export class PositronNotebooks extends Notebooks {
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
+	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
 
@@ -219,7 +220,7 @@ export class PositronNotebooks extends Notebooks {
 
 			// Wait for spinner to appear (cell is executing) and disappear (execution complete)
 			const spinner = this.spinnerAtIndex(cellIndex);
-			await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
+			await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => {
 				// Spinner might not appear for very fast executions, that's okay
 			});
 			await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
@@ -232,6 +233,7 @@ export class PositronNotebooks extends Notebooks {
 	async moveMouseAway(): Promise<void> {
 		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.mouse.move(0, 0);
+		await expect(this.cellInfoToolTip).toHaveCount(0);
 	}
 
 	/**
@@ -350,6 +352,15 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	async expectOutputAtIndex(cellIndex: number, lines: string[]): Promise<void> {
+		await test.step(`Take/compare screenshot at index: ${cellIndex}`, async () => {
+			await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
+			await expect(this.cellOutput(cellIndex)).toBeVisible();
+			for (const line of lines) {
+				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
+			}
+		});
+	}
 	// #endregion
 
 	// #region VERIFICATIONS
@@ -474,16 +485,18 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-	async expectExecutionOrderAtIndexToBe(cellIndex: number, expectedOrder: number, timeout = DEFAULT_TIMEOUT): Promise<void> {
-		await test.step(`Expect execution order at index ${cellIndex} to be: ${expectedOrder}`, async () => {
-			await this.code.driver.page.keyboard.press('Escape');
-			await this.code.driver.page.mouse.move(0, 0);
-			await this.cell.nth(cellIndex).click();
-			await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
-			await expect(this.cellInfoToolTipAtIndex(cellIndex)).toBeVisible(); // make sure we have the RIGHT tooltip
-			await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
-			await this.expectToolTipToContain({ order: expectedOrder }, timeout);
-		});
+	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined; timeout?: number }[]): Promise<void> {
+		for (const { index, order, timeout } of executionOrders) {
+			await test.step(`Expect execution order at index ${index} to be: ${order}`, async () => {
+				await this.code.driver.page.keyboard.press('Escape');
+				await this.moveMouseAway();
+				await this.cell.nth(index).click();
+				await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
+				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible(); // make sure we have the RIGHT tooltip
+				await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
+				await this.expectToolTipToContain({ order }, timeout);
+			});
+		}
 	}
 
 	/**
@@ -629,45 +642,25 @@ export class Kernel {
 		});
 	}
 
+	/**
+	 * Action: Select notebook kernel and optionally wait for it to be ready
+	 */
 	async select(
 		kernelGroup: 'Python' | 'R',
-		desiredKernel = kernelGroup === 'Python'
-			? process.env.POSITRON_PY_VER_SEL!
-			: process.env.POSITRON_R_VER_SEL!
+		{ version, waitForReady = true }: { version?: string; waitForReady?: boolean } = {}
 	): Promise<void> {
-		await test.step(`Select kernel: ${desiredKernel}`, async () => {
-			// sometimes the input closes immediately the 1st attempt in Playwright :(
-			await expect(async () => {
-				// select the kernel
-				await this.hotKeys.selectNotebookKernel();
-				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
-				await this.quickinput.waitForQuickInputClosed();
-				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
-			}).toPass({ timeout: 10000 });
-		});
-	}
+		const desiredKernel = version ?? (kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!);
 
-	/**
-	 * Action: Select interpreter and wait for the kernel to be ready.
-	 * This combines selecting the interpreter with waiting for kernel connection to prevent flakiness.
-	 * Directly implements Positron-specific logic without unnecessary notebook type detection.
-	 */
-	async selectAndWaitForReady(
-		kernelGroup: 'Python' | 'R',
-		desiredKernel = kernelGroup === 'Python'
-			? process.env.POSITRON_PY_VER_SEL!
-			: process.env.POSITRON_R_VER_SEL!
-	): Promise<void> {
-		await test.step(`Select kernel and wait for ready: ${desiredKernel}`, async () => {
-			// Ensure notebook is visible
+		await test.step(`Select kernel ${waitForReady ? '<waitForReady>' : ''}: ${desiredKernel}`, async () => {
 			await this.notebooks.expectToBeVisible();
 
 			// Wait for kernel detection to complete
 			await expect(this.notebooks.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
 			await expect(this.notebooks.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
 
-			// Get the kernel status badge using data-testid
+			// Get the kernel status badge
 			await expect(this.kernelStatusBadge).toBeVisible({ timeout: 5000 });
 
 			try {
@@ -692,14 +685,15 @@ export class Kernel {
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
-			// wait for kernel
-			await this.expectKernelToBe({
-				kernelGroup,
-				kernelVersion: desiredKernel,
-				status: 'Idle',
-				timeout: 30000
-			});
-			this.code.logger.log('Kernel is connected and ready/idle');
+			if (waitForReady) {
+				await this.expectKernelToBe({
+					kernelGroup,
+					kernelVersion: desiredKernel,
+					status: 'Idle',
+					timeout: 30000
+				});
+				this.code.logger.log('Kernel is connected and ready/idle');
+			}
 		});
 	}
 	// #endregion
