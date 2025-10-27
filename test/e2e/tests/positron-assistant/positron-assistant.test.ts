@@ -159,7 +159,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 
 // Skipping web. See https://github.com/posit-dev/positron/issues/8568
 // Skippig all due to https://github.com/posit-dev/positron/issues/9402
-test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.SOFT_FAIL] }, () => {
+test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.SOFT_FAIL, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
