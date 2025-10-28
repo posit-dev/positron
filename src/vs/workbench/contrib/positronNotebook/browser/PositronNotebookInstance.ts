@@ -333,7 +333,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.info(this._id, 'Generating new notebook options');
+		this._logService.debug(this._id, 'Generating new notebook options');
 
 		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
 
@@ -436,7 +436,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._webviewPreloadService.attachNotebookInstance(this);
 
-		this._logService.info(this._id, 'constructor');
+		this._logService.debug(this._id, 'constructor');
 
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
@@ -551,7 +551,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	override dispose() {
 
-		this._logService.info(this._id, 'dispose');
+		this._logService.debug(this._id, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
@@ -949,7 +949,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
-		this._logService.info(this._id, 'attachView');
+		this._logService.debug(this._id, 'attachView');
 	}
 
 	/**
@@ -1004,7 +1004,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	detachView(): void {
 		this._container = undefined;
-		this._logService.info(this._id, 'detachView');
+		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
 	}
@@ -1013,7 +1013,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Closes the notebook instance and disposes of all resources.
 	 */
 	close(): void {
-		this._logService.info(this._id, 'Closing a notebook instance');
+		this._logService.debug(this._id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
@@ -1115,13 +1115,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		this._logService.info(this._id, '_runCells');
+		this._logService.debug(this._id, '_runCells');
 
 		this._assertTextModel();
 
 		// Make sure we have a kernel to run the cells.
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
-			this._logService.info(this._id, 'No kernel connected, attempting to connect');
+			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}

@@ -150,10 +150,10 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			resizeEditor();
 		}));
 
-		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
+		services.logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
 		return () => {
-			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
+			services.logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
 			disposables.dispose();
 			cell.detachEditor();
 		};

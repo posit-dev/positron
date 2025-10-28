@@ -56,7 +56,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	readonly uniqueId: string = `positron-notebook-${PositronNotebookEditorInput.count++}`;
 
-	private _identifier = `Positron Notebook | Input(${this.uniqueId}) |`;
 	//#region Static Properties
 
 	/**
@@ -110,7 +109,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	) {
 		// Call the base class's constructor.
 		super();
-		this._logService.info(this._identifier, 'constructor');
 
 		this.notebookInstance = PositronNotebookInstance.getOrCreate(this, undefined, instantiationService);
 	}
@@ -318,8 +316,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
-		this._logService.info(this._identifier, 'resolve');
-
 		if (this.editorOptions) {
 			_options = this.editorOptions;
 		}
