@@ -239,11 +239,15 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
 
+		// TODO: Implement restoring view state here, and IPositronNotebookInstance.getEditorViewState
+		//       for popping notebooks into a new window
+		// const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
+		const { notebookInstance } = input;
+
 		// Update the editor control given the notebook instance.
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		const { notebookInstance } = input;
 		this._control.value = new PositronNotebookEditorControl(notebookInstance);
 
 		await super.setInput(input, options, context, token);
@@ -261,8 +265,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		}
 
 		// Set the notebook instance model
-		const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
-		notebookInstance.setModel(model.notebook, viewState);
+		notebookInstance.setModel(model.notebook);
 
 		// Trigger the selection change event when the notebook was edited.
 		this._instanceDisposableStore.add(

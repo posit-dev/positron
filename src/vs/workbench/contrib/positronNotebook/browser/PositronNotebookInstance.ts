@@ -987,15 +987,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * fully determine the view we see.
 	 */
 	getEditorViewState(): INotebookEditorViewState {
-		this._assertTextModel();
-		const selectedKernel = this.notebookKernelService.getSelectedOrSuggestedKernel(this.textModel);
+		// TODO: Implement editor view state here, and restoring in PositronNotebookEditor.setInput
+		//       for popping notebooks into a new window
 		return {
 			editingCells: {},
 			cellLineNumberStates: {},
 			editorViewStates: {},
 			collapsedInputCells: {},
 			collapsedOutputCells: {},
-			selectedKernelId: selectedKernel?.id,
 		};
 	}
 
