@@ -14,6 +14,7 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -24,6 +25,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { autorun } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 import { SelectionState } from '../selectionMachine.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 
 /**
  *
@@ -47,6 +49,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = usePositronReactServicesContext();
 	const environment = useEnvironment();
 	const instance = useNotebookInstance();
+	const cellContextKeyService = useCellScopedContextKeyService();
 
 	// Create an element ref to contain the editor
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
@@ -58,8 +61,35 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const disposables = new DisposableStore();
 
 		const language = cell.cellModel.language;
-		const editorContextKeyService = disposables.add(environment.scopedContextKeyProviderCallback(editorPartRef.current));
-		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
+
+		// We need to ensure the EditorProgressService (or a fake) is available
+		// in the service collection because monaco editors will try and access
+		// it even though it's not available in the notebook context. This feels
+		// hacky but VSCode notebooks do the same thing so I guess it's easier
+		// than fixing it at the monaco level.
+		const serviceCollection = new ServiceCollection(
+			[
+				IEditorProgressService,
+				// Create a simple no-op IEditorProgressService for editor contributions
+				// Based on pattern from codeBlockPart.ts in chat contrib
+				new class implements IEditorProgressService {
+					_serviceBrand: undefined;
+					show() {
+						// No-op progress indicator for notebook cell editors
+						return { done: () => { }, total: () => { }, worked: () => { } };
+					}
+					async showWhile(promise: Promise<any>): Promise<void> {
+						await promise;
+					}
+				}]
+		);
+
+		// Add cell context key service if it's available.
+		if (cellContextKeyService) {
+			serviceCollection.set(IContextKeyService, cellContextKeyService);
+		}
+
+		const editorInstaService = services.instantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
@@ -78,8 +108,9 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			editor.setModel(model);
 		});
 
-		// Bind the cell editor focused context key
-		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
+		// Bind the cell editor focused context key to the editor's internal scoped service
+		// (CodeEditorWidget creates this synchronously in its constructor)
+		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
 			// enterEditor() automatically detects that editor has focus and skips focus management
@@ -119,14 +150,14 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			resizeEditor();
 		}));
 
-		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
+		services.logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
 		return () => {
-			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
+			services.logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
+	}, [cell, cellContextKeyService, environment, instance, services.configurationService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {

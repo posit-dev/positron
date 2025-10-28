@@ -112,7 +112,6 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	}
 
 	public attachNotebookInstance(instance: IPositronNotebookInstance): void {
-		console.log('Adding notebook instance to webview preloads knowledge', instance);
 		const notebookId = instance.getId();
 		if (this._notebookToDisposablesMap.has(notebookId)) {
 			// Clear existing disposables
