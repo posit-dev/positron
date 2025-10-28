@@ -10,7 +10,7 @@ import { RSession } from '../session';
 import { Comm, CommBackendMessage } from '../positron-supervisor';
 import { whenTimeout } from '../util';
 
-suite.skip('ArkComm', () => {
+suite('ArkComm', () => {
 	let session: RSession;
 	let sesDisposable: vscode.Disposable;
 	let comm: Comm;
