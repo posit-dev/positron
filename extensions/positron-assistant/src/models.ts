@@ -998,6 +998,10 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: AmazonBedrockProvider;
 	static SUPPORTED_BEDROCK_PROVIDERS = ['Anthropic'];
+	static LEGACY_MODELS_REGEX = [
+		'.*anthropic\.claude-3-opus.*',
+		'.*anthropic\.claude-3-5-sonnet.*',
+	];
 	static DEFAULT_MAX_TOKENS_INPUT = DEFAULT_MAX_TOKEN_INPUT;
 	static DEFAULT_MAX_TOKENS_OUTPUT = 8192;
 
@@ -1129,6 +1133,15 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 			const modelId = this.findInferenceProfileForModel(m.modelArn, this.inferenceProfiles);
 			if (!modelId) {
+				log.error(`[BedrockLanguageModel] No inference profile found for model ${m.modelName}`);
+				return;
+			}
+
+			if (AWSLanguageModel.LEGACY_MODELS_REGEX.some(regex => {
+				const re = new RegExp(`${regex}`);
+				return re.test(m.modelId);
+			})) {
+				log.trace(`[BedrockLanguageModel] Skipping legacy model ${m.modelName}`);
 				return;
 			}
 
