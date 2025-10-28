@@ -101,8 +101,10 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			{ index: 2, order: 3 },
 		]);
 
-		// restart kernel and ensure variables are cleared
+		// restart kernel
 		await notebooksPositron.kernel.restart({ waitForRestart: true });
+
+		// verify variables are cleared
 		await variables.expectVariableToNotExist('x');
 		await variables.expectVariableToNotExist('y');
 
