@@ -24,6 +24,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { autorun } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 import { SelectionState } from '../selectionMachine.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 
 /**
  *
@@ -47,6 +48,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = usePositronReactServicesContext();
 	const environment = useEnvironment();
 	const instance = useNotebookInstance();
+	const cellContextKeyService = useCellScopedContextKeyService();
 
 	// Create an element ref to contain the editor
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
@@ -58,8 +60,11 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const disposables = new DisposableStore();
 
 		const language = cell.cellModel.language;
-		const editorContextKeyService = disposables.add(environment.scopedContextKeyProviderCallback(editorPartRef.current));
-		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
+		// Use the cell-level scoped context key service instead of creating a new one
+		// CodeEditorWidget will create its own scoped service on the editor element internally
+		const editorInstaService = cellContextKeyService
+			? services.instantiationService.createChild(new ServiceCollection([IContextKeyService, cellContextKeyService]))
+			: services.instantiationService;
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
@@ -78,8 +83,9 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			editor.setModel(model);
 		});
 
-		// Bind the cell editor focused context key
-		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
+		// Bind the cell editor focused context key to the editor's internal scoped service
+		// (CodeEditorWidget creates this synchronously in its constructor)
+		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
 			// enterEditor() automatically detects that editor has focus and skips focus management
@@ -126,7 +132,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
+	}, [cell, cellContextKeyService, environment, instance, services.configurationService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {
