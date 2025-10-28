@@ -97,5 +97,12 @@
     {
         "key": "cmd+j d",
         "command": "positronNotebook.selectKernel" // Select Notebook Kernel
-    }
+    },
+    {
+        "key": "cmd+j s",
+        "command": "workbench.debug.viewlet.action.removeAllBreakpoints" // Debugger: Clear All Breakpoints
+    },    {
+        "key": "cmd+l a",
+        "command": "notebook.debugCell" // Debugger: Debug Cell
+    },
 ]

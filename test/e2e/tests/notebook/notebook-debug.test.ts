@@ -21,7 +21,6 @@
  */
 
 
-import { Application } from '../../infra/application.js';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 
@@ -63,7 +62,7 @@ test.describe('Notebook Debugging', {
 		await app.workbench.debug.setBreakpointOnLine(9); // string formatting
 
 		// Start debugging
-		await debugNotebook(app);
+		await app.workbench.debug.debugCell();
 
 		// BP1
 		await app.workbench.debug.expectCurrentLineIndicatorVisible();
@@ -94,11 +93,3 @@ test.describe('Notebook Debugging', {
 		await app.workbench.debug.unSetBreakpointOnLine(9);
 	});
 });
-
-async function debugNotebook(app: Application): Promise<void> {
-	await test.step('Debug notebook', async () => {
-		await expect(app.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible();
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
-	});
-}
