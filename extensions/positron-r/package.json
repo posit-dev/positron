@@ -168,7 +168,7 @@
             "scope": "window",
             "type": "boolean",
             "default": false,
-            "description": "%r.configuration.saveAndRestoreWorkspace.description%"
+            "markdownDescription": "%r.configuration.saveAndRestoreWorkspace.description%"
           },
           "positron.r.quietMode": {
             "scope": "window",
