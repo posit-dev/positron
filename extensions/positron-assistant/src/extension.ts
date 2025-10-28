@@ -22,6 +22,7 @@ import { AnthropicLanguageModel } from './anthropic.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
+import { registerPromptManagement } from './promptRender.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -296,6 +297,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
+	registerPromptManagement(context);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);

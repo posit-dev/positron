@@ -143,6 +143,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
+	 * Disposables for the editor container event listeners
+	 */
+	private readonly _editorContainerListeners = this._register(new DisposableStore());
+
+	/**
 	 * The DOM element that contains the cells for the notebook.
 	 */
 	private _cellsContainer: HTMLElement | undefined = undefined;
@@ -211,6 +216,26 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Unique identifier for the notebook instance. Currently just the notebook URI as a string.
 	 */
 	private _id: string;
+
+	/**
+	 * Sets the DOM element that contains the entire notebook editor.
+	 * This is the top-level container used for focus tracking.
+	 * @param container The container element to set, or null to clear
+	 */
+	setEditorContainer(container: HTMLElement | null): void {
+		// Clean up any existing listeners
+		this._editorContainerListeners.clear();
+
+		if (!container) {
+			return;
+		}
+
+		// Set up focus tracking for the editor container
+		const focusTracker = this._editorContainerListeners.add(DOM.trackFocus(container));
+		this._editorContainerListeners.add(focusTracker.onDidFocus(() => {
+			this._onDidFocusWidget.fire();
+		}));
+	}
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -308,7 +333,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.info(this._id, 'Generating new notebook options');
+		this._logService.debug(this._id, 'Generating new notebook options');
 
 		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
 
@@ -411,7 +436,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._webviewPreloadService.attachNotebookInstance(this);
 
-		this._logService.info(this._id, 'constructor');
+		this._logService.debug(this._id, 'constructor');
 
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
@@ -422,6 +447,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	//#region INotebookEditor
 	private readonly _onDidChangeSelection = this._register(new Emitter<void>());
 	private readonly _onDidChangeVisibleRanges = this._register(new Emitter<void>());
+	private readonly _onDidFocusWidget = this._register(new Emitter<void>());
 
 	/**
 	 * Event fired when the cell selection changes.
@@ -432,6 +458,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Event fired when the visible range of cells changes.
 	 */
 	readonly onDidChangeVisibleRanges = this._onDidChangeVisibleRanges.event;
+
+	/**
+	 * Event fired when the notebook editor widget or a cell editor within it gains focus.
+	 */
+	readonly onDidFocusWidget = this._onDidFocusWidget.event;
 
 	// The assertion isn't really true; we only implement parts needed by the extension API,
 	// see the note in IPositronNotebookInstance.ts
@@ -520,7 +551,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	override dispose() {
 
-		this._logService.info(this._id, 'dispose');
+		this._logService.debug(this._id, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
@@ -918,7 +949,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
-		this._logService.info(this._id, 'attachView');
+		this._logService.debug(this._id, 'attachView');
 	}
 
 	/**
@@ -973,7 +1004,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	detachView(): void {
 		this._container = undefined;
-		this._logService.info(this._id, 'detachView');
+		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
 	}
@@ -982,7 +1013,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Closes the notebook instance and disposes of all resources.
 	 */
 	close(): void {
-		this._logService.info(this._id, 'Closing a notebook instance');
+		this._logService.debug(this._id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
@@ -1084,13 +1115,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		this._logService.info(this._id, '_runCells');
+		this._logService.debug(this._id, '_runCells');
 
 		this._assertTextModel();
 
 		// Make sure we have a kernel to run the cells.
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
-			this._logService.info(this._id, 'No kernel connected, attempting to connect');
+			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}

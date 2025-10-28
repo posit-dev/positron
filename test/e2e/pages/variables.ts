@@ -232,6 +232,17 @@ export class Variables {
 		});
 	}
 
+	async expectVariableToNotExist(variableName: string) {
+		await test.step(`Verify variable does not exist: ${variableName}`, async () => {
+			await this.focusVariablesView();
+			const row = this.code.driver.page
+				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
+				.filter({ hasText: variableName });
+
+			await expect(row).toHaveCount(0);
+		});
+	}
+
 	/**
 	 * Verify: Confirm the session is selected in the variables pane.
 	 * @param sessionName the name of the session to check is selected

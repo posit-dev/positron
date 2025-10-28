@@ -6,6 +6,7 @@
 import { ExtHostLanguageRuntime } from './extHostLanguageRuntime.js';
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
+import { URI } from '../../../../base/common/uri.js';
 import { IExtHostRpcService } from '../extHostRpcService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -35,6 +36,7 @@ import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
+import { convertClipboardFiles } from '../../../contrib/positronPathUtils/common/filePathConverter.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
 
 /**
@@ -264,6 +266,55 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const paths: typeof positron.paths = {
+			/**
+			 * Extract file paths from files on the clipboard.
+			 */
+			async extractClipboardFilePaths(
+				dataTransfer: vscode.DataTransfer,
+				options?: {
+					preferRelative?: boolean;
+					baseUri?: vscode.Uri;
+					homeUri?: vscode.Uri;
+				}
+			): Promise<string[] | null> {
+				// Get URI list data from VS Code DataTransfer
+				const uriListItem = dataTransfer.get('text/uri-list');
+				if (!uriListItem) {
+					return null;
+				}
+
+				try {
+					const uriListData = await uriListItem.asString();
+					if (!uriListData) {
+						return null;
+					}
+
+					// Provide workspace fallback if no baseUri specified
+					let resolvedOptions = options;
+					if (options?.preferRelative && !options.baseUri) {
+						const workspaceFolders = extHostWorkspace.getWorkspaceFolders();
+						if (workspaceFolders && workspaceFolders.length > 0) {
+							resolvedOptions = {
+								...options,
+								baseUri: workspaceFolders[0].uri
+							};
+						}
+					}
+
+					const convertOptions = resolvedOptions ? {
+						...resolvedOptions,
+						baseUri: resolvedOptions.baseUri ? URI.from(resolvedOptions.baseUri) : undefined,
+						homeUri: resolvedOptions.homeUri ? URI.from(resolvedOptions.homeUri) : undefined
+					} : undefined;
+
+					return convertClipboardFiles(uriListData, convertOptions);
+				} catch {
+					return null;
+				}
+			}
+		};
+
 		const ai: typeof positron.ai = {
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
@@ -317,6 +368,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			languages,
 			methods,
 			environment,
+			paths,
 			connections,
 			ai,
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,

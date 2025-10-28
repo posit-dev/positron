@@ -128,7 +128,7 @@ export class Workbench {
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
 		this.settings = new UserSettings(code, this.hotKeys);
-		this.debug = new Debug(code);
+		this.debug = new Debug(code, this.hotKeys, this.quickaccess);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);

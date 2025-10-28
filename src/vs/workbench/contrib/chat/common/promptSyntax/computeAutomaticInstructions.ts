@@ -241,12 +241,30 @@ export class ComputeAutomaticInstructions {
 			const resolvedRoots = await this._fileService.resolveAll(folders.map(f => ({ resource: f.uri })));
 			for (const root of resolvedRoots) {
 				if (root.success && root.stat?.children) {
+					// --- Start Positron ---
+					// Also check for additional agent instructions files
+					/*
 					const agentMd = root.stat.children.find(c => c.isFile && c.name.toLowerCase() === 'agents.md');
 					if (agentMd) {
 						entries.add(toPromptFileVariableEntry(agentMd.resource, PromptFileVariableKind.Instruction, localize('instruction.file.reason.agentsmd', 'Automatically attached as setting {0} is enabled', PromptsConfig.USE_AGENT_MD), true));
 						telemetryEvent.agentInstructionsCount++;
 						this._logService.trace(`[InstructionsContextComputer] AGENTS.md files added: ${agentMd.resource.toString()}`);
 					}
+					*/
+					const agentMds = root.stat.children.filter(
+						c => c.isFile && !c.isSymbolicLink && c.name.toLowerCase() === 'agents.md' ||
+							c.name.toLowerCase() === 'agent.md' ||
+							c.name.toLowerCase() === 'positron.md' ||
+							c.name.toLowerCase() === 'claude.md' ||
+							c.name.toLowerCase() === 'gemini.md' ||
+							c.name.toLowerCase() === 'llms.txt'
+					);
+					for (const md of agentMds) {
+						entries.add(toPromptFileVariableEntry(md.resource, PromptFileVariableKind.Instruction, localize('instruction.file.reason.agentsmd', 'Automatically attached as setting {0} is enabled', PromptsConfig.USE_AGENT_MD), true));
+						telemetryEvent.agentInstructionsCount++;
+						this._logService.trace(`[InstructionsContextComputer] AGENTS.md files added: ${md.resource.toString()}`);
+					}
+					// --- End Positron ---
 				}
 			}
 		}

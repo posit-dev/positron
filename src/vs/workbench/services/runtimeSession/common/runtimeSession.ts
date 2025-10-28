@@ -854,6 +854,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
+		// Check if the session is already the foreground session
+		if (session && this._foregroundSession && session.sessionId === this._foregroundSession.sessionId) {
+			return; // No change, don't update or fire events
+		}
+
 		this._foregroundSession = session;
 
 		if (session) {
@@ -1743,12 +1748,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
-			// TODO: Should this fire onDidChangeForegroundSession?
-			//       If so, should it fire immediately or once the session is ready
-			//       (which would already happen if we remove this block)?
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._foregroundSession = session;
+				this.foregroundSession = session;
 			}
 		} catch (reason) {
 			this.clearStartingSessionMaps(

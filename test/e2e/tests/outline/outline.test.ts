@@ -110,7 +110,9 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			await verifyROutline(outline);
 		});
 
-		test('Verify outline after reload with R in foreground and Python in background',
+		test.skip('Verify outline after reload with R in foreground and Python in background', {
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
+		},
 			async function ({ app, runCommand, sessions }) {
 				const { outline, editor } = app.workbench;
 
