@@ -50,7 +50,7 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('y', '[2, 3, 4, 5]');
 	});
 
-	test('Python - Verify Variables available after reload', async function ({ app, sessions, hotKeys }) {
+	test('Python - Verify Variables available after reload', async function ({ app, hotKeys }) {
 		const { notebooks, variables } = app.workbench;
 
 		// Create a variable via a notebook
@@ -65,8 +65,7 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('dict', `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]`);
 
 		// Reload window
-		await hotKeys.reloadWindow();
-		await sessions.expectAllSessionsToBeReady();
+		await hotKeys.reloadWindow(true);
 
 		// Ensure the variable is still present
 		await variables.selectSession(FILENAME);
