@@ -974,6 +974,12 @@
                     "markdownDescription": "%python.enableAutoReload.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.autoConvertFilePaths": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "%python.autoConvertFilePaths.description%",
+                    "scope": "resource"
                 }
             },
             "title": "Python",
