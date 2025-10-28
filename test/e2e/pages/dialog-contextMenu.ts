@@ -17,7 +17,6 @@ export class ContextMenu {
 	private get page(): Page { return this.code.driver.page; }
 	private isNativeMenu: boolean;
 	private get contextMenu(): Locator { return this.page.locator('.monaco-menu'); }
-	private get contextMenuItems(): Locator { return this.contextMenu.getByRole('menuitem'); }
 	private getContextMenuItem(label: string | RegExp): Locator { return this.contextMenu.getByRole('menuitem', { name: label }); }
 	private getContextMenuCheckboxItem(label: string | RegExp): Locator { return this.contextMenu.getByRole('menuitemcheckbox', { name: label }); }
 
@@ -28,7 +27,7 @@ export class ContextMenu {
 	}
 
 	/**
-	 * Trigger only: opens the context menu without selecting a submenu item.
+	 * Action: Triggers a context menu without selecting a submenu item.
 	 * - For native menus this returns the menu id/items from showContextMenu.
 	 * - For web menus this clicks the trigger and waits for the in-page menu to appear.
 	 */
@@ -51,6 +50,7 @@ export class ContextMenu {
 				await expect(async () => {
 					try { await menuTrigger.click({ button: menuTriggerButton }); } catch { /* ignore transient */ }
 					const visible = await this.contextMenu.isVisible().catch(() => false);
+					if (!visible) { console.warn('[contextMenu] web menu did not appear'); }
 					expect(visible).toBeTruthy();
 				}).toPass({ timeout: 5000 });
 			} catch {
@@ -95,67 +95,25 @@ export class ContextMenu {
 	}
 
 	/**
-	 * Helper: Gets all menu item labels from a context menu
-	 * Note: This method is designed to work in both browser and electron!
-	 *
-	 * @param menuTrigger The locator that will trigger the context menu when clicked
-	 * @returns Array of menu item objects { label, enabled?, checked? }
-	 */
-	async getMenuItems(menuTrigger: Locator): Promise<MenuItemState[]> {
-		return await test.step(`Get context menu items`, async () => {
-			if (this.isNativeMenu) {
-				const menuItems = await this.showContextMenu(() => menuTrigger.click());
-				if (!menuItems) {
-					throw new Error('Context menu did not appear or no menu items found.');
-				}
-				await this.closeContextMenu();
-				return menuItems.items;
-			} else {
-				await menuTrigger.click();
-				const menuItems = this.contextMenuItems;
-				const count = await menuItems.count();
-				const items: MenuItemState[] = [];
-
-				for (let i = 0; i < count; i++) {
-					const menuItem = menuItems.nth(i);
-					const label = await menuItem.textContent();
-					if (label) {
-						const trimmed = label.trim();
-						const enabled = await menuItem.isEnabled().catch(() => true);
-						const ariaChecked = await menuItem.getAttribute('aria-checked').catch(() => null);
-						const cls = (await menuItem.getAttribute('class')) || '';
-						const checked = ariaChecked !== null ? ariaChecked === 'true' : (cls.includes('checked') || cls.includes('checkbox-checked')) || undefined;
-						items.push({ label: trimmed, enabled, visible: await menuItem.isVisible().catch(() => true), checked });
-					}
-				}
-				await this.closeContextMenu();
-				return items;
-			}
-		});
-	}
-
-	/**
 	 * Action: Closes an open context menu
 	 *
 	 * @returns Promise that resolves when the context menu is closed
 	 */
 	private async closeContextMenu(): Promise<void> {
-		if (this.isNativeMenu) {
-			if (this.code.electronApp) {
-				try {
-					await this.code.electronApp.evaluate(({ app }) => {
-						app.emit('e2e:contextMenuClose');
-					});
-					return;
-				} catch (err) {
-					console.error('[closeContextMenu] native close failed, falling back to Escape:', err);
-				}
+		// Prefer native IPC for Electron on macOS; fall back to sending Escape to the page.
+		if (this.isNativeMenu && this.code.electronApp) {
+			try {
+				await this.code.electronApp.evaluate(({ app }) => {
+					app.emit('e2e:contextMenuClose');
+				});
+				return;
+			} catch (err) {
+				console.error('[closeContextMenu] native IPC failed, falling back to Escape:', err);
 			}
-			// fallback to keyboard if native IPC isn't available
-			await this.page.keyboard.press('Escape').catch(() => { /* ignore */ });
-		} else {
-			await this.page.keyboard.press('Escape');
 		}
+
+		// Fallback: dismiss any in-page menu with Escape. Ignore transient failures.
+		await this.page.keyboard.press('Escape').catch(() => { /* ignore */ });
 	}
 
 	// --- Private methods ---
@@ -166,7 +124,6 @@ export class ContextMenu {
 	 * @returns
 	 */
 	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: MenuItemState[] } | undefined> {
-		// If electron app is not available, just return undefined so callers can fallback to web flow.
 		if (!this.code.electronApp) {
 			throw new Error(`[showContextMenu] Electron app is not available. Platform: ${process.platform}`);
 		}
@@ -202,10 +159,12 @@ export class ContextMenu {
 				return { menuId, items };
 			}
 
-			// Timed out waiting for native menu event; return undefined so caller can retry or fall back.
+			// Timed out waiting for native menu event;
+			// Return undefined so caller can retry/fall back
+			console.error('[showContextMenu] timed out waiting for native menu event');
 			return undefined;
 		} catch (err) {
-			// Return undefined so caller can fallback
+			// Return undefined so caller can retry/fall back
 			console.error('[showContextMenu] native evaluate failed:', err);
 			return undefined;
 		}

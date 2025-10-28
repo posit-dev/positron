@@ -482,11 +482,16 @@ export class PositronNotebooks extends Notebooks {
 	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined }[],): Promise<void> {
 		for (const { index, order } of executionOrders) {
 			await test.step(`Expect execution order at index ${index} to be: ${order}`, async () => {
+				// attempting to make any tooltips dissapear
 				await this.code.driver.page.keyboard.press('Escape');
 				await this.moveMouseAway();
+
+				// hover over the run button to show the tooltip
 				await this.cell.nth(index).click();
 				await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
-				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible(); // make sure we have the RIGHT tooltip
+
+				// make sure only the right tooltip is visible (i've been seeing multiple tooltips sometimes)
+				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible();
 				await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
 				await this.expectToolTipToContain({ order }, DEFAULT_TIMEOUT);
 			});
@@ -612,13 +617,13 @@ export class PositronNotebooks extends Notebooks {
 //     Kernel
 // -----------------
 export class Kernel {
-	kernelStatusBadge: Locator;
+	statusBadge: Locator;
 	private activeStatus: Locator;
 	private idleStatus: Locator;
 	private disconnectedStatus: Locator;
 
 	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
-		this.kernelStatusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
+		this.statusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
 		this.activeStatus = this.notebooks.editorActionBar.locator(ACTIVE_STATUS_ICON);
 		this.idleStatus = this.notebooks.editorActionBar.locator(IDLE_STATUS_ICON);
 		this.disconnectedStatus = this.notebooks.editorActionBar.locator(DISCONNECTED_STATUS_ICON);
@@ -633,7 +638,7 @@ export class Kernel {
 	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
 		await test.step('Restart kernel', async () => {
 			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.kernelStatusBadge,
+				menuTrigger: this.statusBadge,
 				menuItemLabel: /Restart Kernel/
 			});
 
@@ -649,7 +654,7 @@ export class Kernel {
 	async shutdown(): Promise<void> {
 		await test.step('Shutdown kernel', async () => {
 			await this.contextMenu.triggerAndClick({
-				menuTrigger: this.kernelStatusBadge,
+				menuTrigger: this.statusBadge,
 				menuItemLabel: /Shutdown Kernel/
 			});
 			await this.expectStatusToBe('disconnected', 15000);
@@ -673,29 +678,20 @@ export class Kernel {
 			// Wait for kernel detection to complete
 			await expect(this.notebooks.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
 			await expect(this.notebooks.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
+			await expect(this.statusBadge).toBeVisible({ timeout: 5000 });
 
-			// Get the kernel status badge
-			await expect(this.kernelStatusBadge).toBeVisible({ timeout: 5000 });
 
-			try {
-				// Check if the desired kernel is already selected
-				const currentKernelText = await this.kernelStatusBadge.textContent();
-				if (currentKernelText && currentKernelText.includes(desiredKernel) && currentKernelText.includes('Connected')) {
-					this.code.logger.log(`Kernel already selected and connected: ${desiredKernel}`);
-					return;
-				}
-			} catch (e) {
-				this.code.logger.log('Could not check current kernel status');
+			// Check if the desired kernel is already selected
+			const currentKernelText = await this.statusBadge.textContent();
+			if (currentKernelText && currentKernelText.includes(desiredKernel) && await this.idleStatus.isVisible()) {
+				this.code.logger.log(`Kernel already selected and ready: ${desiredKernel}`);
+				return;
 			}
 
-			// we shouldn't need to retry this, but the input closes immediately the 1st attempt in Playwright
-			await expect(async () => {
-				// select the kernel
-				await this.hotKeys.selectNotebookKernel();
-				await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
-			}).toPass({ timeout: 10000 });
-
+			// select the kernel
+			await this.hotKeys.selectNotebookKernel();
+			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
 			await this.quickinput.waitForQuickInputClosed();
 			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
 
@@ -732,7 +728,7 @@ export class Kernel {
 		timeout?: number;
 	}): Promise<void> {
 		await test.step(`Expect kernel to be: ${status} - ${kernelVersion}`, async () => {
-			await expect(this.kernelStatusBadge).toContainText(kernelVersion, { timeout });
+			await expect(this.statusBadge).toContainText(kernelVersion, { timeout });
 			await this.expectStatusToBe(status, timeout);
 		});
 	}
@@ -744,7 +740,7 @@ export class Kernel {
 	async expectMenuToContain(menuItemStates: MenuItemState[]): Promise<void> {
 		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
 			await this.contextMenu.triggerAndVerifyMenuItems({
-				menuTrigger: this.kernelStatusBadge,
+				menuTrigger: this.statusBadge,
 				menuItemStates: menuItemStates
 			});
 		});
