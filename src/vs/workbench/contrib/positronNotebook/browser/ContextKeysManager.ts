@@ -7,6 +7,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
+export const POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH = new RawContextKey<boolean>('positronNotebookWorkingDirectoryMismatch', false);
 /**
  * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
  */
@@ -124,6 +125,7 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 	//#region Public Properties
 	positronEditorFocus?: IContextKey<boolean>;
+	workingDirectoryMismatch?: IContextKey<boolean>;
 	//#endregion Public Properties
 
 	//#region Constructor & Dispose
@@ -142,6 +144,9 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		this._scopedContextKeyService = scopedContextKeyService ?? this._contextKeyService.createScoped(this._container);
 
 		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
+
+		// Bind working directory mismatch to the editor context key service so it's visible in action bars
+		this.workingDirectoryMismatch = POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH.bindTo(this._contextKeyService);
 
 		const focusTracker = this._register(DOM.trackFocus(container));
 		this._register(focusTracker.onDidFocus(() => {
@@ -171,6 +176,10 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	 */
 	setContainerFocused(focused: boolean): void {
 		this.positronEditorFocus?.set(focused);
+	}
+
+	setWorkingDirectoryMismatch(mismatch: boolean): void {
+		this.workingDirectoryMismatch?.set(mismatch);
 	}
 
 	//#endregion Public Methods

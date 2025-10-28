@@ -169,6 +169,11 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	readonly onDidScrollCellsContainer: Event<void>;
 
 	/**
+	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.
+	 */
+	readonly onDidFocusWidget: Event<void>;
+
+	/**
 	 * Options for how the notebook should be displayed.
 	 * Provides configuration for layout, styling, and display behavior.
 	 */
@@ -340,9 +345,10 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 */
 	fireScrollEvent(): void;
 
-
 	/**
-	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.
+	 * Checks if there's a working directory mismatch between the notebook's location
+	 * and the current working directory for the notebook session.
+	 * @returns A promise that resolves to true if there is a mismatch, false otherwise
 	 */
-	readonly onDidFocusWidget: Event<void>;
+	checkWorkingDirectoryMismatch(): Promise<boolean>;
 }
