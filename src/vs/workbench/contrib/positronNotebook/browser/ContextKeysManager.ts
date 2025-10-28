@@ -133,6 +133,8 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
 		super();
+		// Bind working directory mismatch to the editor context key service so it is visible in action bars
+		this.workingDirectoryMismatch = POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH.bindTo(this._contextKeyService);
 	}
 
 	//#endregion Constructor & Dispose
@@ -144,9 +146,6 @@ export class PositronNotebookContextKeyManager extends Disposable {
 		this._scopedContextKeyService = scopedContextKeyService ?? this._contextKeyService.createScoped(this._container);
 
 		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
-
-		// Bind working directory mismatch to the editor context key service so it's visible in action bars
-		this.workingDirectoryMismatch = POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH.bindTo(this._contextKeyService);
 
 		const focusTracker = this._register(DOM.trackFocus(container));
 		this._register(focusTracker.onDidFocus(() => {
