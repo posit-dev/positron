@@ -186,6 +186,12 @@
         "title": "%commands.toggleInlineCompletions.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.managePromptFiles",
+        "title": "%commands.managePromptFiles.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && isDevelopment"
       }
     ],
     "configuration": [
@@ -725,7 +731,9 @@
     "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.367.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
-    "vscode-languageclient": "^9.0.1"
+    "squirrelly": "^9.1.0",
+    "vscode-languageclient": "^9.0.1",
+    "yaml": "^2.8.1"
   },
   "extensionDependencies": [
     "positron.positron-supervisor"

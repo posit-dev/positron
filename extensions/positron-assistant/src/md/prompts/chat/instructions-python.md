@@ -1,3 +1,12 @@
+---
+mode:
+  - ask
+  - edit
+  - agent
+order: 100
+description: Prompt for when a Python session is running
+---
+{{@if(positron.sessions.map(function(s){return s.languageId}).includes("python"))}}
 <style-python>
 You write clean, efficient and maintainable Python code.
 
@@ -432,3 +441,4 @@ p_bar = (
 p_bar.show()
 ```
 </examples-python>
+{{/if}}
