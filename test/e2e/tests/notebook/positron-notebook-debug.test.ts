@@ -33,7 +33,7 @@ test.describe('Positron Notebook Debugging', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger }) => {
+	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
 		const { notebooksPositron, debug } = app.workbench;
 
 		await notebooksPositron.createNewNotebook();
@@ -66,15 +66,12 @@ test.describe('Positron Notebook Debugging', {
 			{ label: 'intermediate', value: '20' }
 		]);
 
-		// Continue
+		// Continue and verify final output
 		await debug.continue();
-
-		// Verify final output
 		await notebooksPositron.expectOutputAtIndex(0, ['Result from Positron: 40']);
 
 		// Clean up BPs
-		await debug.unSetBreakpointOnLine(5);
-		await debug.unSetBreakpointOnLine(9);
+		await hotKeys.clearAllBreakpoints();
 	});
 });
 
