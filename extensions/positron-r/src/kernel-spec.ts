@@ -149,15 +149,19 @@ export function createJupyterKernelSpec(
 		'kernel_protocol_version': '5.5' // eslint-disable-line
 	};
 
+	// For backward compatibility, check both the deprecated 'restoreWorkspace'
+	// and the new 'saveAndRestoreWorkspace' settings
+	const shouldRestore = config.get<boolean>('saveAndRestoreWorkspace') || config.get<boolean>('restoreWorkspace');
+
 	// Unless the user has chosen to restore the workspace, pass the
 	// `--no-restore-data` flag to R.
-	if (!config.get<boolean>('restoreWorkspace')) {
+	if (!shouldRestore) {
 		kernelSpec.argv.push('--no-restore-data');
 	}
 
 	// If the user has chosen to save the workspace, pass the
 	// `--save` flag to R, otherwise, pass `--no-save`.
-	if (config.get<boolean>('saveWorkspace')) {
+	if (config.get<boolean>('saveAndRestoreWorkspace')) {
 		kernelSpec.argv.push('--save');
 	} else {
 		kernelSpec.argv.push('--no-save');

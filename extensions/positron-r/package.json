@@ -161,13 +161,14 @@
             "scope": "window",
             "type": "boolean",
             "default": false,
-            "description": "%r.configuration.restoreWorkspace.description%"
+            "description": "%r.configuration.restoreWorkspace.description%",
+            "deprecationMessage": "%r.configuration.restoreWorkspace.deprecationMessage%"
           },
-          "positron.r.saveWorkspace": {
+          "positron.r.saveAndRestoreWorkspace": {
             "scope": "window",
             "type": "boolean",
             "default": false,
-            "description": "%r.configuration.saveWorkspace.description%"
+            "description": "%r.configuration.saveAndRestoreWorkspace.description%"
           },
           "positron.r.quietMode": {
             "scope": "window",
