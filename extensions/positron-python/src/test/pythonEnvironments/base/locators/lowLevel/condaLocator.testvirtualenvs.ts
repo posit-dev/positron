@@ -2,6 +2,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import * as vscode from 'vscode';
 import * as path from 'path';
 import { assert } from 'chai';
 import * as sinon from 'sinon';
@@ -17,6 +18,7 @@ import { TEST_LAYOUT_ROOT } from '../../../common/commonTestConstants';
 import { PYTHON_VIRTUAL_ENVS_LOCATION } from '../../../../ciConstants';
 import { isCI } from '../../../../../client/common/constants';
 import * as externalDependencies from '../../../../../client/pythonEnvironments/common/externalDependencies';
+import { getConfiguration } from '../../../../../client/common/vscodeApis/workspaceApis';
 
 class CondaEnvs {
     private readonly condaEnvironmentsTxt;
@@ -61,6 +63,30 @@ suite('Conda Env Locator', async () => {
         PYTHON_VIRTUAL_ENVS_LOCATION !== undefined
             ? path.join(EXTENSION_ROOT_DIR_FOR_TESTS, PYTHON_VIRTUAL_ENVS_LOCATION)
             : path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'tmp', 'envPaths.json');
+
+    // Store the original locator setting to restore later
+    let originalLocatorSetting: string | undefined;
+
+    // Force the use of the JS locator since these tests rely on FSWatchingLocator
+    suiteSetup(async () => {
+        const config = getConfiguration('python');
+        originalLocatorSetting = config.get<string>('locator', 'js');
+        console.log(`Original python.locator setting: ${originalLocatorSetting}`);
+
+        if (originalLocatorSetting !== 'js') {
+            console.log('Setting python.locator to "js" for these tests');
+            await config.update('locator', 'js', vscode.ConfigurationTarget.Global);
+        }
+    });
+
+    // Restore the original locator setting after all tests are done
+    suiteTeardown(async () => {
+        if (originalLocatorSetting !== undefined && originalLocatorSetting !== 'js') {
+            console.log(`Restoring python.locator to "${originalLocatorSetting}"`);
+            const config = getConfiguration('python');
+            await config.update('locator', originalLocatorSetting, vscode.ConfigurationTarget.Global);
+        }
+    });
 
     async function waitForChangeToBeDetected(deferred: Deferred<void>) {
         const timeout = setTimeout(() => {

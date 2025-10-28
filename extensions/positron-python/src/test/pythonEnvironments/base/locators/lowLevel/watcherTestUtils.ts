@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+import * as vscode from 'vscode';
 import { assert } from 'chai';
 import * as path from 'path';
 import * as fs from '../../../../../client/common/platform/fs-paths';
@@ -18,6 +19,7 @@ import * as externalDeps from '../../../../../client/pythonEnvironments/common/e
 import { deleteFiles, PYTHON_PATH } from '../../../../common';
 import { TEST_TIMEOUT } from '../../../../constants';
 import { run } from '../envTestUtils';
+import { getConfiguration } from '../../../../../client/common/vscodeApis/workspaceApis';
 
 /**
  * A utility class used to create, delete, or modify environments. Primarily used for watcher
@@ -135,6 +137,33 @@ export function testLocatorWatcher(
         doNotVerifyIfLocated?: boolean;
     },
 ): void {
+    // Store the original locator setting to restore later
+    let originalLocatorSetting: string | undefined;
+
+    // Force the use of the JS locator since these tests rely on FSWatchingLocator
+    suiteSetup(async function () {
+        if (getOSType() === OSType.Linux) {
+            this.skip();
+        }
+
+        const config = getConfiguration('python');
+        originalLocatorSetting = config.get<string>('locator', 'js');
+        console.log(`Original python.locator setting: ${originalLocatorSetting}`);
+
+        if (originalLocatorSetting !== 'js') {
+            console.log('Setting python.locator to "js" for these tests');
+            await config.update('locator', 'js', vscode.ConfigurationTarget.Global);
+        }
+    });
+
+    // Restore the original locator setting after all tests are done
+    suiteTeardown(async function () {
+        if (originalLocatorSetting !== undefined && originalLocatorSetting !== 'js') {
+            console.log(`Restoring python.locator to "${originalLocatorSetting}"`);
+            const config = getConfiguration('python');
+            await config.update('locator', originalLocatorSetting, vscode.ConfigurationTarget.Global);
+        }
+    });
     let locator: ILocator<BasicEnvInfo> & IDisposable;
     const venvs = new Venvs(root);
 
