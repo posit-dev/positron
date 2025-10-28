@@ -1060,6 +1060,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return existingCell;
 			}
 			const newCell = createNotebookCell(cell, this, this._instantiationService);
+			// TODO: We should be disposing cells when we're done with them.
+			//       We're currently holding onto notebook and cell text model references
+			//       so text models are never disposed
 			newlyAddedCells.push(newCell);
 
 			return newCell;
