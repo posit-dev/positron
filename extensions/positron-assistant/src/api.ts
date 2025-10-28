@@ -14,6 +14,7 @@ import path = require('path');
 import fs = require('fs');
 import { log } from './extension.js';
 import { CopilotService } from './copilot.js';
+import { PromptRenderer } from './promptRender.js';
 
 /**
  * This is the API exposed by Positron Assistant to other extensions.
@@ -43,9 +44,20 @@ export class PositronAssistantApi {
 	 * @param request The chat request to generate content for.
 	 * @returns A string containing the assistant prompt content.
 	 */
-	public async generateAssistantPrompt(request: any): Promise<string> {
+	public async generateAssistantPrompt(request: vscode.ChatRequest): Promise<string> {
+		// Determine the chat mode based on the participant ID
+		let mode = positron.PositronChatMode.Ask;
+		if (request.id === ParticipantID.Edit) {
+			mode = positron.PositronChatMode.Edit;
+		} else if (request.id === ParticipantID.Agent) {
+			mode = positron.PositronChatMode.Agent;
+		}
+
 		// Start with the system prompt
-		let prompt = fs.readFileSync(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const sessions = activeSessions.map(session => session.runtimeMetadata);
+		const streamingEdits = isStreamingEditsEnabled();
+		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -273,7 +285,7 @@ export function getEnabledTools(
 		}
 
 		// Check that the request is using a Copilot model.
-		const usingCopilotModel = request.model.family === 'copilot';
+		const usingCopilotModel = request.model.vendor === 'copilot';
 		// Check if the user has opted-in to always include Copilot tools.
 		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.

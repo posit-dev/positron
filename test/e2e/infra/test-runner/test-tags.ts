@@ -75,8 +75,8 @@ export enum TestTags {
 	// exclude tags
 	NIGHTLY_ONLY = '@:nightly-only',
 
-	// Provisional tag for tests that won't report in PR runs yet
-	PROVISIONAL = '@:provisional'
+	// soft fail tag for tests that shouldn't fail merge to main
+	SOFT_FAIL = '@:soft-fail'
 }
 
 

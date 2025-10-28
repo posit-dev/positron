@@ -91,7 +91,7 @@ suite('PositronAssistantService', () => {
 	test('getPositronChatContext returns the global context properties', async () => {
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
-			location: ChatAgentLocation.Panel
+			location: ChatAgentLocation.Chat
 		};
 
 		// Get the chat context
@@ -106,7 +106,7 @@ suite('PositronAssistantService', () => {
 	test('getPositronChatContext handles plot information', async () => {
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
-			location: ChatAgentLocation.Panel
+			location: ChatAgentLocation.Chat
 		};
 
 		// Get the chat context

@@ -46,6 +46,7 @@ jobs:
       install_license: false
       upload_logs: false
       workers: 3
+      allow_soft_fail: false
     secrets: inherit
 
   e2e-windows-electron:
@@ -60,6 +61,7 @@ jobs:
       report_testrail: false
       report_currents: false
       upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   e2e-ubuntu-browser:
@@ -77,6 +79,7 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   e2e-rhel-electron:
@@ -94,6 +97,7 @@ jobs:
       install_license: false
       skip_tags: "@:nightly-only"
       upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   e2e-rhel-chromium:
@@ -112,6 +116,7 @@ jobs:
       install_license: true
       skip_tags: "@:nightly-only"
       upload_logs: false
+      allow_soft_fail: false
     secrets: inherit
 
   unit-tests:

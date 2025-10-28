@@ -12,6 +12,7 @@ import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
+import { PromptRenderer } from '../promptRender.js';
 
 /** We expect 3 messages by default: 1 for the system prompt, 1 for the user's prompt, and 1 containing at least the default context */
 const DEFAULT_EXPECTED_MESSAGE_COUNT = 3;
@@ -118,6 +119,8 @@ suite('PositronAssistantParticipant', () => {
 		disposables.push(participantService);
 		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
 		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
+
+		new PromptRenderer(extensionContext);
 	});
 
 	teardown(() => {
@@ -305,36 +308,6 @@ ${attachmentsText}
 			});
 	});
 
-	test('should include llms.txt instructions', async () => {
-		// Create an llms.txt file in the workspace.
-		const llmsTxtContent = `This is a test llms.txt file.
-It should be included in the chat message.`;
-		await vscode.workspace.fs.writeFile(llmsTxtUri, Buffer.from(llmsTxtContent));
-
-		try {
-			// Setup test inputs.
-			const request = makeChatRequest({ model, references: [] });
-			const context: vscode.ChatContext = { history: [] };
-			sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
-			const sendRequestSpy = sinon.spy(model, 'sendRequest');
-
-			// Call the method under test.
-			await chatParticipant.requestHandler(request, context, response, token);
-
-			// The first user message should contain the formatted context.
-			sinon.assert.calledOnce(sendRequestSpy);
-			const [messages,] = sendRequestSpy.getCall(0).args;
-			assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-			assertContextMessage(messages.at(-2)!,
-				`<instructions>
-${llmsTxtContent}
-</instructions>`);
-		} finally {
-			// Delete the llms.txt file from the workspace.
-			await vscode.workspace.fs.delete(llmsTxtUri);
-		}
-	});
-
 	test('should include editor information', async () => {
 		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
 		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(1, 0));
@@ -375,6 +348,7 @@ function makeChatRequest(
 ): vscode.ChatRequest {
 	return {
 		id: 'test-request-id',
+		sessionId: 'test-session-id',
 		prompt: 'Hello, world!',
 		command: undefined,
 		references: options.references,

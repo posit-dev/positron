@@ -39,12 +39,13 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
 import { SelectionState } from './selectionMachine.js';
-import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from './ContextKeysManager.js';
+import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
+import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 
@@ -389,11 +390,32 @@ registerNotebookAction({
 	}
 });
 
-// Escape key: Exit edit mode when cell editor is focused
+/**
+ * Escape key: Exit edit mode when cell editor is focused.
+ * This command handles the keybinding for all cell types.
+ *
+ * This action has a counterpart command called
+ * `positronNotebook.cell.collapseMarkdownEditor` that is
+ * used to contribute the same functionality to markdown
+ * cell action bars. We should keep both commands in sync
+ * to ensure consistent behavior.
+ */
 registerNotebookAction({
 	commandId: 'positronNotebook.cell.quitEdit',
 	handler: (notebook) => {
-		notebook.selectionStateMachine.exitEditor();
+		const state = notebook.selectionStateMachine.state.get();
+		// check if we are in editing mode
+		if (state.type === SelectionState.EditingSelection) {
+			// get the selected cell that is being edited
+			const cell = state.selected;
+			// handle markdown cells differently
+			if (cell.isMarkdownCell() && cell.editorShown.get()) {
+				// This handles updating selection state and closing the editor
+				cell.toggleEditor();
+			} else {
+				notebook.selectionStateMachine.exitEditor();
+			}
+		}
 	},
 	keybinding: {
 		primary: KeyCode.Escape,
@@ -402,6 +424,30 @@ registerNotebookAction({
 	metadata: {
 		description: localize('positronNotebook.cell.quitEdit', "Exit cell edit mode")
 	}
+});
+
+// Z key: Undo in command mode (Jupyter-style)
+// Adds keybinding to existing 'undo' command that's handled by contrib/undoRedo/positronNotebookUndoRedo.ts
+KeybindingsRegistry.registerKeybindingRule({
+	id: 'undo',
+	weight: KeybindingWeight.EditorContrib,
+	when: ContextKeyExpr.and(
+		POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+		POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+	),
+	primary: KeyCode.KeyZ
+});
+
+// Shift+Z key: Redo in command mode (Jupyter-style)
+// Adds keybinding to existing 'redo' command that's handled by contrib/undoRedo/positronNotebookUndoRedo.ts
+KeybindingsRegistry.registerKeybindingRule({
+	id: 'redo',
+	weight: KeybindingWeight.EditorContrib,
+	when: ContextKeyExpr.and(
+		POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+		POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+	),
+	primary: KeyMod.Shift | KeyCode.KeyZ
 });
 
 //#endregion Notebook Commands
@@ -652,8 +698,14 @@ registerCellCommand({
 	}
 });
 
-
-// Collapse markdown editor (For action bar)
+/**
+ * Collapse markdown editor (For action bar)
+ *
+ * Handles contributing the behavior of
+ * `positronNotebook.cell.quitEdit` to markdown cell
+ * action bar. We should keep both commands in sync to
+ * ensure consistent behavior.
+ */
 registerCellCommand({
 	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
 	handler: (cell) => {
@@ -726,7 +778,7 @@ registerCellCommand({
 
 		// If this is the last cell, insert a new cell below of the same type
 		if (cell.isLastCell()) {
-			notebook.addCell(cell.kind, cell.index + 1);
+			notebook.addCell(cell.kind, cell.index + 1, true);
 			// Don't call moveDown - addCell triggers SelectionStateMachine._setCells()
 			// which already handles selection and focus of the new cell in Edit mode
 		} else {
@@ -743,16 +795,13 @@ registerCellCommand({
 	}
 });
 
-// Copy cells command - Cmd/Ctrl+C
+// Copy cells command - C (Jupyter-style)
 registerCellCommand({
 	commandId: 'positronNotebook.copyCells',
 	handler: (cell, notebook) => notebook.copyCells(),
 	multiSelect: true,  // Copy all selected cells
 	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-		mac: {
-			primary: KeyMod.CtrlCmd | KeyCode.KeyC,
-		},
+		primary: KeyCode.KeyC
 	},
 	actionBar: {
 		icon: 'codicon-copy',
@@ -765,13 +814,13 @@ registerCellCommand({
 	}
 });
 
-// Cut cells command - Cmd/Ctrl+X
+// Cut cells command - X (Jupyter-style)
 registerCellCommand({
 	commandId: 'positronNotebook.cutCells',
 	handler: (cell, notebook) => notebook.cutCells(),
 	multiSelect: true,  // Cut all selected cells
 	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.KeyX,
+		primary: KeyCode.KeyX
 	},
 	actionBar: {
 		position: 'menu',
@@ -783,14 +832,12 @@ registerCellCommand({
 	}
 });
 
-// Paste cells command - Cmd/Ctrl+V
+// Paste cells command - V (Jupyter-style)
 registerCellCommand({
 	commandId: 'positronNotebook.pasteCells',
 	handler: (cell, notebook) => notebook.pasteCells(),
 	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.KeyV,
-		win: { primary: KeyMod.CtrlCmd | KeyCode.KeyV, secondary: [KeyMod.Shift | KeyCode.Insert] },
-		linux: { primary: KeyMod.CtrlCmd | KeyCode.KeyV, secondary: [KeyMod.Shift | KeyCode.Insert] },
+		primary: KeyCode.KeyV
 	},
 	actionBar: {
 		position: 'menu',
@@ -802,12 +849,12 @@ registerCellCommand({
 	}
 });
 
-// Paste cells above command - Cmd/Ctrl+Shift+V
+// Paste cells above command - Shift+V (Jupyter-style)
 registerCellCommand({
 	commandId: 'positronNotebook.pasteCellsAbove',
 	handler: (cell, notebook) => notebook.pasteCellsAbove(),
 	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV,
+		primary: KeyMod.Shift | KeyCode.KeyV
 	},
 	actionBar: {
 		position: 'menu',
@@ -928,7 +975,7 @@ registerNotebookAction({
 	commandId: 'positronNotebook.addCodeCellAtEnd',
 	handler: (notebook) => {
 		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Code, cellCount);
+		notebook.addCell(CellKind.Code, cellCount, true);
 	},
 	menu: {
 		id: MenuId.EditorActionsLeft,
@@ -948,7 +995,7 @@ registerNotebookAction({
 	commandId: 'positronNotebook.addMarkdownCellAtEnd',
 	handler: (notebook) => {
 		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Markup, cellCount);
+		notebook.addCell(CellKind.Markup, cellCount, true);
 	},
 	menu: {
 		id: MenuId.EditorActionsLeft,

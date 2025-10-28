@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as Parser from 'web-tree-sitter';
+import Parser from 'web-tree-sitter';
 import { ItemType, TestingTools, encodeNodeId } from './util-testing';
 import { LOGGER } from '../extension';
 import { EXTENSION_ROOT_DIR } from '../constants';

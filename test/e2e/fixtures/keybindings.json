@@ -93,5 +93,9 @@
     {
         "key": "cmd+j t",
         "command": "workbench.action.terminal.killAll" // Kill all terminals
+    },
+    {
+        "key": "cmd+j d",
+        "command": "positronNotebook.selectKernel" // Select Notebook Kernel
     }
 ]

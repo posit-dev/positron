@@ -377,10 +377,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 					await waitForRuntimeState(session, RuntimeState.Ready);
 
-					// TODO: Feels a bit surprising that this isn't fired. It's because we set the private
-					//       _foregroundSession property instead of the setter. When the 'ready' state is
-					//       entered, we skip setting foregroundSession because it already matches the session.
-					sinon.assert.notCalled(onDidChangeForegroundSessionSpy);
+					sinon.assert.called(onDidChangeForegroundSessionSpy);
 				});
 			}
 

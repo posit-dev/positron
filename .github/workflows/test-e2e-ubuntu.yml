@@ -63,6 +63,11 @@ on:
         description: "Whether to skip the bootstrap extensions test."
         type: boolean
         default: false
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -106,7 +111,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:48
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:52
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -114,7 +119,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:48
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:52
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -224,6 +229,8 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
+          PW_JSON_FILE: test-results/ubuntu.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
         run: |
           # Build the --grep argument only if PW_TAGS is non-empty
           if [ -z "${{ env.PW_TAGS }}" ]; then
@@ -247,7 +254,14 @@ jobs:
 
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+
+          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          fi
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -262,6 +276,14 @@ jobs:
         with:
           name: ${{ inputs.project }}-logs
           path: test-logs
+          if-no-files-found: ignore
+
+      - name: Upload Test Results File
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-ubuntu-json-results
+          path: test-results/ubuntu.json
           if-no-files-found: ignore
 
       - name: Upload inspect-ai JSON Responses
