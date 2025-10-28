@@ -9,17 +9,18 @@ import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
-import { ContextMenu } from './dialog-contextMenu.js';
+import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
+import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 
 const DEFAULT_TIMEOUT = 10000;
 
-type moreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
-
+type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
 /**
  * Notebooks functionality exclusive to Positron notebooks.
  */
 export class PositronNotebooks extends Notebooks {
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
+	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
@@ -27,16 +28,21 @@ export class PositronNotebooks extends Notebooks {
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
-	private detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
-	private cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
-	private kernelStatusBadge = this.code.driver.page.getByTestId('notebook-kernel-status');
+	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
+	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
+
+
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
+	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
+	kernel: Kernel;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
+		this.kernel = new Kernel(this.code, this, this.contextMenu, hotKeys, quickinput);
 	}
 
 	// #region GETTERS
@@ -123,7 +129,7 @@ export class PositronNotebooks extends Notebooks {
 		const config: Record<string, unknown> = {
 			'workbench.editorAssociations': { '*.ipynb': 'workbench.editor.positronNotebook' }
 		};
-		await settings.set(config);
+		await settings.set(config, { reload: 'web' });
 	}
 
 	/**
@@ -146,6 +152,7 @@ export class PositronNotebooks extends Notebooks {
 			for (let i = 0; i < numCellsToAdd; i++) {
 				await this.addCodeToCell(i, `# Cell ${i}`);
 			}
+			await this.expectCellCountToBe(numCellsToAdd);
 		}
 	}
 
@@ -178,7 +185,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to act on
 	 * @param action - The action to perform from the More Actions menu
 	 */
-	async selectFromMoreActionsMenu(cellIndex: number, action: moreActionsMenuItems): Promise<void> {
+	async selectFromMoreActionsMenu(cellIndex: number, action: MoreActionsMenuItems): Promise<void> {
 		await test.step(`Select action from More Actions menu: ${action}`, async () => {
 			await this.moreActionsButtonAtIndex(cellIndex).click();
 			await this.moreActionsOption(action).click();
@@ -212,7 +219,7 @@ export class PositronNotebooks extends Notebooks {
 
 			// Wait for spinner to appear (cell is executing) and disappear (execution complete)
 			const spinner = this.spinnerAtIndex(cellIndex);
-			await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
+			await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => {
 				// Spinner might not appear for very fast executions, that's okay
 			});
 			await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
@@ -225,6 +232,7 @@ export class PositronNotebooks extends Notebooks {
 	async moveMouseAway(): Promise<void> {
 		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.mouse.move(0, 0);
+		await expect(this.cellInfoToolTip).toHaveCount(0);
 	}
 
 	/**
@@ -270,7 +278,7 @@ export class PositronNotebooks extends Notebooks {
 
 				if (waitForSpinner) {
 					const spinner = this.spinnerAtIndex(cellIndex);
-					await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
+					await expect(spinner).toBeVisible({ timeout: 2000 }).catch(() => {
 						// Spinner might not appear for very fast executions, that's okay
 					});
 					await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
@@ -340,69 +348,6 @@ export class PositronNotebooks extends Notebooks {
 
 			// Give a small delay for focus to settle
 			await this.code.driver.page.waitForTimeout(100);
-		});
-	}
-
-	/**
-	 * Action: Select interpreter and wait for the kernel to be ready.
-	 * This combines selecting the interpreter with waiting for kernel connection to prevent flakiness.
-	 * Directly implements Positron-specific logic without unnecessary notebook type detection.
-	 */
-	async selectAndWaitForKernel(
-		kernelGroup: 'Python' | 'R',
-		desiredKernel = kernelGroup === 'Python'
-			? process.env.POSITRON_PY_VER_SEL!
-			: process.env.POSITRON_R_VER_SEL!
-	): Promise<void> {
-		await test.step(`Select kernel and wait for ready: ${desiredKernel}`, async () => {
-			// Ensure notebook is visible
-			await this.expectToBeVisible();
-
-			// Wait for kernel detection to complete
-			await expect(this.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
-			await expect(this.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
-
-			// Get the kernel status badge using data-testid
-			await expect(this.kernelStatusBadge).toBeVisible({ timeout: 5000 });
-
-			try {
-				// Check if the desired kernel is already selected
-				const currentKernelText = await this.kernelStatusBadge.textContent();
-				if (currentKernelText && currentKernelText.includes(desiredKernel) && currentKernelText.includes('Connected')) {
-					this.code.logger.log(`Kernel already selected and connected: ${desiredKernel}`);
-					return;
-				}
-			} catch (e) {
-				this.code.logger.log('Could not check current kernel status');
-			}
-
-			// Need to select the kernel
-			try {
-				// Click on kernel status badge to open selection
-				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
-				await expect(async () => {
-					// we shouldn't need to retry this, but the input closes immediately sometimes
-					await this.contextMenu.triggerAndClick({
-						menuTrigger: this.kernelStatusBadge,
-						menuItemLabel: `Change Kernel...`
-					});
-					// this is a short wait because for some reason, 1st click always gets auto-closed in playwright :shrug:
-					await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
-
-					// Select the desired kernel
-					await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-					await this.quickinput.waitForQuickInputClosed();
-				}).toPass({ timeout: 10000 });
-
-				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
-			} catch (e) {
-				this.code.logger.log(`Failed to select kernel: ${e}`);
-				throw e;
-			}
-
-			// Wait for the kernel status to show "Connected"
-			await expect(this.kernelStatusBadge).toContainText(desiredKernel, { timeout: 30000 });
-			this.code.logger.log('Kernel is connected and ready');
 		});
 	}
 
@@ -531,6 +476,29 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Verify: Execution order for multiple cells.
+	 * @param executionOrders - { index, order }[] array specifying cell index, expected order.
+	 */
+	async expectExecutionOrder(executionOrders: { index: number; order: number | undefined }[],): Promise<void> {
+		for (const { index, order } of executionOrders) {
+			await test.step(`Expect execution order at index ${index} to be: ${order}`, async () => {
+				// attempting to make any tooltips dissapear
+				await this.code.driver.page.keyboard.press('Escape');
+				await this.moveMouseAway();
+
+				// hover over the run button to show the tooltip
+				await this.cell.nth(index).click();
+				await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
+
+				// make sure only the right tooltip is visible (i've been seeing multiple tooltips sometimes)
+				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible();
+				await expect(this.cellInfoToolTip).toHaveCount(1); // make sure this is the only tooltip visible
+				await this.expectToolTipToContain({ order }, DEFAULT_TIMEOUT);
+			});
+		}
+	}
+
+	/**
 	 * Verify: Spinner visibility in a cell.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param visible - Whether the spinner should be visible (true) or not (false).
@@ -627,7 +595,179 @@ export class PositronNotebooks extends Notebooks {
 			await expect(viewLines).toHaveCount(numLines, { timeout: DEFAULT_TIMEOUT });
 		});
 	}
+
+	/**
+	 * Verify: cell output at specified index matches expected output.
+	 * @param cellIndex - The index of the cell to check.
+	 * @param lines - The expected output lines.
+	 */
+	async expectOutputAtIndex(cellIndex: number, lines: string[]): Promise<void> {
+		await test.step(`Take/compare screenshot at index: ${cellIndex}`, async () => {
+			await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
+			await expect(this.cellOutput(cellIndex)).toBeVisible();
+			for (const line of lines) {
+				await expect(this.cellOutput(cellIndex).getByText(line)).toBeVisible();
+			}
+		});
+	}
 	// #endregion
 }
 
+// -----------------
+//     Kernel
+// -----------------
+export class Kernel {
+	statusBadge: Locator;
+	private activeStatus: Locator;
+	private idleStatus: Locator;
+	private disconnectedStatus: Locator;
 
+	constructor(private code: Code, private notebooks: PositronNotebooks, private contextMenu: ContextMenu, private hotKeys: HotKeys, private quickinput: QuickInput) {
+		this.statusBadge = this.code.driver.page.getByRole('button', { name: 'Kernel Actions' });
+		this.activeStatus = this.notebooks.editorActionBar.locator(ACTIVE_STATUS_ICON);
+		this.idleStatus = this.notebooks.editorActionBar.locator(IDLE_STATUS_ICON);
+		this.disconnectedStatus = this.notebooks.editorActionBar.locator(DISCONNECTED_STATUS_ICON);
+	}
+
+	// #region ACTIONS
+
+	/**
+	 * Action: Restart the notebook kernel and optionally wait for it to be ready.
+	 * @param param0 - { waitForRestart?: boolean } - Whether to wait for the kernel to be idle after restart (default: true).
+	 */
+	async restart({ waitForRestart = true }: { waitForRestart?: boolean } = {}): Promise<void> {
+		await test.step('Restart kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: /Restart Kernel/
+			});
+
+			if (waitForRestart) {
+				await this.expectStatusToBe('idle', 30000);
+			}
+		});
+	}
+
+	/**
+	 * Action: Shutdown the notebook kernel.
+	 */
+	async shutdown(): Promise<void> {
+		await test.step('Shutdown kernel', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: /Shutdown Kernel/
+			});
+			await this.expectStatusToBe('disconnected', 15000);
+		});
+	}
+
+	/**
+	 * Action: Select notebook kernel and optionally wait for it to be ready
+	 */
+	async select(
+		kernelGroup: 'Python' | 'R',
+		{ version, waitForReady = true }: { version?: string; waitForReady?: boolean } = {}
+	): Promise<void> {
+		const desiredKernel = version ?? (kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!);
+
+		await test.step(`Select kernel ${waitForReady ? '<waitForReady>' : ''}: ${desiredKernel}`, async () => {
+			await this.notebooks.expectToBeVisible();
+
+			// Wait for kernel detection to complete
+			await expect(this.notebooks.cellStatusSyncIcon).not.toBeVisible({ timeout: 30000 });
+			await expect(this.notebooks.detectingKernelsText).not.toBeVisible({ timeout: 30000 });
+			await expect(this.statusBadge).toBeVisible({ timeout: 5000 });
+
+
+			// Check if the desired kernel is already selected
+			const currentKernelText = await this.statusBadge.textContent();
+			if (currentKernelText && currentKernelText.includes(desiredKernel) && await this.idleStatus.isVisible()) {
+				this.code.logger.log(`Kernel already selected and ready: ${desiredKernel}`);
+				return;
+			}
+
+			// select the kernel
+			await this.hotKeys.selectNotebookKernel();
+			await this.quickinput.waitForQuickInputOpened({ timeout: 1000 });
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel, { timeout: 1000, force: false });
+			await this.quickinput.waitForQuickInputClosed();
+			this.code.logger.log(`Selected kernel: ${desiredKernel}`);
+
+			if (waitForReady) {
+				await this.expectKernelToBe({
+					kernelGroup,
+					kernelVersion: desiredKernel,
+					status: 'idle',
+					timeout: 30000
+				});
+				this.code.logger.log('Kernel is connected and ready/idle');
+			}
+		});
+	}
+	// #endregion
+
+	// #region VERIFICATIONS
+
+	/**
+	 * Verify: Kernel has expected status and version.
+	 * @param param0 - { kernelGroup, kernelVersion, status, timeout }
+	 */
+	async expectKernelToBe({
+		kernelGroup,
+		kernelVersion = kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!,
+		status = 'idle',
+		timeout = 20000 // longer than should be due to known lag
+	}: {
+		kernelGroup: 'Python' | 'R';
+		kernelVersion?: string;
+		status?: SessionState;
+		timeout?: number;
+	}): Promise<void> {
+		await test.step(`Expect kernel to be: ${status} - ${kernelVersion}`, async () => {
+			await expect(this.statusBadge).toContainText(kernelVersion, { timeout });
+			await this.expectStatusToBe(status, timeout);
+		});
+	}
+
+	/**
+	 * Verify: Kernel menu contains expected items.
+	 * @param menuItemStates - Array of expected menu item states.
+	 */
+	async expectMenuToContain(menuItemStates: MenuItemState[]): Promise<void> {
+		await test.step(`Verify kernel menu items: ${menuItemStates.map(item => item.label).join(', ')}`, async () => {
+			await this.contextMenu.triggerAndVerifyMenuItems({
+				menuTrigger: this.statusBadge,
+				menuItemStates: menuItemStates
+			});
+		});
+	}
+
+	/**
+	 * Verify: Kernel status is as expected.
+	 * @param expectedStatus - the kernel status (idle | active | disconnected)
+	 * @param timeout - the timeout for the expectation
+	 */
+	async expectStatusToBe(expectedStatus: SessionState, timeout = DEFAULT_TIMEOUT): Promise<void> {
+		await test.step(`Expect kernel status to be: ${expectedStatus}`, async () => {
+			const statusMap: Record<Exclude<SessionState, 'exited'>, Locator> = {
+				active: this.activeStatus,
+				idle: this.idleStatus,
+				disconnected: this.disconnectedStatus
+			};
+
+			// Use the mapped locator for the expected status
+			const locator = statusMap[expectedStatus];
+			if (!locator) {
+				throw new Error(`Unknown expected status: ${expectedStatus}`);
+			}
+			await expect(locator).toBeVisible({ timeout });
+		});
+	}
+
+	// #endregion
+
+}

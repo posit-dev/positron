@@ -58,6 +58,7 @@ const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> =
 	[SelectionState.MultiSelection]: [
 		SelectionState.MultiSelection,   // Modify selection
 		SelectionState.SingleSelection,  // Reduce to single cell
+		SelectionState.EditingSelection, // Enter edit mode for single cell
 		SelectionState.NoCells,          // All cells removed
 	],
 	[SelectionState.EditingSelection]: [

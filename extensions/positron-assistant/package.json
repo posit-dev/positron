@@ -186,6 +186,12 @@
         "title": "%commands.toggleInlineCompletions.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.managePromptFiles",
+        "title": "%commands.managePromptFiles.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && isDevelopment"
       }
     ],
     "configuration": [
@@ -277,6 +283,11 @@
               "preview"
             ]
           },
+          "positron.assistant.toolErrors.propagate": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.toolErrors.propagate.description%"
+          },
           "positron.assistant.alwaysIncludeCopilotTools": {
             "type": "boolean",
             "default": false,
@@ -328,6 +339,22 @@
                 "anthropic-api": "Claude Sonnet 4.5"
               }
             ]
+          },
+          "positron.assistant.providerVariables.bedrock": {
+            "type": "object",
+            "default": {},
+            "markdownDescription": "%configuration.providerVariables.bedrock.description%",
+            "properties": {
+              "AWS_PROFILE": {
+                "type": "string",
+                "default": null
+              },
+              "AWS_REGION": {
+                "type": "string",
+                "default": null
+              }
+            },
+            "additionalProperties": false
           }
         }
       }
@@ -479,10 +506,10 @@
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
         "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
-        "icon": "$(list)",
+        "icon": "$(positron-variables-view)",
         "toolReferenceName": "inspectVariables",
         "userDescription": "Inspect data and variables in the current session",
-        "canBeReferencedInPrompt": false,
+        "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -520,7 +547,7 @@
         "icon": "$(graph)",
         "toolReferenceName": "getPlot",
         "userDescription": "View the current active plot.",
-        "canBeReferencedInPrompt": false,
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
           "requires-session"
@@ -568,7 +595,10 @@
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
         "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
-        "canBeReferencedInPrompt": false,
+        "icon": "$(file-directory)",
+        "toolReferenceName": "projectTree",
+        "userDescription": "Get the project tree of the current workspace.",
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
           "requires-workspace",
@@ -641,7 +671,10 @@
         "name": "installPythonPackage",
         "displayName": "Install Python Package",
         "modelDescription": "Install Python packages using pip. Provide an array of package names to install.",
-        "canBeReferencedInPrompt": false,
+        "icon": "$(package)",
+        "toolReferenceName": "installPythonPackage",
+        "userDescription": "Install Python packages in the current environment",
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
         ],
@@ -698,7 +731,9 @@
     "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.367.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
-    "vscode-languageclient": "^9.0.1"
+    "squirrelly": "^9.1.0",
+    "vscode-languageclient": "^9.0.1",
+    "yaml": "^2.8.1"
   },
   "extensionDependencies": [
     "positron.positron-supervisor"

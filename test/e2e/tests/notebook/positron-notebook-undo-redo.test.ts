@@ -11,7 +11,7 @@ test.use({
 
 // Not running on web due to https://github.com/posit-dev/positron/issues/9193
 test.describe('Positron Notebooks: Cell Undo-Redo Behavior', {
-	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
 	test.beforeAll(async function ({ app, settings }) {

@@ -31,6 +31,22 @@ export enum KernelStatus {
 }
 
 /**
+ * Represents the types of operations that can be performed on a notebook.
+ * Used to track the context of cell additions and modifications to control
+ * automatic behavior like entering edit mode.
+ */
+export enum NotebookOperationType {
+	/** Normal cell insertion via UI or command */
+	InsertAndEdit = 'InsertAndEdit',
+	/** Cells added via paste operation */
+	Paste = 'Paste',
+	/** Cells restored via undo operation */
+	Undo = 'Undo',
+	/** Cells restored via redo operation */
+	Redo = 'Redo'
+}
+
+/**
  * Subset of INotebookEditor required to integrate with the extension API,
  * so we don't have to implement the entire INotebookEditor interface (...yet)
  * See mainThreadNotebookDocumentsAndEditors.ts and mainThreadNotebookEditors.ts.
@@ -58,6 +74,7 @@ type INotebookEditorForExtensionApi = Pick<
 	| 'revealCellRangeInView'
 	| 'revealInCenterIfOutsideViewport'
 	| 'revealInViewAtTop'
+	| 'onDidFocusWidget'
 >;
 
 /**
@@ -86,6 +103,12 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 * Used to determine if the notebook is currently being displayed.
 	 */
 	readonly connectedToEditor: boolean;
+
+	/**
+	 * Sets the DOM element that contains the entire notebook editor.
+	 * @param container The container element to set, or null to clear
+	 */
+	setEditorContainer(container: HTMLElement | null): void;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -177,8 +200,9 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 *
 	 * @param type The kind of cell to create (e.g., code, markdown)
 	 * @param index The position at which to insert the new cell
+	 * @param enterEditMode Whether to put the new cell into edit mode immediately
 	 */
-	addCell(type: CellKind, index: number): void;
+	addCell(type: CellKind, index: number, enterEditMode: boolean): void;
 
 	/**
 	 * Inserts a new code cell either above or below the current selection
@@ -274,6 +298,31 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	canPaste(): boolean;
 
 	/**
+	 * Gets the current notebook operation type that is in progress, if any.
+	 * This is used to track the context of cell additions and modifications to
+	 * control automatic behavior like entering edit mode. Operation is cleared
+	 * after being retrieved to ensure it only applies to the immediate next
+	 * action.
+	 * @returns The current operation type, or undefined if no operation is in
+	 * progress
+	 */
+	getAndResetCurrentOperation(): NotebookOperationType | undefined;
+
+	/**
+	 * Sets the current notebook operation type.
+	 * This should be called at the beginning of operations like paste, undo, or redo
+	 * to provide context for subsequent cell additions.
+	 * @param type The operation type to set
+	 */
+	setCurrentOperation(type: NotebookOperationType): void;
+
+	/**
+	 * Clears the current notebook operation type.
+	 * This should be called after the operation context is no longer needed.
+	 */
+	clearCurrentOperation(): void;
+
+	/**
 	 * Shows or focuses the notebook console for this notebook instance.
 	 */
 	showNotebookConsole(): void;
@@ -290,4 +339,10 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 * Called by React when scroll or DOM mutations occur.
 	 */
 	fireScrollEvent(): void;
+
+
+	/**
+	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.
+	 */
+	readonly onDidFocusWidget: Event<void>;
 }

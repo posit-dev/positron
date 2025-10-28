@@ -390,11 +390,32 @@ registerNotebookAction({
 	}
 });
 
-// Escape key: Exit edit mode when cell editor is focused
+/**
+ * Escape key: Exit edit mode when cell editor is focused.
+ * This command handles the keybinding for all cell types.
+ *
+ * This action has a counterpart command called
+ * `positronNotebook.cell.collapseMarkdownEditor` that is
+ * used to contribute the same functionality to markdown
+ * cell action bars. We should keep both commands in sync
+ * to ensure consistent behavior.
+ */
 registerNotebookAction({
 	commandId: 'positronNotebook.cell.quitEdit',
 	handler: (notebook) => {
-		notebook.selectionStateMachine.exitEditor();
+		const state = notebook.selectionStateMachine.state.get();
+		// check if we are in editing mode
+		if (state.type === SelectionState.EditingSelection) {
+			// get the selected cell that is being edited
+			const cell = state.selected;
+			// handle markdown cells differently
+			if (cell.isMarkdownCell() && cell.editorShown.get()) {
+				// This handles updating selection state and closing the editor
+				cell.toggleEditor();
+			} else {
+				notebook.selectionStateMachine.exitEditor();
+			}
+		}
 	},
 	keybinding: {
 		primary: KeyCode.Escape,
@@ -677,8 +698,14 @@ registerCellCommand({
 	}
 });
 
-
-// Collapse markdown editor (For action bar)
+/**
+ * Collapse markdown editor (For action bar)
+ *
+ * Handles contributing the behavior of
+ * `positronNotebook.cell.quitEdit` to markdown cell
+ * action bar. We should keep both commands in sync to
+ * ensure consistent behavior.
+ */
 registerCellCommand({
 	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
 	handler: (cell) => {
@@ -751,7 +778,7 @@ registerCellCommand({
 
 		// If this is the last cell, insert a new cell below of the same type
 		if (cell.isLastCell()) {
-			notebook.addCell(cell.kind, cell.index + 1);
+			notebook.addCell(cell.kind, cell.index + 1, true);
 			// Don't call moveDown - addCell triggers SelectionStateMachine._setCells()
 			// which already handles selection and focus of the new cell in Edit mode
 		} else {
@@ -948,7 +975,7 @@ registerNotebookAction({
 	commandId: 'positronNotebook.addCodeCellAtEnd',
 	handler: (notebook) => {
 		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Code, cellCount);
+		notebook.addCell(CellKind.Code, cellCount, true);
 	},
 	menu: {
 		id: MenuId.EditorActionsLeft,
@@ -968,7 +995,7 @@ registerNotebookAction({
 	commandId: 'positronNotebook.addMarkdownCellAtEnd',
 	handler: (notebook) => {
 		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Markup, cellCount);
+		notebook.addCell(CellKind.Markup, cellCount, true);
 	},
 	menu: {
 		id: MenuId.EditorActionsLeft,

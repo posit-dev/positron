@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import * as split2 from 'split2';
+import split2 from 'split2';
 import { LOGGER } from '../extension';
 import { checkInstalled, getLocale } from '../session';
 import { EXTENSION_ROOT_DIR } from '../constants';
