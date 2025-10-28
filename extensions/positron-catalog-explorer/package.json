@@ -56,9 +56,15 @@
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.openInSession",
+        "command": "posit.catalog-explorer.connectToTableInConsole",
         "category": "Catalogs",
-        "title": "Open in Session",
+        "title": "Connect to Table in Console",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.downloadFileInConsole",
+        "category": "Catalogs",
+        "title": "Download File in Console",
         "enablement": "view == catalog-explorer"
       },
       {
@@ -69,16 +75,30 @@
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.copyPythonCode",
+        "command": "posit.catalog-explorer.copyPythonCodeFile",
         "category": "Catalogs",
-        "title": "Copy Python Code",
+        "title": "Copy Python Code to Download File",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.copyRCode",
+        "command": "posit.catalog-explorer.copyPythonCodeTable",
         "category": "Catalogs",
-        "title": "Copy R Code",
+        "title": "Copy Python Code to Connect to Table",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyRCodeFile",
+        "category": "Catalogs",
+        "title": "Copy R Code to Download File",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyRCodeTable",
+        "category": "Catalogs",
+        "title": "Copy R Code to Connect to Table",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       }
@@ -137,8 +157,13 @@
           "group": "1_primary@2"
         },
         {
-          "command": "posit.catalog-explorer.openInSession",
-          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "command": "posit.catalog-explorer.downloadFileInConsole",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "1_primary@3"
+        },
+        {
+          "command": "posit.catalog-explorer.connectToTableInConsole",
+          "when": "view == catalog-explorer && viewItem == table",
           "group": "1_primary@3"
         },
         {
@@ -147,13 +172,23 @@
           "group": "2_copy@0"
         },
         {
-          "command": "posit.catalog-explorer.copyPythonCode",
-          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "command": "posit.catalog-explorer.copyPythonCodeFile",
+          "when": "view == catalog-explorer && viewItem == file",
           "group": "2_copy@1"
         },
         {
-          "command": "posit.catalog-explorer.copyRCode",
-          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "command": "posit.catalog-explorer.copyPythonCodeTable",
+          "when": "view == catalog-explorer && viewItem == table",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "posit.catalog-explorer.copyRCodeFile",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "2_copy@2"
+        },
+        {
+          "command": "posit.catalog-explorer.copyRCodeTable",
+          "when": "view == catalog-explorer && viewItem == table",
           "group": "2_copy@2"
         }
       ]
