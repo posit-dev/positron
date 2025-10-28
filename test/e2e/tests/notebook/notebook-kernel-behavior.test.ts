@@ -92,7 +92,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		// cell 3: render data frame with HTML
 		await notebooksPositron.addCodeToCell(2, rDataFrame, { run: true });
-		await notebooksPositron.expectOutputAtIndex(2, rawOutput);
+		await notebooksPositron.expectOutputAtIndex(2, cellOutput);
 
 		// verify execution orders
 		await notebooksPositron.expectExecutionOrder([
@@ -115,7 +115,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		]);
 
 		// verify html cell output persists and remains unchanged
-		await notebooksPositron.expectOutputAtIndex(2, rawOutput);
+		await notebooksPositron.expectOutputAtIndex(2, cellOutput);
 
 		// run cell 0 again and ensure execution order restarts at 1
 		await notebooksPositron.runCodeAtIndex(1);
@@ -134,7 +134,7 @@ age = c(25, 30, 35, 40),
 city = c("Austin", "Denver", "Chicago", "Seattle"),
 score = c(88, 92, 85, 95)`;
 
-const rawOutput = [
+const cellOutput = [
 	'name age city score',
 	'Alice 25 Austin 88',
 	'Bob 30 Denver 92',
