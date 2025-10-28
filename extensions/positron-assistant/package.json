@@ -291,12 +291,10 @@
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "Claude Opus 4*",
-              "Claude Sonnet 4*",
-              "Claude 4*",
-              "GPT-5*",
-              "anthropic/claude-*-4*",
-              "openai/gpt-5*"
+              "Claude*",
+              "GPT*",
+              "anthropic/claude*",
+              "openai/gpt*"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
