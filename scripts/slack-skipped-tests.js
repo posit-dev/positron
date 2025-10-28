@@ -25,7 +25,7 @@ const slackSkippedTests = (slackWebhookUrl) => {
 				},
 				{
 					mrkdwn_in: ['text'],
-					color: softFailedTests === '' ? '#CCCCCC' : '#FFF176',
+					color: softFailedTests === '' ? '#CCCCCC' : 'warning',
 					pretext: ':wrenchin: *Soft-Failed Tests*',
 					text: softFailedTests === '' ? 'There are no soft-failed tests. :tada:' : softFailedTests,
 				},
