@@ -202,7 +202,7 @@ export async function getSnowflakeCatalogs(
 		return {
 			id: `snowflake:${accountName}`,
 
-			dispose() {},
+			dispose() { },
 
 			getTreeItem() {
 				const item = new vscode.TreeItem(
@@ -324,7 +324,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	): Promise<string | undefined> {
 
 		const code = await generateCode(languageId, node, this.accountName);
-		return code.code;
+		return code?.code;
 	}
 
 	/**
@@ -344,15 +344,19 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		}
 
 		// Get the code to execute
-		const { code } = await generateCode(
+		const code = await generateCode(
 			session.runtimeMetadata.languageId,
 			node,
 			this.accountName
 		);
 
+		if (!code) {
+			return;
+		}
+
 		// Skip dependency checking
 		session.execute(
-			code,
+			code.code,
 			session.runtimeMetadata.languageId,
 			positron.RuntimeCodeExecutionMode.Interactive,
 			positron.RuntimeErrorBehavior.Continue,
@@ -460,15 +464,22 @@ async function generateCode(
 	languageId: string,
 	node: CatalogNode,
 	accountName: string,
-
-): Promise<{ code: string }> {
+): Promise<{ code: string } | undefined> {
 	const username = await vscode.window.showInputBox({
 		prompt: 'Enter your Snowflake username',
 		placeHolder: 'your-username@example.com'
 	});
 
 	if (!username) {
-		throw new Error('Username is required for code generation');
+		return;
+	}
+
+	const warehouse = await vscode.window.showInputBox({
+		prompt: 'Enter your warehouse name',
+		placeHolder: 'my-warehouse'
+	});
+	if (!warehouse) {
+		return;
 	}
 
 	// Extract database, schema, and table names from the path
@@ -479,9 +490,9 @@ async function generateCode(
 
 	switch (languageId) {
 		case 'python':
-			return getPythonCodeForSnowflakeTable(accountName, username, databaseName, schemaName, tableName);
+			return getPythonCodeForSnowflakeTable(accountName, username, warehouse, databaseName, schemaName, tableName);
 		case 'r':
-			return await getRCodeForSnowflakeTable(accountName, username, databaseName, schemaName, tableName);
+			return await getRCodeForSnowflakeTable(accountName, username, warehouse, databaseName, schemaName, tableName);
 		default:
 			throw new Error(`Code generation for language '${languageId}' is not supported for Snowflake`);
 	}
@@ -500,11 +511,12 @@ async function generateCode(
 function getPythonCodeForSnowflakeTable(
 	accountName: string,
 	username: string,
+	warehouse: string,
 	database?: string,
 	schema?: string,
 	table?: string
 ): { code: string; dependencies: string[] } {
-	const dependencies = ['snowflake-connector-python', 'pandas'];
+	const dependencies = ['snowflake-connector-python[secure-local-storage]', 'pandas'];
 
 	let code = `# pip install ${dependencies.join(' ')}\n`;
 
@@ -540,6 +552,7 @@ conn_params = {
 # Establish the connection
 conn = sc.connect(**conn_params)
 cursor = conn.cursor()
+cursor.execute("USE WAREHOUSE ${warehouse}")
 `;
 	// add query to fetch data from the specified table or default info
 	if (table) {
@@ -576,16 +589,12 @@ cursor.close()
 async function getRCodeForSnowflakeTable(
 	accountName: string,
 	username: string,
+	warehouse: string,
 	database?: string,
 	schema?: string,
 	table?: string
 ): Promise<{ code: string; dependencies: string[] }> {
 	const dependencies = ['DBI', 'odbc'];
-
-	const warehouse = await vscode.window.showInputBox({
-		prompt: 'Enter your warehouse name',
-		placeHolder: 'my-warehouse'
-	});
 
 	// Build a code template with the available parameters
 	let code = `library(odbc)
