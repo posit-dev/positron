@@ -1527,16 +1527,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Gets the storage scope for persistent sessions.
 	 *
-	 * When in an empty workspace, persistent sessions are stored in the profile
-	 * scope since there is no workspace to store them in. Otherwise, they are
-	 * stored in the workspace scope.
+	 * Currently, we always use the workspace scope for persistent sessions.
+	 * This isn't ideal because it means that the empty workspace doesn't get
+	 * persistent sessions in remote scenarios, but it avoids complications with
+	 * multiple empty workspaces having different sets of persistent sessions.
 	 *
 	 * @returns The storage scope for persistent sessions.
 	 */
 	private getPersistentSessionStorageScope(): StorageScope {
-		if (this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY) {
-			return StorageScope.PROFILE;
-		}
 		return StorageScope.WORKSPACE;
 	}
 

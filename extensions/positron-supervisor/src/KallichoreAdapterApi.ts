@@ -684,13 +684,7 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param state The server state to save, or undefined to clear the saved state.
 	 */
 	private saveServerState(state: KallichoreServerState | undefined) {
-		if (vscode.workspace.workspaceFolders) {
-			// If there's a workspace, save the state in workspace storage
-			this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
-		} else {
-			// Otherwise, save it in global storage
-			this._context.globalState.update(KALLICHORE_STATE_KEY, state);
-		}
+		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
 
 	/**
@@ -699,13 +693,7 @@ export class KCApi implements PositronSupervisorApi {
 	 * @returns The saved server state, or undefined if not found.
 	 */
 	private loadServerState(): KallichoreServerState | undefined {
-		if (vscode.workspace.workspaceFolders) {
-			// If there's a workspace, load the state from workspace storage
-			return this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
-		} else {
-			// Otherwise, load it from global storage
-			return this._context.globalState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
-		}
+		return this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 	}
 
 	/***

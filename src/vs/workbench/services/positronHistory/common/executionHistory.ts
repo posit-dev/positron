@@ -15,7 +15,6 @@ import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtime
 import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
 import { SessionInputHistory } from './sessionInputHistory.js';
 import { LanguageInputHistory } from './languageInputHistory.js';
-import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 
 /**
  * Service that manages execution and input histories for all runtimes.
@@ -50,8 +49,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
 
@@ -313,9 +311,10 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @returns The storage scope to use for histories.
 	 */
 	private getStorageScope(): StorageScope {
-		return this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
-			StorageScope.PROFILE :
-			StorageScope.WORKSPACE;
+		// Consider: Always storing the histories in workspace scope means that
+		// they can be lost for empty workspaces, especially on remote
+		// environments.
+		return StorageScope.WORKSPACE;
 	}
 }
 
