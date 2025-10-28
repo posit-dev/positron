@@ -13,9 +13,12 @@ import {
 } from '../catalog';
 import { resourceUri } from '../resources';
 import { getPositronAPI } from '../positron';
+import { traceError, traceLog } from '../logging';
 
 // Key for storing recent Snowflake account names
 const RECENT_SNOWFLAKE_ACCOUNTS_KEY = 'recentSnowflakeAccounts';
+
+export type SnowflakeLogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
 
 export const registration: CatalogProviderRegistration = {
 	label: 'Snowflake',
@@ -37,7 +40,7 @@ export const registration: CatalogProviderRegistration = {
 			}
 		}
 		if (!accountName) {
-			console.log('Could not determine account name for provider being removed');
+			traceLog('Could not determine account name for provider being removed');
 			return;
 		}
 
@@ -50,8 +53,7 @@ export const registration: CatalogProviderRegistration = {
 		// We don't have any stored credentials to clear since we use browser SSO
 		// Just dispose the provider, which will close the connection if needed
 		provider.dispose();
-		console.log(`Successfully removed Snowflake account: ${accountName}`);
-
+		traceLog(`Successfully removed Snowflake account: ${accountName}`);
 	},
 	listProviders: getSnowflakeCatalogs,
 };
@@ -137,6 +139,16 @@ export async function registerSnowflakeCatalog(
 		if (!account) {
 			return undefined;
 		}
+
+		// Place snowflake logs in users workspace folder if available
+		const config = vscode.workspace.getConfiguration('catalogExplorer');
+		const logLevelStr = config.get<string>('logLevel', 'INFO') as SnowflakeLogLevel;
+
+		snowflake.configure({
+			logLevel: logLevelStr,
+			logFilePath: vscode.workspace.workspaceFolders
+				? vscode.workspace.workspaceFolders[0].uri.fsPath : undefined
+		});
 
 		const connection = snowflake.createConnection({
 			account: account,
@@ -259,7 +271,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		// Destroy the Snowflake connection
 		this.connection.destroy((err) => {
 			if (err) {
-				console.error('Error destroying Snowflake connection:', err);
+				traceError('Error destroying Snowflake connection:', err);
 			}
 		});
 	}
@@ -303,7 +315,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 			// Default case - return empty array
 			return [];
 		} catch (error) {
-			console.error('Error getting Snowflake children:', error);
+			traceError('Error getting Snowflake children:', error);
 			vscode.window.showErrorMessage(
 				`Failed to retrieve Snowflake data: ${error instanceof Error ? error.message : String(error)}`,
 			);
@@ -393,7 +405,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 				return new CatalogNode(db.name, 'catalog', this);
 			});
 		} catch (error) {
-			console.error('Error listing databases:', error);
+			traceError('Error listing databases:', error);
 			vscode.window.showErrorMessage(
 				`Failed to list Snowflake databases: ${error instanceof Error ? error.message : String(error)}`,
 			);
@@ -418,7 +430,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 				);
 			});
 		} catch (error) {
-			console.error(
+			traceError(
 				`Error listing schemas in database ${databaseName}:`,
 				error,
 			);
@@ -443,7 +455,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 				return new CatalogNode(`${schemaPath}.${table.name}`, 'table', this);
 			});
 		} catch (error) {
-			console.error(`Error listing tables in schema ${schemaPath}:`, error);
+			traceError(`Error listing tables in schema ${schemaPath}:`, error);
 			vscode.window.showErrorMessage(
 				`Failed to list tables in ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
 			);
