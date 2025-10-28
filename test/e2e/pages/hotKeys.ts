@@ -252,6 +252,18 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J M', 'Show the DE Summary Panel on Right');
 	}
 
+	// -----------------------
+	// ---  Debug Actions  ---
+	// -----------------------
+
+	public async debugCell() {
+		await this.pressHotKeys('Cmd+L A', 'Debugger: Debug Cell');
+	}
+
+	public async clearAllBreakpoints() {
+		await this.pressHotKeys('Cmd+J S', 'Debugger: Clear All Breakpoints');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.

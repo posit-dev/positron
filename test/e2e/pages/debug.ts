@@ -5,6 +5,8 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { HotKeys } from './hotKeys.js';
+import { QuickAccess } from './quickaccess.js';
 
 
 const GLYPH_AREA = '.margin-view-overlays>:nth-child';
@@ -35,9 +37,10 @@ export class Debug {
 	get callStackSection(): Locator { return this.code.driver.page.getByRole('button', { name: 'Call Stack Section' }); }
 	get callStack(): Locator { return this.code.driver.page.locator(DEBUG_CALL_STACK); }
 	stackAtIndex = (index: number) => this.callStack.locator(`.monaco-list-row[data-index="${index}"]`);
+	debugPane: Locator;
 
-	constructor(private code: Code) {
-
+	constructor(private code: Code, private hotKeys: HotKeys, private quickaccess: QuickAccess) {
+		this.debugPane = this.code.driver.page.locator('.debug-pane');
 	}
 
 	async setBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
@@ -46,6 +49,10 @@ export class Debug {
 			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
 			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH).nth(index)).toBeVisible();
 		});
+	}
+
+	async clearBreakpoints(): Promise<void> {
+		await this.hotKeys.clearAllBreakpoints();
 	}
 
 	async unSetBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
@@ -62,6 +69,16 @@ export class Debug {
 		});
 	}
 
+	async debugCell(): Promise<void> {
+		await test.step('Debug notebook', async () => {
+			await expect(this.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible();
+			// Prefer to use hotkey but there is an issue with yellow marker not showing
+			// await this.hotKeys.debugCell();
+			await this.quickaccess.runCommand('notebook.debugCell');
+			await this.expectCurrentLineIndicatorVisible();
+		});
+	}
+
 	async getVariables(): Promise<string[]> {
 		const variableLocators = await this.code.driver.page.locator(VARIABLE).all();
 
@@ -74,6 +91,14 @@ export class Debug {
 		}
 
 		return variables;
+	}
+
+	async expectVariablesToExist(variables: { label: string; value: string }[]): Promise<void> {
+		for (const variable of variables) {
+			await test.step(`Verify variable exists: ${variable.label} with value: ${variable.value}`, async () => {
+				await expect(this.debugPane.getByText(`${variable.label} =${variable.value}`)).toBeVisible();
+			});
+		}
 	}
 
 	async stepOver(): Promise<any> {
