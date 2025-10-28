@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -30,17 +30,18 @@ import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellT
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeService, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { autorun, observableValue, runOnChange } from '../../../../base/common/observable.js';
+import { autorunDelta, observableFromEvent, observableValue, runOnChange } from '../../../../base/common/observable.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { cellToCellDto2, serializeCellsToClipboard } from './cellClipboardUtils.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
+import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
@@ -52,30 +53,39 @@ interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookIn
  * defines how the notebook UI interprets runtime session states and displays
  * them to the user as kernel connection status. As we expand the states we
  * report this map will evolve.
- *
- * States are grouped by their semantic meaning:
- * - Connecting: Runtime is initializing or starting
- * - Connected: Runtime is operational and ready to execute code
- * - Disconnected: Runtime has ended or is shutting down
  */
-const RUNTIME_STATE_TO_KERNEL_STATUS: Partial<Record<RuntimeState, KernelStatus>> = {
+const RUNTIME_STATE_TO_KERNEL_STATUS: Record<RuntimeState, KernelStatus> = {
 	// Runtime is starting up
-	[RuntimeState.Uninitialized]: KernelStatus.Connecting,
-	[RuntimeState.Initializing]: KernelStatus.Connecting,
-	[RuntimeState.Starting]: KernelStatus.Connecting,
-	[RuntimeState.Restarting]: KernelStatus.Connecting,
+	[RuntimeState.Uninitialized]: KernelStatus.Starting,
+	[RuntimeState.Initializing]: KernelStatus.Starting,
+	[RuntimeState.Starting]: KernelStatus.Starting,
+	[RuntimeState.Restarting]: KernelStatus.Restarting,
 
 	// Runtime is operational
-	[RuntimeState.Ready]: KernelStatus.Connected,
-	[RuntimeState.Idle]: KernelStatus.Connected,
-	[RuntimeState.Busy]: KernelStatus.Connected,
-	[RuntimeState.Interrupting]: KernelStatus.Connected,
+	[RuntimeState.Ready]: KernelStatus.Idle,
+	[RuntimeState.Idle]: KernelStatus.Idle,
+	[RuntimeState.Interrupting]: KernelStatus.Idle,
+
+	// Runtime is busy
+	[RuntimeState.Busy]: KernelStatus.Busy,
+
+	// Runtime is exiting
+	[RuntimeState.Exiting]: KernelStatus.Exiting,
 
 	// Runtime is shutting down or ended
-	[RuntimeState.Exiting]: KernelStatus.Disconnected,
-	[RuntimeState.Exited]: KernelStatus.Disconnected,
-	[RuntimeState.Offline]: KernelStatus.Disconnected,
+	[RuntimeState.Exited]: KernelStatus.Exited,
+	[RuntimeState.Offline]: KernelStatus.Exited,
 } as const;
+
+const RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS: Record<RuntimeStartupPhase, KernelStatus> = {
+	[RuntimeStartupPhase.Initializing]: KernelStatus.Discovering,
+	[RuntimeStartupPhase.AwaitingTrust]: KernelStatus.Discovering,
+	[RuntimeStartupPhase.Reconnecting]: KernelStatus.Discovering,
+	[RuntimeStartupPhase.Starting]: KernelStatus.Discovering,
+	[RuntimeStartupPhase.Discovering]: KernelStatus.Unselected,
+	[RuntimeStartupPhase.Complete]: KernelStatus.Unselected,
+} as const;
+
 
 /**
  * Implementation of IPositronNotebookInstance that handles the core notebook functionality
@@ -283,12 +293,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Status of kernel for the notebook.
 	 */
-	kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
+	kernelStatus;
 
 	/**
-	 * Current runtime for the notebook.
+	 * The current selected notebook kernel.
 	 */
-	runtimeSession;
+	kernel;
 
 	/**
 	 * Language for the notebook.
@@ -360,6 +370,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		private _input: PositronNotebookEditorInput,
 		private _creationOptions: INotebookEditorCreationOptions | undefined,
 		@ICommandService private readonly _commandService: ICommandService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
@@ -378,45 +389,78 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
-		// Track the current runtime session for this notebook
-		this.runtimeSession = observableValue('positronNotebookRuntimeSession', this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri));
-		this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
-			if (isNotebookLanguageRuntimeSession(session) && this._isThisNotebook(session.metadata.notebookUri)) {
-				this.runtimeSession.set(session, undefined);
-			}
+		const { startupPhase } = this._languageRuntimeService;
+		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS[startupPhase]);
+
+		if (this.kernelStatus.get() === KernelStatus.Discovering) {
+			const d = this._register(new DisposableStore());
+			// Watch for discovery to complete
+			d.add(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(startupPhase => {
+				const kernelStatus = RUNTIME_STARTUP_PHASE_TO_KERNEL_STATUS[startupPhase];
+				if (kernelStatus !== KernelStatus.Discovering) {
+					d.dispose();
+					this.kernelStatus.set(kernelStatus, undefined);
+				}
+			}));
+			// Stop listening if we leave the preparing status from elsewhere
+			// e.g. if a runtime session starts for the notebook
+			d.add(runOnChange(this.kernelStatus, (kernelStatus) => {
+				if (kernelStatus !== KernelStatus.Discovering) {
+					d.dispose();
+				}
+			}));
+		}
+
+		// Attach existing runtime session for the notebook if any
+		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri);
+		if (runtimeSession) {
+			this._maybeAttachSession(runtimeSession);
+		}
+
+		// Attach any runtime sessions that start for the notebook
+		this._register(this.runtimeSessionService.onWillStartSession(({ session }) => {
+			this._maybeAttachSession(session);
 		}));
 
-		// Clear the runtime session observable when the session ends and update kernel status
-		this._register(autorun(reader => {
-			const session = this.runtimeSession.read(reader);
-			if (session) {
-				// Update kernel status based on current runtime state
-				const runtimeState = session.getRuntimeState();
-				const kernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState] ?? KernelStatus.Errored;
-				this.kernelStatus.set(kernelStatus, undefined);
+		// Observe the current selected kernel from the notebook kernel service
+		this.kernel = observableFromEvent(
+			this,
+			Event.filter(this.notebookKernelService.onDidChangeSelectedNotebooks, ({ notebook }) => this._isThisNotebook(notebook)),
+			() => {
+				/** @description positronNotebookInstanceKernel */
+				const { selected } = this.notebookKernelService.getMatchingKernel({
+					uri: this.uri,
+					notebookType: this._input.viewType,
+				});
+				if (selected) {
+					if (selected instanceof RuntimeNotebookKernel) {
+						return selected;
+					} else {
+						this._logService.warn(this._id, `Ignoring unknown kernel ${selected.id} for notebook ${this.uri}`);
+					}
+				}
+				return;
+			},
+		);
 
-				// Listen for runtime state changes and update kernel status accordingly
-				this._register(session.onDidChangeRuntimeState((newState) => {
-					const newKernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[newState] ?? KernelStatus.Errored;
-					this.kernelStatus.set(newKernelStatus, undefined);
-				}));
-
-				const d = this._register(session.onDidEndSession(() => {
-					// Clean up the previous listener. The final one will get
-					// taken care of by the main disposal logic
-					d.dispose();
-					this.runtimeSession.set(undefined, undefined);
-					this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
-				}));
+		// If a new kernel is selected for this notebook, attach its runtime
+		this._register(autorunDelta(this.kernel, ({ lastValue: oldKernel, newValue: newKernel }) => {
+			if (newKernel) {
+				if (oldKernel) {
+					this.kernelStatus.set(KernelStatus.Switching, undefined);
+				} else {
+					// If the kernel was selected but the runtime isn't attached yet, set the kernel status to
+					// starting. We expect the runtimeSession to be attached soon, at which point we'll
+					// update the kernel status to the runtime session state
+					this.kernelStatus.set(KernelStatus.Starting, undefined);
+				}
 			} else {
-				// No session - reset to uninitialized
-				this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 			}
 		}));
 
 		// Derive the notebook language from the runtime session
-		this._language = this.runtimeSession.map(
-			session => /** @description positronNotebookLanguage */ session?.runtimeMetadata.languageId ?? 'plaintext'
+		this._language = this.kernel.map(
+			kernel => /** @description positronNotebookLanguage */ kernel?.runtime?.languageId ?? 'plaintext'
 		);
 
 		this.contextManager = this._register(
@@ -1021,7 +1065,59 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Private Methods
 
+	private readonly _runtimeSessionDisposables = this._register(new MutableDisposable<DisposableStore>());
 
+	private _maybeAttachSession(session: ILanguageRuntimeSession): void {
+		// TODO: If we only update dynstate in the runtime session service, we'll need to update this check and probably others
+		// Only attach the session for this notebook
+		if (!isNotebookLanguageRuntimeSession(session) ||
+			!this._isThisNotebook(session.metadata.notebookUri)) {
+			return;
+		}
+
+		// Ignore sessions that don't match the selected kernel's runtime
+		// This shouldn't happen and probably indicates a bug
+		const kernelRuntimeId = this.kernel.get()?.runtime.runtimeId;
+		const sessionRuntimeId = session.runtimeMetadata.runtimeId;
+		if (kernelRuntimeId !== session.runtimeMetadata.runtimeId) {
+			this._logService.warn(this._id,
+				`Unexpected session started for notebook ${this.uri.fsPath}. ` +
+				`Expected runtime ${kernelRuntimeId}, found ${sessionRuntimeId}`);
+			return;
+		}
+
+		this.kernelStatus.set(RUNTIME_STATE_TO_KERNEL_STATUS[session.getRuntimeState()], undefined);
+
+		const disposables = this._runtimeSessionDisposables.value = new DisposableStore();
+
+		// Clean up when the session ends
+		this._register(session.onDidEndSession(() => {
+			disposables.dispose();
+			this.kernelStatus.set(KernelStatus.Exited, undefined);
+		}));
+
+		// Listen for runtime state changes and update kernel status accordingly
+		disposables.add(session.onDidChangeRuntimeState((runtimeState) => {
+			const kernelStatus = this.kernelStatus.get();
+			// Detach if we're switching kernels and the old session starts exiting
+			// We'll update the kernel status when attaching to the new session
+			if (kernelStatus === KernelStatus.Switching &&
+				(runtimeState === RuntimeState.Exiting ||
+					runtimeState === RuntimeState.Exited ||
+					runtimeState === RuntimeState.Offline ||
+					runtimeState === RuntimeState.Uninitialized)) {
+				disposables.dispose();
+			} else {
+				const kernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[runtimeState];
+				this.kernelStatus.set(kernelStatus, undefined);
+
+				// Detach when restart sequence starts - ignore intermediate states
+				if (kernelStatus === KernelStatus.Restarting) {
+					disposables.dispose();
+				}
+			}
+		}));
+	}
 
 	private _assertTextModel(): asserts this is IPositronNotebookInstanceRequiredTextModel {
 		if (this.textModel === undefined) {
@@ -1102,8 +1198,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._assertTextModel();
 
-		// Make sure we have a kernel to run the cells.
-		if (this.kernelStatus.get() !== KernelStatus.Connected) {
+		if (!this.kernel.get()) {
+			// Make sure we have a kernel to run the cells.
 			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
