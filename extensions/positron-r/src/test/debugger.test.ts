@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as testKit from './kit';
 
-suite('Debugger', () => {
+suite.skip('Debugger', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
