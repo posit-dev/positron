@@ -217,6 +217,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
 
+				this._notificationService.info(`This is workspace ${this._workspaceContextService.getWorkspace().id}, window ${this._localWindowId}, startup phase complete.`);
+
 				// Check to see if every single language runtime has been disabled.
 				const languageIds = this._languagePacks.keys();
 				let allDisabled = true;
