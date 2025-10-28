@@ -89,13 +89,15 @@ export class RemoteWSLResolver implements vscode.RemoteAuthorityResolver, vscode
 				if (context.resolveAttempt === 1) {
 					this.logger.show();
 
-					const closeRemote = 'Close Remote';
-					const retry = 'Retry';
-					const result = await vscode.window.showErrorMessage(`Could not establish connection to WSL distro "${distroName}"`, { modal: true }, closeRemote, retry);
-					if (result === closeRemote) {
-						await vscode.commands.executeCommand('workbench.action.remote.close');
-					} else if (result === retry) {
-						await vscode.commands.executeCommand('workbench.action.reloadWindow');
+					if (!(e instanceof ServerInstallError)) {
+						const closeRemote = 'Close Remote';
+						const retry = 'Retry';
+						const result = await vscode.window.showErrorMessage(`Could not establish connection to WSL distro "${distroName}"`, { modal: true }, closeRemote, retry);
+						if (result === closeRemote) {
+							await vscode.commands.executeCommand('workbench.action.remote.close');
+						} else if (result === retry) {
+							await vscode.commands.executeCommand('workbench.action.reloadWindow');
+						}
 					}
 				}
 

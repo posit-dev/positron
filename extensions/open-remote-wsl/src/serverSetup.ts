@@ -300,7 +300,7 @@ if [[ ! -f $SERVER_SCRIPT ]]; then
 
     if (( $? > 0 )); then
         echo "Error downloading server from $SERVER_DOWNLOAD_URL"
-        print_install_results_and_exit 1
+        print_install_results_and_exit 66
     fi
 
     tar -xf vscode-server.tar.gz --strip-components 1
