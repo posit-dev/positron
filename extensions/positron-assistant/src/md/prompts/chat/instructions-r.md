@@ -1,3 +1,12 @@
+---
+mode:
+  - ask
+  - edit
+  - agent
+order: 100
+description: Prompt for when an R session is running
+---
+{{@if(positron.sessions.map(function(s){return s.languageId}).includes("r"))}}
 <style-r>
 When writing R code you generally follow tidyverse coding style and principles.
 
@@ -271,3 +280,4 @@ diamonds_summary_numeric <- diamonds |>
   )
 ```
 </examples-r>
+{{/if}}

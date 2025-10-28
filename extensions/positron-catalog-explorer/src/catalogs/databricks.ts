@@ -18,6 +18,7 @@ import { resourceUri } from '../resources';
 import { DefaultDatabricksCredentialProvider } from '../credentials';
 import { getPositronAPI } from '../positron';
 import path from 'path';
+import { traceLog, traceWarn } from '../logging.js';
 
 const registration: CatalogProviderRegistration = {
 	label: 'Databricks',
@@ -33,7 +34,7 @@ const registration: CatalogProviderRegistration = {
 		const registered = context.globalState.get<string[]>(STATE_KEY);
 		if (!registered || !registered.includes(workspaceUrl)) {
 			// If not in storage, could be a duplicate removal or already removed
-			console.log(
+			traceLog(
 				`Workspace ${workspaceUrl} not found in registered workspaces`,
 			);
 
@@ -113,6 +114,24 @@ async function registerDatabricksCatalog(
 	if (!token) {
 		return;
 	}
+
+	// Validate the token by checking if the user is available
+	try {
+		const userResponse = await fetch(`${workspace}/api/2.0/workspace/list?path=/&limit=1`, {
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+		});
+
+		if (!userResponse.ok) {
+			throw new Error(`Could not validate login: ${userResponse.status} ${userResponse.statusText}`);
+		}
+	} catch (error) {
+		vscode.window.showErrorMessage(`Failed to validate Databricks credentials: ${error}`);
+		throw error;
+	}
+
 	const registered = context.globalState.get<string[]>(STATE_KEY);
 	const next: Set<string> = registered ? new Set(registered) : new Set();
 	next.add(workspace);
@@ -345,7 +364,7 @@ export class DatabricksCatalogProvider implements CatalogProvider {
 		if (session.runtimeMetadata.languageId === 'r') {
 			// For R, we would normally ensure dependencies, but we'll skip this step
 			// due to the type incompatibility between BaseLanguageRuntimeSession and LanguageRuntimeSession
-			console.warn('R session dependencies check skipped - using catalog items may require manual package installation');
+			traceWarn('R session dependencies check skipped - using catalog items may require manual package installation');
 		}
 
 		session.execute(

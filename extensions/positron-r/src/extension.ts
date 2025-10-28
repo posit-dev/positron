@@ -15,6 +15,7 @@ import { registerUriHandler } from './uri-handler';
 import { registerRLanguageModelTools } from './llm-tools.js';
 import { registerFileAssociations } from './file-associations.js';
 import { PositronSupervisorApi } from './positron-supervisor';
+import { registerRFilePasteAndDropProvider } from './languageFeatures/rFilePasteAndDropProvider.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -42,6 +43,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register file associations.
 	registerFileAssociations();
+
+	// Register R file paste and drop provider.
+	registerRFilePasteAndDropProvider(context);
 
 	// Prepare to handle cli-produced hyperlinks that target the positron-r extension.
 	registerUriHandler();

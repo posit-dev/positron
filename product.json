@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.24",
+			"version": "1.6.26",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "dd1839f389af21510551c8d9c648e95bc67c36b918d73b8d9d757c4e5f3b71a6",
+			"sha256": "15e9445b90b8eefe5fa3b6e461027f0579ec6482560e10549a630ba23a2322d6",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -182,8 +182,8 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2025.8.0",
-			"sha256sum": "3e0373fe1b309660e6e53189ab7ad34f7e374d3c7a76b8e4621d6a5b93d4caae",
+			"version": "2025.9.1",
+			"sha256sum": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.15",
+			"version": "1.23.16",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -281,8 +281,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.118.2",
-			"sha256": "c397647f9b4286292abb85e07ad466a968d0aa6c120e75f770a4f421b4c3d9bd",
+			"version": "0.120.1",
+			"sha256": "707ca25c651817d67cc2826cdbb08fb8664afa3520f33c8c243c0547263aad2f",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {

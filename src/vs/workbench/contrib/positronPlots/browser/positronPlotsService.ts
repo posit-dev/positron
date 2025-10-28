@@ -76,7 +76,11 @@ const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
 /** The config key used to store the dark mode setting */
-const DarkFilterModeConfigKey = 'positron.plots.darkFilter';
+const OldDarkFilterModeConfigKey = 'positron.plots.darkFilter';
+const DarkFilterModeConfigKey = 'plots.darkFilter';
+
+/** The config key used to store the default plot sizing policy setting */
+const DefaultSizingPolicyConfigKey = 'plots.defaultSizingPolicy';
 
 interface DataUri {
 	mime: string;
@@ -320,10 +324,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}));
 
 		// Listen for changes to the dark mode configuration
-		this._selectedDarkFilterMode = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey) ?? DarkFilter.Auto;
+		this._selectedDarkFilterMode = this.getDarkFilterSetting();
 		this._register(this._configurationService.onDidChangeConfiguration((evt) => {
-			if (evt.affectsConfiguration(DarkFilterModeConfigKey)) {
-				const newMode = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey);
+			if (evt.affectsConfiguration(DarkFilterModeConfigKey) || evt.affectsConfiguration(OldDarkFilterModeConfigKey)) {
+				const newMode = this.getDarkFilterSetting();
 				if (newMode && newMode !== this.darkFilterMode) {
 					this._selectedDarkFilterMode = newMode;
 					this._onDidChangeDarkFilterMode.fire(newMode);
@@ -500,10 +504,31 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Gets the current dark filter mode
+	 * Gets the dark filter setting value, checking both new and old settings.
+	 * @returns The dark filter mode
 	 */
+	private getDarkFilterSetting(): DarkFilter {
+		// First check the new setting
+		const newValue = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey);
+		if (newValue !== undefined) {
+			return newValue;
+		}
+
+		// Fall back to the old setting
+		return this._configurationService.getValue<DarkFilter>(OldDarkFilterModeConfigKey) ?? DarkFilter.Auto;
+	}
+
 	get darkFilterMode() {
 		return this._selectedDarkFilterMode;
+	}
+
+	/**
+	 * Gets the default sizing policy as defined in the setting.
+	 */
+	getDefaultSizingPolicy(): IPositronPlotSizingPolicy {
+		const defaultPolicyId = this._configurationService.getValue<string>(DefaultSizingPolicyConfigKey) ?? 'auto';
+		const policy = this._sizingPolicies.find(policy => policy.id === defaultPolicyId);
+		return policy ?? this._sizingPolicies.find(policy => policy.id === 'auto')!;
 	}
 
 	/**
@@ -1497,10 +1522,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
-		// for Python plots, use intrinsic sizing policy as default
-		this._selectedSizingPolicy = metadata.language === 'python' ? this._intrinsicSizingPolicy : this._selectedSizingPolicy;
-		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
-			?? this._selectedSizingPolicy;
+		// Get the default sizing policy from configuration
+		let defaultSizingPolicy = this.getDefaultSizingPolicy();
+
+		// for Python plots, use intrinsic sizing policy as default if configured policy is auto
+		if (metadata.language === 'python' && defaultSizingPolicy.id === 'auto') {
+			defaultSizingPolicy = this._intrinsicSizingPolicy;
+		}
+
+		// Use existing sizing policy if specified, otherwise use the default
+		const sizingPolicy =
+			this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
+			?? defaultSizingPolicy;
+
 		metadata.sizing_policy = {
 			id: sizingPolicy.id,
 			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined

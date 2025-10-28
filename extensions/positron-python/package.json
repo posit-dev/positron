@@ -797,7 +797,7 @@
                     "type": "string"
                 },
                 "python.locator": {
-                    "default": "js",
+                    "default": "native",
                     "markdownDescription": "%python.locator.description%",
                     "enum": [
                         "js",
@@ -974,6 +974,12 @@
                     "markdownDescription": "%python.enableAutoReload.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.autoConvertFilePaths": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "%python.autoConvertFilePaths.description%",
+                    "scope": "resource"
                 }
             },
             "title": "Python",
