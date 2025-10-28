@@ -74,6 +74,7 @@ type INotebookEditorForExtensionApi = Pick<
 	| 'revealCellRangeInView'
 	| 'revealInCenterIfOutsideViewport'
 	| 'revealInViewAtTop'
+	| 'onDidFocusWidget'
 >;
 
 /**
@@ -102,6 +103,12 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 * Used to determine if the notebook is currently being displayed.
 	 */
 	readonly connectedToEditor: boolean;
+
+	/**
+	 * Sets the DOM element that contains the entire notebook editor.
+	 * @param container The container element to set, or null to clear
+	 */
+	setEditorContainer(container: HTMLElement | null): void;
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -332,4 +339,10 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 * Called by React when scroll or DOM mutations occur.
 	 */
 	fireScrollEvent(): void;
+
+
+	/**
+	 * Event that fires when the notebook editor widget or a cell editor within it gains focus.
+	 */
+	readonly onDidFocusWidget: Event<void>;
 }

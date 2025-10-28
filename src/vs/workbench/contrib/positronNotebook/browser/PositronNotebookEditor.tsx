@@ -357,6 +357,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			throw new Error('Base element is not set.');
 		}
 
+		// Set the editor container for focus tracking
+		this.notebookInstance.setEditorContainer(this._parentDiv);
+
 		// Create a scoped context key service rooted at the notebook container so cell scopes inherit it.
 		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
