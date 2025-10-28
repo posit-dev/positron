@@ -14,6 +14,7 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -60,11 +61,35 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const disposables = new DisposableStore();
 
 		const language = cell.cellModel.language;
-		// Use the cell-level scoped context key service instead of creating a new one
-		// CodeEditorWidget will create its own scoped service on the editor element internally
-		const editorInstaService = cellContextKeyService
-			? services.instantiationService.createChild(new ServiceCollection([IContextKeyService, cellContextKeyService]))
-			: services.instantiationService;
+
+		// We need to ensure the EditorProgressService (or a fake) is available
+		// in the service collection because monaco editors will try and access
+		// it even though it's not available in the notebook context. This feels
+		// hacky but VSCode notebooks do the same thing so I guess it's easier
+		// than fixing it at the monaco level.
+		const serviceCollection = new ServiceCollection(
+			[
+				IEditorProgressService,
+				// Create a simple no-op IEditorProgressService for editor contributions
+				// Based on pattern from codeBlockPart.ts in chat contrib
+				new class implements IEditorProgressService {
+					_serviceBrand: undefined;
+					show() {
+						// No-op progress indicator for notebook cell editors
+						return { done: () => { }, total: () => { }, worked: () => { } };
+					}
+					async showWhile(promise: Promise<any>): Promise<void> {
+						await promise;
+					}
+				}]
+		);
+
+		// Add cell context key service if it's available.
+		if (cellContextKeyService) {
+			serviceCollection.set(IContextKeyService, cellContextKeyService);
+		}
+
+		const editorInstaService = services.instantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
