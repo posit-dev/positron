@@ -59,6 +59,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		// Get services
 		const notificationService = accessor.get(INotificationService);
+		const quickInputService = accessor.get(IQuickInputService);
 		const pathService = accessor.get(IPathService);
 		const workspaceContextService = accessor.get(IWorkspaceContextService);
 		const fileService = accessor.get(IFileService);
@@ -143,8 +144,9 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 				workspaceContextService
 			);
 
-			this.updateWorkingDirectory(
-				accessor,
+			await this.updateWorkingDirectory(
+				notificationService,
+				quickInputService,
 				currentWorkingDirectoryDisplay,
 				newWorkingDirectoryDisplay,
 				session
@@ -158,14 +160,12 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 	}
 
 	private async updateWorkingDirectory(
-		accessor: ServicesAccessor,
+		notificationService: INotificationService,
+		quickInputService: IQuickInputService,
 		currentWorkingDirectory: string,
 		newWorkingDirectory: string,
 		session: INotebookLanguageRuntimeSession
 	): Promise<void> {
-		// Access services
-		const notificationService = accessor.get(INotificationService);
-		const quickInputService = accessor.get(IQuickInputService);
 
 		// Create options for quick-pick with detailed descriptions
 		const quickPickItems: IQuickPickItem[] = [
