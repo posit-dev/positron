@@ -11,6 +11,7 @@ export function registerContextMenuListener(): void {
 	const contextMenus = new Map<number, Menu>();
 
 	validatedIpcMain.on(CONTEXT_MENU_CHANNEL, (event: IpcMainEvent, contextMenuId: number, items: ISerializableContextMenuItem[], onClickChannel: string, options?: IPopupOptions) => {
+		console.log(`[${Date.now()}] ELECTRON MAIN: Received CONTEXT_MENU_CHANNEL request for contextMenuId: ${contextMenuId}`);
 		const menu = createMenu(event, onClickChannel, items);
 
 		// --- Start Positron ---
@@ -91,6 +92,7 @@ export function registerContextMenuListener(): void {
 				// It turns out that the menu gets GC'ed if not referenced anymore
 				// As such we drag it into this scope so that it is not being GC'ed
 				if (menu) {
+					console.log(`[${Date.now()}] ELECTRON MAIN: menu.popup callback fired, sending CONTEXT_MENU_CLOSE_CHANNEL for contextMenuId: ${contextMenuId}`);
 					event.sender.send(CONTEXT_MENU_CLOSE_CHANNEL, contextMenuId);
 				}
 			}

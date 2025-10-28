@@ -81,14 +81,33 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 	 * @returns A Promise<void> that resolves when the menu is shown.
 	 */
 	const showMenu = async () => {
-		// Get fresh actions directly to avoid stale state from rapid clicks
-		const freshActions = await getActions();
-		if (!freshActions.length) {
+		// Guard against showing menu when one is already showing
+		if (positronActionBarContext.menuShowing) {
+			console.log('POSITRON ACTION BAR: Menu already showing, ignoring request');
 			return;
 		}
 
+		// Get fresh actions directly to avoid stale state from rapid clicks
+		const timestamp = Date.now();
+		console.log(`[${timestamp}] POSITRON ACTION BAR: Showing menu from ActionBarMenuButton`);
+		const freshActions = await getActions();
+		if (!freshActions.length) {
+			console.log(`[${timestamp}] POSITRON ACTION BAR: No actions to show in menu`);
+			return;
+		}
+
+		// Ensure button is visible and has valid geometry
+		const rect = buttonRef.current?.getBoundingClientRect();
+		if (!rect || rect.width === 0 || rect.height === 0) {
+			console.warn(`[${timestamp}] POSITRON ACTION BAR: Button has invalid geometry, cannot show menu`, rect);
+			return;
+		}
+		console.log(`[${timestamp}] POSITRON ACTION BAR: Button geometry:`, { x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+
 		// Set the menu showing state and show the context menu.
+		console.log(`[${timestamp}] POSITRON ACTION BAR: Setting menuShowing to true`);
 		positronActionBarContext.setMenuShowing(true);
+		console.log(`[${timestamp}] POSITRON ACTION BAR: About to call showContextMenu`);
 		services.contextMenuService.showContextMenu({
 			getActions: () => freshActions,
 			getAnchor: () => buttonRef.current,
@@ -107,7 +126,13 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 					return undefined;
 				}
 			},
-			onHide: () => positronActionBarContext.setMenuShowing(false),
+			onHide: () => {
+				const hideTimestamp = Date.now();
+				console.log(`[${hideTimestamp}] POSITRON ACTION BAR: Menu onHide called (opened at ${timestamp}, duration: ${hideTimestamp - timestamp}ms)`);
+				console.log(`[${hideTimestamp}] POSITRON ACTION BAR: Stack trace:`, new Error().stack);
+				positronActionBarContext.setMenuShowing(false);
+				console.log(`[${hideTimestamp}] POSITRON ACTION BAR: Menu hidden from ActionBarMenuButton`);
+			},
 			anchorAlignment: props.align && props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
 			contextKeyService: services.contextKeyService
@@ -123,7 +148,10 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 			mouseTrigger={MouseTrigger.MouseDown}
 			onDropdownPressed={async () => await showMenu()}
 			onPressed={async () => {
+				console.log('POSITRON ACTION BAR: ActionBarMenuButton pressed');
+
 				if (props.dropdownIndicator !== 'enabled-split') {
+					console.log('POSITRON ACTION BAR: Showing menu because dropdownIndicator is not enabled-split');
 					await showMenu();
 					return;
 				}
@@ -133,10 +161,12 @@ export const ActionBarMenuButton = (props: PropsWithChildren<ActionBarMenuButton
 				const defaultAction = actions.find(action => action.checked);
 				// Run the preferred action if it exists
 				if (defaultAction) {
+					console.log(`POSITRON ACTION BAR: Running default action ${defaultAction.id}`);
 					defaultAction.run();
 					return;
 				}
 
+				console.log('POSITRON ACTION BAR: Default action not found, running first action if it exists');
 				actions[0]?.run();
 			}}
 		/>

@@ -118,6 +118,7 @@ export const ActionBarWidget = (props: ActionBarWidgetProps) => {
 
 	// Self-contained widgets: just wrap in styled div (no button semantics)
 	if (props.descriptor.selfContained) {
+		console.log(`POSITRON NOTEBOOK: Rendering self-contained widget '${props.descriptor.id}'`);
 		return (
 			<div className='action-bar-button action-bar-widget'>
 				{widgetContent}
@@ -127,6 +128,7 @@ export const ActionBarWidget = (props: ActionBarWidgetProps) => {
 
 	// Command-driven widgets: wrap in button for full accessibility
 	if (props.descriptor.commandId) {
+		console.log(`POSITRON NOTEBOOK: Rendering command-driven widget '${props.descriptor.id}' with command '${props.descriptor.commandId}'`);
 		return (
 			<button
 				aria-label={props.descriptor.ariaLabel}

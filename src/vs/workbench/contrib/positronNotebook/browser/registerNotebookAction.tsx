@@ -355,6 +355,7 @@ function registerNotebookWidgetInternal(options: INotebookWidgetOptions): IDispo
 		componentFactory: (accessor) => {
 			// Return a wrapper component that provides notebook context
 			return () => {
+				console.log(`POSITRON NOTEBOOK: Rendering widget '${options.id}'`);
 				// Get the active notebook using the VS Code pattern
 				const editorService = accessor.get(IEditorService);
 				const notebook = getNotebookInstanceFromActiveEditorPane(editorService);

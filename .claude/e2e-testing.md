@@ -101,11 +101,50 @@ PositronTestCase.test('Test description', async ({ page, app }) => {
 
 ### Debugging Tests
 
+#### Debugging Test Code
 1. **Run in headed mode**: `--headed` flag shows the browser
 2. **Use debug mode**: `--debug` flag pauses execution for inspection
 3. **Add breakpoints**: Use `await page.pause()` in test code
 4. **Check test artifacts**: Screenshots and traces saved to `test-results/`
 5. **View HTML report**: `npx playwright show-report`
+
+#### Debugging Positron Source Code During E2E Tests
+
+When you need to debug the actual Positron source code (not test code) while running E2E tests:
+
+**Quick Start:**
+```bash
+# Run test with debugging enabled
+./scripts/test-e2e-debug.sh notebook.test.ts
+```
+
+**Steps:**
+1. Set breakpoints in Positron source code (e.g., in `src/` directory)
+2. Run test using the debug script: `./scripts/test-e2e-debug.sh <test-file>`
+3. In VS Code, run the **"Debug E2E Test"** compound launch configuration
+4. The debugger will attach to both main and renderer processes
+
+**Manual Setup:**
+If you prefer to run the test manually:
+```bash
+# Set the debug environment variable
+export POSITRON_E2E_DEBUG=1
+
+# Run your test
+npx playwright test notebook.test.ts --project e2e-electron
+
+# Then attach debuggers in VS Code
+```
+
+**Available Launch Configurations:**
+- **Debug E2E Test** (Compound) - Attaches to both processes
+- **Attach to E2E Test (Electron Main Process)** - For main process debugging (port 5875)
+- **Attach to E2E Test (Renderer Process)** - For renderer/UI debugging (port 9222)
+
+**Notes:**
+- The `--inspect-brk=5875` flag will pause Electron on startup, waiting for debugger
+- Use `--inspect` instead of `--inspect-brk` if you don't want to pause on startup
+- Source maps must be available (`out/` directory with `.js.map` files)
 
 ## Test Configuration
 

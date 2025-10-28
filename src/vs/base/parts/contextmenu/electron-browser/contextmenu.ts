@@ -20,15 +20,20 @@ export function popup(items: IContextMenuItem[], options?: IPopupOptions, onHide
 
 	ipcRenderer.once(onClickChannel, onClickChannelHandler);
 	ipcRenderer.once(CONTEXT_MENU_CLOSE_CHANNEL, (event: unknown, closedContextMenuId: number) => {
+		console.log(`[${Date.now()}] ELECTRON BROWSER: Received CONTEXT_MENU_CLOSE_CHANNEL for contextMenuId: ${closedContextMenuId}, expecting: ${contextMenuId}`);
 		if (closedContextMenuId !== contextMenuId) {
+			console.log(`[${Date.now()}] ELECTRON BROWSER: Context menu ID mismatch, ignoring close event`);
 			return;
 		}
 
+		console.log(`[${Date.now()}] ELECTRON BROWSER: Context menu ID matches, calling onHide`);
 		ipcRenderer.removeListener(onClickChannel, onClickChannelHandler);
 
 		onHide?.();
+		console.log(`[${Date.now()}] ELECTRON BROWSER: onHide completed`);
 	});
 
+	console.log(`[${Date.now()}] ELECTRON BROWSER: Sending CONTEXT_MENU_CHANNEL to show menu with contextMenuId: ${contextMenuId}`);
 	ipcRenderer.send(CONTEXT_MENU_CHANNEL, contextMenuId, items.map(item => createItem(item, processedItems)), onClickChannel, options);
 }
 

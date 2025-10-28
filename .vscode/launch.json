@@ -643,6 +643,46 @@
 			"program": "${workspaceFolder}/positron/comms/generate-comms.ts",
 			"runtimeArgs": ["-r", "ts-node/register"],
 			"args": ["ui"]
+		},
+		{
+			"type": "node",
+			"request": "attach",
+			"name": "Attach to E2E Test (Electron Main Process)",
+			"port": 5875,
+			"timeout": 30000,
+			"continueOnAttach": true,
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"presentation": {
+				"group": "5_tests",
+				"order": 11
+			}
+		},
+		{
+			"type": "chrome",
+			"request": "attach",
+			"name": "Attach to E2E Test (Renderer Process)",
+			"port": 9222,
+			"timeout": 30000,
+			"webRoot": "${workspaceFolder}",
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"perScriptSourcemaps": "yes",
+			"presentation": {
+				"group": "5_tests",
+				"order": 12
+			}
 		}
 	],
 	"compounds": [
@@ -732,5 +772,17 @@
 			],
 			"preLaunchTask": "Ensure Prelaunch Dependencies"
 		},
+		{
+			"name": "Debug E2E Test",
+			"stopAll": true,
+			"configurations": [
+				"Attach to E2E Test (Electron Main Process)",
+				"Attach to E2E Test (Renderer Process)"
+			],
+			"presentation": {
+				"group": "5_tests",
+				"order": 13
+			}
+		}
 	]
 }

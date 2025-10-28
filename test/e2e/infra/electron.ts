@@ -36,6 +36,13 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 		'--disable-workspace-trust',
 		`--logsPath=${logsPath}`
 	];
+
+	// Enable debugging if POSITRON_E2E_DEBUG is set
+	if (process.env.POSITRON_E2E_DEBUG) {
+		logger.log('E2E Debug mode enabled - adding debug flags');
+		args.push('--inspect-brk=5875');
+		args.push('--remote-debugging-port=9222');
+	}
 	if (options.useInMemorySecretStorage) {
 		args.push('--use-inmemory-secretstorage');
 	}

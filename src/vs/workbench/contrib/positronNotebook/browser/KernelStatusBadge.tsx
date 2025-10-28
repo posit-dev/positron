@@ -101,6 +101,23 @@ export function KernelStatusBadge() {
 		return actions;
 	}, [menu, notebookInstance.uri]);
 
+	// Add ref to log button geometry when menu opens
+	const buttonDebugRef = React.useRef<HTMLDivElement>(null);
+
+	// Debug: Log button position when component renders
+	React.useEffect(() => {
+		if (buttonDebugRef.current) {
+			const rect = buttonDebugRef.current.getBoundingClientRect();
+			console.log('KERNEL STATUS BADGE: Button geometry:', {
+				x: rect.x,
+				y: rect.y,
+				width: rect.width,
+				height: rect.height,
+				visible: rect.width > 0 && rect.height > 0
+			});
+		}
+	});
+
 	return (
 		<ActionBarMenuButton
 			actions={getActions}
@@ -108,7 +125,11 @@ export function KernelStatusBadge() {
 			ariaLabel={tooltip}
 			tooltip={tooltip}
 		>
-			<div className='positron-notebook-kernel-status-badge' data-testid='notebook-kernel-status'>
+			<div
+				ref={buttonDebugRef}
+				className='positron-notebook-kernel-status-badge'
+				data-testid='notebook-kernel-status'
+			>
 				<RuntimeStatusIcon status={runtimeStatus} />
 				<p className='kernel-label'>{label}</p>
 			</div>

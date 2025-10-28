@@ -205,7 +205,10 @@ class NativeContextMenuService extends Disposable implements IContextMenuService
 				y = Math.floor(y * zoom);
 			}
 
-			popup(menu, { x, y, positioningItem: delegate.autoSelectFirstItem ? 0 : undefined, }, () => onHide());
+			popup(menu, { x, y, positioningItem: delegate.autoSelectFirstItem ? 0 : undefined, }, () => {
+				console.log('Menu closing from:', delegate.constructor.name, delegate);
+				onHide();
+			});
 
 			this._onDidShowContextMenu.fire();
 		}
