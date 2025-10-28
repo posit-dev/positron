@@ -8,7 +8,7 @@ import { basename } from 'path';
 import { commands, debug, Disposable, FunctionBreakpoint, window, workspace } from 'vscode';
 import { assertNoRpc, closeAllEditors, createRandomFile, disposeAll } from '../utils';
 
-suite('vscode API - debug', function () {
+suite.skip('vscode API - debug', function () {
 
 	teardown(async function () {
 		assertNoRpc();

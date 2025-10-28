@@ -355,13 +355,20 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			// --- Start Positron ---
 			positronApi,
-			getQuartoBinaries(),
 			moduleSources,
 			// --- End Positron ---
 			telemetry,
 			sources,
 			deps
 		);
+
+		/// --- Start Positron ---
+		// The Quarto binaries are not available for Windows ARM builds, but are
+		// for all other platforms/architectures
+		if (!(platform === 'win32' && arch === 'arm64')) {
+			all = es.merge(all, getQuartoBinaries());
+		}
+		// --- End Positron ---
 
 		if (platform === 'win32') {
 			all = es.merge(all, gulp.src([
