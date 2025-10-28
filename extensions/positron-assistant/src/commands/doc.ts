@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 
-import { MD_DIR } from '../constants';
-import { PositronAssistantEditorParticipant, PositronAssistantChatContext } from '../participants.js';
+import { PositronAssistantChatContext } from '../participants.js';
+import { PromptRenderer } from '../promptRender.js';
 
 export const DOC_COMMAND = 'doc';
 
@@ -21,16 +20,10 @@ export async function docHandler(
 	_token: vscode.CancellationToken,
 	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
-	const { systemPrompt } = context;
-
 	response.progress(vscode.l10n.t('Generating documentation...'));
 
-	const prompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/doc.md`, 'utf8');
-	context.systemPrompt = `${systemPrompt}\n\n${prompt}`;
+	const prompt = PromptRenderer.renderCommandPrompt(DOC_COMMAND, _request).content;
+	context.systemPrompt += `\n\n${prompt}`;
 
 	return handleDefault();
-}
-
-export function registerDocCommand() {
-	PositronAssistantEditorParticipant.registerCommand(DOC_COMMAND, docHandler);
 }

@@ -196,6 +196,11 @@
             "type": "boolean",
             "default": false,
             "description": "%r.configuration.workspaceSymbols.includeCommentSections.description%"
+          },
+          "positron.r.autoConvertFilePaths": {
+            "type": "boolean",
+            "default": true,
+            "description": "%r.configuration.autoConvertFilePaths.description%"
           }
         }
       },

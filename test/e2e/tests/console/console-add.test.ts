@@ -46,7 +46,9 @@ test.describe('Console: Add +', {
 		const [pythonSession, rSession] = await sessions.start(['python', 'r', 'r', 'r', 'r', 'r', 'r',]);
 
 		// Verify the Python and R sessions are listed in the console `+` menu
-		await console.expectSessionContextMenuToContain([rSession.name, pythonSession.name]);
+		await console.expectSessionContextMenuToContain([
+			{ label: rSession.name }, { label: pythonSession.name }
+		]);
 
 		// Disconnect the R session
 		await sessions.select(rSession.id);
@@ -59,6 +61,8 @@ test.describe('Console: Add +', {
 		await sessions.expectStatusToBe(pythonSession.id, 'disconnected');
 
 		// Verify the disconnected sessions are still in the console `+` menu
-		await console.expectSessionContextMenuToContain([rSession.name, pythonSession.name]);
+		await console.expectSessionContextMenuToContain([
+			{ label: rSession.name }, { label: pythonSession.name }
+		]);
 	});
 });
