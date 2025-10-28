@@ -394,10 +394,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Track the current runtime session for this notebook
 		this.runtimeSession = observableValue('positronNotebookRuntimeSession', this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri));
-		this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
+		this._register(this.runtimeSessionService.onDidStartRuntime(async (session) => {
 			if (isNotebookLanguageRuntimeSession(session) && this._isThisNotebook(session.metadata.notebookUri)) {
 				this.runtimeSession.set(session, undefined);
-				this._updateWorkingDirectoryMismatchContextKey();
+				await this._updateWorkingDirectoryMismatchContextKey();
 			}
 		}));
 
@@ -411,11 +411,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this.kernelStatus.set(kernelStatus, undefined);
 
 				// Listen for runtime state changes and update kernel status accordingly
-				this._register(session.onDidChangeRuntimeState((newState) => {
+				this._register(session.onDidChangeRuntimeState(async (newState) => {
 					const newKernelStatus = RUNTIME_STATE_TO_KERNEL_STATUS[newState] ?? KernelStatus.Errored;
 					this.kernelStatus.set(newKernelStatus, undefined);
 					if (newState === RuntimeState.Ready) {
-						this._updateWorkingDirectoryMismatchContextKey();
+						await this._updateWorkingDirectoryMismatchContextKey();
 					}
 				}));
 
@@ -427,13 +427,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 
 					// Clear the working directory mismatch context key when session ends
-					this._updateWorkingDirectoryMismatchContextKey(false);
+					this.contextManager.setWorkingDirectoryMismatch(false);
 				}));
 			} else {
 				// No session - reset to uninitialized
 				this.kernelStatus.set(KernelStatus.Uninitialized, undefined);
 				// Clear the working directory mismatch context key when no session
-				this._updateWorkingDirectoryMismatchContextKey(false);
+				this.contextManager.setWorkingDirectoryMismatch(false);
 			}
 		}));
 
@@ -463,11 +463,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		// Listen for notebook URI changes to update working directory mismatch context key
-		this._register(this.runtimeSessionService.onDidUpdateNotebookSessionUri((event) => {
+		this._register(this.runtimeSessionService.onDidUpdateNotebookSessionUri(async (event) => {
 			// Only respond to changes for this notebook's session
 			const currentSession = this.runtimeSession.get();
 			if (currentSession && event.sessionId === currentSession.sessionId) {
-				this._updateWorkingDirectoryMismatchContextKey();
+				await this._updateWorkingDirectoryMismatchContextKey();
 			}
 		}));
 	}
@@ -628,7 +628,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._selectKernelForNotebook(model, viewState);
 
 		this._onDidChangeContent.fire();
-		this._updateWorkingDirectoryMismatchContextKey();
 	}
 
 
@@ -979,7 +978,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
 		// Update the working directory mismatch context key now that the context is set up
-		this._updateWorkingDirectoryMismatchContextKey();
+		await this._updateWorkingDirectoryMismatchContextKey();
 	}
 
 	/**
@@ -1174,6 +1173,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Get the current working directory based on the session state
 		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
+
 		if (!currentWorkingDirectory) {
 			return false;
 		}
@@ -1193,21 +1193,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		// Check if they match
-		return currentWorkingDirectoryResolved !== expectedWorkingDirectoryResolved;
+		const hasMismatch = currentWorkingDirectoryResolved !== expectedWorkingDirectoryResolved;
+
+		return hasMismatch;
 	}
 
 	/**
 	 * Updates the POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH context key based on
 	 * whether there's a working directory mismatch.
-	 *
-	 * @param override An explicit value to set the context key to. If provided,
-	 * this will not check if there is a working directory mismatch
 	 */
-	private async _updateWorkingDirectoryMismatchContextKey(override?: boolean): Promise<void> {
-		if (override !== undefined) {
-			this.contextManager.setWorkingDirectoryMismatch(override);
-			return;
-		}
+	private async _updateWorkingDirectoryMismatchContextKey(): Promise<void> {
 		const hasMismatch = await this.checkWorkingDirectoryMismatch();
 		this.contextManager.setWorkingDirectoryMismatch(hasMismatch);
 	}
