@@ -6,8 +6,9 @@
 import { AsyncIterableObject } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
+import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -18,7 +19,8 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { isNotebookLanguageRuntimeSession, isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
+import { ILanguageRuntimeSession, INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -180,9 +182,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				// Don't show a progress bar if using Positron notebooks
 				if (checkPositronNotebookEnabled(this._configurationService) &&
 					usingPositronNotebooks(this._configurationService)) {
-					await ensureSessionStartedForNotebook();
+					session = await ensureSessionStartedForNotebook();
 				} else {
-					await this._progressService.withProgress({
+					session = await this._progressService.withProgress({
 						location: ProgressLocation.Notification,
 						title: localize(
 							"positron.notebook.kernel.starting",
@@ -192,7 +194,6 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						),
 					}, ensureSessionStartedForNotebook);
 				}
-				session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 				if (!session) {
 					// We shouldn't get here since ensureSessionStarted should
 					// notify and throw if it fails, but just in case...
@@ -334,12 +335,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * @param notebookUri The notebook URI
 	 * @param source The source of the request
 	 */
-	public async ensureSessionStarted(notebookUri: URI, source: string) {
+	public async ensureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
 		// If we've already got a session going, no need to do anything
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
 		if (session && session.runtimeMetadata.runtimeId === this.runtime.runtimeId) {
-			return;
+			return session;
 		}
 
 		// If the runtime startup phase isn't complete, it is possible that the
@@ -354,7 +355,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			let hasSession = false;
 			for (const session of restoredSessions) {
 				if (session.runtimeMetadata.runtimeId === this.runtime.runtimeId &&
-					session.metadata.notebookUri?.toString() === notebookUri.toString()
+					isNotebookRuntimeSessionMetadata(session.metadata) &&
+					isEqual(session.metadata.notebookUri, notebookUri)
 				) {
 					this._logService.debug(
 						`[RuntimeNotebookKernel] Waiting for session to be restored ` +
@@ -365,18 +367,37 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				}
 			}
 
-			// If we have a session that might be restored, wait for startup to
-			// complete and try again
+			// If we have a session that might be restored, wait for it to start or for runtime startup to complete
 			if (hasSession) {
-				return new Promise<void>(resolve => {
-					const disposable =
-						this._languageRuntimeService.onDidChangeRuntimeStartupPhase(async (e) => {
-							if (e === RuntimeStartupPhase.Complete) {
-								disposable.dispose();
-								await this.ensureSessionStarted(notebookUri, source);
-								resolve();
-							}
-						});
+				return new Promise(resolve => {
+					const disposables = new DisposableStore();
+
+					// Wait for the restored session to start
+					disposables.add(this._runtimeSessionService.onWillStartSession(async ({ session }) => {
+						if (isNotebookLanguageRuntimeSession(session) &&
+							isEqual(session.metadata.notebookUri, notebookUri) &&
+							session.runtimeMetadata.runtimeId === this.runtime.runtimeId) {
+							disposables.dispose();
+							this._logService.debug(
+								`[RuntimeNotebookKernel] Session restored for notebook ${notebookUri.fsPath}`
+							);
+							await this.whenStarted(session);
+							resolve(session);
+						}
+					}));
+
+					// It's possible that no session will start e.g. if the runtime was found to be invalid
+					// Stop listening and try one more time when runtime startup completes
+					disposables.add(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(async (e) => {
+						if (e === RuntimeStartupPhase.Discovering) {
+							disposables.dispose();
+							this._logService.debug(
+								`[RuntimeNotebookKernel] No session restored and startup is complete, trying one more time for notebook ${notebookUri.fsPath}`
+							);
+							const session = await this.ensureSessionStarted(notebookUri, source);
+							resolve(session);
+						}
+					}));
 				});
 			}
 		}
@@ -395,21 +416,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
 			}
 
-			// If the session is still starting, wait for it to be ready.
-			if (session.getRuntimeState() === RuntimeState.Starting) {
-				this._logService.debug(
-					`[RuntimeNotebookKernel] Waiting for session to be ready ` +
-					`for notebook ${notebookUri.fsPath}`
-				);
-				await new Promise<void>(resolve => {
-					const disposable = this._register(session.onDidChangeRuntimeState(state => {
-						if (state === RuntimeState.Ready) {
-							disposable.dispose();
-							resolve();
-						}
-					}));
-				});
-			}
+			// Wait for it to be ready.
+			await this.whenStarted(session);
 
 			return session;
 		} catch (err) {
@@ -422,6 +430,30 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				err.toString(),
 			));
 			throw err;
+		}
+	}
+
+	/**
+	 * Promise that resolves when a session has started and is ready to execute code.
+	 */
+	private async whenStarted(session: INotebookLanguageRuntimeSession) {
+		const state = session.getRuntimeState();
+		if (state === RuntimeState.Uninitialized ||
+			state === RuntimeState.Initializing ||
+			state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting) {
+			this._logService.debug(
+				`[RuntimeNotebookKernel] Waiting for session to be ready ` +
+				`for notebook ${session.metadata.notebookUri.fsPath}`
+			);
+			await new Promise<void>(resolve => {
+				const disposable = this._register(session.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Ready) {
+						disposable.dispose();
+						resolve();
+					}
+				}));
+			});
 		}
 	}
 
