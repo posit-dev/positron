@@ -712,7 +712,7 @@ export function registerPositronConsoleActions() {
 			// Get the code to execute based on selection mode
 			let range: IRange;
 			if (selectionMode === 'beforeCursor') {
-				// For 'beforeCursor', get all text from the beginning of the document to the end of the LINE that contains the cursor
+				// For 'beforeCursor', get all text from the beginning of the document to the end of the line that contains the cursor
 				range = {
 					startLineNumber: 1,
 					startColumn: 1,
@@ -720,7 +720,7 @@ export function registerPositronConsoleActions() {
 					endColumn: model.getLineMaxColumn(position.lineNumber) // End of the line containing the cursor
 				};
 			} else {
-				// For 'afterCursor', get all text from the beginning of the LINE that contains the cursor to the end of the document
+				// For 'afterCursor', get all text from the beginning of the line that contains the cursor to the end of the document
 				range = {
 					startLineNumber: position.lineNumber,
 					startColumn: 1, // Start of the line containing the cursor
