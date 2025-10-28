@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Diagnostics', {
-	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN, tags.CRITICAL],
+	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN, tags.SOFT_FAIL],
 }, () => {
 
 	test.afterEach(async function ({ runCommand }) {

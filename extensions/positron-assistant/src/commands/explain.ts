@@ -4,11 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-
-import { MD_DIR } from '../constants';
-import { PositronAssistantChatParticipant, PositronAssistantEditorParticipant, PositronAssistantChatContext } from '../participants.js';
-
+import { PositronAssistantChatContext } from '../participants.js';
+import { PromptRenderer } from '../promptRender.js';
 
 export const EXPLAIN_COMMAND = 'explain';
 
@@ -22,15 +19,9 @@ export async function explainHandler(
 	_token: vscode.CancellationToken,
 	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
-	const defaultPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/default.md`, 'utf8');
-	const explainPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/explain.md`, 'utf8');
-	const warningPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/warning.md`, 'utf8');
 
-	context.systemPrompt = defaultPrompt + '\n\n' + explainPrompt + '\n\n' + warningPrompt;
+	const prompt = PromptRenderer.renderCommandPrompt(EXPLAIN_COMMAND, _request).content;
+	context.systemPrompt += `\n\n${prompt}`;
+
 	return handleDefault();
-}
-
-export function registerExplainCommand() {
-	PositronAssistantChatParticipant.registerCommand(EXPLAIN_COMMAND, explainHandler);
-	PositronAssistantEditorParticipant.registerCommand(EXPLAIN_COMMAND, explainHandler);
 }

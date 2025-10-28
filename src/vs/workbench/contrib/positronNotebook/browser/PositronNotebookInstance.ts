@@ -22,10 +22,10 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus } from './IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
@@ -143,6 +143,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
+	 * Disposables for the editor container event listeners
+	 */
+	private readonly _editorContainerListeners = this._register(new DisposableStore());
+
+	/**
 	 * The DOM element that contains the cells for the notebook.
 	 */
 	private _cellsContainer: HTMLElement | undefined = undefined;
@@ -198,6 +203,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _onDidScrollCellsContainer = this._register(new Emitter<void>());
 	readonly onDidScrollCellsContainer = this._onDidScrollCellsContainer.event;
 
+	/**
+	 * Tracks the current operation type (paste, undo, redo, etc.) to provide
+	 * context for automatic behaviors like entering edit mode on cell addition.
+	 */
+	private _currentOperation: NotebookOperationType | undefined = undefined;
+
 	// =============================================================================================
 	// #region Public Properties
 
@@ -205,6 +216,26 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Unique identifier for the notebook instance. Currently just the notebook URI as a string.
 	 */
 	private _id: string;
+
+	/**
+	 * Sets the DOM element that contains the entire notebook editor.
+	 * This is the top-level container used for focus tracking.
+	 * @param container The container element to set, or null to clear
+	 */
+	setEditorContainer(container: HTMLElement | null): void {
+		// Clean up any existing listeners
+		this._editorContainerListeners.clear();
+
+		if (!container) {
+			return;
+		}
+
+		// Set up focus tracking for the editor container
+		const focusTracker = this._editorContainerListeners.add(DOM.trackFocus(container));
+		this._editorContainerListeners.add(focusTracker.onDidFocus(() => {
+			this._onDidFocusWidget.fire();
+		}));
+	}
 
 	/**
 	 * The DOM element that contains the cells for the notebook.
@@ -302,7 +333,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (this._notebookOptions) {
 			return this._notebookOptions;
 		}
-		this._logService.info(this._id, 'Generating new notebook options');
+		this._logService.debug(this._id, 'Generating new notebook options');
 
 		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
 
@@ -405,7 +436,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._webviewPreloadService.attachNotebookInstance(this);
 
-		this._logService.info(this._id, 'constructor');
+		this._logService.debug(this._id, 'constructor');
 
 		// Add listener for content changes to sync cells
 		this._register(this.onDidChangeContent(() => {
@@ -416,6 +447,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	//#region INotebookEditor
 	private readonly _onDidChangeSelection = this._register(new Emitter<void>());
 	private readonly _onDidChangeVisibleRanges = this._register(new Emitter<void>());
+	private readonly _onDidFocusWidget = this._register(new Emitter<void>());
 
 	/**
 	 * Event fired when the cell selection changes.
@@ -426,6 +458,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Event fired when the visible range of cells changes.
 	 */
 	readonly onDidChangeVisibleRanges = this._onDidChangeVisibleRanges.event;
+
+	/**
+	 * Event fired when the notebook editor widget or a cell editor within it gains focus.
+	 */
+	readonly onDidFocusWidget = this._onDidFocusWidget.event;
 
 	// The assertion isn't really true; we only implement parts needed by the extension API,
 	// see the note in IPositronNotebookInstance.ts
@@ -514,7 +551,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	override dispose() {
 
-		this._logService.info(this._id, 'dispose');
+		this._logService.debug(this._id, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
@@ -606,11 +643,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @param index The position where the cell should be inserted
 	 * @throws Error if no language is set for the notebook
 	 */
-	addCell(type: CellKind, index: number): void {
+	addCell(type: CellKind, index: number, enterEditMode: boolean): void {
 		this._assertTextModel();
 
 		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
+		}
+
+		if (enterEditMode) {
+			// Set operation type to enable automatic edit mode entry for normal inserts
+			this.setCurrentOperation(NotebookOperationType.InsertAndEdit);
 		}
 
 		const textModel = this.textModel;
@@ -668,7 +710,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1));
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false);
 	}
 
 	/**
@@ -907,7 +949,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._scopedContextKeyService = scopedContextKeyService;
 		this.contextManager.setContainer(container, scopedContextKeyService);
 
-		this._logService.info(this._id, 'attachView');
+		this._logService.debug(this._id, 'attachView');
 	}
 
 	/**
@@ -962,7 +1004,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	detachView(): void {
 		this._container = undefined;
-		this._logService.info(this._id, 'detachView');
+		this._logService.debug(this._id, 'detachView');
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
 	}
@@ -971,7 +1013,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Closes the notebook instance and disposes of all resources.
 	 */
 	close(): void {
-		this._logService.info(this._id, 'Closing a notebook instance');
+		this._logService.debug(this._id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
@@ -1043,11 +1085,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return newCell;
 		});
 
+		const currentOp = this.getAndResetCurrentOperation();
+
 		if (newlyAddedCells.length === 1) {
-			// Defer to next tick to allow React to mount the editor component.
-			// enterEditor() handles both state update and focus management.
+			// We don't auto-enter edit mode for paste, undo, or redo operations
+			const shouldAutoEdit = shouldAutoEditOnCellAdd(currentOp);
+
+			// Defer to next tick to allow React to mount the cell component
 			setTimeout(() => {
-				this.selectionStateMachine.enterEditor(newlyAddedCells[0]);
+				if (shouldAutoEdit) {
+					// Enter edit mode (which also selects the cell)
+					this.selectionStateMachine.enterEditor(newlyAddedCells[0]);
+				} else {
+					// Just select the cell without entering edit mode
+					this.selectionStateMachine.selectCell(newlyAddedCells[0], CellSelectionType.Normal);
+				}
 			}, 0);
 		}
 
@@ -1063,13 +1115,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * @returns
 	 */
 	private async _runCells(cells: IPositronNotebookCell[]): Promise<void> {
-		this._logService.info(this._id, '_runCells');
+		this._logService.debug(this._id, '_runCells');
 
 		this._assertTextModel();
 
 		// Make sure we have a kernel to run the cells.
 		if (this.kernelStatus.get() !== KernelStatus.Connected) {
-			this._logService.info(this._id, 'No kernel connected, attempting to connect');
+			this._logService.debug(this._id, 'No kernel connected, attempting to connect');
 			// Attempt to connect to the kernel
 			await this._commandService.executeCommand(SELECT_KERNEL_ID_POSITRON);
 		}
@@ -1223,11 +1275,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _clipboardCells: ICellDto2[] = [];
 
 	/**
-	 * Flag to track if the clipboard contains cut cells (vs copied cells)
-	 */
-	private _isClipboardCut: boolean = false;
-
-	/**
 	 * Copies the specified cells to the clipboard.
 	 * @param cells The cells to copy. If not provided, copies the currently selected cells
 	 */
@@ -1240,7 +1287,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Store internally for full-fidelity paste
 		this._clipboardCells = cellsToCopy.map(cell => cellToCellDto2(cell));
-		this._isClipboardCut = false;
 
 		// Also write to system clipboard as text
 		const clipboardText = serializeCellsToClipboard(cellsToCopy);
@@ -1263,7 +1309,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		// Copy cells first
 		this.copyCells(cellsToCut);
-		this._isClipboardCut = true;
 
 		// Delete the cells (this handles selection and focus automatically)
 		this.deleteCells(cellsToCut);
@@ -1278,49 +1323,53 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			return;
 		}
 
-		this._assertTextModel();
+		// Set operation type to prevent automatic edit mode entry
+		this.setCurrentOperation(NotebookOperationType.Paste);
 
-		const textModel = this.textModel;
-		const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
-		const pasteIndex = index ?? this.getInsertionIndex();
-		const cellCount = this._clipboardCells.length;
+		try {
+			this._assertTextModel();
 
-		// Use textModel.applyEdits to properly create and register cells
-		const synchronous = true;
-		const endSelections: ISelectionState = {
-			kind: SelectionStateType.Index,
-			focus: { start: pasteIndex, end: pasteIndex + cellCount },
-			selections: [{ start: pasteIndex, end: pasteIndex + cellCount }]
-		};
-		const focusAfterInsertion = {
-			start: pasteIndex,
-			end: pasteIndex + cellCount
-		};
+			const textModel = this.textModel;
+			const computeUndoRedo = !this.isReadOnly || textModel.viewType === 'interactive';
+			const pasteIndex = index ?? this.getInsertionIndex();
+			const cellCount = this._clipboardCells.length;
 
-		textModel.applyEdits([
-			{
-				editType: CellEditType.Replace,
-				index: pasteIndex,
-				count: 0,
-				cells: this._clipboardCells
-			}
-		],
-			synchronous,
-			{
+			// Use textModel.applyEdits to properly create and register cells
+			const synchronous = true;
+			const endSelections: ISelectionState = {
 				kind: SelectionStateType.Index,
-				focus: focusAfterInsertion,
-				selections: [focusAfterInsertion]
-			},
-			() => endSelections, undefined, computeUndoRedo
-		);
+				focus: { start: pasteIndex, end: pasteIndex + cellCount },
+				selections: [{ start: pasteIndex, end: pasteIndex + cellCount }]
+			};
+			const focusAfterInsertion = {
+				start: pasteIndex,
+				end: pasteIndex + cellCount
+			};
 
-		// If this was a cut operation, clear the clipboard
-		if (this._isClipboardCut) {
-			this._clipboardCells = [];
-			this._isClipboardCut = false;
+			textModel.applyEdits([
+				{
+					editType: CellEditType.Replace,
+					index: pasteIndex,
+					count: 0,
+					cells: this._clipboardCells
+				}
+			],
+				synchronous,
+				{
+					kind: SelectionStateType.Index,
+					focus: focusAfterInsertion,
+					selections: [focusAfterInsertion]
+				},
+				() => endSelections, undefined, computeUndoRedo
+			);
+
+			this._onDidChangeContent.fire();
+			// If successful, _syncCells() will have cleared the flag
+		} catch (error) {
+			// Clear flag on exception since _syncCells() won't run
+			this.clearCurrentOperation();
+			throw error;
 		}
-
-		this._onDidChangeContent.fire();
 	}
 
 	/**
@@ -1344,6 +1393,30 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._clipboardCells.length > 0;
 	}
 
+	/**
+	 * Gets the current notebook operation type that is in progress, if any.
+	 * @returns The current operation type, or undefined if no operation is in progress
+	 */
+	getAndResetCurrentOperation(): NotebookOperationType | undefined {
+		const currentOp = this._currentOperation;
+		this.clearCurrentOperation();
+		return currentOp;
+	}
+
+	/**
+	 * Sets the current notebook operation type.
+	 * @param type The operation type to set
+	 */
+	setCurrentOperation(type: NotebookOperationType): void {
+		this._currentOperation = type;
+	}
+
+	/**
+	 * Clears the current notebook operation type.
+	 */
+	clearCurrentOperation(): void {
+		this._currentOperation = undefined;
+	}
 
 	// Helper method to get insertion index
 	private getInsertionIndex(): number {
@@ -1362,4 +1435,9 @@ function assertNotebookCellIsCellViewModel(cell: IPositronNotebookCell): asserts
 	// No-op; used for type assertion.
 	// Implement ICellViewModel as needed. Not currently needed since the extension API
 	// only uses the returned value in calls to our own reveal* methods
+}
+
+function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined): boolean {
+	// Don't auto-enter edit mode for paste, undo, or redo operations
+	return currentOp === NotebookOperationType.InsertAndEdit;
 }

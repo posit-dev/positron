@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { traceLog, traceInfo, traceWarn, traceError } from './logging';
 
 /**
  * High-level interface for arbitrary backends that provide a hierarchical
@@ -151,7 +152,7 @@ class CatalogTreeDataProvider
 						this.emitter.fire();
 					}
 				} catch (e) {
-					console.error('Error in provider removal by id:', e);
+					traceError(`Error in provider removal by id: ${e}`);
 				}
 			}),
 		);
@@ -280,6 +281,7 @@ export class CatalogProviderRegistry {
 	onCatalogRemoved = this.removeCatalog.event;
 
 	register(registration: CatalogProviderRegistration): vscode.Disposable {
+		traceInfo(`Registering catalog provider: ${registration.label}`);
 		this.registry.push(registration);
 		this.registry.sort((a, b) => a.label.localeCompare(b.label));
 		return {
@@ -311,8 +313,10 @@ export class CatalogProviderRegistry {
 		}
 		const added = await item.addProvider(context);
 		if (!added) {
+			traceWarn(`Failed to add catalog provider: ${item.label}`);
 			return;
 		}
+		traceInfo(`Successfully added catalog provider: ${item.label}`);
 		this.addCatalog.fire(added);
 	}
 	async removeProvider(
@@ -321,6 +325,7 @@ export class CatalogProviderRegistry {
 	): Promise<boolean> {
 		try {
 			const providerId = provider.id;
+			traceInfo(`Attempting to remove provider with ID: ${providerId}`);
 
 			for (const registration of this.registry) {
 				const providers = await registration.listProviders(context);
@@ -339,14 +344,16 @@ export class CatalogProviderRegistry {
 				// Ensure resources are properly cleaned up
 				this.removeCatalog.fire(matchingProvider);
 				matchingProvider.dispose();
+				traceInfo('Provider successfully removed');
 
 				return true;
 			}
 
 			// Did not find a matching provider
+			traceWarn(`No matching provider found for ID: ${providerId}`);
 			return false;
 		} catch (error) {
-			console.error('Error removing provider:', error);
+			traceError(`Error removing provider: ${error}`);
 			return false;
 		}
 	}
@@ -425,10 +432,11 @@ export function registerCatalogCommands(
 					// If provider is not specified (when invoked from command palette),
 					// show a quick pick to select a provider
 					if (!provider) {
-						console.log('No provider specified, showing provider selection');
+						traceLog('No provider specified, showing provider selection');
 						const allProviders = await registry.listAllProviders(context);
 
 						if (allProviders.length === 0) {
+							traceWarn('No catalog providers found to remove');
 							vscode.window.showInformationMessage(
 								'No catalog providers found to remove.',
 							);
@@ -454,7 +462,7 @@ export function registerCatalogCommands(
 						});
 
 						if (!selected) {
-							console.log('User cancelled provider selection');
+							traceLog('User cancelled provider selection');
 							return;
 						}
 
@@ -462,7 +470,7 @@ export function registerCatalogCommands(
 					}
 
 					if (!provider) {
-						console.error('Provider is undefined after selection attempt');
+						traceError('Provider is undefined after selection attempt');
 						vscode.window.showErrorMessage(
 							'Cannot remove connection: No provider selected',
 						);
@@ -481,13 +489,13 @@ export function registerCatalogCommands(
 					);
 
 					if (confirmation !== 'Yes') {
-						console.log('User cancelled removal');
+						traceLog('User cancelled removal');
 						return;
 					}
 
 					await registry.removeProvider(provider, context);
 				} catch (error) {
-					console.error('Error in command handler:', error);
+					traceError(`Error in command handler: ${error}`);
 					vscode.window.showErrorMessage(
 						`Failed to remove connection: ${error instanceof Error ? error.message : String(error)}`,
 					);
