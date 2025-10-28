@@ -17,12 +17,16 @@ export async function verifyReticulateFunctionality(
 	// Create a variable in Python and expect to be able to access it from R
 	await app.workbench.sessions.select(pythonSessionId);
 
+	await app.code.wait(2000); // give ipykernel time to startup
+
 	await app.workbench.console.pasteCodeToConsole(`x=${value}`);
 	await app.workbench.console.sendEnterKey();
 
 	await app.workbench.console.clearButton.click();
 
 	await app.workbench.sessions.select(rSessionId);
+
+	await app.code.wait(2000); // wait a little for python var to get to R
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
 	await app.workbench.console.sendEnterKey();
