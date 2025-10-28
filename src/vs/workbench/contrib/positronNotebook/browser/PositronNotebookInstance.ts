@@ -578,7 +578,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * includes setting up listeners for changes to the model and
 	 * setting up the initial state of the notebook.
 	 */
-	setModel(model: NotebookTextModel, viewState?: INotebookEditorViewState): void {
+	setModel(model: NotebookTextModel): void {
 		this._textModel.set(model, undefined);
 
 		this._modelStore.clear();
@@ -600,12 +600,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._onDidChangeContent.fire();
 		}));
 
-		// Select the appropriate kernel for the notebook
-		this._selectKernelForNotebook(model, viewState);
-
 		this._onDidChangeContent.fire();
 	}
-
 
 	/**
 	 * Sets editor options for the notebook or a specific cell.
@@ -1041,25 +1037,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _isThisNotebook(uri: URI): boolean {
 		return isEqual(uri, this._input.resource);
-	}
-
-	private _selectKernelForNotebook(model: NotebookTextModel, viewState?: INotebookEditorViewState): void {
-		// If the view state specified a kernel, try to select it
-		const selectedKernelId = viewState?.selectedKernelId;
-		if (selectedKernelId) {
-			const matching = this.notebookKernelService.getMatchingKernel(model);
-			const kernel = matching.all.find(k => k.id === viewState.selectedKernelId);
-			if (kernel) {
-				this.notebookKernelService.selectKernelForNotebook(kernel, model);
-				return;
-			}
-		}
-
-		// If we still haven't selected a kernel, and there's a single suggested kernel, select it.
-		const matching = this.notebookKernelService.getMatchingKernel(model);
-		if (!matching.selected && matching.suggestions.length === 1) {
-			this.notebookKernelService.selectKernelForNotebook(matching.suggestions[0], model);
-		}
 	}
 
 	/**
