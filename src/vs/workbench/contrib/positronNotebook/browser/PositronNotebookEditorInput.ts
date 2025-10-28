@@ -86,7 +86,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	// This is a reference to the model that is currently being edited in the editor.
 	private _editorModelReference: IReference<IResolvedNotebookEditorModel> | null = null;
 
-	public readonly viewType = 'jupyter-notebook';
+	public readonly viewType = 'jupyter-notebook' as const;
 
 	notebookInstance: PositronNotebookInstance;
 

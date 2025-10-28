@@ -96,6 +96,11 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 */
 	readonly uri: URI;
 
+	/**
+	 * The notebook view type. Only Jupyter notebooks are supported currently.
+	 */
+	readonly viewType: 'jupyter-notebook';
+
 	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**

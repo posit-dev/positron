@@ -459,6 +459,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onDidChangeVisibleRanges = this._onDidChangeVisibleRanges.event;
 
+	get viewType() {
+		return this._input.viewType;
+	}
+
 	/**
 	 * Event fired when the notebook editor widget or a cell editor within it gains focus.
 	 */
