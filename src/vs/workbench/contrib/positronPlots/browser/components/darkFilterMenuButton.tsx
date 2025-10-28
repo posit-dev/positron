@@ -98,7 +98,7 @@ export const DarkFilterMenuButton = () => {
 			run: async () => {
 				await services.preferencesService.openUserSettings({
 					jsonEditor: false,
-					query: 'positron.plots.darkFilter'
+					query: 'plots.darkFilter,positron.plots.darkFilter'
 				});
 			}
 		});
