@@ -644,6 +644,83 @@ export function registerPositronConsoleActions() {
 	});
 
 	/**
+	 * Helper function to execute code before or after cursor
+	 *
+	 * @param accessor The services accessor
+	 * @param selectionMode 'beforeCursor' to execute code from beginning to current line, 'afterCursor' to execute from current line to end
+	 * @param opts Options for code execution
+	 * @returns A promise that resolves when execution completes
+	 */
+	async function executeCodeRelativeToCursor(
+		accessor: ServicesAccessor,
+		selectionMode: 'beforeCursor' | 'afterCursor',
+		opts: {
+			allowIncomplete?: boolean;
+			languageId?: string;
+			mode?: RuntimeCodeExecutionMode;
+			errorBehavior?: RuntimeErrorBehavior;
+		} = {}
+	): Promise<void> {
+		// Access services.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+
+		// If there is no active editor, there is nothing to execute.
+		const editor = editorService.activeTextEditorControl as IEditor;
+		if (!editor) {
+			return;
+		}
+
+		// Get the model and cursor position
+		const model = editor.getModel() as ITextModel;
+		const position = editor.getPosition();
+		if (!position) {
+			return;
+		}
+
+		// Get the code to execute based on selection mode
+		let range: IRange;
+		if (selectionMode === 'beforeCursor') {
+			// For 'beforeCursor', get all text from the beginning of the document to the end of the line that contains the cursor
+			range = {
+				startLineNumber: 1,
+				startColumn: 1,
+				endLineNumber: position.lineNumber,
+				endColumn: model.getLineMaxColumn(position.lineNumber) // End of the line containing the cursor
+			};
+		} else {
+			// For 'afterCursor', get all text from the beginning of the line that contains the cursor to the end of the document
+			range = {
+				startLineNumber: position.lineNumber,
+				startColumn: 1, // Start of the line containing the cursor
+				endLineNumber: model.getLineCount(),
+				endColumn: model.getLineMaxColumn(model.getLineCount())
+			};
+		}
+		const code = model.getValueInRange(range);
+
+		// Ensure we have a non-empty string to execute
+		if (code.trim().length === 0) {
+			notificationService.notify({
+				severity: Severity.Info,
+				message: selectionMode === 'beforeCursor'
+					? localize('positron.executeCodeBeforeCursor.noCode', "No code found before cursor position.")
+					: localize('positron.executeCodeAfterCursor.noCode', "No code found after cursor position."),
+				sticky: false
+			});
+			return;
+		}
+
+		// Use the helper function to execute the code
+		await executeCodeInConsole(accessor, code, position, model, {
+			allowIncomplete: opts.allowIncomplete,
+			languageId: opts.languageId,
+			mode: opts.mode,
+			errorBehavior: opts.errorBehavior
+		});
+	}
+
+	/**
 	 * Register the "Execute Code From Beginning To Current Line" action.
 	 * This action executes all the code in the editor to the current line without moving the cursor.
 	 */
@@ -673,7 +750,6 @@ export function registerPositronConsoleActions() {
 		 * Runs action.
 		 * @param accessor The services accessor.
 		 * @param opts Options for code execution
-		 *   - selectionMode: When set to 'beforeCursor', executes all code before the cursor. When set to 'afterCursor', executes all code after the cursor.
 		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
 		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used.
 		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
@@ -682,73 +758,13 @@ export function registerPositronConsoleActions() {
 		async run(
 			accessor: ServicesAccessor,
 			opts: {
-				selectionMode?: 'beforeCursor' | 'afterCursor';
 				allowIncomplete?: boolean;
 				languageId?: string;
 				mode?: RuntimeCodeExecutionMode;
 				errorBehavior?: RuntimeErrorBehavior;
 			} = {}
 		) {
-			// Default selection mode is 'beforeCursor'
-			const selectionMode = opts.selectionMode || 'beforeCursor';
-
-			// Access services.
-			const editorService = accessor.get(IEditorService);
-			const notificationService = accessor.get(INotificationService);
-
-			// If there is no active editor, there is nothing to execute.
-			const editor = editorService.activeTextEditorControl as IEditor;
-			if (!editor) {
-				return;
-			}
-
-			// Get the model and cursor position
-			const model = editor.getModel() as ITextModel;
-			const position = editor.getPosition();
-			if (!position) {
-				return;
-			}
-
-			// Get the code to execute based on selection mode
-			let range: IRange;
-			if (selectionMode === 'beforeCursor') {
-				// For 'beforeCursor', get all text from the beginning of the document to the end of the line that contains the cursor
-				range = {
-					startLineNumber: 1,
-					startColumn: 1,
-					endLineNumber: position.lineNumber,
-					endColumn: model.getLineMaxColumn(position.lineNumber) // End of the line containing the cursor
-				};
-			} else {
-				// For 'afterCursor', get all text from the beginning of the line that contains the cursor to the end of the document
-				range = {
-					startLineNumber: position.lineNumber,
-					startColumn: 1, // Start of the line containing the cursor
-					endLineNumber: model.getLineCount(),
-					endColumn: model.getLineMaxColumn(model.getLineCount())
-				};
-			}
-			const code = model.getValueInRange(range);
-
-			// Ensure we have a non-empty string to execute
-			if (code.trim().length === 0) {
-				notificationService.notify({
-					severity: Severity.Info,
-					message: selectionMode === 'beforeCursor'
-						? localize('positron.executeCodeBeforeCursor.noCode', "No code found before cursor position.")
-						: localize('positron.executeCodeAfterCursor.noCode', "No code found after cursor position."),
-					sticky: false
-				});
-				return;
-			}
-
-			// Use the helper function to execute the code
-			await executeCodeInConsole(accessor, code, position, model, {
-				allowIncomplete: opts.allowIncomplete,
-				languageId: opts.languageId,
-				mode: opts.mode,
-				errorBehavior: opts.errorBehavior
-			});
+			return executeCodeRelativeToCursor(accessor, 'beforeCursor', opts);
 		}
 	});
 
@@ -778,13 +794,25 @@ export function registerPositronConsoleActions() {
 			});
 		}
 
-		async run(accessor: ServicesAccessor, opts: {} = {}) {
-			opts = {
-				...opts,
-				selectionMode: 'afterCursor'
-			};
-			const commandService = accessor.get(ICommandService);
-			return commandService.executeCommand('workbench.action.positronConsole.executeCodeBeforeCursor', opts);
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 * @param opts Options for code execution
+		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
+		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used.
+		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
+		 *   - errorBehavior: Optionally, the error behavior for a language runtime. If `undefined` fallbacks to `Continue`.
+		 */
+		async run(
+			accessor: ServicesAccessor,
+			opts: {
+				allowIncomplete?: boolean;
+				languageId?: string;
+				mode?: RuntimeCodeExecutionMode;
+				errorBehavior?: RuntimeErrorBehavior;
+			} = {}
+		) {
+			return executeCodeRelativeToCursor(accessor, 'afterCursor', opts);
 		}
 	});
 
