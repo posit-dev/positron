@@ -850,64 +850,6 @@ export class KallichoreInstances {
 	}
 
 	/**
-	 * Assembles a sentence describing a session's runtime status and activity.
-	 *
-	 * @param session The session whose status should be summarized.
-	 * @returns A localized status sentence, or undefined when no details are available.
-	 */
-	private static describeSessionStatusSentence(session: ActiveSession): string | undefined {
-		const statusLabel = this.describeStatusLabel(session.status);
-		const activityDetail = this.describeSessionActivityDetail(session);
-		if (activityDetail) {
-			return vscode.l10n.t("It is currently {0} and {1}.", statusLabel, activityDetail);
-		}
-		return vscode.l10n.t("It is currently {0}.", statusLabel);
-	}
-
-	/**
-	 * Maps a raw session status string into a localized, user-friendly label.
-	 *
-	 * @param status The status value reported by the supervisor.
-	 * @returns The localized label corresponding to the status.
-	 */
-	private static describeStatusLabel(status: string): string {
-		switch (status) {
-			case Status.Busy:
-				return vscode.l10n.t("busy");
-			case Status.Idle:
-				return vscode.l10n.t("idle");
-			case Status.Starting:
-				return vscode.l10n.t("starting");
-			case Status.Ready:
-				return vscode.l10n.t("ready");
-			case Status.Offline:
-				return vscode.l10n.t("offline");
-			case Status.Exited:
-				return vscode.l10n.t("exited");
-			case Status.Uninitialized:
-				return vscode.l10n.t("uninitialized");
-			default:
-				return status;
-		}
-	}
-
-	/**
-	 * Generates additional context about a session's busy or idle duration.
-	 *
-	 * @param session The session whose activity durations should be described.
-	 * @returns A localized clause describing busy or idle time, or undefined if unavailable.
-	 */
-	private static describeSessionActivityDetail(session: ActiveSession): string | undefined {
-		if (session.status === Status.Busy && session.busy_seconds > 0) {
-			return vscode.l10n.t("has been busy for {0}", this.formatDuration(session.busy_seconds));
-		}
-		if (session.status !== Status.Busy && session.idle_seconds > 0) {
-			return vscode.l10n.t("has been idle for {0}", this.formatDuration(session.idle_seconds));
-		}
-		return undefined;
-	}
-
-	/**
 	 * Describes the connection state of a session along with any pending executions.
 	 *
 	 * @param session The session whose connection status should be narrated.
