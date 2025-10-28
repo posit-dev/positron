@@ -31,6 +31,8 @@ export async function verifyReticulateFunctionality(
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x', true);
 
+	await ensureVariablePresent(app, 'y', value);
+
 	await app.workbench.console.clearButton.click();
 
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
