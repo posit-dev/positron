@@ -33,6 +33,9 @@ test.describe('Reticulate', {
 
 		const rSessionMetaData = await sessions.start('r');
 
+		await app.workbench.console.pasteCodeToConsole('reticulate::py_require("ipykernel")', true);
+		await app.workbench.console.pasteCodeToConsole('reticulate::py_run_string("import ipykernel; print(ipykernel.__version__)")', true);
+
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
