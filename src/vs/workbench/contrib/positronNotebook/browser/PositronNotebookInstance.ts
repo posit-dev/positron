@@ -388,6 +388,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
+		this.contextManager = this._register(
+			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
+		);
+
 		// Track the current runtime session for this notebook
 		this.runtimeSession = observableValue('positronNotebookRuntimeSession', this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri));
 		this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
@@ -436,10 +440,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Derive the notebook language from the runtime session
 		this._language = this.runtimeSession.map(
 			session => /** @description positronNotebookLanguage */ session?.runtimeMetadata.languageId ?? 'plaintext'
-		);
-
-		this.contextManager = this._register(
-			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
 		);
 		this._positronNotebookService.registerInstance(this);
 
