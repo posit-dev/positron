@@ -8,6 +8,7 @@ import { KeyChord, KeyCode } from '../../../../base/common/keyCodes.js';
 import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -19,6 +20,8 @@ import { INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../.
 import { NotebookEditorWidget } from '../../notebook/browser/notebookEditorWidget.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
+import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+import { usingPositronNotebooks } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { ActiveNotebookHasRunningRuntime, isNotebookEditorInput } from '../common/activeRuntimeNotebookContextManager.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 
@@ -142,17 +145,25 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
 
+		const configurationService = accessor.get(IConfigurationService);
 		const progressService = accessor.get(IProgressService);
 		const notificationService = accessor.get(INotificationService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
-		// Restart the session with a progress bar.
+		// Restart the session.
 		try {
-			await progressService.withProgress({
-				location: ProgressLocation.Notification,
-				title: localize("positron.notebook.restart.restarting", "Restarting {0} interpreter for '{1}'",
-					session.runtimeMetadata.runtimeName, session.metadata.notebookUri.fsPath),
-			}, () => runtimeSessionService.restartSession(session.metadata.sessionId, context.source.debugMessage));
+			const restart = () => runtimeSessionService.restartSession(session.metadata.sessionId, context.source.debugMessage);
+			// Don't show a progress bar if using Positron notebooks
+			if (checkPositronNotebookEnabled(configurationService) &&
+				usingPositronNotebooks(configurationService)) {
+				await restart();
+			} else {
+				await progressService.withProgress({
+					location: ProgressLocation.Notification,
+					title: localize("positron.notebook.restart.restarting", "Restarting {0} interpreter for '{1}'",
+						session.runtimeMetadata.runtimeName, session.metadata.notebookUri.fsPath),
+				}, restart);
+			}
 		} catch (error) {
 			notificationService.error(
 				localize("positron.notebook.restart.failed", "Restarting {0} interpreter for '{1}' failed. Reason: {2}",
@@ -193,17 +204,25 @@ export class RuntimeNotebookKernelShutdownAction extends BaseRuntimeNotebookKern
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
 
+		const configurationService = accessor.get(IConfigurationService);
 		const progressService = accessor.get(IProgressService);
 		const notificationService = accessor.get(INotificationService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
-		// Shutdown the session with a progress bar.
+		// Shutdown the session.
 		try {
-			await progressService.withProgress({
-				location: ProgressLocation.Notification,
-				title: localize("positron.notebook.shutdown.shuttingDown", "Shutting down {0} interpreter for '{1}'",
-					session.runtimeMetadata.runtimeName, session.metadata.notebookUri.fsPath),
-			}, () => runtimeSessionService.shutdownNotebookSession(session.metadata.notebookUri, RuntimeExitReason.Shutdown, context.source.debugMessage));
+			const shutdown = () => runtimeSessionService.shutdownNotebookSession(session.metadata.notebookUri, RuntimeExitReason.Shutdown, context.source.debugMessage);
+			// Don't show a progress bar if using Positron notebooks
+			if (checkPositronNotebookEnabled(configurationService) &&
+				usingPositronNotebooks(configurationService)) {
+				await shutdown();
+			} else {
+				await progressService.withProgress({
+					location: ProgressLocation.Notification,
+					title: localize("positron.notebook.shutdown.shuttingDown", "Shutting down {0} interpreter for '{1}'",
+						session.runtimeMetadata.runtimeName, session.metadata.notebookUri.fsPath),
+				}, shutdown);
+			}
 		} catch (error) {
 			notificationService.error(
 				localize("positron.notebook.shutdown.failed", "Shutting down {0} interpreter for '{1}' failed. Reason: {2}",
