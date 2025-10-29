@@ -388,6 +388,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', []);
 
+		// Initialize context manager early since it's used by runtime session autorun
+		this.contextManager = this._register(
+			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
+		);
+
 		// Track the current runtime session for this notebook
 		this.runtimeSession = observableValue('positronNotebookRuntimeSession', this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri));
 		this._register(this.runtimeSessionService.onDidStartRuntime(async (session) => {
@@ -439,9 +444,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			session => /** @description positronNotebookLanguage */ session?.runtimeMetadata.languageId ?? 'plaintext'
 		);
 
-		this.contextManager = this._register(
-			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
-		);
 		this._positronNotebookService.registerInstance(this);
 
 		this.selectionStateMachine = this._register(
