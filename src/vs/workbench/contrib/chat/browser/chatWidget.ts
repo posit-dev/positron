@@ -1285,10 +1285,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		let welcomeTitle;
 		let tips: IMarkdownString | undefined;
 
-		// Show an extra configuration link if there are no configured models yet
+		// Show a link to enable the assistant if it's not yet enabled
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
-			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Coming Soon");
-			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and will be available in a future version of Positron.\n");
+			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Welcome to Positron Assistant");
+			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
+			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
+			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistant)`;
 		} else if (!this.languageModelsService.currentProvider) {
 			// When Anthropic is the only supported provider, we can use a more specific message.
 			// TODO: remove this custom handling https://github.com/posit-dev/positron/issues/8301
