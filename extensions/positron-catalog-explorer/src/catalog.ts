@@ -417,6 +417,7 @@ export function registerCatalogCommands(
 				await vscode.commands.executeCommand('copyFilePath', node.resourceUri);
 			},
 		),
+
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.openInSession',
 			async (node: CatalogNode) => await node.openInSession(),
@@ -429,6 +430,7 @@ export function registerCatalogCommands(
 					return;
 				}
 				await vscode.env.clipboard.writeText(code);
+				vscode.window.showInformationMessage('Code copied to clipboard.');
 			},
 		),
 		vscode.commands.registerCommand(
@@ -439,6 +441,44 @@ export function registerCatalogCommands(
 					return;
 				}
 				await vscode.env.clipboard.writeText(code);
+				vscode.window.showInformationMessage('Code copied to clipboard.');
+			},
+		),
+		// each node will handle its own file/table distinction, just delegate to core command
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.previewTableInSession',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.openInSession', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.downloadFileInSession',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.openInSession', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyPythonCodeFile',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyPythonCode', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyPythonCodeTable',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyPythonCode', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyRCodeFile',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyRCode', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyRCodeTable',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyRCode', node);
 			},
 		),
 		vscode.commands.registerCommand(
