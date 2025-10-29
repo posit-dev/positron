@@ -144,6 +144,12 @@
     },
     "commands": [
       {
+        "command": "positron-assistant.enableAssistant",
+        "title": "%commands.enableAssistant.title%",
+        "category": "%commands.category%",
+        "enablement": "!config.positron.assistant.enable"
+      },
+      {
         "command": "positron-assistant.exportChatToFileInWorkspace",
         "title": "%commands.exportChatToFileInWorkspace.title%",
         "category": "%commands.category%",

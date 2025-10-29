@@ -3,6 +3,7 @@
 	"description": "Provides default assistant and language models for Positron.",
 	"commands.exportChatToFileInWorkspace.title": "Export the current chat to a file in the workspace",
 	"commands.exportChatTo.title": "Export the current chat to...",
+	"commands.enableAssistant.title": "Enable Positron Assistant",
 	"commands.configureModels.title": "Configure Language Model Providers",
 	"commands.logStoredModels.title": "Log the stored language models",
 	"commands.generateCommitMessage.title": "Generate Commit Message",
