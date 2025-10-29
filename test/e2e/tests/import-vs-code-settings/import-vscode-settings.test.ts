@@ -29,7 +29,7 @@ test.use({
 });
 
 test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
-	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, hotKeys }) => {
+	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings }) => {
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
 			'editor.fontSize': 12,
