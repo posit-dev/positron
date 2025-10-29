@@ -5,14 +5,14 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { IPathService } from '../../path/common/pathService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
+import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { untildify } from '../../../../base/common/labels.js';
-import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
+import { NotebookSetting } from './notebookCommon.js';
 
 /**
  * Validates that a URI is an existing directory.

@@ -30,7 +30,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPathService } from '../../path/common/pathService.js';
-import { resolveNotebookWorkingDirectory } from './notebookWorkingDirectoryUtils.js';
+import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/common/notebookWorkingDirectoryUtils.js';
 
 /**
  * Get a map key corresponding to a session.

@@ -17,7 +17,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
-import { resolveNotebookWorkingDirectory, resolvePath, makeDisplayPath } from '../../../services/runtimeSession/common/notebookWorkingDirectoryUtils.js';
+import { resolveNotebookWorkingDirectory, resolvePath, makeDisplayPath } from '../../notebook/common/notebookWorkingDirectoryUtils.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
