@@ -65,7 +65,10 @@ export const RuntimeStatusIcon = ({ status }: RuntimeStatusIconProps) => {
 	return (
 		<span
 			className={className}
-			style={{ color: colorCss }}
+			style={{
+				color: colorCss,
+				animation: status === RuntimeStatus.Active ? 'spin 2s linear infinite' : undefined
+			}}
 		/>
 	);
 };
