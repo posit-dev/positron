@@ -61,18 +61,34 @@ export async function verifyReticulateFunctionality(
 	}).toPass({ timeout: 20000 });
 
 	await app.workbench.console.pasteCodeToConsole('print(r.y)', true);
-	await app.workbench.console.waitForConsoleContents(value2);
+	await ensureConsoleDataPresent(app, value2);
 
 	await app.workbench.console.pasteCodeToConsole('print(z)', true);
-	await app.workbench.console.waitForConsoleContents(value3);
+	await ensureConsoleDataPresent(app, value3);
 }
 
 async function ensureVariablePresent(app: Application, variableName: string, value: string) {
 
 	await expect(async () => {
 		try {
+			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 			const variablesMap = await app.workbench.variables.getFlatVariables();
 			expect(variablesMap.get(variableName)).toStrictEqual({ value: value, type: 'int' });
+			await app.workbench.layouts.enterLayout('stacked');
+		} catch (e) {
+			await app.workbench.layouts.enterLayout('stacked');
+			console.log('Resending enter key');
+			await app.workbench.console.sendEnterKey();
+			throw e;
+		}
+	}).toPass({ timeout: 10000 });
+}
+
+async function ensureConsoleDataPresent(app: Application, value: string) {
+
+	await expect(async () => {
+		try {
+			await app.workbench.console.waitForConsoleContents(value);
 		} catch (e) {
 			console.log('Resending enter key');
 			await app.workbench.console.sendEnterKey();
