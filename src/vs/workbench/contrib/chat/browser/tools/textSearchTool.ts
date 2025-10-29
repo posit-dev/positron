@@ -14,14 +14,14 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
-const DEFAULT_MAX_RESULTS = 50;
+const DEFAULT_MAX_RESULTS = 30;
 
 const findTextInProjectModelDescription = `
-This tool searches for the specified text inside files in the project and returns a set of files and their corresponding lines where the text is found,
-as well as messages about the search results.
-DO NOT use this tool to find files or directories in the workspace, as it is specifically designed for searching text within files.
+This tool searches for the specified text inside files in the project and returns snippets of matching lines in the format: /path/to/file:line: [...]content[...]
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
-Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
+Other search options such as case sensitivity, regex, whole word matching, and multiline matching can be specified.
+Prefer your project tree tool when you want to find files and directories in
+the workspace rather than search within them.
 `;
 
 export const ExtensionTextSearchToolId = 'positron_findTextInProject';
@@ -34,7 +34,6 @@ export const TextSearchToolData: IToolData = {
 	tags: [
 		'positron-assistant',
 		'requires-workspace',
-		'high-token-usage',
 	],
 	canBeReferencedInPrompt: false,
 	inputSchema: {
@@ -70,7 +69,7 @@ export const TextSearchToolData: IToolData = {
 			},
 			maxResults: {
 				type: 'number',
-				description: `The maximum number of search results to return. Cannot exceed the default maximum of ${DEFAULT_MAX_RESULTS} to prevent excessive token usage.`,
+				description: `The maximum number of search results to return. Must be less than ${DEFAULT_MAX_RESULTS}.`,
 				default: DEFAULT_MAX_RESULTS
 			}
 			// Not included here: notebookInfo. See the IPatternInfo interface in src/vs/workbench/services/search/common/search.ts
@@ -103,8 +102,7 @@ export class TextSearchTool implements IToolImpl {
 		// Set up the text search query
 		const searchParams = invocation.parameters as TextSearchToolParams;
 		const workspaceUris = workspaceFolders.map(folder => folder.uri);
-		// Don't allow more than the default max results, even if a higher value is provided,
-		// to prevent excessive token usage and performance issues.
+		// Don't allow more than the default max results, even if a higher value is provided.
 		const maxResults = searchParams.maxResults && searchParams.maxResults < DEFAULT_MAX_RESULTS
 			? searchParams.maxResults
 			: DEFAULT_MAX_RESULTS;
@@ -119,27 +117,75 @@ export class TextSearchTool implements IToolImpl {
 		const query = this._queryBuilder.text(searchParams, workspaceUris, queryOptions);
 
 		// Search for the text
-		const { results, messages, limitHit } = await this._searchService.textSearch(query, _token);
+		const { results, limitHit } = await this._searchService.textSearch(query, _token);
 
-		// If we have a chat context, include references for each result
+		// Build simplified output
+		const outputLines: string[] = [];
+
+		for (const result of results) {
+			const filePath = result.resource.fsPath;
+
+			if (!result.results?.length) {
+				continue;
+			}
+
+			for (const match of result.results) {
+				if (!resultIsMatch(match)) {
+					continue; // Skip context lines
+				}
+
+				// Get line number from first range location
+				const lineNumber = match.rangeLocations[0].source.startLineNumber + 1; // Convert to 1-based
+
+				// Get the preview text and extract match plus surrounding context
+				const content = match.previewText.trim();
+				const matchStart = match.rangeLocations[0].preview.startColumn;
+				const matchEnd = match.rangeLocations[0].preview.endColumn;
+
+				// Find word boundaries around the match (expand ~10 chars, then to nearest whitespace)
+				let start = Math.max(0, matchStart - 10);
+				let end = Math.min(content.length, matchEnd + 10);
+
+				// Expand backward to word boundary (unless at start of string)
+				if (start > 0) {
+					while (start > 0 && !/\s/.test(content[start - 1])) {
+						start--;
+					}
+				}
+
+				// Expand forward to word boundary (unless at end of string)
+				if (end < content.length) {
+					while (end < content.length && !/\s/.test(content[end])) {
+						end++;
+					}
+				}
+
+				const prefix = start > 0 ? '[...] ' : '';
+				const suffix = end < content.length ? ' [...]' : '';
+				const snippet = prefix + content.substring(start, end).trim() + suffix;
+
+				outputLines.push(`${filePath}:${lineNumber}: ${snippet}`);
+			}
+		}
+
+		// Add UI references if we have chat context
 		if (invocation.context) {
 			const model = this._chatService.getSession(invocation.context.sessionId) as ChatModel;
 			const request = model.getRequests().at(-1)!;
 
 			for (const result of results) {
-				const { resource, results: fileMatches } = result;
-				if (!fileMatches?.length) {
-					continue; // No results for this file
+				if (!result.results?.length) {
+					continue;
 				}
 
-				fileMatches
+				result.results
 					.filter(resultIsMatch)
 					.flatMap(match => match.rangeLocations)
 					.forEach(loc => {
 						model.acceptResponseProgress(request, {
 							kind: 'reference',
 							reference: {
-								uri: resource,
+								uri: result.resource,
 								// Adjust the range to be 1-based for display (ranges are 0-based in the results)
 								range: {
 									startLineNumber: loc.source.startLineNumber + 1,
@@ -153,18 +199,16 @@ export class TextSearchTool implements IToolImpl {
 			}
 		}
 
-		const response: any = {
-			results,
-			messages,
-		};
+		// Add footer message if limit hit
 		if (limitHit) {
-			response.hitMaxResults = `Hit the maximum number of results: ${maxResults}.`;
+			outputLines.push('');
+			outputLines.push(`(Showing first ${maxResults} results. Use a more specific search term to retrieve complete results.)`);
 		}
 
 		return {
 			content: [{
 				kind: 'text',
-				value: JSON.stringify(response),
+				value: outputLines.join('\n'),
 			}],
 		};
 	}
