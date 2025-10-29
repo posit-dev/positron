@@ -56,15 +56,15 @@
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.previewTableInConsole",
+        "command": "posit.catalog-explorer.previewTableInSession",
         "category": "Catalogs",
-        "title": "Preview Table in Console",
+        "title": "Preview Table in Active Session",
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.downloadFileInConsole",
+        "command": "posit.catalog-explorer.downloadFileInSession",
         "category": "Catalogs",
-        "title": "Download File in Console",
+        "title": "Download File in Active Session",
         "enablement": "view == catalog-explorer"
       },
       {
@@ -77,28 +77,28 @@
       {
         "command": "posit.catalog-explorer.copyPythonCodeFile",
         "category": "Catalogs",
-        "title": "Download File via Python",
+        "title": "Download File with Python",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyPythonCodeTable",
         "category": "Catalogs",
-        "title": "Preview Table via Python",
+        "title": "Preview Table with Python",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyRCodeFile",
         "category": "Catalogs",
-        "title": "Download File via R",
+        "title": "Download File with R",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyRCodeTable",
         "category": "Catalogs",
-        "title": "Preview Table via R",
+        "title": "Preview Table with R",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       }
@@ -157,12 +157,12 @@
           "group": "1_primary@2"
         },
         {
-          "command": "posit.catalog-explorer.downloadFileInConsole",
+          "command": "posit.catalog-explorer.downloadFileInSession",
           "when": "view == catalog-explorer && viewItem == file",
           "group": "1_primary@3"
         },
         {
-          "command": "posit.catalog-explorer.previewTableInConsole",
+          "command": "posit.catalog-explorer.previewTableInSession",
           "when": "view == catalog-explorer && viewItem == table",
           "group": "1_primary@3"
         },
