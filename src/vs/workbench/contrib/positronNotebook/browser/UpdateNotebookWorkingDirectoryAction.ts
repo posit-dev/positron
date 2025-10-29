@@ -217,9 +217,15 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		if (result?.id === UPDATE_ID) {
 			try {
 				await session.setWorkingDirectory(newWorkingDirectory);
+				notificationService.info(localize(
+					'positron.notebook.updateWorkingDirectory.success',
+					'Successfully updated working directory from {0} to {1}',
+					currentWorkingDirectory,
+					newWorkingDirectory
+				));
 			} catch (error) {
 				notificationService.error(localize(
-					'positron.notebook.updateWorkingDirectory.failed',
+					'positron.notebook.updateWorkingDirectory.failure',
 					'Failed to update working directory to {0}.',
 					newWorkingDirectory
 				));
