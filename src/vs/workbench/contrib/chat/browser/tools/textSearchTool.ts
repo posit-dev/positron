@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
+import { relativePath } from '../../../../../base/common/resources.js';
 import { localize } from '../../../../../nls.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -123,7 +124,9 @@ export class TextSearchTool implements IToolImpl {
 		const outputLines: string[] = [];
 
 		for (const result of results) {
-			const filePath = result.resource.fsPath;
+			// Make path relative to workspace folder
+			const folder = this._workspaceContextService.getWorkspaceFolder(result.resource);
+			const filePath = folder ? (relativePath(folder.uri, result.resource) ?? result.resource.fsPath) : result.resource.fsPath;
 
 			if (!result.results?.length) {
 				continue;
