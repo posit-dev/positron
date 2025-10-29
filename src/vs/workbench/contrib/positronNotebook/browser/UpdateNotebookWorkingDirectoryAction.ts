@@ -22,6 +22,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH } from './ContextKeysManager.js';
 
 // Constants
 const UPDATE_ID = 'update';
@@ -47,12 +48,12 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 				{
 					id: MenuId.EditorActionsRight,
 					group: 'navigation',
-					when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
-
+					when: ContextKeyExpr.and(
+						ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+						POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH
+					)
 				}
 			]
-			// TODO: only show in action bar if the active editor is a Positron notebook
-			// and the notebook working directory differs from the notebook location
 		});
 	}
 
