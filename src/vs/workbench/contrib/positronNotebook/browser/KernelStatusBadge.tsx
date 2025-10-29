@@ -19,30 +19,68 @@ import { MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { useMenu } from './useMenu.js';
 import { IPositronNotebookActionBarContext } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelActions.js';
+import { derived, observableFromEvent } from '../../../../base/common/observable.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
-const kernelStatusToRuntimeStatus = {
-	[KernelStatus.Uninitialized]: RuntimeStatus.Disconnected,
-	[KernelStatus.Disconnected]: RuntimeStatus.Disconnected,
-	[KernelStatus.Connected]: RuntimeStatus.Idle,
-	[KernelStatus.Connecting]: RuntimeStatus.Active,
-	[KernelStatus.Errored]: RuntimeStatus.Disconnected,
+const kernelStatusToRuntimeStatus: Record<KernelStatus, RuntimeStatus> = {
+	// Disconnected
+	[KernelStatus.Unselected]: RuntimeStatus.Disconnected,
+	[KernelStatus.Exited]: RuntimeStatus.Disconnected,
+	// Idle
+	[KernelStatus.Idle]: RuntimeStatus.Idle,
+	// Active
+	[KernelStatus.Discovering]: RuntimeStatus.Active,
+	[KernelStatus.Starting]: RuntimeStatus.Active,
+	[KernelStatus.Restarting]: RuntimeStatus.Active,
+	[KernelStatus.Switching]: RuntimeStatus.Active,
+	[KernelStatus.Exiting]: RuntimeStatus.Active,
+	[KernelStatus.Busy]: RuntimeStatus.Active,
+};
+
+const kernelStatusToLabel: Partial<Record<KernelStatus, string>> = {
+	[KernelStatus.Discovering]: localize('positronNotebook.kernelStatusBadge.discovering', 'Discovering Interpreters...'),
+	[KernelStatus.Unselected]: localize('positronNotebook.kernelStatusBadge.unselected', 'No Kernel Selected'),
+};
+
+const runtimeStartupPhaseToLabel: Partial<Record<RuntimeStartupPhase, string>> = {
+	[RuntimeStartupPhase.AwaitingTrust]: localize('positronNotebook.kernelStatusBadge.awaitingTrust', 'Awaiting Trust...'),
 };
 
 const tooltip = localize('positronNotebook.kernelStatusBadge.tooltip', 'Kernel Actions');
-const noRuntimeLabel = localize('positronNotebook.kernelStatusBadge.noRuntimeLabel', 'No Kernel Selected');
 
 export function KernelStatusBadge() {
 	// Context
 	const notebookInstance = useNotebookInstance();
+	const services = usePositronReactServicesContext();
+	const languageRuntimeService = services.get(ILanguageRuntimeService);
 
 	// State
-	const runtimeStatus = useObservedValue(
-		notebookInstance.kernelStatus.map((kernelStatus) => kernelStatusToRuntimeStatus[kernelStatus])
+	const runtimeStatus = useObservedValue(notebookInstance.kernelStatus.map((kernelStatus) =>
+		kernelStatusToRuntimeStatus[kernelStatus]));
+	const startupPhaseObs = observableFromEvent(
+		languageRuntimeService.onDidChangeRuntimeStartupPhase,
+		() => languageRuntimeService.startupPhase,
 	);
-	const runtimeName = useObservedValue(
-		notebookInstance.runtimeSession.map((runtimeSession) =>
-			runtimeSession ? runtimeSession.runtimeMetadata.runtimeName : noRuntimeLabel)
-	);
+	const label = useObservedValue(derived(reader => {
+		const kernel = notebookInstance.kernel.read(reader);
+		const kernelStatus = notebookInstance.kernelStatus.read(reader);
+		const startupPhase = startupPhaseObs.read(reader);
+		// Prefer the kernel's runtime name, if available
+		if (kernel) {
+			return kernel.runtime.runtimeName;
+		}
+		// Display known runtime startup phases
+		if (runtimeStartupPhaseToLabel[startupPhase]) {
+			return runtimeStartupPhaseToLabel[startupPhase];
+		}
+		// Display known kernel statuses
+		if (kernelStatusToLabel[kernelStatus]) {
+			return kernelStatusToLabel[kernelStatus];
+		}
+		// This shouldn't happen...
+		return '';
+	}));
 	const menu = useMenu(MenuId.PositronNotebookKernelSubmenu, notebookInstance.scopedContextKeyService);
 
 	// Callback to load actions from the menu
@@ -72,7 +110,7 @@ export function KernelStatusBadge() {
 		>
 			<div className='positron-notebook-kernel-status-badge' data-testid='notebook-kernel-status'>
 				<RuntimeStatusIcon status={runtimeStatus} />
-				<p className='runtime-name'>{runtimeName}</p>
+				<p className='kernel-label'>{label}</p>
 			</div>
 		</ActionBarMenuButton>
 	);

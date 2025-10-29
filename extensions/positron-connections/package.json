@@ -105,17 +105,17 @@
         {
           "command": "positron.connections.closeConnection",
           "group": "inline",
-          "when": "viewItem == database"
+          "when": "view == connections && viewItem == database"
         },
         {
           "command": "positron.connections.previewTable",
           "group": "inline",
-          "when": "viewItem == table"
+          "when": "view == connections && viewItem == table"
         },
         {
           "command": "positron.connections.refresh",
           "group": "inline",
-          "when": "viewItem == database"
+          "when": "view == connections && viewItem == database"
         },
         {
           "command": "positron.connections.removeFromHistory",

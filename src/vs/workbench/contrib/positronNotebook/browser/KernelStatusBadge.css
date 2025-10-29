@@ -18,7 +18,7 @@
 	align-items: center;
 	column-gap: 4px;
 
-	.runtime-name {
+	.kernel-label {
 		/* Grow items after session name to fill available space */
 		flex: 1;
 

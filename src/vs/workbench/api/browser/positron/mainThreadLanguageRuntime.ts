@@ -159,7 +159,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			busy: false,
 			// If the session is a notebook session, set the current notebook URI
 			// to dynamic data so that it can be displayed in the UI.
-			currentNotebookUri: metadata.notebookUri || undefined,
+			currentNotebookUri: metadata.notebookUri,
 			currentWorkingDirectory: '',
 			...initialState.dynState,
 		};
