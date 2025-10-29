@@ -1290,7 +1290,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Welcome to Positron Assistant");
 			const enableAssistantMessage = localize('positronAssistant.enableAssistantMessage', "Enable Positron Assistant");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and is currently available as a preview feature of Positron.\n");
-			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistant)`;
+			welcomeText += `\n\n[${enableAssistantMessage}](command:positron-assistant.enableAssistantSetting)`;
 		} else if (!this.languageModelsService.currentProvider) {
 			// When Anthropic is the only supported provider, we can use a more specific message.
 			// TODO: remove this custom handling https://github.com/posit-dev/positron/issues/8301

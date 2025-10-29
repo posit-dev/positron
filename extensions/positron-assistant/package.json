@@ -144,7 +144,7 @@
     },
     "commands": [
       {
-        "command": "positron-assistant.enableAssistant",
+        "command": "positron-assistant.enableAssistantSetting",
         "title": "%commands.enableAssistant.title%",
         "category": "%commands.category%",
         "enablement": "!config.positron.assistant.enable"

@@ -376,7 +376,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// If the assistant is not enabled, listen for configuration changes so that we can
 		// enable it immediately if the user enables it in the settings.
 		context.subscriptions.push(
-			vscode.commands.registerCommand('positron-assistant.enableAssistant', async () => {
+			vscode.commands.registerCommand('positron-assistant.enableAssistantSetting', async () => {
 				vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.enable');
 			}),
 			vscode.workspace.onDidChangeConfiguration(e => {
