@@ -1031,8 +1031,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * fully determine the view we see.
 	 */
 	getEditorViewState(): INotebookEditorViewState {
-		// TODO: Implement editor view state here, and restoring in PositronNotebookEditor.setInput
-		//       for popping notebooks into a new window
+		// NOTE: Placeholder if we need to use editor view state
 		return {
 			editingCells: {},
 			cellLineNumberStates: {},
@@ -1159,6 +1158,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// TODO: We should be disposing cells when we're done with them.
 			//       We're currently holding onto notebook and cell text model references
 			//       so text models are never disposed
+			//       See: https://github.com/posit-dev/positron/issues/10215
 			newlyAddedCells.push(newCell);
 
 			return newCell;

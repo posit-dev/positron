@@ -106,6 +106,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		//       to the notebook and cell text models. This stops notebook documents from ever
 		//       being disposed, which leaves their runtime sessions running.
 		//       We may also want to store and reuse a single reference for all calls to this method.
+		//       See: https://github.com/posit-dev/positron/issues/10215
 		const modelRef = this._register(await this._textModelService.createModelReference(this.uri));
 		return modelRef.object.textEditorModel;
 	}

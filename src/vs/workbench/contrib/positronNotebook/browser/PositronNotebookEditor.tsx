@@ -239,8 +239,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
 
-		// TODO: Implement restoring view state here, and IPositronNotebookInstance.getEditorViewState
-		//       for popping notebooks into a new window
+		// NOTE: Placeholder if we need to use editor view state:
 		// const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
 		const { notebookInstance } = input;
 

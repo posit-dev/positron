@@ -381,7 +381,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 							this._logService.debug(
 								`[RuntimeNotebookKernel] Session restored for notebook ${notebookUri.fsPath}`
 							);
-							await this.whenStarted(session);
+							await this.whenReadyToExecute(session);
 							resolve(session);
 						}
 					}));
@@ -417,7 +417,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			}
 
 			// Wait for it to be ready.
-			await this.whenStarted(session);
+			await this.whenReadyToExecute(session);
 
 			return session;
 		} catch (err) {
@@ -434,9 +434,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	/**
-	 * Promise that resolves when a session has started and is ready to execute code.
+	 * Promise that resolves when a session has started and is ready to receive execution requests.
+	 * This is to avoid sending requests when the runtime is not ready, which may lead to
+	 * inconsistent state or behavior.
 	 */
-	private async whenStarted(session: INotebookLanguageRuntimeSession) {
+	private async whenReadyToExecute(session: INotebookLanguageRuntimeSession) {
+		// Only need to wait if the runtime is in one of these states
 		const state = session.getRuntimeState();
 		if (state === RuntimeState.Uninitialized ||
 			state === RuntimeState.Initializing ||
