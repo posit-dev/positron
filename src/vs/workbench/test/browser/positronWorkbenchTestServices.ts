@@ -54,6 +54,7 @@ import { EphemeralStateService } from '../../../platform/ephemeralState/common/e
 import { ILanguageService } from '../../../editor/common/languages/language.js';
 import { IRuntimeNotebookKernelService } from '../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { RuntimeNotebookKernelService } from '../../contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
+import { IPositronNotebookService, PositronNotebookService } from '../../contrib/positronNotebook/browser/positronNotebookService.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -83,8 +84,9 @@ export function positronWorkbenchInstantiationService(
 	// Positron services.
 	instantiationService.stub(IEphemeralStateService, instantiationService.createInstance(EphemeralStateService));
 	instantiationService.stub(IPositronNewFolderService, disposables.add(instantiationService.createInstance(PositronNewFolderService)));
-	instantiationService.stub(IRuntimeNotebookKernelService, disposables.add(instantiationService.createInstance(RuntimeNotebookKernelService)));
 	instantiationService.stub(IRuntimeStartupService, disposables.add(instantiationService.createInstance(RuntimeStartupService)));
+	instantiationService.stub(IPositronNotebookService, disposables.add(instantiationService.createInstance(PositronNotebookService)));
+	instantiationService.stub(IRuntimeNotebookKernelService, disposables.add(instantiationService.createInstance(RuntimeNotebookKernelService)));
 	instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
