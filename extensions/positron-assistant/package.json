@@ -319,6 +319,9 @@
               [
                 "**/google/gemini*"
               ]
+            ],
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.preferredModel": {
@@ -328,6 +331,9 @@
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
+            ],
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.defaultModels": {
@@ -341,6 +347,9 @@
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
+            ],
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.providerVariables.bedrock": {
