@@ -33,6 +33,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPathService } from '../../path/common/pathService.js';
 import { untildify } from '../../../../base/common/labels.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { isEqual } from '../../../../base/common/resources.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -2335,7 +2336,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// with our mapping, which helps debugging and ensures session properties
 			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
-			// TODO: Is metadata supposed to be immutable?
 			session.metadata.notebookUri = newUri;
 			workingDirectoryWasChanged = await this.promptAndUpdateWorkingDirectoryIfChanged(session, newUri);
 
@@ -2382,7 +2382,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// 3. Restore original URI and working directory in session state if needed
 			// Why: Keep the session's internal state consistent with our mappings
-			if (session.dynState.currentNotebookUri === newUri) {
+			if (isEqual(session.dynState.currentNotebookUri, newUri)) {
+				session.dynState.currentNotebookUri = oldUri;
+			}
+			if (isEqual(session.metadata.notebookUri, newUri)) {
 				session.dynState.currentNotebookUri = oldUri;
 			}
 			if (workingDirectoryWasChanged) {

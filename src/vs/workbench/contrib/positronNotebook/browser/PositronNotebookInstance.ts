@@ -1067,8 +1067,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _runtimeSessionDisposables = this._register(new MutableDisposable<DisposableStore>());
 
 	private _maybeAttachSession(session: ILanguageRuntimeSession): void {
-		// TODO: If we only update dynstate in the runtime session service, we'll need to update this check and probably others
-		// Only attach the session for this notebook
 		if (!isNotebookLanguageRuntimeSession(session) ||
 			!this._isThisNotebook(session.metadata.notebookUri)) {
 			return;
