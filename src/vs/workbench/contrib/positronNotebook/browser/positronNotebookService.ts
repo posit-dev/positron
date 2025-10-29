@@ -60,7 +60,7 @@ export interface IPositronNotebookService {
 	usingPositronNotebooks(): boolean;
 }
 
-class PositronNotebookService extends Disposable implements IPositronNotebookService {
+export class PositronNotebookService extends Disposable implements IPositronNotebookService {
 
 	// Needed for service branding in dependency injector.
 	_serviceBrand: undefined;

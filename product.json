@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.16",
+			"version": "1.23.17",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
