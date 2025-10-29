@@ -364,13 +364,23 @@ export function activate(context: vscode.ExtensionContext) {
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
-		const participantService = registerAssistant(context);
-		registerAssistantTools(context, participantService);
-		const storedModels = getStoredModels(context);
-		if (storedModels.length) {
-			storedModels.forEach(stored => {
-				positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
-			});
+		// Register the assistant. We don't propagate errors here since we want
+		// the extension to stay activated even if the assistant fails to
+		// initialize.
+		try {
+			const participantService = registerAssistant(context);
+			registerAssistantTools(context, participantService);
+			const storedModels = getStoredModels(context);
+			if (storedModels.length) {
+				storedModels.forEach(stored => {
+					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
+				});
+			}
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', [msg])
+			);
 		}
 	} else {
 		// If the assistant is not enabled, listen for configuration changes so that we can
