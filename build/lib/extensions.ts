@@ -453,6 +453,14 @@ const excludedExtensions = [
 	// --- End Positron ---
 ];
 
+// --- Start Positron ---
+// If this is not Windows, exclude the open-remote-wsl extension, which is only
+// relevant on Windows.
+if (process.platform !== 'win32') {
+	excludedExtensions.push('open-remote-wsl');
+}
+// --- End Positron ---
+
 const marketplaceWebExtensionsExclude = new Set([
 	'ms-vscode.node-debug',
 	'ms-vscode.node-debug2',
