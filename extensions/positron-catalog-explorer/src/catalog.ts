@@ -422,7 +422,7 @@ export function registerCatalogCommands(
 		),
 		// each node will handle its own file/table distinction, just delegate to core command
 		vscode.commands.registerCommand(
-			'posit.catalog-explorer.connectToTableInConsole',
+			'posit.catalog-explorer.previewTableInConsole',
 			async (node: CatalogNode) => {
 				await vscode.commands.executeCommand('posit.catalog-explorer.openInSession', node);
 			},

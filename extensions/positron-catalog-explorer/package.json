@@ -56,9 +56,9 @@
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.connectToTableInConsole",
+        "command": "posit.catalog-explorer.previewTableInConsole",
         "category": "Catalogs",
-        "title": "Connect to Table in Console",
+        "title": "Preview Table in Console",
         "enablement": "view == catalog-explorer"
       },
       {
@@ -77,28 +77,28 @@
       {
         "command": "posit.catalog-explorer.copyPythonCodeFile",
         "category": "Catalogs",
-        "title": "Copy Python Code to Download File",
+        "title": "Copy Python Download Code",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyPythonCodeTable",
         "category": "Catalogs",
-        "title": "Copy Python Code to Connect to Table",
+        "title": "Copy Python Connection Code",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyRCodeFile",
         "category": "Catalogs",
-        "title": "Copy R Code to Download File",
+        "title": "Copy R Download Code",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyRCodeTable",
         "category": "Catalogs",
-        "title": "Copy R Code to Connect to Table",
+        "title": "Copy R Connection Code",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       }
@@ -162,7 +162,7 @@
           "group": "1_primary@3"
         },
         {
-          "command": "posit.catalog-explorer.connectToTableInConsole",
+          "command": "posit.catalog-explorer.previewTableInConsole",
           "when": "view == catalog-explorer && viewItem == table",
           "group": "1_primary@3"
         },
