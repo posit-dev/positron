@@ -48,7 +48,7 @@ function registerAssistantCommand(command: string, handler: IChatRequestHandler)
 		if (err instanceof Error) {
 			log.error(`Error retrieving metadata for command ${command}: ${err.message}`);
 		} else {
-			log.error(`Unknown error retrieving metadata for command ${command}: ${String(err)}`);
+			log.error(`Unknown error retrieving metadata for command ${command}: ${JSON.stringify(err)}`);
 		}
 		return;
 	}

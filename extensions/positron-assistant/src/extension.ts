@@ -377,7 +377,7 @@ export function activate(context: vscode.ExtensionContext) {
 				});
 			}
 		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
+			const msg = error instanceof Error ? error.message : JSON.stringify(error);
 			vscode.window.showErrorMessage(
 				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', [msg])
 			);
