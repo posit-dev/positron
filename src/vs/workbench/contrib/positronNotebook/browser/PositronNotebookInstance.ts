@@ -411,17 +411,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}));
 		}
 
-		// Attach existing runtime session for the notebook if any
-		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri);
-		if (runtimeSession) {
-			this._maybeAttachSession(runtimeSession);
-		}
-
-		// Attach any runtime sessions that start for the notebook
-		this._register(this.runtimeSessionService.onWillStartSession(({ session }) => {
-			this._maybeAttachSession(session);
-		}));
-
 		// Observe the current selected kernel from the notebook kernel service
 		this.kernel = observableFromEvent(
 			this,
@@ -462,6 +451,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._language = this.kernel.map(
 			kernel => /** @description positronNotebookLanguage */ kernel?.runtime?.languageId ?? 'plaintext'
 		);
+
+		// Attach existing runtime session for the notebook if any
+		const runtimeSession = this.runtimeSessionService.getNotebookSessionForNotebookUri(this.uri);
+		if (runtimeSession) {
+			this._maybeAttachSession(runtimeSession);
+		}
+
+		// Attach any runtime sessions that start for the notebook
+		this._register(this.runtimeSessionService.onWillStartSession(({ session }) => {
+			this._maybeAttachSession(session);
+		}));
 
 		this.contextManager = this._register(
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
