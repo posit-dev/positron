@@ -149,22 +149,17 @@ export function createJupyterKernelSpec(
 		'kernel_protocol_version': '5.5' // eslint-disable-line
 	};
 
-	// For backward compatibility, check both the deprecated 'restoreWorkspace'
-	// and the new 'saveAndRestoreWorkspace' settings
-	const shouldRestore = config.get<boolean>('saveAndRestoreWorkspace') || config.get<boolean>('restoreWorkspace');
+	// For temporary, approximate backward compatibility, check both
+	// 'saveAndRestoreWorkspace' and 'restoreWorkspace', which was deprecated in
+	// late October 2025. Remove the latter setting and check in a future release.
+	const shouldSaveAndRestore = config.get<boolean>('saveAndRestoreWorkspace') || config.get<boolean>('restoreWorkspace');
 
-	// Unless the user has chosen to restore the workspace, pass the
-	// `--no-restore-data` flag to R.
-	if (!shouldRestore) {
-		kernelSpec.argv.push('--no-restore-data');
-	}
-
-	// If the user has chosen to save the workspace, pass the
-	// `--save` flag to R, otherwise, pass `--no-save`.
-	if (config.get<boolean>('saveAndRestoreWorkspace')) {
-		kernelSpec.argv.push('--save');
+	if (shouldSaveAndRestore) {
+		// '--restore-data' is the default but let's be explicit for clarity and
+		// symmetry with the other branch
+		kernelSpec.argv.push('--restore-data', '--save');
 	} else {
-		kernelSpec.argv.push('--no-save');
+		kernelSpec.argv.push('--no-restore-data', '--no-save');
 	}
 
 	// If the user has supplied extra arguments to R, pass them along.
