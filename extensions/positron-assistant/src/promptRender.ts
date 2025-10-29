@@ -225,7 +225,7 @@ class PromptTemplateEngine {
 /**
  * YAML frontmatter metadata for prompt files
  */
-interface PromptMetadata<T = PromptMetadataMode | PromptMetadataMode[]> {
+export interface PromptMetadata<T = PromptMetadataMode | PromptMetadataMode[]> {
 	description?: string;
 	mode?: T;
 	tools?: string[];
@@ -234,7 +234,7 @@ interface PromptMetadata<T = PromptMetadataMode | PromptMetadataMode[]> {
 }
 
 /** Possible vales for the `mode` prompt metadata property */
-type PromptMetadataMode = positron.PositronChatMode | positron.PositronChatAgentLocation;
+export type PromptMetadataMode = positron.PositronChatMode | positron.PositronChatAgentLocation;
 
 /**
  * Parsed prompt document
@@ -285,7 +285,8 @@ export class PromptRenderer {
 	 * Parse YAML frontmatter from markdown content
 	 */
 	private parseYamlFrontmatter(content: string): PromptDocument {
-		const yamlMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+		// Match both Windows and Unix line endings
+		const yamlMatch = content.match(/^---\r?\n([\s\S]*?)\n---\r?\n([\s\S]*)$/);
 
 		if (!yamlMatch) {
 			return { metadata: {}, content };
@@ -350,7 +351,7 @@ export class PromptRenderer {
 	/**
 	 * Merge metadata from multiple documents
 	 */
-	private mergeMetadata(documents: ParsedPromptDocument[]) {
+	private mergeMetadata(documents: ParsedPromptDocument[]): PromptMetadata<PromptMetadataMode[]> {
 		const merged: PromptMetadata<PromptMetadataMode[]> = {};
 		const allTools = new Set<string>();
 		const allModes = new Set<PromptMetadataMode>();
@@ -392,22 +393,26 @@ export class PromptRenderer {
 	/**
 	 * Get combined prompt metadata for a specific command
 	 */
-	static getCommandMetadata(command: string) {
+	static getCommandMetadata(command: string): PromptMetadata<PromptMetadataMode[]> {
 		return PromptRenderer.instance._getCommandMetadata(command);
 	}
 
-	private _getCommandMetadata(command: string) {
+	private _getCommandMetadata(command: string): PromptMetadata<PromptMetadataMode[]> {
 		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
 		const documents = this.loadPromptDocuments(commandsPath);
 		const matchingDocuments: ParsedPromptDocument[] = [];
+		const allCommands = new Set<string>();
 		for (const doc of documents) {
+			if (doc.metadata.command) {
+				allCommands.add(doc.metadata.command);
+			}
 			if (doc.metadata.command === command) {
 				matchingDocuments.push(doc);
 			}
 		}
 
 		if (matchingDocuments.length === 0) {
-			throw new Error(`No prompt documents found for command: ${command}`);
+			throw new Error(`No prompt documents found for command: ${command} in ${commandsPath} (available commands: ${Array.from(allCommands).join(', ')})`);
 		}
 		return this.mergeMetadata(matchingDocuments);
 	}
@@ -423,14 +428,18 @@ export class PromptRenderer {
 		const commandsPath = path.join(MARKDOWN_DIR, 'prompts', 'commands');
 		const documents = this.loadPromptDocuments(commandsPath);
 		const matchingDocuments: ParsedPromptDocument[] = [];
+		const allCommands = new Set<string>();
 		for (const doc of documents) {
+			if (doc.metadata.command) {
+				allCommands.add(doc.metadata.command);
+			}
 			if (doc.metadata.command === command) {
 				matchingDocuments.push(doc);
 			}
 		}
 
 		if (matchingDocuments.length === 0) {
-			throw new Error(`No prompt documents found for command: ${command}`);
+			throw new Error(`No prompt documents found for command: ${command} in ${commandsPath} (available commands: ${Array.from(allCommands).join(', ')})`);
 		}
 
 		// Merge prompts
