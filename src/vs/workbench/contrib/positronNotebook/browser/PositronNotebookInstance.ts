@@ -32,6 +32,7 @@ import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { autorun, observableValue, runOnChange } from '../../../../base/common/observable.js';
@@ -418,6 +419,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 					// When runtime becomes ready, check working directory
 					if (newState === RuntimeState.Ready || newState === RuntimeState.Idle) {
+						await this.updateWorkingDirectoryMismatchContextKey();
+					}
+				}));
+
+				// Listen for working directory changes from the runtime
+				this._register(session.onDidReceiveRuntimeClientEvent(async (event) => {
+					// Check if this is a working directory change event
+					if (event.name === UiFrontendEvent.WorkingDirectory) {
 						await this.updateWorkingDirectoryMismatchContextKey();
 					}
 				}));
