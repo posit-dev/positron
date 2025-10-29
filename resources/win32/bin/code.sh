@@ -20,7 +20,13 @@ ELECTRON="$VSCODE_PATH/$NAME.exe"
 powershell.exe -Command "\$env:POSITRON_WSL_EXTENSION_NAME" > /tmp/positron-wsl-ext-id.txt
 sed -i 's/\r$//' /tmp/positron-wsl-ext-id.txt # Strip carriage return from the line endings (Windows \r\n → Unix \n)
 WSL_EXT_ID=$(cat /tmp/positron-wsl-ext-id.txt 2>/dev/null | tr -d '\r')
-WSL_EXT_ID="${WSL_EXT_ID:-ms-vscode-remote.remote-wsl}" # fall back to "ms-vscode-remote.remote-wsl"
+
+# --- Start Positron ---
+# Use Positron's built-in WSL extension instead of Microsoft's proprietary
+# extension
+# WSL_EXT_ID="${WSL_EXT_ID:-ms-vscode-remote.remote-wsl}" # fall back to "ms-vscode-remote.remote-wsl"
+WSL_EXT_ID="${WSL_EXT_ID:-positron.open-remote-wsl}"
+# --- End Positron ---
 
 IN_WSL=false
 if [ -n "$WSL_DISTRO_NAME" ]; then

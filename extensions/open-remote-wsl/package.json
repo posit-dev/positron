@@ -3,13 +3,10 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.5",
-  "publisher": "jeanp413",
+  "publisher": "positron",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jeanp413/open-remote-wsl.git"
-  },
-  "bugs": {
-    "url": "https://github.com/jeanp413/open-remote-wsl/issues"
+    "url": "https://github.com/posit-dev/positron"
   },
   "icon": "resources/icon.png",
   "engines": {
