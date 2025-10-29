@@ -23,6 +23,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH } from './ContextKeysManager.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 // Constants
 const UPDATE_ID = 'update';
@@ -167,6 +168,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		newWorkingDirectory: string,
 		session: INotebookLanguageRuntimeSession
 	): Promise<void> {
+		const store = new DisposableStore();
 
 		// Create options for quick-pick with detailed descriptions
 		const quickPickItems: IQuickPickItem[] = [
@@ -201,14 +203,15 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		quickPick.show();
 
 		const result = await new Promise<IQuickPickItem | undefined>((resolve) => {
-			quickPick.onDidAccept(() => {
+			store.add(quickPick.onDidAccept(() => {
 				resolve(quickPick.selectedItems[0]);
 				quickPick.dispose();
-			});
-			quickPick.onDidHide(() => {
+			}));
+			store.add(quickPick.onDidHide(() => {
 				resolve(undefined);
 				quickPick.dispose();
-			});
+				store.dispose();
+			}));
 		});
 
 		if (result?.id === UPDATE_ID) {
