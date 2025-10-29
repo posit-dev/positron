@@ -81,7 +81,8 @@ export class PromptRenderer {
 	 * Parse YAML frontmatter from markdown content
 	 */
 	private parseYamlFrontmatter(content: string): PromptDocument {
-		const yamlMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+		// Match both Windows and Unix line endings
+		const yamlMatch = content.match(/^---\r?\n([\s\S]*?)\n---\r?\n([\s\S]*)$/);
 
 		if (!yamlMatch) {
 			return { metadata: {}, content };
