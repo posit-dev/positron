@@ -137,8 +137,8 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 async function expectDiffToBeVisible(page: Page, visible = true) {
 	if (visible) {
 		await expect(page.getByRole('tab', { name: 'settings.json' })).toBeVisible();
-		expect(await page.getByText('<<<<<<< Existing').count()).toBeGreaterThan(0);
-		expect(await page.getByText('>>>>>>> Incoming').count()).toBeGreaterThan(0);
+		await expect(page.getByText('<<<<<<< Existing')).not.toHaveCount(0)
+		await expect(page.getByText('>>>>>>> Incoming')).not.toHaveCount(0);
 	} else {
 		await page.waitForTimeout(3000); // waiting to avoid false positive
 		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
