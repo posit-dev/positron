@@ -15,7 +15,6 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { resolveNotebookWorkingDirectory, resolvePath, makeDisplayPath } from '../../notebook/common/notebookWorkingDirectoryUtils.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -146,13 +145,29 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 				workspaceContextService
 			);
 
-			await this.updateWorkingDirectory(
-				notificationService,
+			const result = await this.selectNewWorkingDirectory(
 				quickInputService,
 				currentWorkingDirectoryDisplay,
 				newWorkingDirectoryDisplay,
-				session
 			);
+
+			if (result?.id === UPDATE_ID) {
+				try {
+					await session.setWorkingDirectory(newWorkingDirectory);
+					notificationService.info(localize(
+						'positron.notebook.updateWorkingDirectory.success',
+						'Successfully updated working directory from {0} to {1}',
+						currentWorkingDirectory,
+						newWorkingDirectory
+					));
+				} catch (error) {
+					notificationService.error(localize(
+						'positron.notebook.updateWorkingDirectory.failure',
+						'Failed to update working directory to {0}.',
+						newWorkingDirectory
+					));
+				}
+			}
 		} else {
 			notificationService.info(localize(
 				'positron.notebook.updateWorkingDirectory.alreadyUpToDate',
@@ -161,13 +176,11 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		}
 	}
 
-	private async updateWorkingDirectory(
-		notificationService: INotificationService,
+	private async selectNewWorkingDirectory(
 		quickInputService: IQuickInputService,
-		currentWorkingDirectory: string,
-		newWorkingDirectory: string,
-		session: INotebookLanguageRuntimeSession
-	): Promise<void> {
+		currentWorkingDirectoryDisplay: string,
+		newWorkingDirectoryDisplay: string,
+	): Promise<IQuickPickItem | undefined> {
 		const store = new DisposableStore();
 
 		// Create options for quick-pick with detailed descriptions
@@ -175,13 +188,13 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			{
 				label: localize('positron.notebook.updateWorkingDirectory.quickPick.update', 'Update (Recommended)'),
 				detail: localize('positron.notebook.updateWorkingDirectory.quickPick.update.detail',
-					'Update working directory to: {0}', newWorkingDirectory),
+					'Update working directory to: {0}', newWorkingDirectoryDisplay),
 				id: UPDATE_ID
 			},
 			{
 				label: localize('positron.notebook.updateWorkingDirectory.quickPick.keep', 'Keep Current'),
 				detail: localize('positron.notebook.updateWorkingDirectory.quickPick.keep.detail',
-					'Keep working directory at: {0}', currentWorkingDirectory),
+					'Keep working directory at: {0}', currentWorkingDirectoryDisplay),
 				id: KEEP_ID
 			}
 		];
@@ -214,22 +227,6 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			}));
 		});
 
-		if (result?.id === UPDATE_ID) {
-			try {
-				await session.setWorkingDirectory(newWorkingDirectory);
-				notificationService.info(localize(
-					'positron.notebook.updateWorkingDirectory.success',
-					'Successfully updated working directory from {0} to {1}',
-					currentWorkingDirectory,
-					newWorkingDirectory
-				));
-			} catch (error) {
-				notificationService.error(localize(
-					'positron.notebook.updateWorkingDirectory.failure',
-					'Failed to update working directory to {0}.',
-					newWorkingDirectory
-				));
-			}
-		}
+		return result;
 	}
 }
