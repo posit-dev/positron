@@ -8,13 +8,217 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as yaml from 'yaml';
-import * as Sqrl from 'squirrelly';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
 
 type StoredPromptSelectionConfig = Partial<Record<PromptMetadataMode, { file: string; enabled: boolean }[]>>;
+
+//#region Template engine
+
+/**
+ * Helper properties computed for template conditions
+ */
+interface AugmentedRenderData {
+	hasRSession: boolean;
+	hasPythonSession: boolean;
+}
+
+/**
+ * Simple template engine supporting conditionals and interpolation
+ */
+class PromptTemplateEngine {
+	/**
+	 * Augment render data with helper properties for template conditions
+	 */
+	private static augmentRenderData(data: PromptRenderData): PromptRenderData & AugmentedRenderData {
+		const hasRSession = data.sessions?.some(s => s.languageId === 'r') ?? false;
+		const hasPythonSession = data.sessions?.some(s => s.languageId === 'python') ?? false;
+
+		return {
+			...data,
+			hasRSession,
+			hasPythonSession,
+		};
+	}
+
+	/**
+	 * Resolve a value from an expression (property, string literal, or boolean literal)
+	 */
+	private static resolveValue(expr: string, data: PromptRenderData & AugmentedRenderData): unknown {
+		const trimmed = expr.trim();
+
+		// Handle string literals
+		if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+			(trimmed.startsWith(`'`) && trimmed.endsWith(`'`))) {
+			return trimmed.slice(1, -1);
+		}
+
+		// Handle boolean literals
+		if (trimmed === 'true') {
+			return true;
+		}
+		if (trimmed === 'false') {
+			return false;
+		}
+
+		// Handle property paths starting with 'positron.'
+		if (trimmed.startsWith('positron.')) {
+			const propertyPath = trimmed.slice('positron.'.length);
+			const value = propertyPath.split('.').reduce((obj, key) => obj?.[key], data as any);
+			return value;
+		}
+
+		log.warn('[PromptRender] Invalid expression, must be a literal or start with "positron.":', expr);
+		return undefined;
+	}
+
+	/**
+	 * Resolve a property path or expression from the data object
+	 */
+	private static resolveProperty(path: string, data: PromptRenderData & AugmentedRenderData): unknown {
+		let trimmed = path.trim();
+
+		// Strip outer parentheses if present
+		if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+			trimmed = trimmed.slice(1, -1).trim();
+		}
+
+		// Handle inequality comparison
+		if (trimmed.includes('!=')) {
+			const separator = trimmed.includes('!==') ? '!==' : '!=';
+			const parts = trimmed.split(separator);
+			if (parts.length === 2) {
+				const left = PromptTemplateEngine.resolveValue(parts[0], data);
+				const right = PromptTemplateEngine.resolveValue(parts[1], data);
+				return left !== right;
+			}
+		}
+
+		// Handle equality comparison
+		if (trimmed.includes('==')) {
+			const separator = trimmed.includes('===') ? '===' : '==';
+			const parts = trimmed.split(separator);
+			if (parts.length === 2) {
+				const left = PromptTemplateEngine.resolveValue(parts[0], data);
+				const right = PromptTemplateEngine.resolveValue(parts[1], data);
+				return left === right;
+			}
+		}
+
+		// Handle negation
+		if (trimmed.startsWith('!')) {
+			return !PromptTemplateEngine.resolveProperty(trimmed.slice(1), data);
+		}
+
+		return PromptTemplateEngine.resolveValue(trimmed, data);
+	}
+
+	/**
+	 * Template parser supporting conditionals and interpolation
+	 */
+	static render(template: string, data: PromptRenderData): string {
+		const augmentedData = PromptTemplateEngine.augmentRenderData(data);
+		let pos = 0;
+		let result = '';
+
+		while (pos < template.length) {
+			// Find next template tag
+			const tagStart = template.indexOf('{{', pos);
+			if (tagStart === -1) {
+				// No more tags, append rest of template
+				result += template.slice(pos);
+				break;
+			}
+
+			// Append text before tag
+			result += template.slice(pos, tagStart);
+
+			// Check tag type
+			if (template.startsWith('{{@if(', tagStart)) {
+				// Conditional tag
+				const conditionStart = tagStart + '{{@if('.length;
+				const conditionEnd = template.indexOf(')', conditionStart);
+				if (conditionEnd === -1) {
+					log.warn('[PromptRender] Malformed {{@if tag: missing )');
+					result += template.slice(tagStart);
+					break;
+				}
+
+				const condition = template.slice(conditionStart, conditionEnd);
+				const blockStart = conditionEnd + ')}}'.length;
+
+				// Find matching {{/if}} using depth tracking
+				let depth = 1;
+				let elsePos = -1;
+				let i = blockStart;
+
+				while (i < template.length && depth > 0) {
+					if (template.startsWith('{{@if(', i)) {
+						depth++;
+						i += '{{@if('.length;
+					} else if (template.startsWith('{{#else}}', i)) {
+						if (depth === 1 && elsePos === -1) {
+							elsePos = i;
+						}
+						i += '{{#else}}'.length;
+					} else if (template.startsWith('{{/if}}', i)) {
+						depth--;
+						if (depth === 0) {
+							// Found matching {{/if}}
+							const ifBlock = elsePos === -1
+								? template.slice(blockStart, i)
+								: template.slice(blockStart, elsePos);
+							const elseBlock = elsePos === -1
+								? ''
+								: template.slice(elsePos + '{{#else}}'.length, i);
+
+							// Evaluate condition and process chosen block
+							const conditionValue = PromptTemplateEngine.resolveProperty(condition, augmentedData);
+							const chosenBlock = conditionValue ? ifBlock : elseBlock;
+							result += PromptTemplateEngine.render(chosenBlock, data);
+
+							pos = i + '{{/if}}'.length;
+							break;
+						}
+						i += '{{/if}}'.length;
+					} else {
+						i++;
+					}
+				}
+
+				if (depth > 0) {
+					log.warn('[PromptRender] Malformed {{@if tag: missing {{/if}}');
+					result += template.slice(tagStart);
+					break;
+				}
+			} else if (template.startsWith('{{', tagStart) && !template.startsWith('{{#else}}', tagStart) && !template.startsWith('{{/if}}', tagStart)) {
+				// Interpolation tag
+				const tagEnd = template.indexOf('}}', tagStart + 2);
+				if (tagEnd === -1) {
+					log.warn('[PromptRender] Malformed interpolation tag: missing }}');
+					result += template.slice(tagStart);
+					break;
+				}
+
+				const expression = template.slice(tagStart + 2, tagEnd);
+				const value = PromptTemplateEngine.resolveProperty(expression, augmentedData);
+				result += value !== undefined && value !== null ? String(value) : '';
+				pos = tagEnd + '}}'.length;
+			} else {
+				// Unexpected tag ({{#else}} or {{/if}} without matching {{@if)
+				log.warn('[PromptRender] Unexpected tag at position', tagStart);
+				result += template.slice(tagStart, tagStart + 2);
+				pos = tagStart + 2;
+			}
+		}
+
+		return result;
+	}
+}
+
+//#endregion
 
 //#region Prompt templating
 
@@ -236,7 +440,7 @@ export class PromptRenderer {
 		// Render prompt template
 		const data: PromptRenderData = { request };
 		log.trace('[PromptRender] Rendering prompt for command:', command, 'with data:', JSON.stringify(data));
-		const result = Sqrl.render(mergedContent, data, { varName: 'positron' });
+		const result = PromptTemplateEngine.render(mergedContent, data);
 
 		return {
 			content: result,
@@ -287,7 +491,7 @@ export class PromptRenderer {
 
 		// Render prompt template
 		log.trace('[PromptRender] Rendering prompt for mode:', mode, 'with data:', JSON.stringify(data));
-		const result = Sqrl.render(mergedContent, data, { varName: 'positron' }) as string;
+		const result = PromptTemplateEngine.render(mergedContent, data);
 
 		return {
 			content: result,
