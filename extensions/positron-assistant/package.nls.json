@@ -22,7 +22,7 @@
 	"chatParticipants.commands.fix.description": "Fix issues in the active editor or Console",
 	"chatParticipants.edit.description": "Edit files in your workspace",
 	"configuration.title": "Positron Assistant",
-	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.",
+	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.\n\nRequires a restart to take effect.",
 	"configuration.toolDetails.enable": "Enable tool call input and output details in the chat view. Must be enabled to include tool call details in the chat export.",
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
 	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats.",
