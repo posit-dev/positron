@@ -53,7 +53,7 @@ export class RemoteWSLResolver implements vscode.RemoteAuthorityResolver, vscode
 			throw new Error(`Invalid authority type for WSL resolver: ${type}`);
 		}
 
-		this.logger.info(`Resolving wsl remote authority '${authority}' (attemp #${context.resolveAttempt})`);
+		this.logger.info(`Resolving wsl remote authority '${authority}'`);
 
 		// It looks like default values are not loaded yet when resolving a remote,
 		// so let's hardcode the default values here
