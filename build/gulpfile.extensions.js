@@ -93,6 +93,13 @@ const compilations = [
 	'.vscode/extensions/vscode-selfhost-import-aid/tsconfig.json',
 ];
 
+// --- Start Positron ---
+// Add the open-remote-wsl extension on Windows
+if (process.platform === 'win32') {
+	compilations.push('extensions/open-remote-wsl/tsconfig.json');
+}
+// --- End Positron ---
+
 const getBaseUrl = out => `https://main.vscode-cdn.net/sourcemaps/${commit}/${out}`;
 
 const tasks = compilations.map(function (tsconfigFile) {
