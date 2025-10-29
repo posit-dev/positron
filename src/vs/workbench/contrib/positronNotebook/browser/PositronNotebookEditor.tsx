@@ -275,6 +275,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		const scopedContextKeyService = this._renderReact();
 
 		notebookInstance.attachView(this._parentDiv, scopedContextKeyService);
+		notebookInstance.updateWorkingDirectoryMismatchContextKey();
 	}
 
 	/**
@@ -323,6 +324,10 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 	override getControl() {
 		return this._control.value;
+	}
+
+	override get scopedContextKeyService(): IContextKeyService | undefined {
+		return this.notebookInstance?.scopedContextKeyService ?? this._containerScopedContextKeyService;
 	}
 
 	/**

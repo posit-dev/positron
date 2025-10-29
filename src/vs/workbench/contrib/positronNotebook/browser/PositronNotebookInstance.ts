@@ -393,7 +393,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(this.runtimeSessionService.onDidStartRuntime(async (session) => {
 			if (isNotebookLanguageRuntimeSession(session) && this._isThisNotebook(session.metadata.notebookUri)) {
 				this.runtimeSession.set(session, undefined);
-				await this._updateWorkingDirectoryMismatchContextKey();
+				await this.updateWorkingDirectoryMismatchContextKey();
 			}
 		}));
 
@@ -413,7 +413,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 					// When runtime becomes ready, check working directory
 					if (newState === RuntimeState.Ready || newState === RuntimeState.Idle) {
-						await this._updateWorkingDirectoryMismatchContextKey();
+						await this.updateWorkingDirectoryMismatchContextKey();
 					}
 				}));
 
@@ -468,7 +468,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			// Only respond to changes for this notebook's session
 			const notebookSession = this.runtimeSession.get();
 			if (notebookSession && event.sessionId === notebookSession.sessionId) {
-				await this._updateWorkingDirectoryMismatchContextKey();
+				await this.updateWorkingDirectoryMismatchContextKey();
 			}
 		}));
 	}
@@ -1451,7 +1451,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Checks if the notebook's working directory differs from its file location
 	 * and updates the context key accordingly.
 	 */
-	private async _updateWorkingDirectoryMismatchContextKey(): Promise<void> {
+	async updateWorkingDirectoryMismatchContextKey(): Promise<void> {
 		const textModel = this.textModel;
 		if (!textModel) {
 			this.contextManager.setWorkingDirectoryMismatch(false);
