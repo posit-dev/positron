@@ -77,28 +77,28 @@
       {
         "command": "posit.catalog-explorer.copyPythonCodeFile",
         "category": "Catalogs",
-        "title": "Copy Python Download Code",
+        "title": "Download File via Python",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyPythonCodeTable",
         "category": "Catalogs",
-        "title": "Copy Python Connection Code",
+        "title": "Preview Table via Python",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyRCodeFile",
         "category": "Catalogs",
-        "title": "Copy R Download Code",
+        "title": "Download File via R",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
         "command": "posit.catalog-explorer.copyRCodeTable",
         "category": "Catalogs",
-        "title": "Copy R Connection Code",
+        "title": "Preview Table via R",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       }
