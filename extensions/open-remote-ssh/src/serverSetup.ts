@@ -280,7 +280,7 @@ SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-soc
 SERVER_DATA_DIR="${serverDataFolderName}"
 
 # If SERVER_DATA_DIR is relative, make it relative to $HOME
-if [[ "$SERVER_DATA_DIR" != /* ]] && [[ "$SERVER_DATA_DIR" != ~* ]]; then
+if [[ "$SERVER_DATA_DIR" != /* ]]; then
 	SERVER_DATA_DIR="$HOME/$SERVER_DATA_DIR"
 fi
 echo "Using server data dir: $SERVER_DATA_DIR"
@@ -410,6 +410,9 @@ if [[ ! -f $SERVER_SCRIPT ]]; then
 	esac
 
 	pushd $SERVER_DIR > /dev/null
+
+	# Clean up any previous partial downloads
+	rm -f vscode-server.tar.gz
 
 	if [[ ! -z $(which wget) ]]; then
 		wget --tries=3 --timeout=10 --continue --no-verbose -O vscode-server.tar.gz $SERVER_DOWNLOAD_URL
