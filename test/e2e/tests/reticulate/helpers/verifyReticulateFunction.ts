@@ -71,8 +71,10 @@ async function ensureVariablePresent(app: Application, variableName: string, val
 
 	await expect(async () => {
 		try {
+			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 			const variablesMap = await app.workbench.variables.getFlatVariables();
 			expect(variablesMap.get(variableName)).toStrictEqual({ value: value, type: 'int' });
+			await app.workbench.layouts.enterLayout('stacked');
 		} catch (e) {
 			console.log('Resending enter key');
 			await app.workbench.console.sendEnterKey();
