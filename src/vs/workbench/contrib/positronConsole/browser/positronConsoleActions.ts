@@ -92,7 +92,7 @@ async function executeCodeInConsole(
 	const notificationService = accessor.get(INotificationService);
 	const positronConsoleService = accessor.get(IPositronConsoleService);
 
-	// Now that we've gotten this far, ensure we have a target language.
+	// Ensure we have a target language.
 	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
 	if (!languageId) {
 		notificationService.notify({
@@ -668,6 +668,11 @@ export function registerPositronConsoleActions() {
 		// If there is no active editor, there is nothing to execute.
 		const editor = editorService.activeTextEditorControl as IEditor;
 		if (!editor) {
+			notificationService.notify({
+				severity: Severity.Info,
+				message: localize('positron.executeCodeAfterCursor.noEditor', "No editor found."),
+				sticky: false
+			});
 			return;
 		}
 
