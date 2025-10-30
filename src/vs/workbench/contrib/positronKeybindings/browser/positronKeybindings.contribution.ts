@@ -118,6 +118,20 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyCode.Digit2
 		}));
 
+		// Run from document beginning to current line
+		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+			id: 'workbench.action.positronConsole.executeCodeBeforeCursor',
+			weight: KeybindingWeight.BuiltinExtension,
+			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyB
+		}));
+
+		// Run from current line to document end
+		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+			id: 'workbench.action.positronConsole.executeCodeAfterCursor',
+			weight: KeybindingWeight.BuiltinExtension,
+			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyE
+		}));
+
 		// Rename symbol
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.rename',
