@@ -739,10 +739,13 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				precondition: ContextKeyExpr.and(
-					EditorContextKeys.editorTextFocus,
-					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				precondition: ContextKeyExpr.or(
+					PositronConsoleFocused,
+					ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					)
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
@@ -787,10 +790,13 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				precondition: ContextKeyExpr.and(
-					EditorContextKeys.editorTextFocus,
-					NOTEBOOK_EDITOR_FOCUSED.toNegated(),
-					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				precondition: ContextKeyExpr.or(
+					PositronConsoleFocused,
+					ContextKeyExpr.and(
+						EditorContextKeys.editorTextFocus,
+						NOTEBOOK_EDITOR_FOCUSED.toNegated(),
+						POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+					)
 				),
 				keybinding: {
 					weight: KeybindingWeight.WorkbenchContrib,
