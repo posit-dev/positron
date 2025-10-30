@@ -76,10 +76,15 @@ const trimNewlines = (str: string) => str.replace(/^\n+|\n+$/g, '');
  * @returns A promise that resolves to true if the execution was successful, false otherwise
  */
 async function executeCodeInConsole(
-	accessor: ServicesAccessor,
 	code: string,
 	position: Position,
 	model: ITextModel,
+	services: {
+		editorService: IEditorService;
+		languageService: ILanguageService;
+		notificationService: INotificationService;
+		positronConsoleService: IPositronConsoleService;
+	},
 	opts: {
 		allowIncomplete?: boolean;
 		languageId?: string;
@@ -87,10 +92,7 @@ async function executeCodeInConsole(
 		errorBehavior?: RuntimeErrorBehavior;
 	} = {}
 ): Promise<boolean> {
-	const editorService = accessor.get(IEditorService);
-	const languageService = accessor.get(ILanguageService);
-	const notificationService = accessor.get(INotificationService);
-	const positronConsoleService = accessor.get(IPositronConsoleService);
+	const { editorService, languageService, notificationService, positronConsoleService } = services;
 
 	// Ensure we have a target language.
 	const languageId = opts.languageId ? opts.languageId : editorService.activeTextEditorLanguageId;
@@ -327,7 +329,10 @@ export function registerPositronConsoleActions() {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
+			const languageService = accessor.get(ILanguageService);
 			const logService = accessor.get(ILogService);
+			const notificationService = accessor.get(INotificationService);
+			const positronConsoleService = accessor.get(IPositronConsoleService);
 
 			// By default we advance the cursor to the next statement
 			const advance = opts.advance === undefined ? true : opts.advance;
@@ -451,12 +456,22 @@ export function registerPositronConsoleActions() {
 			}
 
 			// Use the helper function to execute the code
-			await executeCodeInConsole(accessor, code, position, model, {
-				allowIncomplete: opts.allowIncomplete,
-				languageId: opts.languageId,
-				mode: opts.mode,
-				errorBehavior: opts.errorBehavior
-			});
+			await executeCodeInConsole(
+				code,
+				position,
+				model,
+				{
+					editorService,
+					languageService,
+					notificationService,
+					positronConsoleService
+				},
+				{
+					allowIncomplete: opts.allowIncomplete,
+					languageId: opts.languageId,
+					mode: opts.mode,
+					errorBehavior: opts.errorBehavior
+				});
 		}
 
 		async advanceStatement(
@@ -663,7 +678,9 @@ export function registerPositronConsoleActions() {
 	): Promise<void> {
 		// Access services.
 		const editorService = accessor.get(IEditorService);
+		const languageService = accessor.get(ILanguageService);
 		const notificationService = accessor.get(INotificationService);
+		const positronConsoleService = accessor.get(IPositronConsoleService);
 
 		// If there is no active editor, there is nothing to execute.
 		const editor = editorService.activeTextEditorControl as IEditor;
@@ -717,12 +734,22 @@ export function registerPositronConsoleActions() {
 		}
 
 		// Use the helper function to execute the code
-		await executeCodeInConsole(accessor, code, position, model, {
-			allowIncomplete: opts.allowIncomplete,
-			languageId: opts.languageId,
-			mode: opts.mode,
-			errorBehavior: opts.errorBehavior
-		});
+		await executeCodeInConsole(
+			code,
+			position,
+			model,
+			{
+				editorService,
+				languageService,
+				notificationService,
+				positronConsoleService
+			},
+			{
+				allowIncomplete: opts.allowIncomplete,
+				languageId: opts.languageId,
+				mode: opts.mode,
+				errorBehavior: opts.errorBehavior
+			});
 	}
 
 	/**
