@@ -618,7 +618,7 @@ export function registerPositronConsoleActions() {
 					value: localize('workbench.action.positronConsole.executeCodeWithoutAdvancing', 'Execute Code Without Advancing)'),
 					original: 'Execute Code Without Advancing'
 				},
-				f1: false,
+				f1: true,
 				category,
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
