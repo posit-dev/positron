@@ -30,7 +30,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// ensure when no kernel is selected, restart/shutdown are disabled
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Change Kernel', enabled: true },
-			{ label: 'Open Notebook Console', enabled: true },
+			{ label: 'Open Notebook Console', enabled: false },
 			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
@@ -73,7 +73,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 			{ label: 'Change Kernel', enabled: true },
-			{ label: 'Open Notebook Console', enabled: true },
+			{ label: 'Open Notebook Console', enabled: false },
 		]);
 	});
 
