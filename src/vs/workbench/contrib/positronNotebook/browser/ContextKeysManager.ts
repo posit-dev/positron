@@ -13,12 +13,6 @@ import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKe
 export const POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED = new RawContextKey<boolean>('positronNotebookEditorContainerFocused', false);
 
 /**
- * Context key that is set when the notebook's working directory differs from the notebook's file location.
- * This can happen when the notebook file is moved or an untitled notebook is saved for the first time.
- */
-export const POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH = new RawContextKey<boolean>('positronNotebookWorkingDirectoryMismatch', false);
-
-/**
  * Context key that is set when a cell editor (Monaco editor within a notebook cell) is focused.
  * This is more specific than EditorContextKeys.editorTextFocus which applies to ANY Monaco editor.
  */
@@ -130,7 +124,6 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 	//#region Public Properties
 	positronEditorFocus?: IContextKey<boolean>;
-	workingDirectoryMismatch?: IContextKey<boolean>;
 	//#endregion Public Properties
 
 	//#region Constructor & Dispose
@@ -146,11 +139,9 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	setContainer(container: HTMLElement, scopedContextKeyService?: IScopedContextKeyService) {
 		this._container = container;
 		this.positronEditorFocus?.reset();
-		this.workingDirectoryMismatch?.reset();
 		this._scopedContextKeyService = scopedContextKeyService ?? this._contextKeyService.createScoped(this._container);
 
 		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
-		this.workingDirectoryMismatch = POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH.bindTo(this._scopedContextKeyService);
 
 		const focusTracker = this._register(DOM.trackFocus(container));
 		this._register(focusTracker.onDidFocus(() => {
@@ -180,14 +171,6 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	 */
 	setContainerFocused(focused: boolean): void {
 		this.positronEditorFocus?.set(focused);
-	}
-
-	/**
-	 * Set whether the working directory differs from the notebook location.
-	 * @param mismatch - Whether there is a mismatch between the working directory and notebook location
-	 */
-	setWorkingDirectoryMismatch(mismatch: boolean): void {
-		this.workingDirectoryMismatch?.set(mismatch);
 	}
 
 	//#endregion Public Methods

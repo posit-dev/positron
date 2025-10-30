@@ -21,7 +21,7 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH } from './ContextKeysManager.js';
+import { ActiveNotebookHasWorkingDirectoryMismatch } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 // Constants
@@ -50,7 +50,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 					group: 'navigation',
 					when: ContextKeyExpr.and(
 						ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-						POSITRON_NOTEBOOK_WORKING_DIRECTORY_MISMATCH
+						ActiveNotebookHasWorkingDirectoryMismatch
 					)
 				}
 			]
