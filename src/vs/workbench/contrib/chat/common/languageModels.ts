@@ -705,13 +705,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 					// --- Start Positron ---
 					// Get and apply LLM allow filters from configuration.
-					const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
-					this._logService.trace('[LM] Applying model filters:', config.filterModels);
-					if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
-						match(pattern, modelAndIdentifier.metadata.id) ||
-						match(pattern, modelAndIdentifier.metadata.name))
-					) {
-						continue;
+					if (vendor !== 'test-lm-vendor' && vendor !== 'echo') { // Always allow test models
+						const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
+						this._logService.trace('[LM] Applying model filters:', config.filterModels);
+						if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
+							match(pattern, modelAndIdentifier.metadata.id) ||
+							match(pattern, modelAndIdentifier.metadata.name))
+						) {
+							continue;
+						}
 					}
 					includedModels.push(modelAndIdentifier.identifier);
 					// --- End Positron ---
