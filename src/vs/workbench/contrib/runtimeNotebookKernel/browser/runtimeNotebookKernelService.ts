@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -14,7 +14,7 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation } from '../../notebook/common/notebookCommon.js';
-import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { INotebookKernelService, INotebookTextModelLike } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ActiveRuntimeNotebookContextManager } from '../common/activeRuntimeNotebookContextManager.js';
 import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
@@ -24,19 +24,11 @@ import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { LANGUAGE_RUNTIME_SELECT_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
-
-/**
- * The affinity of a kernel for a notebook.
- *
- * NOTE: This should match vscode.NotebookControllerAffinity.
- */
-enum NotebookKernelAffinity {
-	/** The default affinity. */
-	Default = 1,
-
-	/** A kernel will be automatically started if it is a notebook's only preferred kernel. */
-	Preferred = 2
-}
+import { isEqual } from '../../../../base/common/resources.js';
+import { isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { ResourceMap } from '../../../../base/common/map.js';
+import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 
 /**
  * The service responsible for managing {@link RuntimeNotebookKernel}s.
@@ -58,6 +50,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		@ILogService private readonly _logService: ILogService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
@@ -71,13 +64,32 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// Create a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			this.createRuntimeNotebookKernel(runtime);
+			this.getOrCreateKernel(runtime);
 		}));
 
 		// Create a kernel for each existing runtime.
 		for (const runtime of this._languageRuntimeService.registeredRuntimes) {
-			this.createRuntimeNotebookKernel(runtime);
+			this.getOrCreateKernel(runtime);
 		}
+
+		// Create kernels for any restored sessions,
+		// and select those kernels for any existing notebook instances.
+		// This should occur before any runtimes are registered and any sessions actually started.
+		this._runtimeStartupService.getRestoredSessions().then(serializedSessions => {
+			const instancesByUri = new ResourceMap<IPositronNotebookInstance>();
+			this._positronNotebookService.listInstances().forEach(instance => instancesByUri.set(instance.uri, instance));
+			for (const session of serializedSessions) {
+				if (isNotebookRuntimeSessionMetadata(session.metadata)) {
+					const uri = session.metadata.notebookUri;
+					const instance = instancesByUri.get(uri);
+					if (instance) {
+						const kernel = this.getOrCreateKernel(session.runtimeMetadata);
+						this._notebookKernelService.selectKernelForNotebook(kernel, { uri, notebookType: instance.viewType });
+						return;
+					}
+				}
+			}
+		});
 
 		// When a known kernel is selected for a notebook, select the corresponding runtime.
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
@@ -98,7 +110,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				);
 			} else if (oldKernel && !newKernel) {
 				// The user switched from a known kernel to an unknown kernel, shutdown the old kernel's runtime.
-				this._runtimeSessionService.shutdownNotebookSession(
+				await this._runtimeSessionService.shutdownNotebookSession(
 					e.notebook,
 					RuntimeExitReason.Shutdown,
 					`Runtime kernel ${oldKernel.id} deselected for notebook`,
@@ -106,15 +118,14 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			}
 		}));
 
-		// When a notebook is added, update its kernel affinity for kernel auto-selection.
-		this._register(this._notebookService.onWillAddNotebookDocument(async notebook => {
-			await this.updateKernelNotebookAffinity(notebook);
+		// Ensure that a kernel is selected for added notebook documents
+		this._register(this._notebookService.onWillAddNotebookDocument(notebook => {
+			this.attachNotebook(notebook);
 		}));
 
-		// Update the kernel affinity of all existing notebooks.
+		// Ensure that a kernel is selected for all existing notebook documents
 		for (const notebook of this._notebookService.getNotebookTextModels()) {
-			this.updateKernelNotebookAffinity(notebook)
-				.catch(err => this._logService.error(`Error updating affinity for notebook ${notebook.uri.fsPath}: ${err}`));
+			this.attachNotebook(notebook);
 		}
 
 		// When a notebook is closed, shutdown the corresponding session.
@@ -157,11 +168,15 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	/**
-	 * Create and register a notebook kernel for a given language runtime.
-	 *
-	 * @param runtime The language runtime to create a notebook kernel for.
+	 * Get the kernel for a language runtime if one exist, otherwise create and register a new one.
 	 */
-	private createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
+	private getOrCreateKernel(runtime: ILanguageRuntimeMetadata) {
+		// Check if there's an existing kernel for the runtime
+		const existing = this._kernelsByRuntimeId.get(runtime.runtimeId);
+		if (existing) {
+			return existing;
+		}
+
 		// Create the kernel instance.
 		const kernel = this._register(this._instantiationService.createInstance(RuntimeNotebookKernel, runtime));
 
@@ -181,6 +196,8 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		this._register(kernel.onDidExecuteCode(e => {
 			this._didExecuteCodeEmitter.fire(e);
 		}));
+
+		return kernel;
 	}
 
 	/**
@@ -236,35 +253,17 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	/**
-	 * Update a notebook's affinity for all kernels.
-	 *
-	 * Positron automatically starts a kernel if it is the only 'preferred' kernel for the notebook.
-	 *
-	 * @param notebook The notebook whose affinity to update.
-	 * @returns Promise that resolves when the notebook's affinity has been updated for all kernels.
+	 * Get the selected kernel for a notebook.
 	 */
-	private async updateKernelNotebookAffinity(notebook: NotebookTextModel): Promise<void> {
-		const cells = notebook.cells;
-		if (cells.length === 0 ||
-			(cells.length === 1 && cells[0].getValue() === '')) {
-			// If its an empty notebook (i.e. it has a single empty cell, or no cells),
-			// wait for its data to be updated. This works around the  fact that `vscode.openNotebookDocument()`
-			// first creates a notebook (triggering `onDidOpenNotebookDocument`),
-			// and later updates its content (triggering `onDidChangeNotebookDocument`).
-			await new Promise<void>((resolve) => {
-				// Apply a short timeout to avoid waiting indefinitely.
-				const timeout = setTimeout(() => {
-					disposable.dispose();
-					resolve();
-				}, 50);
-				const disposable = notebook.onDidChangeContent(_e => {
-					clearTimeout(timeout);
-					disposable.dispose();
-					resolve();
-				});
-			});
-		}
+	private getSelectedKernel(notebook: INotebookTextModelLike): RuntimeNotebookKernel | undefined {
+		const { selected } = this._notebookKernelService.getMatchingKernel(notebook);
+		return selected && this._kernels.get(selected.id);
+	}
 
+	/**
+	 * Try to determine the preferred kernel for a notebook.
+	 */
+	private getPreferredKernel(notebook: NotebookTextModel): RuntimeNotebookKernel | undefined {
 		// Get the notebook's language.
 		const languageId = getNotebookLanguage(notebook);
 		if (!languageId) {
@@ -272,33 +271,83 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			return;
 		}
 
-		// Get the preferred kernel for the language.
-		let preferredRuntime: ILanguageRuntimeMetadata;
+		// Get the preferred runtime for the notebook's language.
+		let runtime: ILanguageRuntimeMetadata | undefined;
 		try {
-			const preferred = this._runtimeStartupService.getPreferredRuntime(languageId);
-			if (preferred) {
-				preferredRuntime = preferred;
-			} else {
-				this._logService.debug(`No preferred runtime for language ${languageId}`);
-				return;
-			}
+			runtime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			this._logService.debug(`No preferred runtime for language ${languageId}`);
 		} catch (err) {
 			// It may error if there are no registered runtimes for the language, so log and return.
 			this._logService.debug(`Failed to get preferred runtime for language ${languageId}. Reason: ${err.toString()}`);
 			return;
 		}
-		const preferredKernel = this._kernelsByRuntimeId.get(preferredRuntime.runtimeId);
-		this._logService.debug(`Preferred kernel for notebook ${notebook.uri.fsPath}: ${preferredKernel?.label}`);
 
-		// Set the affinity across all known kernels.
-		for (const kernel of this._kernels.values()) {
-			const affinity = kernel === preferredKernel
-				? NotebookKernelAffinity.Preferred
-				: NotebookKernelAffinity.Default;
-			this._notebookKernelService.updateKernelNotebookAffinity(kernel, notebook.uri, affinity);
-			this._logService.trace(`Updated notebook affinity for kernel: ${kernel.label}, ` +
-				`notebook: ${notebook.uri.fsPath}, affinity: ${affinity}`);
+		// Get the preferred runtime's matching kernel.
+		if (runtime) {
+			const kernel = this._kernelsByRuntimeId.get(runtime.runtimeId);
+			if (kernel) {
+				return kernel;
+			} else {
+				this._logService.warn(`No kernel for preferred runtime ${runtime.runtimeId} for notebook ${notebook.uri}`);
+			}
 		}
+
+		return;
+	}
+
+	/**
+	 * Get the selected kernel for a notebook if one is selected, otherwise select a kernel
+	 * matching the preferred runtime for the notebook's language.
+	 */
+	private getOrSelectKernel(notebook: NotebookTextModel): RuntimeNotebookKernel | undefined {
+		// If another of our kernels is already selected, nothing to do
+		// e.g. the user manually selected it in a previous session
+		const selectedKernel = this.getSelectedKernel(notebook);
+		if (selectedKernel) {
+			return selectedKernel;
+		}
+
+		// Try to get the preferred kernel for the notebook
+		const preferredKernel = this.getPreferredKernel(notebook);
+		if (preferredKernel) {
+			// Select the preferred kernel
+			this._notebookKernelService.selectKernelForNotebook(preferredKernel, notebook);
+			return preferredKernel;
+		}
+
+		return;
+	}
+
+	private attachNotebook(notebook: NotebookTextModel): void {
+		// If a kernel is already selected for the notebook, there's nothing to do
+		if (this.getOrSelectKernel(notebook)) {
+			return;
+		}
+
+		// Couldn't select a kernel, it's possible that the notebook contents are still arriving
+		// e.g. `vscode.openNotebookDocument()` first creates a notebook (triggering `onWillOpenNotebookDocument`),
+		// and later updates its contents (triggering `onDidChangeNotebookDocument`)
+		const disposables = this._register(new DisposableStore());
+
+		// Try again on each content change
+		disposables.add(notebook.onDidChangeContent(() => {
+			// Still haven't selected a kernel, try again with the updated contents
+			if (this.getOrSelectKernel(notebook)) {
+				disposables.dispose();
+			}
+		}));
+
+		// Stop listening if one of our kernels is selected in some other way
+		disposables.add(this._notebookKernelService.onDidChangeSelectedNotebooks((event) => {
+			if (isEqual(event.notebook, notebook.uri) &&
+				event.newKernel &&
+				this._kernels.has(event.newKernel)) {
+				disposables.dispose();
+			}
+		}));
+
+		// Stop listening when the notebook is disposed
+		disposables.add(notebook.onWillDispose(() => disposables.dispose()));
 	}
 
 	/**

@@ -30,7 +30,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		// ensure when no kernel is selected, restart/shutdown are disabled
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Change Kernel', enabled: true },
-			{ label: 'Open Notebook Console', enabled: true },
+			{ label: 'Open Notebook Console', enabled: false },
 			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
@@ -58,20 +58,22 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			kernelGroup: 'Python',
 			status: 'active'
 		});
-		// ISSUE - https://github.com/posit-dev/positron/issues/10145
-		// await notebooksPositron.kernel.expectKernelToBe({
-		// 	kernelGroup: 'Python',
-		// 	status: 'idle'
-		// })
-		await notebooksPositron.kernel.expectStatusToBe('idle', 15000); // remove once above issue is resolved
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'idle'
+		});
 
 		// shut down kernel and ensure menu options
 		await notebooksPositron.kernel.shutdown();
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'disconnected'
+		});
 		await notebooksPositron.kernel.expectMenuToContain([
 			{ label: 'Restart Kernel', enabled: false },
 			{ label: 'Shutdown Kernel', enabled: false },
 			{ label: 'Change Kernel', enabled: true },
-			{ label: 'Open Notebook Console', enabled: true },
+			{ label: 'Open Notebook Console', enabled: false },
 		]);
 	});
 

@@ -7,27 +7,36 @@ import { IObservable } from '../../../../base/common/observable.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
-import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IBaseCellEditorOptions, INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+
 /**
  * Represents the possible states of a notebook's kernel connection
  */
 export enum KernelStatus {
-	/** No kernel has been initialized yet */
-	Uninitialized = 'Uninitialized',
-	/** Attempting to establish a connection to the kernel */
-	Connecting = 'Connecting',
-	/** Successfully connected to the kernel */
-	Connected = 'Connected',
-	/** Connection to the kernel has been lost */
-	Disconnected = 'Disconnected',
-	/** An error occurred while connecting to or communicating with the kernel */
-	Errored = 'Errored'
+	/** Discovering available kernels */
+	Discovering = 'Preparing',
+	/** No kernel has been selected for the notebook */
+	Unselected = 'Unselected',
+	/** The kernel is restarting*/
+	Restarting = 'Restarting',
+	/** Changing from one kernel to another */
+	Switching = 'Switching',
+	/** The kernel is starting */
+	Starting = 'Starting',
+	/** The kernel is ready to receive a request */
+	Idle = 'Idle',
+	/** The kernel is busy handling a request */
+	Busy = 'Busy',
+	/** The kernel is in the process of exiting */
+	Exiting = 'Exiting',
+	/** The kernel has exited */
+	Exited = 'Exited',
 }
 
 /**
@@ -96,6 +105,11 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 */
 	readonly uri: URI;
 
+	/**
+	 * The notebook view type. Only Jupyter notebooks are supported currently.
+	 */
+	readonly viewType: 'jupyter-notebook';
+
 	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
@@ -135,10 +149,9 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	readonly kernelStatus: IObservable<KernelStatus>;
 
 	/**
-	 * Observable reference to the current runtime session for the notebook.
-	 * This manages the connection to the kernel and execution environment.
+	 * Observable of the notebook's selected kernel.
 	 */
-	readonly runtimeSession: IObservable<INotebookLanguageRuntimeSession | undefined>;
+	readonly kernel: IObservable<RuntimeNotebookKernel | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.

@@ -146,6 +146,12 @@
         "shortTitle": "%command.showKernelSupervisorLog.title%"
       },
       {
+        "command": "positron.supervisor.showRunningSupervisors",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.showRunningSupervisors.title%",
+        "shortTitle": "%command.showRunningSupervisors.title%"
+      },
+      {
         "command": "positron.supervisor.reconnectSession",
         "category": "%command.positron.supervisor.category%",
         "title": "%command.reconnectSession.title%",
@@ -175,7 +181,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.56"
+      "kallichore": "0.1.58"
     }
   },
   "extensionDependencies": [

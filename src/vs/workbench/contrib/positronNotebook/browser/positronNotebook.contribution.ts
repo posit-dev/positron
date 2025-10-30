@@ -6,9 +6,9 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
-import { localize } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { WorkbenchPhase, IWorkbenchContribution, registerWorkbenchContribution2 } from '../../../common/contributions.js';
@@ -41,14 +41,19 @@ import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON
 import { SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
-import { registerAction2, MenuId } from '../../../../platform/actions/common/actions.js';
+import { registerAction2, MenuId, Action2 } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
+import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 
+const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
 /**
  * PositronNotebookContribution class.
@@ -915,6 +920,19 @@ registerCellCommand({
 //#region Notebook Header Actions
 // Register notebook-level actions that appear in the editor action bar
 
+abstract class NotebookAction2 extends Action2 {
+	override run(accessor: ServicesAccessor, ...args: any[]): void {
+		const editorService = accessor.get(IEditorService);
+		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
+		if (!activeNotebook) {
+			return;
+		}
+		this._run(activeNotebook, accessor);
+	}
+
+	protected abstract _run(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
+}
+
 // Run All Cells - Executes all code cells in the notebook
 registerNotebookAction({
 	commandId: 'positronNotebook.runAllCells',
@@ -956,18 +974,28 @@ registerNotebookAction({
 });
 
 // Show Console - Opens or focuses the notebook console
-registerNotebookAction({
-	commandId: 'positronNotebook.showConsole',
-	handler: (notebook) => notebook.showNotebookConsole(),
-	menu: {
-		id: MenuId.PositronNotebookKernelSubmenu,
-		order: 100,
-		title: { value: localize('showConsole', 'Open Notebook Console'), original: 'Open Notebook Console' },
-		icon: ThemeIcon.fromId('terminal'),
-		positronActionBarOptions: {
-			controlType: 'button',
-			displayTitle: true
-		}
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.showConsole',
+			title: { value: localize('showConsole', 'Open Notebook Console'), original: 'Open Notebook Console' },
+			icon: ThemeIcon.fromId('terminal'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			precondition: ActiveNotebookHasRunningRuntime,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true
+			},
+			menu: {
+				id: MenuId.PositronNotebookKernelSubmenu,
+				order: 100,
+			}
+		});
+	}
+
+	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.showNotebookConsole();
 	}
 });
 

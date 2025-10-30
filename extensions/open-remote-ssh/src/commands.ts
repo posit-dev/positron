@@ -32,7 +32,7 @@ export async function promptOpenRemoteSSHWindow(reuseWindow: boolean) {
 	});
 
 	const quickPick = vscode.window.createQuickPick<HostQuickPickItem>();
-	quickPick.placeholder = vscode.l10n.t('Select a host, or type [user@]hostname[:port]');
+	quickPick.title = vscode.l10n.t('Select a host, or type [user@]hostname[:port]');
 	quickPick.ignoreFocusOut = true;
 	quickPick.items = baseItems;
 

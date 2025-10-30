@@ -4,23 +4,67 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as snowflake from 'snowflake-sdk';
 import {
 	CatalogNode,
 	CatalogProvider,
 	CatalogProviderRegistration,
 	CatalogProviderRegistry,
 } from '../catalog';
+import { resourceUri } from '../resources';
+import { getPositronAPI } from '../positron';
+import { traceError, traceLog } from '../logging';
 
-const registration: CatalogProviderRegistration = {
+// Key for storing recent Snowflake account names
+const RECENT_SNOWFLAKE_ACCOUNTS_KEY = 'recentSnowflakeAccounts';
+
+export type SnowflakeLogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
+
+export const registration: CatalogProviderRegistration = {
 	label: 'Snowflake',
 	detail: 'Explore tables and stages in a Snowflake account',
 	addProvider: registerSnowflakeCatalog,
+	removeProvider: async (
+		context: vscode.ExtensionContext,
+		provider: CatalogProvider,
+	): Promise<void> => {
+		let accountName: string | undefined;
+
+		if (provider instanceof SnowflakeCatalogProvider) {
+			// Authenticated provider
+			accountName = provider.accountName;
+		} else {
+			// For placeholder providers
+			if (provider.id && provider.id.startsWith('snowflake:')) {
+				accountName = provider.id.substring('snowflake:'.length);
+			}
+		}
+		if (!accountName) {
+			traceLog('Could not determine account name for provider being removed');
+			return;
+		}
+
+		// Remove from recent accounts list so it doesn't reappear on reload
+		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY);
+		if (recentAccounts && recentAccounts.includes(accountName)) {
+			const updatedRecent = recentAccounts.filter(account => account !== accountName);
+			await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, updatedRecent);
+		}
+		// We don't have any stored credentials to clear since we use browser SSO
+		// Just dispose the provider, which will close the connection if needed
+		provider.dispose();
+		traceLog(`Successfully removed Snowflake account: ${accountName}`);
+	},
 	listProviders: getSnowflakeCatalogs,
 };
 
 export function registerSnowflakeProvider(
 	registry: CatalogProviderRegistry,
 ): vscode.Disposable {
+	registration.iconPath = {
+		light: resourceUri('light', 'snowflake.png'),
+		dark: resourceUri('dark', 'snowflake.png'),
+	};
 	vscode.authentication.onDidChangeSessions((e) => {
 		if (e.provider.id === 'snowflake') {
 		}
@@ -29,59 +73,179 @@ export function registerSnowflakeProvider(
 }
 
 /**
- * Register a Snowflake catalog provider using the well-known authentication
- * provider.
+ * Register a Snowflake catalog provider using SSO authentication.
  */
-async function registerSnowflakeCatalog(
-	_context: vscode.ExtensionContext,
+export async function registerSnowflakeCatalog(
+	context: vscode.ExtensionContext,
+	account?: string,
 ): Promise<CatalogProvider | undefined> {
 	try {
-		// Unfortunately, authentication.getSession() currently hangs
-		// for ~5s when no Snowflake authentication provider is
-		// registered. In order to make this less confusing for users,
-		// show a "progress" notification when this hang occurs.
-		const session = await vscode.window.withProgress(
+		// Get recent account names to suggest to the user
+		const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+
+		// User is not re-authenticating an existing account, prompt for account name
+		if (!account) {
+			// If we have recent accounts, show a quick pick first
+			if (recentAccounts.length > 0) {
+				// Add a "New Account" option at the end
+				const items = [
+					...recentAccounts.map(name => ({
+						label: name,
+						description: 'Recent account'
+					})),
+					{
+						label: 'Enter New Account...',
+						description: 'Provide a different account identifier'
+					}
+				];
+
+				const selection = await vscode.window.showQuickPick(items, {
+					placeHolder: 'Select a recent account or enter a new one',
+					ignoreFocusOut: true
+				});
+
+				if (!selection) {
+					return undefined; // User canceled
+				}
+
+				if (selection.label === 'Enter New Account...') {
+					// User wants to enter a new account
+					account = await vscode.window.showInputBox({
+						prompt: 'Enter your Snowflake account identifier',
+						placeHolder: 'orgname-accountname',
+						validateInput: (value) => {
+							return value.trim() === '' ? 'Account name cannot be empty' : null;
+						},
+						ignoreFocusOut: true
+					});
+				} else {
+					// User selected an existing account
+					account = selection.label;
+				}
+			} else {
+				// No recent accounts, just show the input box
+				account = await vscode.window.showInputBox({
+					prompt: 'Enter your Snowflake account identifier',
+					placeHolder: 'orgname-accountname',
+					validateInput: (value) => {
+						return value.trim() === '' ? 'Account name cannot be empty' : null;
+					},
+					ignoreFocusOut: true
+				});
+			}
+		}
+
+		// If still no account, user canceled
+		if (!account) {
+			return undefined;
+		}
+
+		// Place snowflake logs in users workspace folder if available
+		const config = vscode.workspace.getConfiguration('catalogExplorer');
+		const logLevelStr = config.get<string>('logLevel', 'INFO') as SnowflakeLogLevel;
+
+		snowflake.configure({
+			logLevel: logLevelStr,
+			logFilePath: vscode.workspace.workspaceFolders
+				? vscode.workspace.workspaceFolders[0].uri.fsPath : undefined
+		});
+
+		const connection = snowflake.createConnection({
+			account: account,
+			authenticator: 'EXTERNALBROWSER',
+		});
+
+		return await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: 'Checking for existing Snowflake OAuth2 sessions...',
+				title: 'Authenticating to Snowflake via External Browser SSO...',
 			},
-			() => {
-				return vscode.authentication.getSession('snowflake', [], {
-					createIfNone: true,
-					clearSessionPreference: true,
+			async () => {
+				// Use promisified version of connect
+				await new Promise<void>((resolve, reject) => {
+					connection.connectAsync((err) => {
+						if (err) {
+							reject(err);
+						} else {
+							resolve();
+						}
+					});
 				});
+
+				// account will not be undefined here because we check for it earlier
+				await saveRecentAccount(context, account!);
+				return new SnowflakeCatalogProvider(connection, account!);
 			},
 		);
-		return new SnowflakeCatalogProvider(session);
-	} catch (_error) {
-		vscode.window.showErrorMessage('No Snowflake OAuth2 credentials found.');
+	} catch (error) {
+		vscode.window.showErrorMessage(
+			`Snowflake authentication failed: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		return undefined;
 	}
 }
 
 /**
- * Get a provider for all Snowflake accounts for which we have credentials.
+ * Save an account name to the recent accounts list
  */
-async function getSnowflakeCatalogs(
-	_context: vscode.ExtensionContext,
+export async function saveRecentAccount(context: vscode.ExtensionContext, account: string): Promise<void> {
+	const stored = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+	// Create a new array with the current account at the front and no duplicates
+	const updatedAccounts = [account, ...stored.filter(a => a !== account)];
+
+	await context.globalState.update(RECENT_SNOWFLAKE_ACCOUNTS_KEY, updatedAccounts);
+}
+
+/**
+ * Get a provider for all Snowflake accounts for which we have connections.
+ *
+ * Note: For the browser authentication flow, we don't automatically maintain active sessions.
+ * Users will need to re-authenticate when they restart VS Code or the extension is reloaded.
+ * However, we remember their account names to make reconnecting easier.
+ * TODO: Investigate persistent authentication options.
+ */
+export async function getSnowflakeCatalogs(
+	context: vscode.ExtensionContext
 ): Promise<CatalogProvider[]> {
-	let accounts;
-	try {
-		accounts = await vscode.authentication.getAccounts('snowflake');
-	} catch (_error) {
-		return Promise.resolve([]);
-	}
-	const sessions = await Promise.all(
-		accounts.map(async (account) => {
-			return await vscode.authentication.getSession('snowflake', [], {
-				account: account,
-				silent: true,
-			});
-		}),
-	);
-	return sessions
-		.filter((s) => s !== undefined)
-		.map((s) => new SnowflakeCatalogProvider(s));
+	const recentAccounts = context.globalState.get<string[]>(RECENT_SNOWFLAKE_ACCOUNTS_KEY) || [];
+
+	// Create a minimal placeholder provider for each account
+	return recentAccounts.map(accountName => {
+		return {
+			id: `snowflake:${accountName}`,
+
+			dispose() { },
+
+			getTreeItem() {
+				const item = new vscode.TreeItem(
+					'Snowflake',
+					vscode.TreeItemCollapsibleState.None
+				);
+				item.description = accountName;
+				item.iconPath = registration.iconPath;
+				item.tooltip = `${accountName} (Click to authenticate)`;
+				item.contextValue = 'provider:snowflake:placeholder';
+				item.command = {
+					title: 'Authenticate',
+					// This will use the addProvider method with our registration and account name
+					// which will then call our registerSnowflakeCatalog function with the account name
+					command: 'posit.catalog-explorer.addCatalogProvider',
+					arguments: [registration, accountName],
+					tooltip: 'Click to authenticate with this Snowflake account'
+				};
+
+				return item;
+			},
+
+			getDetails() {
+				return Promise.resolve(`Snowflake account: ${accountName}`);
+			},
+
+			getChildren() {
+				return Promise.resolve([]);
+			}
+		};
+	});
 }
 
 /**
@@ -90,14 +254,26 @@ async function getSnowflakeCatalogs(
 class SnowflakeCatalogProvider implements CatalogProvider {
 	private emitter = new vscode.EventEmitter<void>();
 	public readonly id: string;
+	public readonly accountName: string;
 
-	constructor(private session: vscode.AuthenticationSession) {
-		this.id = `snowflake:${session.account.id}`;
+	constructor(
+		public connection: snowflake.Connection,
+		accountName: string,
+	) {
+		this.accountName = accountName;
+		this.id = `snowflake:${this.accountName}`;
 	}
 
 	dispose() {
 		// Clean up resources
 		this.emitter.dispose();
+
+		// Destroy the Snowflake connection
+		this.connection.destroy((err) => {
+			if (err) {
+				traceError('Error destroying Snowflake connection:', err);
+			}
+		});
 	}
 
 	onDidChange = this.emitter.event;
@@ -113,7 +289,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		);
 		item.iconPath = registration.iconPath;
 		item.tooltip = registration.label;
-		item.description = this.session.account.label;
+		item.description = this.accountName;
 		item.contextValue = 'provider';
 		return item;
 	}
@@ -122,7 +298,359 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		return Promise.resolve(undefined);
 	}
 
-	getChildren(_node?: CatalogNode): Promise<CatalogNode[]> {
-		return Promise.resolve([]);
+	/**
+	 * Get children nodes in the catalog tree.
+	 * For Snowflake, this would typically be databases, schemas, tables, etc.
+	 */
+	async getChildren(node?: CatalogNode): Promise<CatalogNode[]> {
+		try {
+			if (!node) {
+				return await this.listDatabases();
+			} else if (node.type === 'catalog') {
+				return await this.listSchemas(node.path);
+			} else if (node.type === 'schema') {
+				return await this.listTables(node.path);
+			}
+
+			// Default case - return empty array
+			return [];
+		} catch (error) {
+			traceError('Error getting Snowflake children:', error);
+			vscode.window.showErrorMessage(
+				`Failed to retrieve Snowflake data: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
+		}
 	}
+
+	/**
+	 * Generate code for accessing a Snowflake resource in the specified language.
+	 *
+	 * @param languageId The language to generate code for (e.g., 'python', 'r')
+	 * @param node The catalog node to generate code for
+	 * @returns Generated code as a string, or undefined if not supported
+	 */
+	async getCode(
+		languageId: string,
+		node: CatalogNode,
+	): Promise<string | undefined> {
+
+		const code = await generateCode(languageId, node, this.accountName);
+		return code?.code;
+	}
+
+	/**
+	 * Open a Snowflake resource in an active Positron session
+	 *
+	 * @param node The catalog node to open in a session
+	 */
+	async openInSession(node: CatalogNode): Promise<void> {
+		const positron = getPositronAPI();
+		if (!positron) {
+			return;
+		}
+
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return;
+		}
+
+		// Get the code to execute
+		const code = await generateCode(
+			session.runtimeMetadata.languageId,
+			node,
+			this.accountName
+		);
+
+		if (!code) {
+			return;
+		}
+
+		// Skip dependency checking
+		session.execute(
+			code.code,
+			session.runtimeMetadata.languageId,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue,
+		);
+	}
+
+	/**
+	 * Execute a SQL query on the Snowflake connection and return the results
+	 */
+	private executeQuery<T>(sql: string): Promise<T[]> {
+		return new Promise((resolve, reject) => {
+			this.connection.execute({
+				sqlText: sql,
+				complete: function (err, _stmt, rows) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(rows as T[]);
+					}
+				},
+			});
+		});
+	}
+
+	/**
+	 * List all databases in the Snowflake account
+	 */
+	private async listDatabases(): Promise<CatalogNode[]> {
+		try {
+			const sql = `SHOW DATABASES`;
+			const databases = await this.executeQuery<{ name: string }>(sql);
+
+			return databases.map((db) => {
+				return new CatalogNode(db.name, 'catalog', this);
+			});
+		} catch (error) {
+			traceError('Error listing databases:', error);
+			vscode.window.showErrorMessage(
+				`Failed to list Snowflake databases: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
+		}
+	}
+
+	/**
+	 * List all schemas in the specified database
+	 */
+	private async listSchemas(databaseName: string): Promise<CatalogNode[]> {
+		try {
+
+			const sql = `SHOW SCHEMAS IN DATABASE "${databaseName}"`;
+			const schemas = await this.executeQuery<{ name: string }>(sql);
+
+			return schemas.map((schema) => {
+				return new CatalogNode(
+					`${databaseName}.${schema.name}`,
+					'schema',
+					this,
+				);
+			});
+		} catch (error) {
+			traceError(
+				`Error listing schemas in database ${databaseName}:`,
+				error,
+			);
+			vscode.window.showErrorMessage(
+				`Failed to list schemas in ${databaseName}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
+		}
+	}
+
+	/**
+	 * List all tables in the specified schema
+	 */
+	private async listTables(schemaPath: string): Promise<CatalogNode[]> {
+		try {
+			const [databaseName, schemaName] = schemaPath.split('.');
+
+			const sql = `SHOW TABLES IN SCHEMA "${databaseName}"."${schemaName}"`;
+			const tables = await this.executeQuery<{ name: string }>(sql);
+
+			return tables.map((table) => {
+				return new CatalogNode(`${schemaPath}.${table.name}`, 'table', this);
+			});
+		} catch (error) {
+			traceError(`Error listing tables in schema ${schemaPath}:`, error);
+			vscode.window.showErrorMessage(
+				`Failed to list tables in ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
+		}
+	}
+}
+
+/**
+ * Generate code for accessing a Snowflake resource based on the node type and language
+ *
+ * @param languageId Language identifier (python, r)
+ * @param node The catalog node to generate code for
+ * @param accountName The Snowflake account name
+ * @returns Generated code and required dependencies
+ */
+async function generateCode(
+	languageId: string,
+	node: CatalogNode,
+	accountName: string,
+): Promise<{ code: string } | undefined> {
+	const username = await vscode.window.showInputBox({
+		prompt: 'Enter your Snowflake username',
+		placeHolder: 'your-username@example.com'
+	});
+
+	if (!username) {
+		return;
+	}
+
+	const warehouse = await vscode.window.showInputBox({
+		prompt: 'Enter your warehouse name',
+		placeHolder: 'my-warehouse'
+	});
+	if (!warehouse) {
+		return;
+	}
+
+	// Extract database, schema, and table names from the path
+	const pathParts = node.path.split('.');
+	const tableName = pathParts.pop() || '';
+	const schemaName = pathParts.pop() || '';
+	const databaseName = pathParts.pop() || '';
+
+	switch (languageId) {
+		case 'python':
+			return getPythonCodeForSnowflakeTable(accountName, username, warehouse, databaseName, schemaName, tableName);
+		case 'r':
+			return await getRCodeForSnowflakeTable(accountName, username, warehouse, databaseName, schemaName, tableName);
+		default:
+			throw new Error(`Code generation for language '${languageId}' is not supported for Snowflake`);
+	}
+}
+
+/**
+ * Generate Python code for accessing a Snowflake table
+ *
+ * @param accountName The Snowflake account name
+ * @param username The Snowflake username
+ * @param database The database name
+ * @param schema The schema name
+ * @param table The table name
+ * @returns Generated code and required dependencies
+ */
+function getPythonCodeForSnowflakeTable(
+	accountName: string,
+	username: string,
+	warehouse: string,
+	database?: string,
+	schema?: string,
+	table?: string
+): { code: string; dependencies: string[] } {
+	const dependencies = ['snowflake-connector-python[secure-local-storage]', 'pandas'];
+
+	let code = `# pip install ${dependencies.join(' ')}\n`;
+
+	if (database && schema && table) {
+		code += `# For ${accountName}.${database}.${schema}.${table}\n`;
+	} else {
+		code += `# For ${accountName}\n`;
+	}
+
+	code += `
+import snowflake.connector as sc
+
+conn_params = {
+	'account': '${accountName}',
+	'user': '${username}',
+	'authenticator': 'externalbrowser',
+`;
+
+	// add database if provided
+	if (database) {
+		code += `	'database': '${database}',`;
+	}
+
+	// add schema if provided
+	if (schema) {
+		code += `\n	'schema': '${schema}'`;
+	}
+
+	// complete the connection parameters dict and establish connection
+	code += `
+}
+
+# Establish the connection
+conn = sc.connect(**conn_params)
+cursor = conn.cursor()
+cursor.execute("USE WAREHOUSE ${warehouse}")
+`;
+	// add query to fetch data from the specified table or default info
+	if (table) {
+		code += `query = "SELECT * FROM ${table} LIMIT 10"`;
+	} else {
+		code += `query = "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()"`;
+	}
+
+	// execute the query
+	code += `
+cursor.execute(query)
+
+# Fetch and display results
+results = cursor.fetchall()
+for row in results:
+	print(row)
+
+cursor.close()
+`;
+
+	return { code, dependencies };
+}
+
+/**
+ * Generate R code for accessing a Snowflake table
+ *
+ * @param accountName The Snowflake account name
+ * @param username The Snowflake username
+ * @param database Optional database name
+ * @param schema Optional schema name
+ * @param table Optional table name
+ * @returns Generated code and required dependencies
+ */
+async function getRCodeForSnowflakeTable(
+	accountName: string,
+	username: string,
+	warehouse: string,
+	database?: string,
+	schema?: string,
+	table?: string
+): Promise<{ code: string; dependencies: string[] }> {
+	const dependencies = ['DBI', 'odbc'];
+
+	// Build a code template with the available parameters
+	let code = `library(odbc)
+library(DBI)
+
+con <- dbConnect(
+	odbc::odbc(),
+	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
+	server = "${accountName}.snowflakecomputing.com",
+	uid = "${username}",
+	pwd = Sys.getenv("SNOWFLAKE_PASSWORD"),`; // pragma: allowlist secret
+
+	code += `\n\twarehouse = "${warehouse}",`;
+
+	// Add database if available
+	if (database) {
+		code += `,\n\tdatabase = "${database}"`;
+	}
+
+	// Add schema if available
+	if (schema) {
+		code += `,\n\tschema = "${schema}"`;
+	}
+
+	// Close the connection parameters
+	code += `
+)
+
+# Query data`;
+
+	// Add table-specific query if table is provided
+	if (table) {
+		code += `
+df <- dbGetQuery(con, "SELECT * FROM ${table} LIMIT 10")`;
+	} else {
+		code += `
+df <- dbGetQuery(con, "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()")`;
+	}
+
+	// Add disconnect statement
+	code += `
+
+# Disconnect when done
+dbDisconnect(con)`;
+
+	return { code, dependencies };
 }

@@ -784,7 +784,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
 			this._onDidChangeProviders.fire({ added: [vendor] });
 			this._onLanguageModelChange.fire();
-;
 		});
 		// --- End Positron ---
 

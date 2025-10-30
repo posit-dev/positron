@@ -23,7 +23,7 @@
         "catalogExplorer.enabled": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate.",
+          "markdownDescription": "Enable or disable the experimental Catalog Explorer extension. When disabled, the extension will not activate. Requires a restart of Positron to take effect.",
           "tags": [
             "experimental"
           ]
@@ -56,9 +56,15 @@
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.openInSession",
+        "command": "posit.catalog-explorer.previewTableInSession",
         "category": "Catalogs",
-        "title": "Open in Session",
+        "title": "Preview Table in Active Session",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.downloadFileInSession",
+        "category": "Catalogs",
+        "title": "Download File in Active Session",
         "enablement": "view == catalog-explorer"
       },
       {
@@ -69,16 +75,30 @@
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.copyPythonCode",
+        "command": "posit.catalog-explorer.copyPythonCodeFile",
         "category": "Catalogs",
-        "title": "Copy Python Code",
+        "title": "Download File with Python",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       },
       {
-        "command": "posit.catalog-explorer.copyRCode",
+        "command": "posit.catalog-explorer.copyPythonCodeTable",
         "category": "Catalogs",
-        "title": "Copy R Code",
+        "title": "Preview Table with Python",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyRCodeFile",
+        "category": "Catalogs",
+        "title": "Download File with R",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyRCodeTable",
+        "category": "Catalogs",
+        "title": "Preview Table with R",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
       }
@@ -137,8 +157,13 @@
           "group": "1_primary@2"
         },
         {
-          "command": "posit.catalog-explorer.openInSession",
-          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "command": "posit.catalog-explorer.downloadFileInSession",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "1_primary@3"
+        },
+        {
+          "command": "posit.catalog-explorer.previewTableInSession",
+          "when": "view == catalog-explorer && viewItem == table",
           "group": "1_primary@3"
         },
         {
@@ -147,13 +172,23 @@
           "group": "2_copy@0"
         },
         {
-          "command": "posit.catalog-explorer.copyPythonCode",
-          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "command": "posit.catalog-explorer.copyPythonCodeFile",
+          "when": "view == catalog-explorer && viewItem == file",
           "group": "2_copy@1"
         },
         {
-          "command": "posit.catalog-explorer.copyRCode",
-          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
+          "command": "posit.catalog-explorer.copyPythonCodeTable",
+          "when": "view == catalog-explorer && viewItem == table",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "posit.catalog-explorer.copyRCodeFile",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "2_copy@2"
+        },
+        {
+          "command": "posit.catalog-explorer.copyRCodeTable",
+          "when": "view == catalog-explorer && viewItem == table",
           "group": "2_copy@2"
         }
       ]
@@ -182,14 +217,18 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/sinon": "^17.0.4",
+    "@types/snowflake-sdk": "^1.6.24",
     "@types/vscode": "^1.87.0",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.23.0",
-    "sinon": "^21.0.0",
     "prettier": "^3.2.5",
+    "sinon": "^21.0.0",
     "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "snowflake-sdk": "^2.3.1"
   }
 }

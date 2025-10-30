@@ -19,7 +19,7 @@ import {
 	PositronAssistantNotebookParticipant,
 	PositronAssistantTerminalParticipant
 } from '../participants.js';
-import { PromptRenderer } from '../promptRender.js';
+import { PromptMetadata, PromptMetadataMode, PromptRenderer } from '../promptRender.js';
 
 /**
  * A function that handles chat requests.
@@ -41,7 +41,17 @@ export interface IChatRequestHandler {
 }
 
 function registerAssistantCommand(command: string, handler: IChatRequestHandler) {
-	const metadata = PromptRenderer.getCommandMetadata(command);
+	let metadata: PromptMetadata<PromptMetadataMode[]>;
+	try {
+		metadata = PromptRenderer.getCommandMetadata(command);
+	} catch (err) {
+		if (err instanceof Error) {
+			log.error(`Error retrieving metadata for command ${command}: ${err.message}`);
+		} else {
+			log.error(`Unknown error retrieving metadata for command ${command}: ${JSON.stringify(err)}`);
+		}
+		return;
+	}
 	const modes = metadata.mode ?? [];
 	for (const mode of modes) {
 		switch (mode) {

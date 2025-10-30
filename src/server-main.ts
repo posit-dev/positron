@@ -27,6 +27,7 @@ import * as https from 'https';
 // --- Start Positron ---
 import { spawn } from 'child_process';
 import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
+import { FileAccess } from './vs/base/common/network.js';
 // --- End Positron ---
 
 perf.mark('code/server/start');
@@ -179,7 +180,20 @@ if (shouldSpawnCli) {
 	});
 
 	// --- Start Positron ---
-	await startKernelSupervisor();
+	// In web mode (used in Posit Workbench), start the Positron Kernel
+	// Supervisor process that will manage all the kernels for all the windows
+	// that connect to this server. This speeds session startup significantly
+	// since the supervisor is already running when the first window connects.
+	//
+	// If hasWebUi is false, then this is a headless REH server (probably remote
+	// SSH) and we'll let it manage its own kernels.
+	const hasWebUi =
+		fs.existsSync(FileAccess.asFileUri('vs/code/browser/workbench/workbench.html').fsPath);
+	if (hasWebUi) {
+		await startKernelSupervisor();
+	} else {
+		console.info('Skipping Kernel Supervisor startup for headless REH server.');
+	}
 	// --- End Positron ---
 }
 

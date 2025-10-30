@@ -40,7 +40,7 @@ test.describe('Notebook Debugging', {
 	});
 
 	// Single, simpler test that covers it all basics, instead of many separate and redundant tests.
-	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger }) => {
+	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger, hotKeys }) => {
 		const code = [
 			'# Initialize variables',
 			'x = 10',
@@ -89,7 +89,6 @@ test.describe('Notebook Debugging', {
 		await expect(app.workbench.notebooks.frameLocator.locator('text=Result from Positron: 40')).toBeVisible();
 
 		// Clean up BPs
-		await app.workbench.debug.unSetBreakpointOnLine(5);
-		await app.workbench.debug.unSetBreakpointOnLine(9);
+		await hotKeys.clearAllBreakpoints();
 	});
 });

@@ -90,11 +90,23 @@ export interface ActiveSession {
      */
     'started': string;
     /**
+     * 
+     * @type {SessionMode}
+     * @memberof ActiveSession
+     */
+    'session_mode': SessionMode;
+    /**
      * The session\'s current working directory
      * @type {string}
      * @memberof ActiveSession
      */
     'working_directory': string;
+    /**
+     * For notebook sessions, the URI of the notebook file
+     * @type {string}
+     * @memberof ActiveSession
+     */
+    'notebook_uri'?: string;
     /**
      * The text to use to prompt for input
      * @type {string}
@@ -333,11 +345,23 @@ export interface NewSession {
      */
     'argv': Array<string>;
     /**
+     * 
+     * @type {SessionMode}
+     * @memberof NewSession
+     */
+    'session_mode': SessionMode;
+    /**
      * The working directory in which to start the session.
      * @type {string}
      * @memberof NewSession
      */
     'working_directory': string;
+    /**
+     * For notebook sessions, the URI of the notebook file
+     * @type {string}
+     * @memberof NewSession
+     */
+    'notebook_uri'?: string;
     /**
      * A list of environment variable actions to perform
      * @type {Array<VarAction>}
@@ -470,6 +494,12 @@ export interface ServerStatus {
      */
     'busy_seconds': number;
     /**
+     * The number of seconds the server has been running
+     * @type {number}
+     * @memberof ServerStatus
+     */
+    'uptime_seconds': number;
+    /**
      * The version of the server
      * @type {string}
      * @memberof ServerStatus
@@ -481,6 +511,12 @@ export interface ServerStatus {
      * @memberof ServerStatus
      */
     'process_id': number;
+    /**
+     * An ISO 8601 timestamp of when the server was started
+     * @type {string}
+     * @memberof ServerStatus
+     */
+    'started': string;
 }
 /**
  * 
@@ -501,6 +537,21 @@ export interface SessionList {
      */
     'sessions': Array<ActiveSession>;
 }
+/**
+ * The mode in which the session is running
+ * @export
+ * @enum {string}
+ */
+
+export const SessionMode = {
+    Console: 'console',
+    Notebook: 'notebook',
+    Background: 'background'
+} as const;
+
+export type SessionMode = typeof SessionMode[keyof typeof SessionMode];
+
+
 /**
  * 
  * @export

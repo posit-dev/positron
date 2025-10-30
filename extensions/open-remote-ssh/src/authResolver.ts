@@ -80,7 +80,7 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 			throw new Error(`Invalid authority type for SSH resolver: ${type}`);
 		}
 
-		this.logger.info(`Resolving ssh remote authority '${authority}' (attemp #${context.resolveAttempt})`);
+		this.logger.info(`Resolving ssh remote authority '${authority}'`);
 
 		const sshDest = SSHDestination.parseEncoded(dest);
 
