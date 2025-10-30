@@ -8,7 +8,7 @@ import { CellSelectionType } from '../../selectionMachine.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
-import { MenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 
 /**
@@ -17,10 +17,10 @@ import { Icon } from '../../../../../../platform/positronActionBar/browser/compo
  * @param cell The cell to execute the action on
  * @returns A button that executes the action when clicked.
  */
-export function CellActionButton({ action, cell }: { action: MenuItemAction; cell: IPositronNotebookCell; }) {
+export function CellActionButton({ action, cell }: { action: MenuItemAction | SubmenuItemAction; cell: IPositronNotebookCell; }) {
 	const instance = useNotebookInstance();
 
-	const handleActionClick = async (action: MenuItemAction) => {
+	const handleActionClick = async (action: MenuItemAction | SubmenuItemAction) => {
 		// Actions assume cell is selected, so ensure this is the case
 		instance.selectionStateMachine.selectCell(cell, CellSelectionType.Normal);
 

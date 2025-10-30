@@ -9,17 +9,12 @@ import React, { useRef } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { showCustomContextMenu } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
-import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
-import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
-import { INotebookCellActionBarItem } from './actionBarRegistry.js';
-import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
+import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 
 interface NotebookCellMoreActionsMenuProps {
-	instance: IPositronNotebookInstance;
-	cell: IPositronNotebookCell;
-	menuActions: INotebookCellActionBarItem[];
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
 	onMenuStateChange: (isOpen: boolean) => void;
 }
 
@@ -28,14 +23,11 @@ interface NotebookCellMoreActionsMenuProps {
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
 export function NotebookCellMoreActionsMenu({
-	instance,
-	cell,
 	menuActions,
 	onMenuStateChange
 }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-	const commandService = usePositronReactServicesContext().commandService;
 	const showMoreActionsMenu = () => {
 
 		if (!buttonRef.current) {
@@ -43,7 +35,7 @@ export function NotebookCellMoreActionsMenu({
 		}
 
 		try {
-			const entries = buildMoreActionsMenuItems(commandService, menuActions);
+			const entries = buildMoreActionsMenuItems(menuActions);
 
 			setIsMenuOpen(true);
 			onMenuStateChange(true);

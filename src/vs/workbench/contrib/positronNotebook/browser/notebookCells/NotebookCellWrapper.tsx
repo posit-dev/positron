@@ -23,9 +23,8 @@ import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
-export function NotebookCellWrapper({ cell, actionBarChildren, children, hasError }: {
+export function NotebookCellWrapper({ cell, children, hasError }: {
 	cell: IPositronNotebookCell;
-	actionBarChildren?: React.ReactNode;
 	children: React.ReactNode;
 	hasError?: boolean;
 }) {
@@ -132,9 +131,7 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children, hasErro
 		}}
 	>
 		<CellScopedContextKeyServiceProvider service={scopedContextKeyService}>
-			<NotebookCellActionBar cell={cell}>
-				{actionBarChildren}
-			</NotebookCellActionBar>
+			<NotebookCellActionBar cell={cell} />
 			{children}
 		</CellScopedContextKeyServiceProvider>
 		<ScreenReaderOnly>
