@@ -9,6 +9,7 @@ import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { MenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 
 /**
  * Standardized action button component for notebook cell actions. Handles cell selection and command execution.
@@ -37,7 +38,7 @@ export function CellActionButton({ action, cell }: { action: MenuItemAction; cel
 			ariaLabel={action.label}
 			onPressed={() => handleActionClick(action)}
 		>
-			<div className={`button-icon codicon ${action.item.icon}`} />
+			{action.item.icon ? <Icon icon={action.item.icon} /> : null}
 		</ActionButton>
 	);
 }
