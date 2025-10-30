@@ -79,6 +79,10 @@ export class MenuId {
 	static readonly EditorContextShare = new MenuId('EditorContextShare');
 	// --- Start Positron ---
 	static readonly PositronNotebookKernelSubmenu = new MenuId('PositronNotebookKernelSubmenu');
+	static readonly PositronNotebookCellActionMain = new MenuId('PositronNotebookCellActionMain');
+	static readonly PositronNotebookCellActionMainRight = new MenuId('PositronNotebookCellActionMainRight');
+	static readonly PositronNotebookCellActionMenu = new MenuId('PositronNotebookCellActionMenu');
+	static readonly PositronNotebookCellActionLeft = new MenuId('PositronNotebookCellActionLeft');
 	static readonly EditorActionsLeft = new MenuId('EditorActionsLeft');
 	static readonly EditorActionsRight = new MenuId('EditorActionsRight');
 	// --- End Positron ---
