@@ -9,6 +9,22 @@ import { MenuId, IMenuCreateOptions, IMenuService, IMenu } from '../../../../pla
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
+ * A versioned menu wrapper that tracks changes to a menu instance.
+ */
+export interface IVersionedMenu {
+	/**
+	 * The current menu instance, or undefined if the menu hasn't been created yet.
+	 */
+	current: IMenu | undefined;
+
+	/**
+	 * A version number that increments each time the menu changes.
+	 * Used to trigger React re-renders when menu content is updated.
+	 */
+	version: number;
+}
+
+/**
  * React wrapper for an IMenu.
  *
  * @param menuId The menu's identifier
@@ -19,7 +35,7 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 export function useMenu(
 	menuId: MenuId,
 	contextKeyService: IContextKeyService | undefined,
-	options?: IMenuCreateOptions) {
+	options?: IMenuCreateOptions): IVersionedMenu {
 	// Context
 	const menuService = usePositronReactServicesContext().get(IMenuService);
 

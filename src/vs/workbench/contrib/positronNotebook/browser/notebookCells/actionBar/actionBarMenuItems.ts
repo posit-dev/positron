@@ -3,50 +3,44 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { CustomContextMenuItem } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuEntry } from '../../../../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
-import { NotebookCellActionBarRegistry, INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { CustomContextMenuSeparator } from '../../../../../browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
+import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { ThemeIcon } from '../../../../../../base/common/themables.js';
 
 /**
  * Build the menu entries for the "more actions" dropdown menu.
  * This provides a clean extension point for adding new actions via the registry.
  */
 export function buildMoreActionsMenuItems(
-	commandService: ICommandService,
-	menuActions?: INotebookCellActionBarItem[]
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
 ): CustomContextMenuEntry[] {
-	// Use provided menuActions or fallback to getting all from registry
-	const actions = menuActions ?? NotebookCellActionBarRegistry.getInstance().menuActions.get();
-
-	// Get the categories
-	const entriesByCategory = new Map<string, CustomContextMenuEntry[]>();
-	actions.forEach(action => {
-		if (action.category) {
-			if (!entriesByCategory.has(action.category)) {
-				entriesByCategory.set(action.category, []);
-			}
-			entriesByCategory.get(action.category)?.push(new CustomContextMenuItem({
-				commandId: action.commandId,
-				label: String(action.label ?? action.commandId), // TODO: Use CommandCenter.title when available
-				icon: action.icon?.startsWith('codicon-') ? action.icon.slice(8) : action.icon,
-				onSelected: () => {
-					// No op as command is executed via the commandId argument
-				}
-			}));
+	// Get the groups
+	const entriesByGroup = new Map<string, CustomContextMenuEntry[]>();
+	menuActions.forEach(([group, groupActions]) => {
+		if (!entriesByGroup.has(group)) {
+			entriesByGroup.set(group, []);
 		}
+		entriesByGroup.get(group)?.push(...groupActions.map(action => new CustomContextMenuItem({
+			commandId: action.id,
+			label: action.label,
+			icon: ThemeIcon.isThemeIcon(action.item.icon) ? action.item.icon.id : undefined,
+			onSelected: () => {
+				// No op as command is executed via the commandId argument
+			}
+		})));
 	});
 
-	// Convert the entries by category to a flat array with separators between categories
+	// Convert the entries by group to a flat array with separators between groups
 	const contextMenuEntries: CustomContextMenuEntry[] = [];
-	const categories = Array.from(entriesByCategory.keys());
-	categories.forEach((category, index) => {
-		const entries = entriesByCategory.get(category)!;
+	const groups = Array.from(entriesByGroup.keys());
+	groups.forEach((group, index) => {
+		const entries = entriesByGroup.get(group)!;
 		contextMenuEntries.push(...entries);
 
-		// Add separator after each category except the last
-		if (index < categories.length - 1) {
+		// Add separator after each group except the last
+		if (index < groups.length - 1) {
 			contextMenuEntries.push(new CustomContextMenuSeparator());
 		}
 	});

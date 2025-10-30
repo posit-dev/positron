@@ -15,9 +15,12 @@ import { useObservedValue } from '../useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { CellExecutionInfoPopup } from './CellExecutionInfoPopup.js';
 import { Popover } from '../../../../browser/positronComponents/popover/popover.js';
-import { useActionsForCell } from './actionBar/useActionsForCell.js';
 import { CellSelectionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { ExecutionStatusBadge } from './ExecutionStatusBadge.js';
+import { useMenu } from '../useMenu.js';
+import { MenuId } from '../../../../../platform/actions/common/actions.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
+import { useMenuActions } from '../useMenuActions.js';
 import { CellActionButton } from './actionBar/CellActionButton.js';
 
 interface CellLeftActionMenuProps {
@@ -34,14 +37,16 @@ const POPUP_DELAY = 100;
  * - Execution info popup on hover with timing details
  */
 export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) {
+	// Context
+	const contextKeyService = useCellScopedContextKeyService();
+
 	// Reference hooks.
 	const containerRef = useRef<HTMLDivElement>(null);
 	const hoverTimeoutIdRef = useRef<number | null>(null);
-	const actionsForCell = useActionsForCell();
-	const leftActions = actionsForCell.left;
-	const primaryLeftAction = leftActions.at(0);
 
 	// State hooks.
+	const leftMenu = useMenu(MenuId.PositronNotebookCellActionLeft, contextKeyService);
+	const leftActions = useMenuActions(leftMenu);
 	const [showPopup, setShowPopup] = useState(false);
 	const [isHovered, setIsHovered] = useState(false);
 
@@ -54,6 +59,9 @@ export function CellLeftActionMenu({ cell, hasError }: CellLeftActionMenuProps) 
 	const lastRunEndTime = useObservedValue(cell.lastRunEndTime);
 
 	// Derived state
+	const primaryLeftGroup = leftActions.at(0);
+	const primaryLeftGroupActions = primaryLeftGroup?.[1];
+	const primaryLeftAction = primaryLeftGroupActions?.[0];
 	const isRunning = executionStatus === 'running';
 	const showPending = executionOrder === undefined;
 	const isSelected = selectionStatus !== CellSelectionStatus.Unselected;
