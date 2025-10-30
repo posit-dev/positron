@@ -155,7 +155,10 @@ if __name__ == "__main__":
         # Log all callbacks that take longer than 0.5 seconds (the current default is too noisy).
         loop.slow_callback_duration = 0.5
 
-    # On Windows, set up interrupt event monitoring
+    # On Windows, set up interrupt event monitoring. Typically ipykernel would
+    # handle JPY_INTERRUPT_EVENT itself, but since we're running a custom event
+    # loop, it will not receive the signal, so we need to do it here and inject
+    # KeyboardInterrupt into the main thread.
     if sys.platform == "win32":
         import ctypes
         import ctypes.wintypes
@@ -191,8 +194,8 @@ if __name__ == "__main__":
                 """Thread function to watch for the Windows interrupt event."""
                 logger.info(f"Interrupt monitoring thread started, watching handle {event_handle}")
                 while True:
-                    # Wait for the event to be signaled (check every 100ms)
-                    result = WaitForSingleObject(event_handle, 100)
+                    # Wait for the event to be signaled (check every 200ms)
+                    result = WaitForSingleObject(event_handle, 200)
                     if result == WAIT_OBJECT_0:
                         logger.info("Interrupt event signaled, injecting KeyboardInterrupt")
                         try:
