@@ -418,7 +418,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					this.kernelStatus.set(newKernelStatus, undefined);
 
 					// When runtime becomes ready, check working directory
-					if (newState === RuntimeState.Ready || newState === RuntimeState.Idle) {
+					if (newState === RuntimeState.Ready) {
 						await this.updateWorkingDirectoryMismatchContextKey();
 					}
 				}));
