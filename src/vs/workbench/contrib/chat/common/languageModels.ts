@@ -694,6 +694,14 @@ export class LanguageModelsService implements ILanguageModelsService {
 				// --- Start Positron ---
 				// Track included models after applying configuration filters for logging
 				const includedModels = [];
+
+				// Get unfiltered providers from configuration
+				let unfilteredProviders =
+					this._configurationService.getValue<string[]>('positron.assistant.unfilteredProviders');
+				if (!unfilteredProviders) {
+					// If no configuration, default to known test providers
+					unfilteredProviders = ['test-lm-vendor', 'echo'];
+				}
 				// --- End Positron ---
 
 				this._clearModelCache(vendor);
@@ -705,7 +713,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 					// --- Start Positron ---
 					// Get and apply LLM allow filters from configuration.
-					if (vendor !== 'test-lm-vendor' && vendor !== 'echo') { // Always allow test models
+					if (unfilteredProviders.indexOf(vendor) === -1) {
 						const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
 						this._logService.trace('[LM] Applying model filters:', config.filterModels);
 						if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
