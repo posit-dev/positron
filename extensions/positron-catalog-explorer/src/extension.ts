@@ -13,7 +13,9 @@ import { DefaultDatabricksCredentialProvider } from './credentials';
 import { registerDatabricksProvider } from './catalogs/databricks';
 import { registerMockProvider } from './catalogs/mock';
 import { registerDbfsProvider } from './fs/dbfs';
+import { registerSnowflakeProvider } from './catalogs/snowflake';
 import { setExtensionUri } from './resources';
+import { initializeLogging, traceInfo, traceWarn } from './logging';
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Check if the extension is enabled via configuration
@@ -21,9 +23,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	const isEnabled = config.get<boolean>('enabled', true);
 	const viewTestCatalog = config.get<boolean>('viewTestCatalog', false);
 
+	initializeLogging();
+	traceInfo('Catalog Explorer extension initializing');
+
 	// If the extension is disabled, return early without activating
 	if (!isEnabled) {
-		console.log('Catalog Explorer extension is disabled via configuration');
+		traceWarn('Catalog Explorer extension is disabled via configuration');
 		return;
 	}
 
@@ -35,6 +40,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	context.subscriptions.push(
 		registerDatabricksProvider(registry),
+		registerSnowflakeProvider(registry),
 		await registerTreeViewProvider(context, registry),
 		registerDbfsProvider(
 			new DefaultDatabricksCredentialProvider(context.secrets),

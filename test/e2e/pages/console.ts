@@ -8,7 +8,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
-import { ContextMenu } from './dialog-contextMenu.js';
+import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
@@ -93,15 +93,11 @@ export class Console {
 	 * @param contextMenu the context menu instance to use for interaction
 	 * @param runtimes the runtime names to expect in the context menu
 	 */
-	async expectSessionContextMenuToContain(runtimes: string[]) {
+	async expectSessionContextMenuToContain(runtimes: MenuItemState[]) {
 		await test.step('Verify `+` menu contains runtime(s)', async () => {
-			const menuItems = await this.contextMenu.getMenuItems(this.addSessionExpandMenuButton);
-			const filteredMenuItems = menuItems.filter(item => item !== 'Start Another...');
-
-			// Check if expected runtimes are present
-			expect(filteredMenuItems).toHaveLength(runtimes.length);
-			runtimes.forEach(runtime => {
-				expect(filteredMenuItems).toContain(runtime);
+			await this.contextMenu.triggerAndVerifyMenuItems({
+				menuTrigger: this.addSessionExpandMenuButton,
+				menuItemStates: runtimes
 			});
 		});
 	}

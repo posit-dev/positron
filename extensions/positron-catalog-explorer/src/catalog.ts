@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { traceLog, traceInfo, traceWarn, traceError } from './logging';
 
 /**
  * High-level interface for arbitrary backends that provide a hierarchical
@@ -151,7 +152,7 @@ class CatalogTreeDataProvider
 						this.emitter.fire();
 					}
 				} catch (e) {
-					console.error('Error in provider removal by id:', e);
+					traceError(`Error in provider removal by id: ${e}`);
 				}
 			}),
 		);
@@ -223,6 +224,7 @@ class CatalogItem extends vscode.TreeItem {
 		switch (node.type) {
 			case 'provider':
 				this.iconPath = DEFAULT_PROVIDER_ICON;
+				this.tooltip = node.provider.id;
 				// Expand only "provider" entries by default.
 				this.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
 				break;
@@ -263,6 +265,7 @@ export interface CatalogProviderRegistration {
 	iconPath?: vscode.IconPath;
 	addProvider(
 		context: vscode.ExtensionContext,
+		account?: string,
 	): Promise<CatalogProvider | undefined>;
 	removeProvider?(
 		context: vscode.ExtensionContext,
@@ -280,6 +283,7 @@ export class CatalogProviderRegistry {
 	onCatalogRemoved = this.removeCatalog.event;
 
 	register(registration: CatalogProviderRegistration): vscode.Disposable {
+		traceInfo(`Registering catalog provider: ${registration.label}`);
 		this.registry.push(registration);
 		this.registry.sort((a, b) => a.label.localeCompare(b.label));
 		return {
@@ -302,17 +306,41 @@ export class CatalogProviderRegistry {
 		return sorted.map((v) => v.providers).flat();
 	}
 
-	async addProvider(context: vscode.ExtensionContext): Promise<void> {
-		const item = await vscode.window.showQuickPick(this.registry, {
-			title: 'Choose a Catalog Provider',
-		});
+	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string): Promise<void> {
+		let item = provider;
+		if (!provider) {
+			item = await vscode.window.showQuickPick(this.registry, {
+				title: 'Choose a Catalog Provider',
+			});
+		}
 		if (!item) {
 			return;
 		}
-		const added = await item.addProvider(context);
+
+		if (account) {
+			try {
+				const allProviders = await this.listAllProviders(context);
+
+				// Look for placeholder providers with the same account name
+				const placeholders = allProviders.filter(p =>
+					p.getTreeItem().contextValue?.includes('placeholder')
+				);
+
+				// Remove any matching placeholders
+				for (const placeholder of placeholders) {
+					await this.removeProvider(placeholder, context);
+				}
+			} catch (error) {
+				console.warn('Error removing placeholder provider:', error);
+				// Continue with adding the new provider even if removing placeholder fails
+			}
+		}
+		const added = await item.addProvider(context, account);
 		if (!added) {
+			traceWarn(`Failed to add catalog provider: ${item.label}`);
 			return;
 		}
+		traceInfo(`Successfully added catalog provider: ${item.label}`);
 		this.addCatalog.fire(added);
 	}
 	async removeProvider(
@@ -321,6 +349,7 @@ export class CatalogProviderRegistry {
 	): Promise<boolean> {
 		try {
 			const providerId = provider.id;
+			traceInfo(`Attempting to remove provider with ID: ${providerId}`);
 
 			for (const registration of this.registry) {
 				const providers = await registration.listProviders(context);
@@ -339,14 +368,16 @@ export class CatalogProviderRegistry {
 				// Ensure resources are properly cleaned up
 				this.removeCatalog.fire(matchingProvider);
 				matchingProvider.dispose();
+				traceInfo('Provider successfully removed');
 
 				return true;
 			}
 
 			// Did not find a matching provider
+			traceWarn(`No matching provider found for ID: ${providerId}`);
 			return false;
 		} catch (error) {
-			console.error('Error removing provider:', error);
+			traceError(`Error removing provider: ${error}`);
 			return false;
 		}
 	}
@@ -386,6 +417,7 @@ export function registerCatalogCommands(
 				await vscode.commands.executeCommand('copyFilePath', node.resourceUri);
 			},
 		),
+
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.openInSession',
 			async (node: CatalogNode) => await node.openInSession(),
@@ -398,6 +430,7 @@ export function registerCatalogCommands(
 					return;
 				}
 				await vscode.env.clipboard.writeText(code);
+				vscode.window.showInformationMessage('Code copied to clipboard.');
 			},
 		),
 		vscode.commands.registerCommand(
@@ -408,6 +441,44 @@ export function registerCatalogCommands(
 					return;
 				}
 				await vscode.env.clipboard.writeText(code);
+				vscode.window.showInformationMessage('Code copied to clipboard.');
+			},
+		),
+		// each node will handle its own file/table distinction, just delegate to core command
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.previewTableInSession',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.openInSession', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.downloadFileInSession',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.openInSession', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyPythonCodeFile',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyPythonCode', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyPythonCodeTable',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyPythonCode', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyRCodeFile',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyRCode', node);
+			},
+		),
+		vscode.commands.registerCommand(
+			'posit.catalog-explorer.copyRCodeTable',
+			async (node: CatalogNode) => {
+				await vscode.commands.executeCommand('posit.catalog-explorer.copyRCode', node);
 			},
 		),
 		vscode.commands.registerCommand(
@@ -416,7 +487,7 @@ export function registerCatalogCommands(
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.addCatalogProvider',
-			async () => await registry.addProvider(context),
+			async (provider?, account?) => await registry.addProvider(context, provider, account),
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.removeCatalogProvider',
@@ -425,10 +496,11 @@ export function registerCatalogCommands(
 					// If provider is not specified (when invoked from command palette),
 					// show a quick pick to select a provider
 					if (!provider) {
-						console.log('No provider specified, showing provider selection');
+						traceLog('No provider specified, showing provider selection');
 						const allProviders = await registry.listAllProviders(context);
 
 						if (allProviders.length === 0) {
+							traceWarn('No catalog providers found to remove');
 							vscode.window.showInformationMessage(
 								'No catalog providers found to remove.',
 							);
@@ -454,7 +526,7 @@ export function registerCatalogCommands(
 						});
 
 						if (!selected) {
-							console.log('User cancelled provider selection');
+							traceLog('User cancelled provider selection');
 							return;
 						}
 
@@ -462,7 +534,7 @@ export function registerCatalogCommands(
 					}
 
 					if (!provider) {
-						console.error('Provider is undefined after selection attempt');
+						traceError('Provider is undefined after selection attempt');
 						vscode.window.showErrorMessage(
 							'Cannot remove connection: No provider selected',
 						);
@@ -481,13 +553,13 @@ export function registerCatalogCommands(
 					);
 
 					if (confirmation !== 'Yes') {
-						console.log('User cancelled removal');
+						traceLog('User cancelled removal');
 						return;
 					}
 
 					await registry.removeProvider(provider, context);
 				} catch (error) {
-					console.error('Error in command handler:', error);
+					traceError(`Error in command handler: ${error}`);
 					vscode.window.showErrorMessage(
 						`Failed to remove connection: ${error instanceof Error ? error.message : String(error)}`,
 					);

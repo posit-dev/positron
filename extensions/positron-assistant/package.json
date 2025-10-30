@@ -144,6 +144,12 @@
     },
     "commands": [
       {
+        "command": "positron-assistant.enableAssistantSetting",
+        "title": "%commands.enableAssistant.title%",
+        "category": "%commands.category%",
+        "enablement": "!config.positron.assistant.enable"
+      },
+      {
         "command": "positron-assistant.exportChatToFileInWorkspace",
         "title": "%commands.exportChatToFileInWorkspace.title%",
         "category": "%commands.category%",
@@ -186,6 +192,12 @@
         "title": "%commands.toggleInlineCompletions.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.managePromptFiles",
+        "title": "%commands.managePromptFiles.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && isDevelopment"
       }
     ],
     "configuration": [
@@ -277,6 +289,11 @@
               "preview"
             ]
           },
+          "positron.assistant.toolErrors.propagate": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.toolErrors.propagate.description%"
+          },
           "positron.assistant.alwaysIncludeCopilotTools": {
             "type": "boolean",
             "default": false,
@@ -291,7 +308,10 @@
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "**/*"
+              "Claude*",
+              "GPT*",
+              "anthropic/claude*",
+              "openai/gpt*"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
@@ -305,6 +325,9 @@
               [
                 "**/google/gemini*"
               ]
+            ],
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.preferredModel": {
@@ -314,6 +337,9 @@
             "examples": [
               "Claude Sonnet 4.5",
               "GPT-5"
+            ],
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.defaultModels": {
@@ -327,6 +353,9 @@
               {
                 "anthropic-api": "Claude Sonnet 4.5"
               }
+            ],
+            "tags": [
+              "experimental"
             ]
           },
           "positron.assistant.providerVariables.bedrock": {
@@ -720,7 +749,8 @@
     "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.367.0",
     "@vscode/prompt-tsx": "^0.4.0-alpha.5",
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1",
+    "yaml": "^2.8.1"
   },
   "extensionDependencies": [
     "positron.positron-supervisor"

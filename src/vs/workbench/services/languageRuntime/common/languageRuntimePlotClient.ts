@@ -14,7 +14,8 @@ import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRend
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { padBase64 } from './utils.js';
 
-export const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
+export const OldFreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
+export const FreezeSlowPlotsConfigKey = 'plots.freezeSlowPlots';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */
@@ -355,6 +356,21 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		return true;
 	}
 
+	/**
+	 * Gets the freeze slow plots setting value, checking both new and old settings.
+	 * @returns The boolean value indicating whether to freeze slow plots
+	 */
+	private getFreezeSlowPlotsSetting(): boolean {
+		// First check the new setting
+		const newValue = this._configurationService.getValue<boolean>(FreezeSlowPlotsConfigKey);
+		if (newValue !== undefined) {
+			return newValue;
+		}
+
+		// Fall back to the old setting
+		return this._configurationService.getValue<boolean>(OldFreezeSlowPlotsConfigKey) ?? true;
+	}
+
 	public render(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		const sizeInt = size && {
@@ -428,7 +444,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			this._stateEmitter.fire(PlotClientState.Rendering);
 
 			request.promise.then((rendered) => {
-				const frozen = this._configurationService.getValue(FreezeSlowPlotsConfigKey);
+				const frozen = this.getFreezeSlowPlotsSetting();
 
 				if (rendered.renderTimeMs > 3000 && rendered.size && !this._lastRender && frozen) {
 					// Set sizing policy to the current size to avoid redraws

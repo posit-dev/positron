@@ -1,0 +1,29 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "out",
+		"strict": true,
+		"sourceMap": true,
+		"exactOptionalPropertyTypes": false,
+		"useUnknownInCatchVariables": false,
+		"alwaysStrict": true,
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noImplicitOverride": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"forceConsistentCasingInFileNames": true,
+		"experimentalDecorators": true,
+		"esModuleInterop": true,
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"*.d.ts",
+		"src/**/*",
+		"../../src/positron-dts/positron.d.ts",
+		"../../src/vscode-dts/vscode.d.ts",
+		"../../src/vscode-dts/vscode.proposed.resolvers.d.ts"
+	]
+}

@@ -32,7 +32,7 @@ test.describe('Positron Notebooks: Cell Execution Tooltip', {
 		await test.step('Test Setup: Create notebook and select kernel', async () => {
 			await notebooks.createNewNotebook();
 			await notebooksPositron.expectCellCountToBe(1); // Important for CI stability
-			await notebooksPositron.selectAndWaitForKernel('Python');
+			await notebooksPositron.kernel.select('Python');
 		});
 
 		// ========================================

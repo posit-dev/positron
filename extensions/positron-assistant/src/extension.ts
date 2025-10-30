@@ -22,6 +22,7 @@ import { AnthropicLanguageModel } from './anthropic.js';
 import { registerParticipantDetectionProvider } from './participantDetection.js';
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
+import { registerPromptManagement } from './promptRender.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -296,6 +297,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
+	registerPromptManagement(context);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);
@@ -362,18 +364,31 @@ export function activate(context: vscode.ExtensionContext) {
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
-		const participantService = registerAssistant(context);
-		registerAssistantTools(context, participantService);
-		const storedModels = getStoredModels(context);
-		if (storedModels.length) {
-			storedModels.forEach(stored => {
-				positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
-			});
+		// Register the assistant. We don't propagate errors here since we want
+		// the extension to stay activated even if the assistant fails to
+		// initialize.
+		try {
+			const participantService = registerAssistant(context);
+			registerAssistantTools(context, participantService);
+			const storedModels = getStoredModels(context);
+			if (storedModels.length) {
+				storedModels.forEach(stored => {
+					positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
+				});
+			}
+		} catch (error) {
+			const msg = error instanceof Error ? error.message : JSON.stringify(error);
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to enable assistant. {0}', [msg])
+			);
 		}
 	} else {
 		// If the assistant is not enabled, listen for configuration changes so that we can
 		// enable it immediately if the user enables it in the settings.
 		context.subscriptions.push(
+			vscode.commands.registerCommand('positron-assistant.enableAssistantSetting', async () => {
+				vscode.commands.executeCommand('workbench.action.openSettings', 'positron.assistant.enable');
+			}),
 			vscode.workspace.onDidChangeConfiguration(e => {
 				if (e.affectsConfiguration('positron.assistant.enable')) {
 					const enabled =

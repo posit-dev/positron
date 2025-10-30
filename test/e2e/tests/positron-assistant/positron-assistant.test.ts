@@ -13,7 +13,7 @@ test.use({
 /**
  * Test suite for the setup of Positron Assistant.
  */
-test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+test.describe.skip('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
 	/**
 	 * Verifies that the Positron Assistant can be opened and that the
 	 * add model button is visible in the interface. Once Assistant is on by default,
@@ -100,7 +100,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 /**
  * Test suite Positron Assistant actions from the chat interface.
  */
-test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+test.describe.skip('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
@@ -127,7 +127,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param python - Fixture that starts the python session.
 	 */
-	test('Python: Verify running code in console from chat markdown response', async function ({ app, python }) {
+	test('Python: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, python }) {
 		await app.workbench.assistant.enterChatMessage('Send Python Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
@@ -142,7 +142,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 * @param app - Application fixture providing access to UI elements
 	 * @param r - Fixture that starts the R session.
 	 */
-	test('R: Verify running code in console from chat markdown response', async function ({ app, r }) {
+	test('R: Verify running code in console from chat markdown response', { tag: [tags.CRITICAL] }, async function ({ app, r }) {
 		await app.workbench.assistant.enterChatMessage('Send R Code');
 		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');

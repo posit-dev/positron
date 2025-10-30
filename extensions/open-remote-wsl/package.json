@@ -1,0 +1,302 @@
+{
+  "name": "open-remote-wsl",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.5",
+  "publisher": "positron",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  },
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.70.2"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "enabledApiProposals": [
+    "resolvers",
+    "contribViewsRemote"
+  ],
+  "keywords": [
+    "remote development",
+    "remote",
+    "wsl"
+  ],
+  "api": "none",
+  "activationEvents": [
+    "onCommand:openremotewsl.connect",
+    "onCommand:openremotewsl.connectInNewWindow",
+    "onCommand:openremotewsl.connectUsingDistro",
+    "onCommand:openremotewsl.connectUsingDistroInNewWindow",
+    "onCommand:openremotewsl.showLog",
+    "onResolveRemoteAuthority:wsl",
+    "onView:wslTargets"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "remote.WSL.serverDownloadUrlTemplate": {
+          "type": "string",
+          "description": "%configuration.remote.WSL.serverDownloadUrlTemplate.description%",
+          "scope": "application",
+          "default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
+        }
+      }
+    },
+    "views": {
+      "remote": [
+        {
+          "id": "wslTargets",
+          "name": "%views.remote.wslTargets.name%",
+          "group": "targets@1",
+          "when": "(isWindows && !isWeb)",
+          "remoteName": "wsl"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "openremotewsl.connect",
+        "title": "%command.openremotewsl.connect.title%",
+        "category": "%command.openremotewsl.category%"
+      },
+      {
+        "command": "openremotewsl.connectInNewWindow",
+        "title": "%command.openremotewsl.connectInNewWindow.title%",
+        "category": "%command.openremotewsl.category%"
+      },
+      {
+        "command": "openremotewsl.connectUsingDistro",
+        "title": "%command.openremotewsl.connectUsingDistro.title%",
+        "category": "%command.openremotewsl.category%"
+      },
+      {
+        "command": "openremotewsl.connectUsingDistroInNewWindow",
+        "title": "%command.openremotewsl.connectUsingDistroInNewWindow.title%",
+        "category": "%command.openremotewsl.category%"
+      },
+      {
+        "command": "openremotewsl.showLog",
+        "title": "%command.openremotewsl.showLog.title%",
+        "category": "%command.openremotewsl.category%"
+      },
+      {
+        "command": "openremotewsl.explorer.emptyWindowInNewWindow",
+        "title": "%command.openremotewsl.explorer.emptyWindowInNewWindow.title%",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "openremotewsl.explorer.emptyWindowInCurrentWindow",
+        "title": "%command.openremotewsl.explorer.emptyWindowInCurrentWindow.title%"
+      },
+      {
+        "command": "openremotewsl.explorer.reopenFolderInCurrentWindow",
+        "title": "%command.openremotewsl.explorer.reopenFolderInCurrentWindow.title%"
+      },
+      {
+        "command": "openremotewsl.explorer.reopenFolderInNewWindow",
+        "title": "%command.openremotewsl.explorer.reopenFolderInNewWindow.title%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "openremotewsl.explorer.deleteFolderHistoryItem",
+        "title": "%command.openremotewsl.explorer.deleteFolderHistoryItem.title%",
+        "icon": "$(x)"
+      },
+      {
+        "command": "openremotewsl.explorer.refresh",
+        "title": "%command.openremotewsl.explorer.refresh.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "openremotewsl.explorer.addDistro",
+        "title": "%command.openremotewsl.explorer.addDistro.title%",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "openremotewsl.explorer.setDefaultDistro",
+        "title": "%command.openremotewsl.explorer.setDefaultDistro.title%"
+      },
+      {
+        "command": "openremotewsl.explorer.deleteDistro",
+        "title": "%command.openremotewsl.explorer.deleteDistro.title%"
+      }
+    ],
+    "resourceLabelFormatters": [
+      {
+        "scheme": "vscode-remote",
+        "authority": "wsl+*",
+        "formatting": {
+          "label": "${path}",
+          "separator": "/",
+          "tildify": true,
+          "workspaceSuffix": "%resourceLabelFormatters.workspaceSuffix%"
+        }
+      }
+    ],
+    "menus": {
+      "statusBar/remoteIndicator": [
+        {
+          "command": "openremotewsl.connect",
+          "when": "(isWindows && !isWeb)",
+          "group": "remote_20_wsl_1general@1"
+        },
+        {
+          "command": "openremotewsl.connectUsingDistro",
+          "when": "(isWindows && !isWeb)",
+          "group": "remote_20_wsl_1general@2"
+        },
+        {
+          "command": "openremotewsl.showLog",
+          "when": "remoteName =~ /^wsl$/",
+          "group": "remote_20_wsl_1general@4"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "openremotewsl.connect",
+          "when": "(isWindows && !isWeb)"
+        },
+        {
+          "command": "openremotewsl.connectInNewWindow",
+          "when": "(isWindows && !isWeb)"
+        },
+        {
+          "command": "openremotewsl.connectUsingDistro",
+          "when": "(isWindows && !isWeb)"
+        },
+        {
+          "command": "openremotewsl.connectUsingDistroInNewWindow",
+          "when": "(isWindows && !isWeb)"
+        },
+        {
+          "command": "openremotewsl.showLog",
+          "when": "(isWindows && !isWeb)"
+        },
+        {
+          "command": "openremotewsl.explorer.refresh",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.addDistro",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.emptyWindowInNewWindow",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.emptyWindowInCurrentWindow",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.reopenFolderInCurrentWindow",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.reopenFolderInNewWindow",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.deleteFolderHistoryItem",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.setDefaultDistro",
+          "when": "false"
+        },
+        {
+          "command": "openremotewsl.explorer.deleteDistro",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "openremotewsl.explorer.addDistro",
+          "when": "view == wslTargets",
+          "group": "navigation"
+        },
+        {
+          "command": "openremotewsl.explorer.refresh",
+          "when": "view == wslTargets",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "openremotewsl.explorer.emptyWindowInNewWindow",
+          "when": "viewItem =~ /^openremotewsl.explorer.distro$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "openremotewsl.explorer.emptyWindowInNewWindow",
+          "when": "viewItem =~ /^openremotewsl.explorer.distro$/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "openremotewsl.explorer.emptyWindowInCurrentWindow",
+          "when": "viewItem =~ /^openremotewsl.explorer.distro$/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "openremotewsl.explorer.setDefaultDistro",
+          "when": "viewItem =~ /^openremotewsl.explorer.distro$/",
+          "group": "management@1"
+        },
+        {
+          "command": "openremotewsl.explorer.deleteDistro",
+          "when": "viewItem =~ /^openremotewsl.explorer.distro$/",
+          "group": "management@2"
+        },
+        {
+          "command": "openremotewsl.explorer.reopenFolderInNewWindow",
+          "when": "viewItem == openremotewsl.explorer.folder",
+          "group": "inline@1"
+        },
+        {
+          "command": "openremotewsl.explorer.reopenFolderInNewWindow",
+          "when": "viewItem == openremotewsl.explorer.folder",
+          "group": "navigation@2"
+        },
+        {
+          "command": "openremotewsl.explorer.reopenFolderInCurrentWindow",
+          "when": "viewItem == openremotewsl.explorer.folder",
+          "group": "navigation@1"
+        },
+        {
+          "command": "openremotewsl.explorer.deleteFolderHistoryItem",
+          "when": "viewItem =~ /^openremotewsl.explorer.folder/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "openremotewsl.explorer.deleteFolderHistoryItem",
+          "when": "viewItem =~ /^openremotewsl.explorer.folder/",
+          "group": "inline@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^16.17.1",
+    "@types/webpack": "^5.28.2",
+    "@typescript-eslint/eslint-plugin": "^6.5.0",
+    "@typescript-eslint/parser": "^6.5.0",
+    "eslint": "^8.48.0",
+    "eslint-plugin-jsdoc": "^46.5.1",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.2.2",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
+}
