@@ -24,6 +24,8 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { autorun } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 import { SelectionState } from '../selectionMachine.js';
+import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
+import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 
 /**
  *
@@ -116,6 +118,35 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		disposables.add(editor.onDidBlurEditorWidget(() => {
 			cellEditorFocusedKey.set(false);
+
+			// Check where focus moved to - don't exit edit mode if focus moved to VS Code overlays
+			// or is still within the notebook editor scope.
+			// This prevents the command palette, quick open, find widget, etc. from closing
+			// immediately when opened from a cell in edit mode.
+			const activeElement = editor.getContainerDomNode().ownerDocument.activeElement;
+			if (activeElement) {
+				// Get the context of where focus moved to
+				const contextKeyContext = services.contextKeyService.getContext(activeElement);
+
+				// Don't exit edit mode if focus moved to quick pick (command palette, quick open, etc.)
+				if (contextKeyContext.getValue(InQuickPickContextKey.key)) {
+					return;
+				}
+
+				// Don't exit edit mode if focus moved to another editor (e.g., find widget input)
+				if (contextKeyContext.getValue(EditorContextKeys.textInputFocus.key)) {
+					return;
+				}
+
+				// Don't exit edit mode if focus is still within the notebook editor container
+				// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
+				const notebookContainer = instance.container;
+				if (notebookContainer?.contains(activeElement)) {
+					return;
+				}
+			}
+
+			// Focus has truly left the notebook editor - exit edit mode
 			// Pass the cell so we only exit if THIS specific cell is being edited (not a different one)
 			// This handles the race condition where a user clicks from one cell editor into another.
 			instance.selectionStateMachine.exitEditor(cell);
@@ -153,7 +184,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
+	}, [cell, environment, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {
