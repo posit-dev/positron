@@ -339,10 +339,10 @@ abstract class NotebookAction2 extends Action2 {
 		if (!activeNotebook) {
 			return;
 		}
-		this._run(activeNotebook, accessor);
+		this.runNotebookAction(activeNotebook, accessor);
 	}
 
-	protected abstract _run(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
+	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
 }
 
 //#region Notebook Commands
@@ -360,7 +360,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionUp(false);
 	}
 });
@@ -379,7 +379,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionDown(false);
 	}
 });
@@ -398,7 +398,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionDown(true);
 	}
 });
@@ -417,7 +417,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.moveSelectionUp(true);
 	}
 });
@@ -439,7 +439,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.enterEditor().catch(err => {
 			console.error('Error entering editor:', err);
 		});
@@ -469,7 +469,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const state = notebook.selectionStateMachine.state.get();
 		// check if we are in editing mode
 		if (state.type === SelectionState.EditingSelection) {
@@ -517,11 +517,15 @@ KeybindingsRegistry.registerKeybindingRule({
 // For built-in commands, we don't need to manage the disposable since they live
 // for the lifetime of the application
 
+interface ICellActionOptions {
+	readonly multiSelect?: boolean;
+	readonly editMode?: boolean;
+}
+
 abstract class CellAction2 extends Action2 {
 	constructor(
 		desc: Readonly<IAction2Options>,
-		readonly multiSelect = false,
-		readonly editMode = false,
+		readonly options?: ICellActionOptions,
 	) {
 		super(desc);
 	}
@@ -533,25 +537,25 @@ abstract class CellAction2 extends Action2 {
 			return;
 		}
 
-		if (this.multiSelect) {
+		if (this.options?.multiSelect) {
 			// Handle multiple selected cells
 			const selectedCells = getSelectedCells(activeNotebook.selectionStateMachine.state.get());
 
 			for (const cell of selectedCells) {
-				this._run(cell, activeNotebook, accessor);
+				this.runCellAction(cell, activeNotebook, accessor);
 			}
 		} else {
 			// Handle single cell
 			const state = activeNotebook.selectionStateMachine.state.get();
 			// Get the selected cell and/or the editing cell if edit mode is enabled
-			const cell = getSelectedCell(state) || (this.editMode ? getEditingCell(state) : undefined);
+			const cell = getSelectedCell(state) || (this.options?.editMode ? getEditingCell(state) : undefined);
 			if (cell) {
-				this._run(cell, activeNotebook, accessor);
+				this.runCellAction(cell, activeNotebook, accessor);
 			}
 		}
 	}
 
-	abstract _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
+	abstract runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
 }
 
 registerAction2(class extends CellAction2 {
@@ -573,7 +577,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.insertCodeCellAbove();
 	}
 });
@@ -597,7 +601,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.insertCodeCellBelow();
 	}
 });
@@ -616,7 +620,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.insertMarkdownCellAbove();
 	}
 });
@@ -635,7 +639,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.insertMarkdownCellBelow();
 	}
 });
@@ -657,10 +661,10 @@ registerAction2(class extends CellAction2 {
 				primary: KeyCode.Backspace,
 				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
 			}
-		}, true, false); // multiSelect=true, editMode=false
+		}, { multiSelect: true, editMode: false });
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.delete();
 	}
 });
@@ -686,7 +690,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.run();
 	}
 });
@@ -712,7 +716,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.run(); // Run called when cell is executing is stop
 	}
 });
@@ -737,10 +741,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
 			}
-		}, false, true); // multiSelect=false, editMode=true
+		}, { multiSelect: false, editMode: true });
 	}
 
-	override async _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+	override async runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 		await accessor.get(ICommandService).executeCommand('notebook.debugCell', {
 			// Args expected by the notebook.debugCell command,
 			// a subset of vscode.NotebookCell
@@ -773,7 +777,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
 		// Run all code cells above the current cell
@@ -806,7 +810,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
 		// Run all code cells below the current cell
@@ -838,7 +842,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		if (cell.isMarkdownCell()) {
 			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
@@ -872,7 +876,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		if (cell.isMarkdownCell()) {
 			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
@@ -898,10 +902,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.Enter
 			}
-		}, false, true); // multiSelect=false, editMode=true
+		}, { multiSelect: false, editMode: true });
 	}
 
-	override _run(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		if (cell.isMarkdownCell()) {
 			cell.toggleEditor();
 		} else {
@@ -926,10 +930,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Shift | KeyCode.Enter
 			}
-		}, false, true); // multiSelect=false, editMode=true
+		}, { multiSelect: false, editMode: true });
 	}
 
-	override _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		// Check if we're in edit mode and exit if so
 		const state = notebook.selectionStateMachine.state.get();
 		if (state.type === SelectionState.EditingSelection) {
@@ -977,10 +981,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyC
 			}
-		}, true); // multiSelect=true
+		}, { multiSelect: true });
 	}
 
-	override _run(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.copyCells();
 	}
 });
@@ -1001,10 +1005,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyCode.KeyX
 			}
-		}, true); // multiSelect=true
+		}, { multiSelect: true });
 	}
 
-	override _run(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.cutCells();
 	}
 });
@@ -1028,7 +1032,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCells();
 	}
 });
@@ -1052,7 +1056,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override _run(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCellsAbove();
 	}
 });
@@ -1078,10 +1082,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.UpArrow
 			}
-		}, true, true); // multiSelect=true, editMode=true
+		}, { multiSelect: true, editMode: true });
 	}
 
-	override _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.moveCellUp(cell);
 	}
 });
@@ -1107,10 +1111,10 @@ registerAction2(class extends CellAction2 {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.Alt | KeyCode.DownArrow
 			}
-		}, true, true); // multiSelect=true, editMode=true
+		}, { multiSelect: true, editMode: true });
 	}
 
-	override _run(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.moveCellDown(cell);
 	}
 });
@@ -1148,7 +1152,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.runAllCells();
 	}
 });
@@ -1180,7 +1184,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.clearAllCellOutputs();
 	}
 });
@@ -1206,7 +1210,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.showNotebookConsole();
 	}
 });
@@ -1233,7 +1237,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cellCount = notebook.cells.get().length;
 		notebook.addCell(CellKind.Code, cellCount, true);
 	}
@@ -1261,7 +1265,7 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cellCount = notebook.cells.get().length;
 		notebook.addCell(CellKind.Markup, cellCount, true);
 	}
