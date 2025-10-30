@@ -5,7 +5,6 @@ import asyncio
 import asyncio.events
 import logging
 import os
-import signal
 import sys
 import threading
 
