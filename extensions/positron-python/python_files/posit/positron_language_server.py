@@ -138,6 +138,10 @@ if __name__ == "__main__":
     if args.quiet:
         app.kernel.shell.banner1 = ""
 
+    # On Windows, manually start the poller thread for interrupt handling
+    if sys.platform == "win32" and app.poller is not None:
+        app.poller.start()
+
     app.kernel.start()
 
     logger.info(f"Process ID {os.getpid()}")
@@ -153,70 +157,6 @@ if __name__ == "__main__":
 
         # Log all callbacks that take longer than 0.5 seconds (the current default is too noisy).
         loop.slow_callback_duration = 0.5
-
-    # On Windows, set up interrupt event monitoring. Typically ipykernel would
-    # handle JPY_INTERRUPT_EVENT itself, but since we're running a custom event
-    # loop, it will not receive the signal, so we need to do it here and inject
-    # KeyboardInterrupt into the main thread.
-    if sys.platform == "win32":
-        import ctypes
-        import ctypes.wintypes
-
-        # Get the interrupt event handle from the environment variable
-        interrupt_event = os.environ.get("JPY_INTERRUPT_EVENT")
-        if interrupt_event:
-            logger.info(f"Setting up Windows interrupt event: {interrupt_event}")
-
-            # Convert the event handle string to an integer
-            event_handle = int(interrupt_event)
-
-            # Define Windows API functions
-            kernel32 = ctypes.windll.kernel32
-            WaitForSingleObject = kernel32.WaitForSingleObject
-            WaitForSingleObject.argtypes = [ctypes.wintypes.HANDLE, ctypes.wintypes.DWORD]
-            WaitForSingleObject.restype = ctypes.wintypes.DWORD
-
-            WAIT_OBJECT_0 = 0
-
-            # Store the main thread ID so we can inject KeyboardInterrupt into it
-            import ctypes
-
-            main_thread_id = threading.get_ident()
-
-            # Get ResetEvent to reset the event after handling
-            ResetEvent = kernel32.ResetEvent
-            ResetEvent.argtypes = [ctypes.wintypes.HANDLE]
-            ResetEvent.restype = ctypes.wintypes.BOOL
-
-            def watch_interrupt_event():
-                """Thread function to watch for the Windows interrupt event."""
-                logger.info(f"Interrupt monitoring thread started, watching handle {event_handle}")
-                while True:
-                    # Wait for the event to be signaled (check every 200ms)
-                    result = WaitForSingleObject(event_handle, 200)
-                    if result == WAIT_OBJECT_0:
-                        logger.info("Interrupt event signaled, injecting KeyboardInterrupt")
-                        try:
-                            # Reset the event so it can be signaled again
-                            ResetEvent(event_handle)
-
-                            # Inject KeyboardInterrupt into the main thread using ctypes
-                            # This is the approach used by _thread.interrupt_main() but we ensure
-                            # it targets the correct thread
-                            ret = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                                ctypes.c_long(main_thread_id), ctypes.py_object(KeyboardInterrupt)
-                            )
-                            logger.info(f"KeyboardInterrupt injected, return value: {ret}")
-                        except Exception as e:
-                            logger.error(f"Error injecting KeyboardInterrupt: {e}", exc_info=True)
-                        # Don't break - continue monitoring for future interrupts
-
-            # Start the interrupt monitoring thread
-            interrupt_thread = threading.Thread(target=watch_interrupt_event, daemon=True)
-            interrupt_thread.start()
-            logger.info(
-                f"Windows interrupt monitoring thread started for event handle {event_handle}"
-            )
 
     try:
         loop.run_forever()
