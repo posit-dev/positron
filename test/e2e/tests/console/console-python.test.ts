@@ -33,6 +33,33 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 
 	});
 
+	test('Python - Verify interrupt stops execution mid-work', async function ({ app, python }) {
+		// Execute code that does work in a loop and prints progress
+		const code = `
+import time
+for i in range(10):
+    print(f"Step {i}")
+    time.sleep(1)
+print("Completed all steps")
+`;
+		await app.workbench.console.executeCode('Python', code, { waitForReady: false });
+
+		// Wait for some work to be done (at least 2-3 steps)
+		await app.workbench.console.waitForConsoleContents('Step 2', { expectedCount: 1, timeout: 10000 });
+
+		// Interrupt the execution
+		await app.workbench.console.interruptExecution();
+
+		// Wait for KeyboardInterrupt to appear
+		await app.workbench.console.waitForConsoleContents('KeyboardInterrupt', { expectedCount: 1, timeout: 5000 });
+
+		// Verify that some work was done (we saw Step 2)
+		await app.workbench.console.waitForConsoleContents('Step 2', { expectedCount: 1, timeout: 1000 });
+
+		// Verify that not all work was completed (Step 9 should not appear)
+		await app.workbench.console.waitForConsoleContents('Step 9', { expectedCount: 0, timeout: 1000 });
+	});
+
 });
 
 // This nesting is necessary because the settings fixture must be used in a
