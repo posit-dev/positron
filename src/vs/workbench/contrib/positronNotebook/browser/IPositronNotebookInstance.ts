@@ -14,7 +14,6 @@ import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
-import { INotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -126,11 +125,6 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Observable of the notebook's selected kernel.
 	 */
 	readonly kernel: IObservable<RuntimeNotebookKernel | undefined>;
-
-	/**
-	 * Observable of the notebook's active runtime session.
-	 */
-	readonly runtimeSession: IObservable<INotebookLanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.
