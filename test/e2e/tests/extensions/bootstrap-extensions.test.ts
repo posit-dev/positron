@@ -115,7 +115,7 @@ async function waitForExtensions(
 			if (!installedVersion) {
 				console.log(`❌ ${ext.fullName} not yet installed`);
 			} else if (installedVersion !== ext.version) {
-				console.log(`⚠️ ${ext.fullName} installed with version ${installedVersion}, expected ${ext.version}`);
+				console.log(`⚠️  ${ext.fullName} installed with version ${installedVersion}, currently ${ext.version} in product.json`);
 				missing.delete(ext.fullName);
 				mismatched.add(ext.fullName);
 			} else {
@@ -162,8 +162,8 @@ async function waitForExtensions(
 		for (const ext of mismatched) {
 			console.log(`   * ${ext}`);
 		}
-		console.log('\nRun script and commit changes:');
-		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}`);
+		console.log('\n👉 Run script and commit changes:');
+		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}\n`);
 
 		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
 			throw new Error('Some extensions were installed with mismatched versions (after grace period). Please check the logs above.');
