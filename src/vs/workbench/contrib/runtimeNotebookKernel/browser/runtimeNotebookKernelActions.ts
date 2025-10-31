@@ -116,7 +116,9 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 			icon: Codicon.positronRestartRuntimeThin,
 			f1: true,
 			category,
-			precondition: ActiveNotebookHasRunningRuntime,
+			precondition: ContextKeyExpr.or(
+				NOTEBOOK_POSITRON_KERNEL_SELECTED,  // Only set in vscode notebooks
+			),
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
 				primary: KeyChord(KeyCode.Digit0, KeyCode.Digit0),
@@ -128,7 +130,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 					id: MenuId.NotebookToolbar,
 					group: 'navigation/execute@5',
 					order: 5,
-					when: NOTEBOOK_POSITRON_KERNEL_SELECTED,
+					when: NOTEBOOK_POSITRON_KERNEL_SELECTED
 				},
 				// Positron notebooks
 				{

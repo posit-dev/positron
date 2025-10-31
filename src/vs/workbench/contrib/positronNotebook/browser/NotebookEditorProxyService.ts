@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
-import { getNotebookEditorFromEditorPane as getVscodeNotebookEditorFromEditorPane, INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
+import { getNotebookEditorFromEditorPane as getVscodeNotebookEditorFromEditorPane } from '../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { INotebookEditorProxyService } from './INotebookEditorProxyService.js';
 import { getNotebookInstanceFromEditorPane } from './notebookUtils.js';
 import { IEditorPane } from '../../../common/editor.js';
-import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 
 /**
  * Proxy that combines Positron and VSCode notebook editors behind the INotebookEditorService interface.
@@ -20,8 +20,8 @@ import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 export class NotebookEditorProxyService extends Disposable implements INotebookEditorProxyService {
 	readonly _serviceBrand: undefined;
 
-	private readonly _onDidAddNotebookEditorEmitter = this._register(new Emitter<INotebookEditor>());
-	private readonly _onDidRemoveNotebookEditorEmitter = this._register(new Emitter<INotebookEditor>());
+	private readonly _onDidAddNotebookEditorEmitter = this._register(new Emitter<IPositronNotebookEditor>());
+	private readonly _onDidRemoveNotebookEditorEmitter = this._register(new Emitter<IPositronNotebookEditor>());
 
 	public readonly onDidAddNotebookEditor = this._onDidAddNotebookEditorEmitter.event;
 	public readonly onDidRemoveNotebookEditor = this._onDidRemoveNotebookEditorEmitter.event;
@@ -42,31 +42,27 @@ export class NotebookEditorProxyService extends Disposable implements INotebookE
 
 		// Forward events from the Positron notebook service
 		this._register(this._positronNotebookService.onDidAddNotebookInstance(instance => {
-			this._onDidAddNotebookEditorEmitter.fire(asNotebookEditor(instance));
+			this._onDidAddNotebookEditorEmitter.fire(instance);
 		}));
 		this._register(this._positronNotebookService.onDidRemoveNotebookInstance(instance => {
-			this._onDidRemoveNotebookEditorEmitter.fire(asNotebookEditor(instance));
+			this._onDidRemoveNotebookEditorEmitter.fire(instance);
 		}));
 	}
 
-	listNotebookEditors(): readonly INotebookEditor[] {
+	listNotebookEditors(): readonly IPositronNotebookEditor[] {
 		return [
 			...this._notebookEditorService.listNotebookEditors(),
-			...this._positronNotebookService.listInstances().map(asNotebookEditor),
+			...this._positronNotebookService.listInstances(),
 		];
 	}
 }
 
 registerSingleton(INotebookEditorProxyService, NotebookEditorProxyService, InstantiationType.Delayed);
 
-export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): INotebookEditor | undefined {
+export function getNotebookEditorFromEditorPane(editorPane?: IEditorPane): IPositronNotebookEditor | undefined {
 	const notebookInstance = getNotebookInstanceFromEditorPane(editorPane);
 	if (notebookInstance) {
-		return asNotebookEditor(notebookInstance);
+		return notebookInstance;
 	}
 	return getVscodeNotebookEditorFromEditorPane(editorPane);
-}
-
-function asNotebookEditor(notebookInstance: IPositronNotebookInstance): INotebookEditor {
-	return notebookInstance as unknown as INotebookEditor;
 }

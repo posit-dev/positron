@@ -12,7 +12,7 @@ import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositr
  * This preserves all cell data without creating standalone text models.
  */
 export function cellToCellDto2(cell: IPositronNotebookCell): ICellDto2 {
-	const cellModel = cell.cellModel;
+	const cellModel = cell.model;
 
 	return {
 		source: cell.getContent(),
@@ -38,7 +38,7 @@ export function cellToCellDto2(cell: IPositronNotebookCell): ICellDto2 {
  */
 export function serializeCellsToClipboard(cells: IPositronNotebookCell[]): string {
 	const cellsData = cells.map(cell => {
-		const cellModel = cell.cellModel;
+		const cellModel = cell.model;
 
 		// Create a serializable representation of the cell
 		const cellData = {

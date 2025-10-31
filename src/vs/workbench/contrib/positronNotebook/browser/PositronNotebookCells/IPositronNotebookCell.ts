@@ -13,6 +13,7 @@ import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browse
 import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { IOutputItemDto } from '../../../notebook/common/notebookCommon.js';
+import { IPositronCellViewModel } from '../IPositronNotebookEditor.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'idle';
 
@@ -26,7 +27,7 @@ export enum CellSelectionStatus {
  * Wrapper class for notebook cell that exposes the properties that the UI needs to render the cell.
  * This interface is extended to provide the specific properties for code and markdown cells.
  */
-export interface IPositronNotebookCell extends Disposable {
+export interface IPositronNotebookCell extends Disposable, IPositronCellViewModel {
 
 	/**
 	 * The kind of cell
@@ -64,19 +65,9 @@ export interface IPositronNotebookCell extends Disposable {
 	getContent(): string;
 
 	/**
-	 * The notebook text model for the cell.
-	 */
-	readonly cellModel: PositronNotebookCellTextModel;
-
-	/**
 	 * The cell's code editor widget.
 	 */
 	readonly editor: ICodeEditor | undefined;
-
-	/**
-	 * Get the handle number for cell from cell model
-	 */
-	get handleId(): number;
 
 	/**
 	 * Delete this cell
@@ -299,15 +290,4 @@ export interface NotebookCellOutputs {
 	readonly outputs: IOutputItemDto[];
 	readonly parsed: ParsedOutput;
 	preloadMessageResult?: NotebookPreloadOutputResults | undefined;
-}
-
-/**
- * Partial interface of the vscode `NotebookCellTextModel` class.
- */
-export interface PositronNotebookCellTextModel {
-	readonly uri: URI;
-	readonly handle: number;
-	readonly language: string;
-	readonly cellKind: CellKind;
-	readonly outputs: Pick<NotebookCellOutputs, 'outputId' | 'outputs'>[];
 }

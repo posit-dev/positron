@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { CellRevealType, IActiveNotebookEditor, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, ICellViewModel, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState, INotebookViewModel } from '../../notebook/browser/notebookBrowser.js';
+import { CellRevealType, IActiveNotebookEditor, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
@@ -43,6 +43,7 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
+import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel } from './IPositronNotebookEditor.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -150,7 +151,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _container: HTMLElement | undefined = undefined;
 
-	private _scopedContextKeyService: IScopedContextKeyService | undefined;
+	private _scopedContextKeyService: IContextKeyService | undefined;
 
 	/**
 	 * Disposables for the editor container event listeners
@@ -262,7 +263,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._cellsContainer;
 	}
 
-	get scopedContextKeyService(): IScopedContextKeyService | undefined {
+	get scopedContextKeyService(): IContextKeyService | undefined {
 		return this._scopedContextKeyService;
 	}
 
@@ -295,7 +296,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	cells;
 	selectionStateMachine;
-	contextManager;
+	contextManager: PositronNotebookContextKeyManager;
 	visibleRanges: ICellRange[] = [];
 
 	/**
@@ -472,7 +473,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}));
 
 		this.contextManager = this._register(
-			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
+			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this)
 		);
 		this._positronNotebookService.registerInstance(this);
 
@@ -494,10 +495,26 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(this.onDidChangeContent(() => {
 			this._syncCells();
 		}));
+
+		this._register(autorunDelta(this.cells, ({ lastValue: oldCells, newValue: newCells }) => {
+			if (!oldCells) {
+				// Initial value, no event needed
+				return;
+			}
+
+			// Compute the splice
+			const splices = this._computeCellSplices(oldCells, newCells);
+
+			// Fire the event if there are changes
+			if (splices.length > 0) {
+				this._onDidChangeViewCells.fire({ splices });
+			}
+		}));
 	}
 
 	//#region INotebookEditor
 	private readonly _onDidChangeSelection = this._register(new Emitter<void>());
+	private readonly _onDidChangeViewCells = this._register(new Emitter<IContextKeysNotebookViewCellsUpdateEvent>());
 	private readonly _onDidChangeVisibleRanges = this._register(new Emitter<void>());
 	private readonly _onDidFocusWidget = this._register(new Emitter<void>());
 
@@ -511,8 +528,26 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onDidChangeVisibleRanges = this._onDidChangeVisibleRanges.event;
 
+	/**
+	 * Event fired when the notebook's view cells changes.
+	 */
+	readonly onDidChangeViewCells = this._onDidChangeViewCells.event;
+
 	get viewType() {
 		return this._input.viewType;
+	}
+
+	/**
+	 * Gets the DOM node that contains the notebook editor.
+	 * This is used for context key scoping and focus tracking.
+	 * @returns The container HTMLElement for the notebook editor
+	 * @throws Error if called before the notebook has been mounted to a DOM container
+	 */
+	getDomNode(): HTMLElement {
+		if (!this._container) {
+			throw new Error(`Requested notebook DOM node before it was mounted`);
+		}
+		return this._container;
 	}
 
 	/**
@@ -520,17 +555,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onDidFocusWidget = this._onDidFocusWidget.event;
 
+	// TODO: Come back here
 	// The assertion isn't really true; we only implement parts needed by the extension API,
 	// see the note in IPositronNotebookInstance.ts
 	hasModel(): this is IActiveNotebookEditor {
 		return this.textModel !== undefined;
 	}
 
-	getViewModel(): INotebookViewModel {
-		// Only implementing parts needed by the extension API, see the note in IPositronNotebookInstance.ts
+	getViewModel(): IExtensionApiNotebookViewModel {
 		return {
 			viewType: 'jupyter-notebook',
-		} satisfies Partial<INotebookViewModel> as INotebookViewModel;
+		};
 	}
 
 	setSelections(selections: ICellRange[]): void {
@@ -541,10 +576,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this.cells.get().length;
 	}
 
-	cellAt(index: number): ICellViewModel | undefined {
+	cellAt(index: number): IPositronCellViewModel | undefined {
 		const cell = this.cells.get().at(index);
 		if (cell) {
-			assertNotebookCellIsCellViewModel(cell);
 			return cell;
 		}
 		return undefined;
@@ -568,7 +602,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Reveals a cell in the center only if it's outside the viewport.
 	 * @param cell The cell to reveal
 	 */
-	async revealInCenterIfOutsideViewport(cell: ICellViewModel): Promise<void> {
+	async revealInCenterIfOutsideViewport(cell: IExtensionApiCellViewModel): Promise<void> {
 		this._revealCell(cell, CellRevealType.CenterIfOutsideViewport);
 	}
 
@@ -576,7 +610,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Reveals a cell in the center of the viewport.
 	 * @param cell The cell to reveal
 	 */
-	revealInCenter(cell: ICellViewModel): void {
+	revealInCenter(cell: IExtensionApiCellViewModel): void {
 		this._revealCell(cell, CellRevealType.Center);
 	}
 
@@ -584,13 +618,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Reveals a cell at the top of the viewport.
 	 * @param cell The cell to reveal
 	 */
-	revealInViewAtTop(cell: ICellViewModel): void {
+	revealInViewAtTop(cell: IExtensionApiCellViewModel): void {
 		this._revealCell(cell, CellRevealType.Top);
 	}
 
-	private _toPositronCell(cell: ICellViewModel): IPositronNotebookCell {
+	private _toPositronCell(cell: IExtensionApiCellViewModel): IPositronNotebookCell {
 		for (const c of this.cells.get()) {
-			if (c.handleId === cell.handle) {
+			if (c.handle === cell.handle) {
 				return c;
 			}
 		}
@@ -600,7 +634,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * @param cell The cell to reveal
 	 */
-	private _revealCell(cell: ICellViewModel, type?: CellRevealType): void {
+	private _revealCell(cell: IExtensionApiCellViewModel, type?: CellRevealType): void {
 		this._toPositronCell(cell).reveal(type);
 	}
 	//#endregion INotebookEditor
@@ -642,7 +676,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				// If there are the same number of cells...
 				newCells.length === this.cells.get().length &&
 				// ... and they are in the same order...
-				newCells.every((cell, i) => this.cells.get()[i].cellModel === cell)
+				newCells.every((cell, i) => this.cells.get()[i].model === cell)
 			) {
 				// ... then we don't need to sync the cells.
 				return;
@@ -1072,6 +1106,38 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Private Methods
 
+	/**
+	 * Computes the minimal splice operations needed to transform oldCells into newCells.
+	 * Returns an array of NotebookViewCellsSplice tuples [start, deleteCount, insertedCells].
+	 * @param oldCells The previous cell array
+	 * @param newCells The new cell array
+	 * @returns Array of splice operations
+	 */
+	private _computeCellSplices(oldCells: IPositronNotebookCell[], newCells: IPositronNotebookCell[]): ContextKeysNotebookViewCellsSplice[] {
+		// Find first difference
+		let start = 0;
+		while (start < oldCells.length && start < newCells.length && oldCells[start] === newCells[start]) {
+			start++;
+		}
+
+		// Find last difference
+		let oldEnd = oldCells.length;
+		let newEnd = newCells.length;
+		while (oldEnd > start && newEnd > start && oldCells[oldEnd - 1] === newCells[newEnd - 1]) {
+			oldEnd--;
+			newEnd--;
+		}
+
+		const deleteCount = oldEnd - start;
+		const inserted = newCells.slice(start, newEnd);
+
+		if (deleteCount === 0 && inserted.length === 0) {
+			return [];
+		}
+
+		return [[start, deleteCount, inserted]];
+	}
+
 	private readonly _runtimeSessionDisposables = this._register(new MutableDisposable<DisposableStore>());
 
 	private _maybeAttachSession(session: ILanguageRuntimeSession): void {
@@ -1148,7 +1214,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const modelCells = this.textModel.cells;
 
 		const cellModelToCellMap = new Map(
-			this.cells.get().map(cell => [cell.cellModel, cell])
+			this.cells.get().map(cell => [cell.model, cell])
 		);
 
 		const newlyAddedCells: IPositronNotebookCell[] = [];
@@ -1214,11 +1280,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		const hasExecutions = [...cells].some(cell => Boolean(this.notebookExecutionStateService.getCellExecution(cell.uri)));
 
 		if (hasExecutions) {
-			this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel));
+			this.notebookExecutionService.cancelNotebookCells(this.textModel, Array.from(cells).map(c => c.model as NotebookCellTextModel));
 			return;
 		}
 
-		await this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.cellModel as NotebookCellTextModel), this._contextKeyService);
+		await this.notebookExecutionService.executeNotebookCells(this.textModel, Array.from(cells).map(c => c.model as NotebookCellTextModel), this._contextKeyService);
 	}
 
 
@@ -1514,12 +1580,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	// #endregion
-}
-
-function assertNotebookCellIsCellViewModel(cell: IPositronNotebookCell): asserts cell is IPositronNotebookCell & ICellViewModel {
-	// No-op; used for type assertion.
-	// Implement ICellViewModel as needed. Not currently needed since the extension API
-	// only uses the returned value in calls to our own reveal* methods
 }
 
 function shouldAutoEditOnCellAdd(currentOp: NotebookOperationType | undefined): boolean {
