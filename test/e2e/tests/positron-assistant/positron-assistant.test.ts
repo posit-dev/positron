@@ -13,7 +13,7 @@ test.use({
 /**
  * Test suite for the setup of Positron Assistant.
  */
-test.describe.skip('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
 	/**
 	 * Verifies that the Positron Assistant can be opened and that the
 	 * add model button is visible in the interface. Once Assistant is on by default,
@@ -100,7 +100,7 @@ test.describe.skip('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT,
 /**
  * Test suite Positron Assistant actions from the chat interface.
  */
-test.describe.skip('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
