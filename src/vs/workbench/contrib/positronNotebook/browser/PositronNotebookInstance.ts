@@ -202,6 +202,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// #endregion
 
 	/**
+	 * Public getter for the notebook editor container.
+	 * Used for focus scope checking to determine if focus is still within the notebook.
+	 */
+	get container(): HTMLElement | undefined {
+		return this._container;
+	}
+
+	/**
 	 * Event emitter for when the text model changes.
 	 */
 	private readonly _onDidChangeContent = this._register(new Emitter<void>());

@@ -119,6 +119,12 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	readonly connectedToEditor: boolean;
 
 	/**
+	 * The DOM element that contains the entire notebook editor (including toolbar, cells, etc.).
+	 * This is the top-level container for the notebook UI.
+	 */
+	readonly container: HTMLElement | undefined;
+
+	/**
 	 * Sets the DOM element that contains the entire notebook editor.
 	 * @param container The container element to set, or null to clear
 	 */
