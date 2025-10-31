@@ -15,14 +15,14 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { resolveNotebookWorkingDirectory, resolvePath, makeDisplayPath } from '../../notebook/common/notebookWorkingDirectoryUtils.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ActiveNotebookHasWorkingDirectoryMismatch } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+import { ActiveNotebookHasWorkingDirectoryMismatch, isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { NOTEBOOK_EDITOR_ID } from '../../notebook/common/notebookCommon.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 // Constants
@@ -49,10 +49,22 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 				{
 					id: MenuId.EditorActionsRight,
 					group: 'navigation',
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
-						ActiveNotebookHasWorkingDirectoryMismatch
-					)
+					/**
+					 * We want to allow this command to run if the active editor is a notebook (Positron or built-in).
+					 *
+					 * For non-positron notebooks, this action will be accessible via the command palette but we don't
+					 * want to show it in the action bar.
+					 *
+					 * For positron notebooks, we only want to show the action in the action bar when the working
+					 * directory does not match the notebook location.
+					 */
+					when: ContextKeyExpr.or(
+						ContextKeyExpr.and(
+							ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+							ActiveNotebookHasWorkingDirectoryMismatch
+						),
+						ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
+					),
 				}
 			]
 		});
@@ -69,19 +81,17 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		const configurationResolverService = accessor.get(IConfigurationResolverService);
 		const logService = accessor.get(ILogService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const editorService = accessor.get(IEditorService);
 
-		const notebookInstance = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
-		if (!notebookInstance) {
+		// Get the notebook uri of the active notebook
+		const activeEditor = editorService.activeEditor;
+		if (!activeEditor || !isNotebookEditorInput(activeEditor)) {
 			return;
 		}
-
-		const notebook = notebookInstance.textModel;
-		if (!notebook) {
-			return;
-		}
+		const notebookUri = activeEditor.resource;
 
 		// Skip untitled notebooks
-		if (notebook.uri.scheme === Schemas.untitled) {
+		if (notebookUri.scheme === Schemas.untitled) {
 			notificationService.info(localize(
 				'positron.notebook.updateWorkingDirectory.untitledNotebook',
 				'Cannot update working directory for untitled notebooks. Please save the notebook first.'
@@ -91,7 +101,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 
 		// Get the new working directory based on the notebook location
 		const newWorkingDirectory = await resolveNotebookWorkingDirectory(
-			notebook.uri,
+			notebookUri,
 			fileService,
 			configurationService,
 			configurationResolverService,
@@ -104,7 +114,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		}
 
 		// Look up the session for the notebook
-		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebook.uri);
+		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
 			notificationService.warn(localize(
 				'positron.notebook.updateWorkingDirectory.noNotebookSession',
@@ -137,13 +147,13 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			// Format the paths for display
 			const currentWorkingDirectoryDisplay = await makeDisplayPath(
 				currentWorkingDirectoryResolved,
-				notebook.uri,
+				notebookUri,
 				pathService,
 				workspaceContextService
 			);
 			const newWorkingDirectoryDisplay = await makeDisplayPath(
 				newWorkingDirectoryResolved,
-				notebook.uri,
+				notebookUri,
 				pathService,
 				workspaceContextService
 			);
