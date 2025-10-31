@@ -182,6 +182,7 @@ if __name__ == "__main__":
 
             # Store the main thread ID so we can inject KeyboardInterrupt into it
             import ctypes
+
             main_thread_id = threading.get_ident()
 
             # Get ResetEvent to reset the event after handling
@@ -205,8 +206,7 @@ if __name__ == "__main__":
                             # This is the approach used by _thread.interrupt_main() but we ensure
                             # it targets the correct thread
                             ret = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                                ctypes.c_long(main_thread_id),
-                                ctypes.py_object(KeyboardInterrupt)
+                                ctypes.c_long(main_thread_id), ctypes.py_object(KeyboardInterrupt)
                             )
                             logger.info(f"KeyboardInterrupt injected, return value: {ret}")
                         except Exception as e:
@@ -216,7 +216,9 @@ if __name__ == "__main__":
             # Start the interrupt monitoring thread
             interrupt_thread = threading.Thread(target=watch_interrupt_event, daemon=True)
             interrupt_thread.start()
-            logger.info(f"Windows interrupt monitoring thread started for event handle {event_handle}")
+            logger.info(
+                f"Windows interrupt monitoring thread started for event handle {event_handle}"
+            )
 
     try:
         loop.run_forever()
