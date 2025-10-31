@@ -9,7 +9,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -156,6 +156,22 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			// Kernel source actions are currently constant so we don't need this event.
 			onDidChangeSourceActions: undefined,
 		}));
+	}
+
+	public async ensureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
+		// Get the notebook text model
+		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
+		if (!notebook) {
+			throw new Error(`Could not ensure session is started for notebook without text model: ${notebookUri}`);
+		}
+		// Get the selected kernel
+		const kernel = this.getSelectedKernel(notebook);
+		if (!kernel) {
+			throw new Error(`Could not ensure session is started for notebook without selected kernel: ${notebookUri}`);
+		}
+
+		// Ensure the kernel has a started session
+		return await kernel.ensureSessionStarted(notebook.uri, source);
 	}
 
 	/**
