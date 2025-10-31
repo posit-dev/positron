@@ -1157,8 +1157,10 @@ suite('Positron - RuntimeSessionService', () => {
 		const newUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(savedUri);
 		assert.strictEqual(newUriSession, session, 'Session should be accessible via new URI');
 
-		// Verify the working directory changed
-		assert.strictEqual(session.getWorkingDirectory(), '/path/to/saved', 'Working directory should update to new URI parent folder');
+		// Verify the working directory has not changed
+		// This is the expected behavior because not all users want the working directory for the notebook session
+		// to change automatically. There is a different process for updating the working directory
+		assert.strictEqual(session.getWorkingDirectory(), '', 'Working directory should NOT update to new URI parent folder');
 	});
 
 	test('updateNotebookSessionUri returns undefined when session not found', async () => {

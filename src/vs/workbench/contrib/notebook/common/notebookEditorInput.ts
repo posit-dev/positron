@@ -308,6 +308,30 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 	// called when users rename a notebook document
 	override async rename(group: GroupIdentifier, target: URI): Promise<IMoveResult | undefined> {
 		if (this.editorModelReference) {
+			// --- Start Positron ---
+			// Transfer the runtime session to the new URI to maintain kernel continuity.
+			// Without this, the session remains mapped to the old URI and becomes orphaned,
+			// causing a new session to be created when a notebook is renamed or moved.
+			try {
+				this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
+
+				// Call updateNotebookSessionUri to update internal mappings and emit events
+				// that other components (Variables view, working directory checker) listen for
+				const sessionId = await this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+
+				if (sessionId) {
+					// Log success to aid debugging session transfer issues
+					this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${target.toString()}`);
+				} else {
+					// This is an expected case for notebooks without executed cells (no session yet)
+					this._logService.debug(`No session found to reassign for URI: ${this.resource.toString()}`);
+				}
+			} catch (error) {
+				// Log error but don't fail the rename operation
+				this._logService.error('Failed to reassign notebook session URI during rename', error);
+			}
+			// --- End Positron ---
+
 			return { editor: { resource: target }, options: { override: this.viewType } };
 
 		}

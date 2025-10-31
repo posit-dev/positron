@@ -117,7 +117,7 @@ export class ExecuteSelectionInConsoleAction extends Action2 {
 	 * Gets the selected text from the active editor, or the entire line if no selection
 	 */
 	private getSelectedText(editorService: IEditorService): string | null {
-		let editor = editorService.activeTextEditorControl;
+		const editor = editorService.activeTextEditorControl;
 		if (!editor) {
 			return null;
 		}

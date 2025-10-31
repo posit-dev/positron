@@ -1,0 +1,245 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
+import { localize, localize2 } from '../../../../nls.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { resolveNotebookWorkingDirectory, resolvePath, makeDisplayPath } from '../../notebook/common/notebookWorkingDirectoryUtils.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationResolverService } from '../../../services/configurationResolver/common/configurationResolver.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { ActiveNotebookHasWorkingDirectoryMismatch, isNotebookEditorInput } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { NOTEBOOK_EDITOR_ID } from '../../notebook/common/notebookCommon.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+
+// Constants
+const UPDATE_ID = 'update';
+const KEEP_ID = 'keep';
+
+/**
+ * Action to update the working directory of a notebook session to match the
+ * notebook's file location. This is useful when a notebook has been moved.
+ */
+export class UpdateNotebookWorkingDirectoryAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.updateWorkingDirectory',
+			category: localize2('notebook.category', 'Notebook'),
+			title: localize2('updateWorkingDirectory', 'Update Working Directory'),
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			icon: ThemeIcon.fromId('alert'),
+			f1: true,
+			menu: [
+				{
+					id: MenuId.EditorActionsRight,
+					group: 'navigation',
+					/**
+					 * We want to allow this command to run if the active editor is a notebook (Positron or built-in).
+					 *
+					 * For non-positron notebooks, this action will be accessible via the command palette but we don't
+					 * want to show it in the action bar.
+					 *
+					 * For positron notebooks, we only want to show the action in the action bar when the working
+					 * directory does not match the notebook location.
+					 */
+					when: ContextKeyExpr.or(
+						ContextKeyExpr.and(
+							ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+							ActiveNotebookHasWorkingDirectoryMismatch
+						),
+						ContextKeyExpr.equals('activeEditor', NOTEBOOK_EDITOR_ID),
+					),
+				}
+			]
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Get services
+		const notificationService = accessor.get(INotificationService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const pathService = accessor.get(IPathService);
+		const workspaceContextService = accessor.get(IWorkspaceContextService);
+		const fileService = accessor.get(IFileService);
+		const configurationService = accessor.get(IConfigurationService);
+		const configurationResolverService = accessor.get(IConfigurationResolverService);
+		const logService = accessor.get(ILogService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const editorService = accessor.get(IEditorService);
+
+		// Get the notebook uri of the active notebook
+		const activeEditor = editorService.activeEditor;
+		if (!activeEditor || !isNotebookEditorInput(activeEditor)) {
+			return;
+		}
+		const notebookUri = activeEditor.resource;
+
+		// Skip untitled notebooks
+		if (notebookUri.scheme === Schemas.untitled) {
+			notificationService.info(localize(
+				'positron.notebook.updateWorkingDirectory.untitledNotebook',
+				'Cannot update working directory for untitled notebooks. Please save the notebook first.'
+			));
+			return;
+		}
+
+		// Get the new working directory based on the notebook location
+		const newWorkingDirectory = await resolveNotebookWorkingDirectory(
+			notebookUri,
+			fileService,
+			configurationService,
+			configurationResolverService,
+			workspaceContextService,
+			pathService,
+			logService
+		);
+		if (!newWorkingDirectory) {
+			return;
+		}
+
+		// Look up the session for the notebook
+		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (!session) {
+			notificationService.warn(localize(
+				'positron.notebook.updateWorkingDirectory.noNotebookSession',
+				'Cannot update working directory. No interpreter session is running'
+			));
+			return;
+		}
+
+		// Get the current working directory based on the session state
+		const currentWorkingDirectory = session.dynState.currentWorkingDirectory;
+		if (!currentWorkingDirectory) {
+			return;
+		}
+
+		// Resolve both paths (untildify + symlink resolution) for comparison
+		const currentWorkingDirectoryResolved = await resolvePath(
+			currentWorkingDirectory,
+			fileService,
+			pathService,
+			logService
+		);
+		const newWorkingDirectoryResolved = await resolvePath(
+			newWorkingDirectory,
+			fileService,
+			pathService,
+			logService
+		);
+
+		if (currentWorkingDirectoryResolved !== newWorkingDirectoryResolved) {
+			// Format the paths for display
+			const currentWorkingDirectoryDisplay = await makeDisplayPath(
+				currentWorkingDirectoryResolved,
+				notebookUri,
+				pathService,
+				workspaceContextService
+			);
+			const newWorkingDirectoryDisplay = await makeDisplayPath(
+				newWorkingDirectoryResolved,
+				notebookUri,
+				pathService,
+				workspaceContextService
+			);
+
+			const result = await this.selectNewWorkingDirectory(
+				quickInputService,
+				currentWorkingDirectoryDisplay,
+				newWorkingDirectoryDisplay,
+			);
+
+			if (result?.id === UPDATE_ID) {
+				try {
+					await session.setWorkingDirectory(newWorkingDirectory);
+					notificationService.info(localize(
+						'positron.notebook.updateWorkingDirectory.success',
+						'Successfully updated working directory from {0} to {1}',
+						currentWorkingDirectory,
+						newWorkingDirectory
+					));
+				} catch (error) {
+					notificationService.error(localize(
+						'positron.notebook.updateWorkingDirectory.failure',
+						'Failed to update working directory to {0}.',
+						newWorkingDirectory
+					));
+				}
+			}
+		} else {
+			notificationService.info(localize(
+				'positron.notebook.updateWorkingDirectory.alreadyUpToDate',
+				'The working directory is already up to date.'
+			));
+		}
+	}
+
+	private async selectNewWorkingDirectory(
+		quickInputService: IQuickInputService,
+		currentWorkingDirectoryDisplay: string,
+		newWorkingDirectoryDisplay: string,
+	): Promise<IQuickPickItem | undefined> {
+		const store = new DisposableStore();
+
+		// Create options for quick-pick with detailed descriptions
+		const quickPickItems: IQuickPickItem[] = [
+			{
+				label: localize('positron.notebook.updateWorkingDirectory.quickPick.update', 'Update (Recommended)'),
+				detail: localize('positron.notebook.updateWorkingDirectory.quickPick.update.detail',
+					'Update working directory to: {0}', newWorkingDirectoryDisplay),
+				id: UPDATE_ID
+			},
+			{
+				label: localize('positron.notebook.updateWorkingDirectory.quickPick.keep', 'Keep Current'),
+				detail: localize('positron.notebook.updateWorkingDirectory.quickPick.keep.detail',
+					'Keep working directory at: {0}', currentWorkingDirectoryDisplay),
+				id: KEEP_ID
+			}
+		];
+
+		// Create the description for the quick pick
+		const description = localize(
+			'positron.notebook.updateWorkingDirectory.workingDirectoryChanged.description',
+			'This notebook was moved to a new location but your session is still running from the original directory. Update the running working directory to match where the notebook is saved?',
+		);
+
+		// Create a custom quick pick with description
+		const quickPick = quickInputService.createQuickPick<IQuickPickItem>();
+		quickPick.title = localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?');
+		quickPick.description = description;
+		quickPick.items = quickPickItems;
+		quickPick.canSelectMany = false;
+
+		// Show the quick pick and wait for user selection
+		quickPick.show();
+
+		const result = await new Promise<IQuickPickItem | undefined>((resolve) => {
+			store.add(quickPick.onDidAccept(() => {
+				resolve(quickPick.selectedItems[0]);
+				quickPick.dispose();
+			}));
+			store.add(quickPick.onDidHide(() => {
+				resolve(undefined);
+				quickPick.dispose();
+				store.dispose();
+			}));
+		});
+
+		return result;
+	}
+}
