@@ -1031,21 +1031,27 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		super(_config, _context);
 
 		const environmentSettings = vscode.workspace.getConfiguration('positron.assistant.providerVariables').get<BedrockProviderVariables>('bedrock', {});
-		const environment: BedrockProviderVariables = { ...process.env as BedrockProviderVariables, ...environmentSettings };
+		log.debug(`[BedrockLanguageModel] positron.assistant.providerVariables.bedrock settings: ${JSON.stringify(environmentSettings)}`);
 
+		const { AWS_REGION, AWS_PROFILE }: BedrockProviderVariables = { ...process.env as BedrockProviderVariables, ...environmentSettings };
+		const region = AWS_REGION ?? 'us-east-1';
+		const profile = AWS_PROFILE ?? 'default';
+		const credentials = fromNodeProviderChain({ profile });
+
+		log.info(`[BedrockLanguageModel] Using AWS region: ${region} and profile: ${AWS_PROFILE ?? 'default'}`);
+
+		// We use ai-sdk for generating text for chat
 		this.aiProvider = createAmazonBedrock({
 			// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
-			// sets the AWS region where the models are available
-			region: environment.AWS_REGION ?? 'us-east-1',
-			credentialProvider: fromNodeProviderChain({
-				profile: environment.AWS_PROFILE,
-			}),
+			region, // sets the AWS region where the models are available
+			credentialProvider: credentials
 		});
 
-		// This is used to get available models
+		// We use the Bedrock SDK to retrieve the list of available models instead
+		// of a predefined list.
 		this.bedrockClient = new BedrockClient({
-			region: process.env.AWS_REGION ?? 'us-east-1',
-			credentials: fromNodeProviderChain(),
+			region,
+			credentials: credentials
 		});
 		this.modelListing = [];
 	}
@@ -1083,7 +1089,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
 	}
 
-	override async provideLanguageModelChatInformation(options: { silent: boolean; }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	override async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		await this.resolveModels(token);
 		return this.modelListing || [];
 	}
