@@ -717,6 +717,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 						const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
 						this._logService.trace('[LM] Applying model filters:', config.filterModels);
 						if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
+							match(pattern, modelAndIdentifier.identifier) ||
 							match(pattern, modelAndIdentifier.metadata.id) ||
 							match(pattern, modelAndIdentifier.metadata.name))
 						) {
@@ -794,7 +795,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
 			this._onDidChangeProviders.fire({ added: [vendor] });
 			this._onLanguageModelChange.fire();
-;
+			;
 		});
 		// --- End Positron ---
 
