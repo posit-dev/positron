@@ -21,7 +21,6 @@
  */
 
 
-import { Application } from '../../infra/application.js';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 
@@ -41,7 +40,7 @@ test.describe('Notebook Debugging', {
 	});
 
 	// Single, simpler test that covers it all basics, instead of many separate and redundant tests.
-	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger }) => {
+	test('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, logger, hotKeys }) => {
 		const code = [
 			'# Initialize variables',
 			'x = 10',
@@ -63,7 +62,7 @@ test.describe('Notebook Debugging', {
 		await app.workbench.debug.setBreakpointOnLine(9); // string formatting
 
 		// Start debugging
-		await debugNotebook(app);
+		await app.workbench.debug.debugCell();
 
 		// BP1
 		await app.workbench.debug.expectCurrentLineIndicatorVisible();
@@ -90,15 +89,6 @@ test.describe('Notebook Debugging', {
 		await expect(app.workbench.notebooks.frameLocator.locator('text=Result from Positron: 40')).toBeVisible();
 
 		// Clean up BPs
-		await app.workbench.debug.unSetBreakpointOnLine(5);
-		await app.workbench.debug.unSetBreakpointOnLine(9);
+		await hotKeys.clearAllBreakpoints();
 	});
 });
-
-async function debugNotebook(app: Application): Promise<void> {
-	await test.step('Debug notebook', async () => {
-		await expect(app.code.driver.page.locator('.positron-variables-container').locator('text=No Variables have been created')).toBeVisible();
-		await app.workbench.quickaccess.runCommand('notebook.debugCell');
-		await app.workbench.debug.expectCurrentLineIndicatorVisible();
-	});
-}

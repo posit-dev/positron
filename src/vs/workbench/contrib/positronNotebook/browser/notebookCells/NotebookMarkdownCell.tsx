@@ -15,11 +15,14 @@ import { useObservedValue } from '../useObservedValue.js';
 import { Markdown } from './Markdown.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
-import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { localize } from '../../../../../nls.js';
+
+// Localized strings.
+const emptyMarkdownCell = localize('positron.notebooks.markdownCell.empty', "Empty markdown cell.");
+const doubleClickToEdit = localize('positron.notebooks.markdownCell.doubleClickToEdit', " Double click to edit.");
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 
-	const notebookInstance = useNotebookInstance();
 	const markdownString = useObservedValue(cell.markdownString);
 	const editorShown = useObservedValue(cell.editorShown);
 
@@ -31,21 +34,15 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 				{editorShown ? <CellEditorMonacoWidget cell={cell} /> : null}
 			</div>
 			<div className='cell-contents positron-notebook-cell-outputs'>
-				<div
-					className='positron-notebook-markup-rendered'
-					onDoubleClick={(e) => {
-						// Prevent bubbling to wrapper's onClick and default browser behavior
-						e.stopPropagation();
-						e.preventDefault();
-						// Enter edit mode for this cell
-						notebookInstance.selectionStateMachine.enterEditor(cell);
-					}}
-				>
+				<div className='positron-notebook-markdown-rendered' onDoubleClick={() => {
+					cell.toggleEditor();
+				}}>
 					{
 						markdownString.length > 0 ?
 							<Markdown content={markdownString} />
 							: <div className='empty-output-msg'>
-								Empty markup cell. {editorShown ? '' : 'Double click to edit.'}
+								{emptyMarkdownCell}
+								{!editorShown && doubleClickToEdit}
 							</div>
 					}
 				</div>

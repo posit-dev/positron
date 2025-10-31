@@ -12,8 +12,8 @@ import React from 'react';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -24,6 +24,8 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { autorun } from '../../../../../base/common/observable.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js';
 import { SelectionState } from '../selectionMachine.js';
+import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
+import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
 
 /**
  *
@@ -58,8 +60,34 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		const disposables = new DisposableStore();
 
 		const language = cell.cellModel.language;
-		const editorContextKeyService = disposables.add(environment.scopedContextKeyProviderCallback(editorPartRef.current));
-		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
+
+		// We need to ensure the EditorProgressService (or a fake) is available
+		// in the service collection because monaco editors will try and access
+		// it even though it's not available in the notebook context. This feels
+		// hacky but VSCode notebooks do the same thing so I guess it's easier
+		// than fixing it at the monaco level.
+		//
+		// Note: We don't pass IContextKeyService here. Monaco will create its own
+		// scoped service as a child of the parent instantiation service. This avoids
+		// the double-scoping error that occurred when we explicitly created one.
+		const serviceCollection = new ServiceCollection(
+			[
+				IEditorProgressService,
+				// Create a simple no-op IEditorProgressService for editor contributions
+				// Based on pattern from codeBlockPart.ts in chat contrib
+				new class implements IEditorProgressService {
+					_serviceBrand: undefined;
+					show() {
+						// No-op progress indicator for notebook cell editors
+						return { done: () => { }, total: () => { }, worked: () => { } };
+					}
+					async showWhile(promise: Promise<any>): Promise<void> {
+						await promise;
+					}
+				}]
+		);
+
+		const editorInstaService = services.instantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
 		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
@@ -78,8 +106,9 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			editor.setModel(model);
 		});
 
-		// Bind the cell editor focused context key
-		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editorContextKeyService);
+		// Bind the cell editor focused context key to the editor's internal scoped service
+		// (CodeEditorWidget creates this synchronously in its constructor)
+		const cellEditorFocusedKey = POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.bindTo(editor.contextKeyService);
 
 		disposables.add(editor.onDidFocusEditorWidget(() => {
 			// enterEditor() automatically detects that editor has focus and skips focus management
@@ -89,6 +118,35 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		disposables.add(editor.onDidBlurEditorWidget(() => {
 			cellEditorFocusedKey.set(false);
+
+			// Check where focus moved to - don't exit edit mode if focus moved to VS Code overlays
+			// or is still within the notebook editor scope.
+			// This prevents the command palette, quick open, find widget, etc. from closing
+			// immediately when opened from a cell in edit mode.
+			const activeElement = editor.getContainerDomNode().ownerDocument.activeElement;
+			if (activeElement) {
+				// Get the context of where focus moved to
+				const contextKeyContext = services.contextKeyService.getContext(activeElement);
+
+				// Don't exit edit mode if focus moved to quick pick (command palette, quick open, etc.)
+				if (contextKeyContext.getValue(InQuickPickContextKey.key)) {
+					return;
+				}
+
+				// Don't exit edit mode if focus moved to another editor (e.g., find widget input)
+				if (contextKeyContext.getValue(EditorContextKeys.textInputFocus.key)) {
+					return;
+				}
+
+				// Don't exit edit mode if focus is still within the notebook editor container
+				// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
+				const notebookContainer = instance.container;
+				if (notebookContainer?.contains(activeElement)) {
+					return;
+				}
+			}
+
+			// Focus has truly left the notebook editor - exit edit mode
 			// Pass the cell so we only exit if THIS specific cell is being edited (not a different one)
 			// This handles the race condition where a user clicks from one cell editor into another.
 			instance.selectionStateMachine.exitEditor(cell);
@@ -119,14 +177,14 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			resizeEditor();
 		}));
 
-		services.logService.info('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
+		services.logService.debug('Positron Notebook | useCellEditorWidget() | Setting up editor widget');
 
 		return () => {
-			services.logService.info('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
+			services.logService.debug('Positron Notebook | useCellEditorWidget() | Disposing editor widget');
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService]);
+	}, [cell, environment, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {

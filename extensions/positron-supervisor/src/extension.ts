@@ -10,6 +10,7 @@ import * as os from 'os';
 import { PositronSupervisorApi } from './positron-supervisor';
 import { KCApi } from './KallichoreAdapterApi';
 import { KallichoreTransport } from './KallichoreApiInstance';
+import { KallichoreInstances } from './KallichoreInstances';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
@@ -17,6 +18,7 @@ export let API_INSTANCE: KCApi;
 export function activate(context: vscode.ExtensionContext): PositronSupervisorApi {
 	const log = positron.window.createRawLogOutputChannel('Kernel Supervisor');
 	log.appendLine('Positron Kernel Supervisor activated');
+	KallichoreInstances.initialize(context, log);
 
 	// Determine transport type from configuration
 	const config = vscode.workspace.getConfiguration('kernelSupervisor');
@@ -42,6 +44,10 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 
 	// Register the supervisor commands
 	API_INSTANCE.registerCommands();
+
+	context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.showRunningSupervisors', () => {
+		return KallichoreInstances.showRunningSupervisors();
+	}));
 
 	// Listen for the command to open the logs
 	context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.showKernelSupervisorLog', () => {

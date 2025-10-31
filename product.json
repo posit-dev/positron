@@ -2,7 +2,7 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2025.11.0",
+	"positronVersion": "2025.12.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -61,8 +61,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.104.0",
-			"sha256": "856db934294bd8b78769dd91c86904c7e35e356bb05b223a9e4d8eb38cb17ae3",
+			"version": "1.105.0",
+			"sha256": "0c45b90342e8aafd4ff2963b4006de64208ca58c2fd01fea7a710fe61dcfd12a",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.24",
+			"version": "1.6.28",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "dd1839f389af21510551c8d9c648e95bc67c36b918d73b8d9d757c4e5f3b71a6",
+			"sha256": "d8677a2d18b064cc54c64f760142bb7a29c2e16295dd6273d9d1813388eecbfc",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -182,8 +182,8 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2025.8.0",
-			"sha256sum": "3e0373fe1b309660e6e53189ab7ad34f7e374d3c7a76b8e4621d6a5b93d4caae",
+			"version": "2025.9.1",
+			"sha256sum": "110660656944c4ab0ff687db488c2e8c59c67ec121dcf09bcaa54b6edd9ce71f",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.23.12",
+			"version": "1.23.17",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -258,7 +258,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.16.0",
+			"version": "0.18.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
@@ -281,8 +281,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.118.2",
-			"sha256": "c397647f9b4286292abb85e07ad466a968d0aa6c120e75f770a4f421b4c3d9bd",
+			"version": "0.120.1",
+			"sha256": "707ca25c651817d67cc2826cdbb08fb8664afa3520f33c8c243c0547263aad2f",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {

@@ -11,6 +11,7 @@ import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
 import { arePathsSame } from './path-utils';
 import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
+import { normalizeWindowsArch, sniffWindowsBinaryArchitecture } from './kernel.js';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -24,6 +25,9 @@ export interface RMetadataExtra {
 
 	/** R's Rscript path */
 	readonly scriptpath: string;
+
+	/** Architecture reported by this installation (normalized, e.g. arm64, x86_64) */
+	readonly arch?: string;
 
 	/**
 	 * Is this known to be the current version of R?
@@ -229,6 +233,7 @@ export class RInstallation {
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
+		let derivedArch = '';
 
 		if (architecture) {
 			const arch = architecture[1];
@@ -236,18 +241,37 @@ export class RInstallation {
 			// Remap known architectures to equivalent values used by Rig,
 			// just for overall consistency and familiarity
 			if (arch === 'aarch64') {
-				this.arch = 'arm64';
+				derivedArch = 'arm64';
 			} else if (arch === 'x86_64') {
-				this.arch = 'x86_64';
+				derivedArch = 'x86_64';
 			} else {
 				// Should never happen because of how our `match()` works
 				console.warn(`Matched an unknown architecture '${arch}' for R '${this.version}'.`);
-				this.arch = arch;
+				derivedArch = arch;
 			}
-		} else {
-			// Unknown architecture
-			this.arch = '';
 		}
+
+		if (process.platform === 'win32') {
+			// Windows arm builds currently misreport in the Built field; prefer the path signature (e.g. ...-aarch64).
+			const normalizedBin = this.binpath.toLowerCase();
+			const pathSegments = normalizedBin.split(path.sep).filter(segment => segment.length > 0);
+			if (pathSegments.some(segment => segment === 'arm64' || segment === 'aarch64' || segment.endsWith('-arm64') || segment.endsWith('-aarch64'))) {
+				derivedArch = 'arm64';
+			} else if (!derivedArch && pathSegments.some(segment => segment === 'x64' || segment.endsWith('-x64'))) {
+				derivedArch = 'x86_64';
+			}
+
+			// Double check against the binary itself and log a warning if there's a mismatch.
+			const detectedArch = sniffWindowsBinaryArchitecture(this.binpath);
+			if (detectedArch) {
+				const normalizedArch = normalizeWindowsArch(derivedArch);
+				if (normalizedArch && detectedArch !== normalizedArch) {
+					LOGGER.warn(`Discrepancy between derived Windows architecture ${derivedArch} and sniffed architecture ${detectedArch} for R ${this.version} at ${this.binpath}`);
+				}
+			}
+		}
+
+		this.arch = derivedArch;
 
 		LOGGER.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
 	}
@@ -331,8 +355,8 @@ function getRHomePathLinux(binpath: string): string | undefined {
 		LOGGER.info(`Can't determine R_HOME_DIR from the binary: ${binpath}`);
 		return undefined;
 	}
-	const testPath = testPathMatch[1]
-	if (testPath != R_HOME_DIR) {
+	const testPath = testPathMatch[1];
+	if (testPath !== R_HOME_DIR) {
 		return homepath;
 	}
 	const prefixMatch = testPath.match('(.*)\/.*\/R');
@@ -340,23 +364,23 @@ function getRHomePathLinux(binpath: string): string | undefined {
 		LOGGER.info(`Can't determine R_HOME_DIR from the binary: ${binpath}`);
 		return undefined;
 	}
-	const prefix = prefixMatch[1]
-    // Replicating special linux logic in R's official shell script
-    // https://github.com/wch/r-source/blob/8898619c430a383ceb401dee3e492ba386ea5967/src/scripts/R.sh.in#L5C1-L27C3
-    const is64BitArch = [
-        // Actual values returned by Node.js process.arch
-        'x64',      // Node.js equivalent of x86_64
-        'arm64',    // not in official shell script (but maybe should be?)
-        'ppc64',    // PowerPC 64-bit
-        's390x',    // IBM System z
-        // Remaining values from official script values, just to be safe
-        'x86_64', 'mips64', 'powerpc64', 'sparc64'
-].includes(process.arch);
+	const prefix = prefixMatch[1];
+	// Replicating special linux logic in R's official shell script
+	// https://github.com/wch/r-source/blob/8898619c430a383ceb401dee3e492ba386ea5967/src/scripts/R.sh.in#L5C1-L27C3
+	const is64BitArch = [
+		// Actual values returned by Node.js process.arch
+		'x64',      // Node.js equivalent of x86_64
+		'arm64',    // not in official shell script (but maybe should be?)
+		'ppc64',    // PowerPC 64-bit
+		's390x',    // IBM System z
+		// Remaining values from official script values, just to be safe
+		'x86_64', 'mips64', 'powerpc64', 'sparc64'
+	].includes(process.arch);
 
-    const libnn = is64BitArch ? 'lib64' : 'lib';
-    const libnnFallback = is64BitArch ? 'lib' : 'lib64';
-	const libnnPath = path.join(prefix, libnn, 'R/bin/exec/R')
-	const libnnFallbackPath = path.join(prefix, libnnFallback, 'R/bin/exec/R')
+	const libnn = is64BitArch ? 'lib64' : 'lib';
+	const libnnFallback = is64BitArch ? 'lib' : 'lib64';
+	const libnnPath = path.join(prefix, libnn, 'R/bin/exec/R');
+	const libnnFallbackPath = path.join(prefix, libnnFallback, 'R/bin/exec/R');
 	if (isExecutable(libnnPath)) {
 		return path.join(prefix, libnn, "R");
 	}

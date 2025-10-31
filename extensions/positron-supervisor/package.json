@@ -40,6 +40,13 @@
           "default": 30,
           "description": "%configuration.connectionTimeout.description%"
         },
+        "kernelSupervisor.startupTimeout": {
+          "scope": "window",
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "%configuration.startupTimeout.description%"
+        },
         "kernelSupervisor.logLevel": {
           "scope": "window",
           "type": "string",
@@ -139,6 +146,12 @@
         "shortTitle": "%command.showKernelSupervisorLog.title%"
       },
       {
+        "command": "positron.supervisor.showRunningSupervisors",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.showRunningSupervisors.title%",
+        "shortTitle": "%command.showRunningSupervisors.title%"
+      },
+      {
         "command": "positron.supervisor.reconnectSession",
         "category": "%command.positron.supervisor.category%",
         "title": "%command.reconnectSession.title%",
@@ -168,7 +181,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.54"
+      "kallichore": "0.1.58"
     }
   },
   "extensionDependencies": [

@@ -172,14 +172,6 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
     // --- Start PWB: from Positron ---
     // Replace vsce.listFiles with listExtensionFiles to queue the work
     listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
-        const files = fileNames
-            .map(fileName => path_1.default.join(extensionPath, fileName))
-            .map(filePath => new vinyl_1.default({
-            path: filePath,
-            stat: fs_1.default.statSync(filePath),
-            base: extensionPath,
-            contents: fs_1.default.createReadStream(filePath)
-        }));
         // check for a webpack configuration files, then invoke webpack
         // and merge its output with the files stream.
         const webpackConfigLocations = glob_1.default.sync(path_1.default.join(extensionPath, '**', webpackConfigFileName), { ignore: ['**/node_modules'] });
@@ -237,7 +229,8 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
                 }));
             });
         });
-        event_stream_1.default.merge(...webpackStreams, event_stream_1.default.readArray(files))
+        const localFilesStream = createSequentialFileStream(extensionPath, fileNames);
+        event_stream_1.default.merge(...webpackStreams, localFilesStream)
             // .pipe(es.through(function (data) {
             // 	// debug
             // 	console.log('out', data.path, data.contents.length);
@@ -259,15 +252,7 @@ function fromLocalNormal(extensionPath) {
     // Replace vsce.listFiles with listExtensionFiles to queue the work
     listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Npm })
         .then(fileNames => {
-        const files = fileNames
-            .map(fileName => path_1.default.join(extensionPath, fileName))
-            .map(filePath => new vinyl_1.default({
-            path: filePath,
-            stat: fs_1.default.statSync(filePath),
-            base: extensionPath,
-            contents: fs_1.default.createReadStream(filePath)
-        }));
-        event_stream_1.default.readArray(files).pipe(result);
+        createSequentialFileStream(extensionPath, fileNames).pipe(result);
     })
         .catch(err => result.emit('error', err));
     // --- End PWB: from Positron ---
@@ -461,6 +446,13 @@ const excludedExtensions = [
     'positron-javascript',
     // --- End Positron ---
 ];
+// --- Start Positron ---
+// If this is not Windows, exclude the open-remote-wsl extension, which is only
+// relevant on Windows.
+if (process.platform !== 'win32') {
+    excludedExtensions.push('open-remote-wsl');
+}
+// --- End Positron ---
 const marketplaceWebExtensionsExclude = new Set([
     'ms-vscode.node-debug',
     'ms-vscode.node-debug2',
@@ -676,11 +668,12 @@ function translatePackageJSON(packageJSON, packageNLSPath) {
 const extensionsPath = path_1.default.join(root, 'extensions');
 // Additional projects to run esbuild on. These typically build code for webviews
 const esbuildMediaScripts = [
+    'ipynb/esbuild.mjs',
     'markdown-language-features/esbuild-notebook.mjs',
     'markdown-language-features/esbuild-preview.mjs',
     'markdown-math/esbuild.mjs',
+    'mermaid-chat-features/esbuild-chat-webview.mjs',
     'notebook-renderers/esbuild.mjs',
-    'ipynb/esbuild.mjs',
     'simple-browser/esbuild-preview.mjs',
     // --- Start Positron ---
     'positron-ipywidgets/renderer/esbuild.js',
@@ -787,6 +780,102 @@ async function buildExtensionMedia(isWatch, outputRoot) {
     })));
 }
 // --- Start PWB: from Positron ---
+/**
+ * Create a stream that emits files in the order of `fileNames`, one at a time,
+ * reading each file from disk before emitting it.
+ *
+ * This is used to serialize file reads when packaging extensions, to avoid
+ * running out of file descriptors (EMFILE) when building.
+ *
+ * @param extensionPath The root path of the extension
+ * @param fileNames The list of file names to emit, relative to `extensionPath`
+ * @returns A stream that emits the files in order
+ */
+function createSequentialFileStream(extensionPath, fileNames) {
+    const stream = event_stream_1.default.through();
+    const queue = [...fileNames];
+    let ended = false;
+    const finish = () => {
+        if (!ended) {
+            ended = true;
+            stream.emit('end');
+        }
+    };
+    stream.on('close', () => {
+        ended = true;
+        queue.length = 0;
+    });
+    stream.on('error', () => {
+        ended = true;
+        queue.length = 0;
+    });
+    const pump = () => {
+        if (ended) {
+            return;
+        }
+        if (queue.length === 0) {
+            finish();
+            return;
+        }
+        const relativePath = queue.shift();
+        const absolutePath = path_1.default.join(extensionPath, relativePath);
+        let stats;
+        try {
+            stats = fs_1.default.statSync(absolutePath);
+        }
+        catch (error) {
+            ended = true;
+            queue.length = 0;
+            stream.emit('error', error);
+            return;
+        }
+        let fileStream;
+        try {
+            fileStream = fs_1.default.createReadStream(absolutePath);
+        }
+        catch (error) {
+            ended = true;
+            queue.length = 0;
+            stream.emit('error', error);
+            return;
+        }
+        let settled = false;
+        const cleanup = () => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            fileStream.removeListener('end', cleanup);
+            fileStream.removeListener('close', cleanup);
+            fileStream.removeListener('error', onError);
+            setImmediate(pump);
+        };
+        const onError = (err) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            fileStream.removeListener('end', cleanup);
+            fileStream.removeListener('close', cleanup);
+            fileStream.removeListener('error', onError);
+            ended = true;
+            queue.length = 0;
+            stream.emit('error', err);
+        };
+        fileStream.on('end', cleanup);
+        fileStream.on('close', cleanup);
+        fileStream.on('error', onError);
+        const file = new vinyl_1.default({
+            path: absolutePath,
+            stat: stats,
+            base: extensionPath,
+            contents: fileStream
+        });
+        stream.emit('data', file);
+    };
+    setImmediate(pump);
+    return stream;
+}
 // Node 20 consistently crashes when there are too many `vsce.listFiles`
 // operations in flight at once; these operations are expensive as they recurse
 // back into `yarn`. The code below serializes these operations when building

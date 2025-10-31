@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-// CSS.
-import '../../../../../../base/browser/ui/positronComponents/button/button.css';
-
 // React.
 import React, { useRef } from 'react';
 
@@ -18,6 +14,7 @@ import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNote
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { INotebookCellActionBarItem } from './actionBarRegistry.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { ActionButton } from '../../utilityComponents/ActionButton.js';
 
 interface NotebookCellMoreActionsMenuProps {
 	instance: IPositronNotebookInstance;
@@ -39,10 +36,7 @@ export function NotebookCellMoreActionsMenu({
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 	const commandService = usePositronReactServicesContext().commandService;
-	const showMoreActionsMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
-		// Prevent click from bubbling to cell wrapper which would deselect the cell
-		e.preventDefault();
-		e.stopPropagation();
+	const showMoreActionsMenu = () => {
 
 		if (!buttonRef.current) {
 			return;
@@ -74,15 +68,14 @@ export function NotebookCellMoreActionsMenu({
 	};
 
 	return (
-		<button
+		<ActionButton
 			ref={buttonRef}
 			aria-expanded={isMenuOpen}
 			aria-haspopup='menu'
-			aria-label={localize('moreActions', 'More actions')}
-			className='positron-button'
-			onClick={showMoreActionsMenu}
+			ariaLabel={localize('moreActions', 'More actions')}
+			onPressed={showMoreActionsMenu}
 		>
 			<div className='button-icon codicon codicon-ellipsis' />
-		</button>
+		</ActionButton>
 	);
 }

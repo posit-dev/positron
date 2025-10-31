@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -33,6 +33,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPathService } from '../../path/common/pathService.js';
 import { untildify } from '../../../../base/common/labels.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { isEqual } from '../../../../base/common/resources.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -106,7 +107,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// A map of the currently active notebook sessions. This is keyed by the notebook URI
 	// owning the session.
-	private readonly _notebookSessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
+	private readonly _notebookSessionsByNotebookUri = new ResourceMap<INotebookLanguageRuntimeSession>();
 
 	// An map of sessions that have been disconnected from the extension host,
 	// from sessionId to session. We keep these around so we can reconnect them when
@@ -373,7 +374,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns The notebook session with the given notebook URI, or undefined if
 	 *  no notebook session with the given notebook URI exists.
 	 */
-	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
+	getNotebookSessionForNotebookUri(notebookUri: URI): INotebookLanguageRuntimeSession | undefined {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
 		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
 		return session;
@@ -689,7 +690,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const createConsole =
 			sessionMode === LanguageRuntimeSessionMode.Console || (
 				sessionMode === LanguageRuntimeSessionMode.Notebook &&
-				this._configurationService.getValue<boolean>("console.showNotebookConsoles"));
+				this._configurationService.getValue<boolean>('console.showNotebookConsoles'));
 
 		// Start the runtime.
 		this._logService.info(
@@ -852,6 +853,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If there's nothing to do, return.
 		if (!session && !this._foregroundSession) {
 			return;
+		}
+
+		// Check if the session is already the foreground session
+		if (session && this._foregroundSession && session.sessionId === this._foregroundSession.sessionId) {
+			return; // No change, don't update or fire events
 		}
 
 		this._foregroundSession = session;
@@ -1731,7 +1737,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Append the new session to the list of existing sessions if it hasn't been added
 				this.addSessionToConsoleSessionMap(session);
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				if (session.metadata.notebookUri) {
+				if (isNotebookLanguageRuntimeSession(session)) {
 					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 				} else {
@@ -1743,12 +1749,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
-			// TODO: Should this fire onDidChangeForegroundSession?
-			//       If so, should it fire immediately or once the session is ready
-			//       (which would already happen if we remove this block)?
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._foregroundSession = session;
+				this.foregroundSession = session;
 			}
 		} catch (reason) {
 			this.clearStartingSessionMaps(
@@ -1837,8 +1840,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					// Restore the session in the case of a restart.
 					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 						this.addSessionToConsoleSessionMap(session);
-					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-						session.metadata.notebookUri &&
+					} else if (isNotebookLanguageRuntimeSession(session) &&
 						!this._notebookSessionsByNotebookUri.has(session.metadata.notebookUri)) {
 						this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 					}
@@ -2334,6 +2336,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// with our mapping, which helps debugging and ensures session properties
 			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
+			session.metadata.notebookUri = newUri;
 			workingDirectoryWasChanged = await this.promptAndUpdateWorkingDirectoryIfChanged(session, newUri);
 
 			// 3. Finally remove the old mapping - we do this last because it's
@@ -2379,7 +2382,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// 3. Restore original URI and working directory in session state if needed
 			// Why: Keep the session's internal state consistent with our mappings
-			if (session.dynState.currentNotebookUri === newUri) {
+			if (isEqual(session.dynState.currentNotebookUri, newUri)) {
+				session.dynState.currentNotebookUri = oldUri;
+			}
+			if (isEqual(session.metadata.notebookUri, newUri)) {
 				session.dynState.currentNotebookUri = oldUri;
 			}
 			if (workingDirectoryWasChanged) {
@@ -2465,6 +2471,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				localize('positron.notebook.workingDirectoryChanged.title', 'Update working directory?'),
 				localize(
 					'positron.notebook.workingDirectoryChanged',
+					// eslint-disable-next-line local/code-no-unexternalized-strings
 					'This notebook was moved to a new location but your session is still running from the original directory.'
 					+ '<br><br>Saved at: <code>{0}</code>'
 					+ '<br>Running from: <code>{1}</code>'
@@ -2531,4 +2538,21 @@ function awaitStateChange(
 			}));
 		}
 	});
+}
+
+/**
+ * Checks whether a session is for a notebook.
+ * @param session The session to check
+ */
+export function isNotebookLanguageRuntimeSession(session: ILanguageRuntimeSession): session is INotebookLanguageRuntimeSession {
+	return isNotebookRuntimeSessionMetadata(session.metadata);
+}
+
+/**
+ * Checks whether a session's metadata is for a notebook session.
+ * @param metadata The session metadata to check
+ */
+export function isNotebookRuntimeSessionMetadata(metadata: IRuntimeSessionMetadata): metadata is INotebookRuntimeSessionMetadata {
+	return metadata.notebookUri !== undefined &&
+		metadata.sessionMode === LanguageRuntimeSessionMode.Notebook;
 }

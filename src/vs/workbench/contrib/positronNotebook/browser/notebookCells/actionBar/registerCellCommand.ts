@@ -15,7 +15,7 @@ import { IPositronNotebookInstance } from '../../IPositronNotebookInstance.js';
 import { getSelectedCell, getSelectedCells, getEditingCell } from '../../selectionMachine.js';
 import { ContextKeyExpr, ContextKeyExpression } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../../../services/editor/common/editorService.js';
-import { getNotebookInstanceFromEditorPane } from '../../notebookUtils.js';
+import { getNotebookInstanceFromActiveEditorPane } from '../../notebookUtils.js';
 
 /**
  * Options for registering a cell command.
@@ -39,10 +39,17 @@ export interface IRegisterCellCommandOptions {
 	/** Optional command metadata including description, args, and return type. As passed to CommandsRegistry.registerCommand. */
 	metadata?: ICommandMetadata;
 
-	/** Visibility condition using context keys (optional). Defaults to `POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED` when not specified.
-	 * When the command is not an "editMode" command, then the keybinding will only run when the cell editor is not focused.
-	 * This is equivalent to the `and(<your when condition>, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated())` condition.
-	 * This is so you dont have to specify not(editor focused) for the majority of commands.
+	/** Visibility condition using context keys (optional).
+	 *
+	 * For action bar items: The `when` condition is used as-is without modification, allowing action bar items
+	 * to remain visible and clickable even when the cell is in edit mode.
+	 *
+	 * For keybindings: The `when` condition is combined with edit mode restrictions based on the `editMode` option:
+	 * - When `editMode: false` (default): Keybindings only work when the notebook container is focused (not when cell editor is focused)
+	 * - When `editMode: true`: Keybindings work when either the container or cell editor is focused
+	 *
+	 * Note: Users should not directly include `POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED` in their `when` condition.
+	 * Edit mode restrictions are handled automatically via the `editMode` option for keybindings only.
 	*/
 	when?: ContextKeyExpression;
 
@@ -82,7 +89,7 @@ export function registerCellCommand({
 		id: commandId,
 		handler: (accessor: ServicesAccessor) => {
 			const editorService = accessor.get(IEditorService);
-			const activeNotebook = getNotebookInstanceFromEditorPane(editorService);
+			const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
 			if (!activeNotebook) {
 				return;
 			}
@@ -97,8 +104,9 @@ export function registerCellCommand({
 			} else {
 				// Handle single cell
 				const state = activeNotebook.selectionStateMachine.state.get();
-				// Get the selected cell and/or the editing cell if edit mode is enabled
-				const cell = getSelectedCell(state) || (editMode ? getEditingCell(state) : undefined);
+				// Always check editing cell if actionBar is present (action bar items should work in edit mode).
+				// Otherwise, only check editing cell if editMode option is enabled.
+				const cell = getSelectedCell(state) || ((actionBar || editMode) ? getEditingCell(state) : undefined);
 				if (cell) {
 					handler(cell, activeNotebook, accessor);
 				}
@@ -111,6 +119,8 @@ export function registerCellCommand({
 	// Optionally register UI metadata
 	if (actionBar) {
 		const humanReadableLabel = String(metadata?.description ?? commandId);
+		// For action bar items, use `when` as-is without adding edit mode restrictions.
+		// Edit mode restrictions are only applied to keybindings via the `editMode` option.
 		const uiItem: INotebookCellActionBarItem = {
 			commandId,
 			label: humanReadableLabel,
@@ -127,7 +137,10 @@ export function registerCellCommand({
 
 	// Optionally register keybinding
 	if (keybinding) {
-		// Determine the when condition based on edit mode
+		// Determine the when condition based on edit mode.
+		// For keybindings, we add edit mode restrictions:
+		// - When `editMode: false` (default): Only allow shortcuts when container is focused (not when cell editor is focused)
+		// - When `editMode: true`: Allow shortcuts when either container or cell editor is focused
 		const defaultCondition = editMode ?
 			ContextKeyExpr.or(
 				POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,

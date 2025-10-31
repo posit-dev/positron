@@ -106,7 +106,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 			editorGroupService,
 		);
 
-		this._logService.info('PositronNotebookEditor created.');
+		this._logService.debug('PositronNotebookEditor created.');
 
 	}
 
@@ -197,7 +197,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 
 	protected override createEditor(parent: HTMLElement): void {
 
-		this._logService.info(this._identifier, 'createEditor');
+		this._logService.debug(this._identifier, 'createEditor');
 		this._parentDiv = DOM.$('.positron-notebook-container');
 		parent.appendChild(this._parentDiv);
 		this._parentDiv.style.display = 'relative';
@@ -222,7 +222,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		token: CancellationToken,
 		noRetry?: boolean
 	): Promise<void> {
-		this._logService.info(this._identifier, 'setInput');
+		this._logService.debug(this._identifier, 'setInput');
 
 
 		this._input = input;
@@ -239,11 +239,14 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		// without having to pass the options to the resolve method.
 		input.editorOptions = options;
 
+		// NOTE: Placeholder if we need to use editor view state:
+		// const viewState = options?.viewState ?? this.loadEditorViewState(input, context);
+		const { notebookInstance } = input;
+
 		// Update the editor control given the notebook instance.
 		// This has to be done before we `await super.setInput` since that fires events
 		// with listeners that call `this.getControl()` expecting an up-to-date control
 		// i.e. with `activeCodeEditor` being the editor of the selected cell in the notebook.
-		const { notebookInstance } = input;
 		this._control.value = new PositronNotebookEditorControl(notebookInstance);
 
 		await super.setInput(input, options, context, token);
@@ -261,7 +264,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		}
 
 		// Set the notebook instance model
-		notebookInstance.setModel(model.notebook, options?.viewState);
+		notebookInstance.setModel(model.notebook);
 
 		// Trigger the selection change event when the notebook was edited.
 		this._instanceDisposableStore.add(
@@ -290,7 +293,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	}
 
 	override clearInput(): void {
-		this._logService.info(this._identifier, 'clearInput');
+		this._logService.debug(this._identifier, 'clearInput');
 
 		if (this.notebookInstance) {
 			this.notebookInstance.detachView();
@@ -334,7 +337,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	 * Disposes the PositronReactRenderer for the PositronNotebook component.
 	 */
 	private _disposeReactRenderer() {
-		this._logService.info(this._identifier, 'disposeReactRenderer');
+		this._logService.debug(this._identifier, 'disposeReactRenderer');
 
 		if (this._positronReactRenderer) {
 			this._positronReactRenderer.dispose();
@@ -347,7 +350,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	}
 
 	private _renderReact(): IScopedContextKeyService {
-		this._logService.info(this._identifier, 'renderReact');
+		this._logService.debug(this._identifier, 'renderReact');
 
 		if (!this.notebookInstance) {
 			throw new Error('Notebook instance is not set.');
@@ -356,6 +359,9 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 		if (!this._parentDiv) {
 			throw new Error('Base element is not set.');
 		}
+
+		// Set the editor container for focus tracking
+		this.notebookInstance.setEditorContainer(this._parentDiv);
 
 		// Create a scoped context key service rooted at the notebook container so cell scopes inherit it.
 		const scopedContextKeyService = this._containerScopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
@@ -387,7 +393,7 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 	 * dispose override method.
 	 */
 	public override dispose(): void {
-		this._logService.info(this._identifier, 'dispose');
+		this._logService.debug(this._identifier, 'dispose');
 		this.notebookInstance?.detachView();
 
 		this._disposeReactRenderer();

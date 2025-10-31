@@ -31,6 +31,10 @@ const OVERSCAN_FACTOR = 3
 
 /**
  * TableSummaryDataGridInstance class.
+ *
+ * This class is used to display a summary of each column in the dataset.
+ * This instance manages represents a column from the dataset and displays
+ * summary information such as data type, null count, and summary statistics.
  */
 export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties

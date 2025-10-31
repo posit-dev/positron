@@ -383,14 +383,13 @@ suite('MainThreadChatSessions', function () {
 			requestId: 'test-request',
 			agentId: 'test-agent',
 			message: 'my prompt',
-			location: ChatAgentLocation.Panel,
+			location: ChatAgentLocation.Chat,
 			variables: { variables: [] }
 		};
 
 		// Valid
 		const chatSessionItem = await chatSessionsService.provideNewChatSessionItem('test-type', {
 			request: mockRequest,
-			prompt: 'my prompt',
 			metadata: {}
 		}, CancellationToken.None);
 		assert.strictEqual(chatSessionItem.id, 'new-session-id');
@@ -400,7 +399,6 @@ suite('MainThreadChatSessions', function () {
 		await assert.rejects(
 			chatSessionsService.provideNewChatSessionItem('invalid-type', {
 				request: mockRequest,
-				prompt: 'my prompt',
 				metadata: {}
 			}, CancellationToken.None)
 		);

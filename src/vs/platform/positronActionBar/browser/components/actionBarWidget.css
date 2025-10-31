@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.action-bar-widget {
-	padding-inline: 6px;
-}
-
 /**
  * Error indicator shown when a widget fails to render.
  * Displays a small error icon with tooltip explaining the failure.

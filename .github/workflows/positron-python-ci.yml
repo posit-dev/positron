@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - 'prerelease/**'
+      - 'release/**'
     paths:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
@@ -13,6 +14,7 @@ on:
     branches:
       - main
       - 'prerelease/**'
+      - 'release/**'
     paths:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
@@ -250,18 +252,19 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ['3.x']
         test-suite:
-          [ts-unit, venv, single-workspace, debugger, functional]
+          [ts-unit, single-workspace, debugger, functional] # venv is removed from this list, see https://github.com/posit-dev/positron/pull/10187
         # TODO: Add integration tests on windows and ubuntu. This requires updating
         # src/test/positron/testElectron.ts to support installing Positron on these platforms.
         exclude:
-          - os: windows-latest
-            test-suite: venv
+          # venv disabled for now, see https://github.com/posit-dev/positron/pull/10187
+          # - os: windows-latest
+          #   test-suite: venv
           - os: windows-latest
             test-suite: debugger
           - os: windows-latest
             test-suite: single-workspace
-          - os: ubuntu-latest
-            test-suite: venv
+          # - os: ubuntu-latest
+          #   test-suite: venv
           - os: ubuntu-latest
             test-suite: debugger
           - os: ubuntu-latest

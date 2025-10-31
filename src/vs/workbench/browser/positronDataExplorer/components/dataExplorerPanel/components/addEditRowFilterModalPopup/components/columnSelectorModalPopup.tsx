@@ -113,7 +113,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 							initialSearchText={props.searchInput}
 							onConfirmSearch={() => {
 								props.columnSelectorDataGridInstance.selectItem(
-									props.columnSelectorDataGridInstance.cursorColumnIndex
+									props.columnSelectorDataGridInstance.cursorRowIndex
 								);
 							}}
 							onNavigateOut={() => {

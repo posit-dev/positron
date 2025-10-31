@@ -5,7 +5,7 @@
 
 import * as Mocha from "mocha";
 import * as path from 'path';
-import { glob } from "glob";
+import { globSync } from "glob";
 
 // This index file is not required by the vscode-test tool but is needed for our
 // launch.json. The `extensionTestsPath` option expects an index file that
@@ -14,12 +14,12 @@ import { glob } from "glob";
 
 export async function run(): Promise<void> {
 	// Note again that these options only get set in debug session via launch.json
-	const mocha = new Mocha({
+	const mocha = new Mocha.default({
 		ui: "tdd",
 		timeout: 60000,
 	});
 
-	const testFiles = glob.sync(path.join(__dirname, '*.test.js'));
+	const testFiles = globSync(path.join(__dirname, '*.test.js'));
 
 	for (const file of testFiles) {
 		mocha.addFile(file);

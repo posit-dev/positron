@@ -484,7 +484,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Next, check for any sessions persisted in the workspace storage.
 		const sessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS,
-			StorageScope.WORKSPACE);
+			this.getPersistentSessionStorageScope());
 		if (sessions) {
 			try {
 				const stored = JSON.parse(sessions) as Array<SerializedSessionMetadata>;
@@ -1519,9 +1519,23 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._storageService.store(
 			PERSISTENT_WORKSPACE_SESSIONS,
 			JSON.stringify(machineSessions),
-			StorageScope.WORKSPACE, StorageTarget.MACHINE);
+			this.getPersistentSessionStorageScope(), StorageTarget.MACHINE);
 
 		return false;
+	}
+
+	/**
+	 * Gets the storage scope for persistent sessions.
+	 *
+	 * Currently, we always use the workspace scope for persistent sessions.
+	 * This isn't ideal because it means that the empty workspace doesn't get
+	 * persistent sessions in remote scenarios, but it avoids complications with
+	 * multiple empty workspaces having different sets of persistent sessions.
+	 *
+	 * @returns The storage scope for persistent sessions.
+	 */
+	private getPersistentSessionStorageScope(): StorageScope {
+		return StorageScope.WORKSPACE;
 	}
 
 	/**

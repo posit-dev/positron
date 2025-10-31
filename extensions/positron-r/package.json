@@ -161,7 +161,14 @@
             "scope": "window",
             "type": "boolean",
             "default": false,
-            "description": "%r.configuration.restoreWorkspace.description%"
+            "description": "%r.configuration.restoreWorkspace.description%",
+            "deprecationMessage": "%r.configuration.restoreWorkspace.deprecationMessage%"
+          },
+          "positron.r.saveAndRestoreWorkspace": {
+            "scope": "window",
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%r.configuration.saveAndRestoreWorkspace.description%"
           },
           "positron.r.quietMode": {
             "scope": "window",
@@ -196,6 +203,11 @@
             "type": "boolean",
             "default": false,
             "description": "%r.configuration.workspaceSymbols.includeCommentSections.description%"
+          },
+          "positron.r.autoConvertFilePaths": {
+            "type": "boolean",
+            "default": true,
+            "description": "%r.configuration.autoConvertFilePaths.description%"
           }
         }
       },
@@ -974,7 +986,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.213"
+      "ark": "0.1.216"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

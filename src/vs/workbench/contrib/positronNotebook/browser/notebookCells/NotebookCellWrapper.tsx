@@ -23,10 +23,11 @@ import { useCellContextKeys } from './useCellContextKeys.js';
 import { CellScopedContextKeyServiceProvider } from './CellContextKeyServiceProvider.js';
 import { ScreenReaderOnly } from '../../../../../base/browser/ui/positronComponents/ScreenReaderOnly.js';
 
-export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
+export function NotebookCellWrapper({ cell, actionBarChildren, children, hasError }: {
 	cell: IPositronNotebookCell;
 	actionBarChildren?: React.ReactNode;
 	children: React.ReactNode;
+	hasError?: boolean;
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
@@ -37,7 +38,7 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 
 	React.useEffect(() => {
 		if (cellRef.current) {
-			// Attach the container to the cell instance can properly control focus.
+			// Attach the container so the cell instance can properly control focus.
 			cell.attachContainer(cellRef.current);
 		}
 	}, [cell, cellRef]);
@@ -65,11 +66,12 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 	// State for ARIA announcements
 	const [announcement, setAnnouncement] = React.useState<string>('');
 
-	// Announce selection changes for screen readers
 	React.useLayoutEffect(() => {
 		const cellIndex = cell.index;
-		const totalCells = notebookInstance.cells.get().length;
+		const cells = notebookInstance.cells.get();
+		const totalCells = cells.length;
 
+		// Announce selection changes for screen readers
 		if (selectionStatus === CellSelectionStatus.Selected) {
 			setAnnouncement(`Cell ${cellIndex + 1} of ${totalCells} selected`);
 		} else if (selectionStatus === CellSelectionStatus.Editing) {
@@ -78,13 +80,23 @@ export function NotebookCellWrapper({ cell, actionBarChildren, children }: {
 			// Clear announcement when unselected
 			setAnnouncement('');
 		}
-	}, [selectionStatus, cell.index, notebookInstance]);
+
+		// Close any open markdown cell editors when clicking on a different cell
+		// This must happen before any early returns to ensure markdown cell editors
+		// always close when clicking outside them
+		for (const otherCell of cells) {
+			if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
+				otherCell.toggleEditor();
+			}
+		}
+	}, [selectionStatus, cell, notebookInstance]);
 
 	return <div
 		ref={cellRef}
 		aria-label={localize('notebookCell', '{0} cell', cellType)}
 		aria-selected={isSelected}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		data-has-error={hasError}
 		data-is-running={executionStatus === 'running'}
 		data-testid='notebook-cell'
 		role='article'

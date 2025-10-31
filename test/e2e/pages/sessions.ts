@@ -15,7 +15,9 @@ const getAlternateR = () => process.env.POSITRON_R_ALT_VER_SEL;
 const getHiddenPython = () => process.env.POSITRON_HIDDEN_PY;
 const getHiddenR = () => process.env.POSITRON_HIDDEN_R;
 
-const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
+export const ACTIVE_STATUS_ICON = '.codicon-positron-runtime-status-active';
+export const IDLE_STATUS_ICON = '.codicon-positron-runtime-status-idle';
+export const DISCONNECTED_STATUS_ICON = '.codicon-positron-runtime-status-disconnected';
 
 /**
  * Class to manage console sessions
@@ -34,8 +36,8 @@ export class Sessions {
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
-	private idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
-	private disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
+	private idleStatus = (session: Locator) => session.locator(IDLE_STATUS_ICON);
+	private disconnectedStatus = (session: Locator) => session.locator(DISCONNECTED_STATUS_ICON);
 	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 
 	// Session Metadata
@@ -498,7 +500,7 @@ export class Sessions {
 			await expect(this.code.driver.page.locator('[id="workbench.parts.titlebar"]')).toBeVisible({ timeout: 30000 });
 			await this.console.focus();
 			await this.code.driver.page.mouse.move(0, 0);
-			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Reconnecting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		});
 	}
 
@@ -660,7 +662,7 @@ export class Sessions {
 		const activeSessions = (
 			await Promise.all(
 				allSessionTabs.map(async session => {
-					const isDisconnected = await session.locator('.codicon-positron-status-disconnected').isVisible();
+					const isDisconnected = await session.locator('.codicon-positron-runtime-status-disconnected').isVisible();
 					if (isDisconnected) { return null; }
 
 					// Extract session ID from data-testid attribute
@@ -796,7 +798,7 @@ export class Sessions {
 			if (sessionCount > 1) {
 				// get status from icon in tab list view
 				const sessionTab = this.getSessionTab(sessionIdOrName);
-				const statusClass = `.codicon-positron-status-${expectedStatus}`;
+				const statusClass = `.codicon-positron-runtime-status-${expectedStatus}`;
 
 				await expect(sessionTab).toBeVisible();
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
@@ -1156,7 +1158,7 @@ export type SessionMetaData = {
 	path: string;
 };
 
-type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
+export type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
 
 // Lazy factory functions for session objects - these will use current environment values when called
 const createPythonSession = (): SessionInfo => ({

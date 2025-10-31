@@ -18,6 +18,7 @@ import { EXTENSION_ROOT_DIR } from './constants';
  * @param rHomePath The R_HOME path for the R version
  * @param runtimeName The (display) name of the runtime
  * @param sessionMode The mode in which to create the session
+ * @param options Additional options: specifically, the R binary path and architecture
  *
  * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
  *  metadata.
@@ -25,10 +26,15 @@ import { EXTENSION_ROOT_DIR } from './constants';
 export function createJupyterKernelSpec(
 	rHomePath: string,
 	runtimeName: string,
-	sessionMode: positron.LanguageRuntimeSessionMode): JupyterKernelSpec {
+	sessionMode: positron.LanguageRuntimeSessionMode,
+	options?: { rBinaryPath?: string; rArchitecture?: string }): JupyterKernelSpec {
 
 	// Path to the kernel executable
-	const kernelPath = getArkKernelPath();
+	const kernelPath = getArkKernelPath({
+		rBinaryPath: options?.rBinaryPath,
+		rHomePath,
+		rArch: options?.rArchitecture
+	});
 	if (!kernelPath) {
 		throw new Error('Unable to find R kernel');
 	}
@@ -143,10 +149,17 @@ export function createJupyterKernelSpec(
 		'kernel_protocol_version': '5.5' // eslint-disable-line
 	};
 
-	// Unless the user has chosen to restore the workspace, pass the
-	// `--no-restore-data` flag to R.
-	if (!config.get<boolean>('restoreWorkspace')) {
-		kernelSpec.argv.push('--no-restore-data');
+	// For temporary, approximate backward compatibility, check both
+	// 'saveAndRestoreWorkspace' and 'restoreWorkspace', which was deprecated in
+	// late October 2025. Remove the latter setting and check in a future release.
+	const shouldSaveAndRestore = config.get<boolean>('saveAndRestoreWorkspace') || config.get<boolean>('restoreWorkspace');
+
+	if (shouldSaveAndRestore) {
+		// '--restore-data' is the default but let's be explicit for clarity and
+		// symmetry with the other branch
+		kernelSpec.argv.push('--restore-data', '--save');
+	} else {
+		kernelSpec.argv.push('--no-restore-data', '--no-save');
 	}
 
 	// If the user has supplied extra arguments to R, pass them along.
@@ -171,6 +184,11 @@ export function createJupyterKernelSpec(
 function findReposConf(): string | undefined {
 	const xdg = require('xdg-portable/cjs');
 	const configDirs: Array<string> = xdg.configDirs();
+	// on Unix-alikes, also check /etc; RStudio uses /etc/rstudio instead of the
+	// XDG dir /etc/xdg/rstudio
+	if (process.platform !== 'win32') {
+		configDirs.push('/etc');
+	}
 	for (const product of ['rstudio', 'positron']) {
 		for (const configDir of configDirs) {
 			const reposConf = path.join(configDir, product, 'repos.conf');

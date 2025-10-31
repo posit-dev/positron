@@ -6,6 +6,7 @@
 // The code in extensions/open-remote-ssh has been adapted from https://github.com/jeanp413/open-remote-ssh,
 // which is licensed under the MIT license.
 
+import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import Log from './common/logger';
 import { getVSCodeServerConfig } from './serverConfig';
@@ -45,7 +46,48 @@ export class ServerInstallError extends Error {
 
 const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
-export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log): Promise<ServerInstallResult> {
+/**
+ * Converts a wildcard pattern to a regular expression.
+ * Supports patterns like:
+ * - "*" matches everything
+ * - "posit.*" matches strings starting with "posit."
+ * - "posit.co" matches exactly "posit.co"
+ */
+function wildcardToRegex(pattern: string): RegExp {
+	if (pattern === '*') {
+		return /.*/;
+	}
+
+	// Escape special regex characters except *
+	const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+	// Replace * with .*
+	const regexPattern = '^' + escaped.replace(/\*/g, '.*') + '$';
+
+	return new RegExp(regexPattern);
+}
+
+/**
+ * Finds the first matching path from the serverInstallPath setting.
+ * Iterates through the setting keys in order and returns the path for the first pattern
+ * that matches either the hostname or hostAlias.
+ *
+ * @param hostname - The hostname to match
+ * @param hostAlias - The host alias to match
+ * @returns The matching path or undefined if no match is found
+ */
+function findFirstMatchingPath(hostname: string, hostAlias: string): string | undefined {
+	const settings = vscode.workspace.getConfiguration('remoteSSH').get<{ [key: string]: string }>('serverInstallPath', {});
+	for (const [pattern, path] of Object.entries(settings)) {
+		const regex = wildcardToRegex(pattern);
+		if (regex.test(hostname) || regex.test(hostAlias)) {
+			return path;
+		}
+	}
+	return undefined;
+}
+
+export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log, hostname: string, hostAlias: string): Promise<ServerInstallResult> {
 	let shell = 'powershell';
 
 	// detect platform and shell for windows
@@ -78,6 +120,14 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 	const scriptId = crypto.randomBytes(12).toString('hex');
 
 	const vscodeServerConfig = await getVSCodeServerConfig();
+
+	// Check the remoteSSH.serverInstallPath setting
+	let serverDataFolderName = vscodeServerConfig.serverDataFolderName;
+	const matchedPath = findFirstMatchingPath(hostname, hostAlias);
+	if (matchedPath) {
+		serverDataFolderName = matchedPath;
+	}
+
 	const installOptions: ServerInstallOptions = {
 		id: scriptId,
 		version: vscodeServerConfig.version,
@@ -88,7 +138,7 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 		envVariables,
 		useSocketPath,
 		serverApplicationName: vscodeServerConfig.serverApplicationName,
-		serverDataFolderName: vscodeServerConfig.serverDataFolderName,
+		serverDataFolderName,
 		serverDownloadUrlTemplate: serverDownloadUrlTemplate || vscodeServerConfig.serverDownloadUrlTemplate || DEFAULT_DOWNLOAD_URL_TEMPLATE,
 	};
 
@@ -98,6 +148,7 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
 
 		logger.trace('Server install command:', installServerScript);
 
+		// TODO upon supporting windows hosts: respect the remoteSSH.serverInstallPath setting here
 		const installDir = `$HOME\\${vscodeServerConfig.serverDataFolderName}\\install`;
 		const installScript = `${installDir}\\${vscodeServerConfig.commit}.ps1`;
 		const endRegex = new RegExp(`${scriptId}: end`);
@@ -226,7 +277,14 @@ DISTRO_VSCODIUM_RELEASE="${release ?? ''}"
 SERVER_APP_NAME="${serverApplicationName}"
 SERVER_INITIAL_EXTENSIONS="${extensions}"
 SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-sock-${crypto.randomUUID()}"` : '--port=0'}"
-SERVER_DATA_DIR="$HOME/${serverDataFolderName}"
+SERVER_DATA_DIR="${serverDataFolderName}"
+
+# If SERVER_DATA_DIR is relative, make it relative to $HOME
+if [[ "$SERVER_DATA_DIR" != /* ]]; then
+	SERVER_DATA_DIR="$HOME/$SERVER_DATA_DIR"
+fi
+echo "Using server data dir: $SERVER_DATA_DIR"
+
 SERVER_DIR="$SERVER_DATA_DIR/bin/$DISTRO_COMMIT"
 SERVER_SCRIPT="$SERVER_DIR/bin/$SERVER_APP_NAME"
 SERVER_LOGFILE="$SERVER_DATA_DIR/.$DISTRO_COMMIT.log"
@@ -353,6 +411,9 @@ if [[ ! -f $SERVER_SCRIPT ]]; then
 
 	pushd $SERVER_DIR > /dev/null
 
+	# Clean up any previous partial downloads
+	rm -f vscode-server.tar.gz
+
 	if [[ ! -z $(which wget) ]]; then
 		wget --tries=3 --timeout=10 --continue --no-verbose -O vscode-server.tar.gz $SERVER_DOWNLOAD_URL
 	elif [[ ! -z $(which curl) ]]; then
@@ -467,6 +528,7 @@ $DISTRO_VSCODIUM_RELEASE="${release ?? ''}"
 $SERVER_APP_NAME="${serverApplicationName}"
 $SERVER_INITIAL_EXTENSIONS="${extensions}"
 $SERVER_LISTEN_FLAG="${useSocketPath ? `--socket-path="$TMP_DIR/vscode-server-sock-${crypto.randomUUID()}"` : '--port=0'}"
+# TODO upon supporting windows hosts: respect the remoteSSH.serverInstallPath setting here
 $SERVER_DATA_DIR="$(Resolve-Path ~)\\${serverDataFolderName}"
 $SERVER_DIR="$SERVER_DATA_DIR\\bin\\$DISTRO_COMMIT"
 $SERVER_SCRIPT="$SERVER_DIR\\bin\\$SERVER_APP_NAME.cmd"

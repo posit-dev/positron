@@ -67,6 +67,7 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: true
       install_license: false
+      allow_soft_fail: false
 
   e2e-windows:
     name: e2e
@@ -79,6 +80,7 @@ jobs:
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_testrail: false
       report_currents: false
+      allow_soft_fail: false
 
   e2e-chromium:
     name: e2e
@@ -94,6 +96,7 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: true
       install_license: true
+      allow_soft_fail: false
 
   e2e-rhel:
     name: e2e
@@ -109,6 +112,7 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: true
       install_license: false
+      allow_soft_fail: false
 
   e2e-chromium-rhel:
     name: e2e
@@ -124,6 +128,7 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: true
       install_license: true
+      allow_soft_fail: false
 
   unit-tests:
     name: test

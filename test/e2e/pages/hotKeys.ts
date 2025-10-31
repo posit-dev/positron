@@ -60,6 +60,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+Shift+Enter', 'Run file in console');
 	}
 
+	public async selectNotebookKernel() {
+		await this.pressHotKeys('Cmd+J D', 'Select notebook kernel');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------
@@ -114,6 +118,14 @@ export class HotKeys {
 
 	public async switchTabRight() {
 		await this.pressHotKeys('Cmd+Shift+]', 'Switch tab right');
+	}
+
+	// ------------------------
+	// --- Terminal Actions ---
+	// ------------------------
+
+	public async killAllTerminals() {
+		await this.pressHotKeys('Cmd+J T', 'Kill all terminals');
 	}
 
 	// ------------------------
@@ -208,7 +220,7 @@ export class HotKeys {
 		await this.code.driver.page.waitForTimeout(3000);
 		await this.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
 		if (waitForReady) {
-			await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
+			await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Reconnecting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 		}
 	}
 
@@ -238,6 +250,18 @@ export class HotKeys {
 
 	public async showDataExplorerSummaryPanelRight() {
 		await this.pressHotKeys('Cmd+J M', 'Show the DE Summary Panel on Right');
+	}
+
+	// -----------------------
+	// ---  Debug Actions  ---
+	// -----------------------
+
+	public async debugCell() {
+		await this.pressHotKeys('Cmd+L A', 'Debugger: Debug Cell');
+	}
+
+	public async clearAllBreakpoints() {
+		await this.pressHotKeys('Cmd+J S', 'Debugger: Clear All Breakpoints');
 	}
 
 	/**

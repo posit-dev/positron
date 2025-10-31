@@ -31,6 +31,7 @@ const compilations = [
 	// --- Start Positron ---
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/positron-assistant/tsconfig.json',
+	'extensions/positron-catalog-explorer/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
 	'extensions/positron-duckdb/tsconfig.json',
@@ -71,6 +72,7 @@ const compilations = [
 	'extensions/markdown-math/tsconfig.json',
 	'extensions/media-preview/tsconfig.json',
 	'extensions/merge-conflict/tsconfig.json',
+	'extensions/mermaid-chat-features/tsconfig.json',
 	'extensions/terminal-suggest/tsconfig.json',
 	'extensions/microsoft-authentication/tsconfig.json',
 	'extensions/notebook-renderers/tsconfig.json',
@@ -90,6 +92,13 @@ const compilations = [
 	'.vscode/extensions/vscode-selfhost-test-provider/tsconfig.json',
 	'.vscode/extensions/vscode-selfhost-import-aid/tsconfig.json',
 ];
+
+// --- Start Positron ---
+// Add the open-remote-wsl extension on Windows
+if (process.platform === 'win32') {
+	compilations.push('extensions/open-remote-wsl/tsconfig.json');
+}
+// --- End Positron ---
 
 const getBaseUrl = out => `https://main.vscode-cdn.net/sourcemaps/${commit}/${out}`;
 
