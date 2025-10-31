@@ -11,11 +11,13 @@ import { EditorActivation } from '../../../platform/editor/common/editor.js';
 // --- Start Positron ---
 import { POSITRON_NOTEBOOK_EDITOR_ID, usingPositronNotebooks } from '../../contrib/positronNotebook/common/positronNotebookCommon.js';
 import { checkPositronNotebookEnabled } from '../../contrib/positronNotebook/browser/positronNotebookExperimentalConfig.js';
-/* Swap out implementations for proxies that include Positron notebooks as well
+/* Swap out implementations for narrower interfaces fulfilled by Positron notebooks
+and proxies that include Positron notebooks as well
 import { getNotebookEditorFromEditorPane, INotebookEditor, INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
 */
-import { INotebookEditor, INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
+import { INotebookEditorOptions } from '../../contrib/notebook/browser/notebookBrowser.js';
 import { getNotebookEditorFromEditorPane } from '../../contrib/positronNotebook/browser/NotebookEditorProxyService.js';
+import { IExtensionApiNotebookEditor as INotebookEditor } from '../../contrib/positronNotebook/browser/IPositronNotebookEditor.js';
 // --- End Positron ---
 import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
 import { ICellRange } from '../../contrib/notebook/common/notebookRange.js';

@@ -20,6 +20,7 @@ import { applyTextEditorOptions } from '../../../../common/editor/editorOptions.
 import { ScrollType } from '../../../../../editor/common/editorCommon.js';
 import { CellRevealType, INotebookEditorOptions } from '../../../notebook/browser/notebookBrowser.js';
 import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from '../../../notebook/common/notebookExecutionStateService.js';
+import { IContextKeysCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	abstract readonly kind: CellKind;
@@ -34,7 +35,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
 
 	constructor(
-		public readonly cellModel: NotebookCellTextModel,
+		public readonly model: NotebookCellTextModel,
 		protected readonly _instance: PositronNotebookInstance,
 		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
 		@ITextModelService private readonly _textModelService: ITextModelService,
@@ -45,13 +46,13 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		// e.g. as used in PositronNotebookCodeCell
 		this._internalMetadata = observableFromEvent(
 			this,
-			this.cellModel.onDidChangeInternalMetadata,
-			() => /** @description internalMetadata */ this.cellModel.internalMetadata,
+			this.model.onDidChangeInternalMetadata,
+			() => /** @description internalMetadata */ this.model.internalMetadata,
 		);
 
 		// Track this cell's current execution
 		this._register(this._executionStateService.onDidChangeExecution(e => {
-			if (e.type === NotebookExecutionType.cell && e.affectsCell(this.cellModel.uri)) {
+			if (e.type === NotebookExecutionType.cell && e.affectsCell(this.model.uri)) {
 				const execution = e.changed ?? this._executionStateService.getCellExecution(this.uri);
 				this._execution.set(execution, undefined);
 			}
@@ -77,6 +78,10 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 		});
 	}
 
+	get outputsViewModels(): IContextKeysCellOutputViewModel[] {
+		return [];
+	}
+
 	get index(): number {
 		return this._instance.cells.get().indexOf(this);
 	}
@@ -86,19 +91,22 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	get uri(): URI {
-		return this.cellModel.uri;
+		return this.model.uri;
 	}
 
 	get notebookUri(): URI {
 		return this._instance.uri;
 	}
 
-	get handleId(): number {
-		return this.cellModel.handle;
+	/**
+	 * Get the handle number for cell from cell model
+	 */
+	get handle(): number {
+		return this.model.handle;
 	}
 
 	getContent(): string {
-		return this.cellModel.getValue();
+		return this.model.getValue();
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {

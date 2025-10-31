@@ -3,18 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
+import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 
 export const INotebookEditorProxyService = createDecorator<INotebookEditorProxyService>('INotebookEditorProxyService');
 
 /**
- * Proxy that combines Positron and VSCode notebook editors behind the INotebookEditorService interface.
+ * Proxy that combines Positron and VSCode notebook editors behind a subset of the INotebookEditorService interface.
  */
-export type INotebookEditorProxyService = Pick<
-	INotebookEditorService,
-	'_serviceBrand' |
-	'listNotebookEditors' |
-	'onDidAddNotebookEditor' |
-	'onDidRemoveNotebookEditor'
->;
+export interface INotebookEditorProxyService {
+	_serviceBrand: undefined;
+
+	onDidAddNotebookEditor: Event<IPositronNotebookEditor>;
+	onDidRemoveNotebookEditor: Event<IPositronNotebookEditor>;
+	listNotebookEditors(): readonly IPositronNotebookEditor[];
+}

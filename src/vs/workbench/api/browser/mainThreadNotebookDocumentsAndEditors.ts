@@ -14,13 +14,14 @@ import { MainThreadNotebookEditors } from './mainThreadNotebookEditors.js';
 import { extHostCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { editorGroupToColumn } from '../../services/editor/common/editorGroupColumn.js';
 // --- Start Positron ---
-/* Swap out implementations for proxies that include Positron notebooks as well
+/* Swap out implementations for narrower interfaces fulfilled by Positron notebooks
+and proxies that include Positron notebooks as well
 import { getNotebookEditorFromEditorPane, IActiveNotebookEditor, INotebookEditor } from '../../contrib/notebook/browser/notebookBrowser.js';
 import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
 */
-import { IActiveNotebookEditor, INotebookEditor } from '../../contrib/notebook/browser/notebookBrowser.js';
 import { getNotebookEditorFromEditorPane } from '../../contrib/positronNotebook/browser/NotebookEditorProxyService.js';
 import { INotebookEditorProxyService } from '../../contrib/positronNotebook/browser/INotebookEditorProxyService.js';
+import { IExtensionApiActiveNotebookEditor as IActiveNotebookEditor, IExtensionApiNotebookEditor as INotebookEditor } from '../../contrib/positronNotebook/browser/IPositronNotebookEditor.js';
 // --- End Positron ---
 import { NotebookTextModel } from '../../contrib/notebook/common/model/notebookTextModel.js';
 import { INotebookService } from '../../contrib/notebook/common/notebookService.js';

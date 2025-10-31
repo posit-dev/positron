@@ -6,7 +6,13 @@
 import * as DOM from '../../../../../base/browser/dom.js';
 import { DisposableStore, dispose, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+// --- Start Positron ---
+/* Replace interfaces with narrower versions so that we have to implement less in Positron notebooks
 import { ICellViewModel, INotebookEditorDelegate, KERNEL_EXTENSIONS } from '../notebookBrowser.js';
+*/
+import { KERNEL_EXTENSIONS } from '../notebookBrowser.js';
+import { IContextKeysCellViewModel as ICellViewModel, IContextKeysNotebookEditor as INotebookEditorDelegate } from '../../../positronNotebook/browser/IPositronNotebookEditor.js';
+// --- End Positron ---
 import { KERNEL_HAS_VARIABLE_PROVIDER, NOTEBOOK_CELL_TOOLBAR_LOCATION, NOTEBOOK_HAS_OUTPUTS, NOTEBOOK_HAS_RUNNING_CELL, NOTEBOOK_HAS_SOMETHING_RUNNING, NOTEBOOK_INTERRUPTIBLE_KERNEL, NOTEBOOK_KERNEL, NOTEBOOK_KERNEL_COUNT, NOTEBOOK_KERNEL_SELECTED, NOTEBOOK_KERNEL_SOURCE_COUNT, NOTEBOOK_LAST_CELL_FAILED, NOTEBOOK_MISSING_KERNEL_EXTENSION, NOTEBOOK_USE_CONSOLIDATED_OUTPUT_BUTTON, NOTEBOOK_VIEW_TYPE } from '../../common/notebookContextKeys.js';
 import { ICellExecutionStateChangedEvent, IExecutionStateChangedEvent, INotebookExecutionStateService, INotebookFailStateChangedEvent, NotebookExecutionType } from '../../common/notebookExecutionStateService.js';
 import { INotebookKernelService } from '../../common/notebookKernelService.js';
