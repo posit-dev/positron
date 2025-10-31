@@ -8,6 +8,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
+import { PendingTaskMap } from '../../../../base/common/positron/async.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -105,6 +106,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 */
 	private readonly _didExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
 	public onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._didExecuteCodeEmitter.event;
+
+	/** Map of starting session promises keyed by notebook URI. */
+	private readonly _startingSessionByNotebookUri = new PendingTaskMap(new ResourceMap<Promise<INotebookLanguageRuntimeSession>>());
 
 	constructor(
 		public readonly runtime: ILanguageRuntimeMetadata,
@@ -336,6 +340,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * @param source The source of the request
 	 */
 	public async ensureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
+		return this._startingSessionByNotebookUri.getOrRun(notebookUri, () => this.doEnsureSessionStarted(notebookUri, source));
+	}
+
+	private async doEnsureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession> {
 		// If we've already got a session going, no need to do anything
 		const session = this._runtimeSessionService
 			.getNotebookSessionForNotebookUri(notebookUri);
