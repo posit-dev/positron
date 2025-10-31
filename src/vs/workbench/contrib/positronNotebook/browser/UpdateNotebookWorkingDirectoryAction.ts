@@ -23,6 +23,7 @@ import { IConfigurationResolverService } from '../../../services/configurationRe
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ActiveNotebookHasWorkingDirectoryMismatch } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 // Constants
 const UPDATE_ID = 'update';
@@ -67,6 +68,7 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 		const configurationService = accessor.get(IConfigurationService);
 		const configurationResolverService = accessor.get(IConfigurationResolverService);
 		const logService = accessor.get(ILogService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 		const notebookInstance = getNotebookInstanceFromActiveEditorPane(accessor.get(IEditorService));
 		if (!notebookInstance) {
@@ -101,7 +103,8 @@ export class UpdateNotebookWorkingDirectoryAction extends Action2 {
 			return;
 		}
 
-		const session = notebookInstance.runtimeSession.read(undefined);
+		// Look up the session for the notebook
+		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebook.uri);
 		if (!session) {
 			notificationService.warn(localize(
 				'positron.notebook.updateWorkingDirectory.noNotebookSession',
