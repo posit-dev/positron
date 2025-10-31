@@ -6,7 +6,6 @@ import asyncio.events
 import logging
 import os
 import sys
-import threading
 
 from positron.positron_ipkernel import (
     PositronIPKernelApp,
