@@ -176,8 +176,6 @@ if __name__ == "__main__":
             WaitForSingleObject.argtypes = [ctypes.wintypes.HANDLE, ctypes.wintypes.DWORD]
             WaitForSingleObject.restype = ctypes.wintypes.DWORD
 
-            # WAIT_OBJECT_0 = 0x00000000
-            # WAIT_TIMEOUT = 0x00000102
             WAIT_OBJECT_0 = 0
 
             # Store the main thread ID so we can inject KeyboardInterrupt into it
