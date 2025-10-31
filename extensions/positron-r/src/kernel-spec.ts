@@ -184,6 +184,11 @@ export function createJupyterKernelSpec(
 function findReposConf(): string | undefined {
 	const xdg = require('xdg-portable/cjs');
 	const configDirs: Array<string> = xdg.configDirs();
+	// on Unix-alikes, also check /etc; RStudio uses /etc/rstudio instead of the
+	// XDG dir /etc/xdg/rstudio
+	if (process.platform !== 'win32') {
+		configDirs.push('/etc');
+	}
 	for (const product of ['rstudio', 'positron']) {
 		for (const configDir of configDirs) {
 			const reposConf = path.join(configDir, product, 'repos.conf');
