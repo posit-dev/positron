@@ -308,10 +308,10 @@
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "Claude*",
-              "GPT*",
-              "anthropic/claude*",
-              "openai/gpt*"
+              "*Claude*",
+              "*GPT*",
+              "*claude*",
+              "*gpt*"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
