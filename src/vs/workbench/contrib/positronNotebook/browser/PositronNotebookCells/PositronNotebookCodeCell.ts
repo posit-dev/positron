@@ -15,6 +15,7 @@ import { IPositronWebviewPreloadService } from '../../../../services/positronWeb
 import { pickPreferredOutputItem } from './notebookOutputUtils.js';
 import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
+import { IPositronCellOutputViewModel } from '../IPositronNotebookEditor.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
@@ -35,7 +36,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	) {
 		super(cellModel, instance, _executionStateService, _textModelResolverService);
 
-		this.outputs = observableFromEvent(this, this.cellModel.onDidChangeOutputs, () => {
+		this.outputs = observableFromEvent(this, this.model.onDidChangeOutputs, () => {
 			/** @description cellOutputs */
 			return this.parseCellOutputs();
 		});
@@ -53,6 +54,10 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 		this.lastRunEndTime = this._internalMetadata.map(m => /** @description lastRunEndTime */ m.runEndTime);
 	}
 
+	override get outputsViewModels(): IPositronCellOutputViewModel[] {
+		return this.outputs.get();
+	}
+
 	/**
 	 * Turn the cell outputs into an array of NotebookCellOutputs objects that we know how to render
 	 * @returns Output list with a prefered output item parsed for rendering
@@ -60,7 +65,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	parseCellOutputs(): NotebookCellOutputs[] {
 		const parsedOutputs: NotebookCellOutputs[] = [];
 
-		this.cellModel.outputs.forEach((output) => {
+		this.model.outputs.forEach((output) => {
 			const outputItems = output.outputs || [];
 			const preferredOutputItem = pickPreferredOutputItem(outputItems);
 			if (!preferredOutputItem) {

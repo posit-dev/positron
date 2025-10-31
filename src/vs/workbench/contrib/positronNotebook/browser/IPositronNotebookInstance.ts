@@ -9,11 +9,11 @@ import { CellKind, IPositronNotebookCell } from './PositronNotebookCells/IPositr
 import { SelectionStateMachine } from './selectionMachine.js';
 import { Event } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
-import { IBaseCellEditorOptions, INotebookEditor } from '../../notebook/browser/notebookBrowser.js';
+import { IBaseCellEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
-import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
+import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -56,37 +56,6 @@ export enum NotebookOperationType {
 }
 
 /**
- * Subset of INotebookEditor required to integrate with the extension API,
- * so we don't have to implement the entire INotebookEditor interface (...yet)
- * See mainThreadNotebookDocumentsAndEditors.ts and mainThreadNotebookEditors.ts.
- */
-type INotebookEditorForExtensionApi = Pick<
-	INotebookEditor,
-	// Basic
-	| 'getId'
-	// Text/view model
-	| 'textModel'  // only used for .uri
-	| 'hasModel'
-	| 'getViewModel'  // only used for .viewType
-	// Selected cells: vscode.NotebookEditor.selections
-	| 'getSelections'
-	| 'setSelections'
-	| 'onDidChangeSelection'
-	// Visible cells: vscode.NotebookEditor.visibleRanges
-	| 'visibleRanges'
-	| 'onDidChangeVisibleRanges'
-	// Cell structure: to retrieve a cell to be revealed and to ensure the revealed range is within the notebook length
-	| 'getLength'
-	| 'cellAt'  // returned ICellViewModel is only used by passing to a reveal method below
-	// Reveal: to reveal a cell
-	| 'revealInCenter'
-	| 'revealCellRangeInView'
-	| 'revealInCenterIfOutsideViewport'
-	| 'revealInViewAtTop'
-	| 'onDidFocusWidget'
->;
-
-/**
  * Interface defining the public API for interacting with a Positron notebook instance.
  * This interface abstracts away the complexity of notebook management and provides
  * a clean contract for the React UI layer to interact with notebook functionality.
@@ -97,7 +66,7 @@ type INotebookEditorForExtensionApi = Pick<
  * - Controls cell selection and editing states
  * - Provides methods for common notebook operations
  */
-export interface IPositronNotebookInstance extends INotebookEditorForExtensionApi {
+export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	// ===== Properties =====
 	/**
 	 * URI of the notebook file being edited. This serves as the unique identifier
@@ -109,8 +78,6 @@ export interface IPositronNotebookInstance extends INotebookEditorForExtensionAp
 	 * The notebook view type. Only Jupyter notebooks are supported currently.
 	 */
 	readonly viewType: 'jupyter-notebook';
-
-	readonly scopedContextKeyService: IScopedContextKeyService | undefined;
 
 	/**
 	 * Indicates whether this notebook instance is currently connected to a view/editor.

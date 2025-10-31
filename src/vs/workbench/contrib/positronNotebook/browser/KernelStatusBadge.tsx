@@ -91,15 +91,14 @@ export function KernelStatusBadge() {
 		const actions: (MenuItemAction | SubmenuItemAction)[] = [];
 		for (const [_group, groupActions] of menu.current.getActions({
 			arg: {
-				uri: notebookInstance.uri,
-				ui: true,
+				instance: notebookInstance,
 			} satisfies IPositronNotebookActionBarContext,
 			shouldForwardArgs: true,
 		})) {
 			actions.push(...groupActions);
 		}
 		return actions;
-	}, [menu, notebookInstance.uri]);
+	}, [menu, notebookInstance]);
 
 	return (
 		<ActionBarMenuButton

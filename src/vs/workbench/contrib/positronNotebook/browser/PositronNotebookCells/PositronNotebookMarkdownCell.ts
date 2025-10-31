@@ -30,7 +30,7 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 		// Create the markdown string observable
 		this.markdownString = observableFromEvent(
 			this,
-			this.cellModel.onDidChangeContent,
+			this.model.onDidChangeContent,
 			() => /** @description markdownString */ this.getContent()
 		);
 	}
