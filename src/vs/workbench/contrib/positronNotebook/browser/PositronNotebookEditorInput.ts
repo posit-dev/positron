@@ -416,6 +416,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 			this._logService.error('Failed to reassign notebook session URI during rename', error);
 		}
 
+		// select the kernel for the new URI
+		const kernel = this.notebookInstance.kernel.get();
+		if (kernel) {
+			this._notebookKernelService.selectKernelForNotebook(kernel, { uri: this.resource, notebookType: this.viewType });
+		}
+
 		// Return editor with new resource to keep the editor open
 		return { editor: { resource: target, options: { override: this.editorId } } };
 	}
