@@ -442,7 +442,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		);
 
 		// If a new kernel is selected for this notebook, attach its runtime
-		this._register(autorunDelta(this.kernel, ({ lastValue: oldKernel, newValue: newKernel }) => {
+		this._register(runOnChange(this.kernel, (oldKernel, newKernel) => {
 			if (newKernel) {
 				if (oldKernel) {
 					this.kernelStatus.set(KernelStatus.Switching, undefined);
@@ -452,7 +452,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					// update the kernel status to the runtime session state
 					this.kernelStatus.set(KernelStatus.Starting, undefined);
 				}
-			} else {
 			}
 		}));
 
@@ -475,7 +474,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.contextManager = this._register(
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this)
 		);
-		this._positronNotebookService.registerInstance(this);
 
 		this.selectionStateMachine = this._register(
 			this._instantiationService.createInstance(SelectionStateMachine, this.cells)
@@ -510,6 +508,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				this._onDidChangeViewCells.fire({ splices });
 			}
 		}));
+
+		this._positronNotebookService.registerInstance(this);
 	}
 
 	//#region INotebookEditor
