@@ -115,10 +115,12 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickCloseButton();
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.selectModelProvider('echo');
+			await app.workbench.assistant.clickSignOutButton();
+			await app.workbench.assistant.clickCloseButton();
+		}).toPass({ timeout: 30000 });
 	});
 	/**
 	 * Tests that Python code from chat responses can be executed in the console.
@@ -157,7 +159,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 
 // Skipping web. See https://github.com/posit-dev/positron/issues/8568
 // Skippig all due to https://github.com/posit-dev/positron/issues/9402
-test.describe.skip('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.CRITICAL] }, () => {
+test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT, tags.SOFT_FAIL, tags.WEB] }, () => {
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
