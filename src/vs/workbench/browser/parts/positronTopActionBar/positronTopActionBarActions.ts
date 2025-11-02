@@ -22,6 +22,11 @@ export class PositronToggleTopActionBarVisibilityAction extends Action2 {
 	static readonly ID = 'workbench.action.positron.toggleTopActionBarVisibility';
 
 	/**
+	 * The key for the top action bar visibility setting.
+	 */
+	private static readonly topBarVisibleKey = 'workbench.topActionBar.visible';
+
+	/**
 	 * Constructor.
 	 */
 	constructor() {
@@ -54,7 +59,7 @@ export class PositronToggleTopActionBarVisibilityAction extends Action2 {
 		const visibility = layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART, mainWindow);
 		const newVisibilityValue = !visibility;
 
-		return configurationService.updateValue('workbench.topActionBar.visible', newVisibilityValue);
+		return configurationService.updateValue(PositronToggleTopActionBarVisibilityAction.topBarVisibleKey, newVisibilityValue);
 	}
 }
 
