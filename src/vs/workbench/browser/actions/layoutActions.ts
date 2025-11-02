@@ -1616,9 +1616,12 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				selectedItem = quickPick.selectedItems[0] as CustomizeLayoutItem;
 				commandService.executeCommand(selectedItem.id);
 				// --- Start Positron ---
-				// If the string workbench.action.positron starts the id then we want to
-				// close the quick pick
-				if (selectedItem.id.startsWith('workbench.action.positron')) {
+				// Close the quick pick when selecting a Positron layout preset.
+				// Layout presets follow the pattern 'workbench.action.positron<LayoutName>'
+				// (no dot after 'positron'), while other positron actions like toggles
+				// use 'workbench.action.positron.<actionName>' (with a dot after 'positron').
+				if (selectedItem.id.startsWith('workbench.action.positron') &&
+					!selectedItem.id.startsWith('workbench.action.positron.')) {
 					quickPick.hide();
 				}
 				// --- End Positron ---
@@ -1646,6 +1649,9 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				resetSetting('workbench.activityBar.location');
 				resetSetting('workbench.sideBar.location');
 				resetSetting('workbench.statusBar.visible');
+				// --- Start Positron ---
+				resetSetting('workbench.topActionBar.visible');
+				// --- End Positron ---
 				resetSetting('workbench.panel.defaultLocation');
 
 				if (!isMacintosh || !isNative) {
