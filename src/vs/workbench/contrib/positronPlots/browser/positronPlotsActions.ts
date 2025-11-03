@@ -15,6 +15,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
+import { PositronPlotsGalleryEditorInput } from '../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
@@ -459,7 +460,6 @@ export class PlotsGalleryInNewWindowAction extends Action2 {
 	 */
 	async run(accessor: ServicesAccessor) {
 		const editorService = accessor.get(IEditorService);
-		const { PositronPlotsGalleryEditorInput } = await import('../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js');
 
 		await editorService.openEditor({
 			resource: PositronPlotsGalleryEditorInput.getNewEditorUri(),
