@@ -612,7 +612,7 @@
       {
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
-        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files. Empty folders are not included in the tree. Always specify targeted include patterns to focus on relevant files (e.g., 'src/**/*.py', 'tests/**').",
+        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files. Empty folders are not included in the tree.",
         "icon": "$(file-directory)",
         "toolReferenceName": "projectTree",
         "userDescription": "Get the project tree of the current workspace.",
