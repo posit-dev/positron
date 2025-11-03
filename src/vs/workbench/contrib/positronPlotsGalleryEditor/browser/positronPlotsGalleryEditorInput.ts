@@ -24,22 +24,26 @@ export class PositronPlotsGalleryEditorInput extends EditorInput {
 	private static _counter = 0;
 
 	/**
-	 * The resource associated with this editor input.
+	 * Creates a new URI for a plots gallery editor instance.
 	 */
-	readonly resource = URI.from({
-		scheme: Schemas.positronPlotsGallery,
-		path: `plots-gallery-${PositronPlotsGalleryEditorInput._counter++}`
-	});
-
-	/**
-	 * Gets a new URI for a plots gallery editor.
-	 */
-	static getNewEditorUri(): URI {
+	private static _createUri(): URI {
 		return URI.from({
 			scheme: Schemas.positronPlotsGallery,
 			path: `plots-gallery-${PositronPlotsGalleryEditorInput._counter++}`
 		});
 	}
+
+	/**
+	 * Gets a new URI for a plots gallery editor.
+	 */
+	static getNewEditorUri(): URI {
+		return PositronPlotsGalleryEditorInput._createUri();
+	}
+
+	/**
+	 * The resource associated with this editor input.
+	 */
+	readonly resource = PositronPlotsGalleryEditorInput._createUri();
 
 	constructor() {
 		super();
