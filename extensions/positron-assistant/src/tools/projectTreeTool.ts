@@ -126,7 +126,15 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			.sort((a, b) => a.localeCompare(b)) // Resort alphabetically
 			.join('\n'));
 
-		return new vscode.LanguageModelToolResult(results.map(r => new vscode.LanguageModelTextPart(r)));
+		const resultParts = results.map(r => new vscode.LanguageModelTextPart(r));
+
+		if (totalFiles > filesLimit) {
+			const truncatedCount = Math.min(filesLimit, totalFiles);
+			const truncationMessage = `Project tree constructed with ${totalFiles} items; the first ${truncatedCount} are provided above.`;
+			resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
+		}
+
+		return new vscode.LanguageModelToolResult(resultParts);
 	}
 });
 
