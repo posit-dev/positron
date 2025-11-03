@@ -15,14 +15,14 @@ import { HistoryPolicy, isZoomablePlotClient, ZoomLevel } from '../../../service
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PlotsContainer } from './components/plotsContainer.js';
 import { ActionBars } from './components/actionBars.js';
-import { PositronPlotsViewPane } from './positronPlotsView.js';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronPlotsProps interface.
  */
 export interface PositronPlotsProps {
-	readonly reactComponentContainer: PositronPlotsViewPane;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
@@ -93,11 +93,13 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			setShowHistory(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
 		}));
 
-		// Add the onSizeChanged event handler.
-		disposableStore.add(props.reactComponentContainer.onPositionChanged(pos => {
-			setPosX(pos.x);
-			setPosY(pos.y);
-		}));
+		// Add the onPositionChanged event handler (if available).
+		if (props.reactComponentContainer.onPositionChanged) {
+			disposableStore.add(props.reactComponentContainer.onPositionChanged(pos => {
+				setPosX(pos.x);
+				setPosY(pos.y);
+			}));
+		}
 
 		// Add the onVisibilityChanged event handler.
 		disposableStore.add(props.reactComponentContainer.onVisibilityChanged(visible => {

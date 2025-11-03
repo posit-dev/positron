@@ -15,7 +15,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
@@ -434,6 +434,43 @@ export class PlotsEditorAction extends Action2 {
 		} else {
 			accessor.get(INotificationService).info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 		}
+	}
+}
+
+/**
+ * Action to open the plots gallery in a new window.
+ */
+export class PlotsGalleryInNewWindowAction extends Action2 {
+	static ID = 'workbench.action.positronPlots.openGalleryInNewWindow';
+
+	constructor() {
+		super({
+			id: PlotsGalleryInNewWindowAction.ID,
+			title: localize2('positronPlots.openGalleryInNewWindow', 'Open Plots Gallery in New Window'),
+			category,
+			f1: true,
+		});
+	}
+
+	/**
+	 * Runs the action and opens the plots gallery in a new auxiliary window.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const editorService = accessor.get(IEditorService);
+		const { PositronPlotsGalleryEditorInput } = await import('../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js');
+
+		await editorService.openEditor({
+			resource: PositronPlotsGalleryEditorInput.getNewEditorUri(),
+			options: {
+				pinned: true,
+				auxiliary: {
+					compact: true,
+					bounds: { width: 900, height: 700 }
+				}
+			}
+		}, AUX_WINDOW_GROUP);
 	}
 }
 

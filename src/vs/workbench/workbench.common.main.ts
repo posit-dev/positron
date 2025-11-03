@@ -311,6 +311,7 @@ import './contrib/positronPreview/browser/positronPreview.contribution.js';
 import './contrib/positronPreviewEditor/browser/positronPreviewEditor.contribution.js';
 import './contrib/positronPlots/browser/positronPlots.contribution.js';
 import './contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
+import './contrib/positronPlotsGalleryEditor/browser/positronPlotsGalleryEditor.contribution.js';
 import './contrib/positronOutputWebview/browser/notebookOutputWebview.contribution.js';
 import './contrib/positronNotebook/browser/positronNotebook.contribution.js';
 import './contrib/positronWelcome/browser/positronWelcome.contribution.js';
