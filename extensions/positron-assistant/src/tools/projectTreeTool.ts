@@ -63,7 +63,11 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		const filePatterns = include;
 		const excludePatterns = exclude ?? [];
 		const filterResultsEnabled = filterResults ?? DEFAULT_FILTER_RESULTS;
-		const filesLimit = maxFiles ?? DEFAULT_MAX_FILES;
+		// Don't allow more than the default max files, even if a higher value is provided,
+		// to prevent excessive token usage.
+		const filesLimit = maxFiles && maxFiles < DEFAULT_MAX_FILES
+			? maxFiles
+			: DEFAULT_MAX_FILES;
 
 		let findOptions: vscode.FindFiles2Options;
 		if (filterResultsEnabled) {

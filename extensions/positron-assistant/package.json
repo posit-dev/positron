@@ -662,7 +662,7 @@
             },
             "maxFiles": {
               "type": "number",
-              "description": "The maximum number of files to include in the project tree. If this limit is reached, a compressed description of the project will be provided instead.",
+              "description": "The maximum number of files to include in the project tree (<=50). If this limit is reached, a compressed description of the project will be provided instead.",
               "default": 50
             }
           },
