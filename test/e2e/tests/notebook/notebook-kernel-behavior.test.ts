@@ -35,20 +35,19 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
-		// select kernel and ensure while starting, restart/shutdown are disabled
+		// select kernel and ensure while starting, restart is enabled & shutdown is disabled
 		await notebooksPositron.kernel.select('Python', { waitForReady: false });
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: false },
+			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
 		]);
 
-		// ensure once started and ready, restart/shutdown are enabled
+		// ensure once started and ready, shutdown is enabled
 		await notebooksPositron.kernel.expectKernelToBe({
 			kernelGroup: 'Python',
 			status: 'idle'
 		});
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: true },
 		]);
 
@@ -70,7 +69,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			status: 'disconnected'
 		});
 		await notebooksPositron.kernel.expectMenuToContain([
-			{ label: 'Restart Kernel', enabled: false },
+			{ label: 'Restart Kernel', enabled: true },
 			{ label: 'Shutdown Kernel', enabled: false },
 			{ label: 'Change Kernel', enabled: true },
 			{ label: 'Open Notebook Console', enabled: false },
