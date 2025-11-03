@@ -11,10 +11,10 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { CellRevealType, IActiveNotebookEditor, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
+import { CellRevealType, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
-import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2 } from '../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState, ICellDto2, diff } from '../../notebook/common/notebookCommon.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
@@ -43,7 +43,7 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
-import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel } from './IPositronNotebookEditor.js';
+import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor } from './IPositronNotebookEditor.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -555,10 +555,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	readonly onDidFocusWidget = this._onDidFocusWidget.event;
 
-	// TODO: Come back here
-	// The assertion isn't really true; we only implement parts needed by the extension API,
-	// see the note in IPositronNotebookInstance.ts
-	hasModel(): this is IActiveNotebookEditor {
+	hasModel(): this is IPositronActiveNotebookEditor {
 		return this.textModel !== undefined;
 	}
 
@@ -1103,39 +1100,25 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// #endregion
 
-	// =============================================================================================
-	// #region Private Methods
-
 	/**
-	 * Computes the minimal splice operations needed to transform oldCells into newCells.
 	 * Returns an array of NotebookViewCellsSplice tuples [start, deleteCount, insertedCells].
 	 * @param oldCells The previous cell array
 	 * @param newCells The new cell array
 	 * @returns Array of splice operations
 	 */
 	private _computeCellSplices(oldCells: IPositronNotebookCell[], newCells: IPositronNotebookCell[]): ContextKeysNotebookViewCellsSplice[] {
-		// Find first difference
-		let start = 0;
-		while (start < oldCells.length && start < newCells.length && oldCells[start] === newCells[start]) {
-			start++;
-		}
+		// Create a Set for quick contains checking
+		const oldCellsSet = new Set(oldCells);
 
-		// Find last difference
-		let oldEnd = oldCells.length;
-		let newEnd = newCells.length;
-		while (oldEnd > start && newEnd > start && oldCells[oldEnd - 1] === newCells[newEnd - 1]) {
-			oldEnd--;
-			newEnd--;
-		}
+		// Use the diff algorithm to compute multiple splices for non-contiguous changes
+		const splices = diff(
+			oldCells,
+			newCells,
+			(cell) => oldCellsSet.has(cell),
+			(a, b) => a === b
+		);
 
-		const deleteCount = oldEnd - start;
-		const inserted = newCells.slice(start, newEnd);
-
-		if (deleteCount === 0 && inserted.length === 0) {
-			return [];
-		}
-
-		return [[start, deleteCount, inserted]];
+		return splices.map(splice => [splice.start, splice.deleteCount, [...splice.toInsert]]);
 	}
 
 	private readonly _runtimeSessionDisposables = this._register(new MutableDisposable<DisposableStore>());
