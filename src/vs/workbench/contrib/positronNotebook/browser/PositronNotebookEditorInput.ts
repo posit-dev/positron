@@ -7,7 +7,7 @@ import { IReference } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
-import { EditorInputCapabilities, GroupIdentifier, IRevertOptions, ISaveOptions, isResourceEditorInput, IUntypedEditorInput } from '../../../common/editor.js';
+import { EditorInputCapabilities, GroupIdentifier, IMoveResult, IRevertOptions, ISaveOptions, isResourceEditorInput, IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { CellUri, IResolvedNotebookEditorModel } from '../../notebook/common/notebookCommon.js';
 import { INotebookEditorModelResolverService } from '../../notebook/common/notebookEditorModelResolverService.js';
@@ -380,5 +380,49 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 
 		return this._editorModelReference.object;
+	}
+
+	/**
+	 * Handles renaming a notebook document.
+	 * This method is called when a notebook file is moved to a different location.
+	 *
+	 * @param group The editor group
+	 * @param target The new URI for the notebook
+	 * @returns IMoveResult to keep the editor open with the new resource
+	 */
+	override async rename(group: GroupIdentifier, target: URI): Promise<IMoveResult | undefined> {
+		// Only proceed if we have an editor model reference
+		if (!this._editorModelReference) {
+			return undefined;
+		}
+
+		this._logService.debug(`[Positron Notebook] Starting a rename: ${this.resource.toString()} → ${target.toString()}`);
+		try {
+			this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
+
+			// Call updateNotebookSessionUri on the runtime service to update
+			// internal mappings and emits events that other components listen for
+			const sessionId = await this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+
+			if (sessionId) {
+				// Log success to aid debugging session transfer issues
+				this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${target.toString()}`);
+			} else {
+				// This is an expected case for notebooks without executed cells (no session yet)
+				this._logService.debug(`No session found to reassign for URI: ${this.resource.toString()}`);
+			}
+		} catch (error) {
+			// Log error but don't fail the rename operation
+			this._logService.error('Failed to reassign notebook session URI during rename', error);
+		}
+
+		// select the kernel for the new URI
+		const kernel = this.notebookInstance.kernel.get();
+		if (kernel) {
+			this._notebookKernelService.selectKernelForNotebook(kernel, { uri: this.resource, notebookType: this.viewType });
+		}
+
+		// Return editor with new resource to keep the editor open
+		return { editor: { resource: target, options: { override: this.editorId } } };
 	}
 }

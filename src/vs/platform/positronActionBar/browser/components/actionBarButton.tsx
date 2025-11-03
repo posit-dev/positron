@@ -10,21 +10,17 @@ import './actionBarButton.css';
 import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
-import { URI } from '../../../../base/common/uri.js';
-import { Icon } from '../../../action/common/action.js';
-import { ColorScheme } from '../../../theme/common/theme.js';
-import { asCSSUrl } from '../../../../base/browser/cssValue.js';
-import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Icon as IconType } from '../../../action/common/action.js';
+import { Icon } from './icon.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarButtonIconProps type
  */
 type ActionBarButtonIconProps = {
-	readonly icon?: Icon;
+	readonly icon?: IconType;
 	readonly iconFontSize?: number;
 	readonly iconImageSrc?: never;
 	readonly iconHeight?: never;
@@ -80,7 +76,6 @@ export const ActionBarButton = forwardRef<
 	PropsWithChildren<ActionBarButtonProps>
 >((props, ref) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
 	const context = usePositronActionBarContext();
 
 	// Reference hooks.
@@ -97,40 +92,6 @@ export const ActionBarButton = forwardRef<
 	// https://github.com/microsoft/vscode/issues/181739#issuecomment-1779701917
 	const ariaLabel = props.ariaLabel ? props.ariaLabel : props.label;
 
-	// Figure out how to display the icon.
-	let iconClassNames: string[] = [];
-	const iconStyle: React.CSSProperties = {};
-	if (props.icon) {
-		// If it's a theme icon, use the theme icon class names.
-		if (ThemeIcon.isThemeIcon(props.icon)) {
-			iconClassNames = ThemeIcon.asClassNameArray(props.icon);
-		} else {
-			// Get the color theme type.
-			const colorThemeType = services.themeService.getColorTheme().type;
-
-			// Determine the CSS background image based on the color theme type and icon.
-			let icon: URI | undefined;
-			if ((colorThemeType === ColorScheme.LIGHT || colorThemeType === ColorScheme.HIGH_CONTRAST_LIGHT) && props.icon.light) {
-				icon = props.icon.light;
-			} else if ((colorThemeType === ColorScheme.DARK || colorThemeType === ColorScheme.HIGH_CONTRAST_DARK) && props.icon.dark) {
-				icon = props.icon.dark;
-			} else {
-				// Fallback to the dark icon if the light icon is not available.
-				icon = props.icon.light ?? props.icon.dark;
-			}
-
-			// If there is an icon, set the icon style.
-			if (icon) {
-				iconStyle.width = '16px';
-				iconStyle.height = '16px';
-				iconStyle.backgroundSize = '16px';
-				iconStyle.backgroundPosition = '50%';
-				iconStyle.backgroundRepeat = 'no-repeat';
-				iconStyle.backgroundImage = asCSSUrl(icon);
-			}
-		}
-	}
-
 	/**
 	 * ActionBarButtonFace component.
 	 * @returns The rendered component.
@@ -139,13 +100,12 @@ export const ActionBarButton = forwardRef<
 		return (
 			<div aria-hidden='true' className='action-bar-button-face' data-testid={props.dataTestId}>
 				{props.icon &&
-					<div
+					<Icon
 						className={positronClassNames(
 							'action-bar-button-icon',
-							props.dropdownIndicator,
-							...iconClassNames
+							props.dropdownIndicator
 						)}
-						style={iconStyle}
+						icon={props.icon}
 					/>
 				}
 				{props.iconImageSrc &&
@@ -153,7 +113,7 @@ export const ActionBarButton = forwardRef<
 						className={positronClassNames(
 							'action-bar-button-icon',
 						)}
-						style={iconStyle}>
+					>
 						<img
 							src={props.iconImageSrc}
 							style={{
