@@ -128,6 +128,17 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			this.attachNotebook(notebook);
 		}
 
+		// Ensure that a session is started when a Positron notebook editor is added
+		this._register(this._positronNotebookService.onDidAddNotebookInstance(async instance => {
+			await this.attachNotebookInstance(instance);
+		}));
+
+		// Ensure that a session is started for all existing Positron notebook editors
+		for (const instance of this._positronNotebookService.listInstances()) {
+			this.attachNotebookInstance(instance)
+				.catch(err => this._logService.error(`Error attaching notebook instance: ${err}`));
+		}
+
 		// When a notebook is closed, shutdown the corresponding session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async notebook => {
 			await this._runtimeSessionService.shutdownNotebookSession(
@@ -364,6 +375,16 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// Stop listening when the notebook is disposed
 		disposables.add(notebook.onWillDispose(() => disposables.dispose()));
+	}
+
+	private async attachNotebookInstance(instance: IPositronNotebookInstance): Promise<void> {
+		// Get the selected kernel
+		const kernel = instance.kernel.get();
+
+		if (kernel) {
+			// Ensure a session is started for the kernel
+			await kernel.ensureSessionStarted(instance.uri, `Positron notebook editor opened`);
+		}
 	}
 
 	/**
