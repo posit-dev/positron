@@ -612,15 +612,14 @@
       {
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
-        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
+        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files. Empty folders are not included in the tree. Always specify targeted include patterns to focus on relevant files (e.g., 'src/**/*.py', 'tests/**').",
         "icon": "$(file-directory)",
         "toolReferenceName": "projectTree",
         "userDescription": "Get the project tree of the current workspace.",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
-          "requires-workspace",
-          "high-token-usage"
+          "requires-workspace"
         ],
         "inputSchema": {
           "type": "object",
@@ -631,10 +630,7 @@
                 "type": "string",
                 "description": "A Glob pattern to include in the project tree. Only the files and folders matching these patterns will be considered. If files are also matched by the `excludes` patterns, they will be filtered out."
               },
-              "description": "Glob patterns to include in the project tree. By default, all files and folders in the workspace will be considered.",
-              "default": [
-                "**/*"
-              ]
+              "description": "Glob patterns to include in the project tree. This parameter is required. Use specific patterns to target relevant files (e.g., ['src/**/*.ts'], ['*.py', 'tests/**'])."
             },
             "exclude": {
               "type": "array",
@@ -667,9 +663,12 @@
             "maxFiles": {
               "type": "number",
               "description": "The maximum number of files to include in the project tree. If this limit is reached, a compressed description of the project will be provided instead.",
-              "default": 500
+              "default": 50
             }
-          }
+          },
+          "required": [
+            "include"
+          ]
         }
       },
       {

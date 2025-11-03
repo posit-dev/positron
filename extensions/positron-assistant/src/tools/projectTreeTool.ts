@@ -56,7 +56,11 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
 
-		const filePatterns = include ?? DEFAULT_INCLUDE_PATTERNS;
+		if (!include || include.length === 0) {
+			throw new Error(`The 'include' parameter is required. Specify glob patterns to target specific files (e.g., ["src/**/*.py"], ["*.ts", "tests/**"]).`);
+		}
+
+		const filePatterns = include;
 		const excludePatterns = exclude ?? [];
 		const filterResultsEnabled = filterResults ?? DEFAULT_FILTER_RESULTS;
 		const filesLimit = maxFiles ?? DEFAULT_MAX_FILES;
@@ -141,11 +145,10 @@ function getExcludeSettingOptions(excludeSetting: string) {
 }
 
 // Default values for the project tree tool options
-const DEFAULT_MAX_FILES = 500;
+const DEFAULT_MAX_FILES = 50;
 const DEFAULT_FILTER_RESULTS = true;
 const DEFAULT_USE_IGNORE_FILES = { local: true, parent: true, global: true };
 const DEFAULT_EXCLUDE_SETTING_OPTIONS = vscode.ExcludeSettingOptions.SearchAndFilesExclude;
-const DEFAULT_INCLUDE_PATTERNS = ['**/*'];
 const DEFAULT_EXCLUDE_PATTERNS = [
 	// Directories
 	'**/.build/**',
