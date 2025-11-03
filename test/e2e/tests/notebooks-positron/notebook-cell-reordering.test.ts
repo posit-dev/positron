@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Notebook Cell Reordering', {
-	tag: [tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooksPositron.enablePositronNotebooks(settings);
