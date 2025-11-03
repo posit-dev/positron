@@ -10,6 +10,7 @@ import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { IPositronNotebookCell } from '../../PositronNotebookCells/IPositronNotebookCell.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 /**
  * Standardized action button component for notebook cell actions. Handles cell selection and command execution.
@@ -36,9 +37,11 @@ export function CellActionButton({ action, cell }: { action: MenuItemAction | Su
 		<ActionButton
 			key={action.id}
 			ariaLabel={action.label}
+			tooltip={action.tooltip}
 			onPressed={() => handleActionClick(action)}
 		>
-			{action.item.icon ? <Icon icon={action.item.icon} /> : null}
+			{/* Default to a warning symbol as a dev warning - we shouldn't have cell actions without icons */}
+			{<Icon icon={action.item.icon ?? Codicon.warning} />}
 		</ActionButton>
 	);
 }
