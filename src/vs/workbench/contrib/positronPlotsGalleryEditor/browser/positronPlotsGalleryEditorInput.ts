@@ -8,7 +8,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { EditorInputCapabilities, IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
-import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 
 export interface IPositronPlotsGalleryEditorOptions {
 	// Future: Add options for initial state like selected plot, zoom level, etc.
@@ -19,7 +18,7 @@ export interface IPositronPlotsGalleryEditorOptions {
  * This displays the full plots pane (with thumbnails, navigation, etc.) in an editor or auxiliary window.
  */
 export class PositronPlotsGalleryEditorInput extends EditorInput {
-	static readonly ID = 'workbench.input.positronPlotsGallery';
+	static readonly TypeID = 'workbench.input.positronPlotsGallery';
 	static readonly EditorID = 'workbench.editor.positronPlotsGallery';
 
 	private static _counter = 0;
@@ -42,9 +41,7 @@ export class PositronPlotsGalleryEditorInput extends EditorInput {
 		});
 	}
 
-	constructor(
-		@IPositronPlotsService _positronPlotsService: IPositronPlotsService
-	) {
+	constructor() {
 		super();
 	}
 
@@ -53,7 +50,7 @@ export class PositronPlotsGalleryEditorInput extends EditorInput {
 	}
 
 	override get typeId(): string {
-		return PositronPlotsGalleryEditorInput.ID;
+		return PositronPlotsGalleryEditorInput.TypeID;
 	}
 
 	override get capabilities(): EditorInputCapabilities {
