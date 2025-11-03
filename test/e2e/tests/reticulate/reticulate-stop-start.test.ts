@@ -29,7 +29,8 @@ test.describe('Reticulate', {
 		}
 	});
 
-	test('R - Verify Reticulate Stop/Start Functionality', {
+	// Skippiing due to https://github.com/posit-dev/positron/issues/10345
+	test.skip('R - Verify Reticulate Stop/Start Functionality', {
 		tag: [tags.ARK]
 	}, async function ({ app, sessions, r }) {
 
