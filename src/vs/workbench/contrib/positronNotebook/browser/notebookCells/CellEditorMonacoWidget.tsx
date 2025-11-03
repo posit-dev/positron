@@ -59,7 +59,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 
 		const disposables = new DisposableStore();
 
-		const language = cell.cellModel.language;
+		const language = cell.model.language;
 
 		// We need to ensure the EditorProgressService (or a fake) is available
 		// in the service collection because monaco editors will try and access

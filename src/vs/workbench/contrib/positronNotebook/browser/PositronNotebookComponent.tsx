@@ -67,7 +67,7 @@ export function PositronNotebookComponent() {
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			<div ref={containerRef} className='positron-notebook-cells-container'>
 				{notebookCells.length ? notebookCells.map((cell, index) => <>
-					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
+					<NotebookCell key={cell.handle} cell={cell as PositronNotebookCellGeneral} />
 					<AddCellButtons index={index + 1} />
 				</>) : <div>{localize('noCells', 'No cells')}</div>
 				}
