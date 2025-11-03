@@ -38,7 +38,7 @@ class PositronPlotsGalleryEditorContribution extends Disposable {
 				priority: RegisteredEditorPriority.builtin
 			},
 			{
-				singlePerResource: false, // Allow multiple instances
+				singlePerResource: true,
 				canSupportResource: resource => resource.scheme === Schemas.positronPlotsGallery
 			},
 			{
