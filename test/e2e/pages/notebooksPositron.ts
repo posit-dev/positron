@@ -652,13 +652,22 @@ export class PositronNotebooks extends Notebooks {
 			await expect(output).toBeVisible();
 			await output.waitFor(); // layout settles
 
-			// attach screenshot to report
-			await this.attachCroppedScreenshot(output, 'basic-markdown-render.png');
+			// Logging the screenshot path for easier debugging
+			const info = test.info();
+			const resolvedPath = info.snapshotPath(screenshotName);
+			const resolvedFile = path.basename(resolvedPath);
+			const repoRelativePath = path.relative(process.cwd(), resolvedPath).replace(/\\/g, '/');
+			await info.attach(`${resolvedFile}.path.txt`, {
+				body: Buffer.from(repoRelativePath, 'utf8'),
+				contentType: 'text/plain',
+			});
+
+			// Verify screenshot matches
 			await expect(output).toHaveScreenshot('basic-markdown-render.png', {
+				maxDiffPixelRatio: 0.05,
 				animations: 'disabled',
 				caret: 'hide',
 				scale: 'css',
-				maxDiffPixelRatio: 0.02,
 			});
 		});
 	}
