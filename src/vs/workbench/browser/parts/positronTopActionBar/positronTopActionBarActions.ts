@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,9 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { PositronTopActionBarVisibleContext } from '../../../common/contextkeys.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IWorkbenchLayoutService, LayoutSettings, Parts } from '../../../services/layout/browser/layoutService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 
 /**
  * The PositronToggleTopActionBarVisibilityAction.
@@ -45,9 +47,14 @@ export class PositronToggleTopActionBarVisibilityAction extends Action2 {
 	 * Runs the action.
 	 * @param accessor The ServicesAccessor.
 	 */
-	run(accessor: ServicesAccessor): void {
+	run(accessor: ServicesAccessor): Promise<void> {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
-		layoutService.setPartHidden(layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART), Parts.POSITRON_TOP_ACTION_BAR_PART);
+		const configurationService = accessor.get(IConfigurationService);
+
+		const visibility = layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART, mainWindow);
+		const newVisibilityValue = !visibility;
+
+		return configurationService.updateValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE, newVisibilityValue);
 	}
 }
 

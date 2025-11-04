@@ -580,6 +580,13 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'default': true,
 				'description': localize('statusBarVisibility', "Controls the visibility of the status bar at the bottom of the workbench.")
 			},
+			// --- Start Positron ---
+			[LayoutSettings.TOP_ACTION_BAR_VISIBLE]: {
+				'type': 'boolean',
+				'default': true,
+				'description': localize('topActionBarVisibility', "Controls the visibility of the top action bar.")
+			},
+			// --- End Positron ---
 			[LayoutSettings.ACTIVITY_BAR_LOCATION]: {
 				'type': 'string',
 				'enum': ['default', 'top', 'bottom', 'hidden'],
