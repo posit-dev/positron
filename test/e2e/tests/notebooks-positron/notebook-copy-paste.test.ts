@@ -10,7 +10,6 @@ test.use({
 	suiteId: __filename
 });
 
-// Not running on web due to https://github.com/posit-dev/positron/issues/9193
 test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {

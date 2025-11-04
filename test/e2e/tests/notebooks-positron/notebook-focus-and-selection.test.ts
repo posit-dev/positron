@@ -10,7 +10,6 @@ test.use({
 	suiteId: __filename
 });
 
-// Not running on web due to Positron notebooks being desktop-only
 test.describe('Notebook Focus and Selection', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {

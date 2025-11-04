@@ -15,30 +15,42 @@ import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, Session
 const DEFAULT_TIMEOUT = 10000;
 
 type MoreActionsMenuItems = 'Copy cell' | 'Cut cell' | 'Paste Cell Above' | 'Paste cell below' | 'Move cell down' | 'Move cell up' | 'Insert code cell above' | 'Insert code cell below';
+type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
+
 /**
  * Notebooks functionality exclusive to Positron notebooks.
  */
 export class PositronNotebooks extends Notebooks {
+	// Editors, generic locators
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
-	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
-	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
-	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
-	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
-	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
-	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
-	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
-	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
+	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
+	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
+	markdownCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Markdown cell"]');
 	cellStatusSyncIcon = this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync');
+	detectingKernelsText = this.code.driver.page.getByText(/detecting kernels/i);
 
+	// Editor action bar
+	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
+	// private markdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown', exact: true })
+	// private codeButton = this.editorActionBar.getByRole('button', { name: 'Code', exact: true });
+	// private clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
+	// private runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
+	kernel: Kernel;
 
+	// Cell action buttons, menus, tooltips, output, etc
+	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
-	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
-	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
-	kernel: Kernel;
+	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
+	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
+	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
+	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
+	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
+	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
+	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -142,7 +154,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Create a new Positron notebook.
+	 * Action: Create a new Positron notebook.
 	 * @param numCellsToAdd - Number of cells to add after creating the notebook (default: 0).
 	 */
 	async newNotebook(numCellsToAdd = 0): Promise<void> {
@@ -154,6 +166,15 @@ export class PositronNotebooks extends Notebooks {
 			}
 			await this.expectCellCountToBe(numCellsToAdd);
 		}
+	}
+
+	/**
+	 * Action: Click a button in the editor action bar.
+	 * @param buttonName - The name of the button to click in the editor action bar.
+	 */
+	async clickActionBarButtton(buttonName: EditorActionBarButtons): Promise<void> {
+		const button = this.editorActionBar.getByRole('button', { name: buttonName, exact: true });
+		await button.click();
 	}
 
 	/**
@@ -262,8 +283,13 @@ export class PositronNotebooks extends Notebooks {
 				await this.addCodeCellToEnd();
 			}
 
-			await this.cell.nth(cellIndex).click();
+			// Determine if cell is markdown or code and enter edit mode accordingly
+			const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
+			ariaLabel == 'Markdown cell'
+				? await this.cell.nth(cellIndex).dblclick()
+				: await this.cell.nth(cellIndex).click();
 
+			// Focus the editor for the cell
 			const editor = this.editorAtIndex(cellIndex);
 			await editor.focus();
 
@@ -382,6 +408,17 @@ export class PositronNotebooks extends Notebooks {
 		for (let i = 0; i < expectedContents.length; i++) {
 			await this.expectCellContentAtIndexToBe(i, expectedContents[i]);
 		}
+	}
+
+	async expectCellTypeAtIndexToBe(cellIndex: number, expectedType: 'code' | 'markdown'): Promise<void> {
+		await test.step(`Expect cell ${cellIndex} type to be: ${expectedType}`, async () => {
+			const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
+
+			expectedType === 'code'
+				? expect(ariaLabel).toBe('Code cell')
+				: expect(ariaLabel).toBe('Markdown cell');
+
+		});
 	}
 
 	/**
@@ -596,13 +633,87 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
+	async expectHtmlRenderedAtIndex(
+		cellIndex: number,
+		expected: { tag: string; text?: string }[],
+	): Promise<void> {
+		await test.step(
+			`Expect HTML rendered in output at index: ${cellIndex} with ordered tags`,
+			async () => {
+				// Ensure markdown render by exiting edit mode
+				await this.selectCellAtIndex(cellIndex, { editMode: false });
+
+				// Be resilient to DOM structure: allow wrapper or direct content
+				const container = this.cell
+					.nth(cellIndex)
+					.locator(':is(.positron-markdown-rendered, .positron-markdown-rendered > div)');
+
+				await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
+				await container.waitFor({ state: 'attached', timeout: DEFAULT_TIMEOUT });
+				await expect(container).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+
+				// Validate order and content of direct children
+				await expect(async () => {
+					const result = await container.evaluate((node, expectedSpec) => {
+						const children = Array.from((node as HTMLElement).children);
+						const actual = children.map((el) => ({
+							tag: el.tagName.toLowerCase(),
+							text: (el.textContent || '')
+						}));
+
+						if (actual.length < expectedSpec.length) {
+							return { ok: false, reason: `Expected at least ${expectedSpec.length} children, found ${actual.length}` };
+						}
+
+						for (let i = 0; i < expectedSpec.length; i++) {
+							const exp = expectedSpec[i];
+							const act = actual[i];
+							if (!act) return { ok: false, reason: `Missing child at index ${i}` };
+							if (act.tag !== exp.tag.toLowerCase()) {
+								return { ok: false, reason: `Tag mismatch at index ${i}: expected <${exp.tag.toLowerCase()}> got <${act.tag}>` };
+							}
+							if (typeof exp.text === 'string') {
+								const literalCompare = /\s/.test(exp.text) && exp.text.trim() !== exp.text
+									? act.text === exp.text
+									: act.text.trim() === exp.text.trim();
+								if (!literalCompare) {
+									return { ok: false, reason: `Text mismatch at index ${i}: expected "${exp.text}" got "${act.text}"` };
+								}
+							}
+						}
+						return { ok: true };
+					}, expected);
+
+					if (!result || !('ok' in result)) throw new Error('Unexpected evaluation result');
+					if (!result.ok) throw new Error(result.reason || 'HTML order/content did not match');
+				}).toPass({ timeout: DEFAULT_TIMEOUT });
+			},
+		);
+	}
+
+	async expectScreenshotMatchAtIndex(index: number, screenshotName: string): Promise<void> {
+		await test.step(`Take/compare screenshot at index: ${index}`, async () => {
+			const output = this.cellMarkdown(index);
+			await output.scrollIntoViewIfNeeded();
+			await expect(output).toBeVisible();
+
+			const screenshot = await output.screenshot();
+			// attach screenshot to test report
+			// await test.info().attach(`cell-${index}-screenshot`, {
+			// 	body: screenshot,
+			// 	contentType: 'image/png'
+			// });
+			expect(screenshot).toMatchSnapshot(screenshotName);
+		});
+	}
+
 	/**
 	 * Verify: cell output at specified index matches expected output.
 	 * @param cellIndex - The index of the cell to check.
 	 * @param lines - The expected output lines.
 	 */
 	async expectOutputAtIndex(cellIndex: number, lines: string[]): Promise<void> {
-		await test.step(`Take/compare screenshot at index: ${cellIndex}`, async () => {
+		await test.step(`Verify output at index: ${cellIndex}`, async () => {
 			await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
 			await expect(this.cellOutput(cellIndex)).toBeVisible();
 			for (const line of lines) {
