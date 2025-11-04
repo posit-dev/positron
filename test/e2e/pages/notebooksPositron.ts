@@ -634,64 +634,6 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-	async expectHtmlRenderedAtIndex(
-		cellIndex: number,
-		expected: { tag: string; text?: string }[],
-	): Promise<void> {
-		await test.step(
-			`Expect HTML rendered in output at index: ${cellIndex} with ordered tags`,
-			async () => {
-				// Ensure markdown render by exiting edit mode
-				await this.selectCellAtIndex(cellIndex, { editMode: false });
-
-				// Be resilient to DOM structure: allow wrapper or direct content
-				const container = this.cell
-					.nth(cellIndex)
-					.locator(':is(.positron-markdown-rendered, .positron-markdown-rendered > div)');
-
-				await this.cellOutput(cellIndex).scrollIntoViewIfNeeded();
-				await container.waitFor({ state: 'attached', timeout: DEFAULT_TIMEOUT });
-				await expect(container).toBeVisible({ timeout: DEFAULT_TIMEOUT });
-
-				// Validate order and content of direct children
-				await expect(async () => {
-					const result = await container.evaluate((node, expectedSpec) => {
-						const children = Array.from((node as HTMLElement).children);
-						const actual = children.map((el) => ({
-							tag: el.tagName.toLowerCase(),
-							text: (el.textContent || '')
-						}));
-
-						if (actual.length < expectedSpec.length) {
-							return { ok: false, reason: `Expected at least ${expectedSpec.length} children, found ${actual.length}` };
-						}
-
-						for (let i = 0; i < expectedSpec.length; i++) {
-							const exp = expectedSpec[i];
-							const act = actual[i];
-							if (!act) return { ok: false, reason: `Missing child at index ${i}` };
-							if (act.tag !== exp.tag.toLowerCase()) {
-								return { ok: false, reason: `Tag mismatch at index ${i}: expected <${exp.tag.toLowerCase()}> got <${act.tag}>` };
-							}
-							if (typeof exp.text === 'string') {
-								const literalCompare = /\s/.test(exp.text) && exp.text.trim() !== exp.text
-									? act.text === exp.text
-									: act.text.trim() === exp.text.trim();
-								if (!literalCompare) {
-									return { ok: false, reason: `Text mismatch at index ${i}: expected "${exp.text}" got "${act.text}"` };
-								}
-							}
-						}
-						return { ok: true };
-					}, expected);
-
-					if (!result || !('ok' in result)) throw new Error('Unexpected evaluation result');
-					if (!result.ok) throw new Error(result.reason || 'HTML order/content did not match');
-				}).toPass({ timeout: DEFAULT_TIMEOUT });
-			},
-		);
-	}
-
 	async attachCroppedScreenshot(
 		output: Locator,
 		screenshotName: string
