@@ -1650,7 +1650,7 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				resetSetting('workbench.sideBar.location');
 				resetSetting('workbench.statusBar.visible');
 				// --- Start Positron ---
-				resetSetting('workbench.topActionBar.visible');
+				resetSetting(LayoutSettings.TOP_ACTION_BAR_VISIBLE);
 				// --- End Positron ---
 				resetSetting('workbench.panel.defaultLocation');
 

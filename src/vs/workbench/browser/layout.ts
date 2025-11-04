@@ -3199,8 +3199,8 @@ class LayoutStateModel extends Disposable {
 		}
 
 		// --- Start Positron ---
-		if (configurationChangeEvent.affectsConfiguration('workbench.topActionBar.visible')) {
-			this.setRuntimeValueAndFire(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN, !this.configurationService.getValue<boolean>('workbench.topActionBar.visible'));
+		if (configurationChangeEvent.affectsConfiguration(LayoutSettings.TOP_ACTION_BAR_VISIBLE)) {
+			this.setRuntimeValueAndFire(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN, !this.configurationService.getValue<boolean>(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
 		}
 		// --- End Positron ---
 	}
@@ -3218,7 +3218,7 @@ class LayoutStateModel extends Disposable {
 		} else if (key === LayoutStateKeys.SIDEBAR_POSITON) {
 			this.configurationService.updateValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION, positionToString(value as Position));
 		} else if (key === LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN) {
-			this.configurationService.updateValue('workbench.topActionBar.visible', !value);
+			this.configurationService.updateValue(LayoutSettings.TOP_ACTION_BAR_VISIBLE, !value);
 		}
 	}
 
@@ -3241,7 +3241,7 @@ class LayoutStateModel extends Disposable {
 		this.stateCache.set(LayoutStateKeys.ACTIVITYBAR_HIDDEN.name, this.isActivityBarHidden());
 		this.stateCache.set(LayoutStateKeys.STATUSBAR_HIDDEN.name, !this.configurationService.getValue(LegacyWorkbenchLayoutSettings.STATUSBAR_VISIBLE));
 		this.stateCache.set(LayoutStateKeys.SIDEBAR_POSITON.name, positionFromString(this.configurationService.getValue(LegacyWorkbenchLayoutSettings.SIDEBAR_POSITION) ?? 'left'));
-		this.stateCache.set(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN.name, !this.configurationService.getValue<boolean>('workbench.topActionBar.visible'));
+		this.stateCache.set(LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN.name, !this.configurationService.getValue<boolean>(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
 
 		// Set dynamic defaults: part sizing and side bar visibility
 		const workbenchState = this.contextService.getWorkbenchState();
@@ -3437,7 +3437,7 @@ class LayoutStateModel extends Disposable {
 					break;
 				// --- Start Positron ---
 				case LayoutStateKeys.POSITRON_TOP_ACTION_BAR_HIDDEN:
-					this.stateCache.set(key.name, !this.configurationService.getValue<boolean>('workbench.topActionBar.visible'));
+					this.stateCache.set(key.name, !this.configurationService.getValue<boolean>(LayoutSettings.TOP_ACTION_BAR_VISIBLE));
 					break;
 				// --- End Positron ---
 			}
