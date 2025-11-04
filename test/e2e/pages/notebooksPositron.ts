@@ -22,10 +22,11 @@ type EditorActionBarButtons = 'Markdown' | 'Code' | 'Clear Outputs' | 'Run All';
  * Notebooks functionality exclusive to Positron notebooks.
  */
 export class PositronNotebooks extends Notebooks {
-	// Editors, generic locators
+	// Containers, generic locators
 	private positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
-	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
+	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
 	private spinner = this.code.driver.page.getByLabel(/cell is executing/i);
+	editorAtIndex = (index: number) => this.cell.nth(index).locator('.positron-cell-editor-monaco-widget textarea');
 	cell = this.code.driver.page.locator('[data-testid="notebook-cell"]');
 	codeCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Code cell"]');
 	markdownCell = this.code.driver.page.locator('[data-testid="notebook-cell"][aria-label="Markdown cell"]');
@@ -34,15 +35,9 @@ export class PositronNotebooks extends Notebooks {
 
 	// Editor action bar
 	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
-	// private markdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown', exact: true })
-	// private codeButton = this.editorActionBar.getByRole('button', { name: 'Code', exact: true });
-	// private clearOutputsButton = this.editorActionBar.getByRole('button', { name: 'Clear Outputs' });
-	// private runAllButton = this.editorActionBar.getByRole('button', { name: 'Run All' });
 	kernel: Kernel;
 
 	// Cell action buttons, menus, tooltips, output, etc
-	private newCellButton = this.code.driver.page.getByLabel(/new code cell/i);
-	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
 	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
@@ -52,6 +47,7 @@ export class PositronNotebooks extends Notebooks {
 	private cellInfoToolTipAtIndex = (index: number) => this.cell.nth(index).getByRole('tooltip', { name: /cell execution details/i });
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
+	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
@@ -642,18 +638,11 @@ export class PositronNotebooks extends Notebooks {
 		const buf = await output.page().screenshot({ clip });
 
 		const info = test.info();
-
-		// This resolves exactly how Playwright will name/store the golden,
-		// honoring your snapshotPathTemplate (project/platform, etc.).
 		const resolvedPath = info.snapshotPath(screenshotName);
-		const resolvedFile = path.basename(resolvedPath); // nice short name for the report
+		const resolvedFile = path.basename(resolvedPath);
 
 		// Attach the image using the resolved filename
 		await info.attach(resolvedFile, { body: buf, contentType: 'image/png' });
-		// await info.attach(`${resolvedFile}.path.txt`, {
-		// 	body: Buffer.from(resolvedPath, 'utf8'),
-		// 	contentType: 'text/plain',
-		// });
 	}
 
 	async expectScreenshotMatchAtIndex(index: number, screenshotName: string): Promise<void> {
