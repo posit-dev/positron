@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -26,7 +25,7 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		const { notebooksPositron } = app.workbench;
 
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('R')
+		await notebooksPositron.kernel.select('R');
 		await notebooksPositron.expectCellCountToBe(1);
 		await hotKeys.notebookLayout();
 

@@ -69,7 +69,7 @@ test.describe('Positron Notebooks: Cell Copy-Paste Behavior', {
 			await notebooksPositron.performCellAction('paste');
 
 			// Verify cell count restored and cell content is correct
-			await notebooksPositron.expectCellCountToBe(6)
+			await notebooksPositron.expectCellCountToBe(6);
 			await notebooksPositron.expectCellContentAtIndexToBe(4, '# Cell 1');
 		});
 
