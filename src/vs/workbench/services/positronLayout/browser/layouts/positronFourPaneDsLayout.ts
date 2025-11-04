@@ -17,6 +17,12 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 		[Parts.SIDEBAR_PART]: {
 			size: '15%',
 			hidden: false,
+			viewContainers: [
+				{
+					id: 'workbench.view.explorer',
+					opened: true,
+				},
+			]
 		},
 		[Parts.PANEL_PART]: {
 			size: '40%',
