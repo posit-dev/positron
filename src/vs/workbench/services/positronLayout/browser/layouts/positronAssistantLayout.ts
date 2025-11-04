@@ -5,6 +5,7 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
@@ -13,6 +14,7 @@ export const positronAssistantLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronAssistantLayout',
 	codicon: 'positron-assistant-layout',
 	label: localize2('choseLayout.assistant', 'Assistant Layout'),
+	precondition: ContextKeyExpr.has('config.positron.assistant.enable'),
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '30%',

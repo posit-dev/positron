@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { CustomPositronLayoutDescription } from '../common/positronCustomViews.js';
 import { positronFourPaneDsLayout } from './layouts/positronFourPaneDsLayout.js';
 import { positronTwoPaneLayout } from './layouts/positronTwoPaneLayout.js';
@@ -17,7 +18,10 @@ import './layouts/maximizedPartLayouts.js';
 import './layouts/positronHelpPaneDocked.js';
 
 
-type LayoutPick = IQuickPickItem & { layoutDescriptor: CustomPositronLayoutDescription };
+type LayoutPick = IQuickPickItem & {
+	layoutDescriptor: CustomPositronLayoutDescription;
+	precondition?: ContextKeyExpression;
+};
 
 export const positronCustomLayoutOptions: LayoutPick[] = [
 	positronFourPaneDsLayout,
@@ -29,6 +33,7 @@ export const positronCustomLayoutOptions: LayoutPick[] = [
 		id: layoutInfo.id,
 		label: `$(${layoutInfo.codicon}) ${layoutInfo.label.value}`,
 		layoutDescriptor: layoutInfo.layoutDescriptor,
+		precondition: layoutInfo.precondition,
 	};
 });
 

@@ -7,6 +7,7 @@ import { ILocalizedString } from '../../../../../nls.js';
 import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
 import { Action2 } from '../../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 
@@ -21,6 +22,11 @@ export type PositronLayoutInfo = {
 	 * programmatically.
 	 */
 	hideFromPalette?: boolean;
+	/**
+	 * Precondition controls enablement (for example for a menu item, show
+	 * it in grey or for a command, do not allow to invoke it)
+	 */
+	precondition?: ContextKeyExpression;
 };
 
 export abstract class PositronLayoutAction extends Action2 {
@@ -33,7 +39,8 @@ export abstract class PositronLayoutAction extends Action2 {
 			id: layoutInfo.id,
 			title: layoutInfo.label,
 			category: Categories.View,
-			f1: showInPalette
+			f1: showInPalette,
+			precondition: layoutInfo.precondition
 		});
 
 		this._layout = layoutInfo.layoutDescriptor;
