@@ -48,6 +48,8 @@ export class PositronNotebooks extends Notebooks {
 	private spinnerAtIndex = (index: number) => this.cell.nth(index).getByLabel(/cell is executing/i);
 	private executionStatusAtIndex = (index: number) => this.cell.nth(index).locator('[data-execution-status]');
 	private deleteCellButton = this.cell.getByRole('button', { name: /delete the selected cell/i });
+	collapseMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Collapse markdown editor' });
+	expandMarkdownEditor = this.code.driver.page.getByRole('button', { name: 'Open markdown editor' });
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		super(code, quickinput, quickaccess, hotKeys);
