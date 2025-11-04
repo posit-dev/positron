@@ -11,6 +11,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
+import path from 'path';
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -691,19 +692,41 @@ export class PositronNotebooks extends Notebooks {
 		);
 	}
 
+	async attachCroppedScreenshot(
+		output: Locator,
+		screenshotName: string
+	) {
+		const clip = await output.boundingBox() ?? undefined;
+		const buf = await output.page().screenshot({ clip });
+
+		const info = test.info();
+
+		// This resolves exactly how Playwright will name/store the golden,
+		// honoring your snapshotPathTemplate (project/platform, etc.).
+		const resolvedPath = info.snapshotPath(screenshotName);
+		const resolvedFile = path.basename(resolvedPath); // nice short name for the report
+
+		// Attach the image using the resolved filename
+		await info.attach(resolvedFile, { body: buf, contentType: 'image/png' });
+		// await info.attach(`${resolvedFile}.path.txt`, {
+		// 	body: Buffer.from(resolvedPath, 'utf8'),
+		// 	contentType: 'text/plain',
+		// });
+	}
+
 	async expectScreenshotMatchAtIndex(index: number, screenshotName: string): Promise<void> {
 		await test.step(`Take/compare screenshot at index: ${index}`, async () => {
 			const output = this.cellMarkdown(index);
 			await output.scrollIntoViewIfNeeded();
 			await expect(output).toBeVisible();
 
-			const screenshot = await output.screenshot();
-			// attach screenshot to test report
-			// await test.info().attach(`cell-${index}-screenshot`, {
-			// 	body: screenshot,
-			// 	contentType: 'image/png'
-			// });
-			expect(screenshot).toMatchSnapshot(screenshotName);
+			// attach screenshot to report
+			await this.attachCroppedScreenshot(output, 'basic-markdown-render.png');
+			await expect(output).toHaveScreenshot('basic-markdown-render.png', {
+				animations: 'disabled',
+				caret: 'hide',
+				scale: 'css',
+			});
 		});
 	}
 
