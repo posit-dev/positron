@@ -802,6 +802,8 @@ Components used by Positron
 * one-time (MIT license)
 * open (MIT license)
 * Open Remote - WSL (ELASTIC-2.0 license)
+* Open Remote SSH (MIT license)
+* Open Remote WSL (MIT license)
 * open-remote-ssh (MIT license)
 * openssl (Apache license)
 * openssl-macros (Apache, MIT licenses)
@@ -39336,6 +39338,22 @@ these terms.
 'use' means anything you do with the software requiring one of your licenses.
 
 'trademark' means trademarks, service marks, and similar rights.
+
+
+Open Remote SSH
+---------------
+Website: https://github.com/jeanp413/open-remote-ssh
+
+Copyright (c) 2022 open-remote-ssh project authors
+Distributed under the MIT License
+
+
+Open Remote WSL
+---------------
+Website: https://github.com/jeanp413/open-remote-wsl
+
+Copyright (c) 2023 open-remote-wsl project authors
+Distributed under the MIT License
 
 
 open-remote-ssh
