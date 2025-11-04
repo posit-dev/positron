@@ -14,6 +14,9 @@ import { asCSSUrl } from '../../../../base/browser/cssValue.js';
 import { ThemeIcon as ThemeIconClass } from '../../../../base/common/themables.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { asCssVariable } from '../../../theme/common/colorUtils.js';
+import { editorErrorForeground } from '../../../theme/common/colorRegistry.js';
 
 /**
  * IconProps interface.
@@ -21,6 +24,7 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 interface IconProps {
 	readonly icon: IconType;
 	readonly className?: string;
+	readonly style?: React.CSSProperties,
 }
 
 /**
@@ -29,6 +33,7 @@ interface IconProps {
 interface ThemeIconProps {
 	readonly icon: ThemeIconClass;
 	readonly className?: string;
+	readonly style?: React.CSSProperties,
 }
 
 /**
@@ -37,6 +42,7 @@ interface ThemeIconProps {
 interface URIIconProps {
 	readonly icon: { dark?: URI; light?: URI };
 	readonly className?: string;
+	readonly style?: React.CSSProperties,
 }
 
 /**
@@ -50,6 +56,7 @@ const ThemeIcon = (props: ThemeIconProps) => {
 	return (
 		<div
 			className={positronClassNames(props.className, ...iconClassNames)}
+			style={props.style}
 		/>
 	);
 };
@@ -91,7 +98,7 @@ const URIIcon = (props: URIIconProps) => {
 	return (
 		<div
 			className={props.className}
-			style={iconStyle}
+			style={{ ...props.style, ...iconStyle }}
 		/>
 	);
 };
@@ -104,8 +111,25 @@ const URIIcon = (props: URIIconProps) => {
  */
 export const Icon = (props: IconProps) => {
 	if (ThemeIconClass.isThemeIcon(props.icon)) {
-		return <ThemeIcon className={props.className} icon={props.icon} />;
+		return <ThemeIcon
+			className={props.className}
+			icon={props.icon}
+			style={props.style}
+		/>;
 	} else {
-		return <URIIcon className={props.className} icon={props.icon} />;
+		return <URIIcon
+			className={props.className}
+			icon={props.icon}
+			style={props.style}
+		/>;
 	}
 };
+
+/** An icon representing a developer error. */
+export const DevErrorIcon = () => {
+	// Blank icon with an easy-to-catch background color for debugging
+	return <Icon
+		icon={Codicon.blank}
+		style={{ backgroundColor: asCssVariable(editorErrorForeground) }}
+	/>;
+}

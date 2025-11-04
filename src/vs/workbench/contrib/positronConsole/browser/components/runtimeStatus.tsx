@@ -16,6 +16,7 @@ import { Codicon } from '../../../../../base/common/codicons.js';
 import { registerIcon } from '../../../../../platform/theme/common/iconRegistry.js';
 import { localize } from '../../../../../nls.js';
 import { asCssVariable, ColorIdentifier } from '../../../../../platform/theme/common/colorUtils.js';
+import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 
 export const enum RuntimeStatus {
 	Active = 'Active',
@@ -59,16 +60,13 @@ export interface RuntimeStatusIconProps {
 
 export const RuntimeStatusIcon = ({ status }: RuntimeStatusIconProps) => {
 	const icon = statusToIcon[status];
-	const className = ThemeIcon.asClassName(icon);
-	const color = statusToIconColor[status];
-	const colorCss = asCssVariable(color);
-	return (
-		<span
-			className={className}
-			style={{
-				color: colorCss,
-				animation: status === RuntimeStatus.Active ? 'spin 2s linear infinite' : undefined
-			}}
-		/>
-	);
+	const colorId = statusToIconColor[status];
+	const color = asCssVariable(colorId);
+	return <Icon
+		icon={icon}
+		style={{
+			animation: status === RuntimeStatus.Active ? 'spin 2s linear infinite' : undefined,
+			color,
+		}}
+	/>
 };
