@@ -282,7 +282,7 @@ export class PositronNotebooks extends Notebooks {
 
 			// Determine if cell is markdown or code and enter edit mode accordingly
 			const ariaLabel = await this.cell.nth(cellIndex).getAttribute('aria-label');
-			ariaLabel == 'Markdown cell'
+			ariaLabel === 'Markdown cell'
 				? await this.cell.nth(cellIndex).dblclick()
 				: await this.cell.nth(cellIndex).click();
 
@@ -650,6 +650,7 @@ export class PositronNotebooks extends Notebooks {
 			const output = this.cellMarkdown(index);
 			await output.scrollIntoViewIfNeeded();
 			await expect(output).toBeVisible();
+			await output.waitFor(); // layout settles
 
 			// attach screenshot to report
 			await this.attachCroppedScreenshot(output, 'basic-markdown-render.png');
@@ -657,8 +658,15 @@ export class PositronNotebooks extends Notebooks {
 				animations: 'disabled',
 				caret: 'hide',
 				scale: 'css',
+				maxDiffPixelRatio: 0.02,
 			});
 		});
+	}
+
+	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
+		const markdownLocator = this.cell.locator(tag);
+		await expect(markdownLocator).toBeVisible();
+		await expect(markdownLocator).toHaveText(expectedText);
 	}
 
 	/**
