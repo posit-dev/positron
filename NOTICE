@@ -869,6 +869,7 @@ Components used by Positron
 * powerfmt (Apache, MIT licenses)
 * PowerShell EditorSyntax (MIT license)
 * Powershell Language Basics (MIT license)
+* PowerShell ReadLine (BSD license)
 * ppv-lite86 (Apache, MIT licenses)
 * prebuild-install (MIT license)
 * precomputed-hash (MIT license)
@@ -41840,6 +41841,14 @@ Website: https://github.com/microsoft/vscode
 
 Copyright (c) Microsoft Corporation
 Distributed under the MIT License
+
+
+PowerShell ReadLine
+-------------------
+Website: https://github.com/PowerShell/PSReadLine
+
+Copyright (c) 2013, Jason Shirk. All rights reserved.
+Distributed under the BSD 2-Clause license
 
 
 ppv-lite86
