@@ -26,7 +26,6 @@ test.describe('Positron Notebooks: Markdown Cells', {
 
 		// create notebook
 		await notebooksPositron.newNotebook();
-		await notebooksPositron.kernel.select('R');
 		await notebooksPositron.expectCellCountToBe(1);
 		await hotKeys.notebookLayout();
 
@@ -38,7 +37,6 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		// add markdown content to cell and render
 		const markdownContent = '# Heading 1\n\n## Heading 2\n\n**Bold Text**\n\n*Italic Text*';
 		await notebooksPositron.addCodeToCell(1, markdownContent);
-		await notebooksPositron.clickActionBarButtton('Run All');
 
 		// verify markdown rendered correctly
 		await notebooksPositron.expectMarkdownTagToBe('h1', 'Heading 1');
