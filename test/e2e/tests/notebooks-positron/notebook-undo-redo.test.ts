@@ -9,7 +9,6 @@ test.use({
 	suiteId: __filename
 });
 
-// Not running on web due to https://github.com/posit-dev/positron/issues/9193
 test.describe('Positron Notebooks: Cell Undo-Redo Behavior', {
 	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
 }, () => {

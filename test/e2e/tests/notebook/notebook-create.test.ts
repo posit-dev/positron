@@ -54,7 +54,7 @@ test.describe('Notebooks', {
 				await notebooks.insertNotebookCell('markdown');
 				await notebooks.typeInEditor(`## ${randomText} `);
 				await notebooks.stopEditingCell();
-				await notebooks.assertMarkdownText('h2', randomText);
+				await notebooks.expectMarkdownTagToBe('h2', randomText);
 			});
 		});
 
@@ -162,7 +162,7 @@ test.describe('Notebooks', {
 				await app.workbench.notebooks.insertNotebookCell('markdown');
 				await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
 				await app.workbench.notebooks.stopEditingCell();
-				await app.workbench.notebooks.assertMarkdownText('h2', randomText);
+				await app.workbench.notebooks.expectMarkdownTagToBe('h2', randomText);
 			});
 		});
 	});
