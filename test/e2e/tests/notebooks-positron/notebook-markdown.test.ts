@@ -40,10 +40,10 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		await notebooksPositron.clickActionBarButtton('Run All');
 
 		// Verify markdown rendered correctly
-		await notebooksPositron.assertMarkdownText('h1', 'Heading 1');
-		await notebooksPositron.assertMarkdownText('h2', 'Heading 2');
-		await notebooksPositron.assertMarkdownText('strong', 'Bold Text');
-		await notebooksPositron.assertMarkdownText('em', 'Italic Text');
-		await notebooksPositron.expectScreenshotMatchAtIndex(1, 'basic-markdown-render.png');
+		await notebooksPositron.expectMarkdownTagToBe('h1', 'Heading 1');
+		await notebooksPositron.expectMarkdownTagToBe('h2', 'Heading 2');
+		await notebooksPositron.expectMarkdownTagToBe('strong', 'Bold Text');
+		await notebooksPositron.expectMarkdownTagToBe('em', 'Italic Text');
+		await notebooksPositron.expectScreenshotToMatch(1, 'basic-markdown-render.png');
 	});
 });

@@ -630,27 +630,17 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-	async attachCroppedScreenshot(
-		output: Locator,
-		screenshotName: string
-	) {
-		const clip = await output.boundingBox() ?? undefined;
-		const buf = await output.page().screenshot({ clip });
 
-		const info = test.info();
-		const resolvedPath = info.snapshotPath(screenshotName);
-		const resolvedFile = path.basename(resolvedPath);
-
-		// Attach the image using the resolved filename
-		await info.attach(resolvedFile, { body: buf, contentType: 'image/png' });
-	}
-
-	async expectScreenshotMatchAtIndex(index: number, screenshotName: string): Promise<void> {
-		await test.step(`Take/compare screenshot at index: ${index}`, async () => {
+	/**
+	 * Verify: Screenshot of rendered markdown at specified index matches expected screenshot.
+	 * @param index - The index of the markdown cell to check.
+	 * @param screenshotName - The name to use for the screenshot file.
+	 */
+	async expectScreenshotToMatch(index: number, screenshotName: string): Promise<void> {
+		await test.step(`Take/compare screenshot of cell output at index ${index}`, async () => {
 			const output = this.cellMarkdown(index);
 			await output.scrollIntoViewIfNeeded();
 			await expect(output).toBeVisible();
-			await output.waitFor(); // layout settles
 
 			// Logging the screenshot path for easier debugging
 			const info = test.info();
@@ -672,7 +662,12 @@ export class PositronNotebooks extends Notebooks {
 		});
 	}
 
-	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
+	/**
+	 * Verify: markdown text for a specific tag matches expected text.
+	 * @param tag - The tag of the markdown element to assert.
+	 * @param expectedText - The expected text content.
+	 */
+	async expectMarkdownTagToBe(tag: string, expectedText: string): Promise<void> {
 		const markdownLocator = this.cell.locator(tag);
 		await expect(markdownLocator).toBeVisible();
 		await expect(markdownLocator).toHaveText(expectedText);
