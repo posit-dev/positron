@@ -37,44 +37,31 @@ export async function reopenInContainer(): Promise<void> {
 			return;
 		}
 
-		// Show progress while building/starting container
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: 'Opening in dev container',
-				cancellable: false
-			},
-			async (progress) => {
-				// Phase 1: Build/Start Container
-				progress.report({ message: 'Building container...' });
-				logger.info('Building/starting dev container...');
+		// Build/Start Container (output will be shown in terminal)
+		logger.info('Building/starting dev container...');
 
-				const manager = getDevContainerManager();
-				const result = await manager.createOrStartContainer({
-					workspaceFolder: workspaceFolder.uri.fsPath,
-					rebuild: false,
-					noCache: false
-				});
+		const manager = getDevContainerManager();
+		const result = await manager.createOrStartContainer({
+			workspaceFolder: workspaceFolder.uri.fsPath,
+			rebuild: false,
+			noCache: false
+		});
 
-				logger.info(`Container ready: ${result.containerId}`);
+		logger.info(`Container ready: ${result.containerId}`);
 
-				// Phase 2: Reload window with remote authority
-				progress.report({ message: 'Connecting to container...' });
+		// Reload window with remote authority
+		const authority = `dev-container+${result.containerId}`;
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
-				const authority = `dev-container+${result.containerId}`;
-				const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+		logger.info(`Reloading window with authority: ${authority}`);
+		logger.info(`Remote workspace: ${result.remoteWorkspaceFolder}`);
 
-				logger.info(`Reloading window with authority: ${authority}`);
-				logger.info(`Remote workspace: ${result.remoteWorkspaceFolder}`);
-
-				// Reload window with the remote authority
-				// The authority resolver will handle installing the server and establishing the connection
-				logger.info(`===== REOPENING WINDOW WITH REMOTE URI =====`);
-				logger.info(`About to execute vscode.openFolder with URI: ${remoteUri.toString()}`);
-				await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
-				logger.info(`vscode.openFolder command completed`);
-			}
-		);
+		// Reload window with the remote authority
+		// The authority resolver will handle installing the server and establishing the connection
+		logger.info(`===== REOPENING WINDOW WITH REMOTE URI =====`);
+		logger.info(`About to execute vscode.openFolder with URI: ${remoteUri.toString()}`);
+		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+		logger.info(`vscode.openFolder command completed`);
 	} catch (error) {
 		logger.error('Failed to reopen in container', error);
 		await vscode.window.showErrorMessage(

@@ -204,49 +204,36 @@ async function openFolderInContainer(folderPath: string, forceNewWindow: boolean
 		return;
 	}
 
-	// Show progress while building/starting container
-	await vscode.window.withProgress(
-		{
-			location: vscode.ProgressLocation.Notification,
-			title: 'Opening folder in dev container',
-			cancellable: false
-		},
-		async (progress) => {
-			// Build/Start Container
-			progress.report({ message: 'Building container...' });
-			logger.info('Building/starting dev container...');
+	// Build/Start Container (output will be shown in terminal)
+	logger.info('Building/starting dev container...');
 
-			const manager = getDevContainerManager();
-			const result = await manager.createOrStartContainer({
-				workspaceFolder: folderPath,
-				rebuild: false,
-				noCache: false
-			});
+	const manager = getDevContainerManager();
+	const result = await manager.createOrStartContainer({
+		workspaceFolder: folderPath,
+		rebuild: false,
+		noCache: false
+	});
 
-			logger.info(`Container ready: ${result.containerId}`);
+	logger.info(`Container ready: ${result.containerId}`);
 
-			// --- Start Positron ---
-			// Validate that workspace folder is properly determined
-			if (!result.remoteWorkspaceFolder) {
-				throw new Error('Remote workspace folder not determined. Workspace may not be mounted.');
-			}
-			// --- End Positron ---
+	// --- Start Positron ---
+	// Validate that workspace folder is properly determined
+	if (!result.remoteWorkspaceFolder) {
+		throw new Error('Remote workspace folder not determined. Workspace may not be mounted.');
+	}
+	// --- End Positron ---
 
-			// Open the folder with remote authority
-			progress.report({ message: 'Connecting to container...' });
+	// Open the folder with remote authority
+	const authority = `dev-container+${result.containerId}`;
+	const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
-			const authority = `dev-container+${result.containerId}`;
-			const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+	logger.info(`Opening folder with authority: ${authority}`);
+	logger.info(`Remote workspace: ${result.remoteWorkspaceFolder}`);
 
-			logger.info(`Opening folder with authority: ${authority}`);
-			logger.info(`Remote workspace: ${result.remoteWorkspaceFolder}`);
-
-			// Open folder with the remote authority
-			await vscode.commands.executeCommand(
-				'vscode.openFolder',
-				remoteUri,
-				forceNewWindow
-			);
-		}
+	// Open folder with the remote authority
+	await vscode.commands.executeCommand(
+		'vscode.openFolder',
+		remoteUri,
+		forceNewWindow
 	);
 }

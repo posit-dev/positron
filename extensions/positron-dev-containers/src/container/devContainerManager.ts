@@ -8,13 +8,13 @@ import { URI } from 'vscode-uri';
 import { getLogger } from '../common/logger';
 import { getConfiguration } from '../common/configuration';
 import { Workspace } from '../common/workspace';
-import { DevContainerInfo, AuthorityType } from '../common/types';
+import { DevContainerInfo } from '../common/types';
 import { ContainerLabels } from './containerLabels';
 import { ContainerStateManager, ContainerInspectInfo } from './containerState';
-import { withBuildProgress } from './buildProgress';
+import { TerminalBuilder } from './terminalBuilder';
 
 // Import spec library
-import { launch, ProvisionOptions, createDockerParams } from '../spec/spec-node/devContainers';
+import { createDockerParams } from '../spec/spec-node/devContainers';
 import { readDevContainerConfigFile } from '../spec/spec-node/configContainer';
 import { inspectContainer, inspectContainers, listContainers, dockerCLI, ContainerDetails } from '../spec/spec-shutdown/dockerUtils';
 import { getCLIHost, loadNativeModule } from '../spec/spec-common/commonUtils';
@@ -185,123 +185,35 @@ export class DevContainerManager {
 	 */
 	private async createContainer(
 		options: DevContainerOptions,
-		configFilePath: string
+		_configFilePath: string
 	): Promise<DevContainerResult> {
 		const logger = getLogger();
-		const config = getConfiguration();
 
-		return await withBuildProgress(
-			'Creating Dev Container',
-			async (reporter, _token) => {
-				reporter.reportReadingConfig(configFilePath);
+		logger.info('Building container using terminal...');
 
-				// Create labels for the container
-				const labels = ContainerLabels.createLabels({
-					localFolder: options.workspaceFolder,
-					configFile: configFilePath,
-					type: AuthorityType.DevContainer,
-					positronCommit: vscode.version,
-				});
-
-				// Convert labels to CLI args
-				const labelArgs = ContainerLabels.toCliArgs(labels);
-				if (options.additionalLabels) {
-					const additionalLabelArgs = ContainerLabels.toCliArgs(options.additionalLabels);
-					labelArgs.push(...additionalLabelArgs);
-				}
-
-				reporter.reportBuildingImage();
-
-				// Prepare provision options
-				const provisionOptions: ProvisionOptions = {
-					dockerPath: config.getDockerPath(),
-					dockerComposePath: config.getDockerComposePath(),
-					containerDataFolder: undefined,
-					containerSystemDataFolder: undefined,
-					workspaceFolder: options.workspaceFolder,
-					workspaceMountConsistency: config.getWorkspaceMountConsistency(),
-					gpuAvailability: config.getGpuAvailability(),
-					mountWorkspaceGitRoot: false,
-					configFile: URI.file(configFilePath),
-					overrideConfigFile: undefined,
-					logLevel: config.getLogLevel() as any,
-					logFormat: 'text',
-					log: (text: string) => logger.debug(text),
-					terminalDimensions: undefined,
-					defaultUserEnvProbe: 'loginInteractiveShell',
-					removeExistingContainer: options.rebuild || false,
-					buildNoCache: options.noCache || false,
-					expectExistingContainer: false,
-					postCreateEnabled: !options.skipPostCreate,
-					skipNonBlocking: false,
-					prebuild: false,
-					persistedFolder: undefined,
-					additionalMounts: [],
-					updateRemoteUserUIDDefault: 'never',
-					remoteEnv: {},
-					additionalCacheFroms: [],
-					useBuildKit: 'auto',
-					omitLoggerHeader: true,
-					buildxPlatform: undefined,
-					buildxPush: false,
-					additionalLabels: labelArgs,
-					buildxOutput: undefined,
-					buildxCacheTo: undefined,
-					additionalFeatures: config.getDefaultFeatures(),
-					skipFeatureAutoMapping: false,
-					skipPostAttach: true,
-					skipPersistingCustomizationsFromFeatures: false,
-					dotfiles: {},
-					experimentalLockfile: false,
-					experimentalFrozenLockfile: false,
-				};
-
-				// Launch the container
-				const disposables: (() => Promise<unknown> | undefined)[] = [];
-				try {
-					reporter.reportCreatingContainer();
-
-					const result = await launch(provisionOptions, labelArgs, disposables);
-
-					// Wait for background tasks to complete before reporting progress as complete
-					if (result.finishBackgroundTasks) {
-						await result.finishBackgroundTasks();
-					}
-
-					reporter.reportComplete(result.containerId);
-
-					logger.info(`Container created: ${result.containerId}`);
-
-					// Get container info
-					const containerInfo = await this.getContainerInfo(result.containerId);
-
-					// --- Start Positron ---
-					// Determine remote workspace folder with intelligent fallback
-					// The spec library should return this, but if not, generate a sensible default
-					let remoteWorkspaceFolder = result.remoteWorkspaceFolder;
-					if (!remoteWorkspaceFolder) {
-						// Extract folder name from workspace path for default
-						const folderName = options.workspaceFolder.split(/[/\\]/).pop() || 'workspace';
-						remoteWorkspaceFolder = `/workspaces/${folderName}`;
-						logger.warn(`Remote workspace folder not returned from spec library, using default: ${remoteWorkspaceFolder}`);
-					} else {
-						logger.info(`Remote workspace folder from spec library: ${remoteWorkspaceFolder}`);
-					}
-					// --- End Positron ---
-
-					return {
-						containerId: result.containerId,
-						containerName: containerInfo.containerName,
-						containerInfo,
-						remoteWorkspaceFolder,
-						remoteUser: result.remoteUser,
-					};
-				} finally {
-					// Cleanup
-					await Promise.all(disposables.map(d => d()));
-				}
-			}
+		// Use terminal-based builder
+		const result = await TerminalBuilder.buildAndCreate(
+			options.workspaceFolder,
+			options.rebuild || false,
+			options.noCache || false
 		);
+
+		// Get container info
+		const containerInfo = await this.getContainerInfo(result.containerId);
+
+		// Get the remote user from the container inspection
+		const inspectInfo = await this.inspectContainerById(result.containerId);
+		const remoteUser = inspectInfo.Config.User || 'root';
+
+		logger.info(`Container created: ${result.containerId}`);
+
+		return {
+			containerId: result.containerId,
+			containerName: result.containerName,
+			containerInfo,
+			remoteWorkspaceFolder: result.remoteWorkspaceFolder,
+			remoteUser,
+		};
 	}
 
 	/**

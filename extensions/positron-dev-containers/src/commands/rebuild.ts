@@ -42,39 +42,26 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 			return;
 		}
 
-		// Show progress while rebuilding container
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: 'Rebuilding dev container',
-				cancellable: false
-			},
-			async (progress) => {
-				// Rebuild the container
-				progress.report({ message: 'Rebuilding container...' });
-				logger.info('Rebuilding dev container...');
+		// Rebuild the container (output will be shown in terminal)
+		logger.info('Rebuilding dev container...');
 
-				const manager = getDevContainerManager();
-				const result = await manager.createOrStartContainer({
-					workspaceFolder: workspaceFolder.uri.fsPath,
-					rebuild: true,
-					noCache: false
-				});
+		const manager = getDevContainerManager();
+		const result = await manager.createOrStartContainer({
+			workspaceFolder: workspaceFolder.uri.fsPath,
+			rebuild: true,
+			noCache: false
+		});
 
-				logger.info(`Container rebuilt: ${result.containerId}`);
+		logger.info(`Container rebuilt: ${result.containerId}`);
 
-				// Reload window with remote authority
-				progress.report({ message: 'Connecting to container...' });
+		// Reload window with remote authority
+		const authority = `dev-container+${result.containerId}`;
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
-				const authority = `dev-container+${result.containerId}`;
-				const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+		logger.info(`Reloading window with authority: ${authority}`);
 
-				logger.info(`Reloading window with authority: ${authority}`);
-
-				// Reload window with the remote authority
-				await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
-			}
-		);
+		// Reload window with the remote authority
+		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
 	} catch (error) {
 		logger.error('Failed to rebuild and reopen in container', error);
 		await vscode.window.showErrorMessage(
@@ -117,39 +104,26 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 			return;
 		}
 
-		// Show progress while rebuilding container
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: 'Rebuilding dev container (no cache)',
-				cancellable: false
-			},
-			async (progress) => {
-				// Rebuild the container without cache
-				progress.report({ message: 'Rebuilding container without cache...' });
-				logger.info('Rebuilding dev container without cache...');
+		// Rebuild the container without cache (output will be shown in terminal)
+		logger.info('Rebuilding dev container without cache...');
 
-				const manager = getDevContainerManager();
-				const result = await manager.createOrStartContainer({
-					workspaceFolder: workspaceFolder.uri.fsPath,
-					rebuild: true,
-					noCache: true
-				});
+		const manager = getDevContainerManager();
+		const result = await manager.createOrStartContainer({
+			workspaceFolder: workspaceFolder.uri.fsPath,
+			rebuild: true,
+			noCache: true
+		});
 
-				logger.info(`Container rebuilt: ${result.containerId}`);
+		logger.info(`Container rebuilt: ${result.containerId}`);
 
-				// Reload window with remote authority
-				progress.report({ message: 'Connecting to container...' });
+		// Reload window with remote authority
+		const authority = `dev-container+${result.containerId}`;
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
-				const authority = `dev-container+${result.containerId}`;
-				const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+		logger.info(`Reloading window with authority: ${authority}`);
 
-				logger.info(`Reloading window with authority: ${authority}`);
-
-				// Reload window with the remote authority
-				await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
-			}
-		);
+		// Reload window with the remote authority
+		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
 	} catch (error) {
 		logger.error('Failed to rebuild (no cache) and reopen in container', error);
 		await vscode.window.showErrorMessage(
@@ -192,39 +166,26 @@ export async function rebuildContainer(): Promise<void> {
 			return;
 		}
 
-		// Show progress while rebuilding container
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: 'Rebuilding dev container',
-				cancellable: false
-			},
-			async (progress) => {
-				// Rebuild the container
-				progress.report({ message: 'Rebuilding container...' });
-				logger.info('Rebuilding dev container...');
+		// Rebuild the container (output will be shown in terminal)
+		logger.info('Rebuilding dev container...');
 
-				const manager = getDevContainerManager();
-				const result = await manager.createOrStartContainer({
-					workspaceFolder: localPath,
-					rebuild: true,
-					noCache: false
-				});
+		const manager = getDevContainerManager();
+		const result = await manager.createOrStartContainer({
+			workspaceFolder: localPath,
+			rebuild: true,
+			noCache: false
+		});
 
-				logger.info(`Container rebuilt: ${result.containerId}`);
+		logger.info(`Container rebuilt: ${result.containerId}`);
 
-				// Reload window with remote authority
-				progress.report({ message: 'Reconnecting to container...' });
+		// Reload window with remote authority
+		const authority = `dev-container+${result.containerId}`;
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
-				const authority = `dev-container+${result.containerId}`;
-				const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+		logger.info(`Reloading window with authority: ${authority}`);
 
-				logger.info(`Reloading window with authority: ${authority}`);
-
-				// Reload window with the remote authority
-				await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
-			}
-		);
+		// Reload window with the remote authority
+		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
 	} catch (error) {
 		logger.error('Failed to rebuild container', error);
 		await vscode.window.showErrorMessage(
@@ -267,39 +228,26 @@ export async function rebuildContainerNoCache(): Promise<void> {
 			return;
 		}
 
-		// Show progress while rebuilding container
-		await vscode.window.withProgress(
-			{
-				location: vscode.ProgressLocation.Notification,
-				title: 'Rebuilding dev container (no cache)',
-				cancellable: false
-			},
-			async (progress) => {
-				// Rebuild the container without cache
-				progress.report({ message: 'Rebuilding container without cache...' });
-				logger.info('Rebuilding dev container without cache...');
+		// Rebuild the container without cache (output will be shown in terminal)
+		logger.info('Rebuilding dev container without cache...');
 
-				const manager = getDevContainerManager();
-				const result = await manager.createOrStartContainer({
-					workspaceFolder: localPath,
-					rebuild: true,
-					noCache: true
-				});
+		const manager = getDevContainerManager();
+		const result = await manager.createOrStartContainer({
+			workspaceFolder: localPath,
+			rebuild: true,
+			noCache: true
+		});
 
-				logger.info(`Container rebuilt: ${result.containerId}`);
+		logger.info(`Container rebuilt: ${result.containerId}`);
 
-				// Reload window with remote authority
-				progress.report({ message: 'Reconnecting to container...' });
+		// Reload window with remote authority
+		const authority = `dev-container+${result.containerId}`;
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
-				const authority = `dev-container+${result.containerId}`;
-				const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+		logger.info(`Reloading window with authority: ${authority}`);
 
-				logger.info(`Reloading window with authority: ${authority}`);
-
-				// Reload window with the remote authority
-				await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
-			}
-		);
+		// Reload window with the remote authority
+		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
 	} catch (error) {
 		logger.error('Failed to rebuild container (no cache)', error);
 		await vscode.window.showErrorMessage(
