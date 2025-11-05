@@ -45,12 +45,14 @@
 		border-bottom: 2px solid;
 	}
 
+	h1,
 	h2,
 	h3,
 	h4,
 	h5,
 	h6 {
 		font-weight: normal;
+		line-height: 1.25;
 	}
 
 	h1 {
