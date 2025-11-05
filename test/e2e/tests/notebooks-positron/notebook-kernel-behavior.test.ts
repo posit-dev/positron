@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import path from 'path/win32';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -21,7 +22,7 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Validate notebook session states during start, restart, and shutdown', async function ({ app }) {
+	test('ensure notebook session states update correctly during start, restart, and shutdown', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 
 		// create new notebook
@@ -74,9 +75,16 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 			{ label: 'Change Kernel', enabled: true },
 			{ label: 'Open Notebook Console', enabled: false },
 		]);
+
+		// re-start kernel from shutdown state and ensure state changes
+		await notebooksPositron.kernel.restart();
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'idle'
+		});
 	});
 
-	test('Validate persistence with notebook restart', async function ({ app, page }) {
+	test('ensure variable and output persistence after kernel restart', async function ({ app }) {
 		const { notebooksPositron, variables } = app.workbench;
 
 		// create new notebook
@@ -127,6 +135,75 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 
 		]);
 	});
+
+	test('ensure new notebooks use foreground session kernel', async function ({ app, sessions }) {
+		const { notebooksPositron } = app.workbench;
+
+		// start multiple sessions and select R
+		await sessions.start(['python', 'r']);
+		await sessions.select('r');
+
+		// create new notebook and ensure R kernel is auto-selected (from foreground) and started
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'R',
+			status: 'idle'
+		});
+	});
+
+	test('ensure existing notebooks use their correct interpreter kernel', async function ({ app, sessions }) {
+		const { notebooksPositron } = app.workbench;
+		const pythonNotebook = path.join('workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb');
+		const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
+
+		// start multiple sessions and select R
+		await sessions.start(['python', 'r']);
+		await sessions.select('r');
+
+		// open existing python notebook and ensure python kernel is auto-selected (from background) and started
+		await notebooksPositron.openNotebook(pythonNotebook);
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'Python',
+			status: 'idle'
+		});
+
+		// open exiting R notebook and ensure R kernel is auto-selected (from foreground) and started
+		await notebooksPositron.openNotebook(rRnotebook);
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'R',
+			status: 'idle'
+		});
+	})
+
+	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
+		const { notebooksPositron, console } = app.workbench;
+
+		await sessions.start(['python', 'r']);
+		await sessions.select('r');
+
+		// create new notebook
+		await notebooksPositron.newNotebook();
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'R',
+			status: 'idle'
+		});
+
+		// open notebook console and ensure appears in session list
+		await notebooksPositron.kernel.openNotebookConsole();
+		await sessions.expectSessionCountToBe(3);
+		await sessions.expectStatusToBe('Untitled-1.ipynb', 'idle');
+
+		// terminate notebook session
+		await sessions.select('Untitled-1.ipynb');
+		await console.executeCode('R', 'q()', { waitForReady: false, maximizeConsole: false });
+
+		// verify session is terminated in both kernel and sessions list
+		await sessions.expectStatusToBe('Untitled-1.ipynb', 'disconnected');
+		await notebooksPositron.kernel.expectKernelToBe({
+			kernelGroup: 'R',
+			status: 'disconnected'
+		});
+	})
 });
 
 const rDataFrame = `data.frame(
