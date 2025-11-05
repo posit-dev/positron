@@ -115,10 +115,12 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
-		await app.workbench.assistant.selectModelProvider('echo');
-		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickCloseButton();
+		await expect(async () => {
+			await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+			await app.workbench.assistant.selectModelProvider('echo');
+			await app.workbench.assistant.clickSignOutButton();
+			await app.workbench.assistant.clickCloseButton();
+		}).toPass({ timeout: 30000 });
 	});
 	/**
 	 * Tests that Python code from chat responses can be executed in the console.
