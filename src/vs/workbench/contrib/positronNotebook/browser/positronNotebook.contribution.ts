@@ -1193,7 +1193,7 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyK
+				primary: KeyMod.Alt | KeyCode.KeyK
 			}
 		});
 	}
