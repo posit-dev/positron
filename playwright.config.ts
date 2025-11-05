@@ -25,7 +25,8 @@ export default defineConfig<ExtendedTestOptions>({
 	testIgnore: [
 		'example.test.ts',
 		'**/workbench/**',
-		'**/inspect-ai/**'
+		'**/inspect-ai/**',
+		'**/remote-ssh/**'
 	],
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -97,6 +98,19 @@ export default defineConfig<ExtendedTestOptions>({
 				browserName: 'chromium',
 			},
 			grep: /@:workbench/
+		},
+		{
+			name: 'e2e-remote-ssh',
+			testIgnore: [
+				'example.test.ts',
+				'**/inspect-ai/**'
+			],
+			use: {
+				artifactDir: 'e2e-remote-ssh',
+				headless: false,
+				useExternalServer: false,
+			},
+			grep: /@:remote-ssh/
 		},
 		{
 			name: 'e2e-chromium',

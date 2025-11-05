@@ -71,6 +71,7 @@ export enum TestTags {
 	WEB_ONLY = '@:web-only',
 	WIN = '@:win',
 	WORKBENCH = '@:workbench',
+	REMOTE_SSH = '@:remote-ssh',
 
 	// exclude tags
 	NIGHTLY_ONLY = '@:nightly-only',
