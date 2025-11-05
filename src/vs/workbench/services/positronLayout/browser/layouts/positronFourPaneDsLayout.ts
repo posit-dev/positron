@@ -5,6 +5,7 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
@@ -13,10 +14,17 @@ export const positronFourPaneDsLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronFourPaneDataScienceLayout',
 	codicon: 'positron-four-pane-ds-layout',
 	label: localize2('choseLayout.stacked', 'Stacked Layout'),
+	precondition: ContextKeyExpr.true(),
 	layoutDescriptor: {
 		[Parts.SIDEBAR_PART]: {
 			size: '15%',
 			hidden: false,
+			viewContainers: [
+				{
+					id: 'workbench.view.explorer',
+					opened: true,
+				},
+			]
 		},
 		[Parts.PANEL_PART]: {
 			size: '40%',

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -139,6 +139,40 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 			// ------ Auxiliary Bar -------
 			// Should be collapsed
 			await expect(layouts.auxBar).not.toBeVisible();
+		});
+	});
+
+	test.describe('Assistant Layout', () => {
+
+		test('Verify Assistant Layout displays all three main parts', async function ({ app }) {
+			const layouts = app.workbench.layouts;
+
+			// Enter assistant layout
+			await layouts.enterLayout('assistant');
+
+			// ------ Sidebar -------
+			// Should be visible with the Chat view
+			await expect(layouts.sidebar).toBeVisible();
+
+			// ------ Panel -------
+			// Should be visible with Console and Terminal tabs
+			await expect(layouts.panelContent).toBeVisible();
+			await expect(layouts.panelViewsTab.nth(0)).toHaveText('Console');
+			await expect(layouts.panelViewsTab.nth(1)).toHaveText('Terminal');
+
+			// ------ Auxiliary Bar -------
+			// Should be visible with Session view
+			await expect(layouts.auxBar).toBeVisible();
+			await expect(layouts.auxBarViewsTab.nth(0)).toHaveText('Session');
+
+			const variablesSection = layouts.auxBar.getByLabel('Variables Section');
+			const plotsSection = layouts.auxBar.getByLabel('Plots Section');
+			await expect(variablesSection).toBeVisible();
+			await expect(plotsSection).toBeVisible();
+
+			// Both sections should be expanded
+			await expect(variablesSection).toHaveAttribute('aria-expanded', 'true');
+			await expect(plotsSection).toHaveAttribute('aria-expanded', 'true');
 		});
 	});
 });

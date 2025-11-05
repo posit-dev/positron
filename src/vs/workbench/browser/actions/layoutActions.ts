@@ -1530,7 +1530,9 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				type: 'separator',
 				label: localize('positronLayouts', "Layout Presets"),
 			},
-			...positronCustomLayoutOptions,
+			...positronCustomLayoutOptions.filter(layout =>
+				layout.precondition.evaluate(contextKeyService.getContext(null))
+			),
 			// --- End Positron ---
 			{
 				type: 'separator',

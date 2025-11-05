@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,51 +10,60 @@ import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 
-export const positronTwoPaneLayout: PositronLayoutInfo = {
-	id: 'workbench.action.positronTwoPaneDataScienceLayout',
-	codicon: 'positron-two-pane-ds-layout',
-	label: localize2('choseLayout.sideBySide', 'Side-By-Side Layout'),
-	precondition: ContextKeyExpr.true(),
+export const positronAssistantLayout: PositronLayoutInfo = {
+	id: 'workbench.action.positronAssistantLayout',
+	codicon: 'positron-assistant-layout',
+	label: localize2('choseLayout.assistant', 'Assistant Layout'),
+	precondition: ContextKeyExpr.has('config.positron.assistant.enable'),
 	layoutDescriptor: {
-		[Parts.PANEL_PART]: {
-			hidden: true,
-			alignment: 'center'
-		},
 		[Parts.SIDEBAR_PART]: {
-			hidden: true
+			size: '30%',
+			hidden: false,
+			viewContainers: [
+				{
+					id: 'workbench.panel.chat',
+					opened: true,
+				},
+			]
+		},
+		[Parts.PANEL_PART]: {
+			size: '40%',
+			hidden: false,
+			alignment: 'center',
+			viewContainers: [
+				{
+					id: 'workbench.panel.positronConsole',
+					opened: true,
+				},
+				{
+					id: 'terminal',
+				},
+			]
 		},
 		[Parts.AUXILIARYBAR_PART]: {
+			size: '30%',
 			hidden: false,
-			size: '40%',
 			viewContainers: [
 				{
 					id: 'workbench.panel.positronSession',
 					opened: true,
 					views: [
 						{
-							id: 'workbench.panel.positronConsole',
-						},
-						{
 							id: 'workbench.panel.positronVariables',
-							collapsed: true,
 						},
 						{
 							id: 'workbench.panel.positronPlots',
-							collapsed: true,
 						},
 					]
 				},
-				{
-					id: 'terminal',
-				}
 			]
-		},
+		}
 	},
 };
 
 
 registerAction2(class extends PositronLayoutAction {
 	constructor() {
-		super(positronTwoPaneLayout);
+		super(positronAssistantLayout);
 	}
 });

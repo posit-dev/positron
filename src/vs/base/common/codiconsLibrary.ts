@@ -714,6 +714,5 @@ export const codiconsLibrary = {
 	positronOpenInEditor: register('positron-open-in-editor', 0xf290),
 	positronOpenFolder: register('positron-open-folder', 0xf291),
 	positronFormatDocument: register('positron-format-document', 0xf292),
-	positronPin: register('positron-pin', 0xf293),
-	positronUnpin: register('positron-unpin', 0xf294),
+	positronAssistantLayout: register('positron-assistant-layout', 0xf293),
 } as const;
