@@ -40,7 +40,7 @@ import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON
 import { getEditingCell, getSelectedCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
-import { registerAction2, MenuId, Action2, IAction2Options } from '../../../../platform/actions/common/actions.js';
+import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
@@ -576,13 +576,16 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
-			title: localize2('positronNotebook.codeCell.insertAbove', "Insert code cell above"),
+			title: localize2('positronNotebook.codeCell.insertAbove', "Insert Code Cell Above"),
 			icon: ThemeIcon.fromId('arrow-up'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				order: 100,
 				group: 'Cell'
-			},
+			}, {
+				id: MenuId.PositronNotebookCellInsert,
+				order: 1
+			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -600,13 +603,16 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
-			title: localize2('positronNotebook.codeCell.insertBelow', "Insert code cell below"),
+			title: localize2('positronNotebook.codeCell.insertBelow', "Insert Code Cell Below"),
 			icon: ThemeIcon.fromId('arrow-down'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				order: 100,
 				group: 'Cell'
-			},
+			}, {
+				id: MenuId.PositronNotebookCellInsert,
+				order: 2
+			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -624,13 +630,16 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.insertMarkdownCellAboveAndFocusContainer',
-			title: localize2('positronNotebook.markdownCell.insertAbove', "Insert markdown cell above"),
+			title: localize2('positronNotebook.markdownCell.insertAbove', "Insert Markdown Cell Above"),
 			icon: ThemeIcon.fromId('arrow-up'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				order: 100,
 				group: 'Cell'
-			}
+			}, {
+				id: MenuId.PositronNotebookCellInsert,
+				order: 3
+			}]
 		});
 	}
 
@@ -643,13 +652,16 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.insertMarkdownCellBelowAndFocusContainer',
-			title: localize2('positronNotebook.markdownCell.insertBelow', "Insert markdown cell below"),
+			title: localize2('positronNotebook.markdownCell.insertBelow', "Insert Markdown Cell Below"),
 			icon: ThemeIcon.fromId('arrow-down'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				order: 100,
 				group: 'Cell'
-			}
+			}, {
+				id: MenuId.PositronNotebookCellInsert,
+				order: 4
+			}]
 		});
 	}
 
@@ -777,9 +789,9 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllAbove',
-			title: localize2('positronNotebook.cell.runAllAbove', "Run all code cells above this cell"),
+			title: localize2('positronNotebook.cell.runAllAbove', "Execute Above Cells"),
 			icon: ThemeIcon.fromId('run-above'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 20,
 				group: 'Execution',
@@ -787,7 +799,11 @@ registerAction2(class extends CellAction2 {
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isFirst.toNegated()
 				)
-			}
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: '3_execution',
+				order: 1
+			}]
 		});
 	}
 
@@ -810,9 +826,9 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllBelow',
-			title: localize2('positronNotebook.cell.runAllBelow', "Run all code cells below this cell"),
+			title: localize2('positronNotebook.cell.runAllBelow', "Execute Cell and Below"),
 			icon: ThemeIcon.fromId('run-below'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
 				order: 21,
 				group: 'Execution',
@@ -820,7 +836,11 @@ registerAction2(class extends CellAction2 {
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isLast.toNegated()
 				)
-			}
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: '3_execution',
+				order: 2
+			}]
 		});
 	}
 
@@ -985,11 +1005,15 @@ registerAction2(class extends CellAction2 {
 			id: 'positronNotebook.copyCells',
 			title: localize2('positronNotebook.cell.copyCells', "Copy Cell"),
 			icon: ThemeIcon.fromId('copy'),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: 'Clipboard',
 				order: 10
-			},
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: '1_clipboard',
+				order: 2
+			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -1009,11 +1033,15 @@ registerAction2(class extends CellAction2 {
 		super({
 			id: 'positronNotebook.cutCells',
 			title: localize2('positronNotebook.cell.cutCells', "Cut Cell"),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: 'Clipboard',
 				order: 20
-			},
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: '1_clipboard',
+				order: 1
+			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -1033,11 +1061,15 @@ registerAction2(class extends CellAction2 {
 		super({
 			id: 'positronNotebook.pasteCells',
 			title: localize2('positronNotebook.cell.pasteCells', "Paste Cell Below"),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: 'Clipboard',
 				order: 40
-			},
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: '1_clipboard',
+				order: 4
+			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -1057,11 +1089,15 @@ registerAction2(class extends CellAction2 {
 		super({
 			id: 'positronNotebook.pasteCellsAbove',
 			title: localize2('positronNotebook.cell.pasteCellsAbove', "Paste Cell Above"),
-			menu: {
+			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: 'Clipboard',
 				order: 30
-			},
+			}, {
+				id: MenuId.PositronNotebookCellContext,
+				group: '1_clipboard',
+				order: 3
+			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -1304,3 +1340,20 @@ registerNotebookWidget({
 // Register actions
 registerAction2(ExecuteSelectionInConsoleAction);
 registerAction2(UpdateNotebookWorkingDirectoryAction);
+
+// Add the Notebook Cell submenu to the editor context menu (right click in cell editor)
+MenuRegistry.appendMenuItem(MenuId.EditorContext, {
+	submenu: MenuId.PositronNotebookCellContext,
+	title: localize('positronNotebook.menu.editorContext.cell', 'Notebook Cell'),
+	group: '2_notebook',
+	when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+	order: 0
+});
+
+// Add the Insert Cell submenu to the Notebook Cell menu
+MenuRegistry.appendMenuItem(MenuId.PositronNotebookCellContext, {
+	submenu: MenuId.PositronNotebookCellInsert,
+	title: localize('positronNotebook.menu.cellContext.insert', 'Insert Cell'),
+	group: '2_insert',
+	order: 0
+});

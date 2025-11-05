@@ -1397,7 +1397,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			const computeUndoRedo = !this.isReadOnly;
 
 			// Clear outputs from all cells
-			this.textModel.cells.forEach((cell, index) => {
+			this.textModel.cells.forEach((_cell, index) => {
 				this.clearCellOutput(this.cells.get()[index], true);
 			});
 
