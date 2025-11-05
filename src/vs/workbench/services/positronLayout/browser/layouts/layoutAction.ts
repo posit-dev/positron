@@ -26,7 +26,7 @@ export type PositronLayoutInfo = {
 	 * Precondition controls enablement (for example for a menu item, show
 	 * it in grey or for a command, do not allow to invoke it)
 	 */
-	precondition?: ContextKeyExpression;
+	precondition: ContextKeyExpression;
 };
 
 export abstract class PositronLayoutAction extends Action2 {

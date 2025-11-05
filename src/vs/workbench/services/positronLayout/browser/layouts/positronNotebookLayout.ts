@@ -5,6 +5,7 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
@@ -12,6 +13,7 @@ export const positronNotebookLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronNotebookLayout',
 	codicon: 'positron-notebook-layout',
 	label: localize2('chooseLayout.notebookLayout', 'Notebook Layout'),
+	precondition: ContextKeyExpr.true(),
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			size: '40%',

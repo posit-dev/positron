@@ -1531,7 +1531,7 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				label: localize('positronLayouts', "Layout Presets"),
 			},
 			...positronCustomLayoutOptions.filter(layout =>
-				!layout.precondition || layout.precondition.evaluate(contextKeyService.getContext(null))
+				layout.precondition.evaluate(contextKeyService.getContext(null))
 			),
 			// --- End Positron ---
 			{

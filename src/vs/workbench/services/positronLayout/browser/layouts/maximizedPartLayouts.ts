@@ -5,6 +5,7 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction } from './layoutAction.js';
 import { KnownPositronLayoutParts, CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
@@ -25,6 +26,7 @@ registerAction2(class extends PositronLayoutAction {
 			id: 'workbench.action.fullSizedSidebar',
 			label: localize2('chooseLayout.fullSizedSidebarLayout', 'Maximized Sidebar Layout'),
 			hideFromPalette: false,
+			precondition: ContextKeyExpr.true(),
 			layoutDescriptor: makeMaximizedPartLayout(Parts.SIDEBAR_PART),
 		});
 	}
@@ -36,6 +38,7 @@ registerAction2(class extends PositronLayoutAction {
 			id: 'workbench.action.fullSizedPanel',
 			label: localize2('chooseLayout.fullSizedPanelLayout', 'Maximized Panel Layout'),
 			hideFromPalette: false,
+			precondition: ContextKeyExpr.true(),
 			layoutDescriptor: makeMaximizedPartLayout(Parts.PANEL_PART),
 		});
 	}
@@ -47,6 +50,7 @@ registerAction2(class extends PositronLayoutAction {
 			id: 'workbench.action.fullSizedAuxiliaryBar',
 			label: localize2('chooseLayout.fullSizedAuxiliaryBarLayout', 'Maximized Auxiliary Bar Layout'),
 			hideFromPalette: false,
+			precondition: ContextKeyExpr.true(),
 			layoutDescriptor: makeMaximizedPartLayout(Parts.AUXILIARYBAR_PART),
 		});
 	}

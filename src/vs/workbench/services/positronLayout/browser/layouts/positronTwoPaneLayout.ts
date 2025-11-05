@@ -5,6 +5,7 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
@@ -13,6 +14,7 @@ export const positronTwoPaneLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronTwoPaneDataScienceLayout',
 	codicon: 'positron-two-pane-ds-layout',
 	label: localize2('choseLayout.sideBySide', 'Side-By-Side Layout'),
+	precondition: ContextKeyExpr.true(),
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: {
 			hidden: true,
