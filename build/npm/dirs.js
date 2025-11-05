@@ -17,6 +17,7 @@ const dirs = [
 	'extensions/positron-code-cells',
 	'extensions/positron-copilot-chat',
 	'extensions/positron-connections',
+	'extensions/positron-dev-containers',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
 	'extensions/positron-ipywidgets',

@@ -1,0 +1,31 @@
+{
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"target": "es2018",
+		"rootDir": ".",
+		"outDir": "../../out/spec",
+		"lib": [
+			"es6",
+			"es2018",
+			"es2021",
+			"dom",
+			"ES2019",
+			"ES2020"
+		],
+		"types": ["node"],
+		"sourceMap": true,
+		"resolveJsonModule": true,
+		"removeComments": true,
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"noImplicitAny": false,
+		"noImplicitThis": false,
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"noFallthroughCasesInSwitch": false,
+		"strict": false,
+		"skipLibCheck": true,
+		"suppressImplicitAnyIndexErrors": true
+	}
+}
