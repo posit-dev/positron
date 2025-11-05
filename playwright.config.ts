@@ -85,34 +85,6 @@ export default defineConfig<ExtendedTestOptions>({
 			grepInvert: /@:web-only/
 		},
 		{
-			name: 'e2e-workbench',
-			testIgnore: [
-				'example.test.ts',
-				'**/inspect-ai/**'
-			],
-			use: {
-				artifactDir: 'e2e-workbench',
-				headless: false,
-				useExternalServer: true,
-				externalServerUrl: 'http://localhost:8787',
-				browserName: 'chromium',
-			},
-			grep: /@:workbench/
-		},
-		{
-			name: 'e2e-remote-ssh',
-			testIgnore: [
-				'example.test.ts',
-				'**/inspect-ai/**'
-			],
-			use: {
-				artifactDir: 'e2e-remote-ssh',
-				headless: false,
-				useExternalServer: false,
-			},
-			grep: /@:remote-ssh/
-		},
-		{
 			name: 'e2e-chromium',
 			use: {
 				artifactDir: 'e2e-chromium',
@@ -185,6 +157,34 @@ export default defineConfig<ExtendedTestOptions>({
 				artifactDir: 'inspect-ai',
 			},
 			grep: /@:inspect-ai/
+		},
+		{
+			name: 'e2e-workbench',
+			testIgnore: [
+				'example.test.ts',
+				'**/inspect-ai/**'
+			],
+			use: {
+				artifactDir: 'e2e-workbench',
+				headless: false,
+				useExternalServer: true,
+				externalServerUrl: 'http://localhost:8787',
+				browserName: 'chromium',
+			},
+			grep: /@:workbench/
+		},
+		{
+			name: 'e2e-remote-ssh',
+			testIgnore: [
+				'example.test.ts',
+				'**/inspect-ai/**'
+			],
+			use: {
+				artifactDir: 'e2e-remote-ssh',
+				headless: false,
+				useExternalServer: false,
+			},
+			grep: /@:remote-ssh/
 		},
 	],
 });
