@@ -42,6 +42,7 @@ export class SCM {
 
 	async openChange(name: string): Promise<void> {
 		await this.layout.enterLayout('fullSizedSidebar');
+		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 
 		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click();
 
