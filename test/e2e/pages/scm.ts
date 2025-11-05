@@ -56,6 +56,7 @@ export class SCM {
 	}
 
 	async commit(message: string): Promise<void> {
+		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 		await this.code.driver.page.locator(SCM_INPUT_TEXTAREA).click({ force: true });
 		await expect(this.code.driver.page.locator(SCM_INPUT_TEXTAREA)).toBeFocused();
 		await this.code.driver.page.locator(SCM_INPUT_TEXTAREA).fill(message);
