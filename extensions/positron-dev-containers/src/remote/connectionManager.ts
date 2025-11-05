@@ -33,6 +33,11 @@ export interface ConnectionInfo {
 	extensionHostEnv?: { [key: string]: string };
 	connectedAt?: Date;
 	lastError?: string;
+	// --- Start Positron ---
+	// Workspace path mapping for URI remapping
+	localWorkspacePath?: string;  // e.g., /Users/jmcphers/git/cli
+	remoteWorkspacePath?: string; // e.g., /workspaces/cli
+	// --- End Positron ---
 }
 
 /**
@@ -109,7 +114,41 @@ export class ConnectionManager {
 			// 5. Set up environment variables
 			const extensionHostEnv = this.createExtensionHostEnv(containerId);
 
-			// 6. Store connection info
+			// --- Start Positron ---
+			// 6. Extract workspace path mapping from container mounts
+			// Note: This will fail when running in remote context (docker not available in container)
+			// That's okay - we only need this for getCanonicalURI which isn't critical
+			let localWorkspacePath: string | undefined;
+			let remoteWorkspacePath: string | undefined;
+
+			try {
+				const containerManager = getDevContainerManager();
+				const containerInspect = await containerManager.inspectContainerDetails(containerId);
+
+				// Find workspace mount (typically /workspaces/*)
+				const workspaceMount = containerInspect.Mounts?.find(mount =>
+					mount.Type === 'bind' && mount.Destination.startsWith('/workspaces/')
+				);
+
+				if (workspaceMount) {
+					localWorkspacePath = workspaceMount.Source;
+					remoteWorkspacePath = workspaceMount.Destination;
+					this.logger.info(`Workspace mount detected: ${localWorkspacePath} -> ${remoteWorkspacePath}`);
+				} else {
+					this.logger.warn('No workspace mount found in container');
+				}
+			} catch (error) {
+				// This is expected when running in remote context (docker not available)
+				const errorMsg = error instanceof Error ? error.message : String(error);
+				if (errorMsg.includes('ENOENT') || errorMsg.includes('docker')) {
+					this.logger.debug('Docker not available (expected in remote context), skipping workspace mount detection');
+				} else {
+					this.logger.warn('Failed to extract workspace mount information', error);
+				}
+			}
+			// --- End Positron ---
+
+			// 7. Store connection info
 			const connectionInfo: ConnectionInfo = {
 				containerId,
 				state: ConnectionState.Connected,
@@ -118,7 +157,11 @@ export class ConnectionManager {
 				connectionToken,
 				remotePort: serverInfo.port || 0,
 				extensionHostEnv,
-				connectedAt: new Date()
+				connectedAt: new Date(),
+				// --- Start Positron ---
+				localWorkspacePath,
+				remoteWorkspacePath
+				// --- End Positron ---
 			};
 
 			this.connections.set(containerId, connectionInfo);
@@ -241,23 +284,39 @@ export class ConnectionManager {
 	 * Ensure container is running
 	 */
 	private async ensureContainerRunning(containerId: string): Promise<void> {
-		this.logger.debug(`Checking if container ${containerId} is running`);
+		// --- Start Positron ---
+		// Skip docker operations when running in remote context (docker not available)
+		// We can detect this by checking if docker commands will fail
+		try {
+			this.logger.debug(`Checking if container ${containerId} is running`);
 
-		const containerManager = getDevContainerManager();
-		const containerInfo = await containerManager.getContainerInfo(containerId);
+			const containerManager = getDevContainerManager();
+			const containerInfo = await containerManager.getContainerInfo(containerId);
 
-		if (containerInfo.state === 'running') {
-			this.logger.debug(`Container ${containerId} is running`);
-			return;
+			if (containerInfo.state === 'running') {
+				this.logger.debug(`Container ${containerId} is running`);
+				return;
+			}
+
+			if (containerInfo.state === 'stopped' || containerInfo.state === 'exited') {
+				this.logger.info(`Starting stopped container ${containerId}`);
+				await containerManager.startContainer(containerId);
+				return;
+			}
+
+			throw new Error(`Container ${containerId} is not in a valid state: ${containerInfo.state || 'unknown'}`);
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			if (errorMsg.includes('ENOENT') || errorMsg.includes('spawn docker')) {
+				// Docker not available - we're probably running in remote context
+				// Assume container is running since we're being asked to connect to it
+				this.logger.debug(`Docker not available (remote context), assuming container ${containerId} is running`);
+				return;
+			}
+			// Re-throw other errors
+			throw error;
 		}
-
-		if (containerInfo.state === 'stopped' || containerInfo.state === 'exited') {
-			this.logger.info(`Starting stopped container ${containerId}`);
-			await containerManager.startContainer(containerId);
-			return;
-		}
-
-		throw new Error(`Container ${containerId} is not in a valid state: ${containerInfo.state || 'unknown'}`);
+		// --- End Positron ---
 	}
 
 	/**

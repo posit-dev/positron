@@ -150,11 +150,28 @@ export class DevContainerManager {
 			const updatedInfo = await this.getContainerInfo(existingContainer.containerId);
 			const inspectInfo = await this.inspectContainerById(existingContainer.containerId);
 
+			// --- Start Positron ---
+			// Extract the actual remote workspace folder from container mounts
+			let remoteWorkspaceFolder = '/workspaces';
+			const workspaceMount = inspectInfo.Mounts?.find(mount =>
+				mount.Type === 'bind' && mount.Destination.startsWith('/workspaces/')
+			);
+			if (workspaceMount) {
+				remoteWorkspaceFolder = workspaceMount.Destination;
+				logger.info(`Found remote workspace folder from mount: ${remoteWorkspaceFolder}`);
+			} else {
+				// Fallback: try to generate from local path
+				const folderName = options.workspaceFolder.split(/[/\\]/).pop() || 'workspace';
+				remoteWorkspaceFolder = `/workspaces/${folderName}`;
+				logger.warn(`No workspace mount found, using fallback: ${remoteWorkspaceFolder}`);
+			}
+			// --- End Positron ---
+
 			return {
 				containerId: existingContainer.containerId,
 				containerName: existingContainer.containerName,
 				containerInfo: updatedInfo,
-				remoteWorkspaceFolder: updatedInfo.workspaceFolder || '/workspaces',
+				remoteWorkspaceFolder,
 				remoteUser: inspectInfo.Config.User || 'root',
 			};
 		}
@@ -258,11 +275,25 @@ export class DevContainerManager {
 					// Get container info
 					const containerInfo = await this.getContainerInfo(result.containerId);
 
+					// --- Start Positron ---
+					// Determine remote workspace folder with intelligent fallback
+					// The spec library should return this, but if not, generate a sensible default
+					let remoteWorkspaceFolder = result.remoteWorkspaceFolder;
+					if (!remoteWorkspaceFolder) {
+						// Extract folder name from workspace path for default
+						const folderName = options.workspaceFolder.split(/[/\\]/).pop() || 'workspace';
+						remoteWorkspaceFolder = `/workspaces/${folderName}`;
+						logger.warn(`Remote workspace folder not returned from spec library, using default: ${remoteWorkspaceFolder}`);
+					} else {
+						logger.info(`Remote workspace folder from spec library: ${remoteWorkspaceFolder}`);
+					}
+					// --- End Positron ---
+
 					return {
 						containerId: result.containerId,
 						containerName: containerInfo.containerName,
 						containerInfo,
-						remoteWorkspaceFolder: result.remoteWorkspaceFolder || '/workspaces',
+						remoteWorkspaceFolder,
 						remoteUser: result.remoteUser,
 					};
 				} finally {
@@ -336,6 +367,25 @@ export class DevContainerManager {
 			throw new Error(`Failed to get container info: ${error}`);
 		}
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Get detailed container inspection info including mounts
+	 */
+	async inspectContainerDetails(containerId: string): Promise<ContainerInspectInfo> {
+		const logger = getLogger();
+		logger.debug(`Inspecting container details: ${containerId}`);
+
+		try {
+			const params = await this.createDockerParams();
+			const details = await inspectContainer(params, containerId);
+			return this.toContainerInspectInfo(details);
+		} catch (error) {
+			logger.error('Failed to inspect container details', error);
+			throw new Error(`Failed to inspect container details: ${error}`);
+		}
+	}
+	// --- End Positron ---
 
 	/**
 	 * List all dev containers

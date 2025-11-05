@@ -225,6 +225,13 @@ async function openFolderInContainer(folderPath: string, forceNewWindow: boolean
 
 			logger.info(`Container ready: ${result.containerId}`);
 
+			// --- Start Positron ---
+			// Validate that workspace folder is properly determined
+			if (!result.remoteWorkspaceFolder) {
+				throw new Error('Remote workspace folder not determined. Workspace may not be mounted.');
+			}
+			// --- End Positron ---
+
 			// Open the folder with remote authority
 			progress.report({ message: 'Connecting to container...' });
 

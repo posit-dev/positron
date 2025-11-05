@@ -45,6 +45,14 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 		this.logger.info(`===== AUTHORITY RESOLVER: resolve() called =====`);
 		this.logger.info(`Resolving authority: ${authority}`);
 
+		// --- Start Positron ---
+		// If we're already in a remote context, log it for debugging
+		// VS Code may call resolve() even when remote for verification purposes
+		if (vscode.env.remoteName) {
+			this.logger.info(`Already in remote context: ${vscode.env.remoteName}`);
+		}
+		// --- End Positron ---
+
 		try {
 			// Parse the authority
 			const parsed = this.parseAuthority(authority);
@@ -101,9 +109,45 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 	 * This allows remapping URIs between local and remote
 	 */
 	getCanonicalURI(uri: vscode.Uri): vscode.ProviderResult<vscode.Uri> {
-		// For now, return the URI as-is
-		// In the future, we might need to remap paths for certain scenarios
+		// --- Start Positron ---
+		// Remap local workspace paths to remote workspace paths
+		// This is critical for dev containers where the workspace is mounted
+
+		// Only process remote URIs with our authority scheme
+		if (uri.scheme !== 'vscode-remote') {
+			return uri;
+		}
+
+		// Extract container ID from authority
+		const parsed = this.parseAuthority(uri.authority);
+		if (!parsed.containerId) {
+			return uri;
+		}
+
+		// Get connection info to find workspace path mapping
+		const connection = this.connectionManager.getConnection(parsed.containerId);
+		if (!connection?.localWorkspacePath || !connection?.remoteWorkspacePath) {
+			// No path mapping available, return as-is
+			return uri;
+		}
+
+		// If the URI path starts with the local workspace path, remap it
+		const normalizedLocal = connection.localWorkspacePath.replace(/\\/g, '/');
+		const normalizedUriPath = uri.path.replace(/\\/g, '/');
+
+		if (normalizedUriPath.startsWith(normalizedLocal)) {
+			// Replace local path with remote path
+			const relativePath = normalizedUriPath.substring(normalizedLocal.length);
+			const remotePath = connection.remoteWorkspacePath + relativePath;
+
+			this.logger.debug(`Remapping path: ${uri.path} -> ${remotePath}`);
+
+			return uri.with({ path: remotePath });
+		}
+
+		// No remapping needed
 		return uri;
+		// --- End Positron ---
 	}
 
 	/**
