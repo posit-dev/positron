@@ -143,6 +143,10 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN, tags.WORKBENC
 	});
 
 	test.describe('Assistant Layout', () => {
+		test.afterEach('Reset Layout', async function ({ app }) {
+			await app.workbench.layouts.enterLayout('stacked');
+		});
+
 
 		test('Verify Assistant Layout displays all three main parts', async function ({ app }) {
 			const layouts = app.workbench.layouts;
