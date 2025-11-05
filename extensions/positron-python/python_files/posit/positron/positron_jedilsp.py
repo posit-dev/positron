@@ -301,6 +301,43 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
             else None
         )
 
+        # DON'T MERGE: Unregister language features. This allows testing other LSPs without interference from the Jedi LSP.
+        features_to_remove = [
+            "textDocument/hover",
+            "textDocument/completion",
+            "completionItem/resolve",
+            "textDocument/signatureHelp",
+            "textDocument/declaration",
+            "textDocument/definition",
+            "textDocument/typeDefinition",
+            "textDocument/documentHighlight",
+            "textDocument/references",
+            "textDocument/documentSymbol",
+            "workspace/symbol",
+            "textDocument/rename",
+            "textDocument/codeAction",
+        ]
+        for feature in features_to_remove:
+            if feature in self.fm.features:
+                del self.fm.features[feature]
+            if feature in self.fm.feature_options:
+                del self.fm.feature_options[feature]
+
+        # Rebuild server capabilities without the removed features
+        from positron._vendor.pygls.capabilities import ServerCapabilitiesBuilder
+
+        self.server_capabilities = ServerCapabilitiesBuilder(
+            self.client_capabilities,
+            set({**self.fm.features, **self.fm.builtin_features}.keys()),
+            self.fm.feature_options,
+            list(self.fm.commands.keys()),
+            self._server._text_document_sync_kind,  # noqa: SLF001
+            self._server._notebook_document_sync,  # noqa: SLF001
+        ).build()
+
+        # Update the result to reflect the modified capabilities
+        result.capabilities = self.server_capabilities
+
         return result
 
     def _data_received(self, data: bytes) -> None:
