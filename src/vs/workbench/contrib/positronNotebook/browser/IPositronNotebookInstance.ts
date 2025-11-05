@@ -14,6 +14,7 @@ import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { IPositronNotebookEditor } from './IPositronNotebookEditor.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * Represents the possible states of a notebook's kernel connection
@@ -159,6 +160,13 @@ export interface IPositronNotebookInstance extends IPositronNotebookEditor {
 	 * Provides configuration for layout, styling, and display behavior.
 	 */
 	readonly notebookOptions: NotebookOptions;
+
+	/**
+	 * Scoped instantiation service for this notebook instance.
+	 * This service includes notebook-scoped services and should be used
+	 * for creating cell editors and other notebook components.
+	 */
+	readonly scopedInstantiationService: IInstantiationService | undefined;
 
 	// ===== Methods =====
 	/**

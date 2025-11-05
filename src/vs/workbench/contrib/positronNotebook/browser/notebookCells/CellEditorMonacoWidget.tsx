@@ -12,8 +12,6 @@ import React from 'react';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 
-import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
-import { IEditorProgressService } from '../../../../../platform/progress/common/progress.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
@@ -57,40 +55,21 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	React.useEffect(() => {
 		if (!editorPartRef.current) { return; }
 
+		// If there's no scoped instantiation service yet, wait for the next run
+		if (!instance.scopedInstantiationService) { return; }
+
 		const disposables = new DisposableStore();
 
 		const language = cell.model.language;
 
-		// We need to ensure the EditorProgressService (or a fake) is available
-		// in the service collection because monaco editors will try and access
-		// it even though it's not available in the notebook context. This feels
-		// hacky but VSCode notebooks do the same thing so I guess it's easier
-		// than fixing it at the monaco level.
-		//
-		// Note: We don't pass IContextKeyService here. Monaco will create its own
-		// scoped service as a child of the parent instantiation service. This avoids
-		// the double-scoping error that occurred when we explicitly created one.
-		const serviceCollection = new ServiceCollection(
-			[
-				IEditorProgressService,
-				// Create a simple no-op IEditorProgressService for editor contributions
-				// Based on pattern from codeBlockPart.ts in chat contrib
-				new class implements IEditorProgressService {
-					_serviceBrand: undefined;
-					show() {
-						// No-op progress indicator for notebook cell editors
-						return { done: () => { }, total: () => { }, worked: () => { } };
-					}
-					async showWhile(promise: Promise<any>): Promise<void> {
-						await promise;
-					}
-				}]
-		);
-
-		const editorInstaService = services.instantiationService.createChild(serviceCollection);
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);
 
-		const editor = disposables.add(editorInstaService.createInstance(CodeEditorWidget, editorPartRef.current, {
+		// Use the notebook's scoped instantiation service which includes notebook-specific context keys
+		// and services that Monaco editors need.
+		// Note: Monaco will create its own scoped context key service as a child of the parent
+		// instantiation service. This avoids the double-scoping error that occurred when we
+		// explicitly created one.
+		const editor = disposables.add(instance.scopedInstantiationService.createInstance(CodeEditorWidget, editorPartRef.current, {
 			...editorOptions.getDefaultValue(),
 			dimension: {
 				width: 0,
@@ -184,7 +163,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
+	}, [cell, environment, instance, instance.scopedInstantiationService, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {

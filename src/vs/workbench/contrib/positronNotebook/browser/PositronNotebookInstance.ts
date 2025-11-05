@@ -11,6 +11,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService, IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IEditorProgressService } from '../../../../platform/progress/common/progress.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 import { CellRevealType, IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -154,6 +156,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _scopedContextKeyService: IContextKeyService | undefined;
 
 	/**
+	 * Scoped instantiation service for this notebook instance.
+	 * This service is used to create cell editors and other components that need
+	 * access to notebook-scoped services.
+	 */
+	private _scopedInstantiationService: IInstantiationService | undefined;
+
+	/**
 	 * Disposables for the editor container event listeners
 	 */
 	private readonly _editorContainerListeners = this._register(new DisposableStore());
@@ -265,6 +274,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	get scopedContextKeyService(): IContextKeyService | undefined {
 		return this._scopedContextKeyService;
+	}
+
+	/**
+	 * Gets the scoped instantiation service for this notebook instance.
+	 * This service includes notebook-scoped services and should be used
+	 * for creating cell editors and other notebook components.
+	 */
+	get scopedInstantiationService(): IInstantiationService | undefined {
+		return this._scopedInstantiationService;
 	}
 
 	/**
@@ -1030,7 +1048,32 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.detachView();
 		this._container = container;
 		this._scopedContextKeyService = scopedContextKeyService;
-		this.contextManager.setContainer(container, scopedContextKeyService);
+
+		// Create a scoped instantiation service for this notebook instance.
+		// We need to ensure the EditorProgressService (or a fake) is available
+		// in the service collection because monaco editors will try and access
+		// it even though it's not available in the notebook context. This feels
+		// hacky but VSCode notebooks do the same thing so I guess it's easier
+		// than fixing it at the monaco level.
+		const serviceCollection = new ServiceCollection(
+			[
+				IEditorProgressService,
+				// Create a simple no-op IEditorProgressService for editor contributions
+				// Based on pattern from codeBlockPart.ts in chat contrib
+				new class implements IEditorProgressService {
+					_serviceBrand: undefined;
+					show() {
+						// No-op progress indicator for notebook cell editors
+						return { done: () => { }, total: () => { }, worked: () => { } };
+					}
+					async showWhile(promise: Promise<any>): Promise<void> {
+						await promise;
+					}
+				}]
+		);
+		this._scopedInstantiationService = this._instantiationService.createChild(serviceCollection);
+
+		this.contextManager.setContainer(container, scopedContextKeyService, this._scopedInstantiationService);
 
 		this._logService.debug(this._id, 'attachView');
 	}
