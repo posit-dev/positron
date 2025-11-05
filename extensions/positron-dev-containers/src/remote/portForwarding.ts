@@ -74,22 +74,21 @@ export class PortForwardingManager {
 		localPort: number
 	): Promise<PortForward> {
 		return new Promise((resolve, reject) => {
-			// Use docker exec to create a relay
-			// We'll use socat inside the container if available, otherwise use nc (netcat)
-			// But actually, the simplest approach is to use Node.js TCP proxy
+			// Create a TCP server that relays to the container
+			// This approach uses bash's /dev/tcp which works without additional tools in the container
 
 			const server = net.createServer((clientSocket) => {
 				this.logger.debug(`New connection to forwarded port ${localPort}`);
 
-				// Create connection to container
-				// Try nc (netcat) which is more widely available than bash's /dev/tcp
+				// Create connection to container using bash's /dev/tcp
+				// Note: positron-server listens on ::1 (IPv6), so we use that instead of 127.0.0.1
 				const dockerExec = cp.spawn('docker', [
 					'exec',
 					'-i',
 					containerId,
-					'nc',
-					'127.0.0.1',
-					remotePort.toString()
+					'bash',
+					'-c',
+					`exec 3<>/dev/tcp/::1/${remotePort}; cat <&3 & cat >&3; kill %1`
 				]);
 
 				// Pipe data bidirectionally
@@ -98,10 +97,8 @@ export class PortForwardingManager {
 
 				dockerExec.stderr.on('data', (data) => {
 					const errorText = data.toString();
-					// Log errors but only warn about missing tools
-					if (errorText.includes('nc: not found') || errorText.includes('command not found')) {
-						this.logger.error(`Port forwarding failed: netcat (nc) not available in container. Please install nc or netcat-openbsd package.`);
-					} else {
+					// Log errors for debugging
+					if (errorText.trim().length > 0) {
 						this.logger.debug(`Port forward stderr: ${errorText}`);
 					}
 				});
@@ -116,7 +113,10 @@ export class PortForwardingManager {
 					dockerExec.kill();
 				});
 
-				dockerExec.on('exit', () => {
+				dockerExec.on('exit', (code) => {
+					if (code !== 0 && code !== null) {
+						this.logger.debug(`Port forward process exited with code ${code}`);
+					}
 					clientSocket.end();
 				});
 			});
