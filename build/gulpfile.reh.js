@@ -382,7 +382,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 				this.emit('data', file);
 			}));
 
-		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
+		const license = gulp.src(['remote/LICENSE', 'NOTICE'], { base: '.', allowEmpty: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
