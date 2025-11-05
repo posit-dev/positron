@@ -1193,7 +1193,7 @@ registerAction2(class extends NotebookAction2 {
 			keybinding: {
 				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.Alt | KeyCode.KeyK
+				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyK)
 			}
 		});
 	}
