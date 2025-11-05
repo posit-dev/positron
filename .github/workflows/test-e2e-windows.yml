@@ -127,11 +127,8 @@ jobs:
         with:
           python-version: "3.10.10"
 
-      # Pinning UV due to https://github.com/rstudio/reticulate/issues/1811
       - name: Install uv
         uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.7.22"
 
       - name: Install node dependencies
         env:
