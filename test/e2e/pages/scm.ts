@@ -50,6 +50,7 @@ export class SCM {
 	}
 
 	async stage(name: string): Promise<void> {
+		await this.code.driver.page.keyboard.press('Control+Shift+G'); // need to switch to scm view as it may have reset
 		await this.code.driver.page.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
 		await this.waitForChange(name, 'Staged');
 	}
