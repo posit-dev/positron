@@ -75,10 +75,6 @@
 		font-size: 1.2em;
 	}
 
-	div {
-		width: 100%;
-	}
-
 	/* Remove top margin from first element in markdown cell */
 	*:first-child {
 		margin-top: 0;
@@ -99,6 +95,7 @@
 	/* makes all markdown cells consistent */
 	div {
 		min-height: 1rem;
+		width: 100%;
 	}
 
 	table {
