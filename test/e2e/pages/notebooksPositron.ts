@@ -746,6 +746,18 @@ export class Kernel {
 	}
 
 	/**
+	 * Action: Open the notebook session scratchpad in console.
+	 */
+	async openNotebookConsole(): Promise<void> {
+		await test.step('Open notebook console', async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.statusBadge,
+				menuItemLabel: /Open Notebook Console/
+			});
+		});
+	}
+
+	/**
 	 * Action: Select notebook kernel and optionally wait for it to be ready
 	 */
 	async select(
