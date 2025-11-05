@@ -584,7 +584,7 @@ registerAction2(class extends CellAction2 {
 				group: 'Cell'
 			}, {
 				id: MenuId.PositronNotebookCellInsert,
-				order: 1
+				order: 10
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
@@ -611,7 +611,7 @@ registerAction2(class extends CellAction2 {
 				group: 'Cell'
 			}, {
 				id: MenuId.PositronNotebookCellInsert,
-				order: 2
+				order: 20
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
@@ -638,7 +638,7 @@ registerAction2(class extends CellAction2 {
 				group: 'Cell'
 			}, {
 				id: MenuId.PositronNotebookCellInsert,
-				order: 3
+				order: 30
 			}]
 		});
 	}
@@ -660,7 +660,7 @@ registerAction2(class extends CellAction2 {
 				group: 'Cell'
 			}, {
 				id: MenuId.PositronNotebookCellInsert,
-				order: 4
+				order: 40
 			}]
 		});
 	}
@@ -802,7 +802,7 @@ registerAction2(class extends CellAction2 {
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: '3_execution',
-				order: 1
+				order: 10
 			}]
 		});
 	}
@@ -839,7 +839,7 @@ registerAction2(class extends CellAction2 {
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: '3_execution',
-				order: 2
+				order: 20
 			}]
 		});
 	}
@@ -1008,11 +1008,11 @@ registerAction2(class extends CellAction2 {
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: 'Clipboard',
-				order: 10
+				order: 20
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: '1_clipboard',
-				order: 2
+				order: 20
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
@@ -1036,11 +1036,11 @@ registerAction2(class extends CellAction2 {
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarSubmenu,
 				group: 'Clipboard',
-				order: 20
+				order: 10
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: '1_clipboard',
-				order: 1
+				order: 10
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
@@ -1068,7 +1068,7 @@ registerAction2(class extends CellAction2 {
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: '1_clipboard',
-				order: 4
+				order: 40
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
@@ -1096,7 +1096,7 @@ registerAction2(class extends CellAction2 {
 			}, {
 				id: MenuId.PositronNotebookCellContext,
 				group: '1_clipboard',
-				order: 3
+				order: 30
 			}],
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
