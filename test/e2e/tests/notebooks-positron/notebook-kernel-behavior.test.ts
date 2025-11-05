@@ -140,8 +140,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		const { notebooksPositron } = app.workbench;
 
 		// start multiple sessions and select R
-		await sessions.start(['python', 'r']);
-		await sessions.select('r');
+		const [, rSession] = await sessions.start(['python', 'r']);
+		await sessions.select(rSession.id);
 
 		// create new notebook and ensure R kernel is auto-selected (from foreground) and started
 		await notebooksPositron.newNotebook();
@@ -157,8 +157,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 		const rRnotebook = path.join('workspaces', 'r_notebooks', 'Introduction+to+R.ipynb');
 
 		// start multiple sessions and select R
-		await sessions.start(['python', 'r']);
-		await sessions.select('r');
+		const [, rSession] = await sessions.start(['python', 'r']);
+		await sessions.select(rSession.id);
 
 		// open existing python notebook and ensure python kernel is auto-selected (from background) and started
 		await notebooksPositron.openNotebook(pythonNotebook);
@@ -178,8 +178,8 @@ test.describe('Positron Notebooks: Kernel Behavior', {
 	test('ensure notebook console attaches and terminates with active kernel', async function ({ app, sessions }) {
 		const { notebooksPositron, console } = app.workbench;
 
-		await sessions.start(['python', 'r']);
-		await sessions.select('r');
+		const [, rSession] = await sessions.start(['python', 'r']);
+		await sessions.select(rSession.id);
 
 		// create new notebook
 		await notebooksPositron.newNotebook();
