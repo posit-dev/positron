@@ -61,12 +61,17 @@ test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
 }, () => {
 
-	test.beforeAll(async ({ }) => {
+	test.beforeAll(async ({ app, settings }) => {
+
+		await settings.set({ 'extensions.supportNodeGlobalNavigator': false });
+
 		try {
 			sshKeyscan('127.0.0.1', 3456, '/tmp/known_hosts');
 		} catch (err) {
 			throw new Error(`ssh-keyscan failed: ${(err as Error).message}`);
 		}
+
+		await app.restart();
 
 	});
 
