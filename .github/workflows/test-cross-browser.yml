@@ -29,7 +29,7 @@ on:
       notify_on:
         description: "Slack notification on:"
         required: true
-        default: "failure"
+        default: "always"
         type: choice
         options:
           - failure
