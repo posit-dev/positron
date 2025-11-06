@@ -1,0 +1,106 @@
+name: "Test: E2E Cross Browser (Ubuntu)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_e2e_firefox:
+        description: "E2E Tests / Firefox (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_webkit:
+        description: "E2E Tests / WebKit (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_edge:
+        description: "E2E Tests / Edge (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: "@:critical"
+        type: string
+      notify_on:
+        description: "Slack notification on:"
+        required: true
+        default: "failure"
+        type: choice
+        options:
+          - failure
+          - always
+          - never
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  e2e-firefox:
+    name: e2e
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_firefox }}
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-firefox"
+      display_name: "firefox (ubuntu)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,firefox/ubuntu' || 'firefox/ubuntu' }}
+      report_testrail: false
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: true
+      allow_soft_fail: false
+
+  e2e-webkit:
+    name: e2e
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_webkit }}
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-webkit"
+      display_name: "webkit (ubuntu)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,webkit/ubuntu' || 'webkit/ubuntu' }}
+      report_testrail: false
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: true
+      allow_soft_fail: false
+
+  e2e-edge:
+    name: e2e
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_edge }}
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-edge"
+      display_name: "edge (ubuntu)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,edge/ubuntu' || 'edge/ubuntu' }}
+      report_testrail: false
+      report_currents: false
+      install_undetectable_interpreters: true
+      install_license: true
+      allow_soft_fail: false
+
+  slack-notify:
+    if: always()
+    needs:
+      [e2e-firefox, e2e-webkit, e2e-edge]
+    runs-on: ubuntu-latest
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
+    steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#test-slack-notifications" # "#positron-test-results"
+          notify_on: ${{ env.notify_on }}

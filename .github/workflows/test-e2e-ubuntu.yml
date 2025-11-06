@@ -79,6 +79,9 @@ on:
         options:
           - e2e-electron
           - e2e-chromium
+          - e2e-firefox
+          - e2e-webkit
+          - e2e-edge
       grep:
         required: false
         description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-chromium`, tests tagged with @:web are pre-filtered; additional tags, titles, or filenames can be specified to refine filtering."
