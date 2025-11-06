@@ -72,4 +72,4 @@ test.describe('Positron Notebooks: Markdown Cells', {
 		await notebooksPositron.expandMarkdownEditor.click();
 		await notebooksPositron.expectCellIndexToBeSelected(1, { inEditMode: true });
 	});
-})
+});
