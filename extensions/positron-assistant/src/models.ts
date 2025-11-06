@@ -39,7 +39,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly provider = 'error';
 	readonly id = 'error-language-model';
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
-	private readonly _message = 'This language model always throws an error message.';
+	private readonly _message = '[ErrorLanguageModel] This language model always throws an error message.';
 
 	constructor(
 		_config: ModelConfig,
@@ -163,7 +163,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		const message = this.getUserPrompt(_messages);
 
 		if (!message) {
-			throw new Error('No user prompt provided to echo language model.');
+			throw new Error(`[${this.providerName}] No user prompt provided to echo language model.`);
 		}
 
 		if (typeof message.content === 'string') {
@@ -171,7 +171,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		}
 
 		if (message.content[0].type !== 'text') {
-			throw new Error('Echo language model only supports text messages.');
+			throw new Error(`[${this.providerName}] Echo language model only supports text messages.`);
 		}
 
 		const inputText = message.content[0].text;
@@ -321,6 +321,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			return false;
 		});
 
+		const model = this._config.model;
+
 		try {
 			// Configure timeout for provider call
 			const cfg = vscode.workspace.getConfiguration('positron.assistant');
@@ -328,21 +330,16 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			// send a test message to the model
 			await ai.generateText({
-				model: this.aiProvider(this._config.model, this.aiOptions),
+				model: this.aiProvider(model, this.aiOptions),
 				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
 				abortSignal: AbortSignal.timeout(timeoutMs),
 			});
 		} catch (error) {
-			const providerErrorMessage = this.parseProviderError(error);
-			if (providerErrorMessage) {
-				return new Error(providerErrorMessage);
-			}
-			if (ai.AISDKError.isInstance(error)) {
-				return new Error(error.message);
-			}
-			else {
-				return new Error(JSON.stringify(error));
-			}
+			const messagePrefix = `[${this.providerName}] '${model}'`;
+			const errorMsg = this.parseProviderError(error) ||
+				(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
+			log.error(`${messagePrefix} Error sending test message: ${errorMsg}`);
+			return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
 		}
 	}
 
@@ -525,17 +522,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
-				log.warn(`[${this.providerName}] [${model.name}] RECV error: ${JSON.stringify(part.error)}`);
-
-				const providerErrorMessage = this.parseProviderError(part.error);
-				if (providerErrorMessage) {
-					throw new Error(providerErrorMessage);
-				}
-
-				if (typeof part.error === 'string') {
-					throw new Error(part.error);
-				}
-				throw new Error(JSON.stringify(part.error));
+				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
+				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error)}`);
+				const errorMsg = this.parseProviderError(part.error) ||
+					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
+				return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
 			}
 		}
 
@@ -734,7 +725,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		});
 
 		if (!this.modelListing || this.modelListing.length === 0) {
-			return new Error('[${this.providerName}] Could not retrieve model listing from /models endpoint.');
+			return new Error(`[${this.providerName}] Could not retrieve model listing from /models endpoint.`);
 		}
 
 		const model = this.modelListing[0].id;
