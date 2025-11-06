@@ -14,6 +14,7 @@ import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { bindCellContextKeys, resetCellContextKeys } from '../ContextKeysManager.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { getActiveCell } from '../selectionMachine.js';
 
 /**
  * Custom hook that manages context keys for a notebook cell.
@@ -66,6 +67,11 @@ export function useCellContextKeys(
 			const executionStatus = cell.executionStatus.read(reader);
 			const selectionStatus = cell.selectionStatus.read(reader);
 			const cells = notebookInstance.cells.read(reader);
+			const selectionState = notebookInstance.selectionStateMachine.state.read(reader);
+
+			// Determine if this cell is the active cell
+			const activeCell = getActiveCell(selectionState);
+			const isActiveCell = activeCell === cell;
 
 			const cellType = cell.kind;
 			keys.isCode.set(cellType === CellKind.Code);
@@ -77,6 +83,7 @@ export function useCellContextKeys(
 			keys.isOnly.set(cells.length === 1);
 			keys.markdownEditorOpen.set(cell.isMarkdownCell() ? cell.editorShown.read(reader) : false);
 			keys.isSelected.set(selectionStatus === CellSelectionStatus.Selected);
+			keys.isActive.set(isActiveCell);
 			keys.canMoveUp.set(cell.index > 0 && cells.length > 1);
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
 		}));

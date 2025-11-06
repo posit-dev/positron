@@ -141,6 +141,27 @@ export function getEditingCell(state: SelectionStates): IPositronNotebookCell | 
 }
 
 /**
+ * Get the active cell from the selection state.
+ * The active cell is the cell where keyboard actions take effect and where UI elements
+ * like the run button and action bar are displayed.
+ *
+ * @param state The selection state to check
+ * @returns The active cell, or null if no cells exist.
+ */
+export function getActiveCell(state: SelectionStates): IPositronNotebookCell | null {
+	switch (state.type) {
+		case SelectionState.NoCells:
+			return null;
+		case SelectionState.SingleSelection:
+			return state.selected;
+		case SelectionState.MultiSelection:
+			return state.selected[state.selected.length - 1];
+		case SelectionState.EditingSelection:
+			return state.selected;
+	}
+}
+
+/**
  * Converts the current selection state into an array of cell ranges.
  *
  * @returns An array of cell ranges, where each range represents a group of consecutive selected cells.
