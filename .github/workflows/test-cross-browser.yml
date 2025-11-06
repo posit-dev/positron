@@ -41,10 +41,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  setup:
+    name: e2e-setup
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    secrets: inherit
+    with:
+      run_setup_only: true
+      include_diagnostics: true
+      artifact_name: "positron-build"
+      smoke_command: "cd /__w/positron/positron && timeout 10s ./scripts/code.sh --no-sandbox"
 
   e2e-firefox:
     name: e2e
     # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_firefox }}
+    needs: [setup]
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
@@ -57,10 +67,13 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      use_artifact: true
+      artifact_name: "positron-build"
 
   e2e-webkit:
     name: e2e
     # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_webkit }}
+    needs: [setup]
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
@@ -73,10 +86,13 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      use_artifact: true
+      artifact_name: "positron-build"
 
   e2e-edge:
     name: e2e
     # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_edge }}
+    needs: [setup]
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
@@ -89,6 +105,8 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      use_artifact: true
+      artifact_name: "positron-build"
 
   slack-notify:
     if: always()

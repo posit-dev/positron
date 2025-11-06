@@ -68,6 +68,31 @@ on:
         description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
         type: boolean
         default: false
+      run_setup_only:
+        required: false
+        description: "Only run setup/build and upload compressed build artifact"
+        default: false
+        type: boolean
+      use_artifact:
+        required: false
+        description: "Download and use artifact produced by setup job instead of building"
+        default: false
+        type: boolean
+      artifact_name:
+        required: false
+        description: "Artifact name to upload/download build artifact (tar.gz)"
+        default: "positron-build"
+        type: string
+      include_diagnostics:
+        required: false
+        description: "When true (and run_setup_only=true) produce disk/file manifests and optionally strace output"
+        default: false
+        type: boolean
+      smoke_command:
+        required: false
+        description: "Optional shell command to run the app under strace for startup file tracing (only when include_diagnostics=true)"
+        default: ""
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -174,26 +199,27 @@ jobs:
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
+        if: ${{ inputs.use_artifact == false || inputs.run_setup_only == true }}
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
 
       - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' }}
+        if: ${{ steps.attempt1.outcome == 'failure' && (inputs.use_artifact == false || inputs.run_setup_only == true) }}
         id: attempt2
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' }}
+        if: ${{ steps.attempt2.outcome == 'failure' && (inputs.use_artifact == false || inputs.run_setup_only == true) }}
         uses: ./.github/actions/setup-build-env
 
       - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' }}
+        if: ${{ steps.attempt3.outcome == 'failure' && (inputs.use_artifact == false || inputs.run_setup_only == true) }}
         run: exit 1
 
       - name: Move Positron License
-        if: ${{ inputs.install_license }}
+        if: ${{ inputs.install_license && (inputs.use_artifact == false || inputs.run_setup_only == true) }}
         run: |
           mv /positron-license /__w/positron &&
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa
@@ -216,6 +242,69 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Prepare & upload compressed build artifact
+        if: ${{ inputs.run_setup_only == true }}
+        run: |
+          # Create a tarball of only the app build outputs. Adjust excludes as needed to keep artifact small.
+          mkdir -p /tmp/artifacts
+          tar -C /__w -czf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz positron --exclude='**/node_modules' --exclude='**/.cache' || true
+
+          # Optional diagnostics (disk usage and file manifests)
+          if [ "${{ inputs.include_diagnostics }}" = "true" ]; then
+            set -x
+            mkdir -p /tmp/artifacts/diagnostics
+            echo "Disk usage for /__w/positron and common runtime locations" > /tmp/artifacts/diagnostics/du-summary.txt
+            du -h /__w/positron 2>/dev/null | sort -h >> /tmp/artifacts/diagnostics/du-summary.txt || true
+            du -h /root/.cache/ms-playwright 2>/dev/null | sort -h >> /tmp/artifacts/diagnostics/du-summary.txt || true
+            du -h /root/.venv 2>/dev/null | sort -h >> /tmp/artifacts/diagnostics/du-summary.txt || true
+
+            echo "Top 100 largest files under /__w/positron" > /tmp/artifacts/diagnostics/top-files.txt
+            find /__w/positron -type f -printf "%s\t%p\n" 2>/dev/null | sort -nr | head -n 100 >> /tmp/artifacts/diagnostics/top-files.txt || true
+
+            echo "Full file list under /__w/positron" > /tmp/artifacts/diagnostics/file-list.txt
+            find /__w/positron -type f 2>/dev/null | sort >> /tmp/artifacts/diagnostics/file-list.txt || true
+
+            echo "Contents of tarball (tar -tvzf)" > /tmp/artifacts/diagnostics/tar-contents.txt
+            tar -tzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz 2>/dev/null | head -n 200 >> /tmp/artifacts/diagnostics/tar-contents.txt || true
+
+            # Optional strace-based tracing of a smoke command to see runtime file opens (requires smoke_command)
+            if [ -n "${{ inputs.smoke_command }}" ]; then
+              echo "Running smoke_command under strace (output -> /tmp/artifacts/diagnostics/trace)" >> /tmp/artifacts/diagnostics/du-summary.txt
+              apt-get update -y && apt-get install -y strace >/dev/null 2>&1 || true
+              # run the smoke command under strace; keep output small
+              strace -ff -e open,openat,stat,stat64 -o /tmp/artifacts/diagnostics/trace -s 200 sh -c "${{ inputs.smoke_command }}" || true
+              tar -C /tmp/artifacts/diagnostics -czf /tmp/artifacts/diagnostics-traces.tar.gz trace* || true
+            fi
+          fi
+        # upload compressed tarball
+      - name: Upload build artifact
+        if: ${{ inputs.run_setup_only == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz
+          retention-days: 1
+
+      - name: Upload diagnostics artifact
+        if: ${{ inputs.run_setup_only == true && inputs.include_diagnostics == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}-diagnostics
+          path: /tmp/artifacts/diagnostics*
+          retention-days: 7
+
+      - name: Download and extract build artifact
+        if: ${{ inputs.use_artifact == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: /tmp/artifacts
+      - name: Extract build artifact
+        if: ${{ inputs.use_artifact == true }}
+        run: |
+          mkdir -p /__w
+          tar -xzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz -C /__w
+
       - name: Install Playwright browsers
         if: ${{ !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
         run: |
@@ -228,6 +317,7 @@ jobs:
           fi
 
       - name: Run Playwright Tests
+        if: ${{ inputs.run_setup_only == false }}
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
