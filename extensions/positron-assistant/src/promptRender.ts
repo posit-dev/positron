@@ -10,6 +10,7 @@ import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
+import { formatCells } from './tools/notebookUtils.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
 
@@ -23,6 +24,11 @@ type StoredPromptSelectionConfig = Partial<Record<PromptMetadataMode, { file: st
 interface AugmentedRenderData {
 	hasRSession: boolean;
 	hasPythonSession: boolean;
+	hasNotebookContext: boolean;
+	notebookKernelInfo?: string;
+	notebookSelectedCellsInfo?: string;
+	notebookAllCellsInfo?: string;
+	notebookContextNote?: string;
 }
 
 /**
@@ -36,10 +42,46 @@ class PromptTemplateEngine {
 		const hasRSession = data.sessions?.some(s => s.languageId === 'r') ?? false;
 		const hasPythonSession = data.sessions?.some(s => s.languageId === 'python') ?? false;
 
+		// Notebook context augmentation
+		const hasNotebookContext = !!data.notebookContext;
+		let notebookKernelInfo: string | undefined;
+		let notebookSelectedCellsInfo: string | undefined;
+		let notebookAllCellsInfo: string | undefined;
+		let notebookContextNote: string | undefined;
+
+		if (data.notebookContext) {
+			const ctx = data.notebookContext;
+
+			// Format kernel information
+			notebookKernelInfo = ctx.kernelId
+				? `${ctx.kernelLanguage || 'unknown'} (${ctx.kernelId})`
+				: 'No kernel attached';
+
+			// Format selected cells
+			notebookSelectedCellsInfo = formatCells(ctx.selectedCells, 'Selected Cell');
+
+			// Format all cells if available
+			if (ctx.allCells && ctx.allCells.length > 0) {
+				notebookAllCellsInfo = `
+**All Cells in Notebook:**
+${formatCells(ctx.allCells, 'Cell')}`;
+			}
+
+			// Context note
+			notebookContextNote = ctx.allCells && ctx.allCells.length > 0
+				? 'All cells are provided above because this notebook has fewer than 20 cells.'
+				: 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.';
+		}
+
 		return {
 			...data,
 			hasRSession,
 			hasPythonSession,
+			hasNotebookContext,
+			notebookKernelInfo,
+			notebookSelectedCellsInfo,
+			notebookAllCellsInfo,
+			notebookContextNote,
 		};
 	}
 
@@ -261,6 +303,7 @@ interface PromptRenderData {
 	document?: vscode.TextDocument;
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
+	notebookContext?: positron.notebooks.NotebookContext;
 }
 
 export class PromptRenderer {

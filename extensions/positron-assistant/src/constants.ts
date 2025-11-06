@@ -34,5 +34,8 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
  */
 export const TOOL_TAG_REQUIRES_ACTIVE_SESSION = 'requires-session';
 
+/** Tag used by tools to indicate that a Positron notebook must be active in order to use the tool */
+export const TOOL_TAG_REQUIRES_NOTEBOOK = 'requires-notebook';
+
 /** Max number of variables to include in language session context */
 export const MAX_CONTEXT_VARIABLES = 400;

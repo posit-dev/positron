@@ -20,6 +20,11 @@ export enum PositronAssistantToolName {
 	DocumentCreate = 'documentCreate',
 	TextSearch = 'positron_findTextInProject_internal',
 	FileContents = 'positron_getFileContents_internal',
+	RunNotebookCells = 'runNotebookCells',
+	AddNotebookCell = 'addNotebookCell',
+	UpdateNotebookCell = 'updateNotebookCell',
+	GetCellOutputs = 'getCellOutputs',
+	GetNotebookCells = 'getNotebookCells',
 }
 
 /**

@@ -6,8 +6,8 @@
 import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants.js';
+import { getAttachedNotebookContext, isStreamingEditsEnabled, ParticipantID } from './participants.js';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
@@ -108,8 +108,8 @@ export class PositronAssistantApi {
 	 *
 	 * @returns The list of enabled tool names.
 	 */
-	public getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Array<string> {
-		return getEnabledTools(request, tools);
+	public async getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Promise<Array<string>> {
+		return await getEnabledTools(request, tools);
 	}
 
 	/**
@@ -143,10 +143,10 @@ export class PositronAssistantApi {
  *
  * @returns The list of enabled tool names.
  */
-export function getEnabledTools(
+export async function getEnabledTools(
 	request: vscode.ChatRequest,
 	tools: readonly vscode.LanguageModelToolInformation[],
-	positronParticipantId?: string): Array<string> {
+	positronParticipantId?: string): Promise<Array<string>> {
 
 	const enabledTools: Array<string> = [];
 
@@ -172,6 +172,10 @@ export function getEnabledTools(
 			hasVariables = true;
 		}
 	}
+
+	// Check if a notebook is attached as context and has an active editor
+	const notebookContext = await getAttachedNotebookContext(request);
+	const hasActiveNotebook = !!notebookContext;
 
 	// Define more readable variables for filtering.
 	const inChatPane = request.location2 === undefined;
@@ -214,6 +218,12 @@ export function getEnabledTools(
 				!activeSessions.has(tag.split(':')[1])) {
 				continue;
 			}
+		}
+
+		// If the tool requires a notebook, but no notebook is active or
+		// we're not in the chat pane, don't allow the tool.
+		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
+			continue;
 		}
 
 		// If the tool is designed for Positron Assistant but we don't have a

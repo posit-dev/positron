@@ -260,7 +260,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
 		// List of tools for use by the language model.
-		const enabledTools = getEnabledTools(request, vscode.lm.tools, this.id);
+		const enabledTools = await getEnabledTools(request, vscode.lm.tools, this.id);
 		const toolAvailability = new Map(
 			vscode.lm.tools.map(
 				tool => [tool.name as PositronAssistantToolName, enabledTools.includes(tool.name as PositronAssistantToolName)]
@@ -750,6 +750,38 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	dispose(): void { }
 }
 
+/**
+ * Checks if notebook mode should be enabled based on attached context.
+ * Returns notebook context only if:
+ * 1. A notebook editor is currently active
+ * 2. That notebook's URI is attached as context
+ */
+export async function getAttachedNotebookContext(
+	request: vscode.ChatRequest
+): Promise<positron.notebooks.NotebookContext | undefined> {
+	// Get active editor's notebook context (existing API)
+	const activeContext = await positron.notebooks.getContext();
+	if (!activeContext) {
+		return undefined;
+	}
+
+	// Extract attached notebook URIs
+	const attachedNotebookUris = request.references
+		.map(ref => (ref.value as any)?.activeSession?.notebookUri)
+		.filter(uri => typeof uri === 'string');
+
+	if (attachedNotebookUris.length === 0) {
+		return undefined;
+	}
+
+	// Check if active notebook is in attached context
+	const isActiveNotebookAttached = attachedNotebookUris.includes(
+		activeContext.uri.toString()
+	);
+
+	return isActiveNotebookAttached ? activeContext : undefined;
+}
+
 /** The participant used in the chat pane in Ask mode. */
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
@@ -757,7 +789,22 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, sessions });
+
+		// Get notebook context if available, with error handling
+		let notebookContext: positron.notebooks.NotebookContext | undefined;
+		try {
+			notebookContext = await getAttachedNotebookContext(request);
+		} catch (err) {
+			log.error('[PositronAssistantChatParticipant] Error checking notebook context:', err);
+		}
+
+		// Render prompt with notebook context
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, {
+			request,
+			sessions,
+			notebookContext
+		});
+
 		return prompt.content;
 	}
 }
@@ -769,7 +816,17 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, { request, sessions });
+
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
+
+		// Render prompt with notebook context
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, {
+			request,
+			sessions,
+			notebookContext
+		});
+
 		return prompt.content;
 	}
 }
@@ -781,7 +838,17 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { request, sessions });
+
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
+
+		// Render prompt with notebook context
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, {
+			request,
+			sessions,
+			notebookContext
+		});
+
 		return prompt.content;
 	}
 }
