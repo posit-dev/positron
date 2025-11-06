@@ -219,8 +219,6 @@ jobs:
       - name: Install Playwright browsers
         if: ${{ !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
         run: |
-          # Ensure npm / npx are available and install browser binaries for Playwright.
-          # Use --with-deps in CI containers to install required libs too.
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
           # Edge is NOT installed by the default installer; add it explicitly for the e2e-edge project.
