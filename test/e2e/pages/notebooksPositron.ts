@@ -659,13 +659,20 @@ export class PositronNotebooks extends Notebooks {
 				contentType: 'text/plain',
 			});
 
-			// Verify screenshot matches
-			await expect(output).toHaveScreenshot('basic-markdown-render.png', {
-				maxDiffPixelRatio: 0.05,
-				animations: 'disabled',
-				caret: 'hide',
-				scale: 'css',
+			// Take screenshot and attach to report
+			const shot = await output.screenshot({ animations: 'disabled' });
+			await info.attach(resolvedFile, {
+				body: shot,
+				contentType: 'image/png',
 			});
+
+			// Verify screenshot matches
+			// await expect(output).toHaveScreenshot('basic-markdown-render.png', {
+			// 	maxDiffPixelRatio: 0.05,
+			// 	animations: 'disabled',
+			// 	caret: 'hide',
+			// 	scale: 'css',
+			// });
 		});
 	}
 

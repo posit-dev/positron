@@ -1159,7 +1159,7 @@ registerAction2(class extends NotebookAction2 {
 				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 			}
@@ -1191,9 +1191,9 @@ registerAction2(class extends NotebookAction2 {
 				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
 			},
 			keybinding: {
-				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
 				weight: KeybindingWeight.EditorContrib,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyK
+				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyK)
 			}
 		});
 	}
