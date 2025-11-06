@@ -194,6 +194,8 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					return 'positron-schema-connection';
 				case 'catalog':
 					return 'positron-catalog-connection';
+				case 'volume':
+					return 'file-symlink-directory';
 				case 'field':
 					switch (props.item.dtype?.toLowerCase()) {
 						case 'character':
@@ -207,6 +209,8 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 						case 'double':
 						case 'fixed':
 						case 'real':
+						case 'bigint':
+						case 'int':
 							return 'positron-data-type-number';
 						case 'boolean':
 						case 'bool':
