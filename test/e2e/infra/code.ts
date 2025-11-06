@@ -14,7 +14,7 @@ import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 import { Quality } from './application';
-import { ElectronApplication } from '@playwright/test';
+import type { ElectronApplication } from 'playwright';
 
 export type Browser = 'chromium' | 'firefox' | 'webkit' | 'chromium-msedge' | 'chromium-chrome' | undefined;
 
