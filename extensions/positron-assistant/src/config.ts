@@ -131,6 +131,12 @@ export async function getEnabledProviders(): Promise<string[]> {
 	return enabledProviders;
 }
 
+export function getProviderTimeoutMs(): number {
+	const cfg = vscode.workspace.getConfiguration('positron.assistant');
+	const timeoutSec = cfg.get<number>('providerTimeout', 60);
+	return timeoutSec * 1000;
+}
+
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 
 	// Gather model sources; ignore disabled providers

@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
-import { ModelConfig } from './config';
+import { getProviderTimeoutMs, ModelConfig } from './config';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
@@ -302,8 +302,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		const cfg = vscode.workspace.getConfiguration('positron.assistant');
-		const timeoutMs = cfg.get<number>('providerTimeout', 60) * 1000;
+		const timeoutMs = getProviderTimeoutMs();
 		try {
 			await this._client.withOptions({ timeout: timeoutMs }).models.list();
 		} catch (error) {

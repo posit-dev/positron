@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { ModelConfig } from './config';
+import { getProviderTimeoutMs, ModelConfig } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -317,23 +317,33 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		log.debug(`[${this.providerName}] Resolving connection...`);
+
 		token.onCancellationRequested(() => {
 			return false;
 		});
 
-		const model = this._config.model;
+		await this.resolveModels(token);
+
+		if (!this.modelListing || this.modelListing.length === 0) {
+			return new Error(`[${this.providerName}] No models available for provider`);
+		}
+
+		const model = this.modelListing[0].id;
 
 		try {
-			// Configure timeout for provider call
-			const cfg = vscode.workspace.getConfiguration('positron.assistant');
-			const timeoutMs = cfg.get<number>('providerTimeout', 60) * 1000;
+			log.debug(`[${this.providerName}] '${model}' Sending test message...`);
 
-			// send a test message to the model
-			await ai.generateText({
+			const result = await ai.generateText({
 				model: this.aiProvider(model, this.aiOptions),
-				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
-				abortSignal: AbortSignal.timeout(timeoutMs),
+				prompt: `I'm checking to see if you're there. Respond only with the word "hello".`,
+				abortSignal: AbortSignal.timeout(getProviderTimeoutMs()),
+				maxRetries: 1, // Retry the request once in case of transient errors
 			});
+
+			log.debug(`[${this.providerName}] '${model}' Test message sent successfully .`);
+			log.trace(`[${this.providerName}] '${model}' Test message response: ${result.text}`);
+			return undefined;
 		} catch (error) {
 			const messagePrefix = `[${this.providerName}] '${model}'`;
 			const errorMsg = this.parseProviderError(error) ||
@@ -616,25 +626,26 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	 */
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		log.debug(`[${this.providerName}] Resolving models...`);
-		return new Promise((resolve) => {
-			const models = availableModels.get(this._config.provider);
-			if (models) {
-				resolve(models.map(model => ({
-					id: model.identifier,
-					name: model.name,
-					family: this.provider,
-					version: this.aiProvider(model.identifier).specificationVersion,
-					maxInputTokens: 0,
-					maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-					capabilities: this.capabilities,
-					isDefault: this.isDefaultUserModel(model.identifier, model.name),
-					isUserSelectable: true,
-				} satisfies vscode.LanguageModelChatInformation)));
-			} else {
-				log.warn(`[${this.providerName}] No model listing available`);
-				resolve(undefined);
-			}
-		});
+
+		const availableModelsForProvider = availableModels.get(this._config.provider);
+		if (availableModelsForProvider) {
+			const models = availableModelsForProvider.map(model => ({
+				id: model.identifier,
+				name: model.name,
+				family: this.provider,
+				version: this.aiProvider(model.identifier).specificationVersion,
+				maxInputTokens: 0,
+				maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+				capabilities: this.capabilities,
+				isDefault: this.isDefaultUserModel(model.identifier, model.name),
+				isUserSelectable: true,
+			} satisfies vscode.LanguageModelChatInformation));
+			this.modelListing = models;
+			return models;
+		} else {
+			log.error(`[${this.providerName}] No model listing available`);
+			return undefined;
+		}
 	}
 
 	protected isDefaultUserModel(id: string, name?: string): boolean {
@@ -713,43 +724,6 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 
 	get baseUrl(): string | undefined {
 		return (this._config.baseUrl ?? OpenAILanguageModel.source.defaults.baseUrl)?.replace(/\/+$/, '');
-	}
-
-	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
-		log.debug(`[${this.providerName}] Resolving connection...`);
-
-		await this.resolveModels(token);
-
-		token.onCancellationRequested(() => {
-			return false;
-		});
-
-		if (!this.modelListing || this.modelListing.length === 0) {
-			return new Error(`[${this.providerName}] Could not retrieve model listing from /models endpoint.`);
-		}
-
-		const model = this.modelListing[0].id;
-
-		try {
-			// send a test message to the model
-			log.debug(`[${this.providerName}] '${model}' Sending test message...`);
-
-			const result = await ai.generateText({
-				model: this.aiProvider(model, this.aiOptions),
-				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
-			});
-
-			// if the model responds, the config works
-			log.debug(`[${this.providerName}] '${model}' Test message sent successfully .`);
-			log.trace(`[${this.providerName}] '${model}' Test message response: ${result.text}`);
-			return undefined;
-		} catch (error) {
-			const messagePrefix = `[${this.providerName}] '${model}'`;
-			const errorMsg = this.parseProviderError(error) ||
-				(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
-			log.error(`${messagePrefix} Error sending test message: ${errorMsg}`);
-			return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
-		}
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
