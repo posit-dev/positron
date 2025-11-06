@@ -8,7 +8,7 @@ import contextlib
 import json
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Tuple, TypedDict, NotRequired
+from typing import TYPE_CHECKING, Any, Tuple, TypedDict
 
 import comm
 
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
     import sqlalchemy
     from comm.base_comm import BaseComm
+    from typing_extensions import NotRequired
 
     from .positron_ipkernel import PositronIPyKernel
 
