@@ -44,7 +44,7 @@ jobs:
 
   e2e-firefox:
     name: e2e
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_firefox }}
+    # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_firefox }}
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
@@ -60,7 +60,7 @@ jobs:
 
   e2e-webkit:
     name: e2e
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_webkit }}
+    # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_webkit }}
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
@@ -76,7 +76,7 @@ jobs:
 
   e2e-edge:
     name: e2e
-    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_edge }}
+    # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_edge }}
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
