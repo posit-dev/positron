@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import re
 import uuid
 from typing import TYPE_CHECKING, Any, Tuple, TypedDict
 
@@ -1017,11 +1018,12 @@ class SnowflakeConnection(Connection):
 class DatabricksConnection(Connection):
     """Support for Databricks connections to databases."""
 
+    HOST_SUFFIX_RE = re.compile(r"\.(?:cloud\.)?databricks\.com$", re.IGNORECASE)
+
     def __init__(self, conn: Any):
         self.conn = conn
-        # TODO: remove the databricks.com part for brevity
-        self.display_name = conn.session.host
-        self.host = conn.session.host
+        self.host = str(conn.session.host) or "<unknown>"
+        self.display_name = f"Databricks ({self.HOST_SUFFIX_RE.sub('', self.host, count=1)})"
         self.type = "Databricks"
         # TODO: generate connection code based on authentication method extracted from the
         # connection object
