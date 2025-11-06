@@ -23,6 +23,7 @@ import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.j
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
+import { applyModelFilters } from './modelFilters';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -96,7 +97,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	availableModels: vscode.LanguageModelChatInformation[] = [];
 
 	constructor(
-		_config: ModelConfig,
+		private readonly _config: ModelConfig,
 		private readonly _context?: vscode.ExtensionContext
 	) {
 		this.availableModels = [
@@ -233,7 +234,8 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		return Promise.resolve(this.availableModels);
+		const filteredModels = applyModelFilters(this.availableModels, this.provider);
+		return Promise.resolve(filteredModels);
 	}
 
 	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
@@ -629,7 +631,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		const availableModelsForProvider = availableModels.get(this._config.provider);
 		if (availableModelsForProvider) {
-			const models = availableModelsForProvider.map(model => ({
+			let models: vscode.LanguageModelChatInformation[] = availableModelsForProvider.map(model => ({
 				id: model.identifier,
 				name: model.name,
 				family: this.provider,
@@ -640,6 +642,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				isDefault: this.isDefaultUserModel(model.identifier, model.name),
 				isUserSelectable: true,
 			} satisfies vscode.LanguageModelChatInformation));
+
+			// Apply model filtering
+			models = applyModelFilters(models, this.provider);
+
 			this.modelListing = models;
 			return models;
 		} else {
@@ -755,7 +761,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			} else {
 				if (data && data.data && Array.isArray(data.data)) {
 					log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
-					const models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
+					let models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
 						return {
 							id: model.id,
 							name: model.id,
@@ -766,6 +772,10 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 							capabilities: this.capabilities,
 						};
 					});
+
+					// Apply model filtering
+					models = applyModelFilters(models, this.provider);
+
 					this.modelListing = models;
 					return models;
 				} else {
@@ -1084,7 +1094,9 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			log.error(`[${this.providerName}] No Amazon Bedrock models available`);
 			return modelListing;
 		}
+		log.info(`[${this.providerName}] Found ${modelSummaries.length} available models.`);
 
+		log.debug(`[${this.providerName}] Fetching available Amazon Bedrock inference profiles...`);
 		const inferenceResponse = await this.bedrockClient.send(new ListInferenceProfilesCommand());
 		this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
 
@@ -1092,11 +1104,16 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			log.error(`[${this.providerName}] No Amazon Bedrock inference profiles available`);
 			return modelListing;
 		}
+		log.debug(`[${this.providerName}] Total inference profiles available: ${this.inferenceProfiles.length}`);
 
 		const availableModels = modelSummaries.filter(m => m.modelLifecycle?.status === 'ACTIVE'
 			&& AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.includes(m.providerName as string)
 			// INFERENCE_PROFILE doesn't exist in the Bedrock types but it can actually return it so it casts the field to string[] to avoid typescript errors
 			&& (m.inferenceTypesSupported && (m.inferenceTypesSupported as string[]).includes('INFERENCE_PROFILE')));
+
+		log.debug(`[${this.providerName}] ${availableModels.length} models are ACTIVE and support INFERENCE_PROFILE inference type.`);
+
+		log.info(`[${this.providerName}] Filtering out legacy models...`);
 
 		availableModels.forEach(m => {
 			log.trace(`[${this.providerName}] ${m.modelName} ${m.modelId}`);
@@ -1132,9 +1149,11 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			});
 		});
 
-		this.modelListing = modelListing;
+		// Apply model filtering
+		const filteredModelListing = applyModelFilters(modelListing, this.provider);
 
-		return modelListing;
+		this.modelListing = filteredModelListing;
+		return filteredModelListing;
 	}
 
 	/**
