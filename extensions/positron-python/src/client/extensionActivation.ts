@@ -14,12 +14,12 @@ import { Commands, PYTHON_LANGUAGE, UseProposedApi } from './common/constants';
 import { registerTypes as installerRegisterTypes } from './common/installer/serviceRegistry';
 import { IFileSystem } from './common/platform/types';
 import {
-	IConfigurationService,
-	IDisposableRegistry,
-	IExtensions,
-	IInterpreterPathService,
-	ILogOutputChannel,
-	IPathUtils,
+    IConfigurationService,
+    IDisposableRegistry,
+    IExtensions,
+    IInterpreterPathService,
+    ILogOutputChannel,
+    IPathUtils,
 } from './common/types';
 import { noop } from './common/utils/misc';
 import { registerTypes as debugConfigurationRegisterTypes } from './debugger/extension/serviceRegistry';
@@ -66,86 +66,86 @@ import { IPythonRuntimeManager } from './positron/manager';
 // --- End Positron ---
 
 export async function activateComponents(
-	// `ext` is passed to any extra activation funcs.
-	ext: ExtensionState,
-	components: Components,
-	startupStopWatch: StopWatch,
+    // `ext` is passed to any extra activation funcs.
+    ext: ExtensionState,
+    components: Components,
+    startupStopWatch: StopWatch,
 ): Promise<ActivationResult[]> {
-	// Note that each activation returns a promise that resolves
-	// when that activation completes.  However, it might have started
-	// some non-critical background operations that do not block
-	// extension activation but do block use of the extension "API".
-	// Each component activation can't just resolve an "inner" promise
-	// for those non-critical operations because `await` (and
-	// `Promise.all()`, etc.) will flatten nested promises.  Thus
-	// activation resolves `ActivationResult`, which can safely wrap
-	// the "inner" promise.
+    // Note that each activation returns a promise that resolves
+    // when that activation completes.  However, it might have started
+    // some non-critical background operations that do not block
+    // extension activation but do block use of the extension "API".
+    // Each component activation can't just resolve an "inner" promise
+    // for those non-critical operations because `await` (and
+    // `Promise.all()`, etc.) will flatten nested promises.  Thus
+    // activation resolves `ActivationResult`, which can safely wrap
+    // the "inner" promise.
 
-	// TODO: As of now activateLegacy() registers various classes which might
-	// be required while activating components. Once registration from
-	// activateLegacy() are moved before we activate other components, we can
-	// activate them in parallel with the other components.
-	// https://github.com/microsoft/vscode-python/issues/15380
-	// These will go away eventually once everything is refactored into components.
-	const legacyActivationResult = await activateLegacy(ext, startupStopWatch);
-	const workspaceService = new WorkspaceService();
-	if (!workspaceService.isTrusted) {
-		return [legacyActivationResult];
-	}
-	const promises: Promise<ActivationResult>[] = [
-		// More component activations will go here
-		// --- Start Positron ---
-		pythonEnvironments.activateAndRefreshEnvs(components.pythonEnvs),
-		// --- End Positron
-	];
-	return Promise.all([legacyActivationResult, ...promises]);
+    // TODO: As of now activateLegacy() registers various classes which might
+    // be required while activating components. Once registration from
+    // activateLegacy() are moved before we activate other components, we can
+    // activate them in parallel with the other components.
+    // https://github.com/microsoft/vscode-python/issues/15380
+    // These will go away eventually once everything is refactored into components.
+    const legacyActivationResult = await activateLegacy(ext, startupStopWatch);
+    const workspaceService = new WorkspaceService();
+    if (!workspaceService.isTrusted) {
+        return [legacyActivationResult];
+    }
+    const promises: Promise<ActivationResult>[] = [
+        // More component activations will go here
+        // --- Start Positron ---
+        pythonEnvironments.activateAndRefreshEnvs(components.pythonEnvs),
+        // --- End Positron
+    ];
+    return Promise.all([legacyActivationResult, ...promises]);
 }
 
 // --- Start Positron ---
 // Changed this function to be async
 export async function activateFeatures(ext: ExtensionState, _components: Components): Promise<void> {
-	// --- End Positron ---
-	const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
-		IInterpreterQuickPick,
-	);
-	const interpreterPathService: IInterpreterPathService = ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(
-		IInterpreterPathService,
-	);
-	const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
-		IInterpreterService,
-	);
-	registerEnvExtFeatures(ext.disposables, interpreterPathService);
-	const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
+    // --- End Positron ---
+    const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
+        IInterpreterQuickPick,
+    );
+    const interpreterPathService: IInterpreterPathService = ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(
+        IInterpreterPathService,
+    );
+    const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
+        IInterpreterService,
+    );
+    registerEnvExtFeatures(ext.disposables, interpreterPathService);
+    const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
 
-	// --- Start Positron ---
-	const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
-		IPythonRuntimeManager,
-	);
-	// --- End Positron ---
+    // --- Start Positron ---
+    const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
+        IPythonRuntimeManager,
+    );
+    // --- End Positron ---
 
-	registerPixiFeatures(ext.disposables);
-	// --- Start Positron ---
-	await registerAllCreateEnvironmentFeatures(
-		// --- End Positron ---
-		ext.disposables,
-		interpreterQuickPick,
-		ext.legacyIOC.serviceContainer.get<IPythonPathUpdaterServiceManager>(IPythonPathUpdaterServiceManager),
-		interpreterService,
-		pathUtils,
-		// --- Start Positron ---
-		pythonRuntimeManager,
-		// --- End Positron ---
-	);
-	const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
-	const commandManager = ext.legacyIOC.serviceContainer.get<ICommandManager>(ICommandManager);
-	registerTriggerForTerminalREPL(ext.disposables);
-	registerStartNativeReplCommand(ext.disposables, interpreterService);
-	registerReplCommands(ext.disposables, interpreterService, executionHelper, commandManager);
-	registerReplExecuteOnEnter(ext.disposables, interpreterService, commandManager);
-	// --- Start Positron ---
-	// This hyperlinks the terminal to the native REPL, which we don't use.
-	// registerCustomTerminalLinkProvider(ext.disposables);
-	// --- End Positron ---
+    registerPixiFeatures(ext.disposables);
+    // --- Start Positron ---
+    await registerAllCreateEnvironmentFeatures(
+        // --- End Positron ---
+        ext.disposables,
+        interpreterQuickPick,
+        ext.legacyIOC.serviceContainer.get<IPythonPathUpdaterServiceManager>(IPythonPathUpdaterServiceManager),
+        interpreterService,
+        pathUtils,
+        // --- Start Positron ---
+        pythonRuntimeManager,
+        // --- End Positron ---
+    );
+    const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
+    const commandManager = ext.legacyIOC.serviceContainer.get<ICommandManager>(ICommandManager);
+    registerTriggerForTerminalREPL(ext.disposables);
+    registerStartNativeReplCommand(ext.disposables, interpreterService);
+    registerReplCommands(ext.disposables, interpreterService, executionHelper, commandManager);
+    registerReplExecuteOnEnter(ext.disposables, interpreterService, commandManager);
+    // --- Start Positron ---
+    // This hyperlinks the terminal to the native REPL, which we don't use.
+    // registerCustomTerminalLinkProvider(ext.disposables);
+    // --- End Positron ---
 }
 
 /// //////////////////////////
@@ -158,85 +158,85 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
 // See https://github.com/microsoft/vscode-python/issues/10454.
 
 async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch): Promise<ActivationResult> {
-	const { legacyIOC } = ext;
-	const { serviceManager, serviceContainer } = legacyIOC;
+    const { legacyIOC } = ext;
+    const { serviceManager, serviceContainer } = legacyIOC;
 
-	// register "services"
+    // register "services"
 
-	// We need to setup this property before any telemetry is sent
-	const fs = serviceManager.get<IFileSystem>(IFileSystem);
-	await setExtensionInstallTelemetryProperties(fs);
+    // We need to setup this property before any telemetry is sent
+    const fs = serviceManager.get<IFileSystem>(IFileSystem);
+    await setExtensionInstallTelemetryProperties(fs);
 
-	const applicationEnv = serviceManager.get<IApplicationEnvironment>(IApplicationEnvironment);
-	const { enableProposedApi } = applicationEnv.packageJson;
-	serviceManager.addSingletonInstance<boolean>(UseProposedApi, enableProposedApi);
-	// Feature specific registrations.
-	unitTestsRegisterTypes(serviceManager);
-	installerRegisterTypes(serviceManager);
-	commonRegisterTerminalTypes(serviceManager);
-	debugConfigurationRegisterTypes(serviceManager);
-	tensorBoardRegisterTypes(serviceManager);
+    const applicationEnv = serviceManager.get<IApplicationEnvironment>(IApplicationEnvironment);
+    const { enableProposedApi } = applicationEnv.packageJson;
+    serviceManager.addSingletonInstance<boolean>(UseProposedApi, enableProposedApi);
+    // Feature specific registrations.
+    unitTestsRegisterTypes(serviceManager);
+    installerRegisterTypes(serviceManager);
+    commonRegisterTerminalTypes(serviceManager);
+    debugConfigurationRegisterTypes(serviceManager);
+    tensorBoardRegisterTypes(serviceManager);
 
-	const extensions = serviceContainer.get<IExtensions>(IExtensions);
-	await setDefaultLanguageServer(extensions, serviceManager);
+    const extensions = serviceContainer.get<IExtensions>(IExtensions);
+    await setDefaultLanguageServer(extensions, serviceManager);
 
-	// Settings are dependent on Experiment service, so we need to initialize it after experiments are activated.
-	serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings().register();
+    // Settings are dependent on Experiment service, so we need to initialize it after experiments are activated.
+    serviceContainer.get<IConfigurationService>(IConfigurationService).getSettings().register();
 
-	// Language feature registrations.
-	appRegisterTypes(serviceManager);
-	providersRegisterTypes(serviceManager);
-	activationRegisterTypes(serviceManager);
+    // Language feature registrations.
+    appRegisterTypes(serviceManager);
+    providersRegisterTypes(serviceManager);
+    activationRegisterTypes(serviceManager);
 
-	// "initialize" "services"
+    // "initialize" "services"
 
-	const disposables = serviceManager.get<IDisposableRegistry>(IDisposableRegistry);
-	const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-	const cmdManager = serviceContainer.get<ICommandManager>(ICommandManager);
+    const disposables = serviceManager.get<IDisposableRegistry>(IDisposableRegistry);
+    const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+    const cmdManager = serviceContainer.get<ICommandManager>(ICommandManager);
 
-	languages.setLanguageConfiguration(PYTHON_LANGUAGE, getLanguageConfiguration());
-	if (workspaceService.isTrusted) {
-		const interpreterManager = serviceContainer.get<IInterpreterService>(IInterpreterService);
-		interpreterManager.initialize();
-		if (!workspaceService.isVirtualWorkspace) {
-			const handlers = serviceManager.getAll<IDebugSessionEventHandlers>(IDebugSessionEventHandlers);
-			const dispatcher = new DebugSessionEventDispatcher(handlers, DebugService.instance, disposables);
-			dispatcher.registerEventHandlers();
-			const outputChannel = serviceManager.get<ILogOutputChannel>(ILogOutputChannel);
-			disposables.push(cmdManager.registerCommand(Commands.ViewOutput, () => outputChannel.show()));
-			cmdManager.executeCommand('setContext', 'python.vscode.channel', applicationEnv.channel).then(noop, noop);
+    languages.setLanguageConfiguration(PYTHON_LANGUAGE, getLanguageConfiguration());
+    if (workspaceService.isTrusted) {
+        const interpreterManager = serviceContainer.get<IInterpreterService>(IInterpreterService);
+        interpreterManager.initialize();
+        if (!workspaceService.isVirtualWorkspace) {
+            const handlers = serviceManager.getAll<IDebugSessionEventHandlers>(IDebugSessionEventHandlers);
+            const dispatcher = new DebugSessionEventDispatcher(handlers, DebugService.instance, disposables);
+            dispatcher.registerEventHandlers();
+            const outputChannel = serviceManager.get<ILogOutputChannel>(ILogOutputChannel);
+            disposables.push(cmdManager.registerCommand(Commands.ViewOutput, () => outputChannel.show()));
+            cmdManager.executeCommand('setContext', 'python.vscode.channel', applicationEnv.channel).then(noop, noop);
 
-			serviceContainer.get<IApplicationDiagnostics>(IApplicationDiagnostics).register();
+            serviceContainer.get<IApplicationDiagnostics>(IApplicationDiagnostics).register();
 
-			serviceManager.get<ITerminalAutoActivation>(ITerminalAutoActivation).register();
+            serviceManager.get<ITerminalAutoActivation>(ITerminalAutoActivation).register();
 
-			await registerPythonStartup(ext.context);
+            await registerPythonStartup(ext.context);
 
-			serviceManager.get<ICodeExecutionManager>(ICodeExecutionManager).registerCommands();
+            serviceManager.get<ICodeExecutionManager>(ICodeExecutionManager).registerCommands();
 
-			disposables.push(new ReplProvider(serviceContainer));
+            disposables.push(new ReplProvider(serviceContainer));
 
-			const terminalProvider = new TerminalProvider(serviceContainer);
-			terminalProvider.initialize(window.activeTerminal).ignoreErrors();
+            const terminalProvider = new TerminalProvider(serviceContainer);
+            terminalProvider.initialize(window.activeTerminal).ignoreErrors();
 
-			serviceContainer
-				.getAll<DebugConfigurationProvider>(IDebugConfigurationService)
-				.forEach((debugConfigProvider) => {
-					disposables.push(debug.registerDebugConfigurationProvider(DebuggerTypeName, debugConfigProvider));
-				});
-			disposables.push(terminalProvider);
+            serviceContainer
+                .getAll<DebugConfigurationProvider>(IDebugConfigurationService)
+                .forEach((debugConfigProvider) => {
+                    disposables.push(debug.registerDebugConfigurationProvider(DebuggerTypeName, debugConfigProvider));
+                });
+            disposables.push(terminalProvider);
 
-			registerCreateEnvironmentTriggers(disposables);
-			initializePersistentStateForTriggers(ext.context);
-		}
-	}
+            registerCreateEnvironmentTriggers(disposables);
+            initializePersistentStateForTriggers(ext.context);
+        }
+    }
 
-	// "activate" everything else
+    // "activate" everything else
 
-	const manager = serviceContainer.get<IExtensionActivationManager>(IExtensionActivationManager);
-	disposables.push(manager);
+    const manager = serviceContainer.get<IExtensionActivationManager>(IExtensionActivationManager);
+    disposables.push(manager);
 
-	const activationPromise = manager.activate(startupStopWatch);
+    const activationPromise = manager.activate(startupStopWatch);
 
-	return { fullyReady: activationPromise };
+    return { fullyReady: activationPromise };
 }
