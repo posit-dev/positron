@@ -16,5 +16,8 @@ module.exports.default = withDefaults({
 	},
 	node: {
 		__dirname: false
+	},
+	externals: {
+		'snowflake-sdk': { commonjs: 'snowflake-sdk' },
 	}
 });
