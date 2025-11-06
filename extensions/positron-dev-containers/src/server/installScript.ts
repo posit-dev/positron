@@ -115,7 +115,7 @@ else
 	# Detect download tool
 	if command -v wget >/dev/null 2>&1; then
 		DOWNLOAD_TOOL="wget"
-		DOWNLOAD_CMD="wget -q --show-progress -O -"
+		DOWNLOAD_CMD="wget -q -O -"
 	elif command -v curl >/dev/null 2>&1; then
 		DOWNLOAD_TOOL="curl"
 		DOWNLOAD_CMD="curl -fsSL"
@@ -123,13 +123,12 @@ else
 		error "Neither wget nor curl found. Please install one of them."
 	fi
 
-	log "Using \${DOWNLOAD_TOOL} to download server..."
+	log "Downloading and installing server..."
 
 	# Download and extract server
 	DOWNLOAD_URL="${serverConfig.downloadUrl}"
-	log "Downloading from: \${DOWNLOAD_URL}"
 
-	if ! \${DOWNLOAD_CMD} "\${DOWNLOAD_URL}" | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>/dev/null; then
+	if ! \${DOWNLOAD_CMD} "\${DOWNLOAD_URL}" 2>/dev/null | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>/dev/null; then
 		error "Failed to download or extract server from \${DOWNLOAD_URL}"
 	fi
 

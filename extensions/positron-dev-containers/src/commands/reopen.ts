@@ -86,7 +86,7 @@ export async function reopenLocally(): Promise<void> {
 
 		// Get the local workspace folder path from the remote workspace
 		// The CONTAINER_WORKSPACE_FOLDER environment variable should contain the local path
-		const localPath = Workspace.getLocalWorkspaceFolder();
+		const localPath = await Workspace.getLocalWorkspaceFolder();
 		if (!localPath) {
 			await vscode.window.showErrorMessage(
 				'Cannot determine local workspace folder. Please reopen the workspace manually.'

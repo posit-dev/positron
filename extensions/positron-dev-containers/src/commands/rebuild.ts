@@ -147,7 +147,7 @@ export async function rebuildContainer(): Promise<void> {
 		}
 
 		// Get the local workspace folder path
-		const localPath = Workspace.getLocalWorkspaceFolder();
+		const localPath = await Workspace.getLocalWorkspaceFolder();
 		if (!localPath) {
 			await vscode.window.showErrorMessage(
 				'Cannot determine workspace folder for rebuild'
@@ -209,7 +209,7 @@ export async function rebuildContainerNoCache(): Promise<void> {
 		}
 
 		// Get the local workspace folder path
-		const localPath = Workspace.getLocalWorkspaceFolder();
+		const localPath = await Workspace.getLocalWorkspaceFolder();
 		if (!localPath) {
 			await vscode.window.showErrorMessage(
 				'Cannot determine workspace folder for rebuild'

@@ -382,7 +382,9 @@ export class ServerInstaller {
 				stderr += text;
 				// Stream to output channel
 				text.split('\n').filter(line => line.trim()).forEach(line => {
-					this.logger.warn(`[Container] ${line}`);
+					// Use info level for script output (scripts use stderr for normal logging)
+					// Actual errors will be caught by the exit code and error handling
+					this.logger.info(`[Container] ${line}`);
 				});
 			});
 

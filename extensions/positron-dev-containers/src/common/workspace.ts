@@ -145,7 +145,7 @@ export class Workspace {
 	 * Get the local workspace folder path when in a dev container
 	 * Returns undefined if not in a dev container or path cannot be determined
 	 */
-	static getLocalWorkspaceFolder(): string | undefined {
+	static async getLocalWorkspaceFolder(): Promise<string | undefined> {
 		if (!this.isInDevContainer()) {
 			return undefined;
 		}
@@ -162,17 +162,48 @@ export class Workspace {
 			return localWorkspaceFolder;
 		}
 
-		// Fallback: try to get from current workspace folder
-		// The remote workspace folder path might give us hints
+		// Extract container ID from workspace URI authority
 		const currentFolder = this.getCurrentWorkspaceFolder();
+		if (currentFolder && currentFolder.uri.authority) {
+			const containerId = this.getContainerIdFromAuthority(currentFolder.uri.authority);
+			if (containerId) {
+				getLogger().debug(`Extracted container ID from authority: ${containerId}`);
+
+				// Inspect container to get local folder from labels
+				try {
+					const { getDevContainerManager } = await import('../container/devContainerManager.js');
+					const manager = getDevContainerManager();
+					const containerDetails = await manager.inspectContainerDetails(containerId);
+
+					const { ContainerLabels } = await import('../container/containerLabels.js');
+					const localFolder = ContainerLabels.getLocalFolder(containerDetails.Config.Labels || {});
+
+					if (localFolder) {
+						getLogger().info(`Retrieved local folder from container labels: ${localFolder}`);
+						return localFolder;
+					}
+				} catch (error) {
+					getLogger().error('Failed to inspect container for local folder', error);
+				}
+			}
+		}
+
+		// Last resort fallback: return current workspace path with warning
 		if (currentFolder) {
-			// In dev containers, the workspace folder is typically the mounted path
-			// We may need to infer the local path from labels or configuration
-			getLogger().warn('Could not determine local workspace folder from environment variables');
+			getLogger().warn('Could not determine local workspace folder, using container path as fallback');
 			return currentFolder.uri.fsPath;
 		}
 
 		return undefined;
+	}
+
+	/**
+	 * Extract container ID from remote authority
+	 * Authority format: dev-container+<containerId> or attached-container+<containerId>
+	 */
+	private static getContainerIdFromAuthority(authority: string): string | undefined {
+		const match = authority.match(/^(?:dev-container|attached-container)\+(.+)$/);
+		return match?.[1];
 	}
 
 	/**
