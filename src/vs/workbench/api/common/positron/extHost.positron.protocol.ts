@@ -218,6 +218,17 @@ export interface INotebookContextDTO {
 }
 
 /**
+ * Data transfer object for notebook cell output information.
+ * Supports both text and binary (image) outputs.
+ */
+export interface INotebookCellOutputDTO {
+	/** MIME type of the output (e.g., 'text/plain', 'image/png') */
+	mimeType: string;
+	/** Output data - plain text for text outputs, base64 encoded for images */
+	data: string;
+}
+
+/**
  * Interface that the main process exposes to the extension host for notebook features.
  */
 export interface MainThreadNotebookFeaturesShape extends IDisposable {
@@ -228,7 +239,7 @@ export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<string>;
 	$deleteCell(notebookUri: string, cellId: string): Promise<void>;
 	$updateCellContent(notebookUri: string, cellId: string, content: string): Promise<void>;
-	$getCellOutputs(notebookUri: string, cellId: string): Promise<string[]>;
+	$getCellOutputs(notebookUri: string, cellId: string): Promise<INotebookCellOutputDTO[]>;
 }
 
 /**

@@ -7,39 +7,13 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../extension.js';
-
-/**
- * Formats cell status information into a readable string.
- * @param cell The cell to format status for
- * @returns Formatted status string
- */
-function formatCellStatus(cell: positron.notebooks.NotebookCell): string {
-	const statusParts: string[] = [];
-	statusParts.push(`Selection: ${cell.selectionStatus}`);
-	if (cell.executionStatus !== undefined) {
-		statusParts.push(`Execution: ${cell.executionStatus}`);
-		if (cell.executionOrder !== undefined) {
-			statusParts.push(`Order: [${cell.executionOrder}]`);
-		}
-		if (cell.lastRunSuccess !== undefined) {
-			statusParts.push(`Last run: ${cell.lastRunSuccess ? 'success' : 'failed'}`);
-		}
-		if (cell.lastExecutionDuration !== undefined) {
-			const durationMs = cell.lastExecutionDuration;
-			const durationStr = durationMs < 1000
-				? `${durationMs}ms`
-				: `${(durationMs / 1000).toFixed(2)}s`;
-			statusParts.push(`Duration: ${durationStr}`);
-		}
-	}
-	statusParts.push(cell.hasOutput ? 'Has output' : 'No output');
-	return statusParts.join(' | ');
-}
+import { convertOutputsToLanguageModelParts, formatCellStatus } from './notebookUtils.js';
 
 /**
  * Tool: Run Notebook Cells
  *
  * Executes one or more cells in the active notebook and returns their outputs.
+ * Supports both text and image outputs.
  */
 export const RunNotebookCellsTool = vscode.lm.registerTool<{
 	cellIds: string[];
@@ -63,22 +37,24 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 
 			await positron.notebooks.runCells(context.uri, cellIds);
 
-			// Get outputs for each cell
-			const outputs: string[] = [];
+			// Build mixed content response with support for images
+			const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+			resultParts.push(
+				new vscode.LanguageModelTextPart(`Successfully executed ${cellIds.length} cell(s).\n\nOutputs:\n`)
+			);
+
 			for (const cellId of cellIds) {
 				const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cellId);
+
 				if (cellOutputs.length > 0) {
-					outputs.push(`Cell ${cellId}:\n${cellOutputs.join('\n')}`);
+					resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellId}:\n`));
+					// Convert outputs to LanguageModel parts using shared helper
+					const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
+					resultParts.push(...outputParts);
 				}
 			}
 
-			const outputText = outputs.length > 0
-				? `Successfully executed ${cellIds.length} cell(s).\n\nOutputs:\n${outputs.join('\n\n')}`
-				: `Successfully executed ${cellIds.length} cell(s).`;
-
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(outputText)
-			]);
+			return new vscode.LanguageModelToolResult2(resultParts);
 		} catch (error: unknown) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			log.error(`[${PositronAssistantToolName.RunNotebookCells}] Failed to execute cells: ${errorMessage}`);
@@ -193,6 +169,7 @@ export const UpdateNotebookCellTool = vscode.lm.registerTool<{
  * Tool: Get Cell Outputs
  *
  * Retrieves the outputs from a specific cell in the active notebook.
+ * Supports both text and image outputs.
  */
 export const GetCellOutputsTool = vscode.lm.registerTool<{
 	cellId: string;
@@ -222,9 +199,13 @@ export const GetCellOutputsTool = vscode.lm.registerTool<{
 				]);
 			}
 
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Outputs for cell ${cellId}:\n\n${outputs.join('\n\n')}`)
-			]);
+			// Convert outputs to mixed text/image parts using shared helper
+			const resultParts = convertOutputsToLanguageModelParts(
+				outputs,
+				`Outputs for cell ${cellId}:\n\n`
+			);
+
+			return new vscode.LanguageModelToolResult2(resultParts);
 		} catch (error: unknown) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			log.error(`[${PositronAssistantToolName.GetCellOutputs}] Failed to get outputs: ${errorMessage}`);

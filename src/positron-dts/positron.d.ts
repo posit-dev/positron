@@ -2495,11 +2495,26 @@ declare module 'positron' {
 		export function updateCellContent(notebookUri: string, cellId: string, content: string): Thenable<void>;
 
 		/**
+		 * Represents a cell output with its MIME type and data
+		 */
+		export interface NotebookCellOutput {
+			/**
+			 * MIME type of the output (e.g., 'text/plain', 'image/png', 'image/jpeg')
+			 */
+			mimeType: string;
+
+			/**
+			 * Output data - plain text for text outputs, base64-encoded string for images and other binary data
+			 */
+			data: string;
+		}
+
+		/**
 		 * Get the outputs from a code cell
 		 * @param notebookUri URI of the notebook
 		 * @param cellId ID of the cell
-		 * @returns Array of output strings, one per output item
+		 * @returns Array of output objects with MIME type and data
 		 */
-		export function getCellOutputs(notebookUri: string, cellId: string): Thenable<string[]>;
+		export function getCellOutputs(notebookUri: string, cellId: string): Thenable<NotebookCellOutput[]>;
 	}
 }

@@ -14,7 +14,6 @@ import { IExtensionRegistries } from '../extHost.api.impl.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ExtHostConfigProvider } from '../extHostConfiguration.js';
 import { ExtHostPositronContext } from './extHost.positron.protocol.js';
-import * as extHostProtocol from './extHost.positron.protocol.js';
 import * as extHostTypes from './extHostTypes.positron.js';
 import { IExtHostInitDataService } from '../extHostInitDataService.js';
 import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
@@ -370,7 +369,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				}
 
 				// Helper function to map DTO cell to public API cell
-				const mapCell = (cell: extHostProtocol.INotebookCellDTO): positron.notebooks.NotebookCell => ({
+				const mapCell = (cell: positron.notebooks.NotebookCell): positron.notebooks.NotebookCell => ({
 					id: cell.id,
 					index: cell.index,
 					type: cell.type,
@@ -436,7 +435,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostNotebookFeatures.runCells(notebookUri, cellIds);
 			},
 
-			async addCell(notebookUri: string, type: extHostTypes.NotebookCellType, index: number, content: string): Promise<string> {
+			async addCell(notebookUri: string, type: positron.notebooks.NotebookCellType, index: number, content: string): Promise<string> {
 				return extHostNotebookFeatures.addCell(notebookUri, type, index, content);
 			},
 
@@ -448,7 +447,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostNotebookFeatures.updateCellContent(notebookUri, cellId, content);
 			},
 
-			async getCellOutputs(notebookUri: string, cellId: string): Promise<string[]> {
+			async getCellOutputs(notebookUri: string, cellId: string): Promise<positron.notebooks.NotebookCellOutput[]> {
 				return extHostNotebookFeatures.getCellOutputs(notebookUri, cellId);
 			}
 		};

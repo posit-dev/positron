@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as extHostProtocol from './extHost.positron.protocol.js';
+import type * as positron from 'positron';
 import { NotebookCellType } from './extHostTypes.positron.js';
 
 /**
@@ -30,7 +31,7 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @returns Array of all cells in the notebook.
 	 */
-	async getCells(notebookUri: string): Promise<extHostProtocol.INotebookCellDTO[]> {
+	async getCells(notebookUri: string): Promise<positron.notebooks.NotebookCell[]> {
 		return this._proxy.$getCells(notebookUri);
 	}
 
@@ -40,7 +41,7 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	 * @param cellId The ID (URI) of the cell to retrieve.
 	 * @returns The cell DTO, or undefined if not found.
 	 */
-	async getCell(notebookUri: string, cellId: string): Promise<extHostProtocol.INotebookCellDTO | undefined> {
+	async getCell(notebookUri: string, cellId: string): Promise<positron.notebooks.NotebookCell | undefined> {
 		return this._proxy.$getCell(notebookUri, cellId);
 	}
 
@@ -88,9 +89,9 @@ export class ExtHostNotebookFeatures implements extHostProtocol.ExtHostNotebookF
 	 * Gets the outputs from a code cell.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellId The ID (URI) of the cell.
-	 * @returns Array of output strings, one per output item.
+	 * @returns Array of output objects with MIME type and data.
 	 */
-	async getCellOutputs(notebookUri: string, cellId: string): Promise<string[]> {
+	async getCellOutputs(notebookUri: string, cellId: string): Promise<extHostProtocol.INotebookCellOutputDTO[]> {
 		return this._proxy.$getCellOutputs(notebookUri, cellId);
 	}
 }

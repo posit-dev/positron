@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 /**
@@ -59,4 +60,44 @@ Status: ${statusInfo}
 ${cell.content}
 \`\`\``;
 	}).join('\n');
+}
+
+/**
+ * Convert notebook cell outputs to LanguageModel parts (text and image data).
+ * Handles both text and image outputs, converting base64 image data to binary format.
+ *
+ * @param outputs Array of notebook cell outputs to convert
+ * @param prefixText Optional text to prepend before the outputs
+ * @returns Array of LanguageModel parts ready for use in tool results
+ */
+export function convertOutputsToLanguageModelParts(
+	outputs: positron.notebooks.NotebookCellOutput[],
+	prefixText?: string
+): (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] {
+	const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+
+	// Add prefix text if provided
+	if (prefixText) {
+		resultParts.push(new vscode.LanguageModelTextPart(prefixText));
+	}
+
+	// Convert each output to appropriate LanguageModel part
+	for (const output of outputs) {
+		if (output.mimeType.startsWith('image/')) {
+			// Handle image outputs - convert base64 to binary
+			const imageBuffer = Buffer.from(output.data, 'base64');
+			const imageData = new Uint8Array(imageBuffer);
+			resultParts.push(new vscode.LanguageModelDataPart(imageData, output.mimeType));
+		} else {
+			// Handle text outputs
+			let textContent = output.data;
+			// Add newline before text output if there are already parts (for readability)
+			if (resultParts.length > 0) {
+				textContent = '\n' + textContent;
+			}
+			resultParts.push(new vscode.LanguageModelTextPart(textContent));
+		}
+	}
+
+	return resultParts;
 }

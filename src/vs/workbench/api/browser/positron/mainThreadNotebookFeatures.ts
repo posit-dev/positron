@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO } from '../../common/positron/extHost.positron.protocol.js';
+import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookContextDTO, INotebookCellDTO, INotebookCellOutputDTO } from '../../common/positron/extHost.positron.protocol.js';
 import { NotebookCellType } from '../../common/positron/extHostTypes.positron.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
@@ -15,6 +15,7 @@ import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNo
 import { URI } from '../../../../base/common/uri.js';
 import { CellKind, CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { encodeBase64 } from '../../../../base/common/buffer.js';
 
 /**
  * Maximum number of cells in a notebook to include all cells in the context.
@@ -303,9 +304,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * Gets the outputs from a code cell.
 	 * @param notebookUri The URI of the notebook as a string.
 	 * @param cellId The ID (URI) of the cell.
-	 * @returns Array of output strings, one per output item.
+	 * @returns Array of output objects with MIME type and data (text or base64-encoded binary).
 	 */
-	async $getCellOutputs(notebookUri: string, cellId: string): Promise<string[]> {
+	async $getCellOutputs(notebookUri: string, cellId: string): Promise<INotebookCellOutputDTO[]> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -326,24 +327,35 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		// Get outputs from the observable
 		const outputs = cell.outputs.get();
 
-		// Convert outputs to strings
-		const outputStrings: string[] = [];
+		// Convert outputs to structured DTOs
+		const outputDTOs: INotebookCellOutputDTO[] = [];
 		for (const output of outputs) {
 			for (const item of output.outputs) {
 				// Handle different MIME types
-				if (item.mime === 'text/plain') {
-					outputStrings.push(item.data.toString());
-				} else if (item.mime === 'application/vnd.code.notebook.stdout') {
-					outputStrings.push(item.data.toString());
+				if (item.mime === 'text/plain' || item.mime === 'application/vnd.code.notebook.stdout') {
+					// Plain text outputs
+					outputDTOs.push({
+						mimeType: item.mime,
+						data: item.data.toString()
+					});
 				} else if (item.mime === 'application/vnd.code.notebook.stderr') {
-					outputStrings.push(`[stderr] ${item.data.toString()}`);
+					// Stderr outputs with prefix
+					outputDTOs.push({
+						mimeType: item.mime,
+						data: `[stderr] ${item.data.toString()}`
+					});
 				} else {
-					outputStrings.push(`[${item.mime}] <binary data>`);
+					// Binary outputs (images, etc.) - convert to base64 using VS Code's browser-compatible encoding
+					const base64Data = encodeBase64(item.data);
+					outputDTOs.push({
+						mimeType: item.mime,
+						data: base64Data
+					});
 				}
 			}
 		}
 
-		return outputStrings;
+		return outputDTOs;
 	}
 
 	/**
