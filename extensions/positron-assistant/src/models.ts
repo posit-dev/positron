@@ -300,11 +300,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		for (const [key, value] of Object.entries(tokensConfig)) {
 			if (id.indexOf(key) !== -1 && value) {
 				if (typeof value !== 'number') {
-					log.warn(`Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
+					log.warn(`[${this.providerName}] Invalid ${configKey} '${value}' for ${key} (${id}); ignoring`);
 					continue;
 				}
 				if (value < 512) {
-					log.warn(`Specified ${configKey} '${value}' for ${key} (${id}) is too low; using 512 instead`);
+					log.warn(`[${this.providerName}] Specified ${configKey} '${value}' for ${key} (${id}) is too low; using 512 instead`);
 					maxTokens = 512;
 				}
 				maxTokens = value;
@@ -312,7 +312,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		}
 
-		log.debug(`Setting ${configKey} for (${id}) to ${maxTokens}`);
+		log.trace(`[${this.providerName}] Setting ${configKey} for (${id}) to ${maxTokens}`);
 		return maxTokens;
 	}
 
@@ -351,7 +351,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const providerId = this._config.provider;
 		const models = this.modelListing ?? availableModels.get(providerId);
 
-		log.trace(`Preparing ${providerId} language model`);
+		log.debug(`[${this.providerName}] Preparing language model chat information...`);
 
 		if (!models || models.length === 0) {
 			const aiModel = this.aiProvider(this._config.model, this.aiOptions);
@@ -455,7 +455,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 					properties: {},
 				};
 				if (!input_schema.type) {
-					log.warn(`Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
+					log.warn(`[${this.providerName}] Tool '${tool.name}' is missing input schema type; defaulting to 'object'`);
 					input_schema.type = 'object';
 				}
 				acc[tool.name] = ai.tool({
@@ -469,19 +469,19 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const modelTools = this._config.toolCalls ? tools : undefined;
 		const requestId = (options.modelOptions as any)?.requestId;
 
-		log.info(`[vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
-		log.debug(`[${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
+		log.info(`[${this.providerName}] [vercel] Start request ${requestId} to ${model.name} [${aiModel.modelId}]: ${aiMessages.length} messages`);
+		log.debug(`[${this.providerName}] [${model.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
-			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
+			log.trace(`[${this.providerName}] tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
 		}
 
 		const systemMessage = aiMessages.find(m => m.role === 'system');
 		if (systemMessage) {
 			const content = systemMessage.content;
-			log.trace(`system: ${content.length > 100 ? `${content.substring(0, 100)}...` : content} (${content.length} chars)`);
+			log.trace(`[${this.providerName}] system: ${content.length > 100 ? `${content.substring(0, 100)}...` : content} (${content.length} chars)`);
 		}
 
-		log.trace(`messages: ${JSON.stringify(aiMessages, null, 2)}`);
+		log.trace(`[${this.providerName}] messages: ${JSON.stringify(aiMessages, null, 2)}`);
 		const result = ai.streamText({
 			model: aiModel,
 			messages: aiMessages,
@@ -496,7 +496,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const flushAccumulatedTextDeltas = () => {
 			if (accumulatedTextDeltas.length > 0) {
 				const combinedText = accumulatedTextDeltas.join('');
-				log.trace(`[${model.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
+				log.trace(`[${this.providerName}] [${model.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
 				accumulatedTextDeltas = [];
 			}
 		};
@@ -508,7 +508,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			if (part.type === 'reasoning') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV reasoning: ${part.textDelta}`);
 				progress.report(new vscode.LanguageModelTextPart(part.textDelta));
 			}
 
@@ -519,13 +519,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			if (part.type === 'tool-call') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
+				log.trace(`[${this.providerName}] [${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
 				progress.report(new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args));
 			}
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
-				log.warn(`[${model.name}] RECV error: ${JSON.stringify(part.error)}`);
+				log.warn(`[${this.providerName}] [${model.name}] RECV error: ${JSON.stringify(part.error)}`);
 
 				const providerErrorMessage = this.parseProviderError(part.error);
 				if (providerErrorMessage) {
@@ -546,7 +546,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		result.warnings.then((warnings) => {
 			if (warnings) {
 				for (const warning of warnings) {
-					log.warn(`[${aiModel.modelId}] (${this.provider}) warn: ${warning}`);
+					log.warn(`[${this.providerName}] [${aiModel.modelId}] warn: ${warning}`);
 				}
 			}
 		});
@@ -576,7 +576,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			progress.report(part);
 
 			// Log the Bedrock usage
-			log.debug(`[${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
+			log.debug(`[${this.providerName}] [${model.name}]: Bedrock usage: ${JSON.stringify(usage, null, 2)}`);
 		}
 
 		if (requestId) {
@@ -587,7 +587,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			recordTokenUsage(this._context, this.provider, tokens);
 		}
 
-		log.info(`[vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
+		log.info(`[${this.providerName}] [vercel]: End request ${requestId}; usage: ${tokens.inputTokens} input tokens (+${tokens.cachedTokens} cached), ${tokens.outputTokens} output tokens`);
 	}
 
 	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
@@ -624,7 +624,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	 * @returns A promise that resolves to an array of language model descriptors or undefined if unsupported.
 	 */
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		log.trace(`Resolving models for provider ${this._config.provider}`);
+		log.debug(`[${this.providerName}] Resolving models...`);
 		return new Promise((resolve) => {
 			const models = availableModels.get(this._config.provider);
 			if (models) {
@@ -640,6 +640,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 					isUserSelectable: true,
 				} satisfies vscode.LanguageModelChatInformation)));
 			} else {
+				log.warn(`[${this.providerName}] No model listing available`);
 				resolve(undefined);
 			}
 		});
@@ -724,6 +725,8 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		log.debug(`[${this.providerName}] Resolving connection...`);
+
 		await this.resolveModels(token);
 
 		token.onCancellationRequested(() => {
@@ -731,39 +734,42 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		});
 
 		if (!this.modelListing || this.modelListing.length === 0) {
-			return new Error('No models available for this provider');
+			return new Error('[${this.providerName}] Could not retrieve model listing from /models endpoint.');
 		}
+
+		const model = this.modelListing[0].id;
 
 		try {
 			// send a test message to the model
+			log.debug(`[${this.providerName}] '${model}' Sending test message...`);
+
 			const result = await ai.generateText({
-				model: this.aiProvider(this.modelListing[0].id, this.aiOptions),
+				model: this.aiProvider(model, this.aiOptions),
 				prompt: 'I\'m checking to see if you\'re there. Respond only with the word "hello".',
 			});
 
 			// if the model responds, the config works
+			log.debug(`[${this.providerName}] '${model}' Test message sent successfully .`);
+			log.trace(`[${this.providerName}] '${model}' Test message response: ${result.text}`);
 			return undefined;
 		} catch (error) {
-			const providerErrorMessage = this.parseProviderError(error);
-			if (providerErrorMessage) {
-				return new Error(providerErrorMessage);
-			}
-			if (ai.AISDKError.isInstance(error)) {
-				return new Error(error.message);
-			}
-			else {
-				return new Error(JSON.stringify(error));
-			}
+			const messagePrefix = `[${this.providerName}] '${model}'`;
+			const errorMsg = this.parseProviderError(error) ||
+				(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
+			log.error(`${messagePrefix} Error sending test message: ${errorMsg}`);
+			return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
 		}
-
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		// fetch the model list from OpenAI
 		// use the baseUrl/v1/models endpoint
+		const modelsUrl = `${this.baseUrl}/models`;
+		log.info(`[${this.providerName}] Fetching models from ${modelsUrl}...`);
+
 		try {
 			// make an http request to the models endpoint
-			const response = await fetch(`${this.baseUrl}/models`, {
+			const response = await fetch(modelsUrl, {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${this._config.apiKey}`,
@@ -773,6 +779,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 
 			const data = await response.json();
 			if (!response.ok || !data || data.error) {
+				log.error(`[${this.providerName}] Error fetching models: ${response.status} ${response.statusText} - ${JSON.stringify(data)}`);
 				if (!response.ok) {
 					throw new Error(`Could not fetch models ${response.statusText}`);
 				} else if (data.error) {
@@ -782,6 +789,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 				}
 			} else {
 				if (data && data.data && Array.isArray(data.data)) {
+					log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
 					const models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
 						return {
 							id: model.id,
@@ -796,14 +804,15 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 					this.modelListing = models;
 					return models;
 				} else {
+					log.info(`[${this.providerName}] Request was successful, but no models were returned.`);
 					return undefined;
 				}
 			}
 		} catch (error) {
 			if (ai.AISDKError.isInstance(error)) {
-				log.error(`Error fetching OpenAI models: ${error.message}`);
+				log.error(`[${this.providerName}] Error fetching OpenAI models: ${error.message}`);
 			} else {
-				log.error(`Error fetching OpenAI models: ${JSON.stringify(error)}`);
+				log.error(`[${this.providerName}] Error fetching OpenAI models: ${JSON.stringify(error)}`);
 			}
 			throw error;
 		}
@@ -1083,7 +1092,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
 	}
 
-	override async provideLanguageModelChatInformation(options: { silent: boolean; }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	override async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		await this.resolveModels(token);
 		return this.modelListing || [];
 	}
@@ -1101,13 +1110,13 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		const modelListing: vscode.LanguageModelChatInformation[] = [];
 		const command = new ListFoundationModelsCommand();
 
+		log.info(`[${this.providerName}] Fetching available Amazon Bedrock models for these providers: ` + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
+
 		const response = await this.bedrockClient.send(command);
 		const modelSummaries = response.modelSummaries;
 
-		log.trace('[BedrockLanguageModel] Fetching available Amazon Bedrock models for these providers: ' + AWSLanguageModel.SUPPORTED_BEDROCK_PROVIDERS.join(', '));
-
 		if (!modelSummaries || modelSummaries.length === 0) {
-			log.error('[BedrockLanguageModel] No Amazon Bedrock models available');
+			log.error(`[${this.providerName}] No Amazon Bedrock models available`);
 			return modelListing;
 		}
 
@@ -1115,7 +1124,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		this.inferenceProfiles = inferenceResponse.inferenceProfileSummaries ?? [];
 
 		if (this.inferenceProfiles.length === 0) {
-			log.error('[BedrockLanguageModel] No Amazon Bedrock inference profiles available');
+			log.error(`[${this.providerName}] No Amazon Bedrock inference profiles available`);
 			return modelListing;
 		}
 
@@ -1125,7 +1134,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			&& (m.inferenceTypesSupported && (m.inferenceTypesSupported as string[]).includes('INFERENCE_PROFILE')));
 
 		availableModels.forEach(m => {
-			log.trace(`[BedrockLanguageModel] ${m.modelName} ${m.modelId}`);
+			log.trace(`[${this.providerName}] ${m.modelName} ${m.modelId}`);
 
 			if (!m.modelArn) {
 				return;
@@ -1133,7 +1142,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 			const modelId = this.findInferenceProfileForModel(m.modelArn, this.inferenceProfiles);
 			if (!modelId) {
-				log.error(`[BedrockLanguageModel] No inference profile found for model ${m.modelName}`);
+				log.error(`[${this.providerName}] No inference profile found for model ${m.modelName}`);
 				return;
 			}
 
@@ -1141,7 +1150,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 				const re = new RegExp(`${regex}`);
 				return re.test(m.modelId);
 			})) {
-				log.trace(`[BedrockLanguageModel] Skipping legacy model ${m.modelName}`);
+				log.debug(`[${this.providerName}] Skipping legacy model ${m.modelName}`);
 				return;
 			}
 
