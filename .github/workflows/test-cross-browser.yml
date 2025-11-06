@@ -1,6 +1,9 @@
-name: "Test: E2E Cross Browser (Ubuntu)"
+name: "Test: E2E Cross Browser"
 
 on:
+  pull_request:
+      branches:
+        - main
   workflow_dispatch:
     inputs:
       run_e2e_firefox:
@@ -21,7 +24,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "@:critical"
+        default: "console-r.test|variables-sessions.test"
         type: string
       notify_on:
         description: "Slack notification on:"
