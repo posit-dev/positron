@@ -31,6 +31,11 @@ class ObjectSchema(BaseModel):
         description="The object type (table, catalog, schema)",
     )
 
+    has_children: Optional[StrictBool] = Field(
+        default=None,
+        description="Indicates if the object has children that can be listed. This property is optional and when omitted, it is assumed that the object may have children unless its kind is 'field'.",
+    )
+
 
 class FieldSchema(BaseModel):
     """

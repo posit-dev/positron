@@ -78,7 +78,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 				let icon: string | undefined = await object.getIcon();
 				if (!icon || icon === '') {
 					icon = undefined;
-				} else if (!icon.startsWith("data:image/")) {
+				} else if (!icon.startsWith('data:image/')) {
 					// icon paths starting with data:image/ are assumed to be data URI's
 					// not file paths.
 					icon = FileAccess.uriToBrowserUri(URI.file(icon)).toString();
@@ -389,6 +389,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		this._name = last_elt.name;
 		this._kind = last_elt.kind;
 		this._dtype = last_elt.dtype;
+		this._has_children = last_elt.has_children;
 	}
 
 	get id() {

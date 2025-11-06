@@ -8,7 +8,7 @@ import contextlib
 import json
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Tuple, TypedDict
+from typing import TYPE_CHECKING, Any, Tuple, TypedDict, NotRequired
 
 import comm
 
@@ -48,6 +48,7 @@ class ConnectionObjectInfo(TypedDict):
 class ConnectionObject(TypedDict):
     name: str
     kind: str
+    has_children: NotRequired[bool]
 
 
 class ConnectionObjectFields(TypedDict):
@@ -1090,6 +1091,7 @@ class DatabricksConnection(Connection):
                         {
                             "name": row["volume_name"],
                             "kind": "volume",
+                            "has_children": False,
                         }
                     )
                     for row in volumes
