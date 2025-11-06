@@ -107,3 +107,4 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#test-slack-notifications" # "#positron-test-results"
           notify_on: ${{ env.notify_on }}
+          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ github.sha }}>)"
