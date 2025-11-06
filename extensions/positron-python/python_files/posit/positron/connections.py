@@ -307,6 +307,8 @@ class ConnectionsService:
             return DuckDBConnection(obj)
         elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
             return SnowflakeConnection(obj)
+        elif safe_isinstance(obj, "databricks.sql.client", "Connection"):
+            return DatabricksConnection(obj)
         else:
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
@@ -321,6 +323,7 @@ class ConnectionsService:
                 or safe_isinstance(obj, "sqlalchemy", "Engine")
                 or safe_isinstance(obj, "duckdb", "DuckDBPyConnection")
                 or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
+                or safe_isinstance(obj, "databricks.sql.client", "Connection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -1007,3 +1010,165 @@ class SnowflakeConnection(Connection):
                 code += f"    {arg}={val},\n"
         code += ")\n"
         return code
+
+
+class DatabricksConnection(Connection):
+    """Support for Databricks connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+        # TODO: remove the databricks.com part for brevity
+        self.display_name = conn.session.host
+        self.host = conn.session.host
+        self.type = "Databricks"
+        # TODO: generate connection code based on authentication method extracted from the
+        # connection object
+        self.code = "# Databricks connection code depends on your authentication method.\n"
+
+    def disconnect(self):
+        with contextlib.suppress(Exception):
+            self.conn.close()
+
+    def list_object_types(self):
+        return {
+            "catalog": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            # TODO: Volumes are like tables, but they can't be inspected further.
+            # Maybe we can support it?
+            # To nicely support it we need to expand the connections pane contract
+            # to allow objects that can't be previewed or inspected further.
+            # Maybe a `has_children` method can be added in a backward compatible way.
+            "volume": ConnectionObjectInfo({"contains": None, "icon": None}),
+        }
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            rows = self._query("SHOW CATALOGS;")
+            return [ConnectionObject({"name": row["catalog"], "kind": "catalog"}) for row in rows]
+
+        if len(path) == 1:
+            catalog = path[0]
+            if catalog.kind != "catalog":
+                raise ValueError("Expected catalog on path position 0.", f"Path: {path}")
+            catalog_ident = self._qualify(catalog.name)
+            rows = self._query(f"SHOW SCHEMAS IN {catalog_ident};")
+            return [
+                ConnectionObject(
+                    {
+                        "name": row["databaseName"],
+                        "kind": "schema",
+                    }
+                )
+                for row in rows
+            ]
+
+        if len(path) == 2:
+            catalog, schema = path
+            if catalog.kind != "catalog" or schema.kind != "schema":
+                raise ValueError(
+                    "Expected catalog and schema objects at positions 0 and 1.", f"Path: {path}"
+                )
+            location = f"{self._qualify(catalog.name)}.{self._qualify(schema.name)}"
+
+            tables = self._query(f"SHOW TABLES IN {location};")
+            tables = [
+                ConnectionObject(
+                    {
+                        "name": row["tableName"],
+                        "kind": "table",
+                    }
+                )
+                for row in tables
+            ]
+
+            try:
+                volumes = self._query(f"SHOW VOLUMES IN {location};")
+                volumes = [
+                    ConnectionObject(
+                        {
+                            "name": row["volume_name"],
+                            "kind": "volume",
+                        }
+                    )
+                    for row in volumes
+                ]
+            except Exception:
+                volumes = []
+
+            return tables + volumes
+
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            catalog.kind != "catalog"
+            or schema.kind != "schema"
+            or table.kind not in ("table", "view")
+        ):
+            raise ValueError(
+                "Expected catalog, schema, and table/view kinds in the path.",
+                f"Path: {path}",
+            )
+
+        identifier = ".".join(
+            [self._qualify(catalog.name), self._qualify(schema.name), self._qualify(table.name)]
+        )
+        rows = self._query(f"DESCRIBE TABLE {identifier};")
+        return [
+            ConnectionObjectFields(
+                {
+                    "name": row["col_name"],
+                    "dtype": row["data_type"],
+                }
+            )
+            for row in rows
+        ]
+
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise ModuleNotFoundError("Pandas is required for previewing Databricks tables.") from e
+
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            catalog.kind != "catalog"
+            or schema.kind != "schema"
+            or table.kind not in ("table", "view")
+        ):
+            raise ValueError(
+                "Expected catalog, schema, and table/view kinds in the path.",
+                f"Path: {path}",
+            )
+
+        identifier = ".".join(
+            [self._qualify(catalog.name), self._qualify(schema.name), self._qualify(table.name)]
+        )
+        sql = f"SELECT * FROM {identifier} LIMIT 1000;"
+        frame = pd.read_sql(sql, self.conn)
+        var_name = var_name or "conn"
+        return frame, (
+            f"# {table.name} = pd.read_sql({sql!r}, {var_name}) "
+            f"# where {var_name} is your connection variable"
+        )
+
+    def _query(self, sql: str) -> list[dict[str, Any]]:
+        with self.conn.cursor() as cursor:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            description = cursor.description or []
+        columns = [col[0] for col in description]
+        return [dict(zip(columns, row)) for row in rows]
+
+    def _qualify(self, identifier: str) -> str:
+        escaped = identifier.replace("`", "``")
+        return f"`{escaped}`"
