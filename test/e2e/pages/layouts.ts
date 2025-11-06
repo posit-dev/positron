@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,6 +21,7 @@ const positronLayoutPresets = {
 	stacked: 'workbench.action.positronFourPaneDataScienceLayout',
 	side_by_side: 'workbench.action.positronTwoPaneDataScienceLayout',
 	notebook: 'workbench.action.positronNotebookLayout',
+	assistant: 'workbench.action.positronAssistantLayout',
 	dockedHelp: 'workbench.action.positronHelpPaneDocked',
 	fullSizedAuxBar: 'workbench.action.fullSizedAuxiliaryBar',
 	fullSizedSidebar: 'workbench.action.fullSizedSidebar',

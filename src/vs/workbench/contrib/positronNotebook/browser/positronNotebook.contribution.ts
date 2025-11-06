@@ -33,24 +33,25 @@ import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/wor
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { CellKind, CellUri, NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
-import { registerCellCommand } from './notebookCells/actionBar/registerCellCommand.js';
-import { registerNotebookAction } from './registerNotebookAction.js';
+import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
-import { SelectionState } from './selectionMachine.js';
+import { getEditingCell, getSelectedCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
-import { registerAction2, MenuId, Action2 } from '../../../../platform/actions/common/actions.js';
+import { registerAction2, MenuId, Action2, IAction2Options } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
+import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
@@ -328,70 +329,121 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 	PositronNotebookEditorSerializer
 );
 
+/**
+ * Base class for notebook-level actions that operate on IPositronNotebookInstance.
+ * Automatically gets the active notebook instance and passes it to the _run method.
+ */
+abstract class NotebookAction2 extends Action2 {
+	override run(accessor: ServicesAccessor, ...args: any[]): void {
+		const editorService = accessor.get(IEditorService);
+		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
+		if (!activeNotebook) {
+			return;
+		}
+		this.runNotebookAction(activeNotebook, accessor);
+	}
+
+	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
+}
 
 //#region Notebook Commands
-registerNotebookAction({
-	commandId: 'positronNotebook.selectUp',
-	handler: (notebook) => notebook.selectionStateMachine.moveSelectionUp(false),
-	keybinding: {
-		primary: KeyCode.UpArrow,
-		secondary: [KeyCode.KeyK]
-	},
-	metadata: {
-		description: localize('positronNotebook.selectUp', "Move focus up")
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.selectUp',
+			title: localize2('positronNotebook.selectUp', "Move focus up"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.UpArrow,
+				secondary: [KeyCode.KeyK]
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectionStateMachine.moveSelectionUp(false);
 	}
 });
 
-registerNotebookAction({
-	commandId: 'positronNotebook.selectDown',
-	handler: (notebook) => notebook.selectionStateMachine.moveSelectionDown(false),
-	keybinding: {
-		primary: KeyCode.DownArrow,
-		secondary: [KeyCode.KeyJ]
-	},
-	metadata: {
-		description: localize('positronNotebook. selectDown', "Move focus down")
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.selectDown',
+			title: localize2('positronNotebook.selectDown', "Move focus down"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.DownArrow,
+				secondary: [KeyCode.KeyJ]
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectionStateMachine.moveSelectionDown(false);
 	}
 });
 
-registerNotebookAction({
-	commandId: 'positronNotebook.addSelectionDown',
-	handler: (notebook) => notebook.selectionStateMachine.moveSelectionDown(true),
-	keybinding: {
-		primary: KeyMod.Shift | KeyCode.DownArrow,
-		secondary: [KeyMod.Shift | KeyCode.KeyJ]
-	},
-	metadata: {
-		description: localize('positronNotebook.addSelectionDown', "Extend selection down")
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.addSelectionDown',
+			title: localize2('positronNotebook.addSelectionDown', "Extend selection down"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.DownArrow,
+				secondary: [KeyMod.Shift | KeyCode.KeyJ]
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectionStateMachine.moveSelectionDown(true);
 	}
 });
 
-registerNotebookAction({
-	commandId: 'positronNotebook.addSelectionUp',
-	handler: (notebook) => notebook.selectionStateMachine.moveSelectionUp(true),
-	keybinding: {
-		primary: KeyMod.Shift | KeyCode.UpArrow,
-		secondary: [KeyMod.Shift | KeyCode.KeyK]
-	},
-	metadata: {
-		description: localize('positronNotebook.addSelectionUp', "Extend selection up")
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.addSelectionUp',
+			title: localize2('positronNotebook.addSelectionUp', "Extend selection up"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.UpArrow,
+				secondary: [KeyMod.Shift | KeyCode.KeyK]
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.selectionStateMachine.moveSelectionUp(true);
 	}
 });
 
 // Enter key: Enter edit mode when cell is selected but NOT editing
-registerNotebookAction({
-	commandId: 'positronNotebook.cell.edit',
-	handler: (notebook) => {
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.edit',
+			title: localize2('positronNotebook.cell.edit', "Enter cell edit mode"),
+			keybinding: {
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Enter
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.selectionStateMachine.enterEditor().catch(err => {
 			console.error('Error entering editor:', err);
 		});
-	},
-	keybinding: {
-		primary: KeyCode.Enter
-	},
-	when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated(),
-	metadata: {
-		description: localize('positronNotebook.cell.edit', "Enter cell edit mode")
 	}
 });
 
@@ -405,9 +457,20 @@ registerNotebookAction({
  * cell action bars. We should keep both commands in sync
  * to ensure consistent behavior.
  */
-registerNotebookAction({
-	commandId: 'positronNotebook.cell.quitEdit',
-	handler: (notebook) => {
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.quitEdit',
+			title: localize2('positronNotebook.cell.quitEdit', "Exit cell edit mode"),
+			keybinding: {
+				when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Escape
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const state = notebook.selectionStateMachine.state.get();
 		// check if we are in editing mode
 		if (state.type === SelectionState.EditingSelection) {
@@ -421,13 +484,6 @@ registerNotebookAction({
 				notebook.selectionStateMachine.exitEditor();
 			}
 		}
-	},
-	keybinding: {
-		primary: KeyCode.Escape,
-		when: POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.quitEdit', "Exit cell edit mode")
 	}
 });
 
@@ -462,135 +518,247 @@ KeybindingsRegistry.registerKeybindingRule({
 // For built-in commands, we don't need to manage the disposable since they live
 // for the lifetime of the application
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
-	handler: (cell) => cell.insertCodeCellAbove(),
-	keybinding: {
-		primary: KeyCode.KeyA
-	},
-	actionBar: {
-		icon: 'codicon-arrow-up',
-		position: 'menu',
-		order: 100,
-		category: 'Cell'
-	},
-	metadata: {
-		description: localize('positronNotebook.codeCell.insertAbove', "Insert code cell above")
+interface ICellActionOptions {
+	readonly multiSelect?: boolean;
+	readonly editMode?: boolean;
+}
+
+function isCellActionBarAction(action: Action2) {
+	const menu = action.desc.menu;
+	if (!menu) {
+		return false;
+	}
+	const menus = Array.isArray(menu) ? menu : [menu];
+	return menus.some(({ id }) =>
+		id === MenuId.PositronNotebookCellActionBarLeft ||
+		id === MenuId.PositronNotebookCellActionBarRight ||
+		id === MenuId.PositronNotebookCellActionBarSubmenu);
+}
+
+abstract class CellAction2 extends Action2 {
+	constructor(
+		desc: Readonly<IAction2Options>,
+		readonly options?: ICellActionOptions,
+	) {
+		super(desc);
+	}
+
+	override run(accessor: ServicesAccessor, ...args: any[]): void {
+		const editorService = accessor.get(IEditorService);
+		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
+		if (!activeNotebook) {
+			return;
+		}
+
+		if (this.options?.multiSelect) {
+			// Handle multiple selected cells
+			const selectedCells = getSelectedCells(activeNotebook.selectionStateMachine.state.get());
+
+			for (const cell of selectedCells) {
+				this.runCellAction(cell, activeNotebook, accessor);
+			}
+		} else {
+			// Handle single cell
+			const state = activeNotebook.selectionStateMachine.state.get();
+			// Always check editing cell if actionBar is present (action bar items should work in edit mode).
+			// Otherwise, only check editing cell if editMode option is enabled.
+			const cell = getSelectedCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
+			if (cell) {
+				this.runCellAction(cell, activeNotebook, accessor);
+			}
+		}
+	}
+
+	abstract runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
+}
+
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertCodeCellAboveAndFocusContainer',
+			title: localize2('positronNotebook.codeCell.insertAbove', "Insert code cell above"),
+			icon: ThemeIcon.fromId('arrow-up'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				order: 100,
+				group: 'Cell'
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyA
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		cell.insertCodeCellAbove();
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
-	handler: (cell) => cell.insertCodeCellBelow(),
-	keybinding: {
-		primary: KeyCode.KeyB
-	},
-	actionBar: {
-		icon: 'codicon-arrow-down',
-		position: 'menu',
-		order: 100,
-		category: 'Cell'
-	},
-	metadata: {
-		description: localize('positronNotebook.codeCell.insertBelow', "Insert code cell below")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertCodeCellBelowAndFocusContainer',
+			title: localize2('positronNotebook.codeCell.insertBelow', "Insert code cell below"),
+			icon: ThemeIcon.fromId('arrow-down'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				order: 100,
+				group: 'Cell'
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyB
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		cell.insertCodeCellBelow();
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.insertMarkdownCellAboveAndFocusContainer',
-	handler: (cell) => cell.insertMarkdownCellAbove(),
-	actionBar: {
-		icon: 'codicon-arrow-up',
-		position: 'menu',
-		order: 100,
-		category: 'Cell'
-	},
-	metadata: {
-		description: localize('positronNotebook.markdownCell.insertAbove', "Insert markdown cell above")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertMarkdownCellAboveAndFocusContainer',
+			title: localize2('positronNotebook.markdownCell.insertAbove', "Insert markdown cell above"),
+			icon: ThemeIcon.fromId('arrow-up'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				order: 100,
+				group: 'Cell'
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		cell.insertMarkdownCellAbove();
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.insertMarkdownCellBelowAndFocusContainer',
-	handler: (cell) => cell.insertMarkdownCellBelow(),
-	actionBar: {
-		icon: 'codicon-arrow-down',
-		position: 'menu',
-		order: 100,
-		category: 'Cell'
-	},
-	metadata: {
-		description: localize('positronNotebook.markdownCell.insertBelow', "Insert markdown cell below")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.insertMarkdownCellBelowAndFocusContainer',
+			title: localize2('positronNotebook.markdownCell.insertBelow', "Insert markdown cell below"),
+			icon: ThemeIcon.fromId('arrow-down'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				order: 100,
+				group: 'Cell'
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		cell.insertMarkdownCellBelow();
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.delete',
-	handler: (cell) => cell.delete(),
-	multiSelect: true,  // Delete all selected cells
-	editMode: false,
-	actionBar: {
-		icon: 'codicon-trash',
-		position: 'mainRight',
-		order: 100,
-		category: 'Cell'
-	},
-	keybinding: {
-		primary: KeyCode.Backspace,
-		secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.delete',
+			title: localize2('positronNotebook.cell.delete.description', "Delete the selected cell(s)"),
+			icon: ThemeIcon.fromId('trash'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarRight,
+				order: 100,
+				group: 'Cell'
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Backspace,
+				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
+			}
+		}, { multiSelect: true, editMode: false });
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		cell.delete();
 	}
 });
 
 // Make sure the run and stop commands are in the same place so they replace one another.
 const CELL_EXECUTION_POSITION = 10;
-registerCellCommand({
-	commandId: POSITRON_EXECUTE_CELL_COMMAND_ID,
-	handler: (cell) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: POSITRON_EXECUTE_CELL_COMMAND_ID,
+			title: localize2('positronNotebook.cell.execute', "Execute cell"),
+			icon: ThemeIcon.fromId('play'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionLeft,
+				order: CELL_EXECUTION_POSITION,
+				group: 'Execution',
+				when: ContextKeyExpr.and(
+					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+					CELL_CONTEXT_KEYS.isRunning.toNegated(),
+					CELL_CONTEXT_KEYS.isPending.toNegated()
+				)
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		cell.run();
-	},
-	when: ContextKeyExpr.and(
-		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-		CELL_CONTEXT_KEYS.isRunning.toNegated(),
-		CELL_CONTEXT_KEYS.isPending.toNegated()
-	),
-	actionBar: {
-		icon: 'codicon-play',
-		position: 'left',
-		order: CELL_EXECUTION_POSITION,
-		category: 'Execution',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.execute', "Execute cell")
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.stopExecution',
-	handler: (cell) => cell.run(), // Run called when cell is executing is stop
-	when: ContextKeyExpr.and(
-		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-		ContextKeyExpr.or(
-			CELL_CONTEXT_KEYS.isRunning.isEqualTo(true),
-			CELL_CONTEXT_KEYS.isPending.isEqualTo(true)
-		)
-	),
-	actionBar: {
-		icon: 'codicon-primitive-square',
-		position: 'left',
-		order: CELL_EXECUTION_POSITION,
-		category: 'Execution',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.stopExecution', "Stop cell execution")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.stopExecution',
+			title: localize2('positronNotebook.cell.stopExecution', "Stop cell execution"),
+			icon: ThemeIcon.fromId('primitive-square'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionLeft,
+				order: CELL_EXECUTION_POSITION,
+				group: 'Execution',
+				when: ContextKeyExpr.and(
+					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+					ContextKeyExpr.or(
+						CELL_CONTEXT_KEYS.isRunning.isEqualTo(true),
+						CELL_CONTEXT_KEYS.isPending.isEqualTo(true)
+					)
+				)
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		cell.run(); // Run called when cell is executing is stop
 	}
 });
 
-registerCellCommand({
-	commandId: 'positronNotebook.cell.debug',
-	handler: async (cell, notebook, accessor) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.debug',
+			title: localize2('positronNotebook.cell.debug', "Debug cell"),
+			icon: ThemeIcon.fromId('debug-alt-small'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 10,
+				group: 'Execution',
+				when: CELL_CONTEXT_KEYS.isCode
+			},
+			keybinding: {
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
+			}
+		}, { multiSelect: false, editMode: true });
+	}
+
+	override async runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 		await accessor.get(ICommandService).executeCommand('notebook.debugCell', {
 			// Args expected by the notebook.debugCell command,
 			// a subset of vscode.NotebookCell
@@ -601,27 +769,29 @@ registerCellCommand({
 				uri: cell.uri,
 			},
 		});
-	},
-	editMode: true,
-	keybinding: {
-		primary: KeyMod.Alt | KeyMod.Shift | KeyCode.Enter
-	},
-	when: CELL_CONTEXT_KEYS.isCode,
-	actionBar: {
-		icon: 'codicon-debug-alt-small',
-		position: 'main',
-		order: 10,
-		category: 'Execution',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.debug', "Debug cell"),
 	}
 });
 
 // Run all code cells above the current cell
-registerCellCommand({
-	commandId: 'positronNotebook.cell.runAllAbove',
-	handler: (cell, notebook) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.runAllAbove',
+			title: localize2('positronNotebook.cell.runAllAbove', "Run all code cells above this cell"),
+			icon: ThemeIcon.fromId('run-above'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 20,
+				group: 'Execution',
+				when: ContextKeyExpr.and(
+					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+					CELL_CONTEXT_KEYS.isFirst.toNegated()
+				)
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
 		// Run all code cells above the current cell
@@ -632,28 +802,29 @@ registerCellCommand({
 				targetCell.run();
 			}
 		}
-	},
-	when: ContextKeyExpr.and(
-		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-		CELL_CONTEXT_KEYS.isFirst.toNegated()
-	),
-	actionBar: {
-		icon: 'codicon-run-above',
-		position: 'main',
-		order: 20,
-		category: 'Execution',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.runAllAbove', "Run all code cells above this cell")
 	}
 });
 
 // Run all code cells below the current cell
-registerCellCommand({
-	commandId: 'positronNotebook.cell.runAllBelow',
-	handler: (cell, notebook) => {
-		if (!notebook) { return; }
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.runAllBelow',
+			title: localize2('positronNotebook.cell.runAllBelow', "Run all code cells below this cell"),
+			icon: ThemeIcon.fromId('run-below'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 21,
+				group: 'Execution',
+				when: ContextKeyExpr.and(
+					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
+					CELL_CONTEXT_KEYS.isLast.toNegated()
+				)
+			}
+		});
+	}
 
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cells = notebook.cells.get();
 
 		// Run all code cells below the current cell
@@ -663,43 +834,33 @@ registerCellCommand({
 				targetCell.run();
 			}
 		}
-	},
-	when: ContextKeyExpr.and(
-		CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
-		CELL_CONTEXT_KEYS.isLast.toNegated()
-	),
-	actionBar: {
-		icon: 'codicon-run-below',
-		position: 'main',
-		order: 21,
-		category: 'Execution',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.runAllBelow', "Run all code cells below this cell")
 	}
 });
 
 // Open markdown editor (For action bar)
-registerCellCommand({
-	commandId: 'positronNotebook.cell.openMarkdownEditor',
-	handler: (cell) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.openMarkdownEditor',
+			title: localize2('positronNotebook.cell.openMarkdownEditor', "Open markdown editor"),
+			icon: ThemeIcon.fromId('chevron-down'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 10,
+				group: 'Markdown',
+				when: ContextKeyExpr.and(
+					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
+					CELL_CONTEXT_KEYS.markdownEditorOpen.toNegated()
+				)
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		if (cell.isMarkdownCell()) {
 			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
 		}
-	},
-	when: ContextKeyExpr.and(
-		CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
-		CELL_CONTEXT_KEYS.markdownEditorOpen.toNegated()
-	),
-	actionBar: {
-		icon: 'codicon-chevron-down',
-		position: 'main',
-		order: 10,
-		category: 'Markdown',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.openMarkdownEditor', "Open markdown editor")
 	}
 });
 
@@ -711,26 +872,29 @@ registerCellCommand({
  * action bar. We should keep both commands in sync to
  * ensure consistent behavior.
  */
-registerCellCommand({
-	commandId: 'positronNotebook.cell.collapseMarkdownEditor',
-	handler: (cell) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.collapseMarkdownEditor',
+			title: localize2('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor"),
+			icon: ThemeIcon.fromId('chevron-up'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarLeft,
+				order: 10,
+				group: 'Markdown',
+				when: ContextKeyExpr.and(
+					CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
+					CELL_CONTEXT_KEYS.markdownEditorOpen.isEqualTo(true)
+				)
+			}
+		});
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		if (cell.isMarkdownCell()) {
 			// This test is just to appease typescript, we know it's a markdown cell
 			cell.toggleEditor();
 		}
-	},
-	when: ContextKeyExpr.and(
-		CELL_CONTEXT_KEYS.isMarkdown.isEqualTo(true),
-		CELL_CONTEXT_KEYS.markdownEditorOpen.isEqualTo(true)
-	),
-	actionBar: {
-		icon: 'codicon-chevron-up',
-		position: 'main',
-		order: 10,
-		category: 'Markdown',
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor")
 	}
 });
 
@@ -739,30 +903,51 @@ registerCellCommand({
 // TODO: Improve the context key support so we don't need to have a single command per
 // the keyboard shortcut and can reuse the action bar commands. Cell agnostic
 // "Execute in place" command.
-registerCellCommand({
-	commandId: 'positronNotebook.cell.executeOrToggleEditor',
-	handler: (cell) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.executeOrToggleEditor',
+			title: localize2('positronNotebook.cell.executeOrToggleEditor', "Execute cell or toggle editor"),
+			keybinding: {
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyCode.Enter
+			}
+		}, { multiSelect: false, editMode: true });
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		if (cell.isMarkdownCell()) {
 			cell.toggleEditor();
 		} else {
 			// This also stops if the cell is running.
 			cell.run();
 		}
-	},
-	editMode: true,  // Allow command to work when focus is in the cell editor
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyCode.Enter
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.executeOrToggleEditor', "Execute cell or toggle editor")
 	}
 });
 
 
 // Execute cell and select below
-registerCellCommand({
-	commandId: 'positronNotebook.cell.executeAndSelectBelow',
-	handler: (cell, notebook) => {
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.executeAndSelectBelow',
+			title: localize2('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below"),
+			keybinding: {
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.Enter
+			}
+		}, { multiSelect: false, editMode: true });
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		// Check if we're in edit mode and exit if so
 		const state = notebook.selectionStateMachine.state.get();
 		if (state.type === SelectionState.EditingSelection) {
@@ -790,126 +975,161 @@ registerCellCommand({
 			// Only move down if we didn't add a cell
 			notebook.selectionStateMachine.moveSelectionDown(false);
 		}
-	},
-	editMode: true,  // Allow execution from edit mode
-	keybinding: {
-		primary: KeyMod.Shift | KeyCode.Enter
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.executeAndSelectBelow', "Execute cell and select below")
 	}
 });
 
 // Copy cells command - C (Jupyter-style)
-registerCellCommand({
-	commandId: 'positronNotebook.copyCells',
-	handler: (cell, notebook) => notebook.copyCells(),
-	multiSelect: true,  // Copy all selected cells
-	keybinding: {
-		primary: KeyCode.KeyC
-	},
-	actionBar: {
-		icon: 'codicon-copy',
-		position: 'menu',
-		category: 'Clipboard',
-		order: 10
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.copyCells', "Copy Cell")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.copyCells',
+			title: localize2('positronNotebook.cell.copyCells', "Copy Cell"),
+			icon: ThemeIcon.fromId('copy'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: 'Clipboard',
+				order: 10
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyC
+			}
+		}, { multiSelect: true });
+	}
+
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.copyCells();
 	}
 });
 
 // Cut cells command - X (Jupyter-style)
-registerCellCommand({
-	commandId: 'positronNotebook.cutCells',
-	handler: (cell, notebook) => notebook.cutCells(),
-	multiSelect: true,  // Cut all selected cells
-	keybinding: {
-		primary: KeyCode.KeyX
-	},
-	actionBar: {
-		position: 'menu',
-		category: 'Clipboard',
-		order: 20
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.cutCells', "Cut Cell")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cutCells',
+			title: localize2('positronNotebook.cell.cutCells', "Cut Cell"),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: 'Clipboard',
+				order: 20
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyX
+			}
+		}, { multiSelect: true });
+	}
+
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.cutCells();
 	}
 });
 
 // Paste cells command - V (Jupyter-style)
-registerCellCommand({
-	commandId: 'positronNotebook.pasteCells',
-	handler: (cell, notebook) => notebook.pasteCells(),
-	keybinding: {
-		primary: KeyCode.KeyV
-	},
-	actionBar: {
-		position: 'menu',
-		category: 'Clipboard',
-		order: 40
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.pasteCells', "Paste Cell Below")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.pasteCells',
+			title: localize2('positronNotebook.cell.pasteCells', "Paste Cell Below"),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: 'Clipboard',
+				order: 40
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.KeyV
+			}
+		});
+	}
+
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.pasteCells();
 	}
 });
 
 // Paste cells above command - Shift+V (Jupyter-style)
-registerCellCommand({
-	commandId: 'positronNotebook.pasteCellsAbove',
-	handler: (cell, notebook) => notebook.pasteCellsAbove(),
-	keybinding: {
-		primary: KeyMod.Shift | KeyCode.KeyV
-	},
-	actionBar: {
-		position: 'menu',
-		category: 'Clipboard',
-		order: 30
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.pasteCellsAbove', "Paste Cell Above")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.pasteCellsAbove',
+			title: localize2('positronNotebook.cell.pasteCellsAbove', "Paste Cell Above"),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				group: 'Clipboard',
+				order: 30
+			},
+			keybinding: {
+				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Shift | KeyCode.KeyV
+			}
+		});
+	}
+
+	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.pasteCellsAbove();
 	}
 });
 
 // Move cell up
-registerCellCommand({
-	commandId: 'positronNotebook.cell.moveUp',
-	handler: (cell, notebook) => notebook.moveCellUp(cell),
-	multiSelect: true,  // Moves all selected cells
-	editMode: true,     // Allow from editor focus
-	when: CELL_CONTEXT_KEYS.canMoveUp,
-	actionBar: {
-		icon: 'codicon-arrow-up',
-		position: 'menu',
-		order: 110,
-		category: 'Cell Order'
-	},
-	keybinding: {
-		primary: KeyMod.Alt | KeyCode.UpArrow
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.moveUp', "Move cell up")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.moveUp',
+			title: localize2('positronNotebook.cell.moveUp', "Move cell up"),
+			icon: ThemeIcon.fromId('arrow-up'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				order: 110,
+				group: 'Cell Order',
+				when: CELL_CONTEXT_KEYS.canMoveUp
+			},
+			keybinding: {
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Alt | KeyCode.UpArrow
+			}
+		}, { multiSelect: true, editMode: true });
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.moveCellUp(cell);
 	}
 });
 
 // Move cell down
-registerCellCommand({
-	commandId: 'positronNotebook.cell.moveDown',
-	handler: (cell, notebook) => notebook.moveCellDown(cell),
-	multiSelect: true,  // Moves all selected cells
-	editMode: true,     // Allow from editor focus
-	when: CELL_CONTEXT_KEYS.canMoveDown,
-	actionBar: {
-		icon: 'codicon-arrow-down',
-		position: 'menu',
-		order: 111,
-		category: 'Cell Order'
-	},
-	keybinding: {
-		primary: KeyMod.Alt | KeyCode.DownArrow
-	},
-	metadata: {
-		description: localize('positronNotebook.cell.moveDown', "Move cell down")
+registerAction2(class extends CellAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.cell.moveDown',
+			title: localize2('positronNotebook.cell.moveDown', "Move cell down"),
+			icon: ThemeIcon.fromId('arrow-down'),
+			menu: {
+				id: MenuId.PositronNotebookCellActionBarSubmenu,
+				order: 111,
+				group: 'Cell Order',
+				when: CELL_CONTEXT_KEYS.canMoveDown
+			},
+			keybinding: {
+				when: ContextKeyExpr.or(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.Alt | KeyCode.DownArrow
+			}
+		}, { multiSelect: true, editMode: true });
+	}
+
+	override runCellAction(cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.moveCellDown(cell);
 	}
 });
 
@@ -919,56 +1139,67 @@ registerCellCommand({
 //#region Notebook Header Actions
 // Register notebook-level actions that appear in the editor action bar
 
-abstract class NotebookAction2 extends Action2 {
-	override run(accessor: ServicesAccessor, ...args: any[]): void {
-		const editorService = accessor.get(IEditorService);
-		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
-		if (!activeNotebook) {
-			return;
-		}
-		this._run(activeNotebook, accessor);
+// Run All Cells - Executes all code cells in the notebook
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.runAllCells',
+			title: localize2('runAllCells', 'Run All'),
+			icon: ThemeIcon.fromId('notebook-execute-all'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 10,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+			},
+			keybinding: {
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+			}
+		});
 	}
 
-	protected abstract _run(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
-}
-
-// Run All Cells - Executes all code cells in the notebook
-registerNotebookAction({
-	commandId: 'positronNotebook.runAllCells',
-	handler: (notebook) => notebook.runAllCells(),
-	menu: {
-		id: MenuId.EditorActionsLeft,
-		group: 'navigation',
-		order: 10,
-		title: { value: localize('runAllCells', 'Run All'), original: 'Run All' },
-		icon: ThemeIcon.fromId('notebook-execute-all'),
-		positronActionBarOptions: {
-			controlType: 'button',
-			displayTitle: false
-		}
-	},
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.runAllCells();
 	}
 });
 
 // Clear All Outputs - Clears outputs from all cells
-registerNotebookAction({
-	commandId: 'positronNotebook.clearAllOutputs',
-	handler: (notebook) => notebook.clearAllCellOutputs(),
-	menu: {
-		id: MenuId.EditorActionsLeft,
-		group: 'navigation',
-		order: 20,
-		title: { value: localize('clearAllOutputs', 'Clear Outputs'), original: 'Clear Outputs' },
-		icon: ThemeIcon.fromId('positron-clean'),
-		positronActionBarOptions: {
-			controlType: 'button',
-			displayTitle: false
-		}
-	},
-	keybinding: {
-		primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyK
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.clearAllOutputs',
+			title: localize2('clearAllOutputs', 'Clear Outputs'),
+			icon: ThemeIcon.fromId('positron-clean'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 20,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+			},
+			keybinding: {
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyK)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.clearAllCellOutputs();
 	}
 });
 
@@ -977,7 +1208,7 @@ registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.showConsole',
-			title: { value: localize('showConsole', 'Open Notebook Console'), original: 'Open Notebook Console' },
+			title: localize2('showConsole', 'Open Notebook Console'),
 			icon: ThemeIcon.fromId('terminal'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
@@ -993,54 +1224,70 @@ registerAction2(class extends NotebookAction2 {
 		});
 	}
 
-	override _run(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.showNotebookConsole();
 	}
 });
 
 // Add Code Cell at End - Inserts a new code cell at the end of the notebook
-registerNotebookAction({
-	commandId: 'positronNotebook.addCodeCellAtEnd',
-	handler: (notebook) => {
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.addCodeCellAtEnd',
+			title: localize2('addCodeCell', 'Code'),
+			icon: ThemeIcon.fromId('add'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 30,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cellCount = notebook.cells.get().length;
 		notebook.addCell(CellKind.Code, cellCount, true);
-	},
-	menu: {
-		id: MenuId.EditorActionsLeft,
-		group: 'navigation',
-		order: 30,
-		title: { value: localize('addCodeCell', 'Code'), original: 'Code' },
-		icon: ThemeIcon.fromId('add'),
-		positronActionBarOptions: {
-			controlType: 'button',
-			displayTitle: true
-		}
 	}
 });
 
 // Add Markdown Cell at End - Inserts a new markdown cell at the end of the notebook
-registerNotebookAction({
-	commandId: 'positronNotebook.addMarkdownCellAtEnd',
-	handler: (notebook) => {
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.addMarkdownCellAtEnd',
+			title: localize2('addMarkdownCell', 'Markdown'),
+			icon: ThemeIcon.fromId('add'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 40,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cellCount = notebook.cells.get().length;
 		notebook.addCell(CellKind.Markup, cellCount, true);
-	},
-	menu: {
-		id: MenuId.EditorActionsLeft,
-		group: 'navigation',
-		order: 40,
-		title: { value: localize('addMarkdownCell', 'Markdown'), original: 'Markdown' },
-		icon: ThemeIcon.fromId('add'),
-		positronActionBarOptions: {
-			controlType: 'button',
-			displayTitle: true
-		}
 	}
 });
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton
-registerNotebookAction({
+registerNotebookWidget({
 	id: 'positronNotebook.kernelStatus',
 	widget: {
 		component: KernelStatusBadge,
@@ -1056,3 +1303,4 @@ registerNotebookAction({
 
 // Register actions
 registerAction2(ExecuteSelectionInConsoleAction);
+registerAction2(UpdateNotebookWorkingDirectoryAction);

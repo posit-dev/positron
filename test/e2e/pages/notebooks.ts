@@ -159,7 +159,7 @@ export class Notebooks {
 		await this.quickaccess.runCommand(REVERT_AND_CLOSE);
 	}
 
-	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
+	async expectMarkdownTagToBe(tag: string, expectedText: string): Promise<void> {
 		const markdownLocator = this.frameLocator.locator(`${MARKDOWN_TEXT} ${tag}`);
 		await expect(markdownLocator).toBeVisible();
 		await expect(markdownLocator).toHaveText(expectedText);

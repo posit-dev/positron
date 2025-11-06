@@ -5,6 +5,7 @@
 
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
@@ -15,6 +16,7 @@ export const positronHelpPaneDocked: PositronLayoutInfo = {
 	id: 'workbench.action.positronHelpPaneDocked',
 	label: localize2('choseLayout.positronHelpPane', 'Docked Help Pane Layout'),
 	hideFromPalette: false,
+	precondition: ContextKeyExpr.true(),
 	layoutDescriptor: {
 		[Parts.PANEL_PART]: { hidden: true },
 		[Parts.SIDEBAR_PART]: { hidden: true },

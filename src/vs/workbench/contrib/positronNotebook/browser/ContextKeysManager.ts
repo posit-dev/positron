@@ -4,8 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IContextKey, IContextKeyService, IScopedContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { NotebookEditorContextKeys } from '../../notebook/browser/viewParts/notebookEditorWidgetContextKeys.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 /**
  * Context key that is set when the Positron notebook editor container is focused. This will _not_ be true when the user is editing a cell.
@@ -118,8 +122,9 @@ export function resetCellContextKeys(keys: IPositronNotebookCellContextKeys | un
  */
 export class PositronNotebookContextKeyManager extends Disposable {
 	//#region Private Properties
-	private _container?: HTMLElement;
 	private _scopedContextKeyService?: IScopedContextKeyService;
+	private _scopedInstantiationService?: IInstantiationService;
+	private readonly _containerDisposables = this._register(new DisposableStore());
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -128,7 +133,8 @@ export class PositronNotebookContextKeyManager extends Disposable {
 
 	//#region Constructor & Dispose
 	constructor(
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		private readonly _notebookInstance: IPositronNotebookInstance,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super();
 	}
@@ -136,19 +142,27 @@ export class PositronNotebookContextKeyManager extends Disposable {
 	//#endregion Constructor & Dispose
 
 	//#region Public Methods
-	setContainer(container: HTMLElement, scopedContextKeyService?: IScopedContextKeyService) {
-		this._container = container;
+	setContainer(container: HTMLElement, scopedContextKeyService: IScopedContextKeyService) {
+		this._containerDisposables.clear();
 		this.positronEditorFocus?.reset();
-		this._scopedContextKeyService = scopedContextKeyService ?? this._contextKeyService.createScoped(this._container);
+
+		const disposables = this._containerDisposables;
+
+		this._scopedContextKeyService = scopedContextKeyService;
+		this._scopedInstantiationService = disposables.add(this._instantiationService.createChild(new ServiceCollection([IContextKeyService, this._scopedContextKeyService])));
 
 		this.positronEditorFocus = POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.bindTo(this._scopedContextKeyService);
 
-		const focusTracker = this._register(DOM.trackFocus(container));
-		this._register(focusTracker.onDidFocus(() => {
+		// Create the manager for VSCode notebook editor context keys
+		// Extensions may depend on these familiar context keys
+		disposables.add(this._scopedInstantiationService.createInstance(NotebookEditorContextKeys, this._notebookInstance));
+
+		const focusTracker = disposables.add(DOM.trackFocus(container));
+		disposables.add(focusTracker.onDidFocus(() => {
 			this.positronEditorFocus?.set(true);
 		}));
 
-		this._register(focusTracker.onDidBlur(() => {
+		disposables.add(focusTracker.onDidBlur(() => {
 			this.positronEditorFocus?.set(false);
 		}));
 	}

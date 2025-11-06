@@ -56,10 +56,18 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
 
-		const filePatterns = include ?? DEFAULT_INCLUDE_PATTERNS;
+		if (!include || include.length === 0) {
+			throw new Error(`The 'include' parameter is required. Specify glob patterns to target specific files (e.g., ["src/**/*.py"], ["*.ts", "tests/**"]).`);
+		}
+
+		const filePatterns = include;
 		const excludePatterns = exclude ?? [];
 		const filterResultsEnabled = filterResults ?? DEFAULT_FILTER_RESULTS;
-		const filesLimit = maxFiles ?? DEFAULT_MAX_FILES;
+		// Don't allow more than the default max files, even if a higher value is provided,
+		// to prevent excessive token usage.
+		const filesLimit = maxFiles && maxFiles < DEFAULT_MAX_FILES
+			? maxFiles
+			: DEFAULT_MAX_FILES;
 
 		let findOptions: vscode.FindFiles2Options;
 		if (filterResultsEnabled) {
@@ -118,7 +126,15 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			.sort((a, b) => a.localeCompare(b)) // Resort alphabetically
 			.join('\n'));
 
-		return new vscode.LanguageModelToolResult(results.map(r => new vscode.LanguageModelTextPart(r)));
+		const resultParts = results.map(r => new vscode.LanguageModelTextPart(r));
+
+		if (totalFiles > filesLimit) {
+			const truncatedCount = Math.min(filesLimit, totalFiles);
+			const truncationMessage = `Project tree constructed with ${totalFiles} items; the first ${truncatedCount} are provided above.`;
+			resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
+		}
+
+		return new vscode.LanguageModelToolResult(resultParts);
 	}
 });
 
@@ -141,11 +157,10 @@ function getExcludeSettingOptions(excludeSetting: string) {
 }
 
 // Default values for the project tree tool options
-const DEFAULT_MAX_FILES = 500;
+const DEFAULT_MAX_FILES = 50;
 const DEFAULT_FILTER_RESULTS = true;
 const DEFAULT_USE_IGNORE_FILES = { local: true, parent: true, global: true };
 const DEFAULT_EXCLUDE_SETTING_OPTIONS = vscode.ExcludeSettingOptions.SearchAndFilesExclude;
-const DEFAULT_INCLUDE_PATTERNS = ['**/*'];
 const DEFAULT_EXCLUDE_PATTERNS = [
 	// Directories
 	'**/.build/**',
