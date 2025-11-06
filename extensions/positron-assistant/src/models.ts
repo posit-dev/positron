@@ -346,9 +346,9 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			return undefined;
 		} catch (error) {
 			const messagePrefix = `[${this.providerName}] '${model}'`;
+			log.error(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
 			const errorMsg = this.parseProviderError(error) ||
 				(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
-			log.error(`${messagePrefix} Error sending test message: ${errorMsg}`);
 			return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
 		}
 	}
@@ -533,7 +533,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
 				const messagePrefix = `[${this.providerName}] [${model.name}]'`;
-				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error)}`);
+				log.warn(`${messagePrefix} RECV error: ${JSON.stringify(part.error, null, 2)}`);
 				const errorMsg = this.parseProviderError(part.error) ||
 					(typeof part.error === 'string' ? part.error : JSON.stringify(part.error, null, 2));
 				return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
