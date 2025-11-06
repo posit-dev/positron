@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
+import type { Browser } from '@playwright/test';
 import { ChildProcess, spawn } from 'child_process';
 import { join } from 'path';
 import * as fs from 'fs';
@@ -144,13 +145,12 @@ async function startServer(
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, snapshots, headless } = options;
-
 	const [browserType, browserChannel] = (options.browser ?? 'chromium').split('-');
-	const browser = await measureAndLog(() => playwright[browserType as unknown as 'chromium' | 'webkit' | 'firefox'].launch({
+	const browser = await measureAndLog(() => playwright[browserType as unknown as 'chromium' | 'webkit' | 'firefox' | 'edge'].launch({
 		headless: headless ?? false,
 		timeout: 0,
 		channel: browserChannel,
-	}), 'playwright#launch', logger);
+	}), 'playwright#launch', logger) as unknown as Browser;
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
 

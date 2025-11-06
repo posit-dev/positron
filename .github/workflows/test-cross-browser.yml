@@ -24,7 +24,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "console-r.test|variables-sessions.test"
+        default: "search.test"
         type: string
       notify_on:
         description: "Slack notification on:"
@@ -100,6 +100,8 @@ jobs:
     steps:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - name: Notify Slack
         uses: midleman/slack-workflow-status@v3.1.2
         with:
@@ -107,4 +109,4 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#test-slack-notifications" # "#positron-test-results"
           notify_on: ${{ env.notify_on }}
-          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ github.sha }}>)"
+          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
