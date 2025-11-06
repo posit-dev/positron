@@ -583,7 +583,8 @@ registerAction2(class extends CellAction2 {
 				order: 100,
 				group: 'Cell'
 			}, {
-				id: MenuId.PositronNotebookCellInsert,
+				id: MenuId.PositronNotebookCellContext,
+				group: '2_insert',
 				order: 10
 			}],
 			keybinding: {
@@ -610,7 +611,8 @@ registerAction2(class extends CellAction2 {
 				order: 100,
 				group: 'Cell'
 			}, {
-				id: MenuId.PositronNotebookCellInsert,
+				id: MenuId.PositronNotebookCellContext,
+				group: '2_insert',
 				order: 20
 			}],
 			keybinding: {
@@ -637,7 +639,8 @@ registerAction2(class extends CellAction2 {
 				order: 100,
 				group: 'Cell'
 			}, {
-				id: MenuId.PositronNotebookCellInsert,
+				id: MenuId.PositronNotebookCellContext,
+				group: '2_insert',
 				order: 30
 			}]
 		});
@@ -659,7 +662,8 @@ registerAction2(class extends CellAction2 {
 				order: 100,
 				group: 'Cell'
 			}, {
-				id: MenuId.PositronNotebookCellInsert,
+				id: MenuId.PositronNotebookCellContext,
+				group: '2_insert',
 				order: 40
 			}]
 		});
@@ -696,7 +700,6 @@ registerAction2(class extends CellAction2 {
 });
 
 // Make sure the run and stop commands are in the same place so they replace one another.
-const CELL_EXECUTION_POSITION = 10;
 registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
@@ -705,8 +708,6 @@ registerAction2(class extends CellAction2 {
 			icon: ThemeIcon.fromId('play'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionLeft,
-				order: CELL_EXECUTION_POSITION,
-				group: 'Execution',
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					CELL_CONTEXT_KEYS.isRunning.toNegated(),
@@ -729,8 +730,6 @@ registerAction2(class extends CellAction2 {
 			icon: ThemeIcon.fromId('primitive-square'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionLeft,
-				order: CELL_EXECUTION_POSITION,
-				group: 'Execution',
 				when: ContextKeyExpr.and(
 					CELL_CONTEXT_KEYS.isCode.isEqualTo(true),
 					ContextKeyExpr.or(
@@ -1350,10 +1349,3 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	order: 0
 });
 
-// Add the Insert Cell submenu to the Notebook Cell menu
-MenuRegistry.appendMenuItem(MenuId.PositronNotebookCellContext, {
-	submenu: MenuId.PositronNotebookCellInsert,
-	title: localize('positronNotebook.menu.cellContext.insert', 'Insert Cell'),
-	group: '2_insert',
-	order: 0
-});
