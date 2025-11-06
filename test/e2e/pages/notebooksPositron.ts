@@ -12,7 +12,6 @@ import { HotKeys } from './hotKeys.js';
 import { ContextMenu, MenuItemState } from './dialog-contextMenu.js';
 import { ACTIVE_STATUS_ICON, DISCONNECTED_STATUS_ICON, IDLE_STATUS_ICON, SessionState } from './sessions.js';
 import path from 'path';
-import fs from 'fs/promises';
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -650,22 +649,9 @@ export class PositronNotebooks extends Notebooks {
 			await output.scrollIntoViewIfNeeded();
 			await expect(output).toBeVisible();
 
-			// Determine final screenshot name with optional per-distro suffix handling
-			let finalName = screenshotName;
-			if (process.platform === 'linux') {
-				const distro = await this.detectLinuxDistro();
-				// If caller used a generic "-linux.png" suffix, rewrite to "-{distro}.png".
-				if (/-linux\.png$/i.test(finalName)) {
-					finalName = finalName.replace(/-linux\.png$/i, `-${distro}.png`);
-				} else if (!new RegExp(`-(${distro})\\.png$`, 'i').test(finalName)) {
-					// Otherwise, append the distro if not already present
-					finalName = finalName.replace(/\.png$/i, `-${distro}.png`);
-				}
-			}
-
 			// Logging the screenshot path for easier debugging
 			const info = test.info();
-			const resolvedPath = info.snapshotPath(finalName);
+			const resolvedPath = info.snapshotPath(screenshotName);
 			const resolvedFile = path.basename(resolvedPath);
 			const repoRelativePath = path.relative(process.cwd(), resolvedPath).replace(/\\/g, '/');
 			await info.attach(`${resolvedFile}.path.txt`, {
@@ -673,36 +659,14 @@ export class PositronNotebooks extends Notebooks {
 				contentType: 'text/plain',
 			});
 
-			// Verify screenshot matches (using the computed final name)
-			await expect(output).toHaveScreenshot(finalName, {
+			// Verify screenshot matches
+			await expect(output).toHaveScreenshot('basic-markdown-render.png', {
 				maxDiffPixelRatio: 0.05,
 				animations: 'disabled',
 				caret: 'hide',
 				scale: 'css',
 			});
 		});
-	}
-
-	/**
-	 * Detect a Linux distribution string for per-distro screenshot baselines.
-	 * Falls back to 'linux' if unknown or on non-Linux platforms.
-	 */
-	private async detectLinuxDistro(): Promise<string> {
-		if (process.platform !== 'linux') return process.platform;
-		try {
-			const data = await fs.readFile('/etc/os-release', 'utf8');
-			// Common IDs
-			if (/^ID="?ubuntu"?/m.test(data)) return 'ubuntu';
-			if (/^ID="?rhel"?/m.test(data)) return 'rhel';
-			if (/^ID="?centos"?/m.test(data)) return 'centos';
-			if (/^ID="?debian"?/m.test(data)) return 'debian';
-			if (/^ID="?alpine"?/m.test(data)) return 'alpine';
-			const match = data.match(/^ID="?([a-z0-9\-]+)"?/m);
-			if (match) return match[1];
-		} catch {
-			// ignore and fall through
-		}
-		return 'linux';
 	}
 
 	/**
