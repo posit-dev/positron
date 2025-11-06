@@ -26,7 +26,6 @@ import { ChatContextKeys } from './chatContextKeys.js';
 
 // --- Start Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { matchesModelFilter } from './positron/utils/filterModels.js';
 // --- End Positron ---
 
 export const enum ChatMessageRole {
@@ -528,7 +527,8 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._isInitialSetup = false;
 		}
 
-		// Listen for changes to the filterModels configuration
+		// Listen for changes to the filterModels configuration. The intial filtering
+		// is done in the Positron Assistant extension when models are resolved.
 		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('positron.assistant.filterModels')) {
 				this._logService.trace('[LM] Filter models configuration changed, re-resolving language models');
@@ -691,19 +691,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 					modelsAndIdentifiers = modelsAndIdentifiers.filter(m => m.metadata.isUserSelectable || this._modelPickerUserPreferences[m.identifier] === true);
 				}
 
-				// --- Start Positron ---
-				// Track included models after applying configuration filters for logging
-				const includedModels = [];
-
-				// Get unfiltered providers from configuration
-				let unfilteredProviders =
-					this._configurationService.getValue<string[]>('positron.assistant.unfilteredProviders');
-				if (!unfilteredProviders) {
-					// If no configuration, default to known test providers
-					unfilteredProviders = ['test-lm-vendor', 'echo'];
-				}
-				// --- End Positron ---
-
 				this._clearModelCache(vendor);
 				for (const modelAndIdentifier of modelsAndIdentifiers) {
 					if (this._modelCache.has(modelAndIdentifier.identifier)) {
@@ -711,36 +698,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 						continue;
 					}
 
-					// --- Start Positron ---
-					// Get and apply LLM allow filters from configuration.
-					if (unfilteredProviders.indexOf(vendor) === -1) {
-						const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
-						this._logService.trace('[LM] Applying model filters:', config.filterModels);
-						if (config.filterModels.length > 0 &&
-							!config.filterModels.some(pattern =>
-								matchesModelFilter(
-									pattern,
-									modelAndIdentifier.identifier,
-									modelAndIdentifier.metadata.id,
-									modelAndIdentifier.metadata.name
-								)
-							)
-						) {
-							continue;
-						}
-					}
-					includedModels.push(modelAndIdentifier.identifier);
-					// --- End Positron ---
-
 					this._modelCache.set(modelAndIdentifier.identifier, modelAndIdentifier.metadata);
 				}
 				this._logService.trace(`[LM] Resolved language models for vendor ${vendor}`, modelsAndIdentifiers);
-
-				// --- Start Positron ---
-				if (modelsAndIdentifiers.length > 0 && modelsAndIdentifiers.length !== includedModels.length) {
-					this._logService.trace(`[LM] Filtered out ${modelsAndIdentifiers.length - includedModels.length} models by configuration for vendor ${vendor}. Included models:`, includedModels);
-				}
-				// --- End Positron ---
 			} catch (error) {
 				this._logService.error(`[LM] Error resolving language models for vendor ${vendor}:`, error);
 			}
@@ -800,7 +760,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
 			this._onDidChangeProviders.fire({ added: [vendor] });
 			this._onLanguageModelChange.fire();
-			;
 		});
 		// --- End Positron ---
 
