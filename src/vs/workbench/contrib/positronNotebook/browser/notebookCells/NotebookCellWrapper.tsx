@@ -16,7 +16,6 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useCellContextKeys } from './useCellContextKeys.js';
@@ -31,7 +30,6 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
 	const selectionStateMachine = notebookInstance.selectionStateMachine;
-	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
 
@@ -57,7 +55,7 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	}, [selectionStatus, cellRef]);
 
 	// Manage context keys for this cell
-	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
+	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;

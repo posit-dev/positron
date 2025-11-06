@@ -9,7 +9,6 @@ import React from 'react';
 // Other dependencies.
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { IObservable } from '../../../../base/common/observable.js';
-import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * EnvironmentBundle interface.
@@ -19,11 +18,6 @@ interface EnvironmentBundle {
 	 * An observable for the size of the notebook.
 	 */
 	size: IObservable<ISize>;
-
-	/**
-	 * A callback to get the scoped context key service for a given container.
-	 */
-	scopedContextKeyProviderCallback: (container: HTMLElement) => IScopedContextKeyService;
 }
 
 /**

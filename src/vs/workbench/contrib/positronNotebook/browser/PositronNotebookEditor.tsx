@@ -381,7 +381,6 @@ export class PositronNotebookEditor extends AbstractEditorWithViewState<INoteboo
 				<NotebookInstanceProvider instance={this.notebookInstance}>
 					<EnvironentProvider environmentBundle={{
 						size: this._size,
-						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
 					}}>
 						<PositronNotebookComponent />
 					</EnvironentProvider>

@@ -12,7 +12,6 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CellKind, CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { IPositronNotebookInstance } from '../IPositronNotebookInstance.js';
 import { bindCellContextKeys, resetCellContextKeys } from '../ContextKeysManager.js';
-import { useEnvironment } from '../EnvironmentProvider.js';
 import { IScopedContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 
 /**
@@ -24,20 +23,19 @@ import { IScopedContextKeyService } from '../../../../../platform/contextkey/com
  *
  * @param cell - The notebook cell instance
  * @param cellElement - The DOM element representing the cell
- * @param environment - The environment bundle containing scoped context key provider
  * @param notebookInstance - The notebook instance containing all cells
  * @returns The scoped context key service for this cell, or undefined if cellElement is not available
  */
 export function useCellContextKeys(
 	cell: IPositronNotebookCell,
 	cellElement: HTMLDivElement | null,
-	environment: ReturnType<typeof useEnvironment>,
 	notebookInstance: IPositronNotebookInstance
 ): IScopedContextKeyService | undefined {
 	const [contextKeyService, setContextKeyService] = React.useState<IScopedContextKeyService | undefined>(undefined);
 
 	React.useEffect(() => {
-		if (!cellElement) {
+		if (!cellElement ||
+			!notebookInstance.scopedContextKeyService) {
 			setContextKeyService(undefined);
 			return;
 		}
@@ -45,7 +43,7 @@ export function useCellContextKeys(
 		const disposables = new DisposableStore();
 
 		// Create a scoped context key service for this cell
-		const scopedContextKeyService = environment.scopedContextKeyProviderCallback(cellElement);
+		const scopedContextKeyService = notebookInstance.scopedContextKeyService.createScoped(cellElement);
 		disposables.add(scopedContextKeyService);
 
 		// Bind the cell-specific context keys
@@ -90,7 +88,7 @@ export function useCellContextKeys(
 			disposables.dispose();
 			setContextKeyService(undefined);
 		};
-	}, [cell, cellElement, environment, notebookInstance]);
+	}, [cell, cellElement, notebookInstance, notebookInstance.scopedContextKeyService]);
 
 	return contextKeyService;
 }
