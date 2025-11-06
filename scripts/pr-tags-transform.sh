@@ -46,8 +46,8 @@ fi
 
 # Determine prefix based on PROJECT
 case "$PROJECT" in
-  "e2e-chromium"|"e2e-firefox"|"e2e-webkit"|"e2e-edge")
-    OUTPUT="(?=.*@:web)"  # Base tag for chromium/web engines
+  "e2e-chromium")
+    OUTPUT="(?=.*@:web)"  # Base tag for chromium
     ;;
   "e2e-windows")
     OUTPUT="(?=.*@:win)"  # Base tag for windows
@@ -55,9 +55,9 @@ case "$PROJECT" in
   "e2e-electron")
     OUTPUT="" # No prefix for linux
     ;;
-  "inspect-ai")
-    OUTPUT="(?=.*@:inspect-ai)"  # Base tag for inspect-ai
-    ;;
+	"inspect-ai")
+		OUTPUT="(?=.*@:inspect-ai)"  # Base tag for inspect-ai
+		;;
   *)
     echo "Unknown PROJECT: $PROJECT"
     exit 1
