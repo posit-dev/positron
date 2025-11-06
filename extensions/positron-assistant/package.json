@@ -638,27 +638,12 @@
                 "type": "string",
                 "description": "A Glob pattern to exclude from the project tree. Files and folders matching these patterns will be filtered out, even if they match an included Glob."
               },
-              "description": "Glob patterns to exclude from the project tree. These patterns will be applied in addition to the default excludes. By default, directories for dependencies, build artifacts, and other commonly ignored files are excluded, such as `.venv`, `venv`, `renv`, `node_modules`."
+              "description": "Glob patterns to exclude from the project tree. These patterns will be applied _in addition to_ the default excludes unless `skipDefaultExcludes` is true."
             },
-            "replaceDefaultExcludes": {
+            "skipDefaultExcludes": {
               "type": "boolean",
-              "description": "Whether to replace the default excludes with the provided `exclude` patterns. If false, the provided `exclude` patterns will be added to the default excludes.",
+              "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored files/directories). When true, only the explicit `exclude` patterns will be applied.",
               "default": false
-            },
-            "excludeSettings": {
-              "type": "string",
-              "description": "Which exclude settings to consult when filtering the project tree. Options are: filesExclude or searchAndFilesExclude, or an empty string for no exclude settings.",
-              "default": "searchAndFilesExclude"
-            },
-            "ignoreFiles": {
-              "type": "boolean",
-              "description": "Whether to ignore files that are listed in the `.gitignore` file or other ignore files.",
-              "default": true
-            },
-            "filterResults": {
-              "type": "boolean",
-              "description": "Whether to filter results using excludes and ignore files. If false, none of the excludes or ignores will be applied, and only the `include` patterns will be considered. Use this setting when providing specific includes to locate particular files and folders.",
-              "default": true
             },
             "maxFiles": {
               "type": "number",
