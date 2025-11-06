@@ -77,7 +77,6 @@ export function useCellContextKeys(
 			keys.isOnly.set(cells.length === 1);
 			keys.markdownEditorOpen.set(cell.isMarkdownCell() ? cell.editorShown.read(reader) : false);
 			keys.isSelected.set(selectionStatus === CellSelectionStatus.Selected);
-			keys.isEditing.set(selectionStatus === CellSelectionStatus.Editing);
 			keys.canMoveUp.set(cell.index > 0 && cells.length > 1);
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
 		}));
