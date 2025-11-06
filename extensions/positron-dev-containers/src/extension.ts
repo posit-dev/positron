@@ -15,6 +15,10 @@ import { DevContainerAuthorityResolver } from './remote/authorityResolver';
 import * as ReopenCommands from './commands/reopen';
 import * as RebuildCommands from './commands/rebuild';
 import * as OpenCommands from './commands/open';
+import * as AttachCommands from './commands/attach';
+
+// Import view providers
+import { DevContainersTreeProvider } from './views/devContainersTreeProvider';
 
 /**
  * Extension activation
@@ -59,6 +63,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	logger.info('Remote authority resolver registered');
 
+	// Register tree view for dev containers
+	const devContainersTreeProvider = new DevContainersTreeProvider();
+	context.subscriptions.push(
+		vscode.window.registerTreeDataProvider('targetsContainers', devContainersTreeProvider)
+	);
+	logger.info('Dev containers tree view registered');
+
 	// Cleanup on extension deactivation
 	context.subscriptions.push({
 		dispose: () => {
@@ -70,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// --- End Positron ---
 
 	// Register commands
-	registerCommands(context);
+	registerCommands(context, devContainersTreeProvider);
 
 	// Listen for configuration changes
 	context.subscriptions.push(
@@ -102,7 +113,7 @@ export function deactivate(): void {
 /**
  * Register all commands
  */
-function registerCommands(context: vscode.ExtensionContext): void {
+function registerCommands(context: vscode.ExtensionContext, devContainersTreeProvider: DevContainersTreeProvider): void {
 	const logger = getLogger();
 
 	// Core commands - Open/Reopen
@@ -122,8 +133,8 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
 	// Attach commands
 	registerCommand(context, 'remote-containers.attachToRunningContainer', notImplemented);
-	registerCommand(context, 'remote-containers.attachToContainerInCurrentWindow', notImplemented);
-	registerCommand(context, 'remote-containers.attachToContainerInNewWindow', notImplemented);
+	registerCommand(context, 'remote-containers.attachToContainerInCurrentWindow', AttachCommands.attachToContainerInCurrentWindow);
+	registerCommand(context, 'remote-containers.attachToContainerInNewWindow', AttachCommands.attachToContainerInNewWindow);
 
 	// Container management commands
 	registerCommand(context, 'remote-containers.cleanUpDevContainers', notImplemented);
@@ -133,7 +144,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 	registerCommand(context, 'remote-containers.rebuildContainerNoCache', RebuildCommands.rebuildContainerNoCache);
 	registerCommand(context, 'remote-containers.stopContainer', notImplemented);
 	registerCommand(context, 'remote-containers.startContainer', notImplemented);
-	registerCommand(context, 'remote-containers.removeContainer', notImplemented);
+	registerCommand(context, 'remote-containers.removeContainer', AttachCommands.removeContainer);
 	registerCommand(context, 'remote-containers.showContainerLog', notImplemented);
 	registerCommand(context, 'remote-containers.newContainer', notImplemented);
 
@@ -154,7 +165,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 	registerCommand(context, 'remote-containers.testConnection', notImplemented);
 
 	// View commands
-	registerCommand(context, 'remote-containers.explorerTargetsRefresh', notImplemented);
+	registerCommand(context, 'remote-containers.explorerTargetsRefresh', () => devContainersTreeProvider.refresh());
 	registerCommand(context, 'remote-containers.explorerDetailsRefresh', notImplemented);
 	registerCommand(context, 'remote-containers.explorerVolumesRefresh', notImplemented);
 	registerCommand(context, 'remote-containers.showDetails', notImplemented);

@@ -898,7 +898,8 @@
 				{
 					"command": "remote-containers.removeContainer",
 					"when": "view == targetsContainers && viewItem =~ /^(running|exited)(Dev|)Container/",
-					"group": "inline@3"
+					"group": "inline@3",
+					"icon": "$(close)"
 				},
 				{
 					"command": "remote-containers.startContainer",
