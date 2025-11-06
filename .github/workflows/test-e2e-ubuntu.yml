@@ -221,8 +221,13 @@ jobs:
         run: |
           # Ensure npm / npx are available and install browser binaries for Playwright.
           # Use --with-deps in CI containers to install required libs too.
-          echo "Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
+          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
+          # Edge is NOT installed by the default installer; add it explicitly for the e2e-edge project.
+          if [ "${{ inputs.project }}" = "e2e-edge" ]; then
+            echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+            npx playwright install msedge
+          fi
 
       - name: Run Playwright Tests
         shell: bash
