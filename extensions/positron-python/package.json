@@ -1899,50 +1899,6 @@
         ],
         "languageModelTools": [
             {
-                "name": "getAttachedPythonPackages",
-                "displayName": "Get attached Python packages",
-                "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
-                "toolReferenceName": "getAttachedPythonPackages",
-                "icon": "$(package)",
-                "userDescription": "Gets a list of Python packages that are loaded in the current Python session.",
-                "canBeReferencedInPrompt": true,
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "sessionIdentifier": {
-                            "type": "string",
-                            "description": "The identifier of the session to get the attached Python packages from. If one is not provided, the foreground console session is used."
-                        }
-                    }
-                },
-                "tags": [
-                    "positron-assistant",
-                    "requires-session:python"
-                ]
-            },
-            {
-                "name": "getInstalledPythonPackageVersion",
-                "displayName": "Get installed Python package version",
-                "modelDescription": "Given the name of a Python package, returns the version of the package that's installed in the current Python session, or NULL if the package is not installed.",
-                "toolReferenceName": "getInstalledPythonPackageVersion",
-                "icon": "$(package)",
-                "userDescription": "Gets the version of an installed Python package in the current session.",
-                "canBeReferencedInPrompt": true,
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "paramName": {
-                            "type": "string",
-                            "description": "The name of the Python package to check the version of."
-                        }
-                    }
-                },
-                "tags": [
-                    "positron-assistant",
-                    "requires-session:python"
-                ]
-            },
-            {
                 "name": "get_python_environment_details",
                 "displayName": "Get Python Environment Info",
                 "when": "false",
