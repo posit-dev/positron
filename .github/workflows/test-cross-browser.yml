@@ -48,7 +48,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: ""
+      grep: ${{ inputs.grep }}
       project: "e2e-firefox"
       display_name: "firefox (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,firefox/ubuntu' || 'firefox/ubuntu' }}
@@ -64,7 +64,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: ""
+      grep: ${{ inputs.grep }}
       project: "e2e-webkit"
       display_name: "webkit (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,webkit/ubuntu' || 'webkit/ubuntu' }}
@@ -80,7 +80,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: ""
+      grep: ${{ inputs.grep }}
       project: "e2e-edge"
       display_name: "edge (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,edge/ubuntu' || 'edge/ubuntu' }}
