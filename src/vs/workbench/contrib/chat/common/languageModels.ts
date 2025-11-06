@@ -25,8 +25,8 @@ import { ExtensionsRegistry } from '../../../services/extensions/common/extensio
 import { ChatContextKeys } from './chatContextKeys.js';
 
 // --- Start Positron ---
-import { match } from '../../../../base/common/glob.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { matchesModelFilter } from './positron/utils/filterModels.js';
 // --- End Positron ---
 
 export const enum ChatMessageRole {
@@ -716,10 +716,15 @@ export class LanguageModelsService implements ILanguageModelsService {
 					if (unfilteredProviders.indexOf(vendor) === -1) {
 						const config = this._configurationService.getValue<{ filterModels: string[] }>('positron.assistant');
 						this._logService.trace('[LM] Applying model filters:', config.filterModels);
-						if (config.filterModels.length > 0 && !config.filterModels.some(pattern =>
-							match(pattern, modelAndIdentifier.identifier) ||
-							match(pattern, modelAndIdentifier.metadata.id) ||
-							match(pattern, modelAndIdentifier.metadata.name))
+						if (config.filterModels.length > 0 &&
+							!config.filterModels.some(pattern =>
+								matchesModelFilter(
+									pattern,
+									modelAndIdentifier.identifier,
+									modelAndIdentifier.metadata.id,
+									modelAndIdentifier.metadata.name
+								)
+							)
 						) {
 							continue;
 						}

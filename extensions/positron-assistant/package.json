@@ -308,16 +308,17 @@
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "*Claude*",
-              "*GPT*",
-              "*claude*",
-              "*gpt*"
+              "claude",
+              "gpt"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
               "type": "string"
             },
             "examples": [
+              [
+                "sonnet"
+              ],
               [
                 "Claude*",
                 "GPT-5"
