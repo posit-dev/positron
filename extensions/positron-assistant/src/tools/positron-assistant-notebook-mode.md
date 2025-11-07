@@ -12,7 +12,7 @@ The assistant uses a helper function to check these conditions:
 const notebookContext = await getAttachedNotebookContext(request);
 ```
 
-**Location:** `extensions/positron-assistant/src/participants.ts:759`
+**Location:** `extensions/positron-assistant/src/participants.ts` (function `getAttachedNotebookContext`)
 
 This function:
 1. Calls `positron.notebooks.getContext()` to get the active notebook editor
@@ -43,7 +43,7 @@ When a notebook is active, `NotebookContext` provides:
   - `lastRunEndTime` - **Code cells only**: Timestamp when last execution ended
 - `allCells[]` - **Optional**: All cells in the notebook (same structure as `selectedCells`). Only included if the notebook has fewer than 20 cells to avoid consuming too much context space.
 
-**Context Construction Location:** `src/vs/workbench/api/browser/positron/mainThreadNotebookFeatures.ts:46`
+**Context Construction Location:** `src/vs/workbench/api/browser/positron/mainThreadNotebookFeatures.ts`
 
 The context is assembled by:
 1. Getting the active notebook instance from the editor
@@ -56,7 +56,7 @@ The context is assembled by:
 ## Impact on Chat Behavior
 
 ### System Prompt Augmentation
-**Locations:** `participants.ts:859` (Chat/Ask), `participants.ts:884` (Edit), `participants.ts:906` (Agent)
+**Locations:** `extensions/positron-assistant/src/participants.ts` (Chat/Ask, Edit, and Agent mode handlers)
 
 When notebook mode is enabled (attached context + active editor), the assistant's system prompt is augmented with:
 
@@ -71,7 +71,7 @@ When notebook mode is enabled (attached context + active editor), the assistant'
    - Use notebook-specific tools for manipulation
 
 ### Tool Availability
-**Locations:** `api.ts:177`, `api.ts:250-258`
+**Locations:** `extensions/positron-assistant/src/api.ts` (function `getEnabledTools`)
 
 ```typescript
 const notebookContext = await getAttachedNotebookContext(request);
@@ -93,7 +93,7 @@ Notebook tools are conditionally available based on the assistant mode:
 - `GetNotebookCells` - Read cell contents with status information
 - `GetCellOutputs` - Retrieve cell execution outputs
 
-Tool filtering in `api.ts` (lines 250-258):
+Tool filtering in `extensions/positron-assistant/src/api.ts`:
 ```typescript
 // Notebook modification tools are only available in Agent mode.
 // Read-only tools (GetNotebookCells, GetCellOutputs) are available in all modes.
@@ -105,6 +105,40 @@ case PositronAssistantToolName.UpdateNotebookCell:
 	}
 	break;
 ```
+
+### Tool Referencing
+
+All notebook tools can be explicitly referenced by users in chat prompts. This allows users to signal their intent to use specific tools, though the model still decides whether to actually invoke them based on the request context.
+
+**How to Reference Tools:**
+
+1. **Using `#` syntax in the prompt:**
+   - Type `#` followed by the tool reference name directly in the chat prompt
+   - Example: `#runNotebookCells execute the first cell`
+   - Example: `#getNotebookCells show me all cells`
+
+2. **Via the attachment button (paperclip):**
+   - Tools appear as attachable options in the chat UI
+   - Users can click the paperclip button and select tools to attach
+
+**Available Tool References:**
+
+All notebook tools have `canBeReferencedInPrompt: true` and can be referenced using their `toolReferenceName`:
+
+- **`#runNotebookCells`** - Execute cells in the kernel (Agent mode only)
+- **`#addNotebookCell`** - Create new cells at specified positions (Agent mode only)
+- **`#updateNotebookCell`** - Modify existing cell content (Agent mode only)
+- **`#getCellOutputs`** - Retrieve cell execution outputs (All modes)
+- **`#getNotebookCells`** - Read cell contents with status information (All modes)
+
+**Important Notes:**
+
+- Tool references add context to the prompt but don't force tool availability or usage
+- Tools are still filtered by mode (modification tools only in Agent mode)
+- The model receives the tool reference as context but decides whether to invoke it
+- Tool availability still depends on notebook mode being active (notebook attached + active editor)
+
+**Location:** Tool reference configuration in `extensions/positron-assistant/package.json`
 
 ### Behavioral Changes
 
@@ -208,7 +242,7 @@ This status information helps the assistant understand:
 
 ## API Definition
 
-**Location:** `src/positron-dts/positron.d.ts:2331-2474`
+**Location:** `src/positron-dts/positron.d.ts` (namespace `positron.notebooks`)
 
 Full API namespace: `positron.notebooks`
 
@@ -222,6 +256,8 @@ The current implementation uses **attached context detection** without API chang
 ✅ Verify that attached notebook has an active editor
 ✅ Enable notebook mode only when both conditions are met
 ✅ Keep all logic in extension layer (no core API changes)
+✅ Enable tool referencing for all notebook tools (`canBeReferencedInPrompt: true`)
+✅ Add `toolReferenceName` properties for user-friendly tool references via `#` syntax
 
 ### Alternative Approaches (Not Implemented)
 
@@ -264,9 +300,11 @@ The chosen approach (attached context detection) provides the cleanest implement
 4. **Verify behavior**:
    - Only read-only tools appear in tool list: `GetNotebookCells`, `GetCellOutputs`
    - Modification tools do NOT appear: `RunNotebookCells`, `AddNotebookCell`, `UpdateNotebookCell`
+   - Read-only tools can be referenced using `#getNotebookCells` and `#getCellOutputs`
    - System prompt includes selected cell information with status
    - Ask "What does cell 1 do?" → Should work using GetNotebookCells
    - Ask "Run this cell" → Should suggest switching to Agent mode
+   - Try referencing: `#getNotebookCells show me all cells` → Should work
 
 #### Test 2: Edit Mode - Read-Only Access
 1. **Attach notebook file** using `@filename.ipynb` in chat
@@ -275,8 +313,10 @@ The chosen approach (attached context detection) provides the cleanest implement
 4. **Verify behavior**:
    - Only read-only tools appear in tool list: `GetNotebookCells`, `GetCellOutputs`
    - Modification tools do NOT appear
+   - Read-only tools can be referenced using `#getNotebookCells` and `#getCellOutputs`
    - Ask "Show me the output of cell 2" → Should use GetCellOutputs
    - Ask "Update cell 3 to add error handling" → Should suggest switching to Agent mode
+   - Try referencing: `#getCellOutputs show outputs for cell 2` → Should work
 
 #### Test 3: Agent Mode - Full Access
 1. **Attach notebook file** using `@filename.ipynb` in chat
@@ -284,10 +324,13 @@ The chosen approach (attached context detection) provides the cleanest implement
 3. **Switch to Agent mode** in the mode selector
 4. **Verify behavior**:
    - All 5 notebook tools appear in tool list
+   - All tools can be referenced: `#runNotebookCells`, `#addNotebookCell`, `#updateNotebookCell`, `#getCellOutputs`, `#getNotebookCells`
    - Request cell modification → Should use UpdateNotebookCell
    - Request cell execution → Should use RunNotebookCells
    - Request adding new cell → Should use AddNotebookCell
    - Assistant can perform all notebook operations
+   - Try referencing: `#runNotebookCells execute cell 1` → Should work
+   - Try referencing: `#addNotebookCell add a new markdown cell at the end` → Should work
 
 #### Test 4: Without Attached Notebook
 1. **Do NOT attach any notebook file**
@@ -304,4 +347,23 @@ The chosen approach (attached context detection) provides the cleanest implement
    - Ask mode loads `notebook-mode-readonly.md`
    - Edit mode loads `notebook-mode-readonly.md`
    - Agent mode loads `notebook-mode-agent.md`
+
+#### Test 6: Tool Referencing
+1. **Attach notebook file** using `@filename.ipynb` in chat
+2. **Open notebook** in Positron notebook editor
+3. **Test `#` syntax referencing:**
+   - In Ask/Edit mode: Try `#getNotebookCells show all cells` → Should work
+   - In Ask/Edit mode: Try `#getCellOutputs show outputs` → Should work
+   - In Ask/Edit mode: Try `#runNotebookCells execute cell` → Should suggest switching to Agent mode (tool not available)
+   - In Agent mode: Try `#runNotebookCells execute cell 1` → Should work
+   - In Agent mode: Try `#addNotebookCell add markdown cell` → Should work
+   - In Agent mode: Try `#updateNotebookCell update cell 2` → Should work
+4. **Test attachment button:**
+   - Click paperclip button in chat
+   - Verify notebook tools appear in the attachment list (only available ones based on mode)
+   - Attach a tool and verify it's added to the prompt context
+5. **Verify behavior:**
+   - Tool references appear in `request.toolReferences` array
+   - Model receives tool reference context but still decides whether to use it
+   - Tool availability still respects mode restrictions (modification tools only in Agent mode)
 
