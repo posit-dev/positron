@@ -10,6 +10,7 @@ import { Workspace } from './common/workspace';
 import { PortForwardingManager } from './remote/portForwarding';
 import { ConnectionManager } from './remote/connectionManager';
 import { DevContainerAuthorityResolver } from './remote/authorityResolver';
+import { getDevContainerManager } from './container/devContainerManager';
 
 // Import command implementations
 import * as ReopenCommands from './commands/reopen';
@@ -18,7 +19,7 @@ import * as OpenCommands from './commands/open';
 import * as AttachCommands from './commands/attach';
 
 // Import view providers
-import { DevContainersTreeProvider } from './views/devContainersTreeProvider';
+import { DevContainersTreeProvider, DevContainerTreeItem } from './views/devContainersTreeProvider';
 
 // Import notifications
 import { checkAndShowDevContainerNotification } from './notifications/devContainerDetection';
@@ -155,7 +156,7 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.stopContainer', notImplemented);
 	registerCommand(context, 'remote-containers.startContainer', notImplemented);
 	registerCommand(context, 'remote-containers.removeContainer', AttachCommands.removeContainer);
-	registerCommand(context, 'remote-containers.showContainerLog', notImplemented);
+	registerCommand(context, 'remote-containers.showContainerLog', showContainerLog);
 	registerCommand(context, 'remote-containers.newContainer', notImplemented);
 
 	// Configuration commands
@@ -263,5 +264,56 @@ async function openLogFile(): Promise<void> {
 
 	const document = await vscode.workspace.openTextDocument(logFilePath);
 	await vscode.window.showTextDocument(document);
+}
+
+/**
+ * Show container log in an output channel
+ */
+async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> {
+	const logger = getLogger();
+	logger.info('Command: showContainerLog');
+
+	// Type check: ensure we have a tree item with container info
+	if (!treeItem || !treeItem.containerInfo) {
+		await vscode.window.showErrorMessage('No container selected');
+		return;
+	}
+
+	const containerInfo = treeItem.containerInfo;
+
+	try {
+		// Show progress while fetching logs
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: `Fetching logs for ${containerInfo.containerName}...`,
+				cancellable: false
+			},
+			async () => {
+				const manager = getDevContainerManager();
+				const logs = await manager.getContainerLogs(containerInfo.containerId, 1000);
+
+				// Create or get output channel for container logs
+				const outputChannel = vscode.window.createOutputChannel(
+					`Container Log: ${containerInfo.containerName}`
+				);
+
+				// Clear previous logs and show new ones
+				outputChannel.clear();
+				outputChannel.appendLine(`Container: ${containerInfo.containerName}`);
+				outputChannel.appendLine(`ID: ${containerInfo.containerId}`);
+				outputChannel.appendLine(`State: ${containerInfo.state}`);
+				outputChannel.appendLine('='.repeat(80));
+				outputChannel.appendLine('');
+				outputChannel.append(logs);
+
+				// Show the output channel
+				outputChannel.show();
+			}
+		);
+	} catch (error) {
+		logger.error('Failed to get container logs', error);
+		await vscode.window.showErrorMessage(`Failed to get container logs: ${error}`);
+	}
 }
 // --- End Positron ---
