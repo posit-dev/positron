@@ -98,7 +98,7 @@ jobs:
       [e2e-firefox, e2e-webkit, e2e-edge]
     runs-on: ubuntu-latest
     env:
-      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'always' }}
     steps:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
