@@ -22,6 +22,7 @@ import { HistoryPolicyMenuButton } from './historyPolicyMenuButton.js';
 import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
+import { PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
@@ -46,6 +47,7 @@ const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
  * ActionBarsProps interface.
  */
 export interface ActionBarsProps {
+	readonly displayLocation: PlotsDisplayLocation;
 	readonly zoomHandler: (zoomLevel: number) => void;
 	readonly zoomLevel: number;
 }
@@ -90,6 +92,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enableEditorPlot = hasPlots
 		&& (selectedPlot instanceof PlotClientInstance
 			|| selectedPlot instanceof StaticPlotClient);
+
+	// Only show the "Open in editor" button when in the main window
+	const showOpenInEditorButton = enableEditorPlot
+		&& props.displayLocation === PlotsDisplayLocation.MainWindow;
 
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {
@@ -191,7 +197,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								onPressed={popoutPlotHandler}
 							/>
 						}
-						{enableEditorPlot &&
+						{showOpenInEditorButton &&
 							<OpenInEditorMenuButton
 								ariaLabel={openInEditorTab}
 								commandService={services.commandService}
