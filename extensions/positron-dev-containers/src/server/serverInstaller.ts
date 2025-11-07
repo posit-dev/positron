@@ -311,9 +311,9 @@ export class ServerInstaller {
 		// Write script to a temp file in container and execute it
 		// We use a multi-step approach:
 		// 1. Write script content to stdin
-		// 2. Pipe to bash
+		// 2. Pipe to sh (more compatible than bash)
 
-		const command = `bash -c ${this.escapeShellArg(script)}`;
+		const command = `sh -c ${this.escapeShellArg(script)}`;
 
 		this.logger.debug(`Executing installation script in container ${containerId}`);
 

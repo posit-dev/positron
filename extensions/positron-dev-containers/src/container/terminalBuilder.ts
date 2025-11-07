@@ -82,7 +82,7 @@ export class TerminalBuilder {
 		const markerPath = path.join(os.tmpdir(), `devcontainer-build-${Date.now()}.done`);
 		const containerIdPath = path.join(os.tmpdir(), `devcontainer-build-${Date.now()}.id`);
 
-		let scriptContent = '#!/bin/bash\nset -e\n\n';
+		let scriptContent = '#!/bin/sh\nset -e\n\n';
 
 		// Remove existing container if rebuild
 		if (rebuild) {

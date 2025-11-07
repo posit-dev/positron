@@ -72,7 +72,7 @@ export function generateInstallScript(options: InstallScriptOptions): string {
 	const extensionsDir = '~/.positron-server/extensions';
 
 	// Build the script
-	const script = `#!/bin/bash
+	const script = `#!/bin/sh
 set -e
 
 # Positron Server Installation Script
@@ -146,6 +146,60 @@ mkdir -p "\${EXTENSIONS_DIR}"
 
 # Make server binary executable
 chmod +x "\${SERVER_BINARY}"
+
+# Verify Node.js binary compatibility
+NODE_BINARY="\${INSTALL_DIR}/node"
+if [ ! -f "\${NODE_BINARY}" ]; then
+	error "Node.js binary not found: \${NODE_BINARY}. The server archive may be incomplete."
+fi
+
+# Check if the Node.js binary can execute
+if ! "\${NODE_BINARY}" --version >/dev/null 2>&1; then
+	log "WARNING: Node.js binary cannot execute. This may indicate a libc compatibility issue."
+
+	# Try to detect Alpine/musl
+	if [ -f /etc/alpine-release ]; then
+		log "Alpine Linux detected. Attempting to install glibc compatibility layer..."
+
+		# Try to install gcompat (glibc compatibility for musl)
+		if command -v apk >/dev/null 2>&1; then
+			log "Installing gcompat package..."
+
+			# Try with different permission escalation methods
+			INSTALL_CMD=""
+			if apk add --no-cache gcompat >/dev/null 2>&1; then
+				INSTALL_CMD="success"
+			elif command -v sudo >/dev/null 2>&1 && sudo -n apk add --no-cache gcompat >/dev/null 2>&1; then
+				INSTALL_CMD="success"
+			elif command -v doas >/dev/null 2>&1 && doas apk add --no-cache gcompat >/dev/null 2>&1; then
+				INSTALL_CMD="success"
+			fi
+
+			if [ "\${INSTALL_CMD}" = "success" ]; then
+				log "gcompat installed successfully. Retrying Node.js binary..."
+				if "\${NODE_BINARY}" --version >/dev/null 2>&1; then
+					log "Node.js binary now works with gcompat!"
+				else
+					error "Node.js binary still cannot execute even with gcompat. You may need to use a Debian/Ubuntu-based container image instead of Alpine."
+				fi
+			else
+				error "Failed to install gcompat (permission denied or package unavailable). Try: 1) Run 'apk add gcompat' as root in your container, or 2) Add 'gcompat' to your Dockerfile, or 3) Use a Debian/Ubuntu-based container instead of Alpine."
+			fi
+		else
+			error "Alpine Linux detected but apk not available. Cannot install gcompat automatically. Please use a glibc-based container (e.g., Debian, Ubuntu)."
+		fi
+	else
+		# Check what libc is being used
+		if command -v ldd >/dev/null 2>&1; then
+			log "Checking Node.js binary dependencies:"
+			ldd "\${NODE_BINARY}" >&2 || true
+		fi
+
+		error "Node.js binary is incompatible with this container. This usually means the container uses musl libc instead of glibc. Please use a glibc-based container image (e.g., Debian, Ubuntu)."
+	fi
+fi
+
+log "Node.js binary verified: \$(\${NODE_BINARY} --version)"
 
 ${skipStart ? '# Skipping server start as requested' : generateServerStartScript(options, extensionsDir)}
 
@@ -245,10 +299,11 @@ ${useSocket ? `
 ACTUAL_LISTENING="${actualSocketPath}"
 ` : `
 # Parse the server log to find the actual port (in case we used port 0)
-ACTUAL_PORT=\$(grep -oP "Extension host agent listening on \\K\\d+" "\${SERVER_LOG}" | head -n1)
+# Use sed instead of grep -P for better portability (works with busybox)
+ACTUAL_PORT=\$(sed -n 's/.*Extension host agent listening on \\([0-9][0-9]*\\).*/\\1/p' "\${SERVER_LOG}" | head -n1)
 if [ -z "\${ACTUAL_PORT}" ]; then
 	# Fallback: try other patterns
-	ACTUAL_PORT=\$(grep -oP "listening on.*port \\K\\d+" "\${SERVER_LOG}" | head -n1)
+	ACTUAL_PORT=\$(sed -n 's/.*listening on.*port \\([0-9][0-9]*\\).*/\\1/p' "\${SERVER_LOG}" | head -n1)
 fi
 if [ -z "\${ACTUAL_PORT}" ]; then
 	# Last resort: use the original port value

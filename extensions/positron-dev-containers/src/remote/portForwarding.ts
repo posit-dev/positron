@@ -75,20 +75,36 @@ export class PortForwardingManager {
 	): Promise<PortForward> {
 		return new Promise((resolve, reject) => {
 			// Create a TCP server that relays to the container
-			// This approach uses bash's /dev/tcp which works without additional tools in the container
+			// Try multiple approaches for maximum container compatibility
 
 			const server = net.createServer((clientSocket) => {
 				this.logger.debug(`New connection to forwarded port ${localPort}`);
 
-				// Create connection to container using bash's /dev/tcp
+				// Create connection to container using a fallback chain:
+				// 1. Try bash with /dev/tcp (most efficient if bash is available)
+				// 2. Try netcat (nc) if bash is not available
+				// 3. Try socat as a last resort
 				// Note: positron-server listens on ::1 (IPv6), so we use that instead of 127.0.0.1
+				const portForwardCommand = `
+					if command -v bash >/dev/null 2>&1; then
+						exec bash -c 'exec 3<>/dev/tcp/::1/${remotePort}; cat <&3 & cat >&3; kill %1'
+					elif command -v nc >/dev/null 2>&1; then
+						exec nc ::1 ${remotePort}
+					elif command -v socat >/dev/null 2>&1; then
+						exec socat - TCP6:[::1]:${remotePort}
+					else
+						echo "ERROR: No suitable tool found for port forwarding (need bash, nc, or socat)" >&2
+						exit 1
+					fi
+				`.trim();
+
 				const dockerExec = cp.spawn('docker', [
 					'exec',
 					'-i',
 					containerId,
-					'bash',
+					'sh',
 					'-c',
-					`exec 3<>/dev/tcp/::1/${remotePort}; cat <&3 & cat >&3; kill %1`
+					portForwardCommand
 				]);
 
 				// Pipe data bidirectionally
