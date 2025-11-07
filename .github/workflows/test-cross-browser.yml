@@ -46,8 +46,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      run_setup_only: true
-      artifact_name: "positron-build"
+      mode: 'only-build'
       display_name: "build"
       install_license: true
 
@@ -62,12 +61,10 @@ jobs:
       project: "e2e-firefox"
       display_name: "firefox (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,firefox/ubuntu' || 'firefox/ubuntu' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       allow_soft_fail: false
-      use_artifact: true
-      artifact_name: "positron-build"
+      mode: 'only-run'
 
   e2e-webkit:
     name: e2e
@@ -80,12 +77,10 @@ jobs:
       project: "e2e-webkit"
       display_name: "webkit (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,webkit/ubuntu' || 'webkit/ubuntu' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       allow_soft_fail: false
-      use_artifact: true
-      artifact_name: "positron-build"
+      mode: 'only-run'
 
   e2e-edge:
     name: e2e
@@ -98,12 +93,10 @@ jobs:
       project: "e2e-edge"
       display_name: "edge (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,edge/ubuntu' || 'edge/ubuntu' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       allow_soft_fail: false
-      use_artifact: true
-      artifact_name: "positron-build"
+      mode: 'only-run'
 
   # slack-notify:
   #   if: always()

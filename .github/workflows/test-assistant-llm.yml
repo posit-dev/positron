@@ -26,7 +26,6 @@ jobs:  # to input into inspect-ai-test job below
       project: "inspect-ai"
       display_name: "electron (ubuntu)"
       currents_tags: "merge,electron/ubuntu"
-      report_testrail: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -44,7 +43,6 @@ jobs:  # to input into inspect-ai-test job below
     #   project: "inpsect-ai"
     #   display_name: "electron (windows)"
     #   currents_tags: "merge,electron/windows"
-    #   report_testrail: false
     #   upload_logs: false
     #   report_currents: false
     #   skip_extension_test: true
