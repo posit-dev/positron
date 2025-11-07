@@ -234,6 +234,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
+		// Filter models based on user settings
 		const filteredModels = applyModelFilters(this.availableModels, this.provider);
 		return Promise.resolve(filteredModels);
 	}
@@ -340,7 +341,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		const modelsToTest = this.modelListing.slice(0, maxModelsToTest);
 
-		log.debug(`[${this.providerName}] Testing ${modelsToTest.length} models for connectivity...`);
+		log.debug(`[${this.providerName}] Testing up to ${modelsToTest.length} models for connectivity...`);
 
 		const errors: string[] = [];
 
@@ -668,7 +669,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				isUserSelectable: true,
 			} satisfies vscode.LanguageModelChatInformation));
 
-			// Apply model filtering
+			// Filter models based on user settings
 			models = applyModelFilters(models, this.provider);
 
 			this.modelListing = models;
@@ -722,8 +723,19 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 	}
 }
 
-class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+export class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: OpenAIProvider;
+
+	// Model name words to filter out (case-insensitive)
+	// These models are typically not suitable for chat use cases,
+	// i.e. they may not support the /chat/completions endpoint.
+	public static readonly FILTERED_MODEL_PATTERNS = [
+		'audio',
+		'image',
+		'realtime',
+		'search',
+		'transcribe'
+	] as const;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -786,19 +798,34 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			} else {
 				if (data && data.data && Array.isArray(data.data)) {
 					log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
-					let models: vscode.LanguageModelChatInformation[] = data.data.map((model: any) => {
-						return {
-							id: model.id,
-							name: model.id,
-							family: this.provider,
-							version: model.id,
-							maxInputTokens: 0,
-							maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-							capabilities: this.capabilities,
-						};
-					});
+					let models: vscode.LanguageModelChatInformation[] = data.data
+						// Filter out models with patterns that indicate they're not suitable for chat
+						.filter((model: any) => {
+							const modelName = model.id.toLowerCase();
+							const shouldRemove = OpenAILanguageModel.FILTERED_MODEL_PATTERNS.some(pattern => {
+								// Use word boundary regex to avoid false positives like "research" matching "search"
+								// For OpenAI's predefined patterns, we want precise matching
+								const regex = new RegExp(`\\b${pattern.toLowerCase()}\\b`, 'i');
+								return regex.test(modelName);
+							});
+							if (shouldRemove) {
+								log.debug(`[${this.providerName}] Filtering out model: ${model.id}`);
+							}
+							return !shouldRemove;
+						})
+						.map((model: any) => {
+							return {
+								id: model.id,
+								name: model.id,
+								family: this.provider,
+								version: model.id,
+								maxInputTokens: 0,
+								maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+								capabilities: this.capabilities,
+							};
+						});
 
-					// Apply model filtering
+					// Filter models based on user settings
 					models = applyModelFilters(models, this.provider);
 
 					this.modelListing = models;
@@ -1175,7 +1202,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			});
 		});
 
-		// Apply model filtering
+		// Filter models based on user settings
 		const filteredModelListing = applyModelFilters(modelListing, this.provider);
 
 		this.modelListing = filteredModelListing;
