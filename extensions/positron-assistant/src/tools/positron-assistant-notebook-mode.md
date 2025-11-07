@@ -2,6 +2,10 @@
 
 ## Detection
 
+Notebook mode is enabled differently depending on the chat interface being used:
+
+### Chat Pane Mode
+
 Notebook mode is enabled when **both** conditions are met:
 1. A notebook file (`.ipynb`) is attached as context to the chat request
 2. That notebook has an active Positron notebook editor open
@@ -21,6 +25,21 @@ This function:
 4. Returns `NotebookContext` if there's a match, `undefined` otherwise
 
 **Key behavior:** Users must explicitly attach a notebook file to enable notebook mode, even if a notebook is the active editor. This prevents unintended notebook mode activation.
+
+### Inline Cell Chat Mode
+
+Notebook mode is automatically enabled when using inline chat within a Positron notebook cell. The inline chat controller detects Positron notebooks and routes requests to the notebook participant.
+
+**Detection mechanism:**
+1. When inline chat is triggered in a cell editor, the inline chat controller checks if the editor belongs to a Positron notebook
+2. If yes, the chat location is set to `ChatAgentLocation.Notebook`
+3. This routes the request to the `PositronAssistantNotebookParticipant`
+4. The participant retrieves notebook context and provides cell-aware context
+
+**Locations:**
+- Route detection: `src/vs/workbench/contrib/inlineChat/browser/inlineChatController.ts` (function `updateLocationForPositronNotebooks`)
+- Context generation: `extensions/positron-assistant/src/participants.ts` (class `PositronAssistantNotebookParticipant.getCustomPrompt`)
+
 
 ## Context Information
 

@@ -21,6 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
+import { formatCells } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -933,7 +934,93 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 /** The participant used in notebook inline chats. */
 export class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
-	// For now, the Notebook Participant inherits everything from the Editor Participant.
+
+	override async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
+		// Get the active notebook context
+		const notebookContext = await positron.notebooks.getContext();
+		if (!notebookContext) {
+			log.debug('[notebook participant] No notebook context available for inline chat');
+			return super.getCustomPrompt(request);
+		}
+
+		// Positron notebooks send requests with the location2 type of
+		// ChatRequestEditorData which is because it's much easier/cleaner to
+		// just route the requests from positron notebooks here without totally
+		// changing the request body. Standard VS Code notebooks send We rely on
+		// the editor being a positron notebook for notebook-wide awareness so
+		// we can return early if it's not.
+		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
+			// Fall back to non-positron-notebook aware behavior.
+			return super.getCustomPrompt(request);
+		}
+
+		const cellDoc = request.location2.document;
+
+		const cellUri = cellDoc.uri.toString();
+
+		// Get all cells from the notebook
+		let allCells: positron.notebooks.NotebookCell[];
+		try {
+			allCells = await positron.notebooks.getCells(notebookContext.uri);
+		} catch (err) {
+			log.error('[notebook participant] Failed to get notebook cells:', err);
+			return super.getCustomPrompt(request);
+		}
+
+		// Find the current cell by matching URI
+		const currentCell = allCells.find(c => c.id === cellUri);
+		if (!currentCell) {
+			log.debug('[notebook participant] Could not find current cell in notebook');
+			return super.getCustomPrompt(request);
+		}
+
+		// Calculate adaptive 20-cell context window around the current cell
+		// Window rules:
+		// - Cell in middle: 10 cells before + current + 10 cells after
+		// - Cell at top: current + 20 cells after
+		// - Cell at bottom: 20 cells before + current
+		// - Notebook < 21 cells: all cells included
+		const windowSize = 10;
+		const currentIndex = currentCell.index;
+		const totalCells = allCells.length;
+
+		const startIndex = Math.max(0, currentIndex - windowSize);
+		const endIndex = Math.min(totalCells, currentIndex + windowSize + 1);
+		const contextCells = allCells.slice(startIndex, endIndex);
+
+		// Format current cell separately to highlight it
+		const currentCellText = formatCells([currentCell], 'Current Cell');
+
+		// Format context cells (including current cell in the window)
+		const contextCellsText = formatCells(contextCells, 'Cell');
+
+		// Get file path for context
+		const notebookPath = uriToString(vscode.Uri.parse(notebookContext.uri));
+
+		// Build the notebook context node
+		const notebookNodes = [
+			xml.node('current-cell', currentCellText, {
+				description: 'The cell where inline chat was triggered',
+				index: currentCell.index,
+				type: currentCell.type,
+			}),
+			xml.node('context-cells', contextCellsText, {
+				description: `Context window: cells ${startIndex} to ${endIndex - 1} of ${totalCells - 1}`,
+				windowSize: contextCells.length,
+				totalCells: totalCells,
+			}),
+		];
+
+		const notebookNode = xml.node('notebook', notebookNodes.join('\n'), {
+			description: 'Notebook context for inline chat',
+			notebookPath,
+			kernelLanguage: notebookContext.kernelLanguage || 'unknown',
+			currentCellIndex: currentIndex,
+		});
+
+		log.debug(`[notebook participant] Adding notebook context: ${notebookNode.length} characters, ${contextCells.length} cells in window`);
+		return notebookNode;
+	}
 }
 
 export function registerParticipants(context: vscode.ExtensionContext) {
