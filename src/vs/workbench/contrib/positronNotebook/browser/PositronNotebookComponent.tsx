@@ -66,10 +66,14 @@ export function PositronNotebookComponent() {
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			<div ref={containerRef} className='positron-notebook-cells-container'>
-				{notebookCells.length ? notebookCells.map((cell, index) => <>
-					<NotebookCell key={cell.handle} cell={cell as PositronNotebookCellGeneral} />
-					<AddCellButtons index={index + 1} />
-				</>) : <div>{localize('noCells', 'No cells')}</div>
+				{notebookCells.length ?
+					notebookCells.map((cell, index) =>
+						<React.Fragment key={cell.handle}>
+							<NotebookCell cell={cell as PositronNotebookCellGeneral} />
+							<AddCellButtons index={index + 1} />
+						</React.Fragment>
+					) :
+					<div>{localize('noCells', 'No cells')}</div>
 				}
 			</div>
 			<ScreenReaderOnly className='notebook-announcements'>
