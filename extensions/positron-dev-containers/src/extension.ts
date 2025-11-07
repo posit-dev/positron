@@ -136,8 +136,6 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.rebuildAndReopenInContainer', RebuildCommands.rebuildAndReopenInContainer);
 	registerCommand(context, 'remote-containers.rebuildNoCacheAndReopenInContainer', RebuildCommands.rebuildNoCacheAndReopenInContainer);
 	registerCommand(context, 'remote-containers.reopenLocally', ReopenCommands.reopenLocally);
-	registerCommand(context, 'remote-containers.reopenInWSL', notImplemented);
-	registerCommand(context, 'remote-containers.reopenInSSH', notImplemented);
 	registerCommand(context, 'remote-containers.openFolder', OpenCommands.openFolder);
 	registerCommand(context, 'remote-containers.openFolderInContainerInCurrentWindow', OpenCommands.openFolderInContainerInCurrentWindow);
 	registerCommand(context, 'remote-containers.openFolderInContainerInNewWindow', OpenCommands.openFolderInContainerInNewWindow);
@@ -149,24 +147,15 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.attachToContainerInNewWindow', AttachCommands.attachToContainerInNewWindow);
 
 	// Container management commands
-	registerCommand(context, 'remote-containers.cleanUpDevContainers', notImplemented);
-	registerCommand(context, 'remote-containers.switchContainer', notImplemented);
 	registerCommand(context, 'remote-containers.rebuildContainer', RebuildCommands.rebuildContainer);
 	registerCommand(context, 'remote-containers.rebuildContainerNoCache', RebuildCommands.rebuildContainerNoCache);
 	registerCommand(context, 'remote-containers.stopContainer', AttachCommands.stopContainer);
 	registerCommand(context, 'remote-containers.startContainer', AttachCommands.startContainer);
 	registerCommand(context, 'remote-containers.removeContainer', AttachCommands.removeContainer);
 	registerCommand(context, 'remote-containers.showContainerLog', showContainerLog);
-	registerCommand(context, 'remote-containers.newContainer', notImplemented);
 
 	// Configuration commands
-	registerCommand(context, 'remote-containers.createDevContainerFile', notImplemented);
-	registerCommand(context, 'remote-containers.createDevContainer', notImplemented);
 	registerCommand(context, 'remote-containers.openDevContainerFile', openDevContainerFile);
-	registerCommand(context, 'remote-containers.openAttachDevContainerFile', notImplemented);
-	registerCommand(context, 'remote-containers.configureContainerFeatures', notImplemented);
-	registerCommand(context, 'remote-containers.addExtensionToConfig', notImplemented);
-	registerCommand(context, 'remote-containers.labelPortAndUpdateConfig', notImplemented);
 
 	// Settings and logs
 	registerCommand(context, 'remote-containers.settings', openSettings);
@@ -182,10 +171,6 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 		}
 	});
 	registerCommand(context, 'remote-containers.explorerDetailsRefresh', explorerDetailsRefresh);
-	registerCommand(context, 'remote-containers.showDetails', notImplemented);
-	registerCommand(context, 'remote-containers.removeRecentFolder', notImplemented);
-	registerCommand(context, 'remote-containers.inspectDockerResource', notImplemented);
-	registerCommand(context, 'remote-containers.inspectInBasicDevContainer', notImplemented);
 
 	logger.debug('All commands registered');
 }
@@ -199,15 +184,6 @@ function registerCommand(
 	callback: (...args: any[]) => any
 ): void {
 	context.subscriptions.push(vscode.commands.registerCommand(command, callback));
-}
-
-/**
- * Placeholder for not-yet-implemented commands
- */
-async function notImplemented(): Promise<void> {
-	await vscode.window.showInformationMessage(
-		'This command is not yet implemented. It will be available in a future phase.'
-	);
 }
 
 // --- Start Positron ---
