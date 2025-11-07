@@ -3,40 +3,17 @@ description: "Installs necessary system dependencies."
 runs:
   using: "composite"
   steps:
-    # - name: Restore multiple node_modules caches
-    #   id: restore-node-caches
-    #   uses: ./.github/actions/cache-multi-paths
+    - name: Restore package stores & binaries (via cache-multi-paths)
+      id: restore-node-caches
+      uses: ./.github/actions/cache-multi-paths
+      # The `cache-multi-paths` composite restores portable caches used by the build:
+      #  - npm tarball store (.npm-cache)
+      #  - (optional) pip cache (.pip-cache)
+      #  - versioned binaries (ark, kallichore)
+      # It also emits outputs (cache-npm-hit, cache-ark-hit, cache-kallichore-hit)
+      # which callers can inspect to decide further actions.
 
-    - name: Restore Playwright browsers cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/ms-playwright
-        # Include the e2e lockfile too in case test/e2e has its own playwright deps
-        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-        restore-keys: |
-          playwright-${{ runner.os }}-
-
-    - name: Restore Electron binary cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/electron
-          ~/.cache/electron-builder
-        # electron binaries are tied to package-lock and the electron version in package.json
-        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
-        restore-keys: |
-          electron-${{ runner.os }}-
-
-    - name: Restore built-in extensions cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          .build/builtInExtensions
-        # product.json contains the list and versions of built-in extensions
-        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
-        restore-keys: |
-          builtins-${{ runner.os }}-
+    # Playwright/Electron/builtins caches are handled by the `cache-multi-paths` composite
 
     - name: Install Node packages
       shell: bash
