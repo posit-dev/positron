@@ -19,13 +19,27 @@ export class Search {
 
 	constructor(private code: Code) { }
 
-	async openSearchViewlet(): Promise<any> {
-		if (process.platform === 'darwin') {
-			await this.code.driver.page.keyboard.press('Meta+Shift+F');
+	async openSearchViewlet(): Promise<void> {
+		const page = this.code.driver.page;
+
+		const wb = page.locator('.monaco-workbench');
+		if (await wb.isVisible()) {
+			await wb.click({ position: { x: 10, y: 10 } });
+			await page.waitForTimeout(50);
 		} else {
-			await this.code.driver.page.keyboard.press('Control+Shift+F');
+			await page.evaluate(() => document.body.focus());
+			await page.waitForTimeout(50);
 		}
-		await expect(this.code.driver.page.locator(INPUT)).toBeFocused();
+
+		const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+		await page.keyboard.down(mod);
+		await page.keyboard.down('Shift');
+		await page.keyboard.press('KeyF', { delay: 20 }); // small delay helps WebKit
+		await page.keyboard.up('Shift');
+		await page.keyboard.up(mod);
+
+		await expect(page.locator(INPUT)).toBeVisible();
+		await expect(page.locator(INPUT)).toBeFocused();
 	}
 
 	async clearSearchResults(): Promise<void> {

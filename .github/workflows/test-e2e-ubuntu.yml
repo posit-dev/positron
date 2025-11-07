@@ -65,7 +65,7 @@ on:
         default: false
       mode:
         required: false
-        description: "Run mode: 'only-build' (create/upload artifact), 'only-run' (download/use artifact and run tests), or 'build-and-run' (build in-place then run tests). Defaults to 'build-and-run'."
+        description: "Run mode: 'build-only' (create/upload artifact), 'run-only' (download/use artifact and run tests), or 'build-and-run' (build in-place then run tests). Defaults to 'build-and-run'."
         default: "build-and-run"
         type: string
 
@@ -181,40 +181,40 @@ jobs:
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
-        if: ${{ inputs.mode != 'only-run' }}
+        if: ${{ inputs.mode != 'run-only' }}
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
 
       - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' && (inputs.mode != 'only-run') }}
+        if: ${{ steps.attempt1.outcome == 'failure' && (inputs.mode != 'run-only') }}
         id: attempt2
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' && (inputs.mode != 'only-run') }}
+        if: ${{ steps.attempt2.outcome == 'failure' && (inputs.mode != 'run-only') }}
         uses: ./.github/actions/setup-build-env
 
       - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' && (inputs.mode != 'only-run') }}
+        if: ${{ steps.attempt3.outcome == 'failure' && (inputs.mode != 'run-only') }}
         run: exit 1
 
       - name: Move Positron License
-        if: ${{ inputs.install_license && (inputs.mode != 'only-run') }}
+        if: ${{ inputs.install_license && (inputs.mode != 'run-only') }}
         run: |
           mv /positron-license /__w/positron || true
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
 
       - name: Download build artifact
-        if: ${{ inputs.mode == 'only-run' }}
+        if: ${{ inputs.mode == 'run-only' }}
         uses: actions/download-artifact@v4
         with:
           name: "positron-build"
           path: /tmp/artifacts
 
       - name: Extract build artifact
-        if: ${{ inputs.mode == 'only-run' }}
+        if: ${{ inputs.mode == 'run-only' }}
         run: |
           mkdir -p /__w
           # Avoid preserving uid/gid from the tar (can cause permission issues on extract)
@@ -225,7 +225,7 @@ jobs:
           fi
 
       - name: Seed system tmp cache from bundled cache
-        if: ${{ inputs.mode == 'only-run' }}
+        if: ${{ inputs.mode == 'run-only' }}
         run: |
           if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
             rm -rf /tmp/qa-example-content-cache || true
@@ -236,7 +236,7 @@ jobs:
           fi
 
       - name: Validate bundled QA cache
-        if: ${{ inputs.mode == 'only-run' }}
+        if: ${{ inputs.mode == 'run-only' }}
         run: |
           echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
           if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
@@ -264,7 +264,7 @@ jobs:
           fi
 
       - name: Setup E2E Test Environment
-        if: ${{ inputs.mode != 'only-build' }}
+        if: ${{ inputs.mode != 'build-only' }}
         uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
@@ -277,14 +277,14 @@ jobs:
         run: npm run gulp node
 
       - name: Send Results to GH Summary
-        if: ${{ inputs.mode != 'only-build' }}
+        if: ${{ inputs.mode != 'build-only' }}
         uses: ./.github/actions/gen-report-dir
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Prepare & upload compressed build artifact
-        if: ${{ inputs.mode == 'only-build' }}
+        if: ${{ inputs.mode == 'build-only' }}
         run: |
           # Ensure QA example content is bundled so downstream runners that lack network
           # access can still prepare test fixtures. We clone into the workspace path
@@ -311,7 +311,7 @@ jobs:
           tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
 
       - name: Upload build artifact
-        if: ${{ inputs.mode == 'only-build' }}
+        if: ${{ inputs.mode == 'build-only' }}
         uses: actions/upload-artifact@v4
         with:
           name: "positron-build"
@@ -319,7 +319,7 @@ jobs:
           retention-days: 1
 
       - name: Install Playwright browsers
-        if: ${{ inputs.mode != 'only-build' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
+        if: ${{ inputs.mode != 'build-only' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
         run: |
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
@@ -330,7 +330,7 @@ jobs:
           fi
 
       - name: Run Playwright Tests
-        if: ${{ inputs.mode != 'only-build' }}
+        if: ${{ inputs.mode != 'build-only' }}
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
