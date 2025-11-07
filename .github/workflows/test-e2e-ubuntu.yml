@@ -227,6 +227,17 @@ jobs:
           mkdir -p /__w
           tar -xzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz -C /__w
 
+      - name: Seed system tmp cache from bundled cache
+        if: ${{ inputs.use_artifact == true }}
+        run: |
+          if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
+            rm -rf /tmp/qa-example-content-cache || true
+            cp -R /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
+            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+              echo "✓ Seeded /tmp/qa-example-content-cache"
+            fi
+          fi
+
       - name: Setup E2E Test Environment
         if: ${{ inputs.run_setup_only == false }}
         uses: ./.github/actions/setup-test-env
@@ -249,6 +260,18 @@ jobs:
       - name: Prepare & upload compressed build artifact
         if: ${{ inputs.run_setup_only == true }}
         run: |
+          # Ensure QA example content is bundled so downstream runners that lack network
+          # access can still prepare test fixtures. We clone into the workspace path
+          # under positron/test/e2e/qa-example-content-cache if it doesn't already exist.
+          mkdir -p /__w/positron/test/e2e
+          if [ ! -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
+            git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /__w/positron/test/e2e/qa-example-content-cache || true
+          fi
+          # Seed cache metadata so the test runner can detect the cached commit
+          if [ -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
+            (cd /__w/positron/test/e2e/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
+          fi
+
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
           mkdir -p /tmp/artifacts
           tar -C /__w -czf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz positron --exclude='.git' || true
@@ -261,17 +284,7 @@ jobs:
           path: /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz
           retention-days: 1
 
-      - name: Download and extract build artifact
-        if: ${{ inputs.use_artifact == true }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.artifact_name }}
-          path: /tmp/artifacts
-      - name: Extract build artifact
-        if: ${{ inputs.use_artifact == true }}
-        run: |
-          mkdir -p /__w
-          tar -xzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz -C /__w
+
 
       - name: Install Playwright browsers
         if: ${{ !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
