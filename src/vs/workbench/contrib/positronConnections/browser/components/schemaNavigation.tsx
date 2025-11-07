@@ -177,7 +177,10 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 
 	// If the connection is not expandable, we add some more padding.
 	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
+	const [expanding, setExpanding] = useState<boolean>(false);
+
 	const handleExpand = () => {
+		setExpanding(true);
 		props.onToggleExpand(props.item.id);
 	};
 
@@ -270,6 +273,38 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 	};
 
+	// props.item.expanded
+	const DelayedExpandIcon = (({ expanded, expanding, delay = 200 }: { expanded: boolean | undefined; expanding: boolean; delay?: number }) => {
+		const [showSpinner, setShowSpinner] = useState<boolean>(false);
+
+		useEffect(() => {
+			if (!expanding) {
+				setShowSpinner(false)
+				return
+			}
+			const id = setTimeout(() => setShowSpinner(true), delay);
+			return () => clearTimeout(id)
+		}, [expanding, delay])
+
+
+		if (expanded === undefined) {
+			return <></>;
+		}
+
+		const className = showSpinner ?
+			`codicon codicon-loading animate-spin` :
+			`codicon codicon-chevron-${expanded ? 'down' : 'right'}`;
+
+		return (
+			<div
+				className='expand-collapse-area'
+				onClick={handleExpand}
+			>
+				<div className={className} />
+			</div>
+		)
+	});
+
 	return (
 		<div
 			className={positronClassNames(
@@ -279,19 +314,10 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			style={props.style}
 		>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
-			{
-				props.item.expanded === undefined ?
-					<></> :
-					<div
-						className='expand-collapse-area'
-						onClick={handleExpand}
-					>
-						<div
-							className={`codicon codicon-chevron-${props.item.expanded ? 'down' : 'right'}`}
-						>
-						</div>
-					</div>
-			}
+			<DelayedExpandIcon
+				expanded={props.item.expanded}
+				expanding={expanding}
+			/>
 			<div
 				className='connections-details'
 				onMouseDown={rowMouseDownHandler}

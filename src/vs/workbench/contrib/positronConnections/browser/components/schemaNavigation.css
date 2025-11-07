@@ -62,6 +62,10 @@
 	justify-content: center;
 }
 
+.connections-item .expand-collapse-area .animate-spin {
+	animation: spin 1s linear infinite;
+}
+
 .connections-item.selected {
 	color: var(--vscode-positronVariables-activeSelectionForeground);
 	background: var(--vscode-positronVariables-activeSelectionBackground);
