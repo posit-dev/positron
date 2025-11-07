@@ -282,7 +282,7 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Prepare & upload compressed build artifact
+      - name: Create Build Artifact
         if: ${{ inputs.mode == 'build-only' }}
         run: |
           # Ensure QA example content is bundled so downstream runners that lack network
@@ -309,7 +309,7 @@ jobs:
           mkdir -p /tmp/artifacts
           tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
 
-      - name: Upload build artifact
+      - name: Upload Build Artifact
         if: ${{ inputs.mode == 'build-only' }}
         uses: actions/upload-artifact@v4
         with:

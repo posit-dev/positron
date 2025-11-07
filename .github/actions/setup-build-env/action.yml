@@ -4,6 +4,7 @@ runs:
   using: "composite"
   steps:
     - name: Restore multiple node_modules caches
+      id: restore-node-caches
       uses: ./.github/actions/cache-multi-paths
 
     - name: Restore Playwright browsers cache
@@ -47,7 +48,27 @@ runs:
         echo ".build/builtInExtensions:"; du -sh .build/builtInExtensions || true
         echo "~/.cache/ms-playwright:"; du -sh ~/.cache/ms-playwright || true
         echo "~/.cache/electron:"; du -sh ~/.cache/electron || true
+        echo "~/.npm:"; du -sh ~/.npm || true
+        echo "~/.cache/pip:"; du -sh ~/.cache/pip || true
+
+        # Repo-root and extension-resource locations for Ark
+        echo "./ark (repo-root dev path):"; du -sh ./ark || true
+        echo "extensions/positron-r/resources/ark (extension resource path):"; du -sh ./extensions/positron-r/resources/ark || true
+        # Print VERSION file if present for ark
+        if [ -f "extensions/positron-r/resources/ark/VERSION" ]; then echo "ark VERSION:"; cat extensions/positron-r/resources/ark/VERSION || true; else echo "ark VERSION: not found"; fi
+
+        # Repo-root and extension-resource locations for Kallichore
+        echo "./kallichore (repo-root dev path):"; du -sh ./kallichore || true
+        echo "extensions/positron-supervisor/resources/kallichore (extension resource path):"; du -sh ./extensions/positron-supervisor/resources/kallichore || true
+        # Print VERSION file if present for kallichore
+        if [ -f "extensions/positron-supervisor/resources/kallichore/VERSION" ]; then echo "kallichore VERSION:"; cat extensions/positron-supervisor/resources/kallichore/VERSION || true; else echo "kallichore VERSION: not found"; fi
+
+        # Python env tools
+        echo "extensions/positron-python/python-env-tools:"; du -sh ./extensions/positron-python/python-env-tools || true
+        echo "kallichore package.json declared version:"; node -e "const p=require('./extensions/positron-supervisor/package.json'); console.log((p.positron && p.positron.binaryDependencies && p.positron.binaryDependencies.kallichore) || 'n/a')"
+        echo "ark package.json declared version:"; node -e "const p=require('./extensions/positron-r/package.json'); console.log((p.positron && p.positron.binaryDependencies && p.positron.binaryDependencies.ark) || 'n/a')"
         echo "--- end diagnostics ---"
+
 
     - name: Install Node packages (timed)
       shell: bash
@@ -55,18 +76,27 @@ runs:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        # Improve npm performance in CI
+        NPM_CONFIG_CACHE: /root/.npm
+        NPM_CONFIG_AUDIT: 'false'
+        NPM_CONFIG_FUND: 'false'
+        NPM_CONFIG_UPDATE_NOTIFIER: 'false'
       run: |
+        # Ensure npm cache dir exists and is writable
+        mkdir -p /root/.npm
+
         # Measure install durations precisely in seconds (machine-friendly)
         echo "install-start: $(date -u +%FT%TZ)"
         start=$(date +%s)
 
         npm_ci_start=$(date +%s)
-        npm ci --fetch-timeout 120000
+        # prefer offline and use the cached npm store when possible; disable audit/fund to speed CI
+        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
         npm_ci_end=$(date +%s)
         echo "npm-ci-seconds: $((npm_ci_end - npm_ci_start))"
 
         e2e_ci_start=$(date +%s)
-        npm --prefix test/e2e ci
+        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
         e2e_ci_end=$(date +%s)
         echo "test-e2e-npm-ci-seconds: $((e2e_ci_end - e2e_ci_start))"
 

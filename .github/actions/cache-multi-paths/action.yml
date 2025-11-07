@@ -24,12 +24,12 @@ runs:
         path: ./extensions/node_modules
         key: cache-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/package-lock.json') }}
 
-    - name: Cache nested extensions
-      id: cache-nested-extensions
-      uses: actions/cache@v4
-      with:
-        path: ./extensions/**/node_modules
-        key: cache-nested-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/**/package-lock.json') }}
+    # - name: Cache nested extensions
+    #   id: cache-nested-extensions
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: ./extensions/**/node_modules
+    #     key: cache-nested-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/**/package-lock.json') }}
 
     - name: Cache remote
       id: cache-remote
@@ -38,9 +38,53 @@ runs:
         path: ./remote/node_modules
         key: cache-remote-v4-${{ runner.os }}-${{ hashFiles('remote/package-lock.json') }}
 
-    - name: Cache nested remote
-      id: cache-nested-remote
+    # - name: Cache nested remote
+    #   id: cache-nested-remote
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: ./remote/**/node_modules
+    #     key: cache-nested-remote-v4-${{ runner.os }}-${{ hashFiles('remote/**/package-lock.json') }}
+
+    - name: Cache npm cache
+      id: cache-npm
       uses: actions/cache@v4
       with:
-        path: ./remote/**/node_modules
-        key: cache-nested-remote-v4-${{ runner.os }}-${{ hashFiles('remote/**/package-lock.json') }}
+        path: |
+          ~/.npm
+        key: npm-cache-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          npm-cache-${{ runner.os }}-
+
+    # - name: Cache pip cache
+    #   id: cache-pip
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       ~/.cache/pip
+    #     # Use any requirements.txt in the repo to form the key; falls back to os-only key
+    #     key: pip-cache-${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
+    #     restore-keys: |
+    #       pip-cache-${{ runner.os }}-
+
+    - name: Cache ark binary
+      id: cache-binaries-ark
+      uses: actions/cache@v4
+      with:
+        path: |
+          ./extensions/positron-r/resources/ark
+          ./ark
+        key: positron-binaries-ark-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        restore-keys: |
+          positron-binaries-ark-${{ runner.os }}-
+
+    - name: Cache kallichore binary
+      id: cache-binaries-kallichore
+      uses: actions/cache@v4
+      with:
+        path: |
+          ./extensions/positron-supervisor/resources/kallichore
+          ./kallichore
+        key: positron-binaries-kallichore-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        restore-keys: |
+          positron-binaries-kallichore-${{ runner.os }}-
+
