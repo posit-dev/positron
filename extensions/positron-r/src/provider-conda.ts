@@ -85,7 +85,11 @@ export async function discoverCondaBinaries(): Promise<RBinary[]> {
 			for (const rPath of rPaths) {
 				if (fs.existsSync(rPath)) { // return the first existing R
 					LOGGER.info(`Detected R in Conda environment: ${rPath}`);
-					rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.CONDA] });
+					rBinaries.push({
+						path: rPath,
+						reasons: [ReasonDiscovered.CONDA],
+						condaEnvironmentPath: envPath
+					});
 					break;
 				}
 			}
