@@ -83,6 +83,9 @@ export class TerminalBuilder {
 		const containerIdPath = path.join(os.tmpdir(), `devcontainer-build-${Date.now()}.id`);
 
 		let scriptContent = '#!/bin/sh\nset -e\n\n';
+		// Add error trap to keep terminal open on failure
+		scriptContent += '# Trap errors to keep terminal open so user can see what failed\n';
+		scriptContent += 'trap \'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; read dummy\' ERR\n\n';
 
 		// Remove existing container if rebuild
 		if (rebuild) {
