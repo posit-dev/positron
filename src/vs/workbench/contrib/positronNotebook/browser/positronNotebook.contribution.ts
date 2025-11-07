@@ -1200,7 +1200,7 @@ registerAction2(class extends NotebookAction2 {
 		super({
 			id: 'positronNotebook.clearAllOutputs',
 			title: localize2('clearAllOutputs', 'Clear Outputs'),
-			icon: ThemeIcon.fromId('positron-clean'),
+			icon: ThemeIcon.fromId('clear-all'),
 			f1: true,
 			category: POSITRON_NOTEBOOK_CATEGORY,
 			positronActionBarOptions: {
