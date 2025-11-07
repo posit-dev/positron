@@ -93,7 +93,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// --- End Positron ---
 
 	// Register commands
-	registerCommands(context, devContainersTreeProvider);
+	registerCommands(context, devContainersTreeProvider, connectionManager);
 
 	// Listen for configuration changes
 	context.subscriptions.push(
@@ -128,7 +128,7 @@ export function deactivate(): void {
 /**
  * Register all commands
  */
-function registerCommands(context: vscode.ExtensionContext, devContainersTreeProvider: DevContainersTreeProvider | undefined): void {
+function registerCommands(context: vscode.ExtensionContext, devContainersTreeProvider: DevContainersTreeProvider | undefined, connectionManager: ConnectionManager): void {
 	const logger = getLogger();
 
 	// Core commands - Open/Reopen
@@ -173,7 +173,7 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.revealLogTerminal', revealLogTerminal);
 	registerCommand(context, 'remote-containers.openLogFile', openLogFile);
 	registerCommand(context, 'remote-containers.openLastLogFile', openLogFile);
-	registerCommand(context, 'remote-containers.testConnection', notImplemented);
+	registerCommand(context, 'remote-containers.testConnection', () => testConnection(connectionManager));
 
 	// View commands
 	registerCommand(context, 'remote-containers.explorerTargetsRefresh', async () => {
@@ -330,6 +330,91 @@ async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> 
 	} catch (error) {
 		logger.error('Failed to get container logs', error);
 		await vscode.window.showErrorMessage(`Failed to get container logs: ${error}`);
+	}
+}
+
+/**
+ * Test connection to the current dev container
+ */
+async function testConnection(connectionManager: ConnectionManager): Promise<void> {
+	const logger = getLogger();
+	logger.info('Command: testConnection');
+
+	// Check if we're in a dev container
+	if (!Workspace.isInDevContainer()) {
+		await vscode.window.showInformationMessage(
+			'Not currently connected to a dev container. This command is only available when running inside a dev container.'
+		);
+		return;
+	}
+
+	try {
+		// Get container ID from workspace authority
+		const currentFolder = Workspace.getCurrentWorkspaceFolder();
+		if (!currentFolder || !currentFolder.uri.authority) {
+			await vscode.window.showErrorMessage('Could not determine container ID from workspace');
+			return;
+		}
+
+		// Extract container ID from authority (format: dev-container+<containerId> or attached-container+<containerId>)
+		const authority = currentFolder.uri.authority;
+		const match = authority.match(/^(?:dev-container|attached-container)\+(.+)$/);
+		const containerId = match?.[1];
+
+		if (!containerId) {
+			await vscode.window.showErrorMessage(`Could not extract container ID from authority: ${authority}`);
+			return;
+		}
+
+		logger.info(`Testing connection to container: ${containerId}`);
+
+		// Get connection info
+		const connection = connectionManager.getConnection(containerId);
+
+		if (!connection) {
+			await vscode.window.showWarningMessage(
+				`No active connection found for container ${containerId}.\n\nThis may be normal if the connection was established in a different way.`
+			);
+			return;
+		}
+
+		// Build connection status message
+		const statusIcon = connection.state === 'connected' ? '✓' : '✗';
+		const stateDisplay = connection.state.charAt(0).toUpperCase() + connection.state.slice(1);
+
+		let message = `${statusIcon} Connection Status: ${stateDisplay}\n\n`;
+		message += `Container ID: ${containerId}\n`;
+		message += `Host: ${connection.host}\n`;
+		message += `Port: ${connection.port}\n`;
+		message += `Remote Port: ${connection.remotePort}\n`;
+
+		if (connection.connectedAt) {
+			const duration = Math.floor((Date.now() - connection.connectedAt.getTime()) / 1000);
+			message += `Connected: ${duration}s ago\n`;
+		}
+
+		if (connection.localWorkspacePath && connection.remoteWorkspacePath) {
+			message += `\nWorkspace Mapping:\n`;
+			message += `  Local:  ${connection.localWorkspacePath}\n`;
+			message += `  Remote: ${connection.remoteWorkspacePath}\n`;
+		}
+
+		if (connection.lastError) {
+			message += `\nLast Error: ${connection.lastError}\n`;
+		}
+
+		// Show the connection information
+		if (connection.state === 'connected') {
+			await vscode.window.showInformationMessage(message, { modal: true });
+		} else {
+			await vscode.window.showWarningMessage(message, { modal: true });
+		}
+
+		logger.info(`Connection test completed: ${connection.state}`);
+
+	} catch (error) {
+		logger.error('Failed to test connection', error);
+		await vscode.window.showErrorMessage(`Failed to test connection: ${error}`);
 	}
 }
 // --- End Positron ---
