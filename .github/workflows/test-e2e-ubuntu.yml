@@ -263,6 +263,21 @@ jobs:
             exit 1
           fi
 
+          # If the install_license input was requested, ensure the license file
+          # was included in the artifact and extracted into the workspace.
+          if [ "${{ inputs.install_license }}" = "true" ]; then
+            LICENSE_PATH="/__w/positron/positron-license/pdol/target/debug/pdol_rsa"
+            echo "Checking for Positron license at $LICENSE_PATH"
+            if [ -f "$LICENSE_PATH" ]; then
+              echo "✓ Positron license present"
+            else
+              echo "✗ Positron license missing at $LICENSE_PATH"
+              echo "Contents of /__w/positron/positron-license (if any):"; ls -la /__w/positron/positron-license || true
+              echo "Contents of /__w/positron/test/e2e (for context):"; ls -la /__w/positron/test/e2e || true
+              exit 1
+            fi
+          fi
+
       - name: Setup E2E Test Environment
         if: ${{ inputs.run_setup_only == false }}
         uses: ./.github/actions/setup-test-env
@@ -298,6 +313,14 @@ jobs:
           fi
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
+          # If requested, write the Positron license into the workspace
+          if [ "${{ inputs.install_license }}" = "true" ]; then
+            echo "Installing Positron license into workspace for artifact inclusion"
+            mkdir -p /__w/positron/positron-license/pdol/target/debug
+            # Write the secret file. Use printf to avoid trailing newline issues.
+            printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+          fi
+
           mkdir -p /tmp/artifacts
           tar -C /__w -czf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz positron --exclude='.git' || true
 
