@@ -986,7 +986,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.216"
+      "ark": "posit-dev/ark@feature/read-srcref"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
