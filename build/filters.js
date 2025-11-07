@@ -52,6 +52,7 @@ module.exports.unicodeFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!LICENSES.chromium.html',
 	'!**/LICENSE',
+	'!**/NOTICE',
 
 	'!**/*.{dll,exe,png,bmp,jpg,scpt,cur,ttf,woff,eot,template,ico,icns,opus,wasm}',
 	'!**/test/**',
@@ -92,6 +93,7 @@ module.exports.indentationFilter = [
 	'!**/LICENSE.{txt,rtf}',
 	'!LICENSES.chromium.html',
 	'!**/LICENSE',
+	'!**/NOTICE',
 	'!**/*.mp3',
 	'!src/vs/loader.js',
 	'!src/vs/base/browser/dompurify/*',
