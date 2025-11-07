@@ -64,19 +64,19 @@ jobs:
       report_currents: false
       allow_soft_fail: false
 
-  # e2e-webkit:
-  #   name: e2e
-  #   # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_webkit }}
-  #   needs: [setup]
-  #   uses: ./.github/workflows/test-e2e-ubuntu.yml
-  #   secrets: inherit
-  #   with:
-  #     mode: "run-only"
-  #     project: "e2e-webkit"
-  #     display_name: "webkit (ubuntu)"
-  #     grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
-  #     report_currents: false
-  #     allow_soft_fail: false
+  e2e-webkit:
+    name: e2e
+    # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_webkit }}
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    secrets: inherit
+    with:
+      mode: "run-only"
+      project: "e2e-webkit"
+      display_name: "webkit (ubuntu)"
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+      report_currents: false
+      allow_soft_fail: false
 
   e2e-edge:
     name: e2e

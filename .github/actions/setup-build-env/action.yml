@@ -38,13 +38,12 @@ runs:
         restore-keys: |
           builtins-${{ runner.os }}-
 
-    - name: Install Node packages (timed)
+    - name: Install Node packages
       shell: bash
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-        # Improve npm performance in CI
         NPM_CONFIG_CACHE: /root/.npm
         NPM_CONFIG_AUDIT: 'false'
         NPM_CONFIG_FUND: 'false'
@@ -52,40 +51,12 @@ runs:
       run: |
         # Ensure npm cache dir exists and is writable
         mkdir -p /root/.npm
-
-        # Measure install durations precisely in seconds (machine-friendly)
-        echo "install-start: $(date -u +%FT%TZ)"
-        start=$(date +%s)
-
-        npm_ci_start=$(date +%s)
-        # prefer offline and use the cached npm store when possible; disable audit/fund to speed CI
         npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
-        npm_ci_end=$(date +%s)
-        echo "npm-ci-seconds: $((npm_ci_end - npm_ci_start))"
-
-        e2e_ci_start=$(date +%s)
         npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
-        e2e_ci_end=$(date +%s)
-        echo "test-e2e-npm-ci-seconds: $((e2e_ci_end - e2e_ci_start))"
 
-        end=$(date +%s)
-        echo "install-total-seconds: $((end - start))"
-        echo "install-end: $(date -u +%FT%TZ)"
-
-    - name: Compile and Download (parallel, timed)
+    - name: Compile and Download\
       shell: bash
-      run: |
-        # Run compile and playwright-install in parallel and measure wall time
-        echo "compile-start: $(date -u +%FT%TZ)"
-        start=$(date +%s)
-
-        npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64" playwright-install
-        rc=$?
-
-        end=$(date +%s)
-        echo "compile-seconds: $((end - start))"
-        echo "compile-end: $(date -u +%FT%TZ)"
-        exit $rc
+      run: npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64" playwright-install
 
     - name: Set permissions on SUID sandbox helper
       shell: bash
@@ -96,14 +67,6 @@ runs:
         stat $ELECTRON_ROOT/chrome-sandbox
 
     # Downloads Builtin Extensions (needed for integration & e2e testing)
-    - name: Prelaunch (timed)
+    - name: Prelaunch
       shell: bash
-      run: |
-        echo "prelaunch-start: $(date -u +%FT%TZ)"
-        start=$(date +%s)
-        npm run prelaunch
-        rc=$?
-        end=$(date +%s)
-        echo "prelaunch-seconds: $((end - start))"
-        echo "prelaunch-end: $(date -u +%FT%TZ)"
-        exit $rc
+      run: npm run prelaunch
