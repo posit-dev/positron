@@ -1,90 +1,81 @@
-name: "Cache Multiple Directories"
-description: "Restores/Saves cache for node_modules, build, extensions, and remote"
+name: "Cache: Package Stores & Binaries"
+description: "Portable caches for npm tarballs and versioned binaries (ark/kallichore)."
+
+inputs:
+  node-version:
+    description: "Node.js version for cache key (e.g., 20.x)."
+    required: false
+    default: ""
+
+outputs:
+  cache-npm-hit:
+    description: "Whether the npm cache restored a hit ('true' or 'false')."
+    value: ${{ steps.cache-npm.outputs.cache-hit }}
+  cache-ark-hit:
+    description: "Whether the ark binary cache restored a hit ('true' or 'false')."
+    value: ${{ steps.cache-binaries-ark.outputs.cache-hit }}
+  cache-kallichore-hit:
+    description: "Whether the kallichore binary cache restored a hit ('true' or 'false')."
+    value: ${{ steps.cache-binaries-kallichore.outputs.cache-hit }}
+
 runs:
   using: "composite"
   steps:
-    - name: Cache root
-      id: cache-root
-      uses: actions/cache@v4
-      with:
-        path: ./node_modules
-        key: cache-root-v4-${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
+    # Portable cache dirs (same path on Linux/macOS/Windows runners)
+    - name: Configure local caches
+      shell: bash
+      run: |
+        echo "NPM_CONFIG_CACHE=.npm-cache" >> "$GITHUB_ENV"
+        echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
+        mkdir -p .npm-cache .pip-cache .versions
 
-    - name: Cache build
-      id: cache-build
-      uses: actions/cache@v4
-      with:
-        path: ./build/node_modules
-        key: cache-build-v4-${{ runner.os }}-${{ hashFiles('build/package-lock.json') }}
-
-    - name: Cache extensions
-      id: cache-extensions
-      uses: actions/cache@v4
-      with:
-        path: ./extensions/node_modules
-        key: cache-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/package-lock.json') }}
-
-    # - name: Cache nested extensions
-    #   id: cache-nested-extensions
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: ./extensions/**/node_modules
-    #     key: cache-nested-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/**/package-lock.json') }}
-
-    - name: Cache remote
-      id: cache-remote
-      uses: actions/cache@v4
-      with:
-        path: ./remote/node_modules
-        key: cache-remote-v4-${{ runner.os }}-${{ hashFiles('remote/package-lock.json') }}
-
-    # - name: Cache nested remote
-    #   id: cache-nested-remote
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: ./remote/**/node_modules
-    #     key: cache-nested-remote-v4-${{ runner.os }}-${{ hashFiles('remote/**/package-lock.json') }}
-
-    - name: Cache npm cache
+    # Single npm tarball cache (works with `npm ci`)
+    - name: Cache npm tarball store
       id: cache-npm
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.npm
-        key: npm-cache-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        path: .npm-cache
+        key: >
+          npm-cache-${{ runner.os }}-node-${{ inputs.node-version || 'unknown' }}-${{
+            hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json')
+          }}
         restore-keys: |
+          npm-cache-${{ runner.os }}-node-${{ inputs.node-version || 'unknown' }}-
           npm-cache-${{ runner.os }}-
 
-    # - name: Cache pip cache
+    # If you want pip caching later, uncomment the block below.
+    # - name: Cache pip wheels
     #   id: cache-pip
     #   uses: actions/cache@v4
     #   with:
-    #     path: |
-    #       ~/.cache/pip
-    #     # Use any requirements.txt in the repo to form the key; falls back to os-only key
+    #     path: .pip-cache
     #     key: pip-cache-${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
     #     restore-keys: |
     #       pip-cache-${{ runner.os }}-
 
+    # -------- Versioned binaries (ark) --------
     - name: Cache ark binary
       id: cache-binaries-ark
       uses: actions/cache@v4
       with:
+        # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
         path: |
-          ./extensions/positron-r/resources/ark
+          extensions/positron-r/resources/ark
           ./ark
-        key: positron-binaries-ark-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
+        key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
         restore-keys: |
-          positron-binaries-ark-${{ runner.os }}-
+          ark-bin-${{ runner.os }}-
 
+    # -------- Versioned binaries (kallichore) --------
     - name: Cache kallichore binary
       id: cache-binaries-kallichore
       uses: actions/cache@v4
       with:
         path: |
-          ./extensions/positron-supervisor/resources/kallichore
+          extensions/positron-supervisor/resources/kallichore
           ./kallichore
-        key: positron-binaries-kallichore-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
         restore-keys: |
-          positron-binaries-kallichore-${{ runner.os }}-
+          kallichore-bin-${{ runner.os }}-
 
