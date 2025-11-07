@@ -3,15 +3,8 @@ description: "Installs necessary system dependencies."
 runs:
   using: "composite"
   steps:
-    - name: Restore npm cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.npm
-          node_modules
-        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
+    - name: Restore multiple node_modules caches
+      uses: ./.github/actions/cache-multi-paths
 
     - name: Restore Playwright browsers cache
       uses: actions/cache@v4
@@ -43,6 +36,18 @@ runs:
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-
+
+    - name: Cache diagnostics
+      shell: bash
+      run: |
+        echo "--- Cache diagnostics ---"
+        echo "node_modules (root):"; du -sh node_modules || true
+        echo "build/node_modules:"; du -sh build/node_modules || true
+        echo "extensions/node_modules:"; du -sh extensions/node_modules || true
+        echo ".build/builtInExtensions:"; du -sh .build/builtInExtensions || true
+        echo "~/.cache/ms-playwright:"; du -sh ~/.cache/ms-playwright || true
+        echo "~/.cache/electron:"; du -sh ~/.cache/electron || true
+        echo "--- end diagnostics ---"
 
     - name: Install Node packages (timed)
       shell: bash
