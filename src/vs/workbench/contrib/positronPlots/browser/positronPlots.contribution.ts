@@ -179,6 +179,21 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				type: 'boolean',
 				default: true,
 				description: localize('plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
+			},
+			'plots.historyPolicy': {
+				type: 'string',
+				default: 'auto',
+				enum: [
+					'always',
+					'auto',
+					'never'
+				],
+				enumDescriptions: [
+					localize('plots.historyPolicyAlways', 'Always show the plot history filmstrip'),
+					localize('plots.historyPolicyAuto', 'Automatically show the plot history filmstrip when there are multiple plots and sufficient space'),
+					localize('plots.historyPolicyNever', 'Never show the plot history filmstrip')
+				],
+				description: localize('plots.historyPolicySetting', "When the plot history filmstrip is visible."),
 			}
 		}
 	});

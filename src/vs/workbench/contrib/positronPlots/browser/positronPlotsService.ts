@@ -66,9 +66,6 @@ const WebviewPlotInactiveInterval = 1_000;
 /** The key used to store the cached plot thumbnail descriptors */
 const CachedPlotThumbnailDescriptorsKey = 'positron.plots.cachedPlotThumbnailDescriptors';
 
-/** The key used to store the preferred history policy */
-const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
-
 /** The key used to store the preferred plot sizing policy */
 const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 
@@ -81,6 +78,9 @@ const DarkFilterModeConfigKey = 'plots.darkFilter';
 
 /** The config key used to store the default plot sizing policy setting */
 const DefaultSizingPolicyConfigKey = 'plots.defaultSizingPolicy';
+
+/** The config key used to store the history policy setting */
+const HistoryPolicyConfigKey = 'plots.historyPolicy';
 
 interface DataUri {
 	mime: string;
@@ -260,12 +260,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// When the storage service is about to save state, store policies and cached plot thumbnail descriptors.
 		this._register(this._storageService.onWillSaveState(() => {
 			this._storageService.store(
-				HistoryPolicyStorageKey,
-				this._selectedHistoryPolicy,
-				StorageScope.WORKSPACE,
-				StorageTarget.MACHINE);
-
-			this._storageService.store(
 				SizingPolicyStorageKey,
 				this._selectedSizingPolicy.id,
 				StorageScope.WORKSPACE,
@@ -341,6 +335,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}));
 
+		// Listen for changes to the history policy configuration
+		this._register(this._configurationService.onDidChangeConfiguration((evt) => {
+			if (evt.affectsConfiguration(HistoryPolicyConfigKey)) {
+				const newPolicy = this.getHistoryPolicySetting();
+				if (newPolicy && newPolicy !== this.historyPolicy) {
+					this._selectedHistoryPolicy = newPolicy;
+					this._onDidChangeHistoryPolicy.fire(newPolicy);
+				}
+			}
+		}));
+
 		// When the extension service is about to stop, remove any HTML plots
 		// from the plots list. These plots are backed by a proxy that runs in
 		// the extension host, so may become invalid when the extension host is
@@ -396,13 +401,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 		}
 
-		// See if there's a preferred history policy in storage, and select it if so
-		const preferredHistoryPolicy = this._storageService.get(
-			HistoryPolicyStorageKey,
-			StorageScope.WORKSPACE);
-		if (preferredHistoryPolicy && preferredHistoryPolicy) {
-			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
-		}
+		// Initialize history policy from configuration
+		this._selectedHistoryPolicy = this.getHistoryPolicySetting();
 
 		// Load the cached plot thumbnail descriptors from workspace storage.
 		const cachedPlotThumbnailDescriptorsJSON = this._storageService.get(CachedPlotThumbnailDescriptorsKey, StorageScope.WORKSPACE);
@@ -526,6 +526,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Fall back to the old setting
 		return this._configurationService.getValue<DarkFilter>(OldDarkFilterModeConfigKey) ?? DarkFilter.Auto;
+	}
+
+	/**
+	 * Gets the history policy setting value from configuration.
+	 * @returns The history policy
+	 */
+	private getHistoryPolicySetting(): HistoryPolicy {
+		return this._configurationService.getValue<HistoryPolicy>(HistoryPolicyConfigKey) ?? HistoryPolicy.Automatic;
 	}
 
 	get darkFilterMode() {
