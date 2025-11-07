@@ -88,6 +88,16 @@ export const isZoomablePlotClient = (obj: any): obj is IZoomablePlotClient => {
 };
 
 /**
+ * The location where the plots pane is currently being displayed.
+ */
+export enum PlotsDisplayLocation {
+	/** Plots are displayed in the main window (auxiliary bar view pane) */
+	MainWindow = 'main',
+	/** Plots are displayed in an auxiliary window */
+	AuxiliaryWindow = 'auxiliary'
+}
+
+/**
  * Creates a suggested file name for a plot.
  * @param storageService The storage service to use.
  * @returns A suggested file name for the plot.
@@ -334,6 +344,23 @@ export interface IPositronPlotsService {
 	 * @param settings The new settings.
 	 */
 	setPlotsRenderSettings(settings: PlotRenderSettings): void;
+
+	/**
+	 * Gets the current display location of the plots pane.
+	 */
+	readonly displayLocation: PlotsDisplayLocation;
+
+	/**
+	 * Notifies subscribers when the display location changes.
+	 */
+	readonly onDidChangeDisplayLocation: Event<PlotsDisplayLocation>;
+
+	/**
+	 * Sets the display location of the plots pane.
+	 *
+	 * @param location The new display location.
+	 */
+	setDisplayLocation(location: PlotsDisplayLocation): void;
 
 	/**
 	 * Placeholder for service initialization.

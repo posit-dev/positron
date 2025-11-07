@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -135,6 +135,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The emitter for the _sizingPolicyEmitter event */
 	private readonly _onDidChangeSizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
+
+	/** The emitter for the onDidChangeDisplayLocation event */
+	private readonly _onDidChangeDisplayLocationEmitter = new Emitter<PlotsDisplayLocation>();
+
+	/** The current display location of the plots pane */
+	private _displayLocation: PlotsDisplayLocation = PlotsDisplayLocation.MainWindow;
 
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
@@ -520,6 +526,28 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	get darkFilterMode() {
 		return this._selectedDarkFilterMode;
+	}
+
+	/**
+	 * Gets the current display location.
+	 */
+	get displayLocation(): PlotsDisplayLocation {
+		return this._displayLocation;
+	}
+
+	/**
+	 * Event fired when the display location changes.
+	 */
+	readonly onDidChangeDisplayLocation: Event<PlotsDisplayLocation> = this._onDidChangeDisplayLocationEmitter.event;
+
+	/**
+	 * Sets the display location of the plots pane.
+	 */
+	setDisplayLocation(location: PlotsDisplayLocation): void {
+		if (this._displayLocation !== location) {
+			this._displayLocation = location;
+			this._onDidChangeDisplayLocationEmitter.fire(location);
+		}
 	}
 
 	/**

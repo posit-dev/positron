@@ -20,6 +20,8 @@ import { IEditorOpenContext } from '../../../common/editor.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronPlotsGalleryEditorInput } from './positronPlotsGalleryEditorInput.js';
 import { PositronPlots } from '../../positronPlots/browser/positronPlots.js';
+import { IPositronPlotsService, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
 
 /**
  * PositronPlotsGalleryEditor class.
@@ -83,6 +85,8 @@ export class PositronPlotsGalleryEditor extends EditorPane implements IReactComp
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
+		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
+		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		super(
 			PositronPlotsGalleryEditorInput.EditorID,
@@ -94,6 +98,14 @@ export class PositronPlotsGalleryEditor extends EditorPane implements IReactComp
 
 		// Create the container
 		this._container = DOM.$('.positron-plots-gallery-editor');
+	}
+
+	override dispose(): void {
+		// Restore the plots view in the main window when this editor is closed
+		this._positronPlotsService.setDisplayLocation(PlotsDisplayLocation.MainWindow);
+		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+
+		super.dispose();
 	}
 
 	//#endregion Constructor
