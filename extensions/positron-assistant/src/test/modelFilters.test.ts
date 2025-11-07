@@ -46,7 +46,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns(['openai']);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['claude']);
 
-			const result = applyModelFilters(models, 'openai');
+			const result = applyModelFilters(models, 'openai', 'OpenAI');
 
 			assert.strictEqual(result.length, models.length);
 			assert.deepStrictEqual(result, models);
@@ -59,10 +59,10 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['claude']);
 
 			// Should return all models for test providers
-			const testResult = applyModelFilters(models, 'test-lm-vendor');
+			const testResult = applyModelFilters(models, 'test-lm-vendor', 'Test LM Vendor');
 			assert.strictEqual(testResult.length, models.length);
 
-			const echoResult = applyModelFilters(models, 'echo');
+			const echoResult = applyModelFilters(models, 'echo', 'Echo');
 			assert.strictEqual(echoResult.length, models.length);
 		});
 
@@ -75,7 +75,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns([]);
 
-			const result = applyModelFilters(models, 'anthropic');
+			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
 			assert.strictEqual(result.length, models.length);
 			assert.deepStrictEqual(result, models);
@@ -152,7 +152,7 @@ suite('Model Filters', () => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
 
-				const result = applyModelFilters(testCase.models, testCase.vendor);
+				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 				const resultIds = result.map(m => m.id);
 
 				assert.strictEqual(
@@ -230,7 +230,7 @@ suite('Model Filters', () => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
 
-				const result = applyModelFilters(testCase.models, testCase.vendor);
+				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 				const resultIds = result.map(m => m.id);
 
 				assert.strictEqual(
@@ -290,7 +290,7 @@ suite('Model Filters', () => {
 				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
 
-				const result = applyModelFilters(testCase.models, testCase.vendor);
+				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
 
 				if ('expectedCount' in testCase) {
 					assert.strictEqual(
@@ -328,7 +328,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['gpt', 'claude']);
 
-			const result = applyModelFilters(models, 'mixed-vendor');
+			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
 			assert.strictEqual(result.length, 4); // All GPT and Claude models
 			const resultIds = result.map(m => m.id);
@@ -357,7 +357,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['gpt', '*chat*']);
 
-			const result = applyModelFilters(models, 'mixed-vendor');
+			const result = applyModelFilters(models, 'mixed-vendor', 'Mixed Vendor');
 
 			assert.strictEqual(result.length, 4); // All GPT models + chat models
 			const resultIds = result.map(m => m.id);
@@ -380,7 +380,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['nonexistent']);
 
-			const result = applyModelFilters(models, 'some-vendor');
+			const result = applyModelFilters(models, 'some-vendor', 'Some Vendor');
 
 			assert.strictEqual(result.length, 0);
 		});
@@ -389,7 +389,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['claude']);
 
-			const result = applyModelFilters([], 'anthropic');
+			const result = applyModelFilters([], 'anthropic', 'Anthropic');
 
 			assert.strictEqual(result.length, 0);
 		});
@@ -400,7 +400,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['Opus']);
 
-			const result = applyModelFilters(models, 'anthropic');
+			const result = applyModelFilters(models, 'anthropic', 'Anthropic');
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].id, 'model-id-without-filter-string');
@@ -416,7 +416,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['Pro']); // Should match "Gemini Pro" and "Gemini Pro Vision" in name
 
-			const result = applyModelFilters(models, 'google');
+			const result = applyModelFilters(models, 'google', 'Google');
 
 			assert.strictEqual(result.length, 2);
 			const resultIds = result.map(m => m.id);
@@ -430,7 +430,7 @@ suite('Model Filters', () => {
 			mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
 			mockWorkspaceConfig.withArgs('filterModels', []).returns(['v2.1']); // Pattern with dot
 
-			const result = applyModelFilters(models, 'provider');
+			const result = applyModelFilters(models, 'provider', 'Provider');
 
 			assert.strictEqual(result.length, 1);
 			assert.strictEqual(result[0].id, 'model-v2.1');

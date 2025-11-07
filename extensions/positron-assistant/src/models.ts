@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { getProviderTimeoutMs, ModelConfig } from './config';
+import { getMaxConnectionAttempts, getProviderTimeoutMs, ModelConfig } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -235,8 +235,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
 		// Filter models based on user settings
-		const filteredModels = applyModelFilters(this.availableModels, this.provider);
-		return Promise.resolve(filteredModels);
+		return applyModelFilters(this.availableModels, this.provider, this.providerName);
 	}
 
 	private getUserPrompt(messages: ai.CoreMessage[]): ai.CoreMessage | undefined {
@@ -332,13 +331,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			return new Error(`[${this.providerName}] No models available for provider`);
 		}
 
-		// Get the maximum number of connection attempts to try, defaulting to 3
-		let maxModelsToTest = vscode.workspace.getConfiguration('positron.assistant').get<number>('maxConnectionAttempts', 3);
-		if (maxModelsToTest < 1) {
-			log.warn(`[${this.providerName}] Invalid maxConnectionAttempts value: ${maxModelsToTest}. Using default of 3.`);
-			maxModelsToTest = 3;
-		}
-
+		const maxModelsToTest = getMaxConnectionAttempts();
 		const modelsToTest = this.modelListing.slice(0, maxModelsToTest);
 
 		log.debug(`[${this.providerName}] Testing up to ${modelsToTest.length} models for connectivity...`);
@@ -670,7 +663,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			} satisfies vscode.LanguageModelChatInformation));
 
 			// Filter models based on user settings
-			models = applyModelFilters(models, this.provider);
+			models = applyModelFilters(models, this.provider, this.providerName);
 
 			this.modelListing = models;
 			return models;
@@ -770,79 +763,66 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 	}
 
 	async resolveModels(token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[] | undefined> {
-		// fetch the model list from OpenAI
-		// use the baseUrl/v1/models endpoint
+		const data = await this.fetchModelsFromAPI();
+		if (!data?.data || !Array.isArray(data.data)) {
+			log.info(`[${this.providerName}] Request was successful, but no models were returned.`);
+			return undefined;
+		}
+		log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
+
+		return this.processModelsResponse(data);
+	}
+
+	private async fetchModelsFromAPI(): Promise<any> {
 		const modelsUrl = `${this.baseUrl}/models`;
 		log.info(`[${this.providerName}] Fetching models from ${modelsUrl}...`);
 
-		try {
-			// make an http request to the models endpoint
-			const response = await fetch(modelsUrl, {
-				method: 'GET',
-				headers: {
-					'Authorization': `Bearer ${this._config.apiKey}`,
-					'Content-Type': 'application/json'
-				}
-			});
-
-			const data = await response.json();
-			if (!response.ok || !data || data.error) {
-				log.error(`[${this.providerName}] Error fetching models: ${response.status} ${response.statusText} - ${JSON.stringify(data)}`);
-				if (!response.ok) {
-					throw new Error(`Could not fetch models ${response.statusText}`);
-				} else if (data.error) {
-					throw new Error(`Could not fetch models ${data.error.message || JSON.stringify(data.error)}`);
-				} else {
-					throw new Error('Unknown error fetching models');
-				}
-			} else {
-				if (data && data.data && Array.isArray(data.data)) {
-					log.info(`[${this.providerName}] Successfully fetched ${data.data.length} models.`);
-					let models: vscode.LanguageModelChatInformation[] = data.data
-						// Filter out models with patterns that indicate they're not suitable for chat
-						.filter((model: any) => {
-							const modelName = model.id.toLowerCase();
-							const shouldRemove = OpenAILanguageModel.FILTERED_MODEL_PATTERNS.some(pattern => {
-								// Use word boundary regex to avoid false positives like "research" matching "search"
-								// For OpenAI's predefined patterns, we want precise matching
-								const regex = new RegExp(`\\b${pattern.toLowerCase()}\\b`, 'i');
-								return regex.test(modelName);
-							});
-							if (shouldRemove) {
-								log.debug(`[${this.providerName}] Filtering out model: ${model.id}`);
-							}
-							return !shouldRemove;
-						})
-						.map((model: any) => {
-							return {
-								id: model.id,
-								name: model.id,
-								family: this.provider,
-								version: model.id,
-								maxInputTokens: 0,
-								maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
-								capabilities: this.capabilities,
-							};
-						});
-
-					// Filter models based on user settings
-					models = applyModelFilters(models, this.provider);
-
-					this.modelListing = models;
-					return models;
-				} else {
-					log.info(`[${this.providerName}] Request was successful, but no models were returned.`);
-					return undefined;
-				}
+		const response = await fetch(modelsUrl, {
+			method: 'GET',
+			headers: {
+				'Authorization': `Bearer ${this._config.apiKey}`,
+				'Content-Type': 'application/json'
 			}
-		} catch (error) {
-			if (ai.AISDKError.isInstance(error)) {
-				log.error(`[${this.providerName}] Error fetching OpenAI models: ${error.message}`);
-			} else {
-				log.error(`[${this.providerName}] Error fetching OpenAI models: ${JSON.stringify(error)}`);
-			}
-			throw error;
+		});
+
+		const data = await response.json();
+
+		if (!response.ok || data?.error) {
+			log.error(`[${this.providerName}] Error fetching models: ${response.status} ${response.statusText} - ${JSON.stringify(data?.error.code)}`);
+			const errorMsg = `Error fetching models: ${response.status} ${response.statusText} - ${data.error.code || JSON.stringify(data.error)}`;
+			throw new Error(errorMsg);
 		}
+
+		return data;
+	}
+
+	private processModelsResponse(data: any): vscode.LanguageModelChatInformation[] | undefined {
+		let models: vscode.LanguageModelChatInformation[] = data.data
+			.filter((model: any) => {
+				const modelName = model.id.toLowerCase();
+				const shouldRemove = OpenAILanguageModel.FILTERED_MODEL_PATTERNS.some(pattern => {
+					const regex = new RegExp(`\\b${pattern.toLowerCase()}\\b`, 'i');
+					return regex.test(modelName);
+				});
+				if (shouldRemove) {
+					log.debug(`[${this.providerName}] Removing incompatible model: ${model.id}`);
+				}
+				return !shouldRemove;
+			})
+			.map((model: any) => ({
+				id: model.id,
+				name: model.id,
+				family: this.provider,
+				version: model.id,
+				maxInputTokens: 0,
+				maxOutputTokens: model.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
+				capabilities: this.capabilities,
+			}));
+
+		models = applyModelFilters(models, this.provider, this.providerName);
+		this.modelListing = models;
+
+		return models;
 	}
 }
 
@@ -1203,7 +1183,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		});
 
 		// Filter models based on user settings
-		const filteredModelListing = applyModelFilters(modelListing, this.provider);
+		const filteredModelListing = applyModelFilters(modelListing, this.provider, this.providerName);
 
 		this.modelListing = filteredModelListing;
 		return filteredModelListing;

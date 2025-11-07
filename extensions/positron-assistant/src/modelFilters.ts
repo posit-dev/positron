@@ -59,26 +59,28 @@ function simpleGlobMatch(pattern: string, text: string): boolean {
  */
 export function applyModelFilters(
 	models: vscode.LanguageModelChatInformation[],
-	vendor: string
+	vendor: string,
+	providerName: string
 ): vscode.LanguageModelChatInformation[] {
-	log.info(`[${vendor}] Total models before applying user settings: ${models.length}`);
-	log.debug(`[${vendor}] Models before applying user settings: ${models.map(m => m.id).join(', ')}`);
+	log.info(`[${providerName}] Total models before applying user settings: ${models.length}`);
+	log.debug(`[${providerName}] Models before applying user settings: ${models.map(m => m.id).join(', ')}`);
 
 	// Check if this vendor is in the unfiltered providers list
 	let unfilteredProviders = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('unfilteredProviders', []);
-	log.debug(`[${vendor}] Unfiltered providers from config: ${unfilteredProviders.join(', ')}`);
+	log.debug(`[${providerName}] (${vendor}) Unfiltered providers from config: ${unfilteredProviders.join(', ')}`);
 
 	if (unfilteredProviders.length === 0) {
 		// If no configuration, default to known test providers
 		unfilteredProviders = ['test-lm-vendor', 'echo'];
 	}
 	if (unfilteredProviders.includes(vendor)) {
+		log.debug(`[${providerName}] Skipping model filtering for unfiltered provider: ${vendor}`);
 		return models;
 	}
 
 	// Get the filter patterns from workspace configuration
 	const filterModels = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
-	log.debug(`[${vendor}] Model filter patterns from config: ${filterModels.join(', ')}`);
+	log.debug(`[${providerName}] Model filter patterns from config: ${filterModels.join(', ')}`);
 	if (filterModels.length === 0) {
 		return models;
 	}
@@ -90,8 +92,8 @@ export function applyModelFilters(
 		)
 	);
 
-	log.info(`[${vendor}] Total models after applying user settings: ${filteredModels.length}`);
-	log.debug(`[${vendor}] Models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+	log.info(`[${providerName}] Total models after applying user settings: ${filteredModels.length}`);
+	log.debug(`[${providerName}] Models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
 
 	return filteredModels;
 }

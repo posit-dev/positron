@@ -10,6 +10,7 @@ import { completionModels } from './completion';
 import { clearTokenUsage, disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
+import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -135,6 +136,16 @@ export function getProviderTimeoutMs(): number {
 	const cfg = vscode.workspace.getConfiguration('positron.assistant');
 	const timeoutSec = cfg.get<number>('providerTimeout', 60);
 	return timeoutSec * 1000;
+}
+
+export function getMaxConnectionAttempts(): number {
+	const cfg = vscode.workspace.getConfiguration('positron.assistant');
+	const maxAttempts = cfg.get<number>('maxConnectionAttempts', DEFAULT_MAX_CONNECTION_ATTEMPTS);
+	if (maxAttempts < 1) {
+		log.warn(`Invalid maxConnectionAttempts value: ${maxAttempts}. Using default of ${DEFAULT_MAX_CONNECTION_ATTEMPTS}.`);
+		return DEFAULT_MAX_CONNECTION_ATTEMPTS;
+	}
+	return maxAttempts;
 }
 
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {

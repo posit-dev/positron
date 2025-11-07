@@ -51,7 +51,7 @@ suite('Models', () => {
 			openAIModel = new OpenAILanguageModel(mockConfig);
 		});
 
-		test('filters out models based on FILTERED_MODEL_PATTERNS', async () => {
+		test('resolveModels filters out models based on FILTERED_MODEL_PATTERNS', async () => {
 			const mockApiResponse = {
 				data: [
 					// Models that should be kept
