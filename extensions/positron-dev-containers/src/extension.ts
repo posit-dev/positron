@@ -144,7 +144,7 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.openWorkspace', OpenCommands.openWorkspace);
 
 	// Attach commands
-	registerCommand(context, 'remote-containers.attachToRunningContainer', notImplemented);
+	registerCommand(context, 'remote-containers.attachToRunningContainer', AttachCommands.attachToRunningContainer);
 	registerCommand(context, 'remote-containers.attachToContainerInCurrentWindow', AttachCommands.attachToContainerInCurrentWindow);
 	registerCommand(context, 'remote-containers.attachToContainerInNewWindow', AttachCommands.attachToContainerInNewWindow);
 
@@ -153,8 +153,8 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.switchContainer', notImplemented);
 	registerCommand(context, 'remote-containers.rebuildContainer', RebuildCommands.rebuildContainer);
 	registerCommand(context, 'remote-containers.rebuildContainerNoCache', RebuildCommands.rebuildContainerNoCache);
-	registerCommand(context, 'remote-containers.stopContainer', notImplemented);
-	registerCommand(context, 'remote-containers.startContainer', notImplemented);
+	registerCommand(context, 'remote-containers.stopContainer', AttachCommands.stopContainer);
+	registerCommand(context, 'remote-containers.startContainer', AttachCommands.startContainer);
 	registerCommand(context, 'remote-containers.removeContainer', AttachCommands.removeContainer);
 	registerCommand(context, 'remote-containers.showContainerLog', showContainerLog);
 	registerCommand(context, 'remote-containers.newContainer', notImplemented);
@@ -181,7 +181,7 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 			await devContainersTreeProvider.refresh();
 		}
 	});
-	registerCommand(context, 'remote-containers.explorerDetailsRefresh', notImplemented);
+	registerCommand(context, 'remote-containers.explorerDetailsRefresh', explorerDetailsRefresh);
 	registerCommand(context, 'remote-containers.showDetails', notImplemented);
 	registerCommand(context, 'remote-containers.removeRecentFolder', notImplemented);
 	registerCommand(context, 'remote-containers.inspectDockerResource', notImplemented);
@@ -264,6 +264,22 @@ async function openLogFile(): Promise<void> {
 
 	const document = await vscode.workspace.openTextDocument(logFilePath);
 	await vscode.window.showTextDocument(document);
+}
+
+/**
+ * Refresh the details explorer view
+ */
+async function explorerDetailsRefresh(): Promise<void> {
+	const logger = getLogger();
+	logger.info('Command: explorerDetailsRefresh');
+
+	// The details view would show information about the current container
+	// when connected to a dev container. For now, this is a placeholder
+	// that could be expanded when a details tree provider is implemented.
+
+	// TODO: Implement a details tree provider and refresh it here
+	// For now, we'll just log that the command was called
+	logger.debug('Details view refresh requested (view not yet fully implemented)');
 }
 
 /**
