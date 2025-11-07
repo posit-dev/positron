@@ -150,6 +150,8 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Ensure Docker client doesn't try to read a root-owned config file in the container
+      DOCKER_CONFIG: /tmp/.docker
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
@@ -186,6 +188,11 @@ jobs:
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
+
+      - name: Ensure Docker config dir is writable
+        run: |
+          mkdir -p /tmp/.docker
+          chmod 700 /tmp/.docker
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
@@ -225,7 +232,12 @@ jobs:
         if: ${{ inputs.use_artifact == true }}
         run: |
           mkdir -p /__w
-          tar -xzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz -C /__w
+          # Avoid preserving uid/gid from the tar (can cause permission issues on extract)
+          tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz -C /__w
+          # Ensure extracted files are owned by the runner user so subsequent steps can write to them
+          if [ -d /__w/positron ]; then
+            chown -R $(id -u):$(id -g) /__w/positron || true
+          fi
 
       - name: Seed system tmp cache from bundled cache
         if: ${{ inputs.use_artifact == true }}
@@ -236,6 +248,19 @@ jobs:
             if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
               echo "✓ Seeded /tmp/qa-example-content-cache"
             fi
+          fi
+
+      - name: Validate bundled QA cache
+        if: ${{ inputs.use_artifact == true }}
+        run: |
+          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
+          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
+          else
+            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
+            echo "Contents of /tmp:"; ls -la /tmp || true
+            echo "Contents of extracted workspace (/__w/positron/test/e2e):"; ls -la /__w/positron/test/e2e || true
+            exit 1
           fi
 
       - name: Setup E2E Test Environment
