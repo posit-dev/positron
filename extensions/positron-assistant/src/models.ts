@@ -331,28 +331,53 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			return new Error(`[${this.providerName}] No models available for provider`);
 		}
 
-		const model = this.modelListing[0].id;
-
-		try {
-			log.debug(`[${this.providerName}] '${model}' Sending test message...`);
-
-			const result = await ai.generateText({
-				model: this.aiProvider(model, this.aiOptions),
-				prompt: `I'm checking to see if you're there. Respond only with the word "hello".`,
-				abortSignal: AbortSignal.timeout(getProviderTimeoutMs()),
-				maxRetries: 1, // Retry the request once in case of transient errors
-			});
-
-			log.debug(`[${this.providerName}] '${model}' Test message sent successfully .`);
-			log.trace(`[${this.providerName}] '${model}' Test message response: ${result.text}`);
-			return undefined;
-		} catch (error) {
-			const messagePrefix = `[${this.providerName}] '${model}'`;
-			log.error(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
-			const errorMsg = this.parseProviderError(error) ||
-				(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
-			return new Error(`${messagePrefix} Error sending test message: ${errorMsg}`);
+		// Get the maximum number of connection attempts to try, defaulting to 3
+		let maxModelsToTest = vscode.workspace.getConfiguration('positron.assistant').get<number>('maxConnectionAttempts', 3);
+		if (maxModelsToTest < 1) {
+			log.warn(`[${this.providerName}] Invalid maxConnectionAttempts value: ${maxModelsToTest}. Using default of 3.`);
+			maxModelsToTest = 3;
 		}
+
+		const modelsToTest = this.modelListing.slice(0, maxModelsToTest);
+
+		log.debug(`[${this.providerName}] Testing ${modelsToTest.length} models for connectivity...`);
+
+		const errors: string[] = [];
+
+		// Try each model until one succeeds
+		for (const modelInfo of modelsToTest) {
+			if (token.isCancellationRequested) {
+				return new Error(`[${this.providerName}] Connection test cancelled`);
+			}
+
+			const model = modelInfo.id;
+
+			try {
+				log.debug(`[${this.providerName}] '${model}' Sending test message...`);
+
+				const result = await ai.generateText({
+					model: this.aiProvider(model, this.aiOptions),
+					prompt: `I'm checking to see if you're there. Respond only with the word "hello".`,
+					abortSignal: AbortSignal.timeout(getProviderTimeoutMs()),
+					maxRetries: 1, // Retry the request once in case of transient errors
+				});
+
+				log.debug(`[${this.providerName}] '${model}' Test message sent successfully.`);
+				log.trace(`[${this.providerName}] '${model}' Test message response: ${result.text}`);
+				return undefined; // Success! At least one model is working
+			} catch (error) {
+				const messagePrefix = `[${this.providerName}] '${model}'`;
+				log.warn(`${messagePrefix} Error sending test message: ${JSON.stringify(error, null, 2)}`);
+				const errorMsg = this.parseProviderError(error) ||
+					(ai.AISDKError.isInstance(error) ? error.message : JSON.stringify(error, null, 2));
+				errors.push(errorMsg);
+			}
+		}
+
+		// If we get here, all tested models failed
+		const allErrors = errors.join('; ');
+		log.error(`[${this.providerName}] All ${modelsToTest.length} tested models failed: ${allErrors}`);
+		return new Error(`[${this.providerName}] All tested models failed: ${allErrors}`);
 	}
 
 	async provideLanguageModelChatInformation(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
