@@ -18,12 +18,11 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { SizingPolicyMenuButton } from './sizingPolicyMenuButton.js';
-import { HistoryPolicyMenuButton } from './historyPolicyMenuButton.js';
 import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
-import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
+import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
@@ -41,6 +40,7 @@ const savePlot = localize('positronSavePlot', "Save plot");
 const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy plot to clipboard");
 const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open plot in new window");
 const openInEditorTab = localize('positronOpenPlotInEditorTab', "Open in editor tab");
+const openPlotsGalleryInNewWindow = localize('positronOpenPlotsGalleryInNewWindow', "Open plots gallery in new window");
 const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
 
 /**
@@ -133,6 +133,10 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		services.commandService.executeCommand(PlotsPopoutAction.ID);
 	};
 
+	const openGalleryInNewWindowHandler = () => {
+		services.commandService.executeCommand(PlotsGalleryInNewWindowAction.ID);
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
@@ -210,10 +214,16 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{enableDarkFilter &&
 							<DarkFilterMenuButton />
 						}
-						<HistoryPolicyMenuButton
-							plotsService={services.positronPlotsService}
-						/>
 						<ActionBarSeparator />
+						{props.displayLocation === PlotsDisplayLocation.MainWindow &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={openPlotsGalleryInNewWindow}
+								icon={ThemeIcon.fromId('window')}
+								tooltip={openPlotsGalleryInNewWindow}
+								onPressed={openGalleryInNewWindowHandler}
+							/>
+						}
 						<ActionBarButton
 							align='right'
 							ariaLabel={clearAllPlots}
