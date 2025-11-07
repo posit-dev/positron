@@ -431,7 +431,7 @@
 			]
 		},
 		"roxygen": {
-			"begin": "(^\\s*#+')",
+			"begin": "(^\\s*#+(?:'|*))",
 			"beginCaptures": {
 				"1": {
 					"name": "comment.line.roxygen"
@@ -455,7 +455,7 @@
 			]
 		},
 		"roxygen-example": {
-			"begin": "(^\\s*#+')\\s*(@examples)\\s*$",
+			"begin": "(^\\s*#+')\\s*(?:(@examples)\\s*|(@examplesIf)\\s.*)$",
 			"beginCaptures": {
 				"1": {
 					"name": "comment.line"
