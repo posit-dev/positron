@@ -687,12 +687,14 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		// Direct access is safe because state invariants guarantee at least one element
-		const edgeCell = state.type === SelectionState.SingleSelection
-			? state.active
-			: state.selected[up ? 0 : state.selected.length - 1];
-		const indexOfEdgeCell = edgeCell.index;
-		const nextCell = cells[indexOfEdgeCell + (up ? -1 : 1)];
+		// For addMode (Shift+Arrow), use edge cells to determine which cell to add
+		// For normal mode, use active cell to determine where to move from
+		const referenceCell = (addMode && state.type === SelectionState.MultiSelection)
+			? state.selected[up ? 0 : state.selected.length - 1]  // When expanding, use edge cell
+			: state.active;  // When collapsing or in single selection, use active cell
+
+		const indexOfReferenceCell = referenceCell.index;
+		const nextCell = cells[indexOfReferenceCell + (up ? -1 : 1)];
 
 		if (!nextCell) {
 			return;
@@ -700,7 +702,7 @@ export class SelectionStateMachine extends Disposable {
 
 		if (addMode) {
 			// If the edge cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
-			if (indexOfEdgeCell <= 0 && up || indexOfEdgeCell >= cells.length - 1 && !up) {
+			if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
 				// Already at the edge of the cells.
 				return;
 			}
@@ -720,8 +722,8 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		// If the edge cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
-		if (indexOfEdgeCell <= 0 && up || indexOfEdgeCell >= cells.length - 1 && !up) {
+		// If the reference cell is at the top or bottom of the cells, and the up or down arrow key is pressed, respectively, do nothing.
+		if (indexOfReferenceCell <= 0 && up || indexOfReferenceCell >= cells.length - 1 && !up) {
 			// Already at the edge of the cells.
 			return;
 		}
