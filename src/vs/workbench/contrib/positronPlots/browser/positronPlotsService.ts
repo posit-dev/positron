@@ -465,7 +465,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private _showPlotsPane() {
-		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+		// Only open the plots view in the main window if that's where plots are currently displayed.
+		// If plots are in the auxiliary window, don't open the main window view.
+		if (this._displayLocation === PlotsDisplayLocation.MainWindow) {
+			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+		}
 	}
 
 	openPlotInNewWindow(): void {
