@@ -18,9 +18,31 @@ runs:
       with:
         path: |
           ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        # Include the e2e lockfile too in case test/e2e has its own playwright deps
+        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
         restore-keys: |
           playwright-${{ runner.os }}-
+
+    - name: Restore Electron binary cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+        # electron binaries are tied to package-lock and the electron version in package.json
+        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+        restore-keys: |
+          electron-${{ runner.os }}-
+
+    - name: Restore built-in extensions cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          .build/builtInExtensions
+        # product.json contains the list and versions of built-in extensions
+        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+        restore-keys: |
+          builtins-${{ runner.os }}-
 
     - name: Install Node packages (timed)
       shell: bash
@@ -29,23 +51,38 @@ runs:
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
       run: |
-        # Time the npm install so we can measure improvements from caching
-        date
-        time npm ci --fetch-timeout 120000
-        date
-        # Install test/e2e dependencies separately and time them too
-        date
-        time npm --prefix test/e2e ci
-        date
+        # Measure install durations precisely in seconds (machine-friendly)
+        echo "install-start: $(date -u +%FT%TZ)"
+        start=$(date +%s)
+
+        npm_ci_start=$(date +%s)
+        npm ci --fetch-timeout 120000
+        npm_ci_end=$(date +%s)
+        echo "npm-ci-seconds: $((npm_ci_end - npm_ci_start))"
+
+        e2e_ci_start=$(date +%s)
+        npm --prefix test/e2e ci
+        e2e_ci_end=$(date +%s)
+        echo "test-e2e-npm-ci-seconds: $((e2e_ci_end - e2e_ci_start))"
+
+        end=$(date +%s)
+        echo "install-total-seconds: $((end - start))"
+        echo "install-end: $(date -u +%FT%TZ)"
 
     - name: Compile and Download (parallel, timed)
       shell: bash
       run: |
-        # Run compile and playwright-install in parallel to save wall time. Keep
-        # memory afforded to Node high in case builds are memory heavy.
-        date
-        time npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64" playwright-install
-        date
+        # Run compile and playwright-install in parallel and measure wall time
+        echo "compile-start: $(date -u +%FT%TZ)"
+        start=$(date +%s)
+
+        npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64" playwright-install
+        rc=$?
+
+        end=$(date +%s)
+        echo "compile-seconds: $((end - start))"
+        echo "compile-end: $(date -u +%FT%TZ)"
+        exit $rc
 
     - name: Set permissions on SUID sandbox helper
       shell: bash
@@ -56,5 +93,14 @@ runs:
         stat $ELECTRON_ROOT/chrome-sandbox
 
     # Downloads Builtin Extensions (needed for integration & e2e testing)
-    - shell: bash
-      run: npm run prelaunch
+    - name: Prelaunch (timed)
+      shell: bash
+      run: |
+        echo "prelaunch-start: $(date -u +%FT%TZ)"
+        start=$(date +%s)
+        npm run prelaunch
+        rc=$?
+        end=$(date +%s)
+        echo "prelaunch-seconds: $((end - start))"
+        echo "prelaunch-end: $(date -u +%FT%TZ)"
+        exit $rc
