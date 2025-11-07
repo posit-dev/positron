@@ -302,7 +302,7 @@
           "positron.assistant.providerTimeout": {
             "type": "number",
             "default": 60,
-            "description": "%configuration.providerTimeout.description%",
+            "markdownDescription": "%configuration.providerTimeout.description%",
             "minimum": 1
           },
           "positron.assistant.maxConnectionAttempts": {
