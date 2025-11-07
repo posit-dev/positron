@@ -118,7 +118,7 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
 	constructor(context: vscode.ExtensionContext) {
 		super(['RPostgres', 'DBI', 'connections']);
-		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		// See the top-level NOTICE file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
