@@ -309,7 +309,18 @@ jobs:
           mkdir -p /tmp/artifacts
           # Create a zstd-compressed tarball using multi-threading for faster
           # compression. We stream tar to zstd to avoid relying on tar's -I flag.
-          tar -C /__w -cf - positron --exclude='.git' | zstd -T0 -19 -o /tmp/artifacts/positron-build.tar.zst || true
+          # Record compression timing and resulting size to help diagnose regressions.
+          comp_start=$(date +%s)
+          tar -C /__w -cf - positron --exclude='.git' | zstd -T0 -6 -o /tmp/artifacts/positron-build.tar.zst || true
+          comp_end=$(date +%s)
+          echo "compression seconds: $((comp_end - comp_start))"
+          du -h /tmp/artifacts/positron-build.tar.zst || true
+
+      - name: Record artifact upload start
+        if: ${{ inputs.mode == 'build-only' }}
+        run: |
+          mkdir -p /tmp/artifacts
+          date +%s > /tmp/artifacts/upload-start
 
       - name: Upload build artifact
         if: ${{ inputs.mode == 'build-only' }}
@@ -318,6 +329,15 @@ jobs:
           name: "positron-build"
           path: /tmp/artifacts/positron-build.tar.zst
           retention-days: 1
+
+      - name: Record artifact upload end and size
+        if: ${{ inputs.mode == 'build-only' }}
+        run: |
+          date +%s > /tmp/artifacts/upload-end
+          start=$(cat /tmp/artifacts/upload-start || echo 0)
+          end=$(cat /tmp/artifacts/upload-end)
+          echo "artifact upload seconds: $((end - start))"
+          ls -lh /tmp/artifacts || true
 
       - name: Install Playwright browsers
         if: ${{ inputs.mode != 'build-only' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
