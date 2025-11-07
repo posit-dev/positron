@@ -1000,7 +1000,7 @@
 				{
 					"id": "targetsContainers",
 					"name": "%views.remote.targetsContainers%",
-					"when": "!hideConnectCommands",
+					"when": "!hideConnectCommands && !isInDevContainer",
 					"group": "targets@2",
 					"remoteName": [
 						"dev-container",
@@ -1011,7 +1011,7 @@
 				{
 					"id": "detailsContainers",
 					"name": "%views.remote.detailsContainers%",
-					"when": "!hideConnectCommands && remote-containers:showDetails",
+					"when": "!hideConnectCommands && !isInDevContainer && remote-containers:showDetails",
 					"group": "details@1",
 					"remoteName": [
 						"dev-container",
@@ -1021,7 +1021,7 @@
 				{
 					"id": "devVolumes",
 					"name": "%views.remote.devVolumes%",
-					"when": "!hideConnectCommands",
+					"when": "!hideConnectCommands && !isInDevContainer",
 					"group": "details@2",
 					"remoteName": [
 						"dev-container",

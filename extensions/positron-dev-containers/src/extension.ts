@@ -63,12 +63,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	logger.info('Remote authority resolver registered');
 
-	// Register tree view for dev containers
-	const devContainersTreeProvider = new DevContainersTreeProvider();
-	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider('targetsContainers', devContainersTreeProvider)
-	);
-	logger.info('Dev containers tree view registered');
+	// Register tree view for dev containers (only when not in a dev container)
+	let devContainersTreeProvider: DevContainersTreeProvider | undefined;
+	if (!isInDevContainer) {
+		devContainersTreeProvider = new DevContainersTreeProvider();
+		context.subscriptions.push(
+			vscode.window.registerTreeDataProvider('targetsContainers', devContainersTreeProvider)
+		);
+		logger.info('Dev containers tree view registered');
+	} else {
+		logger.info('Skipping dev containers tree view registration (running in dev container)');
+	}
+
+	// Set context key for UI visibility
+	vscode.commands.executeCommand('setContext', 'isInDevContainer', isInDevContainer);
 
 	// Cleanup on extension deactivation
 	context.subscriptions.push({
@@ -113,7 +121,7 @@ export function deactivate(): void {
 /**
  * Register all commands
  */
-function registerCommands(context: vscode.ExtensionContext, devContainersTreeProvider: DevContainersTreeProvider): void {
+function registerCommands(context: vscode.ExtensionContext, devContainersTreeProvider: DevContainersTreeProvider | undefined): void {
 	const logger = getLogger();
 
 	// Core commands - Open/Reopen
@@ -165,7 +173,7 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.testConnection', notImplemented);
 
 	// View commands
-	registerCommand(context, 'remote-containers.explorerTargetsRefresh', () => devContainersTreeProvider.refresh());
+	registerCommand(context, 'remote-containers.explorerTargetsRefresh', () => devContainersTreeProvider?.refresh());
 	registerCommand(context, 'remote-containers.explorerDetailsRefresh', notImplemented);
 	registerCommand(context, 'remote-containers.explorerVolumesRefresh', notImplemented);
 	registerCommand(context, 'remote-containers.showDetails', notImplemented);

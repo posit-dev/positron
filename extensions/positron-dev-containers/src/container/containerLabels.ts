@@ -180,9 +180,13 @@ export class ContainerLabels {
 
 	/**
 	 * Check if a container is a dev container based on labels
+	 * Uses the standard devcontainer.local_folder label which is set by
+	 * VS Code, devcontainer CLI, and other dev container tools.
 	 */
 	static isDevContainer(labels: Record<string, string>): boolean {
-		return !!labels[DEV_CONTAINER_LABELS.TYPE];
+		// Check for the standard devcontainer label that indicates this container
+		// was created from a devcontainer.json configuration
+		return !!labels[DEV_CONTAINER_LABELS.LOCAL_FOLDER];
 	}
 
 	/**
