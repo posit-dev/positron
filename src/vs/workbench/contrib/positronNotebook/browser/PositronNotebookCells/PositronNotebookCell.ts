@@ -26,7 +26,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	abstract readonly kind: CellKind;
 	private _container: HTMLElement | undefined;
 	private readonly _execution = observableValue<INotebookCellExecution | undefined, void>('cellExecution', undefined);
-	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
+	public readonly editorObservable = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	protected readonly _internalMetadata;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
 
@@ -87,7 +87,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	get editor(): ICodeEditor | undefined {
-		return this._editor.get();
+		return this.editorObservable.get();
 	}
 
 	get uri(): URI {
@@ -161,11 +161,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	attachEditor(editor: CodeEditorWidget): void {
-		this._editor.set(editor, undefined);
+		this.editorObservable.set(editor, undefined);
 	}
 
 	detachEditor(): void {
-		this._editor.set(undefined, undefined);
+		this.editorObservable.set(undefined, undefined);
 	}
 
 	reveal(type?: CellRevealType): void {
@@ -223,7 +223,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	async showEditor(): Promise<ICodeEditor | undefined> {
 		// Returns the current editor (may be undefined if not yet mounted)
 		// Focus is managed by React through the editorFocusRequested observable
-		return this._editor.get();
+		return this.editorObservable.get();
 	}
 
 	deselect(): void {

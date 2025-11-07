@@ -50,7 +50,7 @@ export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral im
 
 	override async showEditor(): Promise<ICodeEditor | undefined> {
 		this.editorShown.set(true, undefined);
-		await waitForState(this._editor, (editor) => editor !== undefined);
+		await waitForState(this.editorObservable, (editor) => editor !== undefined);
 		// Wait for the text model to be loaded before returning
 		// This ensures the editor is fully ready for focus operations
 		await this.getTextEditorModel();

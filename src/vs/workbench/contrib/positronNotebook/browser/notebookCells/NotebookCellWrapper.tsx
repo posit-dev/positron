@@ -28,6 +28,8 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	hasError?: boolean;
 }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
+	// Track the cell element in state so changes trigger re-renders and context key updates
+	const [cellElement, setCellElement] = React.useState<HTMLDivElement | null>(null);
 	const notebookInstance = useNotebookInstance();
 	const selectionStateMachine = notebookInstance.selectionStateMachine;
 	const selectionStatus = useObservedValue(cell.selectionStatus);
@@ -37,6 +39,8 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 		if (cellRef.current) {
 			// Attach the container so the cell instance can properly control focus.
 			cell.attachContainer(cellRef.current);
+			// Update state to trigger context key setup
+			setCellElement(cellRef.current);
 		}
 	}, [cell, cellRef]);
 
@@ -55,7 +59,7 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	}, [selectionStatus, cellRef]);
 
 	// Manage context keys for this cell
-	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, notebookInstance);
+	const scopedContextKeyService = useCellContextKeys(cell, cellElement, notebookInstance);
 
 	const cellType = cell.kind === CellKind.Code ? 'Code' : 'Markdown';
 	const isSelected = selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;

@@ -24,6 +24,7 @@ import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js'
 import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
+import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 
 /**
  *
@@ -47,6 +48,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 	const services = usePositronReactServicesContext();
 	const environment = useEnvironment();
 	const instance = useNotebookInstance();
+	const cellContextKeyService = useCellScopedContextKeyService();
 
 	// Create an element ref to contain the editor
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
@@ -163,7 +165,22 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			disposables.dispose();
 			cell.detachEditor();
 		};
-	}, [cell, environment, instance, instance.scopedInstantiationService, services.configurationService, services.contextKeyService, services.instantiationService, services.logService]);
+	}, [cell, environment, instance, services.configurationService, services.contextKeyService, services.logService]);
+
+	// If the cell-scoped context key service becomes available after the editor was created,
+	// update the editor's context key service parent to use the cell-scoped one
+	React.useEffect(() => {
+		const disposable = autorun(reader => {
+			const editor = cell.editorObservable.read(reader);
+			if (!editor || !cellContextKeyService) {
+				return;
+			}
+
+			// Update the editor's context key service to inherit from the cell-scoped one
+			editor.contextKeyService.updateParent(cellContextKeyService);
+		});
+		return () => disposable.dispose();
+	}, [cell, cellContextKeyService, services.logService]);
 
 	// Watch for editor focus requests from the cell
 	React.useLayoutEffect(() => {

@@ -70,6 +70,11 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	readonly editor: ICodeEditor | undefined;
 
 	/**
+	 * Observable for the cell's code editor widget.
+	 */
+	readonly editorObservable: IObservable<ICodeEditor | undefined>;
+
+	/**
 	 * Delete this cell
 	 */
 	delete(): void;
