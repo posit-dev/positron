@@ -95,9 +95,9 @@ function useFontStyles(): React.CSSProperties {
 	const family = fontInfo.fontFamily ?? `"SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace`;
 
 	return {
-		'--vscode-positronNotebook-text-output-font-family': family,
-		'--vscode-positronNotebook-text-output-font-size': `${fontInfo.fontSize}px`,
-	} as React.CSSProperties;
+		['--vscode-positronNotebook-text-output-font-family' as string]: family,
+		['--vscode-positronNotebook-text-output-font-size' as string]: `${fontInfo.fontSize}px`,
+	};
 }
 
 function NotebookCell({ cell }: {
