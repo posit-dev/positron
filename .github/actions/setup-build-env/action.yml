@@ -6,14 +6,6 @@ runs:
     - name: Restore package stores & binaries (via cache-multi-paths)
       id: restore-node-caches
       uses: ./.github/actions/cache-multi-paths
-      # The `cache-multi-paths` composite restores portable caches used by the build:
-      #  - npm tarball store (.npm-cache)
-      #  - (optional) pip cache (.pip-cache)
-      #  - versioned binaries (ark, kallichore)
-      # It also emits outputs (cache-npm-hit, cache-ark-hit, cache-kallichore-hit)
-      # which callers can inspect to decide further actions.
-
-    # Playwright/Electron/builtins caches are handled by the `cache-multi-paths` composite
 
     - name: Install Node packages
       shell: bash

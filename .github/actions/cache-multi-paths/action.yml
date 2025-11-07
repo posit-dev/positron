@@ -33,30 +33,30 @@ runs:
           npm-cache-${{ runner.os }}-
 
     # -------- Versioned binaries (ark) --------
-    # - name: Cache ark binary
-    #   id: cache-binaries-ark
-    #   uses: actions/cache@v4
-    #   with:
-    #     # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
-    #     path: |
-    #       extensions/positron-r/resources/ark
-    #       ./ark
-    #     # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
-    #     key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
-    #     restore-keys: |
-    #       ark-bin-${{ runner.os }}-
+    - name: Cache ark binary
+      id: cache-binaries-ark
+      uses: actions/cache@v4
+      with:
+        # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
+        path: |
+          extensions/positron-r/resources/ark
+          ./ark
+        # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
+        key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        restore-keys: |
+          ark-bin-${{ runner.os }}-
 
-    # # -------- Versioned binaries (kallichore) --------
-    # - name: Cache kallichore binary
-    #   id: cache-binaries-kallichore
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: |
-    #       extensions/positron-supervisor/resources/kallichore
-    #       ./kallichore
-    #     key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
-    #     restore-keys: |
-    #       kallichore-bin-${{ runner.os }}-
+    # -------- Versioned binaries (kallichore) --------
+    - name: Cache kallichore binary
+      id: cache-binaries-kallichore
+      uses: actions/cache@v4
+      with:
+        path: |
+          extensions/positron-supervisor/resources/kallichore
+          ./kallichore
+        key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        restore-keys: |
+          kallichore-bin-${{ runner.os }}-
 
     # -------- Playwright browsers --------
     - name: Cache Playwright browsers
