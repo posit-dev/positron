@@ -83,16 +83,6 @@ on:
         description: "Artifact name to upload/download build artifact (tar.gz)"
         default: "positron-build"
         type: string
-      include_diagnostics:
-        required: false
-        description: "When true (and run_setup_only=true) produce disk/file manifests and optionally strace output"
-        default: false
-        type: boolean
-      smoke_command:
-        required: false
-        description: "Optional shell command to run the app under strace for startup file tracing (only when include_diagnostics=true)"
-        default: ""
-        type: string
 
   workflow_dispatch:
     inputs:
@@ -245,38 +235,10 @@ jobs:
       - name: Prepare & upload compressed build artifact
         if: ${{ inputs.run_setup_only == true }}
         run: |
-          # Create a tarball of only the app build outputs. Adjust excludes as needed to keep artifact small.
+          # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
           mkdir -p /tmp/artifacts
-          tar -C /__w -czf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz positron --exclude='**/node_modules' --exclude='**/.cache' || true
+          tar -C /__w -czf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz positron --exclude='.git' || true
 
-          # Optional diagnostics (disk usage and file manifests)
-          if [ "${{ inputs.include_diagnostics }}" = "true" ]; then
-            set -x
-            mkdir -p /tmp/artifacts/diagnostics
-            echo "Disk usage for /__w/positron and common runtime locations" > /tmp/artifacts/diagnostics/du-summary.txt
-            du -h /__w/positron 2>/dev/null | sort -h >> /tmp/artifacts/diagnostics/du-summary.txt || true
-            du -h /root/.cache/ms-playwright 2>/dev/null | sort -h >> /tmp/artifacts/diagnostics/du-summary.txt || true
-            du -h /root/.venv 2>/dev/null | sort -h >> /tmp/artifacts/diagnostics/du-summary.txt || true
-
-            echo "Top 100 largest files under /__w/positron" > /tmp/artifacts/diagnostics/top-files.txt
-            find /__w/positron -type f -printf "%s\t%p\n" 2>/dev/null | sort -nr | head -n 100 >> /tmp/artifacts/diagnostics/top-files.txt || true
-
-            echo "Full file list under /__w/positron" > /tmp/artifacts/diagnostics/file-list.txt
-            find /__w/positron -type f 2>/dev/null | sort >> /tmp/artifacts/diagnostics/file-list.txt || true
-
-            echo "Contents of tarball (tar -tvzf)" > /tmp/artifacts/diagnostics/tar-contents.txt
-            tar -tzf /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz 2>/dev/null | head -n 200 >> /tmp/artifacts/diagnostics/tar-contents.txt || true
-
-            # Optional strace-based tracing of a smoke command to see runtime file opens (requires smoke_command)
-            if [ -n "${{ inputs.smoke_command }}" ]; then
-              echo "Running smoke_command under strace (output -> /tmp/artifacts/diagnostics/trace)" >> /tmp/artifacts/diagnostics/du-summary.txt
-              apt-get update -y && apt-get install -y strace >/dev/null 2>&1 || true
-              # run the smoke command under strace; keep output small
-              strace -ff -e open,openat,stat,stat64 -o /tmp/artifacts/diagnostics/trace -s 200 sh -c "${{ inputs.smoke_command }}" || true
-              tar -C /tmp/artifacts/diagnostics -czf /tmp/artifacts/diagnostics-traces.tar.gz trace* || true
-            fi
-          fi
-        # upload compressed tarball
       - name: Upload build artifact
         if: ${{ inputs.run_setup_only == true }}
         uses: actions/upload-artifact@v4
@@ -284,14 +246,6 @@ jobs:
           name: ${{ inputs.artifact_name }}
           path: /tmp/artifacts/${{ inputs.artifact_name }}.tar.gz
           retention-days: 1
-
-      - name: Upload diagnostics artifact
-        if: ${{ inputs.run_setup_only == true && inputs.include_diagnostics == true }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.artifact_name }}-diagnostics
-          path: /tmp/artifacts/diagnostics*
-          retention-days: 7
 
       - name: Download and extract build artifact
         if: ${{ inputs.use_artifact == true }}

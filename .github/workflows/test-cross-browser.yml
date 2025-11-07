@@ -42,14 +42,12 @@ concurrency:
 
 jobs:
   setup:
-    name: e2e-setup
+    name: setup
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
       run_setup_only: true
-      include_diagnostics: true
       artifact_name: "positron-build"
-      smoke_command: "cd /__w/positron/positron && timeout 10s ./scripts/code.sh --no-sandbox"
 
   e2e-firefox:
     name: e2e
