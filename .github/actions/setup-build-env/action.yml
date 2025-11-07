@@ -3,9 +3,9 @@ description: "Installs necessary system dependencies."
 runs:
   using: "composite"
   steps:
-    - name: Restore multiple node_modules caches
-      id: restore-node-caches
-      uses: ./.github/actions/cache-multi-paths
+    # - name: Restore multiple node_modules caches
+    #   id: restore-node-caches
+    #   uses: ./.github/actions/cache-multi-paths
 
     - name: Restore Playwright browsers cache
       uses: actions/cache@v4
@@ -37,38 +37,6 @@ runs:
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-
-
-    - name: Cache diagnostics
-      shell: bash
-      run: |
-        echo "--- Cache diagnostics ---"
-        echo "node_modules (root):"; du -sh node_modules || true
-        echo "build/node_modules:"; du -sh build/node_modules || true
-        echo "extensions/node_modules:"; du -sh extensions/node_modules || true
-        echo ".build/builtInExtensions:"; du -sh .build/builtInExtensions || true
-        echo "~/.cache/ms-playwright:"; du -sh ~/.cache/ms-playwright || true
-        echo "~/.cache/electron:"; du -sh ~/.cache/electron || true
-        echo "~/.npm:"; du -sh ~/.npm || true
-        echo "~/.cache/pip:"; du -sh ~/.cache/pip || true
-
-        # Repo-root and extension-resource locations for Ark
-        echo "./ark (repo-root dev path):"; du -sh ./ark || true
-        echo "extensions/positron-r/resources/ark (extension resource path):"; du -sh ./extensions/positron-r/resources/ark || true
-        # Print VERSION file if present for ark
-        if [ -f "extensions/positron-r/resources/ark/VERSION" ]; then echo "ark VERSION:"; cat extensions/positron-r/resources/ark/VERSION || true; else echo "ark VERSION: not found"; fi
-
-        # Repo-root and extension-resource locations for Kallichore
-        echo "./kallichore (repo-root dev path):"; du -sh ./kallichore || true
-        echo "extensions/positron-supervisor/resources/kallichore (extension resource path):"; du -sh ./extensions/positron-supervisor/resources/kallichore || true
-        # Print VERSION file if present for kallichore
-        if [ -f "extensions/positron-supervisor/resources/kallichore/VERSION" ]; then echo "kallichore VERSION:"; cat extensions/positron-supervisor/resources/kallichore/VERSION || true; else echo "kallichore VERSION: not found"; fi
-
-        # Python env tools
-        echo "extensions/positron-python/python-env-tools:"; du -sh ./extensions/positron-python/python-env-tools || true
-        echo "kallichore package.json declared version:"; node -e "const p=require('./extensions/positron-supervisor/package.json'); console.log((p.positron && p.positron.binaryDependencies && p.positron.binaryDependencies.kallichore) || 'n/a')"
-        echo "ark package.json declared version:"; node -e "const p=require('./extensions/positron-r/package.json'); console.log((p.positron && p.positron.binaryDependencies && p.positron.binaryDependencies.ark) || 'n/a')"
-        echo "--- end diagnostics ---"
-
 
     - name: Install Node packages (timed)
       shell: bash
