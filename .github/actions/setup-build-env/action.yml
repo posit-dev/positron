@@ -3,8 +3,7 @@ description: "Installs necessary system dependencies."
 runs:
   using: "composite"
   steps:
-    - name: Restore package stores & binaries (via cache-multi-paths)
-      id: restore-node-caches
+    - name: Restore caches
       uses: ./.github/actions/cache-multi-paths
 
     - name: Install Node packages
