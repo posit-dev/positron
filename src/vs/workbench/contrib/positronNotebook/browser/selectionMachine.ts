@@ -21,6 +21,10 @@ export enum SelectionState {
 
 /**
  * Selection state discriminated union.
+ *
+ * The `active` property is the single cell where actions apply (present in all states except NoCells).
+ * The `selected` property is the array of all selected cells (only present in MultiSelection).
+ * For single selection and editing, only `active` property is used.
  */
 type SelectionStates =
 	| {
@@ -28,15 +32,16 @@ type SelectionStates =
 	}
 	| {
 		type: SelectionState.SingleSelection;
-		selected: IPositronNotebookCell;
+		active: IPositronNotebookCell;
 	}
 	| {
 		type: SelectionState.MultiSelection;
 		selected: NonEmptyArray<IPositronNotebookCell>;
+		active: IPositronNotebookCell;
 	}
 	| {
 		type: SelectionState.EditingSelection;
-		selected: IPositronNotebookCell;
+		active: IPositronNotebookCell;
 	};
 
 
@@ -76,7 +81,7 @@ const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> =
 export enum CellSelectionType {
 	/** Adds a cell to the current selection (enables multi-selection mode) */
 	Add = 'Add',
-	/** Selects a cell and immediately enters edit mode */
+	/** Selects a cell to be active and immediately enters edit mode */
 	Edit = 'Edit',
 	/** Performs a normal selection, replacing any current selection with the specified cell */
 	Normal = 'Normal'
@@ -109,23 +114,12 @@ export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[
 		case SelectionState.NoCells:
 			return [];
 		case SelectionState.SingleSelection:
-			return [state.selected];
+			return [state.active];
 		case SelectionState.MultiSelection:
 			return state.selected;
 		case SelectionState.EditingSelection:
-			return [state.selected];
+			return [state.active];
 	}
-}
-
-/**
- * Get the selected cell if there is exactly one selected.
- * @returns The selected cell. Null if there is no selection.
- */
-export function getSelectedCell(state: SelectionStates): IPositronNotebookCell | null {
-	if (state.type === SelectionState.SingleSelection) {
-		return state.selected;
-	}
-	return null;
 }
 
 /**
@@ -137,7 +131,7 @@ export function getEditingCell(state: SelectionStates): IPositronNotebookCell | 
 	if (state.type !== SelectionState.EditingSelection) {
 		return null;
 	}
-	return state.selected;
+	return state.active;
 }
 
 /**
@@ -149,16 +143,10 @@ export function getEditingCell(state: SelectionStates): IPositronNotebookCell | 
  * @returns The active cell, or null if no cells exist.
  */
 export function getActiveCell(state: SelectionStates): IPositronNotebookCell | null {
-	switch (state.type) {
-		case SelectionState.NoCells:
-			return null;
-		case SelectionState.SingleSelection:
-			return state.selected;
-		case SelectionState.MultiSelection:
-			return state.selected[state.selected.length - 1];
-		case SelectionState.EditingSelection:
-			return state.selected;
+	if (state.type === SelectionState.NoCells) {
+		return null;
 	}
+	return state.active;
 }
 
 /**
@@ -207,14 +195,15 @@ function isSelectionStateEqual(a: SelectionStates, b: SelectionStates): boolean 
 			return a.type === b.type;
 		case SelectionState.SingleSelection:
 			return a.type === b.type &&
-				a.selected === (b as typeof a).selected;
+				a.active === (b as typeof a).active;
 		case SelectionState.MultiSelection:
 			return a.type === b.type &&
 				a.selected.length === (b as typeof a).selected.length &&
-				a.selected.every(cell => (b as typeof a).selected.includes(cell));
+				a.selected.every(cell => (b as typeof a).selected.includes(cell)) &&
+				a.active === (b as typeof a).active;
 		case SelectionState.EditingSelection:
 			return a.type === b.type &&
-				a.selected === (b as typeof a).selected;
+				a.active === (b as typeof a).active;
 	}
 }
 
@@ -263,17 +252,17 @@ export class SelectionStateMachine extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Selects a cell.
+	 * Selects a cell to be the active cell.
 	 * @param cell The cell to select.
 	 * @param selectType The type of selection to perform.
 	 */
 	selectCell(cell: IPositronNotebookCell, selectType: CellSelectionType = CellSelectionType.Normal): void {
 		switch (selectType) {
 			case CellSelectionType.Normal:
-				this._setState({ type: SelectionState.SingleSelection, selected: cell });
+				this._setState({ type: SelectionState.SingleSelection, active: cell });
 				break;
 			case CellSelectionType.Edit:
-				this._setState({ type: SelectionState.EditingSelection, selected: cell });
+				this._setState({ type: SelectionState.EditingSelection, active: cell });
 				break;
 			case CellSelectionType.Add:
 				this._selectCellAdd(cell);
@@ -294,8 +283,8 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		const deselectingCurrentSelection =
-			(state.type === SelectionState.SingleSelection && state.selected === cell) ||
-			(state.type === SelectionState.EditingSelection && state.selected === cell);
+			(state.type === SelectionState.SingleSelection && state.active === cell) ||
+			(state.type === SelectionState.EditingSelection && state.active === cell);
 
 		if (deselectingCurrentSelection) {
 			// If cells still exist, select the first one
@@ -315,9 +304,15 @@ export class SelectionStateMachine extends Disposable {
 			const verifiedSelection = verifyNonEmptyArray(updatedSelection);
 			// React will handle focus based on selection state change
 			if (verifiedSelection.length === 1) {
-				this._setState({ type: SelectionState.SingleSelection, selected: verifiedSelection[0] });
+				this._setState({ type: SelectionState.SingleSelection, active: verifiedSelection[0] });
 			} else {
-				this._setState({ type: SelectionState.MultiSelection, selected: verifiedSelection });
+				// Determine the active cell for the new selection
+				// If the removed cell was the active cell, choose the last cell in the updated selection
+				// Otherwise, keep the current active cell
+				const newActiveCell = state.active === cell
+					? verifiedSelection[verifiedSelection.length - 1]
+					: state.active;
+				this._setState({ type: SelectionState.MultiSelection, selected: verifiedSelection, active: newActiveCell });
 			}
 		}
 
@@ -362,11 +357,11 @@ export class SelectionStateMachine extends Disposable {
 			if (state.type !== SelectionState.SingleSelection) {
 				return;
 			}
-			cellToEdit = state.selected;
+			cellToEdit = state.active;
 		}
 
 		// Update state to editing mode
-		this._setState({ type: SelectionState.EditingSelection, selected: cellToEdit });
+		this._setState({ type: SelectionState.EditingSelection, active: cellToEdit });
 
 		// Automatically detect if editor already has focus
 		// If it does, skip focus management to avoid double-focusing
@@ -390,8 +385,8 @@ export class SelectionStateMachine extends Disposable {
 		const state = this._state.get();
 		if (state.type !== SelectionState.EditingSelection) { return; }
 		// If a specific cell is provided, only exit if THAT cell is being edited
-		if (cell && state.selected !== cell) { return; }
-		this._setState({ type: SelectionState.SingleSelection, selected: state.selected });
+		if (cell && state.active !== cell) { return; }
+		this._setState({ type: SelectionState.SingleSelection, active: state.active });
 	}
 
 	//#endregion Public Methods
@@ -420,12 +415,13 @@ export class SelectionStateMachine extends Disposable {
 		}
 
 		// Check if cell is already selected
-		const selectedCells = state.type === SelectionState.SingleSelection ? [state.selected] : state.selected;
+		const selectedCells = state.type === SelectionState.SingleSelection ? [state.active] : state.selected;
 		if (selectedCells.includes(cell)) {
 			return;
 		}
 
-		this._setState({ type: SelectionState.MultiSelection, selected: verifyNonEmptyArray([...selectedCells, cell]) });
+		// The newly added cell becomes the active cell
+		this._setState({ type: SelectionState.MultiSelection, selected: verifyNonEmptyArray([...selectedCells, cell]), active: cell });
 	}
 
 	/**
@@ -448,15 +444,15 @@ export class SelectionStateMachine extends Disposable {
 		// If we went from NoCells to having cells, _setState will auto-select first cell
 		if (state.type === SelectionState.NoCells && cells.length > 0) {
 			// Delegate to _setState with any valid state - it will correct to SingleSelection
-			this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
+			this._setState({ type: SelectionState.SingleSelection, active: cells[0] });
 			return;
 		}
 
 		// If we're editing a cell when cells change, check if that cell still exists
 		if (state.type === SelectionState.EditingSelection) {
-			if (!cells.includes(state.selected)) {
+			if (!cells.includes(state.active)) {
 				// Cell being edited was removed - handle selection removal
-				this._handleSelectionRemoved(state.selected, cells, previousCells);
+				this._handleSelectionRemoved(state.active, cells, previousCells);
 			}
 			// Cell still exists, keep current state
 			return;
@@ -474,9 +470,19 @@ export class SelectionStateMachine extends Disposable {
 
 		// Update selection with remaining cells
 		if (newSelection.length === 1) {
-			this._setState({ type: SelectionState.SingleSelection, selected: newSelection[0] });
+			this._setState({ type: SelectionState.SingleSelection, active: newSelection[0] });
 		} else {
-			this._setState({ type: SelectionState.MultiSelection, selected: verifyNonEmptyArray(newSelection) });
+			/**
+			 * Determine the active cell for the new multi-selection.
+			 * If we had a MultiSelection state and the active cell still exists, keep it
+			 * as the active cell. Otherwise, choose the last cell in the new selection.
+			 */
+			const verifiedSelection = verifyNonEmptyArray(newSelection);
+			const currentActiveCell = state.type === SelectionState.MultiSelection ? state.active : null;
+			const newActiveCell = currentActiveCell && newSelection.includes(currentActiveCell)
+				? currentActiveCell
+				: verifiedSelection[verifiedSelection.length - 1];
+			this._setState({ type: SelectionState.MultiSelection, selected: verifiedSelection, active: newActiveCell });
 		}
 	}
 
@@ -487,7 +493,7 @@ export class SelectionStateMachine extends Disposable {
 	private _selectFirstCell(): boolean {
 		const cells = this._cells.get();
 		if (cells.length > 0) {
-			this._setState({ type: SelectionState.SingleSelection, selected: cells[0] });
+			this._setState({ type: SelectionState.SingleSelection, active: cells[0] });
 			return true;
 		}
 		return false;
@@ -528,7 +534,7 @@ export class SelectionStateMachine extends Disposable {
 		const removedCellIndex = previousCells.indexOf(removedCell);
 		const cellToSelect = this._selectNeighboringCell(cells, removedCellIndex);
 		if (cellToSelect) {
-			this._setState({ type: SelectionState.SingleSelection, selected: cellToSelect });
+			this._setState({ type: SelectionState.SingleSelection, active: cellToSelect });
 		} else {
 			this._setState({ type: SelectionState.NoCells });
 		}
@@ -562,7 +568,21 @@ export class SelectionStateMachine extends Disposable {
 		if (intended.type === SelectionState.NoCells) {
 			// NoCells but cells exist → MUST select something
 			this._logService.debug('SelectionMachine: Auto-correcting from NoCells (cells exist)');
-			return { type: SelectionState.SingleSelection, selected: cells[0] };
+			// Make the last cell in the selection active
+			return { type: SelectionState.SingleSelection, active: cells[cells.length - 1] };
+		}
+
+		// Invariant: For MultiSelection, activeCell must be in the selected array
+		if (intended.type === SelectionState.MultiSelection) {
+			if (!intended.selected.includes(intended.active)) {
+				this._logService.debug('SelectionMachine: Auto-correcting activeCell (not in selected array)');
+				// Correct by choosing the last cell in the selection
+				return {
+					type: SelectionState.MultiSelection,
+					selected: intended.selected,
+					active: intended.selected[intended.selected.length - 1]
+				};
+			}
 		}
 
 		// State is valid
@@ -594,6 +614,7 @@ export class SelectionStateMachine extends Disposable {
 		this._state.set(correctedState, undefined);
 	}
 
+	//TODO: update to handle active cell?
 	/**
 	 * Surgically updates the selection status of cells that have changed state.
 	 * @param startState The selection state before the change
@@ -668,7 +689,7 @@ export class SelectionStateMachine extends Disposable {
 
 		// Direct access is safe because state invariants guarantee at least one element
 		const edgeCell = state.type === SelectionState.SingleSelection
-			? state.selected
+			? state.active
 			: state.selected[up ? 0 : state.selected.length - 1];
 		const indexOfEdgeCell = edgeCell.index;
 		const nextCell = cells[indexOfEdgeCell + (up ? -1 : 1)];
@@ -685,9 +706,11 @@ export class SelectionStateMachine extends Disposable {
 			}
 			const currentSelection = getSelectedCells(state);
 			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
+			// The newly added cell becomes the active cell
 			this._setState({
 				type: SelectionState.MultiSelection,
-				selected: newSelection
+				selected: newSelection,
+				active: nextCell
 			});
 			return;
 		}

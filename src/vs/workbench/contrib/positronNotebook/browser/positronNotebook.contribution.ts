@@ -37,7 +37,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
-import { getEditingCell, getSelectedCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { getActiveCell, getEditingCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
@@ -467,8 +467,8 @@ registerAction2(class extends NotebookAction2 {
 		const state = notebook.selectionStateMachine.state.get();
 		// check if we are in editing mode
 		if (state.type === SelectionState.EditingSelection) {
-			// get the selected cell that is being edited
-			const cell = state.selected;
+			// get the active cell that is being edited
+			const cell = state.active;
 			// handle markdown cells differently
 			if (cell.isMarkdownCell() && cell.editorShown.get()) {
 				// This handles updating selection state and closing the editor
@@ -555,7 +555,7 @@ abstract class CellAction2 extends Action2 {
 			const state = activeNotebook.selectionStateMachine.state.get();
 			// Always check editing cell if actionBar is present (action bar items should work in edit mode).
 			// Otherwise, only check editing cell if editMode option is enabled.
-			const cell = getSelectedCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
+			const cell = getActiveCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
 			if (cell) {
 				this.runCellAction(cell, activeNotebook, accessor);
 			}
