@@ -49,6 +49,7 @@ jobs:
       run_setup_only: true
       artifact_name: "positron-build"
       display_name: "build"
+      install_license: true
 
   e2e-firefox:
     name: e2e
@@ -64,7 +65,6 @@ jobs:
       report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
-      install_license: true
       allow_soft_fail: false
       use_artifact: true
       artifact_name: "positron-build"
@@ -83,7 +83,6 @@ jobs:
       report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
-      install_license: true
       allow_soft_fail: false
       use_artifact: true
       artifact_name: "positron-build"
@@ -102,7 +101,6 @@ jobs:
       report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
-      install_license: true
       allow_soft_fail: false
       use_artifact: true
       artifact_name: "positron-build"
