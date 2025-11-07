@@ -10,6 +10,46 @@ import { log } from '../extension.js';
 import { convertOutputsToLanguageModelParts, formatCellStatus } from './notebookUtils.js';
 
 /**
+ * Gets the active notebook context, returning null if no notebook is active.
+ *
+ * @returns The notebook context, or null if no notebook is active
+ */
+async function getActiveNotebookContext(): Promise<positron.notebooks.NotebookContext | null> {
+	return await positron.notebooks.getContext();
+}
+
+/**
+ * Creates an error result for when no active notebook is found.
+ *
+ * @returns A LanguageModelToolResult indicating no active notebook
+ */
+function createNoActiveNotebookErrorResult(): vscode.LanguageModelToolResult {
+	return new vscode.LanguageModelToolResult([
+		new vscode.LanguageModelTextPart('No active notebook found')
+	]);
+}
+
+/**
+ * Creates an error result for notebook tool operations, logging the error.
+ *
+ * @param error The error that occurred
+ * @param toolName The name of the tool that failed
+ * @param operation A description of the operation that failed (e.g., 'execute cells', 'add cell')
+ * @returns A LanguageModelToolResult with the error message
+ */
+function createNotebookToolErrorResult(
+	error: unknown,
+	toolName: string,
+	operation: string
+): vscode.LanguageModelToolResult {
+	const errorMessage = error instanceof Error ? error.message : String(error);
+	log.error(`[${toolName}] Failed to ${operation}: ${errorMessage}`);
+	return new vscode.LanguageModelToolResult([
+		new vscode.LanguageModelTextPart(`Failed to ${operation}: ${errorMessage}`)
+	]);
+}
+
+/**
  * Formats an array of notebook cells into a markdown string representation.
  *
  * @param cells The notebook cells to format
@@ -49,11 +89,9 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 		const cellIds = options.input.cellIds;
 
 		try {
-			const context = await positron.notebooks.getContext();
+			const context = await getActiveNotebookContext();
 			if (!context) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active notebook found')
-				]);
+				return createNoActiveNotebookErrorResult();
 			}
 
 			await positron.notebooks.runCells(context.uri, cellIds);
@@ -77,11 +115,7 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 
 			return new vscode.LanguageModelToolResult2(resultParts);
 		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			log.error(`[${PositronAssistantToolName.RunNotebookCells}] Failed to execute cells: ${errorMessage}`);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Failed to execute cells: ${errorMessage}`)
-			]);
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.RunNotebookCells, 'execute cells');
 		}
 	}
 });
@@ -106,11 +140,9 @@ export const AddNotebookCellTool = vscode.lm.registerTool<{
 		const { type, index, content } = options.input;
 
 		try {
-			const context = await positron.notebooks.getContext();
+			const context = await getActiveNotebookContext();
 			if (!context) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active notebook found')
-				]);
+				return createNoActiveNotebookErrorResult();
 			}
 
 			// Handle append case (-1 means append at end)
@@ -132,11 +164,7 @@ export const AddNotebookCellTool = vscode.lm.registerTool<{
 				new vscode.LanguageModelTextPart(`Successfully added ${type} cell at index ${insertIndex}. Cell ID: ${cellId}`)
 			]);
 		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			log.error(`[${PositronAssistantToolName.AddNotebookCell}] Failed to add cell: ${errorMessage}`);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Failed to add cell: ${errorMessage}`)
-			]);
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.AddNotebookCell, 'add cell');
 		}
 	}
 });
@@ -160,11 +188,9 @@ export const UpdateNotebookCellTool = vscode.lm.registerTool<{
 		const { cellId, content } = options.input;
 
 		try {
-			const context = await positron.notebooks.getContext();
+			const context = await getActiveNotebookContext();
 			if (!context) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active notebook found')
-				]);
+				return createNoActiveNotebookErrorResult();
 			}
 
 			await positron.notebooks.updateCellContent(
@@ -177,11 +203,7 @@ export const UpdateNotebookCellTool = vscode.lm.registerTool<{
 				new vscode.LanguageModelTextPart(`Successfully updated cell ${cellId}`)
 			]);
 		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			log.error(`[${PositronAssistantToolName.UpdateNotebookCell}] Failed to update cell: ${errorMessage}`);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Failed to update cell: ${errorMessage}`)
-			]);
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.UpdateNotebookCell, 'update cell');
 		}
 	}
 });
@@ -205,11 +227,9 @@ export const GetCellOutputsTool = vscode.lm.registerTool<{
 		const cellId = options.input.cellId;
 
 		try {
-			const context = await positron.notebooks.getContext();
+			const context = await getActiveNotebookContext();
 			if (!context) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active notebook found')
-				]);
+				return createNoActiveNotebookErrorResult();
 			}
 
 			const outputs = await positron.notebooks.getCellOutputs(context.uri, cellId);
@@ -228,11 +248,7 @@ export const GetCellOutputsTool = vscode.lm.registerTool<{
 
 			return new vscode.LanguageModelToolResult2(resultParts);
 		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			log.error(`[${PositronAssistantToolName.GetCellOutputs}] Failed to get outputs: ${errorMessage}`);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Failed to get outputs: ${errorMessage}`)
-			]);
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.GetCellOutputs, 'get outputs');
 		}
 	}
 });
@@ -253,11 +269,9 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 	},
 	invoke: async (options, token) => {
 		try {
-			const context = await positron.notebooks.getContext();
+			const context = await getActiveNotebookContext();
 			if (!context) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active notebook found')
-				]);
+				return createNoActiveNotebookErrorResult();
 			}
 
 			// If specific cell IDs requested, fetch those cells
@@ -298,11 +312,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 				new vscode.LanguageModelTextPart(`Retrieved all ${cells.length} cell(s) from notebook:\n\n${cellInfo}`)
 			]);
 		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			log.error(`[${PositronAssistantToolName.GetNotebookCells}] Failed to get cells: ${errorMessage}`);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Failed to get cells: ${errorMessage}`)
-			]);
+			return createNotebookToolErrorResult(error, PositronAssistantToolName.GetNotebookCells, 'get cells');
 		}
 	}
 });
