@@ -20,6 +20,9 @@ import * as AttachCommands from './commands/attach';
 // Import view providers
 import { DevContainersTreeProvider } from './views/devContainersTreeProvider';
 
+// Import notifications
+import { checkAndShowDevContainerNotification } from './notifications/devContainerDetection';
+
 /**
  * Extension activation
  */
@@ -106,6 +109,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		})
 	);
 
+	// Check and show dev container detection notification
+	await checkAndShowDevContainerNotification(context);
+
 	logger.info('positron-dev-containers extension activated successfully');
 }
 
@@ -134,9 +140,6 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.openFolder', OpenCommands.openFolder);
 	registerCommand(context, 'remote-containers.openFolderInContainerInCurrentWindow', OpenCommands.openFolderInContainerInCurrentWindow);
 	registerCommand(context, 'remote-containers.openFolderInContainerInNewWindow', OpenCommands.openFolderInContainerInNewWindow);
-	registerCommand(context, 'remote-containers.openRepositoryInVolume', notImplemented);
-	registerCommand(context, 'remote-containers.openRepositoryInUniqueVolume', notImplemented);
-	registerCommand(context, 'remote-containers.inspectVolume', notImplemented);
 	registerCommand(context, 'remote-containers.openWorkspace', OpenCommands.openWorkspace);
 
 	// Attach commands
@@ -146,7 +149,6 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 
 	// Container management commands
 	registerCommand(context, 'remote-containers.cleanUpDevContainers', notImplemented);
-	registerCommand(context, 'remote-containers.pruneVolumes', notImplemented);
 	registerCommand(context, 'remote-containers.switchContainer', notImplemented);
 	registerCommand(context, 'remote-containers.rebuildContainer', RebuildCommands.rebuildContainer);
 	registerCommand(context, 'remote-containers.rebuildContainerNoCache', RebuildCommands.rebuildContainerNoCache);
@@ -173,15 +175,16 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.testConnection', notImplemented);
 
 	// View commands
-	registerCommand(context, 'remote-containers.explorerTargetsRefresh', () => devContainersTreeProvider?.refresh());
+	registerCommand(context, 'remote-containers.explorerTargetsRefresh', async () => {
+		if (devContainersTreeProvider) {
+			await devContainersTreeProvider.refresh();
+		}
+	});
 	registerCommand(context, 'remote-containers.explorerDetailsRefresh', notImplemented);
-	registerCommand(context, 'remote-containers.explorerVolumesRefresh', notImplemented);
 	registerCommand(context, 'remote-containers.showDetails', notImplemented);
 	registerCommand(context, 'remote-containers.removeRecentFolder', notImplemented);
 	registerCommand(context, 'remote-containers.inspectDockerResource', notImplemented);
 	registerCommand(context, 'remote-containers.inspectInBasicDevContainer', notImplemented);
-	registerCommand(context, 'remote-containers.cloneInVolume', notImplemented);
-	registerCommand(context, 'remote-containers.removeVolume', notImplemented);
 
 	logger.debug('All commands registered');
 }

@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as jsonc from 'jsonc-parser';
 import { getLogger } from '../common/logger';
 
 /**
@@ -39,8 +40,8 @@ export class TerminalBuilder {
 			throw new Error(`Dev container configuration not found: ${devcontainerPath}`);
 		}
 
-		// Read and parse the devcontainer.json
-		const config = JSON.parse(fs.readFileSync(devcontainerPath, 'utf8'));
+		// Read and parse the devcontainer.json (supports comments via JSONC)
+		const config = jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'));
 
 		// Determine the Dockerfile or image
 		const devcontainerDir = path.dirname(devcontainerPath);

@@ -48,14 +48,9 @@
 	"command.openFolder": "Open Folder in Container...",
 	"command.openFolderInContainerInCurrentWindow": "Open in Container in Current Window",
 	"command.openFolderInContainerInNewWindow": "Open in Container in New Window",
-	"command.openRepositoryInVolume": "Clone Repository in Named Container Volume...",
-	"command.openRepositoryInUniqueVolume": "Clone Repository in Container Volume...",
-	"command.inspectVolume": "Explore a Volume in a Dev Container...",
 	"command.openWorkspace": "Open Workspace in Container...",
 	"command.attachToRunningContainer": "Attach to Running Container...",
 	"command.cleanUpDevContainers": "Clean Up Dev Containers...",
-	"command.pruneVolumes": "Clean Up Dev Volumes...",
-	"command.explorerVolumesRefresh": "Refresh",
 	"command.switchContainer": "Switch Container",
 	"command.rebuildContainer": "Rebuild Container",
 	"command.rebuildContainerNoCache": "Rebuild Container Without Cache",
@@ -79,8 +74,6 @@
 	"command.explorerDetailsRefresh": "Refresh",
 	"command.inspectDockerResource": "Inspect",
 	"command.inspectInBasicDevContainer": "Explore in Dev Container",
-	"command.cloneInVolume": "Clone Repository in Volume",
-	"command.removeVolume": "Remove",
 	"command.newContainer": "New Dev Container",
 	"command.showContainerLog": "Show Container Log",
 	"command.addExtensionToConfig": "Add to devcontainer.json",
@@ -90,6 +83,5 @@
 	"resourceLabelFormatters.dev-container.workspaceSuffix":"Dev Container",
 	"resourceLabelFormatters.attached-container.workspaceSuffix":"Container",
 	"views.remote.targetsContainers": "Dev Containers",
-	"views.remote.detailsContainers": "Details (Containers)",
-	"views.remote.devVolumes": "Dev Volumes"
+	"views.remote.detailsContainers": "Details (Containers)"
 }

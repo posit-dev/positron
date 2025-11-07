@@ -250,22 +250,6 @@
 				"icon": "$(empty-window)"
 			},
 			{
-				"command": "remote-containers.openRepositoryInVolume",
-				"title": "%command.openRepositoryInVolume%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.openRepositoryInUniqueVolume",
-				"title": "%command.openRepositoryInUniqueVolume%",
-				"icon": "$(repo-clone)",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.inspectVolume",
-				"title": "%command.inspectVolume%",
-				"category": "%command.category%"
-			},
-			{
 				"command": "remote-containers.openWorkspace",
 				"title": "%command.openWorkspace%",
 				"category": "%command.category%"
@@ -280,18 +264,6 @@
 				"title": "%command.cleanUpDevContainers%",
 				"category": "%command.category%",
 				"icon": "$(clear-all)"
-			},
-			{
-				"command": "remote-containers.pruneVolumes",
-				"title": "%command.pruneVolumes%",
-				"category": "%command.category%",
-				"icon": "$(clear-all)"
-			},
-			{
-				"command": "remote-containers.explorerVolumesRefresh",
-				"title": "%command.explorerVolumesRefresh%",
-				"category": "%command.category%",
-				"icon": "$(refresh)"
 			},
 			{
 				"command": "remote-containers.switchContainer",
@@ -378,7 +350,8 @@
 			{
 				"command": "remote-containers.removeContainer",
 				"title": "%command.removeContainer%",
-				"category": "%command.category%"
+				"category": "%command.category%",
+				"icon": "$(trash)"
 			},
 			{
 				"command": "remote-containers.removeRecentFolder",
@@ -393,7 +366,8 @@
 			{
 				"command": "remote-containers.explorerTargetsRefresh",
 				"title": "%command.explorerTargetsRefresh%",
-				"category": "%command.category%"
+				"category": "%command.category%",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "remote-containers.explorerDetailsRefresh",
@@ -411,19 +385,10 @@
 				"category": "%command.category%"
 			},
 			{
-				"command": "remote-containers.cloneInVolume",
-				"title": "%command.cloneInVolume%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.removeVolume",
-				"title": "%command.removeVolume%",
-				"category": "%command.category%"
-			},
-			{
 				"command": "remote-containers.newContainer",
 				"title": "%command.newContainer%",
-				"category": "%command.category%"
+				"category": "%command.category%",
+				"icon": "$(add)"
 			},
 			{
 				"command": "remote-containers.showContainerLog",
@@ -494,14 +459,6 @@
 					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
 				},
 				{
-					"command": "remote-containers.openRepositoryInVolume",
-					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
-				},
-				{
-					"command": "remote-containers.openRepositoryInUniqueVolume",
-					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
-				},
-				{
 					"command": "remote-containers.createDevContainer",
 					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
 				},
@@ -523,14 +480,6 @@
 				},
 				{
 					"command": "remote-containers.inspectInBasicDevContainer",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.cloneInVolume",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.removeVolume",
 					"when": "false"
 				},
 				{
@@ -622,10 +571,6 @@
 					"when": "false"
 				},
 				{
-					"command": "remote-containers.explorerVolumesRefresh",
-					"when": "false"
-				},
-				{
 					"command": "remote-containers.explorerDetailsRefresh",
 					"when": "false"
 				},
@@ -700,21 +645,6 @@
 					"command": "remote-containers.createDevContainerFile",
 					"group": "remote_30_dev-container_2_actions@4",
 					"when": "workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.openRepositoryInUniqueVolume",
-					"group": "remote_30_dev-container_2_actions@5",
-					"when": "!hideConnectCommands && workspaceFolderCount == 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.openRepositoryInUniqueVolume",
-					"group": "remote_30_dev-container_2_actions@5",
-					"when": "!hideConnectCommands && remoteName =~ /tunnel*.*/ && gitOpenRepositoryCount == 0"
-				},
-				{
-					"command": "remote-containers.openRepositoryInUniqueVolume",
-					"group": "remote_30_dev-container_2_actions@5",
-					"when": "!hideConnectCommands && workspaceFolderCount == 0 && !remoteName && !virtualWorkspace"
 				},
 				{
 					"command": "remote-containers.rebuildContainer",
@@ -792,21 +722,6 @@
 					"command": "remote-containers.openDevContainerFile",
 					"when": "view == detailsContainers && remoteName =~ /^(dev|attached)-container$/",
 					"group": "navigation"
-				},
-				{
-					"command": "remote-containers.pruneVolumes",
-					"when": "view == devVolumes",
-					"group": "navigation@2"
-				},
-				{
-					"command": "remote-containers.explorerVolumesRefresh",
-					"when": "view == devVolumes",
-					"group": "navigation@3"
-				},
-				{
-					"command": "remote-containers.openRepositoryInUniqueVolume",
-					"when": "view == devVolumes",
-					"group": "navigation@1"
 				}
 			],
 			"view/item/context": [
@@ -862,22 +777,22 @@
 				},
 				{
 					"command": "remote-containers.attachToContainerInCurrentWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)Container$/",
+					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
 					"group": "1_container@1"
 				},
 				{
 					"command": "remote-containers.attachToContainerInCurrentWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)Container$/",
+					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
 					"group": "inline@1"
 				},
 				{
 					"command": "remote-containers.attachToContainerInNewWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)Container$/",
+					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
 					"group": "1_container@2"
 				},
 				{
 					"command": "remote-containers.attachToContainerInNewWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)Container$/",
+					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
 					"group": "inline@2"
 				},
 				{
@@ -899,7 +814,7 @@
 					"command": "remote-containers.removeContainer",
 					"when": "view == targetsContainers && viewItem =~ /^(running|exited)(Dev|)Container/",
 					"group": "inline@3",
-					"icon": "$(close)"
+					"icon": "$(trash)"
 				},
 				{
 					"command": "remote-containers.startContainer",
@@ -933,26 +848,6 @@
 					"command": "remote-containers.openInformationAboutMountPerformance",
 					"when": "view == detailsContainers && viewItem == mountPerformanceInfo",
 					"group": "inline@1"
-				},
-				{
-					"command": "remote-containers.cloneInVolume",
-					"when": "view == devVolumes && viewItem =~ /^(devVolume)$/",
-					"group": "1_volumes@1"
-				},
-				{
-					"command": "remote-containers.inspectInBasicDevContainer",
-					"when": "view == devVolumes && viewItem =~ /^(devVolume|uniqueDevVolume)$/",
-					"group": "2_volumes@1"
-				},
-				{
-					"command": "remote-containers.inspectDockerResource",
-					"when": "view == devVolumes && viewItem =~ /^(devVolume|uniqueDevVolume)$/",
-					"group": "2_volumes@2"
-				},
-				{
-					"command": "remote-containers.removeVolume",
-					"when": "view == devVolumes && viewItem =~ /^(devVolume|uniqueDevVolume)$/",
-					"group": "3_volumes-destructive@1"
 				}
 			],
 			"extension/context": [
@@ -1013,16 +908,6 @@
 					"name": "%views.remote.detailsContainers%",
 					"when": "!hideConnectCommands && !isInDevContainer && remote-containers:showDetails",
 					"group": "details@1",
-					"remoteName": [
-						"dev-container",
-						"attached-container"
-					]
-				},
-				{
-					"id": "devVolumes",
-					"name": "%views.remote.devVolumes%",
-					"when": "!hideConnectCommands && !isInDevContainer",
-					"group": "details@2",
 					"remoteName": [
 						"dev-container",
 						"attached-container"
