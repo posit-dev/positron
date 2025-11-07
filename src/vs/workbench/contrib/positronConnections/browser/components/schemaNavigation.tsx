@@ -17,6 +17,9 @@ import { localize } from '../../../../../nls.js';
 import { IPositronConnectionEntry } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+
+const DETAILS_BAR_HEIGHT = 26;
 
 export interface SchemaNavigationProps extends ViewsProps { }
 
@@ -113,7 +116,6 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	};
 
 	const { name, language_id, icon } = activeInstance.metadata;
-	const DETAILS_BAR_HEIGHT = 26;
 
 	return (
 		<div className='positron-connections-schema-navigation'>
@@ -136,20 +138,66 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 							</div>
 					}
 				</div>
-				<List
-					height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
-					innerRef={innerRef}
-					itemCount={entries.length}
-					itemKey={index => entries[index].id}
-					itemSize={26}
-					width={'calc(100% - 2px)'}
-				/* size if the actionbar and the secondary side bar combined) */
-				>
-					{ItemEntry}
-				</List>
+				{
+					entries.length ?
+						<List
+							height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
+							innerRef={innerRef}
+							itemCount={entries.length}
+							itemKey={index => entries[index].id}
+							itemSize={26}
+							width={'calc(100% - 2px)'}
+						/* size if the actionbar and the secondary side bar combined) */
+						>
+							{ItemEntry}
+						</List> :
+						<NoEntriesMessage
+							height={height}
+							onTryAgain={() => activeInstance.refresh?.()}
+						/>
+
+				}
+
 			</div>
-		</div>
+		</div >
 	);
+};
+
+const NoEntriesMessage = ({ height, onTryAgain, timeout = 5000 }: { height: number, onTryAgain: () => void, timeout?: number }) => {
+	const [failed, setFailed] = useState<boolean>(false);
+
+	useEffect(() => {
+		let t = null;
+		if (!failed) {
+			t = setTimeout(() => {
+				setFailed(true);
+			}, timeout);
+		}
+		return () => t ? clearTimeout(t) : undefined;
+	}, [timeout, failed]);
+
+	const onPressedTryAgain = () => {
+		setFailed(false);
+		onTryAgain();
+	};
+
+	return <div className='no-entries-message' style={{ height: height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT }}>
+		<div className={failed ? 'codicon codicon-error' : 'codicon codicon-loading animate-spin'}></div>
+		<p>{
+			failed ?
+				localize('positron.schemaNavigation.noEntriesFailed', 'Failed to load entries') :
+				localize('positron.schemaNavigation.noEntriesLoading', 'Loading entries ...')
+		}
+		</p>
+		{
+			failed ?
+				<Button className='retry-button' onPressed={() => onPressedTryAgain()}>
+					<div className='codicon codicon-refresh'></div>
+					{localize('positron.schemaNavigation.tryAgain', 'Try again')}
+				</Button> :
+				null
+		}
+	</div >
 };
 
 interface ItemEntryProps {
