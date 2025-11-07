@@ -307,16 +307,14 @@ jobs:
           fi
 
           mkdir -p /tmp/artifacts
-          # Create a zstd-compressed tarball using multi-threading for faster
-          # compression. We stream tar to zstd to avoid relying on tar's -I flag.
-          tar -C /__w -cf - positron --exclude='.git' | zstd -T0 -19 -o /tmp/artifacts/positron-build.tar.zst || true
+          tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
 
       - name: Upload build artifact
         if: ${{ inputs.mode == 'build-only' }}
         uses: actions/upload-artifact@v4
         with:
           name: "positron-build"
-          path: /tmp/artifacts/positron-build.tar.zst
+          path: /tmp/artifacts/positron-build.tar.gz
           retention-days: 1
 
       - name: Install Playwright browsers
