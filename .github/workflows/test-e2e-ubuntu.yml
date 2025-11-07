@@ -135,8 +135,7 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Ensure Docker client doesn't try to read a root-owned config file in the container
-      DOCKER_CONFIG: /tmp/.docker
+      DOCKER_CONFIG: /tmp/.docker # Ensure Docker client doesn't try to read a root-owned config file in the container
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
@@ -308,14 +307,16 @@ jobs:
           fi
 
           mkdir -p /tmp/artifacts
-          tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+          # Create a zstd-compressed tarball using multi-threading for faster
+          # compression. We stream tar to zstd to avoid relying on tar's -I flag.
+          tar -C /__w -cf - positron --exclude='.git' | zstd -T0 -19 -o /tmp/artifacts/positron-build.tar.zst || true
 
       - name: Upload build artifact
         if: ${{ inputs.mode == 'build-only' }}
         uses: actions/upload-artifact@v4
         with:
           name: "positron-build"
-          path: /tmp/artifacts/positron-build.tar.gz
+          path: /tmp/artifacts/positron-build.tar.zst
           retention-days: 1
 
       - name: Install Playwright browsers

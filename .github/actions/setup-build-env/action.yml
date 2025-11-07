@@ -3,21 +3,49 @@ description: "Installs necessary system dependencies."
 runs:
   using: "composite"
   steps:
-    - name: Install Node packages
+    - name: Restore npm cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.npm
+          node_modules
+        key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-
+
+    - name: Restore Playwright browsers cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
+
+    - name: Install Node packages (timed)
       shell: bash
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
       run: |
-        # Perform the main npm command; this installs all Node packages and
-        # dependencies
-        npm ci --fetch-timeout 120000
-        npm --prefix test/e2e ci
+        # Time the npm install so we can measure improvements from caching
+        date
+        time npm ci --fetch-timeout 120000
+        date
+        # Install test/e2e dependencies separately and time them too
+        date
+        time npm --prefix test/e2e ci
+        date
 
-    - name: Compile and Download
+    - name: Compile and Download (parallel, timed)
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=8192 -lp compile "electron x64" playwright-install
+      run: |
+        # Run compile and playwright-install in parallel to save wall time. Keep
+        # memory afforded to Node high in case builds are memory heavy.
+        date
+        time npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64" playwright-install
+        date
 
     - name: Set permissions on SUID sandbox helper
       shell: bash
