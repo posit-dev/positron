@@ -1101,6 +1101,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	override async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		// The Vercel and Bedrock SDKs both use the node provider chain for credentials so getting a listing
 		// means the credentials are valid.
+		log.debug(`[${this.providerName}] Resolving connection by fetching available models...`);
 		await this.resolveModels(token);
 
 		return undefined;
