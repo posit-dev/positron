@@ -16,9 +16,9 @@ function matchesModelFilter(pattern: string, id: string, name: string): boolean 
 	const normalizedPattern = pattern.toLowerCase().trim();
 	const values = [id, name].map(v => v.toLowerCase());
 
-	// If pattern contains wildcards, use simplified glob matching
-	if (normalizedPattern.includes('*')) {
-		return values.some(value => simpleGlobMatch(normalizedPattern, value));
+	// If pattern contains wildcards or regex chars, use regex matching
+	if (normalizedPattern.includes('*') || /[.+^${}()|[\]\\]/.test(normalizedPattern)) {
+		return values.some(value => regexMatch(normalizedPattern, value));
 	}
 
 	// Smart matching for simple model names
@@ -39,15 +39,35 @@ function matchesModelFilter(pattern: string, id: string, name: string): boolean 
 }
 
 /**
- * Simple glob pattern matching for * wildcards
+ * Regex pattern matching with smart defaults for simple cases
  */
-function simpleGlobMatch(pattern: string, text: string): boolean {
-	// Convert glob pattern to regex
-	const regexPattern = pattern
-		.replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars except *
-		.replace(/\*/g, '.*'); // Replace * with .*
-	const regex = new RegExp(`^${regexPattern}$`, 'i');
-	return regex.test(text);
+function regexMatch(pattern: string, text: string): boolean {
+	try {
+		// Check if it looks like regex (contains regex special chars)
+		if (/[.+^${}()|[\]\\]/.test(pattern)) {
+			// Advanced regex pattern - use as-is
+			const regex = new RegExp(pattern, 'i');
+			return regex.test(text);
+		}
+
+		// Handle simple wildcard patterns (only plain * wildcards)
+		if (pattern.includes('*')) {
+			// Convert wildcards to regex
+			const regexPattern = pattern
+				.replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
+				.replace(/\*\*/g, '.*') // Replace ** with .*
+				.replace(/\*/g, '.*'); // Replace remaining * with .*
+
+			// For wildcard patterns, use anchored matching (like original glob behavior)
+			const regex = new RegExp(`^${regexPattern}$`, 'i');
+			return regex.test(text);
+		}
+
+		// Simple text pattern - treat as substring match
+		return text.toLowerCase().includes(pattern.toLowerCase());
+	} catch {
+		return false; // Invalid regex
+	}
 }
 
 /**

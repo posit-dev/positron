@@ -170,7 +170,7 @@ suite('Model Filters', () => {
 			});
 		});
 
-		test('filters models using glob patterns', () => {
+		test('filters models using wildcard patterns', () => {
 			const testCases = [
 				{
 					description: 'Explicit wildcard pattern',
@@ -223,6 +223,96 @@ suite('Model Filters', () => {
 					],
 					expectedIds: ['openai/gpt-5'],
 					vendor: 'openai-compatible'
+				}
+			];
+
+			testCases.forEach(testCase => {
+				mockWorkspaceConfig.withArgs('unfilteredProviders', []).returns([]);
+				mockWorkspaceConfig.withArgs('filterModels', []).returns([testCase.pattern]);
+
+				const result = applyModelFilters(testCase.models, testCase.vendor, testCase.vendor);
+				const resultIds = result.map(m => m.id);
+
+				assert.strictEqual(
+					result.length,
+					testCase.expectedIds.length,
+					`${testCase.description}: Expected ${testCase.expectedIds.length} models, got ${result.length}. Expected: ${testCase.expectedIds}, Got: ${resultIds}`
+				);
+
+				testCase.expectedIds.forEach(expectedId => {
+					assert.ok(
+						resultIds.includes(expectedId),
+						`${testCase.description}: Expected model "${expectedId}" to be included in results`
+					);
+				});
+			});
+		});
+
+		test('filters models using regex patterns', () => {
+			const testCases = [
+				{
+					description: 'Anchored pattern (start of string)',
+					pattern: '^gpt',
+					models: [
+						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
+						createTestModel('openai/gpt-5', 'OpenAI GPT-5', 'gpt'),
+						createTestModel('claude-gpt', 'Claude GPT', 'claude')
+					],
+					expectedIds: ['gpt-4o'],
+					vendor: 'openai'
+				},
+				{
+					description: 'Anchored pattern (end of string)',
+					pattern: 'chat$',
+					models: [
+						createTestModel('llama-2-7b-chat', 'Llama 2 7B Chat', 'llama'),
+						createTestModel('chat-gpt-4', 'Chat GPT-4', 'gpt'),
+						createTestModel('claude-chat-model', 'Claude Chat Model', 'claude')
+					],
+					expectedIds: ['llama-2-7b-chat'],
+					vendor: 'meta'
+				},
+				{
+					description: 'Alternation pattern',
+					pattern: '(gpt|claude)',
+					models: [
+						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
+						createTestModel('claude-opus', 'Claude Opus', 'claude'),
+						createTestModel('llama-2-7b', 'Llama 2 7B', 'llama')
+					],
+					expectedIds: ['gpt-4o', 'claude-opus'],
+					vendor: 'mixed'
+				},
+				{
+					description: 'Character class pattern',
+					pattern: 'gpt-[0-9]',
+					models: [
+						createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
+						createTestModel('gpt-5', 'GPT-5', 'gpt'),
+						createTestModel('gpt-mini', 'GPT Mini', 'gpt')
+					],
+					expectedIds: ['gpt-4o', 'gpt-5'],
+					vendor: 'openai'
+				},
+				{
+					description: 'Quantifier pattern',
+					pattern: 'claude.*opus',
+					models: [
+						createTestModel('claude-opus-4', 'Claude Opus 4', 'claude'),
+						createTestModel('claude-3-opus', 'Claude 3 Opus', 'claude'),
+						createTestModel('claude-sonnet', 'Claude Sonnet', 'claude')
+					],
+					expectedIds: ['claude-opus-4', 'claude-3-opus'],
+					vendor: 'anthropic'
+				},
+				{
+					description: 'Invalid regex pattern (should not crash)',
+					pattern: '[invalid',
+					models: [
+						createTestModel('test-model', 'Test Model', 'test')
+					],
+					expectedIds: [],
+					vendor: 'test'
 				}
 			];
 
@@ -345,7 +435,7 @@ suite('Model Filters', () => {
 			assert.ok(!resultIds.includes('llama-2-7b-chat'));
 		});
 
-		test('filters models using glob patterns with multiple patterns', () => {
+		test('filters models using wildcard patterns with multiple patterns', () => {
 			const models = [
 				createTestModel('gpt-4o', 'GPT-4o', 'gpt'),
 				createTestModel('openai/gpt-5', 'OpenAI GPT-5', 'gpt'),
