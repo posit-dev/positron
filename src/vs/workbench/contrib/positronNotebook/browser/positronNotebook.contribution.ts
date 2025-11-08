@@ -415,7 +415,7 @@ registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.addSelectionUp',
-			title: localize2('positronNotebook.addSelectionUp', "Extend selection up"),
+			title: localize2('positronNotebook.addSelectionUp', "Extend Selection Up"),
 			keybinding: {
 				when: POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
 				weight: KeybindingWeight.EditorContrib,
@@ -826,7 +826,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllBelow',
-			title: localize2('positronNotebook.cell.runAllBelow', "Run Cell and Below"),
+			title: localize2('positronNotebook.cell.runAllBelow', "Run Below Cells"),
 			icon: ThemeIcon.fromId('run-below'),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
@@ -898,7 +898,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.collapseMarkdownEditor',
-			title: localize2('positronNotebook.cell.collapseMarkdownEditor', "Collapse markdown editor"),
+			title: localize2('positronNotebook.cell.collapseMarkdownEditor', "Collapse Markdown Editor"),
 			icon: ThemeIcon.fromId('chevron-up'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarLeft,
@@ -928,7 +928,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.executeOrToggleEditor',
-			title: localize2('positronNotebook.cell.executeOrToggleEditor', "Execute cell or toggle editor"),
+			title: localize2('positronNotebook.cell.executeOrToggleEditor', "Execute Cell or Toggle Editor"),
 			keybinding: {
 				when: ContextKeyExpr.or(
 					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
