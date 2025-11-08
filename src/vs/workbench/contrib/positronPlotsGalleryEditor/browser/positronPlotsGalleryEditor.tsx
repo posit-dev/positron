@@ -126,6 +126,10 @@ export class PositronPlotsGalleryEditor extends EditorPane implements IReactComp
 		// Call the base class
 		await super.setInput(input, options, context, token);
 
+		// Set the display location to auxiliary window
+		// This ensures plots appear in this editor, not in the main window view, if it is open
+		this._positronPlotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
+
 		// If we don't have a React renderer yet, create one and render the PositronPlots component
 		if (!this._reactRenderer) {
 			this._reactRenderer = this._register(new PositronReactRenderer(this._container));
