@@ -768,7 +768,18 @@ export async function getAttachedNotebookContext(
 
 	// Extract attached notebook URIs
 	const attachedNotebookUris = request.references
-		.map(ref => (ref.value as any)?.activeSession?.notebookUri)
+		.map(ref => {
+			// Check for activeSession.notebookUri
+			const sessionNotebookUri = (ref.value as any)?.activeSession?.notebookUri;
+			if (typeof sessionNotebookUri === 'string') {
+				return sessionNotebookUri;
+			}
+			// Check for direct .ipynb file reference
+			if (ref.value instanceof vscode.Uri && ref.value.path.endsWith('.ipynb')) {
+				return ref.value.toString();
+			}
+			return undefined;
+		})
 		.filter(uri => typeof uri === 'string');
 
 	if (attachedNotebookUris.length === 0) {
@@ -777,7 +788,7 @@ export async function getAttachedNotebookContext(
 
 	// Check if active notebook is in attached context
 	const isActiveNotebookAttached = attachedNotebookUris.includes(
-		activeContext.uri.toString()
+		activeContext.uri
 	);
 
 	return isActiveNotebookAttached ? activeContext : undefined;
