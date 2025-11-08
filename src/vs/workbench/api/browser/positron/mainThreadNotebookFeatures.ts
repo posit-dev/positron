@@ -180,11 +180,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No cells found with IDs: ${cellIds.join(', ')}`);
 		}
 
-		if (cellsToRun.length === 1) {
-			// Select the cell
-			const cell = cellsToRun[0];
-			cell.select(CellSelectionType.Normal);
-		}
+		// Select the last cell in the range (somewhat arbitrary)
+		const lastCell = cellsToRun[cellsToRun.length - 1];
+		lastCell.select(CellSelectionType.Normal);
 
 		return instance.runCells(cellsToRun);
 	}
