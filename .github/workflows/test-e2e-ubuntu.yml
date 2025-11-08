@@ -178,9 +178,32 @@ jobs:
           mkdir -p /tmp/.docker
           chmod 700 /tmp/.docker
 
+      - name: Detect Node version
+        id: node
+        shell: bash
+        run: |
+          NODE_V=$(node -v || echo "vunknown")
+          echo "version=${NODE_V#v}" >> "$GITHUB_OUTPUT"
+          echo "Detected Node: ${NODE_V}"
+
       - name: Restore caches
         id: restore-caches
+        if: ${{ inputs.mode != 'run-only' }}
         uses: ./.github/actions/cache-multi-paths
+        with:
+          node-version: ${{ steps.node.outputs.version }}
+
+      - name: Cache TypeScript build state
+        id: cache-tsbuild
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/*.tsbuildinfo
+            out/**
+          key: tsbuild-${{ runner.os }}-node-${{ steps.node.outputs.version }}-${{ hashFiles('**/tsconfig*.json') }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            tsbuild-${{ runner.os }}-node-${{ steps.node.outputs.version }}-
+            tsbuild-${{ runner.os }}-
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
@@ -237,6 +260,16 @@ jobs:
           if [ -d /__w/positron ]; then
             chown -R $(id -u):$(id -g) /__w/positron || true
           fi
+
+      - name: Ensure executables are executable
+        shell: bash
+        if: ${{ inputs.mode == 'run-only' }}
+        run: |
+          set -euxo pipefail
+          chmod +x /__w/positron/scripts/*.sh || true
+          chmod +x /__w/positron/bin/* || true
+          # if you have a launcher script for Electron:
+          test -f /__w/positron/scripts/code.sh && chmod +x /__w/positron/scripts/code.sh || true
 
       - name: Seed system tmp cache from bundled cache
         if: ${{ inputs.mode == 'run-only' }}
@@ -300,16 +333,34 @@ jobs:
       - name: Create Build Artifact
         if: ${{ inputs.mode == 'build-only' }}
         run: |
-          # Ensure QA example content is bundled so downstream runners that lack network
-          # access can still prepare test fixtures. We clone into the workspace path
-          # under positron/test/e2e/qa-example-content-cache if it doesn't already exist.
+          # Bundle qa-example-content under positron/test/e2e/qa-example-content-cache
           mkdir -p /__w/positron/test/e2e
           if [ ! -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
             git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /__w/positron/test/e2e/qa-example-content-cache || true
           fi
+
           # Seed cache metadata so the test runner can detect the cached commit
           if [ -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
             (cd /__w/positron/test/e2e/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
+          fi
+
+          # Compile E2E tests so compiled outputs are included in the artifact.
+          # Use npx to ensure a TypeScript compiler is available without relying
+          # on repo-root dev-deps. This keeps the build artifact self-contained.
+          if [ -f /__w/positron/test/e2e/package.json ]; then
+            echo "Compiling test/e2e for artifact inclusion"
+            # Install test deps (production/dev as defined) to populate node_modules used by tests
+            npm ci --prefix /__w/positron/test/e2e --prefer-offline --no-audit --no-fund || npm install --prefix /__w/positron/test/e2e --no-audit --no-fund || true
+            # Run a local tsc using npx so we don't need typescript listed in the e2e package.json
+            npx -y -p typescript tsc -p /__w/positron/test/e2e || true
+          fi
+
+          # Fail early if the qa-example-content cache wasn't seeded correctly
+          if [ ! -f "/__w/positron/test/e2e/qa-example-content-cache/.cached-commit" ]; then
+            echo "Positron QA cache missing .cached-commit at /__w/positron/test/e2e/qa-example-content-cache/.cached-commit"
+            echo "Listing /__w/positron/test/e2e for debugging:" || true
+            ls -la /__w/positron/test/e2e || true
+            exit 1
           fi
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
@@ -321,8 +372,107 @@ jobs:
             printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
           fi
 
+          # Speed up artifact creation by excluding large, unnecessary directories and
+          # using a fast, low-compression streaming gzip pass. This keeps the artifact
+          # layout the same for downstream steps while reducing CPU/IO time.
           mkdir -p /tmp/artifacts
-          tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+
+          # Collect diagnostics to help decide which files/dirs to exclude from the artifact.
+          # This writes a short report with directory sizes and the largest files.
+          echo "Collecting artifact diagnostics..." > /tmp/artifacts/build-archive-diagnostics.txt
+          if [ -d /__w/positron ]; then
+            echo "Total workspace size (KB):" >> /tmp/artifacts/build-archive-diagnostics.txt
+            du -sk /__w/positron 2>/dev/null | awk '{print $1 " KB\t" $2}' >> /tmp/artifacts/build-archive-diagnostics.txt || true
+
+            echo "\nTop directories by size (depth=2, KB):" >> /tmp/artifacts/build-archive-diagnostics.txt
+            (cd /__w/positron && du -x -k --max-depth=2 . 2>/dev/null | sort -rn | head -n 50) >> /tmp/artifacts/build-archive-diagnostics.txt || true
+
+            echo "\nTop 50 largest files (KB):" >> /tmp/artifacts/build-archive-diagnostics.txt
+            # Use find + du to be portable: du -k will report KB per file, then sort
+            (cd /__w/positron && find . -type f -exec du -k {} + 2>/dev/null | sort -rn | head -n 50) >> /tmp/artifacts/build-archive-diagnostics.txt || true
+          else
+            echo "Workspace /__w/positron not found, skipping diagnostics." >> /tmp/artifacts/build-archive-diagnostics.txt
+          fi
+
+
+          # Build a whitelist for the artifact: explicitly include the runtime pieces
+          # we expect run-only to need (built Electron, license, test data, scripts,
+          # extension runtimes). Also include important native binaries (.node/.wasm)
+          # that live in extensions. This yields a much smaller artifact and is safer
+          # than excluding by many patterns.
+          mkdir -p /tmp/artifacts
+
+          # Base includes (relative to /__w)
+          cat > /tmp/artifacts/include-list.txt <<'EOF'
+          positron/.build
+          positron/out
+          positron/resources
+          positron/positron-license
+          positron/scripts
+          positron/bin
+          positron/test
+          # Explicitly include compiled E2E test outputs and metadata
+          positron/test/e2e/out
+          positron/test/e2e/package-lock.json
+          # Include installed runtime dependencies to avoid any installs in run-only
+          positron/test/e2e/node_modules
+          # Include TypeScript runtime required by some test compile steps
+          positron/node_modules/typescript
+          EOF
+
+          # Add per-extension out/dist/resources folders if present and collect
+          # important native/runtime files (.node, .wasm, copilot-language-server, vsce-sign, ark, kallichore)
+          cd /__w/positron || true
+          for e in extensions/*; do
+            if [ -d "$e/out" ]; then
+              echo "positron/$e/out" >> /tmp/artifacts/include-list.txt
+            fi
+            if [ -d "$e/dist" ]; then
+              echo "positron/$e/dist" >> /tmp/artifacts/include-list.txt
+            fi
+            if [ -d "$e/resources" ]; then
+              echo "positron/$e/resources" >> /tmp/artifacts/include-list.txt
+            fi
+          done
+
+          # Collect important native/runtime files under extensions (record as relative paths)
+          find . -path './extensions/*' -type f \( -iname '*.node' -o -iname '*.wasm' -o -iname 'copilot-language-server*' -o -iname 'vsce-sign*' -o -iname 'ark' -o -iname 'kallichore*' \) -print | sed 's|^./|positron/|' >> /tmp/artifacts/include-list.txt || true
+
+          # Deduplicate and filter out any blank lines
+          awk 'NF' /tmp/artifacts/include-list.txt | sort -u > /tmp/artifacts/include-list.txt.sorted || true
+          mv /tmp/artifacts/include-list.txt.sorted /tmp/artifacts/include-list.txt || true
+
+          # Create tar from whitelist and compress with gzip level 1 (fast).
+          # Filter the include list to existing paths so tar doesn't fail when a
+          # listed path is absent in this particular build. Record missing paths
+          # for diagnostics.
+          /bin/echo "Filtering include list for existing paths..." >> /tmp/artifacts/build-archive-diagnostics.txt || true
+          rm -f /tmp/artifacts/include-list.present.txt /tmp/artifacts/include-list.missing.txt || true
+          # Trim leading/trailing whitespace from include-list entries before testing
+          while IFS= read -r p || [ -n "$p" ]; do
+            # Trim leading/trailing whitespace
+            p_trimmed=$(printf "%s" "$p" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            # Skip blank lines after trimming
+            [ -z "$p_trimmed" ] && continue
+            if [ -e "/__w/$p_trimmed" ]; then
+              echo "$p_trimmed" >> /tmp/artifacts/include-list.present.txt
+            else
+              echo "$p_trimmed" >> /tmp/artifacts/include-list.missing.txt
+            fi
+          done < /tmp/artifacts/include-list.txt || true
+
+          if [ -f /tmp/artifacts/include-list.missing.txt ]; then
+            echo "\nMissing include-list entries (may be normal):" >> /tmp/artifacts/build-archive-diagnostics.txt || true
+            sed -n '1,200p' /tmp/artifacts/include-list.missing.txt >> /tmp/artifacts/build-archive-diagnostics.txt || true
+          fi
+
+          if [ -s /tmp/artifacts/include-list.present.txt ]; then
+            tar -C /__w -T /tmp/artifacts/include-list.present.txt -cf - | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
+          else
+            echo "No files matched include-list; producing empty tar.gz" >> /tmp/artifacts/build-archive-diagnostics.txt || true
+            # produce an empty tar.gz to keep downstream steps stable
+            (tar -C /tmp -cf - --files-from /dev/null) | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
+          fi
 
       - name: Upload Build Artifact
         if: ${{ inputs.mode == 'build-only' }}
@@ -331,6 +481,15 @@ jobs:
           name: "positron-build"
           path: /tmp/artifacts/positron-build.tar.gz
           retention-days: 1
+          compression-level: 1
+
+      - name: Upload Build Diagnostics
+        if: ${{ inputs.mode == 'build-only' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: "positron-build-diagnostics"
+          path: /tmp/artifacts/build-archive-diagnostics.txt
+          if-no-files-found: ignore
 
       - name: Install Playwright browsers
         if: ${{ inputs.mode != 'build-only' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') && steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
