@@ -83,6 +83,7 @@ export class MenuId {
 	static readonly PositronNotebookCellActionBarRight = new MenuId('PositronNotebookCellActionBarRight');
 	static readonly PositronNotebookCellActionBarSubmenu = new MenuId('PositronNotebookCellActionBarSubmenu');
 	static readonly PositronNotebookCellActionLeft = new MenuId('PositronNotebookCellActionLeft');
+	static readonly PositronNotebookCellContext = new MenuId('PositronNotebookCellContext');
 	static readonly EditorActionsLeft = new MenuId('EditorActionsLeft');
 	static readonly EditorActionsRight = new MenuId('EditorActionsRight');
 	// --- End Positron ---
