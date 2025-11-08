@@ -1,5 +1,5 @@
 name: "Cache: Package Stores & Binaries"
-description: "Portable caches for npm tarballs and versioned binaries (ark/kallichore)."
+description: "Portable caches for npm tarballs and versioned binaries"
 
 inputs:
   node-version:

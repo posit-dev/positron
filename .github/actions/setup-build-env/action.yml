@@ -1,30 +1,45 @@
 name: "Setup Build Environment, Install Dependencies, and Compile App"
 description: "Installs necessary system dependencies."
+inputs:
+  skip-playwright-if-cached:
+    description: "If 'true', skip running Playwright installer (use cache-hit output from cache-multi-paths)."
+    required: false
+    default: 'false'
+  skip-electron-if-cached:
+    description: "If 'true', skip running Electron compile/download (use cache-hit output from cache-multi-paths)."
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
-    - name: Restore caches
-      uses: ./.github/actions/cache-multi-paths
-
     - name: Install Node packages
       shell: bash
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
-        NPM_CONFIG_CACHE: /root/.npm
+        # Do not override NPM_CONFIG_CACHE here; let the cache composite set it (e.g. .npm-cache).
         NPM_CONFIG_AUDIT: 'false'
         NPM_CONFIG_FUND: 'false'
         NPM_CONFIG_UPDATE_NOTIFIER: 'false'
       run: |
-        # Ensure npm cache dir exists and is writable
-        mkdir -p /root/.npm
+        # Ensure npm cache dir exists and is writable. The composite action that restores
+        # caches should set NPM_CONFIG_CACHE (for example, to .npm-cache). If it isn't set,
+        # fall back to a repository-local .npm-cache directory so local dev runs work too.
+        NPM_CONFIG_CACHE=${NPM_CONFIG_CACHE:-.npm-cache}
+        mkdir -p "$NPM_CONFIG_CACHE"
         npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
         npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
 
-    - name: Compile and Download\
+    - name: Compile and Electron download
+      if: ${{ inputs.skip-electron-if-cached != 'true' }}
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64" playwright-install
+      run: npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
+
+    - name: Install Playwright (build-level)
+      if: ${{ inputs.skip-playwright-if-cached != 'true' }}
+      shell: bash
+      run: npm exec -- npm-run-all --max_old_space_size=8192 -p playwright-install
 
     - name: Set permissions on SUID sandbox helper
       shell: bash

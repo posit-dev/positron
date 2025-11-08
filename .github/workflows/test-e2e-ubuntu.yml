@@ -178,22 +178,37 @@ jobs:
           mkdir -p /tmp/.docker
           chmod 700 /tmp/.docker
 
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         if: ${{ inputs.mode != 'run-only' }}
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
+        env:
+          NODE_ENV: ${{ env.NODE_ENV }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' && (inputs.mode != 'run-only') }}
         id: attempt2
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
         if: ${{ steps.attempt2.outcome == 'failure' && (inputs.mode != 'run-only') }}
         uses: ./.github/actions/setup-build-env
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' && (inputs.mode != 'run-only') }}
@@ -318,7 +333,7 @@ jobs:
           retention-days: 1
 
       - name: Install Playwright browsers
-        if: ${{ inputs.mode != 'build-only' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') }}
+        if: ${{ inputs.mode != 'build-only' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') && steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: |
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
