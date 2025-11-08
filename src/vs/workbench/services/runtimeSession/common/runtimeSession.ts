@@ -1203,11 +1203,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				runtimeState === RuntimeState.Offline ||
 				runtimeState === RuntimeState.Exiting ||
 				runtimeState === RuntimeState.Restarting ||
-				runtimeState === RuntimeState.Interrupting
-			) {
-				// Sessions in these states can be deleted without shutting down.
-				// They either never successfully started, are not responsive,
-				// or are already in a transitional state.
+				runtimeState === RuntimeState.Interrupting) {
+				// Sessions in these states can be deleted (trashed) without shutting down.
 				this._logService.debug(`Deleting session ${sessionId} in state '${runtimeState}' without shutdown`);
 			} else {
 				// Otherwise throw error for any unexpected states.
