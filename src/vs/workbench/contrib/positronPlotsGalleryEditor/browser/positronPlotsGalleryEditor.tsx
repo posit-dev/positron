@@ -20,8 +20,7 @@ import { IEditorOpenContext } from '../../../common/editor.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronPlotsGalleryEditorInput } from './positronPlotsGalleryEditorInput.js';
 import { PositronPlots } from '../../positronPlots/browser/positronPlots.js';
-import { IPositronPlotsService, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IPositronPlotsService, PlotsDisplayLocation } from '../../../services/positronPlots/common/positronPlots.js';
 
 /**
  * PositronPlotsGalleryEditor class.
@@ -86,7 +85,6 @@ export class PositronPlotsGalleryEditor extends EditorPane implements IReactComp
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
-		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		super(
 			PositronPlotsGalleryEditorInput.EditorID,
@@ -102,8 +100,8 @@ export class PositronPlotsGalleryEditor extends EditorPane implements IReactComp
 
 	override dispose(): void {
 		// Restore the plots view in the main window when this editor is closed
+		// The context key will automatically show the view
 		this._positronPlotsService.setDisplayLocation(PlotsDisplayLocation.MainWindow);
-		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 
 		super.dispose();
 	}

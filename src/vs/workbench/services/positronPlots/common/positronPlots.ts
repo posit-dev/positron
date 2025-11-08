@@ -9,8 +9,18 @@ import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
+
+/**
+ * Context key that tracks where plots are currently displayed.
+ * Value is 'MainWindow' or 'AuxiliaryWindow'
+ */
+export const POSITRON_PLOTS_LOCATION_CONTEXT = new RawContextKey<string>(
+	'positronPlotsLocation',
+	'MainWindow'
+);
 
 export const POSITRON_PLOTS_SERVICE_ID = 'positronPlotsService';
 

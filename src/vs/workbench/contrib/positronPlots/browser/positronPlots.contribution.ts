@@ -9,12 +9,13 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronPlotsViewPane } from './positronPlotsView.js';
 import { PositronPlotsService } from './positronPlotsService.js';
-import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotsService, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, PlotsDisplayLocation } from '../../../services/positronPlots/common/positronPlots.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { MenuRegistry, registerAction2, MenuId, ISubmenuItem } from '../../../../platform/actions/common/actions.js';
@@ -45,6 +46,8 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronPlotViewIcon,
+			// Only show the view when plots are displayed in the main window
+			when: ContextKeyExpr.equals(POSITRON_PLOTS_LOCATION_CONTEXT.key, PlotsDisplayLocation.MainWindow),
 			openCommandActionDescriptor: {
 				id: 'workbench.action.positron.togglePlots',
 				mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),

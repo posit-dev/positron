@@ -17,8 +17,7 @@ import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positro
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { PositronPlotsGalleryEditorInput } from '../../positronPlotsGalleryEditor/browser/positronPlotsGalleryEditorInput.js';
 import { AUX_WINDOW_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotsDisplayLocation, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotsDisplayLocation, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -456,19 +455,15 @@ export class PlotsGalleryInNewWindowAction extends Action2 {
 
 	/**
 	 * Runs the action and opens the plots gallery in a new auxiliary window.
-	 * Hides the plots view in the main window to ensure plots only appear in one location.
+	 * The context key automatically hides the plots view in the main window.
 	 *
 	 * @param accessor The service accessor.
 	 */
 	async run(accessor: ServicesAccessor) {
 		const editorService = accessor.get(IEditorService);
 		const plotsService = accessor.get(IPositronPlotsService);
-		const viewsService = accessor.get(IViewsService);
 
-		// Close the plots view in the main window
-		viewsService.closeView(POSITRON_PLOTS_VIEW_ID);
-
-		// Update the display location
+		// Update the display location (context key will automatically hide the main window view)
 		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
 
 		// Open the plots gallery in the auxiliary window
