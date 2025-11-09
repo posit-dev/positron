@@ -322,7 +322,23 @@ jobs:
           fi
 
           mkdir -p /tmp/artifacts
-          tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+          # Ensure pigz is installed in the container for fast, parallel compression.
+          # Use apt only if it's available; keep commands tolerant so this step doesn't fail the job.
+          if command -v apt-get >/dev/null 2>&1; then
+            echo "Installing pigz for faster compression (if not already present)"
+            DEBIAN_FRONTEND=noninteractive apt-get update -y || true
+            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz || true
+          fi
+
+          # Use parallel gzip (pigz) if available for much faster compression on multi-core runners.
+          # Fallback to gzip with lower compression level (-1) which is faster than the default.
+          if command -v pigz >/dev/null 2>&1; then
+            echo "Using pigz (parallel gzip) for compression"
+            tar -C /__w --use-compress-program=pigz -cf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+          else
+            echo "pigz not available; using gzip -1 for faster compression"
+            GZIP=-1 tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+          fi
 
       - name: Upload Build Artifact
         if: ${{ inputs.mode == 'build-only' }}
