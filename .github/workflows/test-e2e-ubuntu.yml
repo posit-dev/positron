@@ -179,6 +179,7 @@ jobs:
           chmod 700 /tmp/.docker
 
       - name: Restore caches
+        if: ${{ !inputs.mode == 'run-only' }}
         id: restore-caches
         uses: ./.github/actions/cache-multi-paths
 
@@ -427,7 +428,7 @@ jobs:
           fi
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() && inputs.mode != 'build-only' }}
+        if: ${{ (success() || failure()) && inputs.mode != 'build-only' }}
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
