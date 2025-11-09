@@ -46,7 +46,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      mode: "benchmark"
+      mode: "build-only"
       display_name: "build"
       install_license: true
 

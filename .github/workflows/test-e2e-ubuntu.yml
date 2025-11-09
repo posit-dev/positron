@@ -182,17 +182,6 @@ jobs:
         id: restore-caches
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Run compression benchmark
-        if: ${{ inputs.mode == 'benchmark' }}
-        run: |
-          # Install pigz and zstd where possible, then run the benchmark script.
-          if command -v apt-get >/dev/null 2>&1; then
-            DEBIAN_FRONTEND=noninteractive apt-get update -y || true
-            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz zstd || true
-          fi
-          bash scripts/bench-compression.sh
-        shell: bash
-
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         if: ${{ inputs.mode != 'run-only' }}
@@ -242,8 +231,18 @@ jobs:
         if: ${{ inputs.mode == 'run-only' }}
         run: |
           mkdir -p /__w
-          # Avoid preserving uid/gid from the tar (can cause permission issues on extract)
-          tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w
+          # Extract based on available archive format. Prefer zstd (.tar.zst) when present.
+          if [ -f /tmp/artifacts/positron-build.tar.zst ]; then
+            echo "Extracting zstd archive"
+            # zstd decompressed to stdout, pipe into tar for extraction
+            zstd -d --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
+          elif [ -f /tmp/artifacts/positron-build.tar.gz ]; then
+            echo "Extracting gzip archive"
+            tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w || true
+          else
+            echo "No known build artifact found in /tmp/artifacts"; ls -la /tmp/artifacts || true; exit 1
+          fi
+
           # Ensure extracted files are owned by the runner user so subsequent steps can write to them
           if [ -d /__w/positron ]; then
             chown -R $(id -u):$(id -g) /__w/positron || true
@@ -333,22 +332,26 @@ jobs:
           fi
 
           mkdir -p /tmp/artifacts
-          # Ensure pigz is installed in the container for fast, parallel compression.
-          # Use apt only if it's available; keep commands tolerant so this step doesn't fail the job.
+          # Install zstd and pigz if apt is available so we can produce fast zstd archives.
           if command -v apt-get >/dev/null 2>&1; then
-            echo "Installing pigz for faster compression (if not already present)"
+            echo "Installing pigz and zstd for faster compression (if not already present)"
             DEBIAN_FRONTEND=noninteractive apt-get update -y || true
-            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz || true
+            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz zstd || true
           fi
 
-          # Use parallel gzip (pigz) if available for much faster compression on multi-core runners.
-          # Fallback to gzip with lower compression level (-1) which is faster than the default.
-          if command -v pigz >/dev/null 2>&1; then
-            echo "Using pigz (parallel gzip) for compression"
-            tar -C /__w --use-compress-program=pigz -cf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+          # Prefer zstd for best compress+decompress speed and smaller output (requires zstd on unpack side).
+          # Fall back to pigz (parallel gzip) if zstd is not available, else gzip -1 as a final fallback.
+          if command -v zstd >/dev/null 2>&1; then
+            echo "Using zstd (multithreaded) for compression"
+            # Place options (exclude) before the filenames so tar respects them.
+            tar -C /__w --exclude='.git' --use-compress-program='zstd -T0 -3' -cf /tmp/artifacts/positron-build.tar.zst positron || true
+          elif command -v pigz >/dev/null 2>&1; then
+            echo "zstd not available; using pigz (parallel gzip) for compression"
+            tar -C /__w --exclude='.git' --use-compress-program=pigz -cf /tmp/artifacts/positron-build.tar.gz positron || true
           else
-            echo "pigz not available; using gzip -1 for faster compression"
-            GZIP=-1 tar -C /__w -czf /tmp/artifacts/positron-build.tar.gz positron --exclude='.git' || true
+            echo "zstd and pigz not available; using gzip -1 for faster compression"
+            # Use gzip -1 via a pipe to avoid using the deprecated GZIP env var
+            tar -C /__w --exclude='.git' -cf - positron | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
           fi
 
       - name: Upload Build Artifact
@@ -356,7 +359,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "positron-build"
-          path: /tmp/artifacts/positron-build.tar.gz
+          path: /tmp/artifacts
           retention-days: 1
 
       - name: Install Playwright browsers
@@ -424,14 +427,14 @@ jobs:
           fi
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
+        if: ${{ success() || failure() && inputs.mode != 'build-only' }}
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs && inputs.mode != 'build-only' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-logs
@@ -439,7 +442,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Test Results File
-        if: ${{ always() }}
+        if: ${{ always() && inputs.mode != 'build-only' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-ubuntu-json-results
