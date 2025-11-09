@@ -182,6 +182,17 @@ jobs:
         id: restore-caches
         uses: ./.github/actions/cache-multi-paths
 
+      - name: Run compression benchmark
+        if: ${{ inputs.mode == 'benchmark' }}
+        run: |
+          # Install pigz and zstd where possible, then run the benchmark script.
+          if command -v apt-get >/dev/null 2>&1; then
+            DEBIAN_FRONTEND=noninteractive apt-get update -y || true
+            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz zstd || true
+          fi
+          bash scripts/bench-compression.sh
+        shell: bash
+
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         if: ${{ inputs.mode != 'run-only' }}
