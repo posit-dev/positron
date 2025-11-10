@@ -65,7 +65,7 @@ on:
         default: false
       mode:
         required: false
-        description: "Run mode: 'build-only' (create/upload artifact), 'run-only' (download/use artifact and run tests), or 'build-and-run' (build in-place then run tests). Defaults to 'build-and-run'."
+        description: "Run mode: 'run-only' (download/use artifact and run tests) or 'build-and-run' (build in-place then run tests). Defaults to 'build-and-run'."
         default: "build-and-run"
         type: string
 
@@ -179,13 +179,13 @@ jobs:
           chmod 700 /tmp/.docker
 
       - name: Restore caches
-        if: ${{ !inputs.mode == 'run-only' }}
+        if: ${{ inputs.mode == 'build-and-run' }}
         id: restore-caches
         uses: ./.github/actions/cache-multi-paths
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
-        if: ${{ inputs.mode != 'run-only' }}
+        if: ${{ inputs.mode == 'build-and-run' }}
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
         with:
@@ -195,7 +195,7 @@ jobs:
           NODE_ENV: ${{ env.NODE_ENV }}
 
       - name: Attempt 2 - Setup Build and Compile
-        if: ${{ steps.attempt1.outcome == 'failure' && (inputs.mode != 'run-only') }}
+        if: ${{ steps.attempt1.outcome == 'failure' && (inputs.mode == 'build-and-run') }}
         id: attempt2
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
@@ -205,20 +205,26 @@ jobs:
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
-        if: ${{ steps.attempt2.outcome == 'failure' && (inputs.mode != 'run-only') }}
+        if: ${{ steps.attempt2.outcome == 'failure' && (inputs.mode == 'build-and-run') }}
         uses: ./.github/actions/setup-build-env
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
           skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
 
       - name: Fail if Retries Exhausted
-        if: ${{ steps.attempt3.outcome == 'failure' && (inputs.mode != 'run-only') }}
+        if: ${{ steps.attempt3.outcome == 'failure' && (inputs.mode == 'build-and-run') }}
         run: exit 1
 
       - name: Move Positron License
-        if: ${{ inputs.install_license && (inputs.mode != 'run-only') }}
+        if: ${{ inputs.install_license && (inputs.mode == 'build-and-run') }}
         run: |
-          mv /positron-license /__w/positron || true
+          # If a license was mounted at /positron-license, move it into the workspace;
+          # also ensure the workspace has the Positron license file from secrets so
+          # downstream steps (or artifacts) always have it available.
+          if [ -d /positron-license ] || [ -f /positron-license ]; then
+            mv /positron-license /__w/positron || true
+          fi
+          mkdir -p /__w/positron/positron-license/pdol/target/debug
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
 
       - name: Download build artifact
@@ -248,7 +254,6 @@ jobs:
           if [ -d /__w/positron ]; then
             chown -R $(id -u):$(id -g) /__w/positron || true
           fi
-
       - name: Seed system tmp cache from bundled cache
         if: ${{ inputs.mode == 'run-only' }}
         run: |
@@ -259,7 +264,6 @@ jobs:
               echo "✓ Seeded /tmp/qa-example-content-cache"
             fi
           fi
-
       - name: Validate bundled QA cache
         if: ${{ inputs.mode == 'run-only' }}
         run: |
@@ -273,8 +277,7 @@ jobs:
             exit 1
           fi
 
-          # If the install_license input was requested, ensure the license file
-          # was included in the artifact and extracted into the workspace.
+          # If requested, ensure the license file was included in the artifact and extracted into the workspace.
           if [ "${{ inputs.install_license }}" = "true" ]; then
             LICENSE_PATH="/__w/positron/positron-license/pdol/target/debug/pdol_rsa"
             echo "Checking for Positron license at $LICENSE_PATH"
@@ -289,7 +292,6 @@ jobs:
           fi
 
       - name: Setup E2E Test Environment
-        if: ${{ inputs.mode != 'build-only' }}
         uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
@@ -302,69 +304,13 @@ jobs:
         run: npm run gulp node
 
       - name: Send Results to GH Summary
-        if: ${{ inputs.mode != 'build-only' }}
         uses: ./.github/actions/gen-report-dir
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Create Build Artifact
-        if: ${{ inputs.mode == 'build-only' }}
-        run: |
-          # Ensure QA example content is bundled so downstream runners that lack network
-          # access can still prepare test fixtures. We clone into the workspace path
-          # under positron/test/e2e/qa-example-content-cache if it doesn't already exist.
-          mkdir -p /__w/positron/test/e2e
-          if [ ! -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
-            git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /__w/positron/test/e2e/qa-example-content-cache || true
-          fi
-          # Seed cache metadata so the test runner can detect the cached commit
-          if [ -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
-            (cd /__w/positron/test/e2e/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
-          fi
-
-          # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
-          # If requested, write the Positron license into the workspace
-          if [ "${{ inputs.install_license }}" = "true" ]; then
-            echo "Installing Positron license into workspace for artifact inclusion"
-            mkdir -p /__w/positron/positron-license/pdol/target/debug
-            # Write the secret file. Use printf to avoid trailing newline issues.
-            printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
-          fi
-
-          mkdir -p /tmp/artifacts
-          # Install zstd and pigz if apt is available so we can produce fast zstd archives.
-          if command -v apt-get >/dev/null 2>&1; then
-            echo "Installing pigz and zstd for faster compression (if not already present)"
-            DEBIAN_FRONTEND=noninteractive apt-get update -y || true
-            DEBIAN_FRONTEND=noninteractive apt-get install -y pigz zstd || true
-          fi
-
-          # Prefer zstd for best compress+decompress speed and smaller output (requires zstd on unpack side).
-          # Fall back to pigz (parallel gzip) if zstd is not available, else gzip -1 as a final fallback.
-          if command -v zstd >/dev/null 2>&1; then
-            echo "Using zstd (multithreaded) for compression"
-            # Place options (exclude) before the filenames so tar respects them.
-            tar -C /__w --exclude='.git' --use-compress-program='zstd -T0 -3' -cf /tmp/artifacts/positron-build.tar.zst positron || true
-          elif command -v pigz >/dev/null 2>&1; then
-            echo "zstd not available; using pigz (parallel gzip) for compression"
-            tar -C /__w --exclude='.git' --use-compress-program=pigz -cf /tmp/artifacts/positron-build.tar.gz positron || true
-          else
-            echo "zstd and pigz not available; using gzip -1 for faster compression"
-            # Use gzip -1 via a pipe to avoid using the deprecated GZIP env var
-            tar -C /__w --exclude='.git' -cf - positron | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
-          fi
-
-      - name: Upload Build Artifact
-        if: ${{ inputs.mode == 'build-only' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: "positron-build"
-          path: /tmp/artifacts
-          retention-days: 1
-
       - name: Install Playwright browsers
-        if: ${{ inputs.mode != 'build-only' && !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') && steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        if: ${{ !(inputs.project == 'e2e-electron' || inputs.project == 'e2e-chromium') && steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
         run: |
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
@@ -375,7 +321,6 @@ jobs:
           fi
 
       - name: Run Playwright Tests
-        if: ${{ inputs.mode != 'build-only' }}
         shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.10.12"
@@ -428,14 +373,14 @@ jobs:
           fi
 
       - name: Upload Playwright Report to S3
-        if: ${{ (success() || failure()) && inputs.mode != 'build-only' }}
+        if: ${{ success() || failure() }}
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs && inputs.mode != 'build-only' }}
+        if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-logs
@@ -443,7 +388,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Test Results File
-        if: ${{ always() && inputs.mode != 'build-only' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-ubuntu-json-results
