@@ -234,10 +234,11 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 		await rebuildState.setPendingRebuild(pendingRebuild);
 		logger.info(`Stored pending rebuild for: ${localWorkspaceFolder}`);
 
-		// Reload window to local (close remote connection)
+		// Close remote connection and reopen locally
 		// The extension on the host will detect the pending rebuild and execute it
 		logger.info('Closing remote window to trigger rebuild on host...');
-		await vscode.commands.executeCommand('workbench.action.reloadWindow');
+		const localUri = vscode.Uri.file(localWorkspaceFolder);
+		await vscode.commands.executeCommand('vscode.openFolder', localUri);
 	} catch (error) {
 		logger.error('Failed to initiate container rebuild', error);
 		await vscode.window.showErrorMessage(
@@ -330,9 +331,10 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 		await rebuildState.setPendingRebuild(pendingRebuild);
 		logger.info(`Stored pending rebuild (no cache) for: ${localWorkspaceFolder}`);
 
-		// Reload window to local (close remote connection)
+		// Close remote connection and reopen locally
 		logger.info('Closing remote window to trigger rebuild on host...');
-		await vscode.commands.executeCommand('workbench.action.reloadWindow');
+		const localUri = vscode.Uri.file(localWorkspaceFolder);
+		await vscode.commands.executeCommand('vscode.openFolder', localUri);
 	} catch (error) {
 		logger.error('Failed to initiate container rebuild (no cache)', error);
 		await vscode.window.showErrorMessage(

@@ -111,15 +111,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		})
 	);
 
-	// Check and show dev container detection notification
-	await checkAndShowDevContainerNotification(context);
-
 	// Check for pending rebuilds (only on host, not in container)
+	// This must be done before showing the notification to avoid interrupting the rebuild
+	let hasPendingRebuild = false;
 	if (!isInDevContainer) {
-		await handlePendingRebuild(context);
+		const rebuildState = new RebuildStateManager(context);
+		hasPendingRebuild = !!rebuildState.getPendingRebuild();
+
+		if (hasPendingRebuild) {
+			logger.info('Pending rebuild detected, handling it now');
+			await handlePendingRebuild(context);
+		}
 	}
 
 	logger.info('positron-dev-containers extension activated successfully');
+
+	// Show dev container detection notification after a delay (only if not rebuilding)
+	// This gives the UI time to fully activate and avoids interrupting the rebuild flow
+	if (!isInDevContainer && !hasPendingRebuild) {
+		setTimeout(() => {
+			checkAndShowDevContainerNotification(context).catch(err => {
+				logger.error('Failed to show dev container notification', err);
+			});
+		}, 250);
+	}
 }
 
 /**
@@ -409,10 +424,9 @@ async function testConnection(connectionManager: ConnectionManager): Promise<voi
 		}
 
 		// Build connection status message
-		const statusIcon = connection.state === 'connected' ? '✓' : '✗';
 		const stateDisplay = connection.state.charAt(0).toUpperCase() + connection.state.slice(1);
 
-		let message = `${statusIcon} Connection Status: ${stateDisplay}\n\n`;
+		let message = `Connection Status: ${stateDisplay}\n\n`;
 		message += `Container ID: ${containerId}\n`;
 		message += `Host: ${connection.host}\n`;
 		message += `Port: ${connection.port}\n`;
