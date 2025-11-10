@@ -40,9 +40,16 @@ export function formatCellStatus(cell: positron.notebooks.NotebookCell): string 
 }
 
 /**
- * Format a collection of cells for display in prompts
+ * Format a collection of cells for display in prompts using XML format
+ *
+ * @param cells The notebook cells to format
+ * @param prefix The prefix to use for cell labels (e.g., 'Selected Cell', 'Cell')
+ * @returns A formatted XML string describing all cells, separated by single newlines
  */
-export function formatCells(cells: positron.notebooks.NotebookCell[], prefix: string): string {
+export function formatCells(
+	cells: positron.notebooks.NotebookCell[],
+	prefix: string
+): string {
 	if (cells.length === 0) {
 		return prefix === 'Selected Cell' ? 'No cells currently selected' : '';
 	}
@@ -52,13 +59,14 @@ export function formatCells(cells: positron.notebooks.NotebookCell[], prefix: st
 		const cellLabel = cells.length === 1
 			? prefix
 			: `${prefix} ${idx + 1}`;
-		return `
-### ${cellLabel} - ${cell.type} [Index ${cell.index}]
-Cell ID: ${cell.id}
-Status: ${statusInfo}
-\`\`\`
-${cell.content}
-\`\`\``;
+		const parts = [
+			`<cell index="${cell.index}" type="${cell.type}" id="${cell.id}">`,
+			`  <label>${cellLabel}</label>`,
+			`  <status>${statusInfo}</status>`,
+			`  <content>${cell.content}</content>`,
+			`</cell>`
+		];
+		return parts.join('\n');
 	}).join('\n');
 }
 

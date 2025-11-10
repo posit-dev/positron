@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../extension.js';
-import { convertOutputsToLanguageModelParts, formatCellStatus } from './notebookUtils.js';
+import { convertOutputsToLanguageModelParts, formatCellStatus, formatCells } from './notebookUtils.js';
 
 /**
  * Gets the active notebook context, returning null if no notebook is active.
@@ -49,26 +49,6 @@ function createNotebookToolErrorResult(
 	]);
 }
 
-/**
- * Formats an array of notebook cells into a markdown string representation.
- *
- * @param cells The notebook cells to format
- * @returns A formatted markdown string describing all cells, separated by double newlines
- */
-function formatCellsInfo(cells: positron.notebooks.NotebookCell[]): string {
-	return cells.map(cell => {
-		const statusInfo = formatCellStatus(cell);
-		const parts = [
-			`### Cell ${cell.index} (${cell.type})`,
-			`ID: ${cell.id}`,
-			`Status: ${statusInfo}`,
-			'```',
-			cell.content,
-			'```'
-		];
-		return parts.join('\n');
-	}).join('\n\n');
-}
 
 /**
  * Tool: Run Notebook Cells
@@ -290,7 +270,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 					]);
 				}
 
-				const cellInfo = formatCellsInfo(cells);
+				const cellInfo = formatCells(cells, 'Cell');
 
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(`Retrieved ${cells.length} cell(s):\n\n${cellInfo}`)
@@ -306,7 +286,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 				]);
 			}
 
-			const cellInfo = formatCellsInfo(cells);
+			const cellInfo = formatCells(cells, 'Cell');
 
 			return new vscode.LanguageModelToolResult([
 				new vscode.LanguageModelTextPart(`Retrieved all ${cells.length} cell(s) from notebook:\n\n${cellInfo}`)
