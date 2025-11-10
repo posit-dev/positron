@@ -78,6 +78,44 @@ export class Workspace {
 	}
 
 	/**
+	 * Get the dev container paths for a workspace folder (async version using VS Code filesystem API)
+	 * This works with remote filesystems (e.g., inside containers)
+	 */
+	static async getDevContainerPathsAsync(workspaceFolder: vscode.WorkspaceFolder): Promise<WorkspaceFolderPaths | undefined> {
+		const workspaceUri = workspaceFolder.uri;
+
+		// Check for .devcontainer/devcontainer.json
+		const devContainerFolderUri = vscode.Uri.joinPath(workspaceUri, '.devcontainer');
+		const devContainerJsonUri = vscode.Uri.joinPath(devContainerFolderUri, 'devcontainer.json');
+
+		try {
+			await vscode.workspace.fs.stat(devContainerJsonUri);
+			return {
+				workspaceFolder: workspaceUri.fsPath,
+				devContainerFolder: devContainerFolderUri.fsPath,
+				devContainerJsonPath: devContainerJsonUri.fsPath
+			};
+		} catch {
+			// File doesn't exist, try next location
+		}
+
+		// Check for .devcontainer.json in workspace root
+		const rootDevContainerJsonUri = vscode.Uri.joinPath(workspaceUri, '.devcontainer.json');
+		try {
+			await vscode.workspace.fs.stat(rootDevContainerJsonUri);
+			return {
+				workspaceFolder: workspaceUri.fsPath,
+				devContainerFolder: workspaceUri.fsPath,
+				devContainerJsonPath: rootDevContainerJsonUri.fsPath
+			};
+		} catch {
+			// File doesn't exist
+		}
+
+		return undefined;
+	}
+
+	/**
 	 * Get the current workspace folder
 	 */
 	static getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {

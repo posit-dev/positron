@@ -323,14 +323,43 @@ async function openDevContainerFile(): Promise<void> {
 		return;
 	}
 
-	const paths = Workspace.getDevContainerPaths(currentFolder);
-	if (!paths) {
-		await vscode.window.showErrorMessage('No dev container configuration found');
+	logger.debug(`Looking for dev container configuration in workspace: ${currentFolder.uri.fsPath}`);
+	logger.debug(`Workspace URI: ${currentFolder.uri.toString()}`);
+
+	// Check for .devcontainer/devcontainer.json
+	let devContainerUri = vscode.Uri.joinPath(currentFolder.uri, '.devcontainer', 'devcontainer.json');
+	logger.debug(`Checking for dev container configuration at: ${devContainerUri.toString()}`);
+
+	try {
+		await vscode.workspace.fs.stat(devContainerUri);
+		logger.debug(`Found dev container configuration at: ${devContainerUri.toString()}`);
+		const document = await vscode.workspace.openTextDocument(devContainerUri);
+		await vscode.window.showTextDocument(document);
 		return;
+	} catch {
+		// File doesn't exist, try next location
+		logger.debug(`Not found at: ${devContainerUri.toString()}`);
 	}
 
-	const document = await vscode.workspace.openTextDocument(paths.devContainerJsonPath);
-	await vscode.window.showTextDocument(document);
+	// Check for .devcontainer.json in workspace root
+	devContainerUri = vscode.Uri.joinPath(currentFolder.uri, '.devcontainer.json');
+	logger.debug(`Checking for dev container configuration at: ${devContainerUri.toString()}`);
+
+	try {
+		await vscode.workspace.fs.stat(devContainerUri);
+		logger.debug(`Found dev container configuration at: ${devContainerUri.toString()}`);
+		const document = await vscode.workspace.openTextDocument(devContainerUri);
+		await vscode.window.showTextDocument(document);
+		return;
+	} catch {
+		// File doesn't exist
+		logger.debug(`Not found at: ${devContainerUri.toString()}`);
+	}
+
+	logger.debug(`No dev container configuration found. Checked locations:`);
+	logger.debug(`  - ${currentFolder.uri.fsPath}/.devcontainer/devcontainer.json`);
+	logger.debug(`  - ${currentFolder.uri.fsPath}/.devcontainer.json`);
+	await vscode.window.showErrorMessage('No dev container configuration found');
 }
 
 /**
