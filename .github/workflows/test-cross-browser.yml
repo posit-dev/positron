@@ -42,11 +42,9 @@ concurrency:
 
 jobs:
   setup:
-    name: build
+    name: setup
     uses: ./.github/workflows/test-build-positron.yml
     secrets: inherit
-    # with:
-    #   include_browsers: true
 
   e2e-firefox:
     name: e2e
@@ -54,10 +52,13 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
+      display_name: "firefox (ubuntu)"
       project: "e2e-firefox"
-      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
       mode: 'run-only'
-      install_license: true
+      report_currents: false
+      allow_soft_fail: false
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+
 
   e2e-webkit:
     name: e2e
@@ -65,10 +66,12 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
+      display_name: "webkit (ubuntu)"
       project: "e2e-webkit"
-      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
       mode: 'run-only'
-      install_license: true
+      report_currents: false
+      allow_soft_fail: false
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-edge:
     name: e2e
@@ -76,10 +79,12 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
+      display_name: "edge (ubuntu)"
       project: "e2e-edge"
-      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
       mode: 'run-only'
-      install_license: true
+      report_currents: false
+      allow_soft_fail: false
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   # slack-notify:
   #   if: always()

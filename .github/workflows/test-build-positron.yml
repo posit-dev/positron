@@ -9,9 +9,9 @@ permissions:
   packages: read
 
 jobs:
-  setup:
+  build:
     name: build
-    timeout-minutes: 120
+    timeout-minutes: 25
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
@@ -108,17 +108,18 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure'  }}
         run: exit 1
 
+      - name: Install Playwright browsers
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        run: |
+          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
+          npx playwright install --with-deps
+
+          echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+          npx playwright install msedge
       - name: Move Positron License
         run: |
           mv /positron-license /__w/positron || true
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
-
-      # Preloading ensures the Node.js binary is fully built and ready before
-      # any parallel processes start, preventing runtime conflicts
-      # - name: Preload Node.js Binary
-      #   if: ${{ inputs.project == 'e2e-chromium' }}
-      #   run: npm run gulp node
-
 
       - name: Create Build Artifact
         run: |
