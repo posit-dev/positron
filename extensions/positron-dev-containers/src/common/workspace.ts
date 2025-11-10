@@ -35,6 +35,30 @@ export class Workspace {
 	}
 
 	/**
+	 * Check if the workspace has a dev container configuration (async version using VS Code filesystem API)
+	 * This works with remote filesystems (e.g., inside containers)
+	 */
+	static async hasDevContainerAsync(workspaceFolder?: vscode.WorkspaceFolder): Promise<boolean> {
+		if (!workspaceFolder) {
+			// Check all workspace folders
+			const folders = vscode.workspace.workspaceFolders;
+			if (!folders || folders.length === 0) {
+				return false;
+			}
+			// Check folders sequentially to avoid race conditions
+			for (const folder of folders) {
+				if (await this.hasDevContainerAsync(folder)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		const paths = await this.getDevContainerPathsAsync(workspaceFolder);
+		return paths !== undefined;
+	}
+
+	/**
 	 * Get all workspace folders that have dev container configurations
 	 */
 	static getWorkspaceFoldersWithDevContainers(): vscode.WorkspaceFolder[] {

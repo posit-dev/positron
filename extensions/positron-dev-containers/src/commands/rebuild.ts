@@ -28,7 +28,8 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 		}
 
 		// Check if workspace has dev container configuration
-		if (!Workspace.hasDevContainer(workspaceFolder)) {
+		// Use async version to work with remote filesystems (inside containers)
+		if (!await Workspace.hasDevContainerAsync(workspaceFolder)) {
 			await vscode.window.showErrorMessage(
 				'No dev container configuration found. Create a .devcontainer/devcontainer.json file first.'
 			);
@@ -100,7 +101,8 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 		}
 
 		// Check if workspace has dev container configuration
-		if (!Workspace.hasDevContainer(workspaceFolder)) {
+		// Use async version to work with remote filesystems (inside containers)
+		if (!await Workspace.hasDevContainerAsync(workspaceFolder)) {
 			await vscode.window.showErrorMessage(
 				'No dev container configuration found. Create a .devcontainer/devcontainer.json file first.'
 			);
