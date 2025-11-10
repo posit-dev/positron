@@ -763,6 +763,15 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 export async function getAttachedNotebookContext(
 	request: vscode.ChatRequest
 ): Promise<positron.notebooks.NotebookContext | undefined> {
+	// Check if notebook mode feature is enabled
+	const notebookModeEnabled = vscode.workspace
+		.getConfiguration('positron.assistant.notebookMode')
+		.get('enable', false);
+
+	if (!notebookModeEnabled) {
+		return undefined;
+	}
+
 	// Get active editor's notebook context (unfiltered from main thread)
 	const activeContext = await positron.notebooks.getContext();
 	if (!activeContext) {
@@ -955,6 +964,16 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 	id = ParticipantID.Notebook;
 
 	override async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
+		// Check if notebook mode feature is enabled
+		const notebookModeEnabled = vscode.workspace
+			.getConfiguration('positron.assistant.notebookMode')
+			.get('enable', false);
+
+		if (!notebookModeEnabled) {
+			log.debug('[notebook participant] Notebook mode disabled via feature flag');
+			return super.getCustomPrompt(request);
+		}
+
 		// Get the active notebook context
 		const notebookContext = await positron.notebooks.getContext();
 		if (!notebookContext) {
