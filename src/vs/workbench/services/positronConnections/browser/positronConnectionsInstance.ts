@@ -53,7 +53,7 @@ class BaseConnectionsInstance extends Disposable {
 
 export class PositronConnectionsInstance extends BaseConnectionsInstance implements IPositronConnectionInstance {
 
-	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<IPositronConnectionEntry[]>());
+	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<IPositronConnectionEntry[] | undefined>());
 	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
 	private readonly onDidChangeStatusEmitter = this._register(new Emitter<boolean>());
@@ -64,7 +64,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
-	private _entries: IPositronConnectionEntry[] = [];
+	private _entries: IPositronConnectionEntry[] | undefined = undefined;
 
 	private _expanded_entries: Set<string> = new Set();
 

@@ -50,10 +50,13 @@ export interface IPositronConnectionInstance {
 	disconnect?(): Promise<void>;
 	refresh?(): Promise<void>;
 
-	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
+	onDidChangeEntries: Event<IPositronConnectionEntry[] | undefined>;
 	onDidChangeStatus: Event<boolean>;
 	refreshEntries(): Promise<void>;
-	getEntries(): IPositronConnectionEntry[];
+	// Returns undefined if entries have not been loaded yet
+	// or if there was an error loading them.
+	// Otherwise returns a list of entries.
+	getEntries(): IPositronConnectionEntry[] | undefined;
 
 	onToggleExpandEmitter: Emitter<string>;
 }

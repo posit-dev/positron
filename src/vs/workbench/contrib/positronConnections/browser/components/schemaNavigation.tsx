@@ -54,7 +54,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	const [selectedId, setSelectedId] = useState<string>();
 	const activeInstance = services.positronConnectionsService.getConnections().find(item => item.id === activeInstanceId);
 
-	const [entries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
+	const [entries, setEntries] = useState<IPositronConnectionEntry[] | undefined>(activeInstance?.getEntries() || undefined);
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -102,6 +102,10 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	};
 
 	const ItemEntry = (props: ItemEntryProps) => {
+		if (!entries) {
+			return null;
+		}
+
 		const itemProps = entries[props.index];
 
 		return (
@@ -139,7 +143,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 					}
 				</div>
 				{
-					entries.length ?
+					entries !== undefined ?
 						<List
 							height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
 							innerRef={innerRef}
