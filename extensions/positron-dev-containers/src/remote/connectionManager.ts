@@ -49,6 +49,10 @@ export interface ConnectionResult {
 	port: number;
 	connectionToken: string;
 	extensionHostEnv: { [key: string]: string };
+	// --- Start Positron ---
+	localWorkspacePath?: string;
+	remoteWorkspacePath?: string;
+	// --- End Positron ---
 }
 
 /**
@@ -85,17 +89,55 @@ export class ConnectionManager {
 			// 1. Ensure container is running
 			await this.ensureContainerRunning(containerId);
 
-			// 2. Set up environment variables BEFORE starting server
-			const extensionHostEnv = this.createExtensionHostEnv(containerId);
-
+			// 2. Get workspace path mapping from container
 			// --- Start Positron ---
-			// Extract workspace path from authority and add to environment
 			let localWorkspacePath: string | undefined;
+			let remoteWorkspacePath: string | undefined;
+
+			// Extract local workspace path from authority
 			const decoded = decodeDevContainerAuthority(authority);
 			if (decoded?.localWorkspacePath) {
 				localWorkspacePath = decoded.localWorkspacePath;
 				this.logger.info(`Local workspace path from authority: ${localWorkspacePath}`);
+			}
+
+			// Get remote workspace path - but only if Docker is available (not in remote context)
+			// In remote context, Docker won't be available and we don't need to inspect
+			try {
+				const containerManager = getDevContainerManager();
+				const containerDetails = await containerManager.inspectContainerDetails(containerId);
+
+				// Find the workspace mount to determine remote path
+				const workspaceMount = containerDetails.Mounts?.find(mount =>
+					mount.Type === 'bind' && mount.Destination.startsWith('/workspaces/')
+				);
+				if (workspaceMount) {
+					remoteWorkspacePath = workspaceMount.Destination;
+					this.logger.info(`Remote workspace path from mount: ${remoteWorkspacePath}`);
+				} else if (localWorkspacePath) {
+					// Fallback: construct from local path
+					const folderName = localWorkspacePath.split(/[/\\]/).pop() || 'workspace';
+					remoteWorkspacePath = `/workspaces/${folderName}`;
+					this.logger.warn(`No workspace mount found, using fallback: ${remoteWorkspacePath}`);
+				}
+			} catch (error) {
+				// If container inspection fails (e.g., in remote context), construct from local path
+				if (localWorkspacePath) {
+					const folderName = localWorkspacePath.split(/[/\\]/).pop() || 'workspace';
+					remoteWorkspacePath = `/workspaces/${folderName}`;
+					this.logger.info(`Container inspection failed, using fallback remote path: ${remoteWorkspacePath}`);
+				}
+			}
+
+			// 3. Set up environment variables BEFORE starting server
+			const extensionHostEnv = this.createExtensionHostEnv(containerId);
+
+			// Add workspace paths to environment
+			if (localWorkspacePath) {
 				extensionHostEnv.LOCAL_WORKSPACE_FOLDER = localWorkspacePath;
+			}
+			if (remoteWorkspacePath) {
+				extensionHostEnv.CONTAINER_WORKSPACE_FOLDER = remoteWorkspacePath;
 			}
 			// --- End Positron ---
 
@@ -139,7 +181,7 @@ export class ConnectionManager {
 				connectedAt: new Date(),
 				// --- Start Positron ---
 				localWorkspacePath,
-				remoteWorkspacePath: undefined // We don't extract remote path from authority
+				remoteWorkspacePath
 				// --- End Positron ---
 			};
 
@@ -154,7 +196,11 @@ export class ConnectionManager {
 				host: connectionInfo.host,
 				port: connectionInfo.port,
 				connectionToken,
-				extensionHostEnv
+				extensionHostEnv,
+				// --- Start Positron ---
+				localWorkspacePath,
+				remoteWorkspacePath
+				// --- End Positron ---
 			};
 
 		} catch (error) {

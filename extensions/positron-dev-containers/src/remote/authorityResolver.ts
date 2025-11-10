@@ -68,7 +68,10 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 					existing.port,
 					existing.connectionToken
 				);
+
 				// Return ResolverResult with environment variables
+				// Note: We don't set isTrusted here - we rely on getCanonicalURI mapping
+				// to let VS Code recognize that the remote workspace maps to a trusted local workspace
 				return Object.assign(resolvedAuthority, {
 					extensionHostEnv: existing.extensionHostEnv
 				});
@@ -88,10 +91,23 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			this.logger.info(`Authority resolved: ${connection.host}:${connection.port}`);
 			this.logger.debug(`Extension host env: ${JSON.stringify(connection.extensionHostEnv, null, 2)}`);
 
-			// Return ResolverResult with environment variables
-			return Object.assign(resolvedAuthority, {
+			// --- Start Positron ---
+			// Add workspace folder metadata to help VS Code display the correct path
+			const options: any = {
 				extensionHostEnv: connection.extensionHostEnv
-			});
+			};
+
+			// If we have workspace path mapping, include it in the resolver result
+			// This helps VS Code understand the workspace identity for MRU and trust
+			if (connection.localWorkspacePath && connection.remoteWorkspacePath) {
+				this.logger.info(`Including workspace path mapping in resolver result: local=${connection.localWorkspacePath}, remote=${connection.remoteWorkspacePath}`);
+			}
+			// --- End Positron ---
+
+			// Return ResolverResult with environment variables
+			// Note: We rely on getCanonicalURI mapping to let VS Code recognize
+			// that the remote workspace maps to the local workspace for trust and MRU
+			return Object.assign(resolvedAuthority, options);
 
 		} catch (error) {
 			this.logger.error(`Failed to resolve authority: ${authority}`, error);
@@ -116,46 +132,101 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 
 	/**
 	 * Get the canonical URI for a resource
-	 * This allows remapping URIs between local and remote
+	 * This allows remapping URIs between local and remote, and is critical for:
+	 * - Workspace trust: Maps remote paths to local paths so trust is preserved
+	 * - MRU entries: Ensures local paths are displayed instead of container paths
 	 */
 	getCanonicalURI(uri: vscode.Uri): vscode.ProviderResult<vscode.Uri> {
 		// --- Start Positron ---
-		// Remap local workspace paths to remote workspace paths
-		// This is critical for dev containers where the workspace is mounted
+		// IMPORTANT: For workspace trust and MRU to work correctly, we need to return
+		// the LOCAL file:// URI as the canonical form of the remote URI.
+		// This tells VS Code that vscode-remote://dev-container+xxx/workspaces/foo
+		// and file:///Users/projects/foo are the SAME workspace.
 
-		// Only process remote URIs with our authority scheme
-		if (uri.scheme !== 'vscode-remote') {
+		this.logger.debug(`getCanonicalURI called: scheme=${uri.scheme}, authority=${uri.authority}, path=${uri.path}`);
+
+		if (uri.scheme === 'vscode-remote') {
+			// Remote -> Local mapping
+			// CRITICAL: We must decode the local path from the authority because connection info
+			// may not be available yet when VS Code queries for the canonical URI
+			const decoded = decodeDevContainerAuthority(uri.authority);
+			this.logger.debug(`Decoded authority: localWorkspacePath=${decoded?.localWorkspacePath}`);
+
+			if (decoded?.localWorkspacePath) {
+				// Construct expected remote path from local path
+				const folderName = decoded.localWorkspacePath.split(/[/\\]/).pop() || 'workspace';
+				const expectedRemotePath = `/workspaces/${folderName}`;
+				const normalizedUriPath = uri.path.replace(/\\/g, '/');
+
+				this.logger.debug(`Expected remote path: ${expectedRemotePath}, actual path: ${normalizedUriPath}`);
+
+				if (normalizedUriPath === expectedRemotePath || normalizedUriPath.startsWith(expectedRemotePath + '/')) {
+					// This URI points to the workspace folder or a file inside it
+					const relativePath = normalizedUriPath.substring(expectedRemotePath.length);
+					const localPath = decoded.localWorkspacePath.replace(/\\/g, '/') + relativePath;
+
+					const fileUri = vscode.Uri.file(localPath);
+					this.logger.info(`Remapping remote to local (from authority): ${uri.toString()} -> ${fileUri.toString()}`);
+
+					// Return file URI for workspace trust and MRU
+					// This is the KEY to making workspace trust and MRU work correctly
+					return fileUri;
+				} else {
+					this.logger.debug(`Path doesn't match expected remote path, not remapping`);
+				}
+			}
+
+			// Fallback: try to use connection info for more accurate mapping
+			const parsed = this.parseAuthority(uri.authority);
+			if (parsed?.containerId) {
+				const connection = this.connectionManager.getConnection(parsed.containerId);
+				if (connection?.localWorkspacePath && connection?.remoteWorkspacePath) {
+					const normalizedRemote = connection.remoteWorkspacePath.replace(/\\/g, '/');
+					const normalizedUriPath = uri.path.replace(/\\/g, '/');
+
+					if (normalizedUriPath === normalizedRemote || normalizedUriPath.startsWith(normalizedRemote + '/')) {
+						const relativePath = normalizedUriPath.substring(normalizedRemote.length);
+						const localPath = connection.localWorkspacePath.replace(/\\/g, '/') + relativePath;
+
+						this.logger.debug(`Remapping remote to local (from connection): ${uri.path} -> ${localPath}`);
+
+						return vscode.Uri.file(localPath);
+					}
+				}
+			}
+
 			return uri;
 		}
 
-		// Extract container ID from authority
-		const parsed = this.parseAuthority(uri.authority);
-		if (!parsed.containerId) {
+		if (uri.scheme === 'file') {
+			// Local -> Remote mapping
+			// Check all active connections to see if this file is inside a mapped workspace
+			for (const connection of this.connectionManager.getAllConnections()) {
+				if (!connection.localWorkspacePath || !connection.remoteWorkspacePath) {
+					continue;
+				}
+
+				const normalizedLocal = connection.localWorkspacePath.replace(/\\/g, '/');
+				const normalizedUriPath = uri.path.replace(/\\/g, '/');
+
+				if (normalizedUriPath === normalizedLocal || normalizedUriPath.startsWith(normalizedLocal + '/')) {
+					// This file is inside a dev container workspace
+					const relativePath = normalizedUriPath.substring(normalizedLocal.length);
+					const remotePath = connection.remoteWorkspacePath + relativePath;
+
+					this.logger.debug(`Remapping local to remote: ${uri.path} -> ${remotePath}`);
+
+					// Return remote URI
+					const authority = `dev-container+${connection.containerId}`;
+					return vscode.Uri.parse(`vscode-remote://${authority}${remotePath}`);
+				}
+			}
+
+			// No mapping found, return as-is
 			return uri;
 		}
 
-		// Get connection info to find workspace path mapping
-		const connection = this.connectionManager.getConnection(parsed.containerId);
-		if (!connection?.localWorkspacePath || !connection?.remoteWorkspacePath) {
-			// No path mapping available, return as-is
-			return uri;
-		}
-
-		// If the URI path starts with the local workspace path, remap it
-		const normalizedLocal = connection.localWorkspacePath.replace(/\\/g, '/');
-		const normalizedUriPath = uri.path.replace(/\\/g, '/');
-
-		if (normalizedUriPath.startsWith(normalizedLocal)) {
-			// Replace local path with remote path
-			const relativePath = normalizedUriPath.substring(normalizedLocal.length);
-			const remotePath = connection.remoteWorkspacePath + relativePath;
-
-			this.logger.debug(`Remapping path: ${uri.path} -> ${remotePath}`);
-
-			return uri.with({ path: remotePath });
-		}
-
-		// No remapping needed
+		// Unknown scheme, no remapping
 		return uri;
 		// --- End Positron ---
 	}
