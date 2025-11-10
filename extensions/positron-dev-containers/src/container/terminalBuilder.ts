@@ -62,9 +62,8 @@ export class TerminalBuilder {
 			}
 		}
 
-		// Generate container name
+		// Setup folder paths
 		const folderName = path.basename(workspaceFolder);
-		const containerName = `devcontainer-${folderName}-${Date.now()}`;
 		const remoteWorkspaceFolder = `/workspaces/${folderName}`;
 
 		// Build the image name
@@ -78,9 +77,11 @@ export class TerminalBuilder {
 		}
 
 		// Create a temporary script file to run in the terminal
-		const scriptPath = path.join(os.tmpdir(), `devcontainer-build-${Date.now()}.sh`);
-		const markerPath = path.join(os.tmpdir(), `devcontainer-build-${Date.now()}.done`);
-		const containerIdPath = path.join(os.tmpdir(), `devcontainer-build-${Date.now()}.id`);
+		const timestamp = Date.now();
+		const scriptPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.sh`);
+		const markerPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.done`);
+		const containerIdPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.id`);
+		const containerNamePath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.name`);
 
 		let scriptContent = '#!/bin/sh\nset -e\n\n';
 		// Add error trap to keep terminal open on failure
@@ -90,7 +91,7 @@ export class TerminalBuilder {
 		// Remove existing container if rebuild
 		if (rebuild) {
 			scriptContent += 'echo "==> Removing existing containers..."\n';
-			scriptContent += `docker ps -a -q --filter "name=${folderName}" | xargs docker rm -f 2>/dev/null || true\n\n`;
+			scriptContent += `docker ps -a -q --filter "label=devcontainer.local_folder=${workspaceFolder}" | xargs docker rm -f 2>/dev/null || true\n\n`;
 		}
 
 		// Build image if needed
@@ -111,9 +112,9 @@ export class TerminalBuilder {
 			scriptContent += `echo "==> Using image: ${imageName}"\n\n`;
 		}
 
-		// Create container
+		// Create container (docker create outputs the container ID)
 		scriptContent += 'echo "==> Creating container..."\n';
-		scriptContent += `docker create --name ${containerName}`;
+		scriptContent += `CONTAINER_ID=$(docker create`;
 		scriptContent += ` --label devcontainer.local_folder="${workspaceFolder}"`;
 		scriptContent += ` --label devcontainer.config_file="${devcontainerPath}"`;
 		scriptContent += ` -v "${workspaceFolder}:${remoteWorkspaceFolder}"`;
@@ -139,11 +140,12 @@ export class TerminalBuilder {
 			}
 		}
 
-		scriptContent += ` ${builtImageName} sleep infinity\n\n`;
+		scriptContent += ` ${builtImageName} sleep infinity)\n`;
+		scriptContent += 'echo "Container ID: $CONTAINER_ID"\n\n';
 
 		// Start container
 		scriptContent += 'echo "==> Starting container..."\n';
-		scriptContent += `docker start ${containerName}\n\n`;
+		scriptContent += 'docker start $CONTAINER_ID\n\n';
 
 		// Run post-create command if specified
 		if (config.postCreateCommand) {
@@ -160,13 +162,14 @@ export class TerminalBuilder {
 				// Escape the command properly for the script
 				const escapedCmd = postCreateCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
 				// Allow command to fail gracefully - permission errors on bind-mounted .git files are common
-				scriptContent += `docker exec ${containerName} sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
+				scriptContent += `docker exec $CONTAINER_ID sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
 			}
 		}
 
-		// Get and save container ID
-		scriptContent += 'echo "==> Getting container ID..."\n';
-		scriptContent += `docker inspect -f '{{.Id}}' ${containerName} > "${containerIdPath}"\n\n`;
+		// Save container ID and name
+		scriptContent += 'echo "==> Saving container info..."\n';
+		scriptContent += `echo "$CONTAINER_ID" > "${containerIdPath}"\n`;
+		scriptContent += `docker inspect -f '{{.Name}}' $CONTAINER_ID | sed 's/^\\///' > "${containerNamePath}"\n\n`;
 
 		// Write marker file to indicate completion
 		scriptContent += 'echo "==> Container ready!"\n';
@@ -211,19 +214,22 @@ export class TerminalBuilder {
 			await new Promise(resolve => setTimeout(resolve, 500));
 		}
 
-		// Read the container ID
+		// Read the container ID and name
 		let containerId: string;
+		let containerName: string;
 		try {
 			containerId = fs.readFileSync(containerIdPath, 'utf8').trim();
-			logger.info(`Container created: ${containerId}`);
+			containerName = fs.readFileSync(containerNamePath, 'utf8').trim();
+			logger.info(`Container created: ${containerId} (${containerName})`);
 		} catch (error) {
-			throw new Error(`Failed to read container ID: ${error}`);
+			throw new Error(`Failed to read container info: ${error}`);
 		} finally {
 			// Clean up temporary files
 			try {
 				fs.unlinkSync(scriptPath);
 				fs.unlinkSync(markerPath);
 				fs.unlinkSync(containerIdPath);
+				fs.unlinkSync(containerNamePath);
 			} catch { }
 		}
 
