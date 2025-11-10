@@ -24,7 +24,13 @@ This function:
 3. Checks if the active notebook's URI matches any attached notebook
 4. Returns `NotebookContext` if there's a match, `undefined` otherwise
 
-**Key behavior:** Users must explicitly attach a notebook file to enable notebook mode, even if a notebook is the active editor. This prevents unintended notebook mode activation.
+**Privacy rationale:** This check ensures:
+
+- **Transparency**: Attached notebooks are shown in the chat window, so users can see which notebook data will be sent to third-party providers before sending. Only attached notebooks are included.
+
+- **Prevents accidental sharing**: Without this check, open notebooks could automatically send data to AI providers without being visible in the chat UI.
+
+**Key behavior:** Notebook mode is only enabled when a notebook is attached (visible in the chat window), even if a notebook is the active editor. This prevents unintended notebook mode activation.
 
 ### Inline Cell Chat Mode
 
