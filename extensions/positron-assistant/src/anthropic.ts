@@ -13,6 +13,7 @@ import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { availableModels } from './models.js';
 import { LanguageModelDataPartMimeType } from './types.js';
+import { applyModelFilters } from './modelFilters.js';
 
 export const DEFAULT_ANTHROPIC_MODEL_NAME = 'Claude Sonnet 4';
 export const DEFAULT_ANTHROPIC_MODEL_MATCH = 'claude-sonnet-4';
@@ -89,26 +90,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	async provideLanguageModelChatInformation(_options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		log.trace(`[${this.providerName}] Preparing language model chat information...`);
+		const models = await this.resolveModels(token) ?? [];
 
-		await this.resolveModels(token);
-
-		if (this.modelListing.length > 0) {
-			return this.modelListing;
-		} else {
-			return [
-				{
-					id: this.id,
-					name: this.name,
-					family: this.provider,
-					version: this._context?.extension.packageJSON.version ?? '',
-					maxInputTokens: this.maxInputTokens,
-					maxOutputTokens: this.maxOutputTokens,
-					capabilities: this.capabilities,
-					isDefault: true,
-					isUserSelectable: true,
-				}
-			];
-		}
+		log.trace(`[${this.providerName}] Resolved ${models.length} models.`);
+		return this.filterModels(models);
 	}
 
 	async provideLanguageModelChatResponse(
@@ -244,6 +229,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
+	protected filterModels(models: vscode.LanguageModelChatInformation[]): vscode.LanguageModelChatInformation[] {
+		return applyModelFilters(models, this.provider, this.providerName);
+	}
+
 	private isDefaultUserModel(id: string, name?: string): boolean {
 		const config = vscode.workspace.getConfiguration('positron.assistant');
 		const defaultModels = config.get<Record<string, string>>('defaultModels') || {};
@@ -351,6 +340,20 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			if (hasMore && modelsPage.data.length > 0) {
 				nextPageToken = modelsPage.data[modelsPage.data.length - 1].id;
 			}
+		}
+
+		if (modelListing.length === 0) {
+			modelListing.push({
+				id: this.id,
+				name: this.name,
+				family: this.provider,
+				version: this._context?.extension.packageJSON.version ?? '',
+				maxInputTokens: this.maxInputTokens,
+				maxOutputTokens: this.maxOutputTokens,
+				capabilities: this.capabilities,
+				isDefault: true,
+				isUserSelectable: true,
+			});
 		}
 
 		// Mark models as default, ensuring only one default per provider

@@ -82,8 +82,12 @@ export function applyModelFilters(
 	vendor: string,
 	providerName: string
 ): vscode.LanguageModelChatInformation[] {
-	log.info(`[${providerName}] Total models before applying user settings: ${models.length}`);
-	log.debug(`[${providerName}] Models before applying user settings: ${models.map(m => m.id).join(', ')}`);
+	if (models.length === 0) {
+		log.debug(`[${providerName}] No models to filter.`);
+		return models;
+	}
+
+	log.debug(`[${providerName}] ${models.length} Models before applying user settings: ${models.map(m => m.id).join(', ')}`);
 
 	// Check if this vendor is in the unfiltered providers list
 	let unfilteredProviders = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('unfilteredProviders', []);
@@ -100,7 +104,7 @@ export function applyModelFilters(
 
 	// Get the filter patterns from workspace configuration
 	const filterModels = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
-	log.debug(`[${providerName}] Model filter patterns from config: ${filterModels.join(', ')}`);
+	log.debug(`[${providerName}] Patterns from filterModels config: ${filterModels.join(', ')}`);
 	if (filterModels.length === 0) {
 		return models;
 	}
@@ -112,8 +116,7 @@ export function applyModelFilters(
 		)
 	);
 
-	log.info(`[${providerName}] Total models after applying user settings: ${filteredModels.length}`);
-	log.debug(`[${providerName}] Models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+	log.debug(`[${providerName}] ${filteredModels.length} Models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
 
 	return filteredModels;
 }

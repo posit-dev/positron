@@ -12,7 +12,6 @@ import { ModelConfig } from '../config.js';
 
 suite('Models', () => {
 	let mockWorkspaceConfig: sinon.SinonStub;
-	let mockFetch: sinon.SinonStub;
 
 	setup(() => {
 		// Mock vscode.workspace.getConfiguration
@@ -20,9 +19,6 @@ suite('Models', () => {
 		sinon.stub(vscode.workspace, 'getConfiguration').returns({
 			get: mockWorkspaceConfig
 		} as any);
-
-		// Mock global fetch
-		mockFetch = sinon.stub(global, 'fetch' as any);
 	});
 
 	teardown(() => {
@@ -51,42 +47,35 @@ suite('Models', () => {
 			openAIModel = new OpenAILanguageModel(mockConfig);
 		});
 
-		test('resolveModels filters out models based on FILTERED_MODEL_PATTERNS', async () => {
-			const mockApiResponse = {
-				data: [
-					// Models that should be kept
-					{ id: 'gpt-4', object: 'model' },
-					{ id: 'gpt-3.5-turbo', object: 'model' },
+		test('filterModels filters out models based on FILTERED_MODEL_PATTERNS', async () => {
+			// Create mock models that include patterns to be filtered
+			const allModels = [
+				// Models that should be kept
+				{ id: 'gpt-4', name: 'gpt-4', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true },
+				{ id: 'gpt-3.5-turbo', name: 'gpt-3.5-turbo', family: 'openai-api', version: '1.0', maxInputTokens: 4096, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true },
 
-					// Models that should be filtered out based on FILTERED_MODEL_PATTERNS
-					{ id: 'gpt-5-search-api', object: 'model' }, // contains 'search'
-					{ id: 'gpt-4o-mini-audio-preview', object: 'model' }, // contains 'audio'
-					{ id: 'gpt-4o-realtime-preview', object: 'model' }, // contains 'realtime'
-					{ id: 'gpt-4o-transcribe', object: 'model' }, // contains 'transcribe'
+				// Models that should be filtered out based on FILTERED_MODEL_PATTERNS
+				{ id: 'gpt-5-search-api', name: 'gpt-5-search-api', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'search'
+				{ id: 'gpt-4o-mini-audio-preview', name: 'gpt-4o-mini-audio-preview', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'audio'
+				{ id: 'gpt-4o-realtime-preview', name: 'gpt-4o-realtime-preview', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'realtime'
+				{ id: 'gpt-4o-transcribe', name: 'gpt-4o-transcribe', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'transcribe'
 
-					// Case insensitive test - should be filtered out
-					{ id: 'GPT-4-AUDIO-MODEL', object: 'model' }, // contains 'audio' (case insensitive)
-					{ id: 'Text-Search-Model', object: 'model' }, // contains 'search' (case insensitive)
-					{ id: 'GPT-4O-REALTIME-TEST', object: 'model' }, // contains 'realtime' (case insensitive)
+				// Case insensitive test - should be filtered out
+				{ id: 'GPT-4-AUDIO-MODEL', name: 'GPT-4-AUDIO-MODEL', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'audio' (case insensitive)
+				{ id: 'Text-Search-Model', name: 'Text-Search-Model', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'search' (case insensitive)
+				{ id: 'GPT-4O-REALTIME-TEST', name: 'GPT-4O-REALTIME-TEST', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'realtime' (case insensitive)
 
-					// Edge cases - should NOT be filtered out (word boundary protection)
-					{ id: 'gpt-4-research-model', object: 'model' }, // contains 'research' but not 'search' as whole word
-					{ id: 'claude-multiaudio-beta', object: 'model' }, // contains 'multiaudio' but not 'audio' as whole word
-				]
-			};
+				// Edge cases - should NOT be filtered out (word boundary protection)
+				{ id: 'gpt-4-research-model', name: 'gpt-4-research-model', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'research' but not 'search' as whole word
+				{ id: 'claude-multiaudio-beta', name: 'claude-multiaudio-beta', family: 'openai-api', version: '1.0', maxInputTokens: 8192, maxOutputTokens: 4096, capabilities: {}, isDefault: false, isUserSelectable: true }, // contains 'multiaudio' but not 'audio' as whole word
+			] satisfies vscode.LanguageModelChatInformation[];
 
-			mockFetch.resolves({
-				ok: true,
-				json: async () => mockApiResponse
-			});
-
-			const cancellationToken = new vscode.CancellationTokenSource().token;
-			const result = await openAIModel.resolveModels(cancellationToken);
+			const result = openAIModel.filterModels(allModels);
 
 			// Should include 4 models: 2 original + 2 edge case models that shouldn't be filtered
-			assert.strictEqual(result?.length, 4, 'Should filter out audio, search, realtime, and transcribe models while preserving edge cases');
+			assert.strictEqual(result.length, 4, 'Should filter out audio, search, realtime, and transcribe models while preserving edge cases');
 
-			const modelIds = result?.map(m => m.id) || [];
+			const modelIds = result.map(m => m.id);
 
 			// Should include these models (don't contain any filtered patterns)
 			assert.ok(modelIds.includes('gpt-4'), 'Should include gpt-4');
