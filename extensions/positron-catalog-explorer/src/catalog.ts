@@ -317,31 +317,29 @@ export class CatalogProviderRegistry {
 			return;
 		}
 
-		if (account) {
-			try {
-				const allProviders = await this.listAllProviders(context);
-
-				// Look for placeholder providers with the same account name
-				const placeholders = allProviders.filter(p =>
-					p.getTreeItem().contextValue?.includes('placeholder')
-				);
-
-				// Remove any matching placeholders
-				for (const placeholder of placeholders) {
-					await this.removeProvider(placeholder, context);
-				}
-			} catch (error) {
-				console.warn('Error removing placeholder provider:', error);
-				// Continue with adding the new provider even if removing placeholder fails
-			}
-		}
+		// Attempt to add the new provider
 		const added = await item.addProvider(context, account);
 		if (!added) {
 			traceWarn(`Failed to add catalog provider: ${item.label}`);
 			return;
 		}
-		traceInfo(`Successfully added catalog provider: ${item.label}`);
 		this.addCatalog.fire(added);
+		traceInfo(`Successfully added catalog provider: ${item.label}`);
+
+		if (account) {
+			const allProviders = await this.listAllProviders(context);
+
+			// Look for placeholder providers with the same account name
+			const placeholders = allProviders.filter(p =>
+				p.getTreeItem().contextValue?.includes('placeholder')
+			);
+
+			// Remove any matching placeholders
+			for (const placeholder of placeholders) {
+				await this.removeProvider(placeholder, context);
+			}
+			traceInfo(`Removed ${placeholders.length} placeholder providers for account: ${account}`);
+		}
 	}
 	async removeProvider(
 		provider: CatalogProvider,
