@@ -11,6 +11,7 @@ import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
 import { formatCells } from './tools/notebookUtils.js';
+import * as xml from './xml.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
 
@@ -52,25 +53,28 @@ class PromptTemplateEngine {
 		if (data.notebookContext) {
 			const ctx = data.notebookContext;
 
-			// Format kernel information
+			// Format kernel information as XML
 			notebookKernelInfo = ctx.kernelId
-				? `${ctx.kernelLanguage || 'unknown'} (${ctx.kernelId})`
-				: 'No kernel attached';
+				? xml.node('kernel', '', {
+					language: ctx.kernelLanguage || 'unknown',
+					id: ctx.kernelId
+				})
+				: xml.node('kernel', 'No kernel attached');
 
-			// Format selected cells
+			// Format selected cells (already XML from formatCells)
 			notebookSelectedCellsInfo = formatCells(ctx.selectedCells, 'Selected Cell');
 
-			// Format all cells if available
+			// Format all cells if available as XML
 			if (ctx.allCells && ctx.allCells.length > 0) {
-				notebookAllCellsInfo = `
-**All Cells in Notebook:**
-${formatCells(ctx.allCells, 'Cell')}`;
+				notebookAllCellsInfo = xml.node('all-cells', formatCells(ctx.allCells, 'Cell'), {
+					description: 'All cells in notebook (notebook has fewer than 20 cells)'
+				});
 			}
 
-			// Context note
-			notebookContextNote = ctx.allCells && ctx.allCells.length > 0
+			// Context note as XML
+			notebookContextNote = xml.node('note', ctx.allCells && ctx.allCells.length > 0
 				? 'All cells are provided above because this notebook has fewer than 20 cells.'
-				: 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.';
+				: 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.');
 		}
 
 		return {

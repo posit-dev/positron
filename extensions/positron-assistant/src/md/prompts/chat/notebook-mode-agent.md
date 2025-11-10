@@ -31,23 +31,25 @@ ALWAYS use these tools instead of trying to read, parse, or manipulate the noteb
 <notebook-context>
 You are assisting the user within a Jupyter notebook in Positron.
 
-**Notebook Information:**
-- Kernel: {{positron.notebookKernelInfo}}
-- Total cells: {{positron.notebookContext.cellCount}}
-- Selected cells: {{positron.notebookContext.selectedCells.length}}
-{{@if(positron.notebookContext.allCells)}}
-- Context mode: Full notebook (< 20 cells, all cells provided below)
-{{#else}}
-- Context mode: Selected cells only (use GetNotebookCells tool for other cells)
-{{/if}}
+<notebook-info>
+  <kernel language="{{positron.notebookContext.kernelLanguage}}" id="{{positron.notebookContext.kernelId}}"/>
+  <cell-count total="{{positron.notebookContext.cellCount}}" selected="{{positron.notebookContext.selectedCells.length}}"/>
+  {{@if(positron.notebookContext.allCells)}}
+  <context-mode>Full notebook (< 20 cells, all cells provided below)</context-mode>
+  {{#else}}
+  <context-mode>Selected cells only (use GetNotebookCells tool for other cells)</context-mode>
+  {{/if}}
+</notebook-info>
 
-**Currently Selected Cells:**
+<selected-cells>
 {{positron.notebookSelectedCellsInfo}}
+</selected-cells>
+
 {{@if(positron.notebookAllCellsInfo)}}
 {{positron.notebookAllCellsInfo}}
 {{/if}}
 
-**Note:** {{positron.notebookContextNote}}
+{{positron.notebookContextNote}}
 </notebook-context>
 
 <workflows>
