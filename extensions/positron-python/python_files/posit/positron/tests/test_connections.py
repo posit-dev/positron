@@ -341,10 +341,10 @@ class TestDatabricksConnectionsService:
         return [{"kind": "catalog", "name": self.CATALOG_NAME}]
 
     def _schema_path(self):
-        return self._catalog_path() + [{"kind": "schema", "name": self.SCHEMA_NAME}]
+        return [*self._catalog_path(), {"kind": "schema", "name": self.SCHEMA_NAME}]
 
     def _table_path(self):
-        return self._schema_path() + [{"kind": "table", "name": self.TABLE_NAME}]
+        return [*self._schema_path(), {"kind": "table", "name": self.TABLE_NAME}]
 
     def _resolve_path(self, kind: str):
         if kind == "root":
@@ -371,24 +371,22 @@ class TestDatabricksConnectionsService:
         assert comm_id in connections_service.comms
 
     @pytest.mark.parametrize(
-        ("path_kind", "expected"),
+        "path_kind",
         [
-            pytest.param("root", False, id="root"),
-            pytest.param("catalog", False, id="catalog"),
-            pytest.param("schema", False, id="schema"),
-            pytest.param("table", True, id="table"),
+            pytest.param("root", id="root"),
+            pytest.param("catalog", id="catalog"),
+            pytest.param("schema", id="schema"),
+            pytest.param("table", id="table"),
         ],
     )
-    def test_contains_data(
-        self, connections_service: ConnectionsService, path_kind: str, expected: bool
-    ):
+    def test_contains_data(self, connections_service: ConnectionsService, path_kind: str):
         dummy_comm, comm_id = self._open_comm(connections_service)
         path = self._resolve_path(path_kind)
 
         msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
         dummy_comm.handle_msg(msg)
         result = dummy_comm.messages[0]["data"]["result"]
-        assert result is expected
+        assert result is (path_kind == "table")
 
     @pytest.mark.parametrize(
         ("path_kind", "expected"),
