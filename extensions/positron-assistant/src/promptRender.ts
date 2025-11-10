@@ -542,7 +542,8 @@ export class PromptRenderer {
 	 * Get combined prompt for a specific command
 	 */
 	static renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
-		return PromptRenderer.instance._renderModePrompt(mode, data);
+		const promptData = PromptRenderer.instance._renderModePrompt(mode, data);
+		return promptData;
 	}
 
 	private _renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {

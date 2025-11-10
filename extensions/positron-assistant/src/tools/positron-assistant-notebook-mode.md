@@ -45,6 +45,7 @@ Notebook mode is automatically enabled when using inline chat within a Positron 
 **Locations:**
 - Route detection: `src/vs/workbench/contrib/inlineChat/browser/inlineChatController.ts` (function `updateLocationForPositronNotebooks`)
 - Context generation: `extensions/positron-assistant/src/participants.ts` (class `PositronAssistantNotebookParticipant.getCustomPrompt`)
+- Filtering utilities: `extensions/positron-assistant/src/notebookContextFilter.ts` (shared sliding window logic)
 
 
 ## Context Information
@@ -68,18 +69,25 @@ When a notebook is active, `NotebookContext` provides:
   - `lastRunEndTime` - **Code cells only**: Timestamp when last execution ended
 - `allCells[]` - **Optional**: All cells in the notebook (same structure as `selectedCells`). For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selected cells, a sliding window of cells around the last selected cell is included (10 cells before + selected cells + 10 cells after, adjusted for boundaries). For large notebooks without selection, this field is undefined.
 
-**Context Construction Location:** `src/vs/workbench/api/browser/positron/mainThreadNotebookFeatures.ts`
+**Context Construction Locations:**
 
-The context is assembled by:
-1. Getting the active notebook instance from the editor
-2. Reading current state from observables (cells, kernel, selection)
-3. Converting selected cells to DTOs (always included) with status information:
-   - Selection status from `cell.selectionStatus` (maps 'editing' to 'active')
-   - Execution status fields from code cell observables (only for code cells)
-4. Determining which cells to include in `allCells`:
-   - **Small notebooks (< 20 cells)**: All cells are included
-   - **Large notebooks (>= 20 cells) with selection**: A sliding window is calculated around the last selected cell (highest index). The window includes 10 cells before + selected cells + 10 cells after, adjusted for notebook boundaries
-   - **Large notebooks (>= 20 cells) without selection**: `allCells` is undefined (only selected cells are included, which is empty)
+The context is assembled across two layers:
+
+1. **Main Thread** (`src/vs/workbench/api/browser/positron/mainThreadNotebookFeatures.ts`):
+   - Gets the active notebook instance from the editor
+   - Reads current state from observables (cells, kernel, selection)
+   - Converts all cells to DTOs with status information:
+     - Selection status from `cell.selectionStatus` (maps 'editing' to 'active')
+     - Execution status fields from code cell observables (only for code cells)
+   - Returns unfiltered context with all cells
+
+2. **Extension Side** (`extensions/positron-assistant/src/notebookContextFilter.ts` and `participants.ts`):
+   - Receives unfiltered context from main thread
+   - Applies filtering logic to determine which cells to include in `allCells`:
+     - **Small notebooks (< 20 cells)**: All cells are included
+     - **Large notebooks (>= 20 cells) with selection**: A sliding window is calculated around the last selected cell (highest index). The window includes 10 cells before + selected cells + 10 cells after, adjusted for notebook boundaries
+     - **Large notebooks (>= 20 cells) without selection**: `allCells` is set to undefined (only selected cells are included, which is empty)
+   - Returns filtered context to participants
 
 ## Impact on Chat Behavior
 

@@ -22,6 +22,7 @@ import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
 import { formatCells } from './tools/notebookUtils.js';
+import { filterNotebookContext, calculateSlidingWindow } from './notebookContextFilter.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -753,14 +754,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 /**
  * Checks if notebook mode should be enabled based on attached context.
- * Returns notebook context only if:
+ * Returns filtered notebook context only if:
  * 1. A notebook editor is currently active
  * 2. That notebook's URI is attached as context
+ *
+ * Applies filtering to limit context size for large notebooks.
  */
 export async function getAttachedNotebookContext(
 	request: vscode.ChatRequest
 ): Promise<positron.notebooks.NotebookContext | undefined> {
-	// Get active editor's notebook context (existing API)
+	// Get active editor's notebook context (unfiltered from main thread)
 	const activeContext = await positron.notebooks.getContext();
 	if (!activeContext) {
 		return undefined;
@@ -791,7 +794,12 @@ export async function getAttachedNotebookContext(
 		activeContext.uri
 	);
 
-	return isActiveNotebookAttached ? activeContext : undefined;
+	if (!isActiveNotebookAttached) {
+		return undefined;
+	}
+
+	// Apply filtering before returning context
+	return filterNotebookContext(activeContext);
 }
 
 /** The participant used in the chat pane in Ask mode. */
@@ -991,12 +999,10 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 		// - Cell at top: current + 20 cells after
 		// - Cell at bottom: 20 cells before + current
 		// - Notebook < 21 cells: all cells included
-		const windowSize = 10;
 		const currentIndex = currentCell.index;
 		const totalCells = allCells.length;
 
-		const startIndex = Math.max(0, currentIndex - windowSize);
-		const endIndex = Math.min(totalCells, currentIndex + windowSize + 1);
+		const { startIndex, endIndex } = calculateSlidingWindow(totalCells, currentIndex);
 		const contextCells = allCells.slice(startIndex, endIndex);
 
 		// Format current cell separately to highlight it

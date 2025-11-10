@@ -18,13 +18,6 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { encodeBase64 } from '../../../../base/common/buffer.js';
 
 /**
- * Maximum number of cells in a notebook to include all cells in the context.
- * Notebooks with more cells will not include the allCells field to avoid
- * consuming too much context space.
- */
-const MAX_CELLS_FOR_ALL_CELLS_CONTEXT = 20;
-
-/**
  * Main thread implementation of notebook features for extension host communication.
  * Provides methods for interacting with Positron notebooks from extensions.
  */
@@ -38,20 +31,6 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 	) {
 		// No initialization needed
-	}
-
-	/**
-	 * Calculates a sliding window of cells around an anchor cell index.
-	 * Mirrors the logic from inline cell chat to provide context around selected cells.
-	 * @param totalCells Total number of cells in the notebook
-	 * @param anchorIndex Index of the cell to center the window around
-	 * @param windowSize Number of cells to include before and after the anchor (default 10)
-	 * @returns Object with startIndex and endIndex for slicing the cells array
-	 */
-	private calculateCellWindow(totalCells: number, anchorIndex: number, windowSize: number = 10): { startIndex: number; endIndex: number } {
-		const startIndex = Math.max(0, anchorIndex - windowSize);
-		const endIndex = Math.min(totalCells, anchorIndex + windowSize + 1);
-		return { startIndex, endIndex };
 	}
 
 	/**
@@ -117,26 +96,8 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			selectedCells.push(this.mapCellToDTO(cell));
 		}
 
-		// Determine which cells to include in allCells
-		let allCells: INotebookCellDTO[] | undefined = undefined;
-		const totalCells = cells.length;
-
-		if (totalCells < MAX_CELLS_FOR_ALL_CELLS_CONTEXT) {
-			// Small notebooks: include all cells
-			allCells = cells.map(cell => this.mapCellToDTO(cell));
-		} else if (selectedCells.length > 0) {
-			// Large notebooks with selection: calculate sliding window around last selected cell
-			// Find the last cell in the selection (highest index)
-			const lastSelectedCellIndex = Math.max(...selectedCells.map(cell => cell.index));
-
-			// Calculate window bounds (10 cells before + selected + 10 cells after)
-			const { startIndex, endIndex } = this.calculateCellWindow(totalCells, lastSelectedCellIndex);
-
-			// Slice cells array and convert to DTOs
-			const windowCells = cells.slice(startIndex, endIndex);
-			allCells = windowCells.map(cell => this.mapCellToDTO(cell));
-		}
-		// Large notebooks without selection: allCells remains undefined
+		// Include all cells - filtering will be done on the extension side
+		const allCells = cells.map(cell => this.mapCellToDTO(cell));
 
 		return {
 			uri: instance.uri.toString(),
