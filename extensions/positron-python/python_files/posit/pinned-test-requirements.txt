@@ -10,7 +10,7 @@
 
 # Then iterate through supported PYTHON_VERSIONS to make sure we covered the latest versions.
 
-databricks-sql-connector[pyarrow]==4.1.4
+databricks-sql-connector[pyarrow]==4.1.3
 duckdb==1.4.1
 fastcore==1.8.9; python_version == '3.9'
 fastcore==1.8.13; python_version >= '3.10'
