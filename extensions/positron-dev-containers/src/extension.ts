@@ -11,6 +11,7 @@ import { PortForwardingManager } from './remote/portForwarding';
 import { ConnectionManager } from './remote/connectionManager';
 import { DevContainerAuthorityResolver } from './remote/authorityResolver';
 import { getDevContainerManager } from './container/devContainerManager';
+import { RebuildStateManager } from './common/rebuildState';
 
 // Import command implementations
 import * as ReopenCommands from './commands/reopen';
@@ -113,6 +114,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Check and show dev container detection notification
 	await checkAndShowDevContainerNotification(context);
 
+	// Check for pending rebuilds (only on host, not in container)
+	if (!isInDevContainer) {
+		await handlePendingRebuild(context);
+	}
+
 	logger.info('positron-dev-containers extension activated successfully');
 }
 
@@ -123,6 +129,54 @@ export function deactivate(): void {
 	const logger = getLogger();
 	logger.info('Deactivating positron-dev-containers extension');
 	logger.dispose();
+}
+
+/**
+ * Handle pending rebuild requests from remote sessions
+ * This runs on the HOST when the extension activates after a window reload
+ */
+async function handlePendingRebuild(context: vscode.ExtensionContext): Promise<void> {
+	const logger = getLogger();
+	const rebuildState = new RebuildStateManager(context);
+
+	const pending = rebuildState.getPendingRebuild();
+	if (!pending) {
+		return;
+	}
+
+	logger.info(`Found pending rebuild for: ${pending.workspaceFolder}`);
+
+	// Clear the pending state immediately to prevent repeated attempts
+	await rebuildState.clearPendingRebuild();
+
+	try {
+		// Show notification that rebuild is starting
+		vscode.window.showInformationMessage(
+			`Rebuilding dev container${pending.noCache ? ' (no cache)' : ''}...`
+		);
+
+		// Execute the rebuild
+		const manager = getDevContainerManager();
+		const result = await manager.createOrStartContainer({
+			workspaceFolder: pending.workspaceFolder,
+			rebuild: true,
+			noCache: pending.noCache
+		});
+
+		logger.info(`Container rebuilt successfully: ${result.containerId}`);
+
+		// Automatically reopen in the rebuilt container
+		const authority = `dev-container+${result.containerId}`;
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
+
+		logger.info(`Reopening in rebuilt container: ${authority}`);
+		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+	} catch (error) {
+		logger.error('Failed to execute pending rebuild', error);
+		await vscode.window.showErrorMessage(
+			`Failed to rebuild container: ${error instanceof Error ? error.message : String(error)}`
+		);
+	}
 }
 
 /**
@@ -147,8 +201,8 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 	registerCommand(context, 'remote-containers.attachToContainerInNewWindow', AttachCommands.attachToContainerInNewWindow);
 
 	// Container management commands
-	registerCommand(context, 'remote-containers.rebuildContainer', RebuildCommands.rebuildContainer);
-	registerCommand(context, 'remote-containers.rebuildContainerNoCache', RebuildCommands.rebuildContainerNoCache);
+	registerCommand(context, 'remote-containers.rebuildContainer', () => RebuildCommands.rebuildContainer(context));
+	registerCommand(context, 'remote-containers.rebuildContainerNoCache', () => RebuildCommands.rebuildContainerNoCache(context));
 	registerCommand(context, 'remote-containers.stopContainer', AttachCommands.stopContainer);
 	registerCommand(context, 'remote-containers.startContainer', AttachCommands.startContainer);
 	registerCommand(context, 'remote-containers.removeContainer', AttachCommands.removeContainer);

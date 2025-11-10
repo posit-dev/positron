@@ -302,7 +302,10 @@ export function plainExec(defaultCwd: string | undefined): ExecFunction {
 		const cwd = params.cwd || defaultCwd;
 		const env = params.env ? { ...process.env, ...params.env } : process.env;
 		const exec = await findLocalWindowsExecutable(cmd, cwd, env, output);
-		const p = cp.spawn(exec, args, { cwd, env, stdio: stdio as any, windowsHide: true });
+		// --- Start Positron ---
+		// Use shell:true for better PATH resolution and sandbox compatibility
+		const p = cp.spawn(exec, args, { cwd, env, stdio: stdio as any, windowsHide: true, shell: true });
+		// --- End Positron ---
 
 		return {
 			stdin: p.stdin,

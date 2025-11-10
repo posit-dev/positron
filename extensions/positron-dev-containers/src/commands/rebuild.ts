@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
+import { RebuildStateManager, PendingRebuild } from '../common/rebuildState';
+import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 
 /**
  * Rebuild and reopen the current workspace in a dev container
@@ -134,8 +136,11 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 
 /**
  * Rebuild the current dev container (when already in container)
+ *
+ * This command runs INSIDE the container and schedules a rebuild to happen
+ * on the host after the window reloads.
  */
-export async function rebuildContainer(): Promise<void> {
+export async function rebuildContainer(context: vscode.ExtensionContext): Promise<void> {
 	const logger = getLogger();
 	logger.info('Command: rebuildContainer');
 
@@ -146,11 +151,61 @@ export async function rebuildContainer(): Promise<void> {
 			return;
 		}
 
-		// Get the local workspace folder path
-		const localPath = await Workspace.getLocalWorkspaceFolder();
-		if (!localPath) {
+		// Get current workspace folder and remote workspace path
+		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
+		if (!workspaceFolder) {
+			await vscode.window.showErrorMessage('No workspace folder is open');
+			return;
+		}
+
+		const remoteWorkspaceFolder = workspaceFolder.uri.fsPath;
+
+		// Extract container ID from remote authority
+		const authority = workspaceFolder.uri.authority;
+		if (!authority) {
+			await vscode.window.showErrorMessage('Cannot determine container ID');
+			return;
+		}
+
+		// Authority format: dev-container+<containerId>
+		const containerId = authority.replace(/^(dev-container|attached-container)\+/, '');
+		if (!containerId) {
+			await vscode.window.showErrorMessage('Cannot determine container ID from authority');
+			return;
+		}
+
+		// Get local workspace folder from environment variables set during connection
+		// These are set by the connection manager when establishing the remote connection
+		logger.debug('=== REBUILD: Checking environment variables ===');
+		logger.debug(`process.env.LOCAL_WORKSPACE_FOLDER: ${process.env.LOCAL_WORKSPACE_FOLDER}`);
+		logger.debug(`process.env.REMOTE_WORKSPACE_FOLDER: ${process.env.REMOTE_WORKSPACE_FOLDER}`);
+		logger.debug(`process.env.POSITRON_CONTAINER_ID: ${process.env.POSITRON_CONTAINER_ID}`);
+		logger.debug('All env vars starting with LOCAL_, REMOTE_, or POSITRON_:');
+		Object.keys(process.env).filter(k => k.startsWith('LOCAL_') || k.startsWith('REMOTE_') || k.startsWith('POSITRON_')).forEach(k => {
+			logger.debug(`  ${k}: ${process.env[k]}`);
+		});
+		logger.debug(`Total env vars: ${Object.keys(process.env).length}`);
+		logger.debug(`First 20 env vars: ${Object.keys(process.env).slice(0, 20).join(', ')}`);
+
+		// Try accessing via vscode.env if available
+		const vscodeEnv = (vscode.env as any);
+		logger.debug(`vscode.env keys: ${Object.keys(vscodeEnv).join(', ')}`);
+
+		let localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+
+		// Fallback: Try to decode from authority if env var not available
+		if (!localWorkspaceFolder) {
+			logger.warn('LOCAL_WORKSPACE_FOLDER not in process.env, trying to decode from authority');
+			const decoded = decodeDevContainerAuthority(authority);
+			if (decoded?.localWorkspacePath) {
+				localWorkspaceFolder = decoded.localWorkspacePath;
+				logger.info(`Decoded local workspace path from authority: ${localWorkspaceFolder}`);
+			}
+		}
+
+		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage(
-				'Cannot determine workspace folder for rebuild'
+				'Cannot determine local workspace folder. Please reopen the container.'
 			);
 			return;
 		}
@@ -166,38 +221,38 @@ export async function rebuildContainer(): Promise<void> {
 			return;
 		}
 
-		// Rebuild the container (output will be shown in terminal)
-		logger.info('Rebuilding dev container...');
+		// Store rebuild intent for the host to pick up after reload
+		const rebuildState = new RebuildStateManager(context);
+		const pendingRebuild: PendingRebuild = {
+			workspaceFolder: localWorkspaceFolder,
+			containerId,
+			remoteWorkspaceFolder,
+			noCache: false,
+			requestedAt: Date.now()
+		};
 
-		const manager = getDevContainerManager();
-		const result = await manager.createOrStartContainer({
-			workspaceFolder: localPath,
-			rebuild: true,
-			noCache: false
-		});
+		await rebuildState.setPendingRebuild(pendingRebuild);
+		logger.info(`Stored pending rebuild for: ${localWorkspaceFolder}`);
 
-		logger.info(`Container rebuilt: ${result.containerId}`);
-
-		// Reload window with remote authority
-		const authority = `dev-container+${result.containerId}`;
-		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
-
-		logger.info(`Reloading window with authority: ${authority}`);
-
-		// Reload window with the remote authority
-		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+		// Reload window to local (close remote connection)
+		// The extension on the host will detect the pending rebuild and execute it
+		logger.info('Closing remote window to trigger rebuild on host...');
+		await vscode.commands.executeCommand('workbench.action.reloadWindow');
 	} catch (error) {
-		logger.error('Failed to rebuild container', error);
+		logger.error('Failed to initiate container rebuild', error);
 		await vscode.window.showErrorMessage(
-			`Failed to rebuild container: ${error instanceof Error ? error.message : String(error)}`
+			`Failed to initiate rebuild: ${error instanceof Error ? error.message : String(error)}`
 		);
 	}
 }
 
 /**
  * Rebuild the current dev container without cache (when already in container)
+ *
+ * This command runs INSIDE the container and schedules a rebuild to happen
+ * on the host after the window reloads.
  */
-export async function rebuildContainerNoCache(): Promise<void> {
+export async function rebuildContainerNoCache(context: vscode.ExtensionContext): Promise<void> {
 	const logger = getLogger();
 	logger.info('Command: rebuildContainerNoCache');
 
@@ -208,11 +263,45 @@ export async function rebuildContainerNoCache(): Promise<void> {
 			return;
 		}
 
-		// Get the local workspace folder path
-		const localPath = await Workspace.getLocalWorkspaceFolder();
-		if (!localPath) {
+		// Get current workspace folder and remote workspace path
+		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
+		if (!workspaceFolder) {
+			await vscode.window.showErrorMessage('No workspace folder is open');
+			return;
+		}
+
+		const remoteWorkspaceFolder = workspaceFolder.uri.fsPath;
+
+		// Extract container ID from remote authority
+		const authority = workspaceFolder.uri.authority;
+		if (!authority) {
+			await vscode.window.showErrorMessage('Cannot determine container ID');
+			return;
+		}
+
+		// Authority format: dev-container+<containerId>
+		const containerId = authority.replace(/^(dev-container|attached-container)\+/, '');
+		if (!containerId) {
+			await vscode.window.showErrorMessage('Cannot determine container ID from authority');
+			return;
+		}
+
+		// Get local workspace folder from environment variables set during connection
+		let localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+
+		// Fallback: Try to decode from authority if env var not available
+		if (!localWorkspaceFolder) {
+			logger.warn('LOCAL_WORKSPACE_FOLDER not in process.env, trying to decode from authority');
+			const decoded = decodeDevContainerAuthority(authority);
+			if (decoded?.localWorkspacePath) {
+				localWorkspaceFolder = decoded.localWorkspacePath;
+				logger.info(`Decoded local workspace path from authority: ${localWorkspaceFolder}`);
+			}
+		}
+
+		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage(
-				'Cannot determine workspace folder for rebuild'
+				'Cannot determine local workspace folder. Please reopen the container.'
 			);
 			return;
 		}
@@ -228,30 +317,26 @@ export async function rebuildContainerNoCache(): Promise<void> {
 			return;
 		}
 
-		// Rebuild the container without cache (output will be shown in terminal)
-		logger.info('Rebuilding dev container without cache...');
+		// Store rebuild intent for the host to pick up after reload
+		const rebuildState = new RebuildStateManager(context);
+		const pendingRebuild: PendingRebuild = {
+			workspaceFolder: localWorkspaceFolder,
+			containerId,
+			remoteWorkspaceFolder,
+			noCache: true,
+			requestedAt: Date.now()
+		};
 
-		const manager = getDevContainerManager();
-		const result = await manager.createOrStartContainer({
-			workspaceFolder: localPath,
-			rebuild: true,
-			noCache: true
-		});
+		await rebuildState.setPendingRebuild(pendingRebuild);
+		logger.info(`Stored pending rebuild (no cache) for: ${localWorkspaceFolder}`);
 
-		logger.info(`Container rebuilt: ${result.containerId}`);
-
-		// Reload window with remote authority
-		const authority = `dev-container+${result.containerId}`;
-		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
-
-		logger.info(`Reloading window with authority: ${authority}`);
-
-		// Reload window with the remote authority
-		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+		// Reload window to local (close remote connection)
+		logger.info('Closing remote window to trigger rebuild on host...');
+		await vscode.commands.executeCommand('workbench.action.reloadWindow');
 	} catch (error) {
-		logger.error('Failed to rebuild container (no cache)', error);
+		logger.error('Failed to initiate container rebuild (no cache)', error);
 		await vscode.window.showErrorMessage(
-			`Failed to rebuild container: ${error instanceof Error ? error.message : String(error)}`
+			`Failed to initiate rebuild: ${error instanceof Error ? error.message : String(error)}`
 		);
 	}
 }

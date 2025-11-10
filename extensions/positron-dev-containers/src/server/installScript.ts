@@ -48,6 +48,11 @@ export interface InstallScriptOptions {
 	 * Skip server start (just install)
 	 */
 	skipStart?: boolean;
+
+	/**
+	 * Environment variables to set for the server process
+	 */
+	extensionHostEnv?: { [key: string]: string };
 }
 
 /**
@@ -219,7 +224,8 @@ function generateServerStartScript(options: InstallScriptOptions, extensionsDir:
 		useSocket,
 		socketPath,
 		extensions = [],
-		additionalArgs = []
+		additionalArgs = [],
+		extensionHostEnv = {}
 	} = options;
 
 	const expandedExtensionsDir = extensionsDir.replace(/^~/, '$HOME');
@@ -272,7 +278,8 @@ touch "\${SERVER_LOG}"
 
 # Start server and capture output to log file
 # The server will print its listening information
-"\${SERVER_BINARY}" ${serverArgs.join(' ')} > "\${SERVER_LOG}" 2>&1 &
+# Set environment variables for the server process
+${Object.entries(extensionHostEnv).map(([key, value]) => `${key}="${value}"`).join(' ')} "\${SERVER_BINARY}" ${serverArgs.join(' ')} > "\${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 
 log "Server started with PID: \${SERVER_PID}"

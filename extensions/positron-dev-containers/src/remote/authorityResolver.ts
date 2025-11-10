@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../common/logger';
 import { ConnectionManager, ConnectionState } from './connectionManager';
+import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 
 /**
  * Authority types supported by the resolver
@@ -62,18 +63,22 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			const existing = this.connectionManager.getConnection(parsed.containerId);
 			if (existing && existing.state === ConnectionState.Connected) {
 				this.logger.info(`Using existing connection to ${parsed.containerId}`);
-				return new vscode.ResolvedAuthority(
+				const resolvedAuthority = new vscode.ResolvedAuthority(
 					existing.host,
 					existing.port,
 					existing.connectionToken
 				);
+				// Return ResolverResult with environment variables
+				return Object.assign(resolvedAuthority, {
+					extensionHostEnv: existing.extensionHostEnv
+				});
 			}
 
-			// Establish new connection
+			// Establish new connection (pass full authority for path decoding)
 			this.logger.info(`Establishing new connection to ${parsed.containerId}`);
-			const connection = await this.connectionManager.connect(parsed.containerId);
+			const connection = await this.connectionManager.connect(parsed.containerId, authority);
 
-			// Return resolved authority
+			// Return resolved authority with environment variables
 			const resolvedAuthority = new vscode.ResolvedAuthority(
 				connection.host,
 				connection.port,
@@ -81,7 +86,12 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			);
 
 			this.logger.info(`Authority resolved: ${connection.host}:${connection.port}`);
-			return resolvedAuthority;
+			this.logger.debug(`Extension host env: ${JSON.stringify(connection.extensionHostEnv, null, 2)}`);
+
+			// Return ResolverResult with environment variables
+			return Object.assign(resolvedAuthority, {
+				extensionHostEnv: connection.extensionHostEnv
+			});
 
 		} catch (error) {
 			this.logger.error(`Failed to resolve authority: ${authority}`, error);
@@ -154,12 +164,17 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 	 * Parse an authority string into its components
 	 */
 	private parseAuthority(authority: string): ParsedAuthority {
-		// Expected format: dev-container+<containerId> or attached-container+<containerId>
+		// Expected format: dev-container+<containerId>[+<encodedPath>] or attached-container+<containerId>
 
 		if (authority.startsWith('dev-container+')) {
+			// Use the decoding function to properly extract just the container ID
+			const decoded = decodeDevContainerAuthority(authority);
+			if (!decoded) {
+				throw new Error(`Invalid dev-container authority format: ${authority}`);
+			}
 			return {
 				type: AuthorityType.DevContainer,
-				containerId: authority.substring('dev-container+'.length),
+				containerId: decoded.containerId,
 				raw: authority
 			};
 		}
@@ -206,7 +221,8 @@ export class AuthorityUtils {
 	 */
 	static extractContainerId(authority: string): string | undefined {
 		if (authority.startsWith('dev-container+')) {
-			return authority.substring('dev-container+'.length);
+			const decoded = decodeDevContainerAuthority(authority);
+			return decoded?.containerId;
 		}
 		if (authority.startsWith('attached-container+')) {
 			return authority.substring('attached-container+'.length);

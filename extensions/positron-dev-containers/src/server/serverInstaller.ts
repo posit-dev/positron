@@ -53,6 +53,11 @@ export interface ServerInstallOptions {
 	 * Progress reporter
 	 */
 	progress?: vscode.Progress<{ message?: string; increment?: number }>;
+
+	/**
+	 * Environment variables to set for the server process
+	 */
+	extensionHostEnv?: { [key: string]: string };
 }
 
 /**
@@ -172,7 +177,8 @@ export class ServerInstaller {
 				socketPath: options.socketPath,
 				extensions,
 				additionalArgs: options.additionalArgs,
-				skipStart: false
+				skipStart: false,
+				extensionHostEnv: options.extensionHostEnv
 			};
 
 			const installScript = generateInstallScript(scriptOptions);

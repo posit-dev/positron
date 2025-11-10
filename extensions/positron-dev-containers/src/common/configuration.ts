@@ -143,10 +143,40 @@ export class Configuration {
 	}
 
 	/**
-	 * Get Docker path
+	 * Get Docker path, resolving to absolute path if necessary
 	 */
 	getDockerPath(): string {
-		return this.config.get<string>('dockerPath', 'docker');
+		const configuredPath = this.config.get<string>('dockerPath', 'docker');
+
+		// If it's already an absolute path, use it as-is
+		if (configuredPath.startsWith('/') || configuredPath.includes('\\')) {
+			return configuredPath;
+		}
+
+		// Try to resolve to absolute path for better spawn compatibility
+		try {
+			const { execSync } = require('child_process');
+			const os = require('os');
+
+			// Use appropriate command for the platform
+			const whichCommand = os.platform() === 'win32'
+				? `where ${configuredPath}`
+				: `which ${configuredPath}`;
+
+			const resolvedPath = execSync(whichCommand, {
+				encoding: 'utf8',
+				env: process.env
+			}).trim().split('\n')[0]; // Take first result if multiple
+
+			if (resolvedPath) {
+				getLogger().debug(`Resolved docker path: ${configuredPath} -> ${resolvedPath}`);
+				return resolvedPath;
+			}
+		} catch (error) {
+			getLogger().debug(`Could not resolve docker path, using configured: ${configuredPath}`);
+		}
+
+		return configuredPath;
 	}
 
 	/**

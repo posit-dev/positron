@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
+import { encodeDevContainerAuthority } from '../common/authorityEncoding';
 
 /**
  * Reopen the current workspace in a dev container
@@ -49,8 +50,8 @@ export async function reopenInContainer(): Promise<void> {
 
 		logger.info(`Container ready: ${result.containerId}`);
 
-		// Reload window with remote authority
-		const authority = `dev-container+${result.containerId}`;
+		// Encode local workspace path in authority (no state needed!)
+		const authority = encodeDevContainerAuthority(result.containerId, workspaceFolder.uri.fsPath);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);

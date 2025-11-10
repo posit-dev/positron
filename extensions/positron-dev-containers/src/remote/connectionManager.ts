@@ -8,6 +8,7 @@ import { PortForwardingManager } from './portForwarding';
 import { installAndStartServer } from '../server/serverInstaller';
 import { revokeConnectionToken } from '../server/connectionToken';
 import { getDevContainerManager } from '../container/devContainerManager';
+import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 
 /**
  * Connection state
@@ -73,7 +74,7 @@ export class ConnectionManager {
 	/**
 	 * Establish a connection to a container
 	 */
-	async connect(containerId: string): Promise<ConnectionResult> {
+	async connect(containerId: string, authority: string): Promise<ConnectionResult> {
 		this.logger.info(`===== CONNECTION MANAGER: connect() called =====`);
 		this.logger.info(`Establishing connection to container ${containerId}`);
 
@@ -84,11 +85,26 @@ export class ConnectionManager {
 			// 1. Ensure container is running
 			await this.ensureContainerRunning(containerId);
 
-			// 2. Install Positron server if needed
+			// 2. Set up environment variables BEFORE starting server
+			const extensionHostEnv = this.createExtensionHostEnv(containerId);
+
+			// --- Start Positron ---
+			// Extract workspace path from authority and add to environment
+			let localWorkspacePath: string | undefined;
+			const decoded = decodeDevContainerAuthority(authority);
+			if (decoded?.localWorkspacePath) {
+				localWorkspacePath = decoded.localWorkspacePath;
+				this.logger.info(`Local workspace path from authority: ${localWorkspacePath}`);
+				extensionHostEnv.LOCAL_WORKSPACE_FOLDER = localWorkspacePath;
+			}
+			// --- End Positron ---
+
+			// 3. Install Positron server with environment variables
 			this.logger.info('Installing Positron server in container...');
 			const serverInfo = await installAndStartServer({
 				containerId,
-				port: 0  // Use 0 to let the OS pick a random available port
+				port: 0,  // Use 0 to let the OS pick a random available port
+				extensionHostEnv
 			});
 			this.logger.info(`Server installed. Listening on ${serverInfo.isPort ? 'port ' + serverInfo.port : 'socket ' + serverInfo.socketPath}`);
 
@@ -111,44 +127,7 @@ export class ConnectionManager {
 			// The server was started with this token, so we must use the same one
 			const connectionToken = serverInfo.connectionToken;
 
-			// 5. Set up environment variables
-			const extensionHostEnv = this.createExtensionHostEnv(containerId);
-
-			// --- Start Positron ---
-			// 6. Extract workspace path mapping from container mounts
-			// Note: This will fail when running in remote context (docker not available in container)
-			// That's okay - we only need this for getCanonicalURI which isn't critical
-			let localWorkspacePath: string | undefined;
-			let remoteWorkspacePath: string | undefined;
-
-			try {
-				const containerManager = getDevContainerManager();
-				const containerInspect = await containerManager.inspectContainerDetails(containerId);
-
-				// Find workspace mount (typically /workspaces/*)
-				const workspaceMount = containerInspect.Mounts?.find(mount =>
-					mount.Type === 'bind' && mount.Destination.startsWith('/workspaces/')
-				);
-
-				if (workspaceMount) {
-					localWorkspacePath = workspaceMount.Source;
-					remoteWorkspacePath = workspaceMount.Destination;
-					this.logger.info(`Workspace mount detected: ${localWorkspacePath} -> ${remoteWorkspacePath}`);
-				} else {
-					this.logger.warn('No workspace mount found in container');
-				}
-			} catch (error) {
-				// This is expected when running in remote context (docker not available)
-				const errorMsg = error instanceof Error ? error.message : String(error);
-				if (errorMsg.includes('ENOENT') || errorMsg.includes('docker')) {
-					this.logger.debug('Docker not available (expected in remote context), skipping workspace mount detection');
-				} else {
-					this.logger.warn('Failed to extract workspace mount information', error);
-				}
-			}
-			// --- End Positron ---
-
-			// 7. Store connection info
+			// 5. Store connection info
 			const connectionInfo: ConnectionInfo = {
 				containerId,
 				state: ConnectionState.Connected,
@@ -160,12 +139,16 @@ export class ConnectionManager {
 				connectedAt: new Date(),
 				// --- Start Positron ---
 				localWorkspacePath,
-				remoteWorkspacePath
+				remoteWorkspacePath: undefined // We don't extract remote path from authority
 				// --- End Positron ---
 			};
 
 			this.connections.set(containerId, connectionInfo);
 			this.logger.info(`Connection established: ${connectionInfo.host}:${connectionInfo.port}`);
+
+			this.logger.debug('=== CONNECTION: Returning connection result ===');
+			this.logger.debug(`extensionHostEnv keys: ${Object.keys(extensionHostEnv).join(', ')}`);
+			this.logger.debug(`extensionHostEnv: ${JSON.stringify(extensionHostEnv, null, 2)}`);
 
 			return {
 				host: connectionInfo.host,
@@ -184,7 +167,7 @@ export class ConnectionManager {
 	/**
 	 * Reconnect to a container
 	 */
-	async reconnect(containerId: string, attempt: number = 1): Promise<ConnectionResult> {
+	async reconnect(containerId: string, authority: string, attempt: number = 1): Promise<ConnectionResult> {
 		this.logger.info(`Reconnecting to container ${containerId} (attempt ${attempt}/${this.maxReconnectAttempts})`);
 
 		this.updateConnectionState(containerId, ConnectionState.Reconnecting);
@@ -199,12 +182,12 @@ export class ConnectionManager {
 			}
 
 			// Attempt to reconnect
-			return await this.connect(containerId);
+			return await this.connect(containerId, authority);
 
 		} catch (error) {
 			if (attempt < this.maxReconnectAttempts) {
 				this.logger.warn(`Reconnection attempt ${attempt} failed, retrying...`);
-				return this.reconnect(containerId, attempt + 1);
+				return this.reconnect(containerId, authority, attempt + 1);
 			} else {
 				this.logger.error(`Failed to reconnect after ${this.maxReconnectAttempts} attempts`);
 				this.updateConnectionState(containerId, ConnectionState.Failed, error);
