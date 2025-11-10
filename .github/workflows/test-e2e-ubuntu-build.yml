@@ -99,6 +99,11 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure'  }}
         run: exit 1
 
+      - name: Move Positron License
+        run: |
+          mv /positron-license /__w/positron || true
+          printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+
       # - name: Install Playwright browsers
       #   if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
       #   run: |

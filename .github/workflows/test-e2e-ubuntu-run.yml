@@ -197,7 +197,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Preload Node.js Binary
-        if: ${{ inputs.project == 'e2e-chromium' }}
+        if: ${{ inputs.project != 'e2e-electron' }}
         run: npm run gulp node
 
       - name: Send Results to GH Summary
@@ -205,6 +205,17 @@ jobs:
 
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Install Playwright browsers
+        # if: steps.restore-caches.outputs.cache-playwright-hit != 'true'
+        run: |
+          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
+          npx playwright install --with-deps
+          # Edge is NOT installed by the default installer; add it explicitly for the e2e-edge project.
+          if [ "${{ inputs.project }}" = "e2e-edge" ]; then
+            echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+            npx playwright install msedge
+          fi
 
       - name: Run Playwright Tests
         shell: bash
