@@ -171,6 +171,8 @@ export class TerminalBuilder {
 		// Write marker file to indicate completion
 		scriptContent += 'echo "==> Container ready!"\n';
 		scriptContent += `echo "done" > "${markerPath}"\n`;
+		// Disable error trap since build succeeded
+		scriptContent += 'trap - ERR\n';
 
 		// Write the script file
 		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
