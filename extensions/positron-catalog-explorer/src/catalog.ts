@@ -265,7 +265,7 @@ export interface CatalogProviderRegistration {
 	iconPath?: vscode.IconPath;
 	addProvider(
 		context: vscode.ExtensionContext,
-		account?: string,
+		account?: string | any, // Using 'any' here to accommodate different provider types
 	): Promise<CatalogProvider | undefined>;
 	removeProvider?(
 		context: vscode.ExtensionContext,
@@ -306,15 +306,27 @@ export class CatalogProviderRegistry {
 		return sorted.map((v) => v.providers).flat();
 	}
 
-	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string): Promise<void> {
+	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string | any): Promise<void> {
 		let item = provider;
-		if (!provider) {
+		if (!(provider && account)) {
 			item = await vscode.window.showQuickPick(this.registry, {
 				title: 'Choose a Catalog Provider',
 			});
 		}
 		if (!item) {
 			return;
+		}
+
+		if (account && provider) {
+			const allProviders = await this.listAllProviders(context);
+
+			// Type guard to check if account is a string or an object with account property
+			const accountId = typeof account === 'string' ? account : (account as any).account || '';
+			const matchingProvider = allProviders.find((p) => p.id.includes(accountId));
+			if (matchingProvider) {
+				this.removeCatalog.fire(matchingProvider);
+				matchingProvider?.dispose();
+			}
 		}
 
 		// Attempt to add the new provider
@@ -326,20 +338,6 @@ export class CatalogProviderRegistry {
 		this.addCatalog.fire(added);
 		traceInfo(`Successfully added catalog provider: ${item.label}`);
 
-		if (account) {
-			const allProviders = await this.listAllProviders(context);
-
-			// Look for placeholder providers with the same account name
-			const placeholders = allProviders.filter(p =>
-				p.getTreeItem().contextValue?.includes('placeholder')
-			);
-
-			// Remove any matching placeholders
-			for (const placeholder of placeholders) {
-				await this.removeProvider(placeholder, context);
-			}
-			traceInfo(`Removed ${placeholders.length} placeholder providers for account: ${account}`);
-		}
 	}
 	async removeProvider(
 		provider: CatalogProvider,

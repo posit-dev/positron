@@ -28,14 +28,8 @@ export const registration: CatalogProviderRegistration = {
 	): Promise<void> => {
 		let accountName: string | undefined;
 
-		if (provider instanceof SnowflakeCatalogProvider) {
-			// Authenticated provider
-			accountName = provider.accountName;
-		} else {
-			// For placeholder providers
-			if (provider.id && provider.id.startsWith('snowflake:')) {
-				accountName = provider.id.substring('snowflake:'.length);
-			}
+		if (provider.id && provider.id.startsWith('snowflake:')) {
+			accountName = provider.id.substring('snowflake:'.length);
 		}
 		if (!accountName) {
 			traceLog('Could not determine account name for provider being removed');
@@ -193,9 +187,13 @@ export async function registerSnowflakeCatalog(
 
 				// Save the account in global state to track registered providers
 				const registered = _context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS);
-				const next: Set<string> = registered ? new Set(registered) : new Set();
-				next.add(account!);
-				await _context.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, Array.from(next));
+				if (registered && registered.includes(account!)) {
+					traceLog(`Snowflake account ${account} is already registered.`);
+				} else {
+					const next: Set<string> = registered ? new Set(registered) : new Set();
+					next.add(account!);
+					await _context.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, Array.from(next));
+				}
 
 				// Return the provider
 				return new SnowflakeCatalogProvider(connection, account!, connOptions);
@@ -246,7 +244,7 @@ export async function getSnowflakeCatalogs(
 					getTreeItem: () => {
 						const item = new vscode.TreeItem(registration.label);
 						item.iconPath = registration.iconPath;
-						item.description = connectionName;
+						item.description = `${connectionName} (Click to authenticate)`;
 						item.contextValue = `provider:snowflake:placeholder:${connectionName}`;
 
 						const connInfo = connections[connectionName];
