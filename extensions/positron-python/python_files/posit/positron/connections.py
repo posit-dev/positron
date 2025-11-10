@@ -1025,9 +1025,7 @@ class DatabricksConnection(Connection):
         self.host = str(conn.session.host) or "<unknown>"
         self.display_name = f"Databricks ({self.HOST_SUFFIX_RE.sub('', self.host, count=1)})"
         self.type = "Databricks"
-        # TODO: generate connection code based on authentication method extracted from the
-        # connection object
-        self.code = "# Databricks connection code depends on your authentication method.\n"
+        self.code = self._make_code()
 
         self.icon = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMzMSIgdmlld0JveD0iMCAwIDMwMCAzMzEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yODMuOTIzIDEzNi40NDlMMTUwLjE0NCAyMTMuNjI0TDYuODg5OTUgMTMxLjE2OEwwIDEzNC45ODJWMTk0Ljg0NEwxNTAuMTQ0IDI4MS4xMTVMMjgzLjkyMyAyMDQuMjM0VjIzNS45MjZMMTUwLjE0NCAzMTMuMUw2Ljg4OTk1IDIzMC42NDRMMCAyMzQuNDU4VjI0NC43MjlMMTUwLjE0NCAzMzFMMzAwIDI0NC43MjlWMTg0Ljg2N0wyOTMuMTEgMTgxLjA1MkwxNTAuMTQ0IDI2My4yMTVMMTYuMDc2NiAxODYuMzM0VjE1NC42NDNMMTUwLjE0NCAyMzEuNTI0TDMwMCAxNDUuMjUzVjg2LjI3MTNMMjkyLjUzNiA4MS44Njk3TDE1MC4xNDQgMTYzLjczOUwyMi45NjY1IDkwLjk2NjNMMTUwLjE0NCAxNy44OTk4TDI1NC42NDEgNzguMDU1TDI2My44MjggNzIuNzczVjY1LjQzNzFMMTUwLjE0NCAwTDAgODYuMjcxM1Y5NS42NjEzTDE1MC4xNDQgMTgxLjkzM0wyODMuOTIzIDEwNC43NThWMTM2LjQ0OVoiIGZpbGw9IiNGRjM2MjEiLz4KPC9zdmc+Cg=="
 
@@ -1179,3 +1177,22 @@ class DatabricksConnection(Connection):
     def _qualify(self, identifier: str) -> str:
         escaped = identifier.replace("`", "``")
         return f"`{escaped}`"
+
+    def _make_code(self) -> str:
+        try:
+            hostname = str(self.conn.session.http_client.config.hostname)
+        except AttributeError:
+            hostname = "<hostname>"
+
+        try:
+            http_path = str(self.conn.session.http_path)
+        except AttributeError:
+            http_path = "<http_path>"
+
+        return (
+            "from databricks import sql\n"
+            "con = sql.connect(\n"
+            f"    server_hostname = '{hostname}',\n"
+            f"    http_path       = '{http_path}'\n"
+            ")\n"
+        )
