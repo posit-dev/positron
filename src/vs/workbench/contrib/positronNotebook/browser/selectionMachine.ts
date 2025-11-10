@@ -63,7 +63,7 @@ const ValidSelectionStateTransitions: Record<SelectionState, SelectionState[]> =
 	[SelectionState.MultiSelection]: [
 		SelectionState.MultiSelection,   // Modify selection
 		SelectionState.SingleSelection,  // Reduce to single cell
-		SelectionState.EditingSelection, // Enter edit mode for single cell
+		SelectionState.EditingSelection, // Reduce to single cell and enter edit mode (double-click a cell in multi-selection)
 		SelectionState.NoCells,          // All cells removed
 	],
 	[SelectionState.EditingSelection]: [
@@ -115,7 +115,7 @@ export function getSelectedCells(state: SelectionStates): IPositronNotebookCell[
 			return [];
 		case SelectionState.SingleSelection:
 			return [state.active];
-		case SelectionState.MultiSelection:
+		case SelectionState.MultiSelection: // includes active cell
 			return state.selected;
 		case SelectionState.EditingSelection:
 			return [state.active];
