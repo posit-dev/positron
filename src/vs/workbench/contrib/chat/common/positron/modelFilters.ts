@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import { log } from './extension.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { ILanguageModelChatMetadataAndIdentifier } from '../languageModels.js';
 
 /**
- * Check if a model matches a user-defined filter pattern.
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts.
+ * Copied from extensions/positron-assistant/src/modelFilters.ts.
  * Please keep in sync!
  */
 function matchesModelFilter(pattern: string, id: string, name: string): boolean {
@@ -38,8 +38,7 @@ function matchesModelFilter(pattern: string, id: string, name: string): boolean 
 }
 
 /**
- * Regex pattern matching with smart defaults for simple cases
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts.
+ * Copied from extensions/positron-assistant/src/modelFilters.ts.
  * Please keep in sync!
  */
 function regexMatch(pattern: string, text: string): boolean {
@@ -72,38 +71,37 @@ function regexMatch(pattern: string, text: string): boolean {
 }
 
 /**
- * Apply user-defined model filters to a list of models
- * Copied to src/vs/workbench/contrib/chat/common/positron/modelFilters.ts with adaptations.
+ * Copied from extensions/positron-assistant/src/modelFilters.ts and adapted
+ * to work in the core context.
  * Please keep in sync!
  */
 export function applyModelFilters(
-	models: vscode.LanguageModelChatInformation[],
+	models: ILanguageModelChatMetadataAndIdentifier[],
 	vendor: string,
-	providerName: string
-): vscode.LanguageModelChatInformation[] {
+	configurationService: IConfigurationService,
+	logService: ILogService
+): ILanguageModelChatMetadataAndIdentifier[] {
 	if (models.length === 0) {
-		log.debug(`[${providerName}] No models to filter.`);
 		return models;
 	}
-
-	log.debug(`[${providerName}] ${models.length} Models before applying user settings: ${models.map(m => m.id).join(', ')}`);
+	logService.trace(`[LM] ${vendor} ${models.length} Models before applying user settings: ${models.map(m => m.metadata.id).join(', ')}`);
 
 	// Check if this vendor is in the unfiltered providers list
-	let unfilteredProviders = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('unfilteredProviders', []);
-	log.debug(`[${providerName}] (${vendor}) Unfiltered providers from config: ${unfilteredProviders.join(', ')}`);
+	let unfilteredProviders = configurationService.getValue<string[]>('positron.assistant.unfilteredProviders') || [];
+	logService.trace(`[LM] ${vendor} Unfiltered providers from config: ${unfilteredProviders.join(', ')}`);
 
 	if (unfilteredProviders.length === 0) {
 		// If no configuration, default to known test providers
 		unfilteredProviders = ['test-lm-vendor', 'echo'];
 	}
 	if (unfilteredProviders.includes(vendor)) {
-		log.debug(`[${providerName}] Skipping model filtering for unfiltered provider: ${vendor}`);
+		logService.trace(`[LM] ${vendor} Skipping model filtering for unfiltered provider: ${vendor}`);
 		return models;
 	}
 
 	// Get the filter patterns from workspace configuration
-	const filterModels = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('filterModels', []);
-	log.debug(`[${providerName}] Patterns from filterModels config: ${filterModels.join(', ')}`);
+	const filterModels = configurationService.getValue<string[]>('positron.assistant.filterModels') || [];
+	logService.trace(`[LM] ${vendor} Patterns from filterModels config: ${filterModels.join(', ')}`);
 	if (filterModels.length === 0) {
 		return models;
 	}
@@ -111,11 +109,10 @@ export function applyModelFilters(
 	// Filter models based on patterns
 	const filteredModels = models.filter(model =>
 		filterModels.some(pattern =>
-			matchesModelFilter(pattern, model.id, model.name)
+			matchesModelFilter(pattern, model.metadata.id, model.metadata.name)
 		)
 	);
 
-	log.debug(`[${providerName}] ${filteredModels.length} Models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
-
+	logService.trace(`[LM] ${vendor} ${filteredModels.length} Models after applying user settings: ${filteredModels.map(m => m.metadata.id).join(', ')}`);
 	return filteredModels;
 }

@@ -26,6 +26,7 @@ import { ChatContextKeys } from './chatContextKeys.js';
 
 // --- Start Positron ---
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { applyModelFilters } from './positron/modelFilters.js';
 // --- End Positron ---
 
 export const enum ChatMessageRole {
@@ -690,6 +691,14 @@ export class LanguageModelsService implements ILanguageModelsService {
 				if (!silent && modelsAndIdentifiers.some(m => m.metadata.isUserSelectable)) {
 					modelsAndIdentifiers = modelsAndIdentifiers.filter(m => m.metadata.isUserSelectable || this._modelPickerUserPreferences[m.identifier] === true);
 				}
+
+				// --- Start Positron ---
+				// If the vendor is copilot, apply model filtering based on user settings.
+				// Other vendors are filtered in the Positron Assistant extension.
+				if (vendor === 'copilot') {
+					modelsAndIdentifiers = applyModelFilters(modelsAndIdentifiers, vendor, this._configurationService, this._logService);
+				}
+				// --- End Positron ---
 
 				this._clearModelCache(vendor);
 				for (const modelAndIdentifier of modelsAndIdentifiers) {

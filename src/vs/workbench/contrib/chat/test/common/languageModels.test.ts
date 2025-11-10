@@ -139,6 +139,158 @@ suite('LanguageModels', function () {
 		assert.deepStrictEqual(result2.length, 0);
 	});
 
+	// --- Start Positron ---
+	test('model filtering is applied to copilot vendor', async function () {
+		// Register the extension point for copilot first
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'copilot' },
+			collector: null!
+		}]);
+
+		// Register copilot provider with multiple models
+		store.add(languageModels.registerLanguageModelProvider('copilot', new ExtensionIdentifier('copilot-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'GPT-4',
+						vendor: 'copilot',
+						family: 'gpt-4',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-4',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'GPT-3.5',
+						vendor: 'copilot',
+						family: 'gpt-3.5',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-3.5-turbo',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				return modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+			},
+			sendChatRequest: async () => {
+				throw new Error();
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+
+		// First, verify without filtering - should return both models
+		const unfilteredResult = await languageModels.selectLanguageModels({ vendor: 'copilot' });
+		assert.strictEqual(unfilteredResult.length, 2);
+
+		// Now, set up filtering config to only allow gpt-4
+		const configService = (languageModels as any)._configurationService;
+		const originalGetValue = configService.getValue.bind(configService);
+		configService.getValue = function (key: string) {
+			if (key === 'positron.assistant.filterModels') {
+				return ['gpt-4']; // Only allow gpt-4 models
+			}
+			return originalGetValue(key);
+		};
+
+		try {
+			// Get all copilot models - should be filtered to only gpt-4
+			const result = await languageModels.selectLanguageModels({ vendor: 'copilot' });
+			assert.strictEqual(result.length, 1);
+			assert.strictEqual(result[0], 'gpt-4');
+		} finally {
+			// Restore original configuration
+			configService.getValue = originalGetValue;
+		}
+	});
+
+	// This filtering is applied in the Positron Assistant extension for non-copilot providers
+	test('model filtering is NOT applied to non-copilot vendors', async function () {
+		// Register the extension point for a non-copilot vendor
+		const ext = ExtensionsRegistry.getExtensionPoints().find(e => e.name === languageModelChatProviderExtensionPoint.name)!;
+		ext.acceptUsers([{
+			description: { ...nullExtensionDescription },
+			value: { vendor: 'other-vendor' },
+			collector: null!
+		}]);
+
+		// Register other-vendor provider with multiple models
+		store.add(languageModels.registerLanguageModelProvider('other-vendor', new ExtensionIdentifier('other-ext'), {
+			onDidChange: Event.None,
+			provideLanguageModelChatInfo: async () => {
+				const modelMetadata = [
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Model 1',
+						vendor: 'other-vendor',
+						family: 'model-1',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-4',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					},
+					{
+						extension: nullExtensionDescription.identifier,
+						name: 'Model 2',
+						vendor: 'other-vendor',
+						family: 'model-2',
+						version: '1.0',
+						modelPickerCategory: undefined,
+						id: 'gpt-5',
+						maxInputTokens: 100,
+						maxOutputTokens: 100,
+					}
+				];
+				return modelMetadata.map(m => ({
+					metadata: m,
+					identifier: m.id,
+				}));
+			},
+			sendChatRequest: async () => {
+				throw new Error();
+			},
+			provideTokenCount: async () => {
+				throw new Error();
+			}
+		}));
+
+		// Mock the configuration to return filter settings that would filter out models
+		const configService = (languageModels as any)._configurationService;
+		const originalGetValue = configService.getValue.bind(configService);
+
+		configService.getValue = function (key: string) {
+			if (key === 'positron.assistant.filterModels') {
+				return ['gpt-4']; // This should match, but since vendor is not copilot, filtering should not apply
+			}
+			return originalGetValue(key);
+		};
+
+		try {
+			// Get all other-vendor models - should NOT be filtered even with filter config present
+			const result = await languageModels.selectLanguageModels({ vendor: 'other-vendor' });
+
+			// Should return both models since filtering is only applied to copilot
+			assert.strictEqual(result.length, 2);
+			assert.deepStrictEqual(result.sort(), ['gpt-4', 'gpt-5']);
+		} finally {
+			// Restore original configuration
+			configService.getValue = originalGetValue;
+		}
+	});
+	// --- End Positron ---
+
 	test('sendChatRequest returns a response-stream', async function () {
 
 		// --- Start Positron ---
