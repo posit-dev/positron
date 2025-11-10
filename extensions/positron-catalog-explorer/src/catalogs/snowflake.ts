@@ -158,7 +158,7 @@ export async function registerSnowflakeCatalog(
 			// Special case: 'user' field should be mapped to 'username' in the Snowflake SDK
 			if (key === 'user') {
 				// Use type assertion to ensure TypeScript accepts this assignment
-				connectionOptions['username'] = value as string;
+				connectionOptions.username = value as string;
 			} else if (key !== 'account' && key !== 'authenticator') {
 				// For all other fields (except those already set), copy them directly
 				// Use type assertion for TypeScript
@@ -202,7 +202,7 @@ export async function registerSnowflakeCatalog(
 			} catch (authError) {
 				// Clean up resources on authentication failure
 				try {
-					connection.destroy(() => { /* Ignore callback errors */ });
+					connection.destroy((err) => { if (err) { traceError('Error during connection cleanup:', err); } });
 				} catch {
 					// Silently ignore cleanup errors - they're less important than the main error
 				}
