@@ -84,6 +84,7 @@ Assistant response:
 The following examples provide some rules-of-thumb on analyzing data with Python.
 
 <examples-python>
+<polars>
 Chain polars operations to transform and aggregate data:
 
 ```python
@@ -91,10 +92,6 @@ import polars as pl
 
 df.group_by("city").agg(pl.col("age").mean().alias("average_age"))
 ```
-
-- Use `pl.col()` to reference columns in expressions.
-- Filter with `.filter()`, select with `.select()`, add columns with `.with_columns()`.
-- Handle nulls with `.fill_null()` and cast types with `.cast()`.
 
 Join polars DataFrames to combine related data:
 
@@ -104,9 +101,26 @@ import polars as pl
 df_customers.join(df_orders, on="customer_id", how="left")
 ```
 
+You can apply numpy functions to compute numerical operations:
+
+```python
+import numpy as np
+import polars as pl
+
+df.with_columns(
+    pl.col("score").map_elements(lambda x: np.log(x), return_dtype=pl.Float64).alias("log_score")
+)
+```
+
 - Use `.explode()` to unpack list columns into separate rows.
 - Use `pl.concat()` for vertical or horizontal concatenation.
+- Use `pl.col()` to reference columns in expressions.
+- Filter with `.filter()`, select with `.select()`, add columns with `.with_columns()`.
+- Handle nulls with `.fill_null()` and cast types with `.cast()`.
+- Create polars Series from numpy arrays with `pl.Series()`.
+</polars>
 
+<seaborn>
 An example with seaborn:
 
 ```python
@@ -121,8 +135,10 @@ plt.show()
 
 - Seaborn works with pandas DataFrames, so use `.to_pandas()` to convert polars DataFrames.
 - Use `sns.scatterplot()` for scatter plots and `sns.boxplot()` for distributions.
+</seaborn>
 
-plotnine uses the grammar of graphics to build layered visualizations:
+<plotnine>
+**plotnine** uses the grammar of graphics to build layered visualizations:
 
 ```python
 from plotnine import ggplot, aes, geom_point, labs, theme_minimal
@@ -135,17 +151,13 @@ from plotnine import ggplot, aes, geom_point, labs, theme_minimal
 )
 ```
 
-In polars, apply numpy functions to compute numerical operations:
-
-```python
-import numpy as np
-import polars as pl
-
-df.with_columns(
-    pl.col("score").map_elements(lambda x: np.log(x), return_dtype=pl.Float64).alias("log_score")
-)
-```
-
-- Create polars Series from numpy arrays with `pl.Series()`.
+- Use `from plotnine import *` to import all functions in the global namespace; do this only once per analysis.
+- Don't change the theme (don't use a `theme_()` function) unless explicitly requested
+- Write each function on a separate line
+- Insert a newline between the opening parenthesis and `ggplot`
+- The plus operator (`+`) should be at the start of the line
+- plotnine accepts Polars DataFrames, so don't use `.to_pandas()`
+- To display a plot, just use `ggplot` by itself, or if you save it to a variable, like `p`, just use `p` to display it. Do NOT use `p.show()` or `print(p)`, because they will not display the plot correctly.
+</plotnine>
 </examples-python>
 {{/if}}
