@@ -84,41 +84,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	);
 
 	logger.info('Remote authority resolver registered');
-
-	// --- Start Positron ---
-	// Register ResourceLabelFormatter to control how dev container URIs are displayed
-	// Note: Due to VS Code's MRU implementation, we cannot fully remap the path display
-	// in the MRU list. The best we can do is add a workspace suffix to provide context.
-	// The actual path shown will still be the remote path (/workspaces/foo) rather than
-	// the local path, but workspace trust WILL work correctly via getCanonicalURI.
-	context.subscriptions.push(
-		vscode.workspace.registerResourceLabelFormatter({
-			scheme: 'vscode-remote',
-			authority: 'dev-container*', // Match any dev-container authority
-			formatting: {
-				label: '${path}',
-				separator: '/',
-				tildify: true,
-				workspaceSuffix: 'Dev Container'
-			}
-		})
-	);
-
-	context.subscriptions.push(
-		vscode.workspace.registerResourceLabelFormatter({
-			scheme: 'vscode-remote',
-			authority: 'attached-container*',
-			formatting: {
-				label: '${path}',
-				separator: '/',
-				tildify: true,
-				workspaceSuffix: 'Container'
-			}
-		})
-	);
-
-	logger.info('Resource label formatters registered');
-	// --- End Positron ---
+	// ResourceLabelFormatter is now registered dynamically in the authority resolver
 
 	// Register tree view for dev containers (only when not in a dev container)
 	let devContainersTreeProvider: DevContainersTreeProvider | undefined;

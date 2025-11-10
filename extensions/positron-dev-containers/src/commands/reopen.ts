@@ -62,8 +62,10 @@ export async function reopenInContainer(): Promise<void> {
 			// Continue anyway - connection manager will try to determine paths
 		}
 
-		// Create authority (no need to encode path, it's in storage now)
-		const authority = encodeDevContainerAuthority(result.containerId);
+		// Create authority with workspace folder name for better display
+		// Extract just the folder name from the remote workspace path
+		const workspaceName = result.remoteWorkspaceFolder.split('/').filter(s => s).pop();
+		const authority = encodeDevContainerAuthority(result.containerId, workspaceName);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);

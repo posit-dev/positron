@@ -181,6 +181,13 @@ export class WorkspaceMappingStorage {
 	}
 
 	/**
+	 * Get all entries as [containerId, mapping] pairs (synchronous)
+	 */
+	entries(): IterableIterator<[string, WorkspaceMapping]> {
+		return this.cache.entries();
+	}
+
+	/**
 	 * Clear all mappings (for testing/cleanup)
 	 */
 	async clear(): Promise<void> {

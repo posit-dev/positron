@@ -33,6 +33,7 @@ export interface ParsedAuthority {
 export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityResolver {
 	private logger: Logger;
 	private connectionManager: ConnectionManager;
+	private labelFormatterDisposable: vscode.Disposable | undefined;
 
 	constructor(logger: Logger, connectionManager: ConnectionManager) {
 		this.logger = logger;
@@ -102,6 +103,24 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			// This helps VS Code understand the workspace identity for MRU and trust
 			if (connection.localWorkspacePath && connection.remoteWorkspacePath) {
 				this.logger.info(`Including workspace path mapping in resolver result: local=${connection.localWorkspacePath}, remote=${connection.remoteWorkspacePath}`);
+			}
+
+			// Register ResourceLabelFormatter dynamically to show workspace name in remote indicator
+			// Extract workspace name from the authority (format: dev-container+workspaceName)
+			const workspaceName = authority.split('+')[1];
+			if (workspaceName) {
+				this.labelFormatterDisposable?.dispose();
+				this.labelFormatterDisposable = vscode.workspace.registerResourceLabelFormatter({
+					scheme: 'vscode-remote',
+					authority: `dev-container+*`,
+					formatting: {
+						label: '${path}',
+						separator: '/',
+						tildify: true,
+						workspaceSuffix: `Dev Container: ${workspaceName}`
+					}
+				});
+				this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container: ${workspaceName}`);
 			}
 			// --- End Positron ---
 
@@ -271,6 +290,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 	 * Dispose of resources
 	 */
 	dispose(): void {
+		this.labelFormatterDisposable?.dispose();
 		// Cleanup handled by ConnectionManager
 	}
 }

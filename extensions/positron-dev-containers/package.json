@@ -598,38 +598,6 @@
 			],
 			"extension/context": []
 		},
-		"resourceLabelFormatters": [
-			{
-				"scheme": "vscode-remote",
-				"authority": "dev-container+*",
-				"formatting": {
-					"label": "${path}",
-					"separator": "/",
-					"tildify": true,
-					"workspaceSuffix": "%resourceLabelFormatters.dev-container.workspaceSuffix%"
-				}
-			},
-			{
-				"scheme": "vscode-remote",
-				"authority": "attached-container+*",
-				"formatting": {
-					"label": "${path}",
-					"separator": "/",
-					"tildify": true,
-					"workspaceSuffix": "%resourceLabelFormatters.attached-container.workspaceSuffix%"
-				}
-			},
-			{
-				"scheme": "vscode-remote",
-				"authority": "exec+*",
-				"formatting": {
-					"label": "${path}",
-					"separator": "/",
-					"tildify": true,
-					"workspaceSuffix": "%resourceLabelFormatters.exec.workspaceSuffix%"
-				}
-			}
-		],
 		"views": {
 			"remote": [
 				{

@@ -78,10 +78,16 @@ export class ConnectionManager {
 
 	/**
 	 * Establish a connection to a container
+	 * @param containerIdOrWorkspace Container ID or workspace folder name
+	 * @param authority Full authority string
 	 */
-	async connect(containerId: string, authority: string): Promise<ConnectionResult> {
+	async connect(containerIdOrWorkspace: string, authority: string): Promise<ConnectionResult> {
 		this.logger.info(`===== CONNECTION MANAGER: connect() called =====`);
-		this.logger.info(`Establishing connection to container ${containerId}`);
+		this.logger.info(`Establishing connection with identifier: ${containerIdOrWorkspace}`);
+
+		// Resolve workspace name to container ID if needed
+		const containerId = await this.resolveContainerId(containerIdOrWorkspace);
+		this.logger.info(`Resolved to container ID: ${containerId}`);
 
 		// Update state
 		this.updateConnectionState(containerId, ConnectionState.Connecting);
@@ -315,9 +321,74 @@ export class ConnectionManager {
 
 	/**
 	 * Get connection info for a container
+	 * Supports container IDs, short ID prefixes, and workspace names
 	 */
-	getConnection(containerId: string): ConnectionInfo | undefined {
-		return this.connections.get(containerId);
+	getConnection(identifier: string): ConnectionInfo | undefined {
+		// Try exact match first (full container ID)
+		const exact = this.connections.get(identifier);
+		if (exact) {
+			return exact;
+		}
+
+		// Try prefix match (for short IDs)
+		if (identifier.length === 8) {
+			for (const [fullId, info] of this.connections.entries()) {
+				if (fullId.startsWith(identifier)) {
+					return info;
+				}
+			}
+		}
+
+		// Try workspace name match
+		// Check if any connection's remote workspace path ends with this identifier
+		for (const info of this.connections.values()) {
+			if (info.remoteWorkspacePath) {
+				const workspaceName = info.remoteWorkspacePath.split('/').filter(s => s).pop();
+				if (workspaceName === identifier) {
+					return info;
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Resolve a workspace name or container ID to the actual container ID
+	 * @param identifier Workspace folder name or container ID
+	 * @returns Full container ID
+	 */
+	private async resolveContainerId(identifier: string): Promise<string> {
+		// If it looks like a container ID (long hash), use it directly
+		if (identifier.length > 12 && /^[a-f0-9]+$/.test(identifier)) {
+			return identifier;
+		}
+
+		// Try to find a container with this workspace name
+		// If multiple containers match, use the most recent one (highest timestamp)
+		const storage = WorkspaceMappingStorage.getInstance();
+		let bestMatch: { containerId: string; timestamp: number } | undefined;
+
+		for (const [containerId, mapping] of storage.entries()) {
+			if (mapping.remoteWorkspacePath) {
+				const workspaceName = mapping.remoteWorkspacePath.split('/').filter(s => s).pop();
+				if (workspaceName === identifier) {
+					// Found a match - check if it's more recent than the current best
+					if (!bestMatch || mapping.timestamp > bestMatch.timestamp) {
+						bestMatch = { containerId, timestamp: mapping.timestamp };
+					}
+				}
+			}
+		}
+
+		if (bestMatch) {
+			this.logger.info(`Resolved workspace name "${identifier}" to container ${bestMatch.containerId}`);
+			return bestMatch.containerId;
+		}
+
+		// Couldn't resolve - assume it's already a container ID
+		this.logger.warn(`Could not resolve "${identifier}" to a container ID, using as-is`);
+		return identifier;
 	}
 
 	/**

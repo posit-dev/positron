@@ -70,7 +70,9 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 		}
 
 		// Reload window with remote authority
-		const authority = encodeDevContainerAuthority(result.containerId);
+		// Extract just the folder name from the remote workspace path
+		const workspaceName = result.remoteWorkspaceFolder.split('/').filter(s => s).pop();
+		const authority = encodeDevContainerAuthority(result.containerId, workspaceName);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);
@@ -143,7 +145,9 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 		}
 
 		// Reload window with remote authority
-		const authority = encodeDevContainerAuthority(result.containerId);
+		// Extract just the folder name from the remote workspace path
+		const workspaceName = result.remoteWorkspaceFolder.split('/').filter(s => s).pop();
+		const authority = encodeDevContainerAuthority(result.containerId, workspaceName);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);

@@ -10,25 +10,30 @@
 
 /**
  * Encode a dev container authority
- * Format: dev-container+<containerId>
+ * Format: dev-container+<workspaceName>
  *
- * NOTE: We no longer encode the workspace path in the authority to avoid
- * encoding issues with VS Code's internal URI storage. The workspace path
- * mapping is now stored in extension global state instead.
+ * NOTE: We use the workspace name as the authority identifier for better display
+ * in the remote status indicator. The full container ID mapping is stored in
+ * extension global state.
  *
  * @param containerId Container ID
- * @param _localWorkspacePath Deprecated parameter, kept for API compatibility but ignored
+ * @param workspaceName Optional workspace folder name for display purposes
  */
-export function encodeDevContainerAuthority(containerId: string, _localWorkspacePath?: string): string {
+export function encodeDevContainerAuthority(containerId: string, workspaceName?: string): string {
+	if (workspaceName) {
+		// Use workspace name as the authority identifier for display
+		// VS Code will show "Dev Container: workspaceName" in the remote indicator
+		return `dev-container+${workspaceName}`;
+	}
 	return `dev-container+${containerId}`;
 }
 
 /**
- * Decode a dev container authority to extract container ID
- * Format: dev-container+<containerId>
+ * Decode a dev container authority to extract workspace name or container ID
+ * Format: dev-container+<workspaceNameOrContainerId>
  *
  * @param authority Authority string to decode
- * @returns Object with containerId, or undefined if invalid format
+ * @returns Object with containerId (which may be workspace name), or undefined if invalid format
  */
 export function decodeDevContainerAuthority(authority: string): {
 	containerId: string;
@@ -39,10 +44,10 @@ export function decodeDevContainerAuthority(authority: string): {
 		return undefined;
 	}
 
-	const containerId = match[1];
-
-	// Local workspace path is looked up from storage, not encoded in authority
-	return { containerId, localWorkspacePath: undefined };
+	// The identifier could be either a workspace name or a container ID
+	// The ConnectionManager and WorkspaceMappingStorage will resolve it
+	const identifier = match[1];
+	return { containerId: identifier, localWorkspacePath: undefined };
 }
 
 /**
