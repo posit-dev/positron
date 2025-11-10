@@ -220,10 +220,6 @@ export async function getEnabledTools(
 			}
 		}
 
-		if (tool.name === PositronAssistantToolName.UpdateNotebookCell) {
-			console.log('update notebook cell', inChatPane, hasActiveNotebook, isAgentMode);
-		}
-
 		// If the tool requires a notebook, but no notebook is active or
 		// we're not in the chat pane, don't allow the tool.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
@@ -251,12 +247,17 @@ export async function getEnabledTools(
 					continue;
 				}
 				break;
-			// Notebook modification tools are only available in Agent mode.
+			// Notebook execution tools are only available in Agent mode.
+			// Notebook modification tools are available in Edit and Agent modes.
 			// Read-only tools (GetNotebookCells, GetCellOutputs) are available in all modes.
 			case PositronAssistantToolName.RunNotebookCells:
+				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
+					continue;
+				}
+				break;
 			case PositronAssistantToolName.AddNotebookCell:
 			case PositronAssistantToolName.UpdateNotebookCell:
-				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
+				if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
 					continue;
 				}
 				break;
