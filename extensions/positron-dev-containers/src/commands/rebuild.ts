@@ -8,7 +8,7 @@ import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { RebuildStateManager, PendingRebuild } from '../common/rebuildState';
-import { decodeDevContainerAuthority } from '../common/authorityEncoding';
+import { decodeDevContainerAuthority, encodeDevContainerAuthority } from '../common/authorityEncoding';
 
 /**
  * Rebuild and reopen the current workspace in a dev container
@@ -57,7 +57,8 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 		logger.info(`Container rebuilt: ${result.containerId}`);
 
 		// Reload window with remote authority
-		const authority = `dev-container+${result.containerId}`;
+		// Encode local workspace path in authority so it can be retrieved later
+		const authority = encodeDevContainerAuthority(result.containerId, workspaceFolder.uri.fsPath);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);
@@ -119,7 +120,8 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 		logger.info(`Container rebuilt: ${result.containerId}`);
 
 		// Reload window with remote authority
-		const authority = `dev-container+${result.containerId}`;
+		// Encode local workspace path in authority so it can be retrieved later
+		const authority = encodeDevContainerAuthority(result.containerId, workspaceFolder.uri.fsPath);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);
