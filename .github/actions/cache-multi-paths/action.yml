@@ -1,12 +1,6 @@
 name: "Cache: Package Stores & Binaries"
 description: "Portable caches for npm tarballs and versioned binaries"
 
-inputs:
-  node-version:
-    description: "Node.js version for cache key (e.g., 20.x)."
-    required: false
-    default: ""
-
 runs:
   using: "composite"
   steps:
@@ -25,14 +19,13 @@ runs:
       with:
         path: .npm-cache
         key: >
-          npm-cache-${{ runner.os }}-node-${{ inputs.node-version || 'unknown' }}-${{
+          npm-cache-${{ runner.os }}-${{
             hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json')
           }}
         restore-keys: |
-          npm-cache-${{ runner.os }}-node-${{ inputs.node-version || 'unknown' }}-
+          npm-cache-${{ runner.os }}-
           npm-cache-${{ runner.os }}-
 
-    # -------- Versioned binaries (ark) --------
     - name: Cache ark binary
       id: cache-binaries-ark
       uses: actions/cache@v4
@@ -46,7 +39,6 @@ runs:
         restore-keys: |
           ark-bin-${{ runner.os }}-
 
-    # -------- Versioned binaries (kallichore) --------
     - name: Cache kallichore binary
       id: cache-binaries-kallichore
       uses: actions/cache@v4
@@ -58,7 +50,6 @@ runs:
         restore-keys: |
           kallichore-bin-${{ runner.os }}-
 
-    # -------- Playwright browsers --------
     - name: Cache Playwright browsers
       id: cache-playwright
       uses: actions/cache@v4
@@ -70,7 +61,6 @@ runs:
         restore-keys: |
           playwright-${{ runner.os }}-
 
-    # -------- Electron binaries --------
     - name: Cache Electron binary
       id: cache-electron
       uses: actions/cache@v4
@@ -83,7 +73,6 @@ runs:
         restore-keys: |
           electron-${{ runner.os }}-
 
-    # -------- Built-in extensions --------
     - name: Cache built-in extensions
       id: cache-builtins
       uses: actions/cache@v4
