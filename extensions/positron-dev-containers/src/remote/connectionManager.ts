@@ -9,6 +9,7 @@ import { installAndStartServer } from '../server/serverInstaller';
 import { revokeConnectionToken } from '../server/connectionToken';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { decodeDevContainerAuthority } from '../common/authorityEncoding';
+import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 
 /**
  * Connection state
@@ -94,11 +95,25 @@ export class ConnectionManager {
 			let localWorkspacePath: string | undefined;
 			let remoteWorkspacePath: string | undefined;
 
-			// Extract local workspace path from authority
-			const decoded = decodeDevContainerAuthority(authority);
-			if (decoded?.localWorkspacePath) {
-				localWorkspacePath = decoded.localWorkspacePath;
-				this.logger.info(`Local workspace path from authority: ${localWorkspacePath}`);
+			// Try to get local workspace path from storage first (for MRU reopens)
+			try {
+				const storage = WorkspaceMappingStorage.getInstance();
+				const mapping = storage.get(containerId);
+				if (mapping?.localWorkspacePath) {
+					localWorkspacePath = mapping.localWorkspacePath;
+					this.logger.info(`Local workspace path from storage: ${localWorkspacePath}`);
+				}
+			} catch (error) {
+				this.logger.debug('WorkspaceMappingStorage not initialized yet, will try other methods');
+			}
+
+			// Fallback: Extract local workspace path from authority (for initial opens with encoded path)
+			if (!localWorkspacePath) {
+				const decoded = decodeDevContainerAuthority(authority);
+				if (decoded?.localWorkspacePath) {
+					localWorkspacePath = decoded.localWorkspacePath;
+					this.logger.info(`Local workspace path from authority: ${localWorkspacePath}`);
+				}
 			}
 
 			// Get remote workspace path - but only if Docker is available (not in remote context)
@@ -135,9 +150,15 @@ export class ConnectionManager {
 			// Add workspace paths to environment
 			if (localWorkspacePath) {
 				extensionHostEnv.LOCAL_WORKSPACE_FOLDER = localWorkspacePath;
+				this.logger.info(`Setting LOCAL_WORKSPACE_FOLDER in extensionHostEnv: ${localWorkspacePath}`);
+			} else {
+				this.logger.warn('No localWorkspacePath available to set in extensionHostEnv');
 			}
 			if (remoteWorkspacePath) {
 				extensionHostEnv.CONTAINER_WORKSPACE_FOLDER = remoteWorkspacePath;
+				this.logger.info(`Setting CONTAINER_WORKSPACE_FOLDER in extensionHostEnv: ${remoteWorkspacePath}`);
+			} else {
+				this.logger.warn('No remoteWorkspacePath available to set in extensionHostEnv');
 			}
 			// --- End Positron ---
 
@@ -187,6 +208,21 @@ export class ConnectionManager {
 
 			this.connections.set(containerId, connectionInfo);
 			this.logger.info(`Connection established: ${connectionInfo.host}:${connectionInfo.port}`);
+
+			// --- Start Positron ---
+			// Store workspace mapping in global state for persistence
+			// This is idempotent and ensures mapping is always fresh even if state was cleared
+			if (localWorkspacePath) {
+				try {
+					const storage = WorkspaceMappingStorage.getInstance();
+					await storage.set(containerId, localWorkspacePath, remoteWorkspacePath);
+					this.logger.info(`Stored workspace mapping: ${containerId} -> ${localWorkspacePath}`);
+				} catch (error) {
+					this.logger.warn('Failed to store workspace mapping', error);
+					// Don't fail connection if storage fails
+				}
+			}
+			// --- End Positron ---
 
 			this.logger.debug('=== CONNECTION: Returning connection result ===');
 			this.logger.debug(`extensionHostEnv keys: ${Object.keys(extensionHostEnv).join(', ')}`);

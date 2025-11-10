@@ -9,51 +9,40 @@
  */
 
 /**
- * Encode a dev container authority with local workspace path
- * Format: dev-container+<containerId>+<base64_encoded_local_path>
+ * Encode a dev container authority
+ * Format: dev-container+<containerId>
+ *
+ * NOTE: We no longer encode the workspace path in the authority to avoid
+ * encoding issues with VS Code's internal URI storage. The workspace path
+ * mapping is now stored in extension global state instead.
+ *
+ * @param containerId Container ID
+ * @param _localWorkspacePath Deprecated parameter, kept for API compatibility but ignored
  */
-export function encodeDevContainerAuthority(containerId: string, localWorkspacePath: string): string {
-	const encoded = Buffer.from(localWorkspacePath).toString('base64')
-		.replace(/\+/g, '-')  // Make URL-safe
-		.replace(/\//g, '_')
-		.replace(/=/g, '');   // Remove padding
-	return `dev-container+${containerId}+${encoded}`;
+export function encodeDevContainerAuthority(containerId: string, _localWorkspacePath?: string): string {
+	return `dev-container+${containerId}`;
 }
 
 /**
- * Decode a dev container authority to extract container ID and local workspace path
+ * Decode a dev container authority to extract container ID
+ * Format: dev-container+<containerId>
+ *
+ * @param authority Authority string to decode
+ * @returns Object with containerId, or undefined if invalid format
  */
 export function decodeDevContainerAuthority(authority: string): {
 	containerId: string;
 	localWorkspacePath: string | undefined;
 } | undefined {
-	// Handle both old format (dev-container+<id>) and new format (dev-container+<id>+<path>)
-	const match = authority.match(/^dev-container\+([^+]+)(?:\+(.+))?$/);
+	const match = authority.match(/^dev-container\+([^+]+)$/);
 	if (!match) {
 		return undefined;
 	}
 
 	const containerId = match[1];
-	const encodedPath = match[2];
 
-	if (!encodedPath) {
-		// Old format without encoded path
-		return { containerId, localWorkspacePath: undefined };
-	}
-
-	// Decode the path
-	try {
-		const base64 = encodedPath
-			.replace(/-/g, '+')
-			.replace(/_/g, '/');
-		// Add padding if needed
-		const padded = base64 + '==='.slice(0, (4 - base64.length % 4) % 4);
-		const localWorkspacePath = Buffer.from(padded, 'base64').toString('utf8');
-		return { containerId, localWorkspacePath };
-	} catch (error) {
-		// If decoding fails, return just the container ID
-		return { containerId, localWorkspacePath: undefined };
-	}
+	// Local workspace path is looked up from storage, not encoded in authority
+	return { containerId, localWorkspacePath: undefined };
 }
 
 /**

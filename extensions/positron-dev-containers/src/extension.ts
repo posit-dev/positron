@@ -12,6 +12,7 @@ import { ConnectionManager } from './remote/connectionManager';
 import { DevContainerAuthorityResolver } from './remote/authorityResolver';
 import { getDevContainerManager } from './container/devContainerManager';
 import { RebuildStateManager } from './common/rebuildState';
+import { WorkspaceMappingStorage } from './common/workspaceMappingStorage';
 
 // Import command implementations
 import * as ReopenCommands from './commands/reopen';
@@ -43,7 +44,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	logger.debug(`Is in dev container: ${isInDevContainer}`);
 	logger.debug(`Remote name: ${Workspace.getRemoteName() || 'none'}`);
 
+	// Debug: Check environment variables on activation
+	logger.debug('=== EXTENSION ACTIVATION: Environment Variables ===');
+	logger.debug(`LOCAL_WORKSPACE_FOLDER: ${process.env.LOCAL_WORKSPACE_FOLDER || 'NOT SET'}`);
+	logger.debug(`CONTAINER_WORKSPACE_FOLDER: ${process.env.CONTAINER_WORKSPACE_FOLDER || 'NOT SET'}`);
+	logger.debug(`POSITRON_CONTAINER_ID: ${process.env.POSITRON_CONTAINER_ID || 'NOT SET'}`);
+	logger.debug(`POSITRON_REMOTE_ENV: ${process.env.POSITRON_REMOTE_ENV || 'NOT SET'}`);
+
 	// --- Start Positron ---
+	// Initialize workspace mapping storage FIRST (before authority resolver)
+	// This must be loaded synchronously before any getCanonicalURI calls
+	const workspaceMappingStorage = WorkspaceMappingStorage.initialize(context, logger);
+	await workspaceMappingStorage.load();
+	logger.info('Workspace mapping storage initialized');
+
+	// Optionally clean up stale mappings (older than 30 days)
+	await workspaceMappingStorage.cleanupStale();
+
 	// Initialize core managers for Phase 4: Remote Authority Resolver
 
 	// Create PortForwardingManager for port forwarding

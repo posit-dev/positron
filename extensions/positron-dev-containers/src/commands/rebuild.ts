@@ -8,7 +8,8 @@ import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { RebuildStateManager, PendingRebuild } from '../common/rebuildState';
-import { decodeDevContainerAuthority, encodeDevContainerAuthority } from '../common/authorityEncoding';
+import { encodeDevContainerAuthority } from '../common/authorityEncoding';
+import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 
 /**
  * Rebuild and reopen the current workspace in a dev container
@@ -56,9 +57,17 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 
 		logger.info(`Container rebuilt: ${result.containerId}`);
 
+		// Store workspace mapping BEFORE opening the window
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			await storage.set(result.containerId, workspaceFolder.uri.fsPath, result.remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${result.containerId} -> ${workspaceFolder.uri.fsPath}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping before window reload', error);
+		}
+
 		// Reload window with remote authority
-		// Encode local workspace path in authority so it can be retrieved later
-		const authority = encodeDevContainerAuthority(result.containerId, workspaceFolder.uri.fsPath);
+		const authority = encodeDevContainerAuthority(result.containerId);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);
@@ -119,9 +128,17 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 
 		logger.info(`Container rebuilt: ${result.containerId}`);
 
+		// Store workspace mapping BEFORE opening the window
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			await storage.set(result.containerId, workspaceFolder.uri.fsPath, result.remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${result.containerId} -> ${workspaceFolder.uri.fsPath}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping before window reload', error);
+		}
+
 		// Reload window with remote authority
-		// Encode local workspace path in authority so it can be retrieved later
-		const authority = encodeDevContainerAuthority(result.containerId, workspaceFolder.uri.fsPath);
+		const authority = encodeDevContainerAuthority(result.containerId);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);
@@ -176,32 +193,41 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 			return;
 		}
 
-		// Get local workspace folder from environment variables set during connection
-		// These are set by the connection manager when establishing the remote connection
-		logger.debug('=== REBUILD: Checking environment variables ===');
-		logger.debug(`process.env.LOCAL_WORKSPACE_FOLDER: ${process.env.LOCAL_WORKSPACE_FOLDER}`);
-		logger.debug(`process.env.REMOTE_WORKSPACE_FOLDER: ${process.env.REMOTE_WORKSPACE_FOLDER}`);
-		logger.debug(`process.env.POSITRON_CONTAINER_ID: ${process.env.POSITRON_CONTAINER_ID}`);
-		logger.debug('All env vars starting with LOCAL_, REMOTE_, or POSITRON_:');
-		Object.keys(process.env).filter(k => k.startsWith('LOCAL_') || k.startsWith('REMOTE_') || k.startsWith('POSITRON_')).forEach(k => {
-			logger.debug(`  ${k}: ${process.env[k]}`);
-		});
-		logger.debug(`Total env vars: ${Object.keys(process.env).length}`);
-		logger.debug(`First 20 env vars: ${Object.keys(process.env).slice(0, 20).join(', ')}`);
+		logger.debug(`=== REBUILD: Looking up workspace mapping ===`);
+		logger.debug(`Container ID: ${containerId}`);
+		logger.debug(`Remote name: ${vscode.env.remoteName}`);
+		logger.debug(`Extension context: ${context.extensionMode === vscode.ExtensionMode.Production ? 'production' : 'development'}`);
 
-		// Try accessing via vscode.env if available
-		const vscodeEnv = (vscode.env as any);
-		logger.debug(`vscode.env keys: ${Object.keys(vscodeEnv).join(', ')}`);
+		// Get local workspace folder from WorkspaceMappingStorage
+		// NOTE: This might not work in remote context due to separate extension hosts!
+		let localWorkspaceFolder: string | undefined;
 
-		let localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			logger.debug(`Storage instance retrieved, checking for container ${containerId}`);
 
-		// Fallback: Try to decode from authority if env var not available
+			const allMappings = storage.getAll();
+			logger.debug(`Total mappings in storage: ${allMappings.length}`);
+			allMappings.forEach(m => {
+				logger.debug(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath}`);
+			});
+
+			const mapping = storage.get(containerId);
+			if (mapping?.localWorkspacePath) {
+				localWorkspaceFolder = mapping.localWorkspacePath;
+				logger.info(`Found local workspace path from storage: ${localWorkspaceFolder}`);
+			} else {
+				logger.warn(`No mapping found for container ${containerId} in storage`);
+			}
+		} catch (error) {
+			logger.error('Failed to get workspace mapping from storage', error);
+		}
+
+		// Fallback 1: Try environment variables (legacy support)
 		if (!localWorkspaceFolder) {
-			logger.warn('LOCAL_WORKSPACE_FOLDER not in process.env, trying to decode from authority');
-			const decoded = decodeDevContainerAuthority(authority);
-			if (decoded?.localWorkspacePath) {
-				localWorkspaceFolder = decoded.localWorkspacePath;
-				logger.info(`Decoded local workspace path from authority: ${localWorkspaceFolder}`);
+			localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+			if (localWorkspaceFolder) {
+				logger.info(`Found local workspace path from env var: ${localWorkspaceFolder}`);
 			}
 		}
 
@@ -289,16 +315,40 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 			return;
 		}
 
-		// Get local workspace folder from environment variables set during connection
-		let localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+		logger.debug(`=== REBUILD NO CACHE: Looking up workspace mapping ===`);
+		logger.debug(`Container ID: ${containerId}`);
+		logger.debug(`Remote name: ${vscode.env.remoteName}`);
 
-		// Fallback: Try to decode from authority if env var not available
+		// Get local workspace folder from WorkspaceMappingStorage
+		// NOTE: This might not work in remote context due to separate extension hosts!
+		let localWorkspaceFolder: string | undefined;
+
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			logger.debug(`Storage instance retrieved, checking for container ${containerId}`);
+
+			const allMappings = storage.getAll();
+			logger.debug(`Total mappings in storage: ${allMappings.length}`);
+			allMappings.forEach(m => {
+				logger.debug(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath}`);
+			});
+
+			const mapping = storage.get(containerId);
+			if (mapping?.localWorkspacePath) {
+				localWorkspaceFolder = mapping.localWorkspacePath;
+				logger.info(`Found local workspace path from storage: ${localWorkspaceFolder}`);
+			} else {
+				logger.warn(`No mapping found for container ${containerId} in storage`);
+			}
+		} catch (error) {
+			logger.error('Failed to get workspace mapping from storage', error);
+		}
+
+		// Fallback: Try environment variables (legacy support)
 		if (!localWorkspaceFolder) {
-			logger.warn('LOCAL_WORKSPACE_FOLDER not in process.env, trying to decode from authority');
-			const decoded = decodeDevContainerAuthority(authority);
-			if (decoded?.localWorkspacePath) {
-				localWorkspaceFolder = decoded.localWorkspacePath;
-				logger.info(`Decoded local workspace path from authority: ${localWorkspaceFolder}`);
+			localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+			if (localWorkspaceFolder) {
+				logger.info(`Found local workspace path from env var: ${localWorkspaceFolder}`);
 			}
 		}
 

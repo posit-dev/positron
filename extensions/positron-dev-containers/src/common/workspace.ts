@@ -150,18 +150,6 @@ export class Workspace {
 			return undefined;
 		}
 
-		// Try to get from environment variables
-		// These are typically set by the remote connection
-		const containerWorkspaceFolder = process.env.CONTAINER_WORKSPACE_FOLDER;
-		if (containerWorkspaceFolder) {
-			return containerWorkspaceFolder;
-		}
-
-		const localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
-		if (localWorkspaceFolder) {
-			return localWorkspaceFolder;
-		}
-
 		// Extract container ID from workspace URI authority
 		const currentFolder = this.getCurrentWorkspaceFolder();
 		if (currentFolder && currentFolder.uri.authority) {
@@ -169,7 +157,20 @@ export class Workspace {
 			if (containerId) {
 				getLogger().debug(`Extracted container ID from authority: ${containerId}`);
 
-				// Inspect container to get local folder from labels
+				// Try WorkspaceMappingStorage first (fastest, most reliable)
+				try {
+					const { WorkspaceMappingStorage } = await import('./workspaceMappingStorage.js');
+					const storage = WorkspaceMappingStorage.getInstance();
+					const mapping = storage.get(containerId);
+					if (mapping?.localWorkspacePath) {
+						getLogger().info(`Retrieved local folder from storage: ${mapping.localWorkspacePath}`);
+						return mapping.localWorkspacePath;
+					}
+				} catch (error) {
+					getLogger().warn('Failed to get workspace mapping from storage', error);
+				}
+
+				// Fallback 1: Inspect container to get local folder from labels
 				try {
 					const { getDevContainerManager } = await import('../container/devContainerManager.js');
 					const manager = getDevContainerManager();
@@ -186,6 +187,17 @@ export class Workspace {
 					getLogger().error('Failed to inspect container for local folder', error);
 				}
 			}
+		}
+
+		// Fallback 2: Try environment variables (legacy support)
+		const containerWorkspaceFolder = process.env.CONTAINER_WORKSPACE_FOLDER;
+		if (containerWorkspaceFolder) {
+			return containerWorkspaceFolder;
+		}
+
+		const localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
+		if (localWorkspaceFolder) {
+			return localWorkspaceFolder;
 		}
 
 		// Last resort fallback: return current workspace path with warning

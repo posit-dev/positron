@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { Logger } from '../common/logger';
 import { ConnectionManager, ConnectionState } from './connectionManager';
 import { decodeDevContainerAuthority } from '../common/authorityEncoding';
+import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 
 /**
  * Authority types supported by the resolver
@@ -147,51 +148,56 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 
 		if (uri.scheme === 'vscode-remote') {
 			// Remote -> Local mapping
-			// CRITICAL: We must decode the local path from the authority because connection info
-			// may not be available yet when VS Code queries for the canonical URI
+			// Look up workspace path from storage (synchronous from in-memory cache)
 			const decoded = decodeDevContainerAuthority(uri.authority);
-			this.logger.debug(`Decoded authority: localWorkspacePath=${decoded?.localWorkspacePath}`);
-
-			if (decoded?.localWorkspacePath) {
-				// Construct expected remote path from local path
-				const folderName = decoded.localWorkspacePath.split(/[/\\]/).pop() || 'workspace';
-				const expectedRemotePath = `/workspaces/${folderName}`;
-				const normalizedUriPath = uri.path.replace(/\\/g, '/');
-
-				this.logger.debug(`Expected remote path: ${expectedRemotePath}, actual path: ${normalizedUriPath}`);
-
-				if (normalizedUriPath === expectedRemotePath || normalizedUriPath.startsWith(expectedRemotePath + '/')) {
-					// This URI points to the workspace folder or a file inside it
-					const relativePath = normalizedUriPath.substring(expectedRemotePath.length);
-					const localPath = decoded.localWorkspacePath.replace(/\\/g, '/') + relativePath;
-
-					const fileUri = vscode.Uri.file(localPath);
-					this.logger.info(`Remapping remote to local (from authority): ${uri.toString()} -> ${fileUri.toString()}`);
-
-					// Return file URI for workspace trust and MRU
-					// This is the KEY to making workspace trust and MRU work correctly
-					return fileUri;
-				} else {
-					this.logger.debug(`Path doesn't match expected remote path, not remapping`);
-				}
+			if (!decoded?.containerId) {
+				this.logger.debug('Failed to decode container ID from authority');
+				return uri;
 			}
 
-			// Fallback: try to use connection info for more accurate mapping
-			const parsed = this.parseAuthority(uri.authority);
-			if (parsed?.containerId) {
-				const connection = this.connectionManager.getConnection(parsed.containerId);
-				if (connection?.localWorkspacePath && connection?.remoteWorkspacePath) {
-					const normalizedRemote = connection.remoteWorkspacePath.replace(/\\/g, '/');
+			// Try to get workspace mapping from storage
+			try {
+				const storage = WorkspaceMappingStorage.getInstance();
+				const mapping = storage.get(decoded.containerId);
+
+				if (mapping?.localWorkspacePath && mapping?.remoteWorkspacePath) {
+					const normalizedRemote = mapping.remoteWorkspacePath.replace(/\\/g, '/');
 					const normalizedUriPath = uri.path.replace(/\\/g, '/');
 
+					this.logger.debug(`Checking mapping: remote=${normalizedRemote}, uri=${normalizedUriPath}`);
+
 					if (normalizedUriPath === normalizedRemote || normalizedUriPath.startsWith(normalizedRemote + '/')) {
+						// This URI points to the workspace folder or a file inside it
 						const relativePath = normalizedUriPath.substring(normalizedRemote.length);
-						const localPath = connection.localWorkspacePath.replace(/\\/g, '/') + relativePath;
+						const localPath = mapping.localWorkspacePath.replace(/\\/g, '/') + relativePath;
 
-						this.logger.debug(`Remapping remote to local (from connection): ${uri.path} -> ${localPath}`);
+						const fileUri = vscode.Uri.file(localPath);
+						this.logger.info(`Remapping remote to local (from storage): ${uri.toString()} -> ${fileUri.toString()}`);
 
-						return vscode.Uri.file(localPath);
+						// Return file URI for workspace trust and MRU
+						// This is the KEY to making workspace trust and MRU work correctly
+						return fileUri;
 					}
+				} else {
+					this.logger.debug(`No workspace mapping found for container ${decoded.containerId}`);
+				}
+			} catch (error) {
+				this.logger.warn('Failed to get workspace mapping from storage', error);
+				// Fall through to return original URI
+			}
+
+			// Fallback: try connection info (for backwards compatibility during transition)
+			const connection = this.connectionManager.getConnection(decoded.containerId);
+			if (connection?.localWorkspacePath && connection?.remoteWorkspacePath) {
+				const normalizedRemote = connection.remoteWorkspacePath.replace(/\\/g, '/');
+				const normalizedUriPath = uri.path.replace(/\\/g, '/');
+
+				if (normalizedUriPath === normalizedRemote || normalizedUriPath.startsWith(normalizedRemote + '/')) {
+					const relativePath = normalizedUriPath.substring(normalizedRemote.length);
+					const localPath = connection.localWorkspacePath.replace(/\\/g, '/') + relativePath;
+
+					this.logger.debug(`Remapping remote to local (from connection): ${uri.path} -> ${localPath}`);
+					return vscode.Uri.file(localPath);
 				}
 			}
 

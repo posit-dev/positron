@@ -8,6 +8,7 @@ import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { encodeDevContainerAuthority } from '../common/authorityEncoding';
+import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 
 /**
  * Reopen the current workspace in a dev container
@@ -50,8 +51,19 @@ export async function reopenInContainer(): Promise<void> {
 
 		logger.info(`Container ready: ${result.containerId}`);
 
-		// Encode local workspace path in authority (no state needed!)
-		const authority = encodeDevContainerAuthority(result.containerId, workspaceFolder.uri.fsPath);
+		// Store workspace mapping BEFORE opening the window
+		// This ensures it's available when the authority resolver runs
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			await storage.set(result.containerId, workspaceFolder.uri.fsPath, result.remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${result.containerId} -> ${workspaceFolder.uri.fsPath}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping before window reload', error);
+			// Continue anyway - connection manager will try to determine paths
+		}
+
+		// Create authority (no need to encode path, it's in storage now)
+		const authority = encodeDevContainerAuthority(result.containerId);
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
 
 		logger.info(`Reloading window with authority: ${authority}`);
