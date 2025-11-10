@@ -1136,11 +1136,6 @@ class DatabricksConnection(Connection):
         ]
 
     def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
-        try:
-            import pandas as pd
-        except ImportError as e:
-            raise ModuleNotFoundError("Pandas is required for previewing Databricks tables.") from e
-
         if len(path) != 3:
             raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
 
