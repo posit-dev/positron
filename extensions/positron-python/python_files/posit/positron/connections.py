@@ -1159,11 +1159,15 @@ class DatabricksConnection(Connection):
             [self._qualify(catalog.name), self._qualify(schema.name), self._qualify(table.name)]
         )
         sql = f"SELECT * FROM {identifier} LIMIT 1000;"
-        frame = pd.read_sql(sql, self.conn)
+
+        with self.conn.cursor() as cursor:
+            cursor.execute(sql)
+            frame = cursor.fetchall_arrow().to_pandas()
         var_name = var_name or "conn"
         return frame, (
-            f"# {table.name} = pd.read_sql({sql!r}, {var_name}) "
-            f"# where {var_name} is your connection variable"
+            f"with {var_name}.cursor() as cursor:"
+            f"    cursor.execute({sql!r})"
+            f"    {table.name} = cursor.fetchall_arrow().to_pandas()"
         )
 
     def _query(self, sql: str) -> list[dict[str, Any]]:
