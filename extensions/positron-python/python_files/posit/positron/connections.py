@@ -1199,4 +1199,5 @@ class DatabricksConnection(Connection):
             f"    server_hostname = '{hostname}',\n"
             f"    http_path       = '{http_path}'\n"
             ")\n"
+            "%connection_show con\n"
         )
