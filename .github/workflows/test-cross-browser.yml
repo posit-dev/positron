@@ -43,18 +43,17 @@ concurrency:
 jobs:
   setup:
     name: setup
-    uses: ./.github/workflows/test-build-positron.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
   e2e-firefox:
     name: e2e
     needs: [setup]
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       display_name: "firefox (ubuntu)"
       project: "e2e-firefox"
-      mode: 'run-only'
       report_currents: false
       allow_soft_fail: false
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
@@ -63,12 +62,11 @@ jobs:
   e2e-webkit:
     name: e2e
     needs: [setup]
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       display_name: "webkit (ubuntu)"
       project: "e2e-webkit"
-      mode: 'run-only'
       report_currents: false
       allow_soft_fail: false
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
@@ -76,12 +74,11 @@ jobs:
   e2e-edge:
     name: e2e
     needs: [setup]
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       display_name: "edge (ubuntu)"
       project: "e2e-edge"
-      mode: 'run-only'
       report_currents: false
       allow_soft_fail: false
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}

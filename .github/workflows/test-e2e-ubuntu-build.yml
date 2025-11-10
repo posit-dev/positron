@@ -59,15 +59,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # - name: Load secret
-      #   uses: 1password/load-secrets-action@v3
-      #   with:
-      #     # Export loaded secrets as environment variables
-      #     export-env: true
-      #   env:
-      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      #     ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
-
       - name: Ensure Docker config dir is writable
         run: |
           mkdir -p /tmp/.docker
@@ -108,18 +99,18 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure'  }}
         run: exit 1
 
-      - name: Install Playwright browsers
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-        run: |
-          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
-          npx playwright install --with-deps
+      # - name: Install Playwright browsers
+      #   if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+      #   run: |
+      #     echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
+      #     npx playwright install --with-deps
 
-          echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
-          npx playwright install msedge
-      - name: Move Positron License
-        run: |
-          mv /positron-license /__w/positron || true
-          printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+      #     echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+      #     npx playwright install msedge
+      # - name: Move Positron License
+      #   run: |
+      #     mv /positron-license /__w/positron || true
+      #     printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
 
       - name: Create Build Artifact
         run: |
