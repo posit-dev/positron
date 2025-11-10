@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { getLogger } from '../common/logger';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { DevContainerTreeItem } from '../views/devContainersTreeProvider';
@@ -287,13 +288,14 @@ export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<
 	const containerInfo = treeItem.containerInfo;
 
 	// Confirm deletion
-	const answer = await vscode.window.showWarningMessage(
+	const answer = await positron.window.showSimpleModalDialogPrompt(
+		'Remove Container',
 		`Are you sure you want to remove container '${containerInfo.containerName}'?`,
-		{ modal: true },
-		'Remove'
+		'Remove',
+		'Cancel'
 	);
 
-	if (answer !== 'Remove') {
+	if (!answer) {
 		return;
 	}
 

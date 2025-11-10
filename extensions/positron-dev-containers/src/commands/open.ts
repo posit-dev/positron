@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
@@ -41,13 +42,14 @@ export async function openFolder(): Promise<void> {
 		};
 		const hasDevContainer = Workspace.hasDevContainer(tempFolder);
 		if (!hasDevContainer) {
-			const response = await vscode.window.showWarningMessage(
+			const response = await positron.window.showSimpleModalDialogPrompt(
+				'No Dev Container Configuration',
 				'No dev container configuration found in this folder. Do you want to create one?',
 				'Create Configuration',
 				'Cancel'
 			);
 
-			if (response === 'Create Configuration') {
+			if (response) {
 				// Open the folder first, then let user create the configuration
 				await vscode.commands.executeCommand('vscode.openFolder', folderUris[0]);
 				// Suggest creating dev container file

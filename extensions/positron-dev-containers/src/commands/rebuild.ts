@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
@@ -35,13 +36,14 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 		}
 
 		// Confirm rebuild action
-		const confirm = await vscode.window.showWarningMessage(
+		const confirm = await positron.window.showSimpleModalDialogPrompt(
+			'Rebuild Container',
 			'This will rebuild the container and may take several minutes. Continue?',
-			{ modal: true },
-			'Rebuild'
+			'Rebuild',
+			'Cancel'
 		);
 
-		if (confirm !== 'Rebuild') {
+		if (!confirm) {
 			return;
 		}
 
@@ -106,13 +108,14 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 		}
 
 		// Confirm rebuild action (no cache is more expensive)
-		const confirm = await vscode.window.showWarningMessage(
+		const confirm = await positron.window.showSimpleModalDialogPrompt(
+			'Rebuild Container Without Cache',
 			'This will rebuild the container without cache and may take a long time. Continue?',
-			{ modal: true },
-			'Rebuild'
+			'Rebuild',
+			'Cancel'
 		);
 
-		if (confirm !== 'Rebuild') {
+		if (!confirm) {
 			return;
 		}
 
@@ -239,13 +242,14 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 		}
 
 		// Confirm rebuild action
-		const confirm = await vscode.window.showWarningMessage(
+		const confirm = await positron.window.showSimpleModalDialogPrompt(
+			'Rebuild Container',
 			'This will rebuild the container and reload the window. Continue?',
-			{ modal: true },
-			'Rebuild'
+			'Rebuild',
+			'Cancel'
 		);
 
-		if (confirm !== 'Rebuild') {
+		if (!confirm) {
 			return;
 		}
 
@@ -360,13 +364,14 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 		}
 
 		// Confirm rebuild action
-		const confirm = await vscode.window.showWarningMessage(
+		const confirm = await positron.window.showSimpleModalDialogPrompt(
+			'Rebuild Container Without Cache',
 			'This will rebuild the container without cache and reload the window. This may take a long time. Continue?',
-			{ modal: true },
-			'Rebuild'
+			'Rebuild',
+			'Cancel'
 		);
 
-		if (confirm !== 'Rebuild') {
+		if (!confirm) {
 			return;
 		}
 
