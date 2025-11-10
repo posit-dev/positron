@@ -66,15 +66,25 @@ class PromptTemplateEngine {
 
 			// Format all cells if available as XML
 			if (ctx.allCells && ctx.allCells.length > 0) {
+				const isFullNotebook = ctx.cellCount < 20;
+				const description = isFullNotebook
+					? 'All cells in notebook (notebook has fewer than 20 cells)'
+					: 'Context window around selected cells (notebook has 20+ cells)';
 				notebookAllCellsInfo = xml.node('all-cells', formatCells(ctx.allCells, 'Cell'), {
-					description: 'All cells in notebook (notebook has fewer than 20 cells)'
+					description
 				});
 			}
 
 			// Context note as XML
-			notebookContextNote = xml.node('note', ctx.allCells && ctx.allCells.length > 0
-				? 'All cells are provided above because this notebook has fewer than 20 cells.'
-				: 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.');
+			if (ctx.allCells && ctx.allCells.length > 0) {
+				if (ctx.cellCount < 20) {
+					notebookContextNote = xml.node('note', 'All cells are provided above because this notebook has fewer than 20 cells.');
+				} else {
+					notebookContextNote = xml.node('note', 'A context window around the selected cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.');
+				}
+			} else {
+				notebookContextNote = xml.node('note', 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.');
+			}
 		}
 
 		return {

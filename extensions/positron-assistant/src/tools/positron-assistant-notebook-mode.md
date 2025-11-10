@@ -66,7 +66,7 @@ When a notebook is active, `NotebookContext` provides:
   - `lastRunSuccess` - **Code cells only**: Whether last execution succeeded
   - `lastExecutionDuration` - **Code cells only**: Duration of last execution in milliseconds
   - `lastRunEndTime` - **Code cells only**: Timestamp when last execution ended
-- `allCells[]` - **Optional**: All cells in the notebook (same structure as `selectedCells`). Only included if the notebook has fewer than 20 cells to avoid consuming too much context space.
+- `allCells[]` - **Optional**: All cells in the notebook (same structure as `selectedCells`). For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selected cells, a sliding window of cells around the last selected cell is included (10 cells before + selected cells + 10 cells after, adjusted for boundaries). For large notebooks without selection, this field is undefined.
 
 **Context Construction Location:** `src/vs/workbench/api/browser/positron/mainThreadNotebookFeatures.ts`
 
@@ -76,7 +76,10 @@ The context is assembled by:
 3. Converting selected cells to DTOs (always included) with status information:
    - Selection status from `cell.selectionStatus` (maps 'editing' to 'active')
    - Execution status fields from code cell observables (only for code cells)
-4. Converting all cells to DTOs only if `cellCount < MAX_CELLS_FOR_ALL_CELLS_CONTEXT` (currently 20)
+4. Determining which cells to include in `allCells`:
+   - **Small notebooks (< 20 cells)**: All cells are included
+   - **Large notebooks (>= 20 cells) with selection**: A sliding window is calculated around the last selected cell (highest index). The window includes 10 cells before + selected cells + 10 cells after, adjusted for notebook boundaries
+   - **Large notebooks (>= 20 cells) without selection**: `allCells` is undefined (only selected cells are included, which is empty)
 
 ## Impact on Chat Behavior
 
@@ -86,7 +89,7 @@ The context is assembled by:
 When notebook mode is enabled (attached context + active editor), the assistant's system prompt is augmented with:
 
 1. **Notebook metadata** - URI, kernel, cell count, selected cells
-2. **Cell details** - IDs, content, status information (selection status, execution status, execution order, run success/failure, duration) for selected cells (and all cells if notebook is small enough)
+2. **Cell details** - IDs, content, status information (selection status, execution status, execution order, run success/failure, duration) for selected cells. For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selection, a sliding window around the selected cells is included.
 3. **Usage instructions**:
    - Focus on selected cells when analyzing/explaining
    - Use cell IDs when referencing specific cells
@@ -187,7 +190,8 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
 - Can view notebook context, analyze code, explain cells, and inspect outputs
 - References cells by ID in responses
 - System prompt includes selected cell content, metadata, and status information
-- For small notebooks (< 20 cells), system prompt also includes all cell content and status via `allCells` field
+- For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
+- For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
 - When modifications are requested, suggests switching to Edit mode
 - When execution is requested, suggests switching to Agent mode
 
@@ -202,7 +206,8 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
 - Can add new code or markdown cells
 - References cells by ID in responses
 - System prompt includes selected cell content, metadata, and status information
-- For small notebooks (< 20 cells), system prompt also includes all cell content and status via `allCells` field
+- For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
+- For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
 - When execution is requested, suggests switching to Agent mode
 
 **With notebook mode in Agent mode (notebook attached + active editor + Agent mode):**
@@ -217,7 +222,8 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
 - References cells by ID in responses
 - Suggests cell-based operations including modifications
 - System prompt includes selected cell content, metadata, and status information
-- For small notebooks (< 20 cells), system prompt also includes all cell content and status via `allCells` field
+- For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
+- For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
 
 ## Prompt File Architecture
 
