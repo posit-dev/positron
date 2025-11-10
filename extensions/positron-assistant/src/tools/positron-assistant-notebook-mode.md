@@ -103,11 +103,11 @@ const notebookContext = await getAttachedNotebookContext(request);
 const hasActiveNotebook = !!notebookContext;
 ```
 
-The `hasActiveNotebook` flag determines which tools are available. Tools tagged with `'requires-notebook'` are only enabled when notebook mode is active (notebook attached as context AND has active editor).
+The `hasActiveNotebook` flag determines which tools are available. Each notebook tool has specific filtering logic in the switch statement based on the assistant mode and notebook context.
 
 **Mode-Based Tool Restrictions:**
 
-Notebook tools are conditionally available based on the assistant mode:
+Notebook tools are conditionally available based on the assistant mode, with filtering implemented in switch-case logic (lines 245-269):
 
 **Execution Tools (Agent mode only):**
 - `RunNotebookCells` - Execute cells in the kernel

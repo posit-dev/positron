@@ -220,8 +220,8 @@ export async function getEnabledTools(
 			}
 		}
 
-		// If the tool requires a notebook, but no notebook is active or
-		// we're not in the chat pane, don't allow the tool.
+		// If the tool requires a notebook, but no notebook is attached with active editor,
+		// skip it early. Specific notebook tools have additional mode-based checks below.
 		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
 			continue;
 		}
@@ -247,17 +247,28 @@ export async function getEnabledTools(
 					continue;
 				}
 				break;
-			// Notebook execution tools are only available in Agent mode.
-			// Notebook modification tools are available in Edit and Agent modes.
-			// Read-only tools (GetNotebookCells, GetCellOutputs) are available in all modes.
+			// Notebook tools require both a notebook attached as context AND an active notebook editor.
+			// Tool availability varies by mode:
+			// - Execution tools (RunNotebookCells): Agent mode only
+			// - Modification tools (AddNotebookCell, UpdateNotebookCell): Edit and Agent modes
+			// - Read-only tools (GetNotebookCells, GetCellOutputs): All modes (Ask, Edit, Agent)
 			case PositronAssistantToolName.RunNotebookCells:
+				// Execution requires Agent mode
 				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
 					continue;
 				}
 				break;
 			case PositronAssistantToolName.AddNotebookCell:
 			case PositronAssistantToolName.UpdateNotebookCell:
+				// Modification requires Edit or Agent mode
 				if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
+					continue;
+				}
+				break;
+			case PositronAssistantToolName.GetNotebookCells:
+			case PositronAssistantToolName.GetCellOutputs:
+				// Read-only tools available in all modes
+				if (!(inChatPane && hasActiveNotebook)) {
 					continue;
 				}
 				break;
