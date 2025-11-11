@@ -9,16 +9,17 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronPlotsViewPane } from './positronPlotsView.js';
 import { PositronPlotsService } from './positronPlotsService.js';
-import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotsService, POSITRON_PLOTS_LOCATION_CONTEXT, POSITRON_PLOTS_VIEW_ID, PlotsDisplayLocation } from '../../../services/positronPlots/common/positronPlots.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { MenuRegistry, registerAction2, MenuId, ISubmenuItem } from '../../../../platform/actions/common/actions.js';
-import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
+import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsGalleryInNewWindowAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -45,6 +46,8 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 			canToggleVisibility: false,
 			canMoveView: true,
 			containerIcon: positronPlotViewIcon,
+			// Only show the view when plots are displayed in the main window
+			when: ContextKeyExpr.equals(POSITRON_PLOTS_LOCATION_CONTEXT.key, PlotsDisplayLocation.MainWindow),
 			openCommandActionDescriptor: {
 				id: 'workbench.action.positron.togglePlots',
 				mnemonicTitle: nls.localize({ key: 'miTogglePlots', comment: ['&& denotes a mnemonic'] }, "&&Plots"),
@@ -74,6 +77,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsClearAction);
 		registerAction2(PlotsPopoutAction);
 		registerAction2(PlotsEditorAction);
+		registerAction2(PlotsGalleryInNewWindowAction);
 		registerAction2(PlotsActiveEditorCopyAction);
 		registerAction2(PlotsActiveEditorSaveAction);
 		registerAction2(PlotsSizingPolicyAction);
@@ -178,6 +182,21 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				type: 'boolean',
 				default: true,
 				description: localize('plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
+			},
+			'plots.historyPolicy': {
+				type: 'string',
+				default: 'auto',
+				enum: [
+					'always',
+					'auto',
+					'never'
+				],
+				enumDescriptions: [
+					localize('plots.historyPolicyAlways', 'Always show the plot history filmstrip'),
+					localize('plots.historyPolicyAuto', 'Automatically show the plot history filmstrip when there are multiple plots and sufficient space'),
+					localize('plots.historyPolicyNever', 'Never show the plot history filmstrip')
+				],
+				description: localize('plots.historyPolicySetting', "When the plot history filmstrip is visible."),
 			}
 		}
 	});
