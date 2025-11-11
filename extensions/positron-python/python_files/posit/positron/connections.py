@@ -309,10 +309,6 @@ class ConnectionsService:
         elif safe_isinstance(obj, "duckdb", "DuckDBPyConnection"):
             return DuckDBConnection(obj)
         elif safe_isinstance(obj, "google.cloud.bigquery.client", "Client"):
-            if getattr(obj, "project", None) is None:
-                raise UnsupportedConnectionError(
-                    "Google BigQuery clients must have the `project` attribute set."
-                )
             return GoogleBigQueryConnection(obj)
         elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
             return SnowflakeConnection(obj)
@@ -938,7 +934,7 @@ class GoogleBigQueryConnection(Connection):
         self.project = conn.project
 
         if self.project is None:
-            raise ValueError("BigQuery client must have a project set.")
+            raise UnsupportedConnectionError("BigQuery client must have a project set.")
 
         self.host = self.project
         self.display_name = f"Google BigQuery ({self.project})"
@@ -948,6 +944,8 @@ class GoogleBigQueryConnection(Connection):
             f"client = bigquery.Client(project={self.project!r})\n"
             "%connection_show client\n"
         )
+
+        self.icon = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNHB4IiBoZWlnaHQ9IjI0cHgiIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGRlZnM+PHN0eWxlPi5jbHMtMXtmaWxsOiNhZWNiZmE7fS5jbHMtMSwuY2xzLTIsLmNscy0ze2ZpbGwtcnVsZTpldmVub2RkO30uY2xzLTJ7ZmlsbDojNjY5ZGY2O30uY2xzLTN7ZmlsbDojNDI4NWY0O308L3N0eWxlPjwvZGVmcz48dGl0bGU+SWNvbl8yNHB4X0JpZ1F1ZXJ5X0NvbG9yPC90aXRsZT48ZyBkYXRhLW5hbWU9IlByb2R1Y3QgSWNvbnMiPjxnID48cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik02LjczLDEwLjgzdjIuNjNBNC45MSw0LjkxLDAsMCwwLDguNDQsMTUuMlYxMC44M1oiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik05Ljg5LDguNDF2Ny41M0E3LjYyLDcuNjIsMCwwLDAsMTEsMTYsOCw4LDAsMCwwLDEyLDE2VjguNDFaIi8+PHBhdGggY2xhc3M9ImNscy0xIiBkPSJNMTMuNjQsMTEuODZ2My4yOWE1LDUsMCwwLDAsMS43LTEuODJWMTEuODZaIi8+PHBhdGggY2xhc3M9ImNscy0zIiBkPSJNMTcuNzQsMTYuMzJsLTEuNDIsMS40MmEuNDIuNDIsMCwwLDAsMCwuNmwzLjU0LDMuNTRhLjQyLjQyLDAsMCwwLC41OSwwbDEuNDMtMS40M2EuNDIuNDIsMCwwLDAsMC0uNTlsLTMuNTQtMy41NGEuNDIuNDIsMCwwLDAtLjYsMCIvPjxwYXRoIGNsYXNzPSJjbHMtMiIgZD0iTTExLDJhOSw5LDAsMSwwLDksOSw5LDksMCwwLDAtOS05bTAsMTUuNjlBNi42OCw2LjY4LDAsMSwxLDE3LjY5LDExLDYuNjgsNi42OCwwLDAsMSwxMSwxNy42OSIvPjwvZz48L2c+PC9zdmc+"
 
     def list_objects(self, path: list[ObjectSchema]):
         if len(path) == 0:
@@ -1018,10 +1016,7 @@ class GoogleBigQueryConnection(Connection):
         }
 
     def disconnect(self):
-        try:
-            self.conn.close()
-        except Exception:
-            pass
+        self.conn.close()
 
     def _dataset_identifier(self, dataset_name: str) -> str:
         if "." in dataset_name or ":" in dataset_name:
