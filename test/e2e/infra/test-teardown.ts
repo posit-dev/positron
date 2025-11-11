@@ -28,11 +28,25 @@ export class TestTeardown {
 
 	async discardAllChanges(): Promise<void> {
 		try {
-			// Get the root commit hash
-			const rootCommitHash = execSync('git rev-list --max-parents=0 HEAD', { cwd: this._workspacePathOrFolder }).toString().trim();
-			// Reset to the root commit
-			execSync(`git reset --hard ${rootCommitHash}`, { cwd: this._workspacePathOrFolder });
-			execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
+			// Check if .git exists
+			if (!fs.existsSync(`${this._workspacePathOrFolder}/.git`)) {
+				// No git repo, skip git operations silently
+				return;
+			}
+
+			// Check if this is a shallow clone
+			const isShallow = fs.existsSync(`${this._workspacePathOrFolder}/.git/shallow`);
+
+			if (isShallow) {
+				// For shallow clones, just reset to HEAD and clean
+				execSync('git reset --hard HEAD', { cwd: this._workspacePathOrFolder });
+				execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
+			} else {
+				// For full clones, reset to root commit
+				const rootCommitHash = execSync('git rev-list --max-parents=0 HEAD', { cwd: this._workspacePathOrFolder }).toString().trim();
+				execSync(`git reset --hard ${rootCommitHash}`, { cwd: this._workspacePathOrFolder });
+				execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
+			}
 		} catch (error) {
 			console.error('Failed to discard changes:', error);
 		}

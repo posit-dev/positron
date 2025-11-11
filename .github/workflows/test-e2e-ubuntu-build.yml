@@ -159,6 +159,7 @@ jobs:
 
           # Prefer zstd for best compress+decompress speed and smaller output (requires zstd on unpack side).
           # Fall back to pigz (parallel gzip) if zstd is not available, else gzip -1 as a final fallback.
+          # Note: .git is excluded from artifact; run jobs do their own checkout to get .git
           if command -v zstd >/dev/null 2>&1; then
             echo "Using zstd (multithreaded) for compression"
             # Place options (exclude) before the filenames so tar respects them.
