@@ -36,6 +36,11 @@ export class ConnectionMetadata implements IConnectionMetadata {
 	}
 }
 
+export interface IPositronConnectionsEntriesChangedEvent {
+	entries: IPositronConnectionEntry[] | undefined;
+	error?: Error;
+}
+
 /***
  * A Connection Instance represents the root of a connection to a data
  * source. Children of a connection instance are tables, views, and other
@@ -50,7 +55,7 @@ export interface IPositronConnectionInstance {
 	disconnect?(): Promise<void>;
 	refresh?(): Promise<void>;
 
-	onDidChangeEntries: Event<IPositronConnectionEntry[] | undefined>;
+	onDidChangeEntries: Event<IPositronConnectionsEntriesChangedEvent>;
 	onDidChangeStatus: Event<boolean>;
 	refreshEntries(): Promise<void>;
 	// Returns undefined if entries have not been loaded yet

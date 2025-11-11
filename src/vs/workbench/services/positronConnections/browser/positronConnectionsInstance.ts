@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
-import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionItem, IPositronConnectionEntry } from '../common/interfaces/positronConnectionsInstance.js';
+import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionItem, IPositronConnectionEntry, IPositronConnectionsEntriesChangedEvent } from '../common/interfaces/positronConnectionsInstance.js';
 import { ObjectSchema } from '../../languageRuntime/common/positronConnectionsComm.js';
 import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
@@ -51,9 +51,14 @@ class BaseConnectionsInstance extends Disposable {
 	}
 }
 
+class PositronConnectionsEntriesChangedEvent implements IPositronConnectionsEntriesChangedEvent {
+	entries: IPositronConnectionEntry[] | undefined;
+	error?: Error;
+}
+
 export class PositronConnectionsInstance extends BaseConnectionsInstance implements IPositronConnectionInstance {
 
-	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<IPositronConnectionEntry[] | undefined>());
+	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<PositronConnectionsEntriesChangedEvent>());
 	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
 	private readonly onDidChangeStatusEmitter = this._register(new Emitter<boolean>());
@@ -123,12 +128,14 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	}
 
 	async refreshEntries() {
+		let error: Error | undefined = undefined;
 		try {
 			this._entries = await flatten_children(await this.getChildren(), this._expanded_entries);
 		} catch (err) {
+			error = err;
 			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
 		}
-		this.onDidChangeEntriesEmitter.fire(this._entries);
+		this.onDidChangeEntriesEmitter.fire({ entries: this._entries, error });
 	}
 
 	readonly kind: string = 'database';
@@ -323,7 +330,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 		return [];
 	}
 
-	onDidChangeEntries: Event<IPositronConnectionEntry[]> = Event.None;
+	onDidChangeEntries: Event<IPositronConnectionsEntriesChangedEvent> = Event.None;
 
 	async refreshEntries() {
 		// Do nothing

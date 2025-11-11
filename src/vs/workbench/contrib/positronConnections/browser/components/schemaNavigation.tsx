@@ -55,6 +55,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	const activeInstance = services.positronConnectionsService.getConnections().find(item => item.id === activeInstanceId);
 
 	const [entries, setEntries] = useState<IPositronConnectionEntry[] | undefined>(activeInstance?.getEntries() || undefined);
+	const [entriesError, setEntriesError] = useState<Error | undefined>(undefined);
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -62,8 +63,12 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		}
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(activeInstance.onDidChangeEntries((entries) => {
-			setEntries(entries);
+		disposableStore.add(activeInstance.onDidChangeEntries((event) => {
+			setEntries(event.entries);
+			if (event.error !== undefined) {
+				console.log(event.error);
+				setEntriesError(event.error);
+			}
 		}));
 
 		disposableStore.add(activeInstance.onDidChangeStatus((active) => {
@@ -156,6 +161,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 							{ItemEntry}
 						</List> :
 						<NoEntriesMessage
+							error={entriesError}
 							height={height}
 							onTryAgain={() => activeInstance.refresh?.()}
 						/>
@@ -167,18 +173,14 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	);
 };
 
-const NoEntriesMessage = ({ height, onTryAgain, timeout = 5000 }: { height: number, onTryAgain: () => void, timeout?: number }) => {
+const NoEntriesMessage = ({ height, error, onTryAgain }: { height: number, error: Error | undefined, onTryAgain: () => void }) => {
 	const [failed, setFailed] = useState<boolean>(false);
 
 	useEffect(() => {
-		let t: ReturnType<typeof setTimeout> | null = null;
-		if (!failed) {
-			t = setTimeout(() => {
-				setFailed(true);
-			}, timeout);
+		if (error !== undefined) {
+			setFailed(true);
 		}
-		return () => t ? clearTimeout(t) : undefined;
-	}, [timeout, failed]);
+	}, [error]);
 
 	const onPressedTryAgain = () => {
 		setFailed(false);
