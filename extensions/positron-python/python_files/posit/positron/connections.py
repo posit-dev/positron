@@ -1022,7 +1022,16 @@ class DatabricksConnection(Connection):
 
     def __init__(self, conn: Any):
         self.conn = conn
-        self.host = str(conn.session.host) or "<unknown>"
+
+        # try conn.host
+        host = getattr(conn, "host", None)
+        if host is None:
+            # fallback to conn.session.host
+            host = getattr(getattr(conn, "session", None), "host", None)
+        if host is None:
+            host = "<unknown>"
+        self.host = str(host)
+
         self.display_name = f"Databricks ({self.HOST_SUFFIX_RE.sub('', self.host, count=1)})"
         self.type = "Databricks"
         self.code = self._make_code()
