@@ -13,7 +13,7 @@ import {
 } from '../catalog';
 import { resourceUri } from '../resources';
 import { getPositronAPI } from '../positron';
-import { traceError, traceLog } from '../logging';
+import { traceError, traceInfo, traceLog } from '../logging';
 import { getSnowflakeConnectionOptions, SnowflakeConnectionOptions } from '../credentials';
 
 export type SnowflakeLogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
@@ -26,26 +26,26 @@ export const registration: CatalogProviderRegistration = {
 		context: vscode.ExtensionContext,
 		provider: CatalogProvider,
 	): Promise<void> => {
-		let accountName: string | undefined;
+		let connectionName: string | undefined;
 
 		if (provider.id && provider.id.startsWith('snowflake:')) {
-			accountName = provider.id.substring('snowflake:'.length);
+			connectionName = provider.id.substring('snowflake:'.length);
 		}
-		if (!accountName) {
-			traceLog('Could not determine account name for provider being removed');
+		if (!connectionName) {
+			traceLog('Could not determine name for provider being removed');
 			return;
 		}
 
-		// Remove from recent accounts list so it doesn't reappear on reload
-		const recentAccounts = context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS);
-		if (recentAccounts && recentAccounts.includes(accountName)) {
-			const updatedRecent = recentAccounts.filter(account => account !== accountName);
+		// Remove from recent connections list so it doesn't reappear on reload
+		const priorConns = context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS);
+		if (priorConns && priorConns.includes(connectionName)) {
+			const updatedRecent = priorConns.filter(account => account !== connectionName);
 			await context.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, updatedRecent);
 		}
 		// We don't have any stored credentials to clear since we use browser SSO
 		// Just dispose the provider, which will close the connection if needed
 		provider.dispose();
-		traceLog(`Successfully removed Snowflake account: ${accountName}`);
+		traceLog(`Successfully removed Snowflake account: ${connectionName}`);
 	},
 	listProviders: getSnowflakeCatalogs,
 };
@@ -68,14 +68,15 @@ export function registerSnowflakeProvider(
  * Register a Snowflake catalog provider using authentication details from connections.toml.
  */
 export async function registerSnowflakeCatalog(
-	_context: vscode.ExtensionContext,
+	context: vscode.ExtensionContext,
 	connOptions?: string | any,
+	connName?: string
 ): Promise<CatalogProvider | undefined> {
-	let account = connOptions?.account;
+	// Load all connections from connections.toml
 	const connections = await getSnowflakeConnectionOptions();
 
-	// User is not re-authenticating an existing account, prompt for account name
-	if (!account) {
+	// User is not re-authenticating an existing connection, prompt for one
+	if (!connName) {
 		let items: vscode.QuickPickItem[] = [];
 
 		if (connections && Object.keys(connections).length > 0) {
@@ -83,7 +84,7 @@ export async function registerSnowflakeCatalog(
 			const connectionNames = Object.keys(connections);
 			items = connectionNames.map(name => ({
 				label: name,
-				description: `Connection from configuration (${connections[name].account || 'No account specified'})`
+				description: `Connection from account (${connections[name].account || 'No account specified'})`
 			}));
 		} else {
 			// If no connections found, offer help options
@@ -111,12 +112,12 @@ export async function registerSnowflakeCatalog(
 			return undefined;
 		} else {
 			// User selected a connection profile
-			account = selection.label;
+			connName = selection.label;
 		}
 	}
 
-	// still no account, user canceled
-	if (!account) {
+	// user canceled
+	if (!connName) {
 		return undefined;
 	}
 
@@ -131,13 +132,13 @@ export async function registerSnowflakeCatalog(
 	});
 
 	// If we don't already have a connection profile from the input, try to get it from connections.toml
-	if (!connOptions && connections && account) {
-		connOptions = connections[account];
+	if (!connOptions && connections && connName) {
+		connOptions = connections[connName];
 	}
 
 	// Start with base connection options
 	const connectionOptions: snowflake.ConnectionOptions = {
-		account: account,
+		account: connOptions.account,
 		authenticator: connOptions?.authenticator || 'externalbrowser',
 	};
 
@@ -166,14 +167,12 @@ export async function registerSnowflakeCatalog(
 	return await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
-			title: 'Authenticating to Snowflake via External Browser SSO... (will timeout after 15s)',
+			title: `Authenticating to Snowflake via ${connOptions.authenticator}... (will timeout after 30s)`,
 		},
 		async () => {
-			// Set up a simplified authentication with timeout
-			const AUTH_TIMEOUT_MS = 15000;
+			const AUTH_TIMEOUT_MS = 30000;
 
 			try {
-				// Use a single Promise.race with cleaner syntax
 				await Promise.race([
 					// Connection promise
 					new Promise<void>((resolve, reject) => {
@@ -181,31 +180,26 @@ export async function registerSnowflakeCatalog(
 					}),
 					// Timeout promise
 					new Promise<void>((_, reject) => {
-						setTimeout(() => reject(new Error('Authentication timed out after 15 seconds')), AUTH_TIMEOUT_MS);
+						setTimeout(() => reject(new Error('Authentication timed out after 30 seconds')), AUTH_TIMEOUT_MS);
 					})
 				]);
 
-				// Save the account in global state to track registered providers
-				const registered = _context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS);
-				if (registered && registered.includes(account!)) {
-					traceLog(`Snowflake account ${account} is already registered.`);
+				// Save in global state to track registered providers
+				const registered = context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS);
+				if (registered && registered.includes(connName!)) {
+					traceLog(`Snowflake connection ${connName} is already registered.`);
 				} else {
 					const next: Set<string> = registered ? new Set(registered) : new Set();
-					next.add(account!);
-					await _context.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, Array.from(next));
+					next.add(connName!);
+					await context.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, Array.from(next));
 				}
-
-				// Return the provider
-				return new SnowflakeCatalogProvider(connection, account!, connOptions);
+				return new SnowflakeCatalogProvider(connection, connName!, connOptions);
 			} catch (authError) {
-				// Clean up resources on authentication failure
 				try {
 					connection.destroy((err) => { if (err) { traceError('Error during connection cleanup:', err); } });
 				} catch {
 					// Silently ignore cleanup errors - they're less important than the main error
 				}
-
-				// Re-throw the original error
 				throw authError;
 			}
 		},
@@ -214,7 +208,7 @@ export async function registerSnowflakeCatalog(
 
 
 /**
- * Get a provider for all Snowflake accounts defined in connections.toml.
+ * Get a provider for all Snowflake connections defined in connections.toml.
  *
  * Note: For the browser authentication flow, we don't automatically maintain active sessions.
  * Users will need to re-authenticate when they restart VS Code or the extension is reloaded.
@@ -223,10 +217,12 @@ export async function getSnowflakeCatalogs(
 	context: vscode.ExtensionContext
 ): Promise<CatalogProvider[]> {
 	const providers: CatalogProvider[] = [];
-	const registeredAccounts = context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS) || [];
+	const priorConns = context.globalState.get<string[]>(STATE_KEY_SNOWFLAKE_CONNECTIONS) || [];
+	traceInfo(`Registered Snowflake connections: ${priorConns.join(', ')}`);
 
 	// Get all connections from connections.toml
 	const connections = await getSnowflakeConnectionOptions();
+	traceInfo(`Found Snowflake connections: ${connections ? Object.keys(connections).join(', ') : 'none'}`);
 	if (!connections) {
 		return providers;
 	}
@@ -234,10 +230,7 @@ export async function getSnowflakeCatalogs(
 	try {
 		// Only create providers for registered accounts, using connection information from TOML
 		for (const connectionName of Object.keys(connections)) {
-			const accountName = connections[connectionName].account || connectionName;
-
-			// Only create providers for registered accounts
-			if (registeredAccounts.includes(connectionName) || registeredAccounts.includes(accountName)) {
+			if (priorConns.includes(connectionName)) {
 				// Create a provider with info from connections.toml
 				const provider: CatalogProvider = {
 					id: `snowflake:${connectionName}`,
@@ -245,8 +238,6 @@ export async function getSnowflakeCatalogs(
 						const item = new vscode.TreeItem(registration.label);
 						item.iconPath = registration.iconPath;
 						item.description = `${connectionName} (Click to authenticate)`;
-						item.contextValue = `provider:snowflake:placeholder:${connectionName}`;
-
 						const connInfo = connections[connectionName];
 
 						item.tooltip = getTooltipInfo(connectionName, connInfo);
@@ -256,8 +247,8 @@ export async function getSnowflakeCatalogs(
 							// This will use the addProvider method with our registration and connection info
 							// which will then call our registerSnowflakeCatalog function with the full connection data
 							command: 'posit.catalog-explorer.addCatalogProvider',
-							arguments: [registration, connInfo],
-							tooltip: 'Click to authenticate with this Snowflake account'
+							arguments: [registration, connInfo, connectionName],
+							tooltip: 'Click to authenticate with this Snowflake connection',
 						};
 
 						return item;
@@ -279,21 +270,21 @@ export async function getSnowflakeCatalogs(
 }
 
 /**
- * A provider for a Snowflake account.
+ * A provider for a Snowflake catalog.
  */
 class SnowflakeCatalogProvider implements CatalogProvider {
 	private emitter = new vscode.EventEmitter<void>();
 	public readonly id: string;
-	public readonly accountName: string;
+	public readonly connName: string;
 	public readonly connOptions: SnowflakeConnectionOptions;
 
 	constructor(
 		public connection: snowflake.Connection,
-		accountName: string,
+		connName: string,
 		connOptions: SnowflakeConnectionOptions,
 	) {
-		this.accountName = accountName;
-		this.id = `snowflake:${this.accountName}`;
+		this.connName = connName;
+		this.id = `snowflake:${this.connName}`;
 		this.connOptions = connOptions;
 	}
 
@@ -321,8 +312,8 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 			vscode.TreeItemCollapsibleState.Expanded,
 		);
 		item.iconPath = registration.iconPath;
-		item.tooltip = getTooltipInfo(this.accountName, this.connOptions);
-		item.description = this.accountName;
+		item.tooltip = getTooltipInfo(this.connName, this.connOptions);
+		item.description = this.connName;
 		item.contextValue = 'provider';
 		return item;
 	}
@@ -368,7 +359,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		node: CatalogNode,
 	): Promise<string | undefined> {
 
-		const code = await generateCode(languageId, node, this.accountName);
+		const code = await generateCode(languageId, node, this.connName);
 		return code?.code;
 	}
 
@@ -392,7 +383,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 		const code = await generateCode(
 			session.runtimeMetadata.languageId,
 			node,
-			this.accountName
+			this.connName
 		);
 
 		if (!code) {
@@ -427,7 +418,7 @@ class SnowflakeCatalogProvider implements CatalogProvider {
 	}
 
 	/**
-	 * List all databases in the Snowflake account
+	 * List all databases in the Snowflake catalog
 	 */
 	private async listDatabases(): Promise<CatalogNode[]> {
 		try {
@@ -502,18 +493,21 @@ class SnowflakeCatalogProvider implements CatalogProvider {
  *
  * @param languageId Language identifier (python, r)
  * @param catalogNode The catalog node to generate code for
- * @param accountName The Snowflake account name
+ * @param connName The Snowflake connections name
  * @returns Generated code and required dependencies
  */
 async function generateCode(
 	languageId: string,
 	catalogNode: CatalogNode,
-	accountName: string,
+	connName: string,
 ): Promise<{ code: string } | undefined> {
 	// Get provider and connection information
 	// Try to get connection info from connections.toml
 	const connections = await getSnowflakeConnectionOptions();
-	const connectionProfile = connections && connections[accountName];
+	if (!connections) {
+		return undefined;
+	}
+	const connectionProfile = connections[connName];
 
 	// Use connection profile info if available, otherwise prompt for username and warehouse
 	let username: string | undefined;
@@ -571,17 +565,15 @@ async function generateCode(
 	switch (languageId) {
 		case 'python':
 			return await getPythonCodeForSnowflakeTable(
-				accountName,
-				username,
+				connName,
 				warehouse,
 				databaseName,
 				schemaName,
 				tableName,
-				connections
 			);
 		case 'r':
 			return await getRCodeForSnowflakeTable(
-				accountName,
+				connName,
 				username,
 				warehouse,
 				databaseName,
@@ -597,7 +589,7 @@ async function generateCode(
 /**
  * Generate Python code for accessing a Snowflake table
  *
- * @param accountName The Snowflake account name
+ * @param connName The Snowflake connection name in connections.toml
  * @param username The Snowflake username
  * @param warehouse The warehouse name
  * @param database The database name
@@ -607,79 +599,44 @@ async function generateCode(
  * @returns Generated code and required dependencies
  */
 async function getPythonCodeForSnowflakeTable(
-	accountName: string,
-	username: string,
+	connName: string,
 	warehouse: string,
 	database?: string,
 	schema?: string,
 	table?: string,
-	connections?: any
 ): Promise<{ code: string; dependencies: string[] }> {
 	const dependencies = ['snowflake-connector-python[secure-local-storage]', 'pandas'];
-	// Determine if we should use password authentication
-	const usePassword = connections && connections[accountName]?.password ? true : false;
 
 	let code = `# pip install ${dependencies.join(' ')}\n`;
 
 	if (database && schema && table) {
-		code += `# For ${accountName}.${database}.${schema}.${table}\n`;
+		code += `# For ${connName}.${database}.${schema}.${table}\n`;
 	} else {
-		code += `# For ${accountName}\n`;
+		code += `# For ${connName}\n`;
 	}
 
-	code += `
-import snowflake.connector as sc
-${usePassword ? 'import os  # For environment variables\n' : ''}
-conn_params = {
-	'account': '${accountName}',
-	'user': '${username}',
-`;
-
-	if (usePassword) {
-		code += `	# Password should be stored securely. For example, use environment variables:
-	'password': os.environ.get('SNOWFLAKE_PASSWORD'),
-`;
-	} else {
-		code += `	'authenticator': 'externalbrowser',
-`;
-	}
-
-	// add database if provided
-	if (database) {
-		code += `	'database': '${database}',`;
-	}
-
-	// add schema if provided
-	if (schema) {
-		code += `\n	'schema': '${schema}'`;
-	}
+	code += `\nimport snowflake.connector as sc`;
 
 	// complete the connection parameters dict and establish connection
-	code += `
-}
-
-# Establish the connection
-conn = sc.connect(**conn_params)
-cursor = conn.cursor()
-cursor.execute("USE WAREHOUSE ${warehouse}")
+	code += `\nwith sc.connect(connection_name="${connName}") as conn:
+\twith conn.cursor() as cursor:
+\t\tcursor.execute("USE WAREHOUSE ${warehouse}")
 `;
 	// add query to fetch data from the specified table or default info
 	if (table) {
-		code += `query = "SELECT * FROM ${table} LIMIT 10"`;
+		code += `\t\tquery = "SELECT * FROM ${table} LIMIT 10"`;
 	} else {
-		code += `query = "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()"`;
+		code += `\t\tquery = "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()"`;
 	}
 
 	// execute the query
-	code += `
-cursor.execute(query)
+	code += `\n\t\tcursor.execute(query)
+\t\t\# Fetch and display results
+\t\tresults = cursor.fetchall()
+\t\tfor row in results:
+\t\t	print(row)
 
-# Fetch and display results
-results = cursor.fetchall()
-for row in results:
-	print(row)
-
-cursor.close()
+\t\tcursor.close()
 `;
 
 	return { code, dependencies };
@@ -688,7 +645,7 @@ cursor.close()
 /**
  * Generate R code for accessing a Snowflake table
  *
- * @param accountName The Snowflake account name
+ * @param connName The Snowflake connection name in connections.toml
  * @param username The Snowflake username
  * @param warehouse The warehouse name
  * @param database Optional database name
@@ -698,7 +655,7 @@ cursor.close()
  * @returns Generated code and required dependencies
  */
 async function getRCodeForSnowflakeTable(
-	accountName: string,
+	connName: string,
 	username: string,
 	warehouse: string,
 	database?: string,
@@ -709,7 +666,7 @@ async function getRCodeForSnowflakeTable(
 	const dependencies = ['DBI', 'odbc'];
 
 	// Determine if we should use password authentication
-	const usePassword = connections && connections[accountName]?.password ? true : false;
+	const usePassword = connections && connections[connName]?.password ? true : false;
 
 	// Build a code template with the available parameters
 	let code = `library(odbc)
@@ -718,7 +675,7 @@ library(DBI)
 con <- dbConnect(
 	odbc::odbc(),
 	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
-	server = "${accountName}.snowflakecomputing.com",
+	server = "${connName}.snowflakecomputing.com",
 	uid = "${username}",`;
 
 	if (usePassword) {
@@ -728,7 +685,7 @@ con <- dbConnect(
 	} else {
 		code += `
 	# This setup assumes you're using SSO authentication
-	authenticator = "externalbrowser",`;
+	authenticator = "${connections.authenticator || 'externalbrowser'}",`;
 	}
 
 	code += `\n\twarehouse = "${warehouse}",`;

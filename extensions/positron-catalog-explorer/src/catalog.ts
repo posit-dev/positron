@@ -266,6 +266,7 @@ export interface CatalogProviderRegistration {
 	addProvider(
 		context: vscode.ExtensionContext,
 		account?: string | any, // Using 'any' here to accommodate different provider types
+		connectionName?: string
 	): Promise<CatalogProvider | undefined>;
 	removeProvider?(
 		context: vscode.ExtensionContext,
@@ -306,7 +307,7 @@ export class CatalogProviderRegistry {
 		return sorted.map((v) => v.providers).flat();
 	}
 
-	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string | any): Promise<void> {
+	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string | any, connectionName?: string): Promise<void> {
 		let item = provider;
 		if (!(provider && account)) {
 			item = await vscode.window.showQuickPick(this.registry, {
@@ -317,20 +318,18 @@ export class CatalogProviderRegistry {
 			return;
 		}
 
-		if (account && provider) {
+		if (account && provider && connectionName) {
 			const allProviders = await this.listAllProviders(context);
-
-			// Type guard to check if account is a string or an object with account property
-			const accountId = typeof account === 'string' ? account : (account as any).account || '';
-			const matchingProvider = allProviders.find((p) => p.id.includes(accountId));
+			const matchingProvider = allProviders.find((p) => p.id.includes(connectionName));
 			if (matchingProvider) {
+				traceInfo(`Provider with account ID ${connectionName} already exists. Removing existing provider.`);
 				this.removeCatalog.fire(matchingProvider);
 				matchingProvider?.dispose();
 			}
 		}
 
 		// Attempt to add the new provider
-		const added = await item.addProvider(context, account);
+		const added = await item.addProvider(context, account, connectionName);
 		if (!added) {
 			traceWarn(`Failed to add catalog provider: ${item.label}`);
 			return;
@@ -349,6 +348,7 @@ export class CatalogProviderRegistry {
 
 			for (const registration of this.registry) {
 				const providers = await registration.listProviders(context);
+				traceInfo(`Providers from registration ${registration.label}: ${providers.map(p => p.id).join(', ')}`);
 				const matchingProvider = providers.find((p) => p.id === providerId);
 
 				if (!matchingProvider) {
@@ -483,7 +483,7 @@ export function registerCatalogCommands(
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.addCatalogProvider',
-			async (provider?, account?) => await registry.addProvider(context, provider, account),
+			async (provider?, account?, connectionName?) => await registry.addProvider(context, provider, account, connectionName),
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.removeCatalogProvider',

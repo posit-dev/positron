@@ -18,7 +18,7 @@ import { traceError, traceInfo, traceWarn } from './logging.js';
 export interface SnowflakeConnectionOptions {
 	[connectionName: string]: {
 		// Core connection parameters
-		account?: string;
+		account: string;
 		user?: string;
 		password?: string;
 		role?: string;
