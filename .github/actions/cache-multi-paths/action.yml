@@ -113,7 +113,7 @@ runs:
           out
           out-build
         # Cache based on source files and package.json (dependencies affect compilation)
-        key: compiled-${{ runner.os }}-${{ hashFiles('src/**/*.ts', 'src/**/*.js', 'extensions/**/*.ts', 'package.json', 'tsconfig*.json') }}
+        key: compiled-v2-${{ runner.os }}-${{ hashFiles('src/**/*.ts', 'src/**/*.js', 'extensions/**/*.ts', 'package.json', 'tsconfig*.json') }}
         restore-keys: |
-          compiled-${{ runner.os }}-
+          compiled-v2-${{ runner.os }}-
 
