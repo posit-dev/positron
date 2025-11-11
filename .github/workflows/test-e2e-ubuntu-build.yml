@@ -74,6 +74,7 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          skip-compile-if-cached: ${{ steps.restore-caches.outputs.cache-compiled-hit }}
         env:
           NODE_ENV: ${{ env.NODE_ENV }}
 
@@ -84,6 +85,7 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          skip-compile-if-cached: ${{ steps.restore-caches.outputs.cache-compiled-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
@@ -91,6 +93,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
+          skip-compile-if-cached: ${{ steps.restore-caches.outputs.cache-compiled-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure'  }}

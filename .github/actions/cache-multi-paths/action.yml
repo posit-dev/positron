@@ -20,6 +20,9 @@ outputs:
   cache-builtins-hit:
     description: "Whether built-in extensions cache was restored"
     value: ${{ steps.cache-builtins.outputs.cache-hit }}
+  cache-compiled-hit:
+    description: "Whether compiled output cache was restored"
+    value: ${{ steps.cache-compiled.outputs.cache-hit }}
 
 runs:
   using: "composite"
@@ -101,4 +104,16 @@ runs:
         key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
         restore-keys: |
           builtins-${{ runner.os }}-
+
+    - name: Cache compiled output
+      id: cache-compiled
+      uses: actions/cache@v4
+      with:
+        path: |
+          out
+          out-build
+        # Cache based on source files and package.json (dependencies affect compilation)
+        key: compiled-${{ runner.os }}-${{ hashFiles('src/**/*.ts', 'src/**/*.js', 'extensions/**/*.ts', 'package.json', 'tsconfig*.json') }}
+        restore-keys: |
+          compiled-${{ runner.os }}-
 

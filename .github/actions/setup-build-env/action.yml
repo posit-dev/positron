@@ -5,8 +5,8 @@ inputs:
     description: "If 'true', skip running Playwright installer (use cache-hit output from cache-multi-paths)."
     required: false
     default: 'false'
-  skip-electron-if-cached:
-    description: "If 'true', skip running Electron compile/download (use cache-hit output from cache-multi-paths)."
+  skip-compile-if-cached:
+    description: "If 'true', skip compilation (use cache-hit output from cache-multi-paths)."
     required: false
     default: 'false'
 runs:
@@ -28,13 +28,21 @@ runs:
         # fall back to a repository-local .npm-cache directory so local dev runs work too.
         NPM_CONFIG_CACHE=${NPM_CONFIG_CACHE:-.npm-cache}
         mkdir -p "$NPM_CONFIG_CACHE"
-        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
-        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE"
+        # Run root and test/e2e npm ci in parallel for faster installation
+        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" &
+        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" &
+        wait
 
     - name: Compile and Electron download
-      if: ${{ inputs.skip-electron-if-cached != 'true' }}
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
+      run: |
+        if [ "${{ inputs.skip-compile-if-cached }}" = "true" ]; then
+          echo "Skipping compilation (using cached output)"
+          npm exec -- npm-run-all --max_old_space_size=8192 "electron x64"
+        else
+          echo "Running full compilation"
+          npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
+        fi
 
     - name: Install Playwright (build-level)
       if: ${{ inputs.skip-playwright-if-cached != 'true' }}
