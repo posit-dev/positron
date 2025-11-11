@@ -236,6 +236,12 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		props.onToggleExpand(props.item.id);
 	};
 
+	useEffect(() => {
+		if (!props.item.expanded) {
+			setExpanding(false);
+		}
+	}, [props.item.expanded]);
+
 	const iconClass = (kind?: string) => {
 		if (kind) {
 			switch (kind.toLowerCase()) {
@@ -331,12 +337,12 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 
 		useEffect(() => {
 			if (!expanding) {
-				setShowSpinner(false)
+				setShowSpinner(false);
 				return;
 			}
 			const id = setTimeout(() => setShowSpinner(true), delay);
-			return () => clearTimeout(id)
-		}, [expanding, delay])
+			return () => clearTimeout(id);
+		}, [expanding, delay]);
 
 
 		if (expanded === undefined) {
