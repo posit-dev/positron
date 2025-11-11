@@ -142,8 +142,8 @@ jobs:
         run: |
           mkdir -p /__w
           if [ -f /tmp/artifacts/positron-build.tar.zst ]; then
-            echo "Extracting zstd archive"
-            zstd -d --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
+            echo "Extracting zstd archive with parallel decompression"
+            zstd -d -T0 --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
           elif [ -f /tmp/artifacts/positron-build.tar.gz ]; then
             echo "Extracting gzip archive"
             tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w || true
@@ -221,11 +221,12 @@ jobs:
         run: |
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
-          # Edge is NOT installed by the default installer; add it explicitly for the e2e-edge project.
-          if [ "${{ inputs.project }}" = "e2e-edge" ]; then
-            echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
-            npx playwright install msedge
-          fi
+
+      - name: Install Microsoft Edge for e2e-edge project
+        if: ${{ inputs.project == 'e2e-edge' }}
+        run: |
+          echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+          npx playwright install msedge
 
       - name: Run Playwright Tests
         shell: bash

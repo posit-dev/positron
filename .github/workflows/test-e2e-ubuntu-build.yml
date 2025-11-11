@@ -107,9 +107,6 @@ jobs:
           echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps
 
-          echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
-          npx playwright install msedge
-
       - name: Cache QA example content
         id: cache-qa-content
         uses: actions/cache@v4
@@ -192,3 +189,4 @@ jobs:
           name: "positron-build"
           path: /tmp/artifacts
           retention-days: 1
+          compression-level: 0  # Skip GitHub compression since we use tar.zst
