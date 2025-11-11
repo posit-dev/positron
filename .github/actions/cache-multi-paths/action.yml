@@ -1,10 +1,9 @@
 name: "Cache: Package Stores & Binaries"
-description: "Portable caches for npm tarballs and versioned binaries"
+description: "Save and restore caches for multiple package managers and binaries."
 
 runs:
   using: "composite"
   steps:
-    # Portable cache dirs (same path on Linux/macOS/Windows runners)
     - name: Configure local caches
       shell: bash
       run: |
@@ -12,7 +11,6 @@ runs:
         echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
         mkdir -p .npm-cache .pip-cache .versions
 
-    # Single npm tarball cache (works with `npm ci`)
     - name: Cache npm tarball store
       id: cache-npm
       uses: actions/cache@v4
