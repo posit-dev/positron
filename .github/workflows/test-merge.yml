@@ -1,16 +1,24 @@
 name: "Test: Merge to branch"
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
       - "prerelease/**"
       - "release/**"
+      - "mi/setup-cross-browser-testing-workflow"  # Temporary: for testing
 
 jobs:
+  setup:
+    name: setup
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+
   e2e-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
       project: "e2e-electron"
@@ -35,7 +43,8 @@ jobs:
 
   e2e-linux-chromium:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
       display_name: "chromium (ubuntu)"
@@ -59,22 +68,22 @@ jobs:
     with:
       pull_request: false
 
-  slack-notify:
-    if: failure()
-    needs:
-      [
-        unit-tests,
-        integration-tests,
-        e2e-electron,
-        e2e-windows-electron,
-        e2e-linux-chromium,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
-        with:
-          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
-          notify_on: "failure"
+  # slack-notify:
+  #   if: failure()
+  #   needs:
+  #     [
+  #       unit-tests,
+  #       integration-tests,
+  #       e2e-electron,
+  #       e2e-windows-electron,
+  #       e2e-linux-chromium,
+  #     ]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Notify Slack
+  #       uses: midleman/slack-workflow-status@v3.1.2
+  #       with:
+  #         gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+  #         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+  #         slack_channel: "#positron-test-results"
+  #         notify_on: "failure"
