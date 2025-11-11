@@ -1048,11 +1048,7 @@ class DatabricksConnection(Connection):
             "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
             "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
             "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
-            # TODO: Volumes are like tables, but they can't be inspected further.
-            # Maybe we can support it?
-            # To nicely support it we need to expand the connections pane contract
-            # to allow objects that can't be previewed or inspected further.
-            # Maybe a `has_children` method can be added in a backward compatible way.
+
             "volume": ConnectionObjectInfo({"contains": None, "icon": None}),
         }
 
@@ -1169,8 +1165,8 @@ class DatabricksConnection(Connection):
             frame = cursor.fetchall_arrow().to_pandas()
         var_name = var_name or "conn"
         return frame, (
-            f"with {var_name}.cursor() as cursor:"
-            f"    cursor.execute({sql!r})"
+            f"with {var_name}.cursor() as cursor:\n"
+            f"    cursor.execute({sql!r})\n"
             f"    {table.name} = cursor.fetchall_arrow().to_pandas()"
         )
 

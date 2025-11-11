@@ -332,7 +332,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		useEffect(() => {
 			if (!expanding) {
 				setShowSpinner(false)
-				return
+				return;
 			}
 			const id = setTimeout(() => setShowSpinner(true), delay);
 			return () => clearTimeout(id)
