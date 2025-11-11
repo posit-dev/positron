@@ -171,7 +171,7 @@ const NoEntriesMessage = ({ height, onTryAgain, timeout = 5000 }: { height: numb
 	const [failed, setFailed] = useState<boolean>(false);
 
 	useEffect(() => {
-		let t = null;
+		let t: ReturnType<typeof setTimeout> | null = null;
 		if (!failed) {
 			t = setTimeout(() => {
 				setFailed(true);
