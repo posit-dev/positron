@@ -1,6 +1,26 @@
 name: "Cache: Package Stores & Binaries"
 description: "Save and restore caches for multiple package managers and binaries."
 
+outputs:
+  cache-npm-hit:
+    description: "Whether npm cache was restored"
+    value: ${{ steps.cache-npm.outputs.cache-hit }}
+  cache-playwright-hit:
+    description: "Whether Playwright cache was restored"
+    value: ${{ steps.cache-playwright.outputs.cache-hit }}
+  cache-electron-hit:
+    description: "Whether Electron cache was restored"
+    value: ${{ steps.cache-electron.outputs.cache-hit }}
+  cache-ark-hit:
+    description: "Whether ark binary cache was restored"
+    value: ${{ steps.cache-binaries-ark.outputs.cache-hit }}
+  cache-kallichore-hit:
+    description: "Whether kallichore binary cache was restored"
+    value: ${{ steps.cache-binaries-kallichore.outputs.cache-hit }}
+  cache-builtins-hit:
+    description: "Whether built-in extensions cache was restored"
+    value: ${{ steps.cache-builtins.outputs.cache-hit }}
+
 runs:
   using: "composite"
   steps:

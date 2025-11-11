@@ -206,8 +206,18 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Restore Playwright browser cache
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
       - name: Install Playwright browsers
-        # if: steps.restore-caches.outputs.cache-playwright-hit != 'true'
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: |
           echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
           npx playwright install --with-deps

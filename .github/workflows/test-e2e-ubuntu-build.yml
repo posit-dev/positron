@@ -74,7 +74,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
         env:
           NODE_ENV: ${{ env.NODE_ENV }}
 
@@ -85,7 +84,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
@@ -93,7 +91,6 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-electron-if-cached: ${{ steps.restore-caches.outputs.cache-electron-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure'  }}
@@ -104,31 +101,45 @@ jobs:
           mv /positron-license /__w/positron || true
           printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
 
-      # - name: Install Playwright browsers
-      #   if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-      #   run: |
-      #     echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
-      #     npx playwright install --with-deps
+      - name: Install Playwright browsers
+        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
+        run: |
+          echo "Cache miss - Installing Playwright browser binaries into $HOME/.cache/ms-playwright"
+          npx playwright install --with-deps
 
-      #     echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
-      #     npx playwright install msedge
-      # - name: Move Positron License
-      #   run: |
-      #     mv /positron-license /__w/positron || true
-      #     printf "%s" "${{ secrets.POSITRON_DEV_LICENSE }}" > /__w/positron/positron-license/pdol/target/debug/pdol_rsa || true
+          echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+          npx playwright install msedge
+
+      - name: Cache QA example content
+        id: cache-qa-content
+        uses: actions/cache@v4
+        with:
+          path: /tmp/qa-example-content-cache
+          key: qa-content-${{ hashFiles('.github/workflows/test-e2e-ubuntu-build.yml') }}-v1
+          restore-keys: |
+            qa-content-
+
+      - name: Clone QA example content
+        if: steps.cache-qa-content.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss - Cloning QA example content"
+          rm -rf /tmp/qa-example-content-cache || true
+          git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /tmp/qa-example-content-cache || true
+          if [ -d /tmp/qa-example-content-cache ]; then
+            (cd /tmp/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
+          fi
 
       - name: Create Build Artifact
         run: |
           # Ensure QA example content is bundled so downstream runners that lack network
-          # access can still prepare test fixtures. We clone into the workspace path
-          # under positron/test/e2e/qa-example-content-cache if it doesn't already exist.
+          # access can still prepare test fixtures. Copy from /tmp cache into the workspace path
+          # under positron/test/e2e/qa-example-content-cache.
           mkdir -p /__w/positron/test/e2e
-          if [ ! -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
-            git clone --depth=1 --branch main https://github.com/posit-dev/qa-example-content.git /__w/positron/test/e2e/qa-example-content-cache || true
-          fi
-          # Seed cache metadata so the test runner can detect the cached commit
-          if [ -d "/__w/positron/test/e2e/qa-example-content-cache" ]; then
-            (cd /__w/positron/test/e2e/qa-example-content-cache && git rev-parse HEAD > .cached-commit) || true
+          if [ -d "/tmp/qa-example-content-cache" ]; then
+            echo "Copying cached QA content to workspace"
+            cp -R /tmp/qa-example-content-cache /__w/positron/test/e2e/qa-example-content-cache || true
+          else
+            echo "Warning: QA content cache not found at /tmp/qa-example-content-cache"
           fi
 
           # Create a tarball of the entire positron workspace. Exclude .git to avoid including repository history.
@@ -151,14 +162,28 @@ jobs:
           if command -v zstd >/dev/null 2>&1; then
             echo "Using zstd (multithreaded) for compression"
             # Place options (exclude) before the filenames so tar respects them.
-            tar -C /__w --exclude='.git' --use-compress-program='zstd -T0 -3' -cf /tmp/artifacts/positron-build.tar.zst positron || true
+            tar -C /__w \
+              --exclude='.git' \
+              --exclude='.npm-cache' \
+              --exclude='.pip-cache' \
+              --use-compress-program='zstd -T0 -1' \
+              -cf /tmp/artifacts/positron-build.tar.zst positron || true
           elif command -v pigz >/dev/null 2>&1; then
             echo "zstd not available; using pigz (parallel gzip) for compression"
-            tar -C /__w --exclude='.git' --use-compress-program=pigz -cf /tmp/artifacts/positron-build.tar.gz positron || true
+            tar -C /__w \
+              --exclude='.git' \
+              --exclude='.npm-cache' \
+              --exclude='.pip-cache' \
+              --use-compress-program=pigz \
+              -cf /tmp/artifacts/positron-build.tar.gz positron || true
           else
             echo "zstd and pigz not available; using gzip -1 for faster compression"
             # Use gzip -1 via a pipe to avoid using the deprecated GZIP env var
-            tar -C /__w --exclude='.git' -cf - positron | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
+            tar -C /__w \
+              --exclude='.git' \
+              --exclude='.npm-cache' \
+              --exclude='.pip-cache' \
+              -cf - positron | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
           fi
 
       - name: Upload Build Artifact
