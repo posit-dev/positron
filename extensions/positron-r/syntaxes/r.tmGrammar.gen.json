@@ -431,7 +431,7 @@
 			]
 		},
 		"roxygen": {
-			"begin": "(^\\s*#+')",
+			"begin": "(^\\s*#+(?:'|\\*))",
 			"beginCaptures": {
 				"1": {
 					"name": "comment.line.roxygen"
@@ -455,13 +455,23 @@
 			]
 		},
 		"roxygen-example": {
-			"begin": "(^\\s*#+')\\s*(@examples)\\s*$",
+			"begin": "(^\\s*#+')\\s*(?:(@examples)\\s*|(@examplesIf)\\s+(.*))$",
 			"beginCaptures": {
 				"1": {
 					"name": "comment.line"
 				},
 				"2": {
 					"name": "keyword.other"
+				},
+				"3": {
+					"name": "keyword.other"
+				},
+				"4": {
+					"patterns": [
+						{
+							"include": "#expression"
+						}
+					]
 				}
 			},
 			"end": "(?:^\\s*(?=#+'\\s*@))|(?:^\\s*(?!#+'))",
