@@ -1048,7 +1048,6 @@ class DatabricksConnection(Connection):
             "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
             "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
             "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
-
             "volume": ConnectionObjectInfo({"contains": None, "icon": None}),
         }
 
