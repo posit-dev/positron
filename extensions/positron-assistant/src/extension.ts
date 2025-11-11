@@ -149,7 +149,19 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	}
 
 	// Set context for if we have chat models available for use
-	const hasChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
+	// Check both Positron-registered models and other language models (e.g., Copilot)
+	const hasPositronChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
+	let hasOtherChatModels = false;
+
+	try {
+		// Check if there are any other models available (e.g., Copilot)
+		const availableModels = await vscode.lm.selectChatModels();
+		hasOtherChatModels = availableModels.length > 0;
+	} catch (error) {
+		log.warn('Failed to check for available language models', error);
+	}
+
+	const hasChatModels = hasPositronChatModels || hasOtherChatModels;
 	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
