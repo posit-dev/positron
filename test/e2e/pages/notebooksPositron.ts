@@ -40,7 +40,7 @@ export class PositronNotebooks extends Notebooks {
 	// Cell action buttons, menus, tooltips, output, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
 	moreActionsOption = (option: string) => this.code.driver.page.locator('button.custom-context-menu-item', { hasText: option });
-	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/execute cell/i);
+	runCellButtonAtIndex = (index: number) => this.cell.nth(index).getByLabel(/run cell/i);
 	private cellOutput = (index: number) => this.cell.nth(index).getByTestId('cell-output');
 	private cellMarkdown = (index: number) => this.cell.nth(index).locator('.positron-notebook-markdown-rendered');
 	private cellInfoToolTip = this.code.driver.page.getByRole('tooltip', { name: /cell execution details/i });
@@ -529,7 +529,7 @@ export class PositronNotebooks extends Notebooks {
 
 				// hover over the run button to show the tooltip
 				await this.cell.nth(index).click();
-				await this.code.driver.page.getByRole('button', { name: 'Execute cell' }).hover();
+				await this.code.driver.page.getByRole('button', { name: 'Run cell' }).hover();
 
 				// make sure only the right tooltip is visible (i've been seeing multiple tooltips sometimes)
 				await expect(this.cellInfoToolTipAtIndex(index)).toBeVisible();

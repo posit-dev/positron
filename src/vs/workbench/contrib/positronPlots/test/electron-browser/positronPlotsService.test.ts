@@ -11,7 +11,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService as positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
+import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotsDisplayLocation } from '../../../../services/positronPlots/common/positronPlots.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
@@ -80,6 +80,48 @@ suite('Positron - Plots Service', () => {
 
 		await raceTimeout(didChangeHistoryPolicy, 100, () => assert.fail('onDidChangeHistoryPolicy event did not fire'));
 		assert.strictEqual(historyPolicyChanged, 1, 'onDidChangeHistoryPolicy event should fire once');
+	});
+
+	test('display location: change event', async () => {
+		let displayLocationChanged = 0;
+		let lastLocation: PlotsDisplayLocation | undefined;
+
+		const didChangeDisplayLocation = new Promise<void>((resolve) => {
+			const disposable = plotsService.onDidChangeDisplayLocation((location) => {
+				displayLocationChanged++;
+				lastLocation = location;
+				resolve();
+			});
+			disposables.add(disposable);
+		});
+
+		// No event since MainWindow is the default
+		plotsService.setDisplayLocation(PlotsDisplayLocation.MainWindow);
+		assert.strictEqual(displayLocationChanged, 0, 'no event should fire when setting to default value');
+
+		// Event should fire when changing to AuxiliaryWindow
+		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
+
+		await raceTimeout(didChangeDisplayLocation, 100, () => assert.fail('onDidChangeDisplayLocation event did not fire'));
+		assert.strictEqual(displayLocationChanged, 1, 'onDidChangeDisplayLocation event should fire once');
+		assert.strictEqual(lastLocation, PlotsDisplayLocation.AuxiliaryWindow);
+	});
+
+	test('display location: no event when setting same location', () => {
+		let displayLocationChanged = 0;
+
+		const disposable = plotsService.onDidChangeDisplayLocation(() => {
+			displayLocationChanged++;
+		});
+		disposables.add(disposable);
+
+		// Change to AuxiliaryWindow
+		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
+		assert.strictEqual(displayLocationChanged, 1);
+
+		// Set to AuxiliaryWindow again - should not fire event
+		plotsService.setDisplayLocation(PlotsDisplayLocation.AuxiliaryWindow);
+		assert.strictEqual(displayLocationChanged, 1, 'event should not fire when setting to same location');
 	});
 
 	test('sizing policy: check options and change size', () => {

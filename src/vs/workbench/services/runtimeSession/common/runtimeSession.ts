@@ -1196,8 +1196,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				runtimeState === RuntimeState.Ready) {
 				// If the runtime is in a state where it can be shut down, do so.
 				await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+			} else if (
+				runtimeState === RuntimeState.Uninitialized ||
+				runtimeState === RuntimeState.Initializing ||
+				runtimeState === RuntimeState.Starting ||
+				runtimeState === RuntimeState.Offline ||
+				runtimeState === RuntimeState.Exiting ||
+				runtimeState === RuntimeState.Restarting ||
+				runtimeState === RuntimeState.Interrupting) {
+				// Sessions in these states can be deleted (trashed) without shutting down.
+				this._logService.debug(`Deleting session ${sessionId} in state '${runtimeState}' without shutdown`);
 			} else {
-				// Otherwise throw error.
+				// Otherwise throw error for any unexpected states.
 				throw new Error(`Cannot delete session because it is in state '${runtimeState}'`);
 			}
 		}

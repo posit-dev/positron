@@ -23,45 +23,56 @@ function sshKeyscan(host: string, port: number, knownHostsPath: string) {
 	fs.appendFileSync(knownHostsPath, out);
 }
 
-async function waitForNewWindow(
+async function waitForAnyNewWindow(
 	app: ElectronApplication,
-	opts: {
-		timeout?: number;
-		// Any of these can help target the right window:
-		urlIncludes?: string;
-		titleIncludes?: string;
-		selectorToAppear?: string; // e.g. a unique text or element that only exists in the SSH window
-	} = {}
+	trigger?: () => Promise<void> | void,
+	opts: { timeout?: number; loadState?: 'load' | 'domcontentloaded' | 'networkidle' } = {}
 ): Promise<Page> {
-	const { timeout = 30_000, urlIncludes, titleIncludes, selectorToAppear } = opts;
+	const { timeout = 30_000, loadState = 'domcontentloaded' } = opts;
 
-	return await app.waitForEvent('window', {
-		timeout,
-		predicate: (w: Page) => {
-			// Fast filters first
-			if (urlIncludes && !w.url().includes(urlIncludes)) { return false; }
-			// Title check (async) is handled below with best-effort
-			return true;
+	// Snapshot existing windows so we can detect a new one even if the event is missed.
+	const before = new Set(app.windows());
+
+	// Start waiting for a new 'window' event *before* we trigger anything.
+	const eventWait = app.waitForEvent('window', { timeout }).catch(() => null);
+
+	// Optionally run whatever opens the window (recommended).
+	if (trigger) { await trigger(); }
+
+	// If we caught the event, great.
+	let win = await eventWait;
+
+	// Fallback: CI flake where window opened before listener—scan for any new page.
+	if (!win) {
+		const start = Date.now();
+		while (Date.now() - start < timeout) {
+			const current = app.windows();
+			for (const p of current) {
+				if (!before.has(p)) {
+					win = p;
+					break;
+				}
+			}
+			if (win) { break; }
+			await new Promise(r => setTimeout(r, 100));
 		}
-	}).then(async (w: Page) => {
-		if (titleIncludes) {
-			const t = await w.title();
-			console.log(`Window title: ${t}`);
-			if (!t.includes(titleIncludes)) { throw new Error('Not the SSH window'); }
-		}
-		if (selectorToAppear) {
-			await w.locator(selectorToAppear).first().waitFor({ timeout });
-		}
-		await w.bringToFront();
-		return w;
-	});
+	}
+
+	if (!win) { throw new Error('No new window appeared within timeout'); }
+
+	// Ensure it’s at least minimally ready and on top
+	await win.waitForLoadState(loadState).catch(() => { });
+	await win.bringToFront().catch(() => { });
+	return win;
 }
+
 
 test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
 }, () => {
 
 	test.beforeAll(async ({ }) => {
+
 		try {
 			sshKeyscan('127.0.0.1', 3456, '/tmp/known_hosts');
 		} catch (err) {
@@ -72,32 +83,28 @@ test.describe('Remote SSH', {
 
 	test('Verify SSH connection into docker image', async function ({ app, python }) {
 
+		// Start waiting for *any* new window before we trigger the UI that opens it
+		const sshWinPromise = waitForAnyNewWindow(app.code.electronApp!, async () => {
+			await app.workbench.quickInput.waitForQuickInputOpened();
+			await app.workbench.quickInput.selectQuickInputElementContaining('Connect to Host...');
+			await app.workbench.quickInput.selectQuickInputElementContaining('remote');
+		}, { timeout: 60_000 });
+
+		// Kick off the action that reveals the quick input (if needed)
 		await app.code.driver.page.locator('.codicon-remote').click();
 
-		// Usage around the action that opens the new window:
-		const newWindowPromise = waitForNewWindow(app.code.electronApp!, {
-			// Use whatever’s most stable in your app:
-			urlIncludes: 'Positron',            // or leave out if not stable
-			selectorToAppear: 'text=Setting up SSH Host remote'  // a unique bit of text in the new UI
-		});
+		// Grab the new window (no URL/title/selector filtering)
+		const sshWin = await sshWinPromise;
 
-		await app.workbench.quickInput.waitForQuickInputOpened();
-		await app.workbench.quickInput.selectQuickInputElementContaining('Connect to Host...');
-		await app.workbench.quickInput.selectQuickInputElementContaining('remote');
-
-		const sshWin = await newWindowPromise;
-
-		await expect(sshWin.getByText('Enter password')).toBeVisible({ timeout: 60000 });
-
+		// Continue as before
+		await expect(sshWin.getByText('Enter password')).toBeVisible({ timeout: 60_000 });
 		await sshWin.keyboard.type('root');
 		await sshWin.keyboard.press('Enter');
 
-		//const alertLocator = sshWin.locator('.monaco-alert').getByText('Setting up SSH Host remote');
-
 		const alertLocator = sshWin.locator('span', { hasText: 'Setting up SSH Host remote' });
+		await expect(alertLocator).toBeVisible({ timeout: 10_000 });
+		await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
 
-		await expect(alertLocator).toBeVisible({ timeout: 10000 });
-		await expect(alertLocator).not.toBeVisible({ timeout: 60000 });
 
 	});
 });
