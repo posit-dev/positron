@@ -144,19 +144,15 @@ export async function registerSnowflakeCatalog(
 
 	// Apply any additional options from connection profile
 	if (connOptions) {
-		// Copy all fields from connection profile, handling special cases
 		Object.entries(connOptions).forEach(([key, value]) => {
 			if (value === undefined || value === null) {
 				return;
 			}
-
 			// Special case: 'user' field should be mapped to 'username' in the Snowflake SDK
 			if (key === 'user') {
-				// Use type assertion to ensure TypeScript accepts this assignment
 				connectionOptions.username = value as string;
 			} else if (key !== 'account' && key !== 'authenticator') {
 				// For all other fields (except those already set), copy them directly
-				// Use type assertion for TypeScript
 				(connectionOptions as any)[key] = value;
 			}
 		});
@@ -574,7 +570,7 @@ async function generateCode(
  * @param database The database name
  * @param schema The schema name
  * @param table The table name
- * @param connections Optional connections object
+ * @param connOptions Optional connections object
  * @returns Generated code and required dependencies
  */
 async function getPythonCodeForSnowflakeTable(
@@ -583,9 +579,9 @@ async function getPythonCodeForSnowflakeTable(
 	database?: string,
 	schema?: string,
 	table?: string,
-	connections?: any
+	connOptions?: any
 ): Promise<{ code: string; dependencies: string[] }> {
-	const dependencies = ['snowflake-connector-python[secure-local-storage, pandas]', 'pandas'];
+	const dependencies = ['"snowflake-connector-python[secure-local-storage, pandas]"', 'pandas'];
 	const absoluteTablePath = [database, schema, table].filter(part => part).join('.');
 	const label = absoluteTablePath ? `For ${absoluteTablePath}` : `For ${connName}`;
 
@@ -602,7 +598,7 @@ import snowflake.connector
 
 with snowflake.connector.connect(connection_name="${connName}") as conn:
 \twith conn.cursor() as cursor:
-${connections?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE${warehouse}")\n`}
+${connOptions?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE ${warehouse}")\n`}
 \t\tquery = "${query}"
 \t\t# Execute the query
 \t\tcursor.execute(query)
@@ -624,7 +620,7 @@ ${connections?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE${warehouse}")
  * @param database Optional database name
  * @param schema Optional schema name
  * @param table Optional table name
- * @param connections Optional connections object from getSnowflakeConnectionOptions
+ * @param connOptions Optional connections object from getSnowflakeConnectionOptions
  * @returns Generated code and required dependencies
  */
 async function getRCodeForSnowflakeTable(
@@ -634,12 +630,13 @@ async function getRCodeForSnowflakeTable(
 	database?: string,
 	schema?: string,
 	table?: string,
-	connections?: any
+	connOptions?: any
 ): Promise<{ code: string; dependencies: string[] }> {
 	const dependencies = ['DBI', 'odbc'];
 
 	// Determine if we should use password authentication
-	const usePassword = connections && connections[connName]?.password ? true : false;
+	const usePassword = connOptions && connOptions[connName]?.password ? true : false;
+	const account = connOptions?.account || 'ACCOUNT_NAME';
 
 	// Build a code template with the available parameters
 	const code = `library(odbc)
@@ -648,11 +645,11 @@ library(DBI)
 con <- dbConnect(
 	odbc::odbc(),
 	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
-	server = "${connName}.snowflakecomputing.com",
+	server = "${account}.snowflakecomputing.com",
 	uid = "${username}",${usePassword ? `
 	# Password should be stored securely in environment variables
 	pwd = Sys.getenv("SNOWFLAKE_PASSWORD"),` /* pragma: allowlist secret */ : `
-	authenticator = "${connections.authenticator || 'externalbrowser'}",`}
+	authenticator = "${connOptions.authenticator || 'externalbrowser'}",`}
 	warehouse = "${warehouse}"${database ? `,
 	database = "${database}"` : ''}${schema ? `,
 	schema = "${schema}"` : ''}
