@@ -87,10 +87,12 @@ export const EditToolData: IToolData = {
 				type: 'string',
 				description: 'A short explanation of the edit being made. Can be the same as the explanation you showed to the user.',
 			},
+			// --- Start Positron ---
 			filePath: {
 				type: 'string',
 				description: 'A path to the file to edit, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1`. Only use absolute paths if you are sure the file you are editing is outside of the current workspace, otherwise use relative paths.',
 			},
+			// --- End Positron ---
 			code: {
 				type: 'string',
 				description: 'The code change to apply to the file. ' + codeInstructions
