@@ -42,7 +42,7 @@ export const registration: CatalogProviderRegistration = {
 			const updatedRecent = priorConns.filter(account => account !== connectionName);
 			await context.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, updatedRecent);
 		}
-		// We don't have any stored credentials to clear since we use browser SSO
+		// We don't have any stored credentials to clear since we use connections.toml
 		// Just dispose the provider, which will close the connection if needed
 		provider.dispose();
 		traceLog(`Successfully removed Snowflake account: ${connectionName}`);
@@ -501,43 +501,22 @@ async function generateCode(
 	catalogNode: CatalogNode,
 	connName: string,
 ): Promise<{ code: string } | undefined> {
-	// Get provider and connection information
-	// Try to get connection info from connections.toml
 	const connections = await getSnowflakeConnectionOptions();
 	if (!connections) {
 		return undefined;
 	}
 	const connectionProfile = connections[connName];
 
-	// Use connection profile info if available, otherwise prompt for username and warehouse
-	let username: string | undefined;
-	let warehouse: string | undefined;
-	let databaseName: string | undefined;
-	let schemaName: string | undefined;
+	// Extract path parts and connection info in a more concise way
+	const [tableName, pathSchema, pathDatabase] = catalogNode.path.split('.').reverse();
 
-	// Extract database, schema, and table names from the path
-	const pathParts = catalogNode.path.split('.');
-	const tableName = pathParts.pop() || '';
-	const pathSchema = pathParts.pop() || '';
-	const pathDatabase = pathParts.pop() || '';
+	// Use path values first, fall back to connection profile values if path values are empty
+	const databaseName = pathDatabase || connectionProfile?.database;
+	const schemaName = pathSchema || connectionProfile?.schema;
 
-	// First assign schema and database from the path
-	schemaName = pathSchema;
-	databaseName = pathDatabase;
-
-	// Then override with connection profile values if available and if path values are empty
-	if (connectionProfile) {
-		username = connectionProfile.user;
-		warehouse = connectionProfile.warehouse;
-
-		// Only use connection profile values if path values are empty
-		if (!databaseName && connectionProfile.database) {
-			databaseName = connectionProfile.database;
-		}
-		if (!schemaName && connectionProfile.schema) {
-			schemaName = connectionProfile.schema;
-		}
-	}
+	// Get initial values from connection profile
+	let username = connectionProfile?.user;
+	let warehouse = connectionProfile?.warehouse;
 
 	// If we don't have a username from the connection profile, prompt for it
 	if (!username) {
@@ -570,7 +549,7 @@ async function generateCode(
 				databaseName,
 				schemaName,
 				tableName,
-				connections
+				connectionProfile
 			);
 		case 'r':
 			return await getRCodeForSnowflakeTable(
@@ -580,7 +559,7 @@ async function generateCode(
 				databaseName,
 				schemaName,
 				tableName,
-				connections
+				connectionProfile
 			);
 		default:
 			throw new Error(`Code generation for language '${languageId}' is not supported for Snowflake`);
@@ -591,7 +570,6 @@ async function generateCode(
  * Generate Python code for accessing a Snowflake table
  *
  * @param connName The Snowflake connection name in connections.toml
- * @param username The Snowflake username
  * @param warehouse The warehouse name
  * @param database The database name
  * @param schema The schema name
@@ -612,8 +590,8 @@ async function getPythonCodeForSnowflakeTable(
 	const label = absoluteTablePath ? `For ${absoluteTablePath}` : `For ${connName}`;
 
 	// Prepare SQL query based on whether a table was provided
-	const query = table
-		? `SELECT * FROM ${table} LIMIT 10`
+	const query = absoluteTablePath
+		? `SELECT * FROM ${absoluteTablePath} LIMIT 10`
 		: `SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()`;
 
 	// Use a single template literal for the entire Python code
@@ -624,8 +602,8 @@ import snowflake.connector
 
 with snowflake.connector.connect(connection_name="${connName}") as conn:
 \twith conn.cursor() as cursor:
-${connections?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE
-${warehouse}")\n`}\t\tquery = "${query}"
+${connections?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE${warehouse}")\n`}
+\t\tquery = "${query}"
 \t\t# Execute the query
 \t\tcursor.execute(query)
 \t\t# Fetch and display results
@@ -664,54 +642,26 @@ async function getRCodeForSnowflakeTable(
 	const usePassword = connections && connections[connName]?.password ? true : false;
 
 	// Build a code template with the available parameters
-	let code = `library(odbc)
+	const code = `library(odbc)
 library(DBI)
 
 con <- dbConnect(
 	odbc::odbc(),
 	driver = "YOUR_DRIVER_NAME",  # Prior driver setup required
 	server = "${connName}.snowflakecomputing.com",
-	uid = "${username}",`;
-
-	if (usePassword) {
-		code += `
+	uid = "${username}",${usePassword ? `
 	# Password should be stored securely in environment variables
-	pwd = Sys.getenv("SNOWFLAKE_PASSWORD"),`; // pragma: allowlist secret
-	} else {
-		code += `
-	# This setup assumes you're using SSO authentication
-	authenticator = "${connections.authenticator || 'externalbrowser'}",`;
-	}
-
-	code += `\n\twarehouse = "${warehouse}",`;
-
-	// Add database if available
-	if (database) {
-		code += `,\n\tdatabase = "${database}"`;
-	}
-
-	// Add schema if available
-	if (schema) {
-		code += `,\n\tschema = "${schema}"`;
-	}
-
-	// Close the connection parameters
-	code += `
+	pwd = Sys.getenv("SNOWFLAKE_PASSWORD"),` /* pragma: allowlist secret */ : `
+	authenticator = "${connections.authenticator || 'externalbrowser'}",`}
+	warehouse = "${warehouse}"${database ? `,
+	database = "${database}"` : ''}${schema ? `,
+	schema = "${schema}"` : ''}
 )
 
-# Query data`;
-
-	// Add table-specific query if table is provided
-	if (table) {
-		code += `
-df <- dbGetQuery(con, "SELECT * FROM ${table} LIMIT 10")`;
-	} else {
-		code += `
-df <- dbGetQuery(con, "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()")`;
-	}
-
-	// Add disconnect statement
-	code += `
+# Query data
+${table
+			? `df <- dbGetQuery(con, "SELECT * FROM ${table} LIMIT 10")`
+			: `df <- dbGetQuery(con, "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()")`}
 
 # Disconnect when done
 dbDisconnect(con)`;

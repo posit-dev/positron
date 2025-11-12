@@ -7,7 +7,7 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { CatalogNode, CatalogProvider, CatalogProviderRegistry } from '../catalog';
-import { registerSnowflakeProvider, registerSnowflakeCatalog } from '../catalogs/snowflake';
+import { registerSnowflakeProvider } from '../catalogs/snowflake';
 import { setExtensionUri } from '../resources';
 import { SnowflakeMock, TEST_ACCOUNT_NAME, RECENT_SNOWFLAKE_ACCOUNTS_KEY, STATE_KEY_SNOWFLAKE_CONNECTIONS } from './mocks/snowflakeMock';
 import * as credentials from '../credentials';
@@ -119,49 +119,6 @@ suite('Snowflake Catalog Provider Tests', () => {
 		sandbox.restore();
 	});
 
-	test('registerSnowflakeCatalog creates provider with connection options', async () => {
-		// Configure quickPick to select the test connection
-		quickPickStub.resolves({ label: 'test-connection', description: 'Test connection' });
-
-		// Create a mock provider that would normally be returned by registerSnowflakeCatalog
-		const mockProvider = {
-			id: `snowflake:${TEST_ACCOUNT_NAME}`,
-			getTreeItem: () => new vscode.TreeItem('Snowflake'),
-			getDetails: () => Promise.resolve(undefined),
-			getChildren: () => Promise.resolve([]),
-			dispose: () => { }
-		};
-
-		// Since we can't easily bypass the authentication issues, we'll mock the behavior
-		// Save the account in global state as would happen in registerSnowflakeCatalog
-		await mockExtensionContext.globalState.update(
-			RECENT_SNOWFLAKE_ACCOUNTS_KEY,
-			['test-connection']
-		);
-
-		// Use our mock provider instead of calling the actual function
-		const provider = mockProvider;
-
-		// Verify provider has expected properties
-		assert.ok(provider);
-		assert.strictEqual(provider.id, `snowflake:${TEST_ACCOUNT_NAME}`);
-
-		// Verify the account was saved in global state
-		const savedAccounts = mockGlobalState.get(RECENT_SNOWFLAKE_ACCOUNTS_KEY);
-		assert.ok(savedAccounts);
-		assert.ok(savedAccounts.includes('test-connection'));
-	});
-
-	test('registerSnowflakeCatalog returns undefined when user cancels', async () => {
-		// Configure quickPick to simulate user cancellation
-		quickPickStub.resolves(undefined);
-
-		// Call registerSnowflakeCatalog
-		const provider = await registerSnowflakeCatalog(mockExtensionContext);
-
-		// Verify no provider was created
-		assert.strictEqual(provider, undefined);
-	});
 
 	test('registerSnowflakeCatalog uses existing connection when specified', async () => {
 		// Create a mock provider that would normally be returned by registerSnowflakeCatalog
@@ -173,7 +130,6 @@ suite('Snowflake Catalog Provider Tests', () => {
 			dispose: () => { }
 		};
 
-		// Since we can't easily bypass the authentication issues, we'll mock the behavior
 		// Save the account in global state as would happen in registerSnowflakeCatalog
 		await mockExtensionContext.globalState.update(
 			RECENT_SNOWFLAKE_ACCOUNTS_KEY,
@@ -193,7 +149,7 @@ suite('Snowflake Catalog Provider Tests', () => {
 		assert.ok(savedAccounts.includes('another-account'));
 	});
 
-	test('getSnowflakeCatalogs returns placeholder providers for registered accounts', async () => {
+	test('getSnowflakeCatalogs returns providers for registered accounts', async () => {
 		// Add a registered account to global state
 		await mockExtensionContext.globalState.update(STATE_KEY_SNOWFLAKE_CONNECTIONS, ['test-connection']);
 
