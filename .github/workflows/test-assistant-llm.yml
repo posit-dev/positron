@@ -73,7 +73,7 @@ jobs:  # to input into inspect-ai-test job below
           ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: inspect-ai-responses
           path: /home/runner/work/positron/positron/test/assistant-inspect-ai
