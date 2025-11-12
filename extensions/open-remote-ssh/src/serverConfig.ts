@@ -40,7 +40,7 @@ export async function getVSCodeServerConfig(): Promise<IServerConfig> {
 
 	return {
 		version,
-		commit: productJson.commit,
+		commit: productJson.commit || 'dev',
 		quality: productJson.quality,
 		release: productJson.release,
 		serverApplicationName: customServerBinaryName || productJson.serverApplicationName,
