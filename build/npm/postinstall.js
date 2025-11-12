@@ -73,6 +73,78 @@ function npmInstall(dir, opts) {
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Async version of npmInstall for parallel execution
+ * @param {string} dir
+ * @param {*} [opts]
+ */
+function npmInstallAsync(dir, opts) {
+	return new Promise((resolve, reject) => {
+		opts = {
+			env: { ...process.env },
+			...(opts ?? {}),
+			cwd: dir,
+			stdio: 'inherit',
+			shell: true
+		};
+
+		const command = process.env['npm_command'] || 'install';
+
+		// Use synchronous version for Docker-based installs
+		if (process.env['VSCODE_REMOTE_DEPENDENCIES_CONTAINER_NAME'] && /^(.build\/distro\/npm\/)?remote$/.test(dir)) {
+			try {
+				npmInstall(dir, opts);
+				resolve();
+			} catch (err) {
+				reject(err);
+			}
+			return;
+		}
+
+		log(dir, 'Installing dependencies...');
+		const child = cp.spawn(npm, command.split(' '), opts);
+
+		child.on('error', (error) => {
+			reject(new Error(`Failed to spawn npm in ${dir}: ${error}`));
+		});
+
+		child.on('exit', (code) => {
+			if (code !== 0) {
+				reject(new Error(`npm install failed in ${dir} with exit code ${code}`));
+			} else {
+				resolve();
+			}
+		});
+	});
+}
+
+/**
+ * Run npm installs in parallel with concurrency limit
+ * @param {Array<{dir: string, opts: any}>} tasks
+ * @param {number} concurrency
+ */
+async function runBatch(tasks, concurrency) {
+	const results = [];
+	const executing = [];
+
+	for (const task of tasks) {
+		const promise = npmInstallAsync(task.dir, task.opts).then(() => task.dir);
+		results.push(promise);
+
+		if (concurrency <= tasks.length) {
+			const e = promise.then(() => executing.splice(executing.indexOf(e), 1));
+			executing.push(e);
+			if (executing.length >= concurrency) {
+				await Promise.race(executing);
+			}
+		}
+	}
+
+	return Promise.all(results);
+}
+// --- End Positron ---
+
 function setNpmrcConfig(dir, env) {
 	const npmrcPath = path.join(root, dir, '.npmrc');
 	const lines = fs.readFileSync(npmrcPath, 'utf8').split('\n');
@@ -165,91 +237,147 @@ function generateRehWebPackageJson() {
 			cp.execSync(`git add --renormalize ${packageJsonPath}`);
 		});
 }
-// --- End Positron ---
 
-for (let dir of dirs) {
+// --- Start Positron ---
+// Check if parallel installation is enabled
+if (process.env['POSITRON_PARALLEL_INSTALL'] === '1') {
+	const concurrency = parseInt(process.env['POSITRON_NPM_CONCURRENCY'] || '10', 10);
+	console.log(`Using parallel installation (concurrency: ${concurrency})`);
 
-	if (dir === '') {
-		// already executed in root
-		continue;
-	}
+	// Collect all tasks
+	const tasks = [];
+	for (let dir of dirs) {
+		if (dir === '') continue;
 
-	let opts;
-
-	if (dir === 'build') {
-		opts = {
-			env: {
-				...process.env
-			},
-		}
-		if (process.env['CC']) { opts.env['CC'] = 'gcc'; }
-		if (process.env['CXX']) { opts.env['CXX'] = 'g++'; }
-		if (process.env['CXXFLAGS']) { opts.env['CXXFLAGS'] = ''; }
-		if (process.env['LDFLAGS']) { opts.env['LDFLAGS'] = ''; }
-
-		setNpmrcConfig('build', opts.env);
-		npmInstall('build', opts);
-		continue;
-	}
-
-	// --- Start Positron ---
-	const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
-
-	if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
-		// --- End Positron ---
-		// node modules used by vscode server
-		opts = {
-			env: {
-				...process.env
-			},
-		}
-		if (process.env['VSCODE_REMOTE_CC']) {
-			opts.env['CC'] = process.env['VSCODE_REMOTE_CC'];
+		let opts;
+		if (dir === 'build') {
+			opts = { env: { ...process.env } };
+			if (process.env['CC']) { opts.env['CC'] = 'gcc'; }
+			if (process.env['CXX']) { opts.env['CXX'] = 'g++'; }
+			if (process.env['CXXFLAGS']) { opts.env['CXXFLAGS'] = ''; }
+			if (process.env['LDFLAGS']) { opts.env['LDFLAGS'] = ''; }
+			setNpmrcConfig('build', opts.env);
 		} else {
-			delete opts.env['CC'];
-		}
-		if (process.env['VSCODE_REMOTE_CXX']) {
-			opts.env['CXX'] = process.env['VSCODE_REMOTE_CXX'];
-		} else {
-			delete opts.env['CXX'];
-		}
-		if (process.env['CXXFLAGS']) { delete opts.env['CXXFLAGS']; }
-		if (process.env['CFLAGS']) { delete opts.env['CFLAGS']; }
-		if (process.env['LDFLAGS']) { delete opts.env['LDFLAGS']; }
-		if (process.env['VSCODE_REMOTE_CXXFLAGS']) { opts.env['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
-		if (process.env['VSCODE_REMOTE_LDFLAGS']) { opts.env['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
-		if (process.env['VSCODE_REMOTE_NODE_GYP']) { opts.env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
-
-		// --- Start Positron ---
-		if (isRehWebDir) {
-			// This ensures that the `remote/reh-web` package.json file is created/updated before
-			// `npm install` is run, so the package-lock.json and node_modules are created/updated
-			// with the appropriate dependencies. This will create a side effect of needing to
-			// commit the changes to the `remote/reh-web` package.json and package-lock.json files if
-			// they are updated.
-			generateRehWebPackageJson();
-		}
-		// --- End Positron ---
-		const globalGypPath = path.join(os.homedir(), '.gyp');
-		const globalInclude = path.join(globalGypPath, 'include.gypi');
-		const tempGlobalInclude = path.join(globalGypPath, 'include.gypi.bak');
-		if (process.platform === 'linux' &&
-			(process.env['CI'] || process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'])) {
-			// Following include file rename should be removed
-			// when `Override gnu target for arm64 and arm` step
-			// is removed from the product build pipeline.
-			if (fs.existsSync(globalInclude)) {
-				fs.renameSync(globalInclude, tempGlobalInclude);
+			const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
+			if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
+				opts = { env: { ...process.env } };
+				if (process.env['VSCODE_REMOTE_CC']) { opts.env['CC'] = process.env['VSCODE_REMOTE_CC']; } else { delete opts.env['CC']; }
+				if (process.env['VSCODE_REMOTE_CXX']) { opts.env['CXX'] = process.env['VSCODE_REMOTE_CXX']; } else { delete opts.env['CXX']; }
+				if (process.env['CXXFLAGS']) { delete opts.env['CXXFLAGS']; }
+				if (process.env['CFLAGS']) { delete opts.env['CFLAGS']; }
+				if (process.env['LDFLAGS']) { delete opts.env['LDFLAGS']; }
+				if (process.env['VSCODE_REMOTE_CXXFLAGS']) { opts.env['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
+				if (process.env['VSCODE_REMOTE_LDFLAGS']) { opts.env['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
+				if (process.env['VSCODE_REMOTE_NODE_GYP']) { opts.env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
+				if (isRehWebDir) { generateRehWebPackageJson(); }
+				const globalGypPath = path.join(os.homedir(), '.gyp');
+				const globalInclude = path.join(globalGypPath, 'include.gypi');
+				const tempGlobalInclude = path.join(globalGypPath, 'include.gypi.bak');
+				if (process.platform === 'linux' && (process.env['CI'] || process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'])) {
+					if (fs.existsSync(globalInclude)) { fs.renameSync(globalInclude, tempGlobalInclude); }
+				}
+				setNpmrcConfig('remote', opts.env);
 			}
 		}
-
-		setNpmrcConfig('remote', opts.env);
-		npmInstall(dir, opts);
-		continue;
+		tasks.push({ dir, opts });
 	}
 
-	npmInstall(dir, opts);
-}
+	// Run in parallel
+	runBatch(tasks, concurrency).then(() => {
+		cp.execSync('git config pull.rebase merges');
+		cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+	}).catch((err) => {
+		console.error('Parallel installation failed:', err);
+		process.exit(1);
+	});
+} else {
+	// Original sequential installation below
+	// --- End Positron ---
 
-cp.execSync('git config pull.rebase merges');
-cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+	for (let dir of dirs) {
+
+		if (dir === '') {
+			// already executed in root
+			continue;
+		}
+
+		let opts;
+
+		if (dir === 'build') {
+			opts = {
+				env: {
+					...process.env
+				},
+			}
+			if (process.env['CC']) { opts.env['CC'] = 'gcc'; }
+			if (process.env['CXX']) { opts.env['CXX'] = 'g++'; }
+			if (process.env['CXXFLAGS']) { opts.env['CXXFLAGS'] = ''; }
+			if (process.env['LDFLAGS']) { opts.env['LDFLAGS'] = ''; }
+
+			setNpmrcConfig('build', opts.env);
+			npmInstall('build', opts);
+			continue;
+		}
+
+		// --- Start Positron ---
+		const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
+
+		if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
+			// --- End Positron ---
+			// node modules used by vscode server
+			opts = {
+				env: {
+					...process.env
+				},
+			}
+			if (process.env['VSCODE_REMOTE_CC']) {
+				opts.env['CC'] = process.env['VSCODE_REMOTE_CC'];
+			} else {
+				delete opts.env['CC'];
+			}
+			if (process.env['VSCODE_REMOTE_CXX']) {
+				opts.env['CXX'] = process.env['VSCODE_REMOTE_CXX'];
+			} else {
+				delete opts.env['CXX'];
+			}
+			if (process.env['CXXFLAGS']) { delete opts.env['CXXFLAGS']; }
+			if (process.env['CFLAGS']) { delete opts.env['CFLAGS']; }
+			if (process.env['LDFLAGS']) { delete opts.env['LDFLAGS']; }
+			if (process.env['VSCODE_REMOTE_CXXFLAGS']) { opts.env['CXXFLAGS'] = process.env['VSCODE_REMOTE_CXXFLAGS']; }
+			if (process.env['VSCODE_REMOTE_LDFLAGS']) { opts.env['LDFLAGS'] = process.env['VSCODE_REMOTE_LDFLAGS']; }
+			if (process.env['VSCODE_REMOTE_NODE_GYP']) { opts.env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
+
+			// --- Start Positron ---
+			if (isRehWebDir) {
+				// This ensures that the `remote/reh-web` package.json file is created/updated before
+				// `npm install` is run, so the package-lock.json and node_modules are created/updated
+				// with the appropriate dependencies. This will create a side effect of needing to
+				// commit the changes to the `remote/reh-web` package.json and package-lock.json files if
+				// they are updated.
+				generateRehWebPackageJson();
+			}
+			// --- End Positron ---
+			const globalGypPath = path.join(os.homedir(), '.gyp');
+			const globalInclude = path.join(globalGypPath, 'include.gypi');
+			const tempGlobalInclude = path.join(globalGypPath, 'include.gypi.bak');
+			if (process.platform === 'linux' &&
+				(process.env['CI'] || process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'])) {
+				// Following include file rename should be removed
+				// when `Override gnu target for arm64 and arm` step
+				// is removed from the product build pipeline.
+				if (fs.existsSync(globalInclude)) {
+					fs.renameSync(globalInclude, tempGlobalInclude);
+				}
+			}
+
+			setNpmrcConfig('remote', opts.env);
+			npmInstall(dir, opts);
+			continue;
+		}
+
+		npmInstall(dir, opts);
+	}
+
+	cp.execSync('git config pull.rebase merges');
+	cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+}
