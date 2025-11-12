@@ -16,6 +16,7 @@ export enum PositronAssistantToolName {
 	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 	ProjectTree = 'getProjectTree',
+	DirectoryStructure = 'getDirectoryStructure',
 	GetChangedFiles = 'getChangedFiles',
 	DocumentCreate = 'documentCreate',
 	TextSearch = 'positron_findTextInProject_internal',
