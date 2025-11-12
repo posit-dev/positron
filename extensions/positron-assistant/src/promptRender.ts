@@ -80,10 +80,10 @@ class PromptTemplateEngine {
 				if (ctx.cellCount < 20) {
 					notebookContextNote = xml.node('note', 'All cells are provided above because this notebook has fewer than 20 cells.');
 				} else {
-					notebookContextNote = xml.node('note', 'A context window around the selected cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.');
+					notebookContextNote = xml.node('note', 'A context window around the selected cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
 				}
 			} else {
-				notebookContextNote = xml.node('note', 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by ID when needed.');
+				notebookContextNote = xml.node('note', 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
 			}
 		}
 

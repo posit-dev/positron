@@ -56,7 +56,7 @@ When a notebook is active, `NotebookContext` provides:
 - `kernelId` / `kernelLanguage` - Active kernel info
 - `cellCount` - Total number of cells
 - `selectedCells[]` - Currently selected cells with:
-  - `id` - Unique cell identifier
+  - `id` - Unique cell identifier (internal use only, not exposed to model)
   - `index` - Cell position (0-based)
   - `type` - 'code' or 'markdown'
   - `content` - Cell source code
@@ -97,10 +97,10 @@ The context is assembled across two layers:
 When notebook mode is enabled (attached context + active editor), the assistant's system prompt is augmented with:
 
 1. **Notebook metadata** - URI, kernel, cell count, selected cells
-2. **Cell details** - IDs, content, status information (selection status, execution status, execution order, run success/failure, duration) for selected cells. For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selection, a sliding window around the selected cells is included.
+2. **Cell details** - indices, content, status information (selection status, execution status, execution order, run success/failure, duration) for selected cells. For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selection, a sliding window around the selected cells is included.
 3. **Usage instructions**:
    - Focus on selected cells when analyzing/explaining
-   - Use cell IDs when referencing specific cells
+   - Use cell indices when referencing specific cells
    - Pay attention to cell status information (selection status, execution status, execution order, run success/failure)
    - Consider execution order and cell dependencies
    - Maintain notebook structure with markdown cells
@@ -196,7 +196,7 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
   - `GetNotebookCells` - Read cell contents with status information (selection status, execution status, execution order, run success/failure, duration)
   - `GetCellOutputs` - Retrieve cell execution outputs
 - Can view notebook context, analyze code, explain cells, and inspect outputs
-- References cells by ID in responses
+- References cells by index in responses
 - System prompt includes selected cell content, metadata, and status information
 - For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
 - For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
@@ -212,7 +212,7 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
   - `UpdateNotebookCell` - Modify existing cell content
 - Can view, analyze, and modify notebook cells
 - Can add new code or markdown cells
-- References cells by ID in responses
+- References cells by index in responses
 - System prompt includes selected cell content, metadata, and status information
 - For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
 - For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
@@ -227,7 +227,7 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
   - `AddNotebookCell` - Create new cells at specified positions
   - `UpdateNotebookCell` - Modify existing cell content
 - Can perform all operations: view, analyze, modify, execute, and create cells
-- References cells by ID in responses
+- References cells by index in responses
 - Suggests cell-based operations including modifications
 - System prompt includes selected cell content, metadata, and status information
 - For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field

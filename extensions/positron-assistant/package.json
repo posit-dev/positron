@@ -731,23 +731,23 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "cellIds": {
+            "cellIndices": {
               "type": "array",
-              "description": "Array of cell IDs to execute. Each cell ID uniquely identifies a cell in the notebook.",
+              "description": "Array of cell indices to execute. Each index is a 0-based position of the cell in the notebook.",
               "items": {
-                "type": "string"
+                "type": "number"
               }
             }
           },
           "required": [
-            "cellIds"
+            "cellIndices"
           ]
         }
       },
       {
         "name": "editNotebookCells",
         "displayName": "Edit Notebook Cells",
-        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellId and content), or operation='delete' to remove cells (requires cellId). Use index=-1 to append cells at the end when adding.",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
         "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -782,9 +782,9 @@
               "type": "string",
               "description": "Cell content. Required when operation is 'add' or 'update'."
             },
-            "cellId": {
-              "type": "string",
-              "description": "ID of the cell to modify or delete. Required when operation is 'update' or 'delete'."
+            "cellIndex": {
+              "type": "number",
+              "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
             }
           },
           "required": [
@@ -795,7 +795,7 @@
       {
         "name": "getNotebookCells",
         "displayName": "Get Notebook Cells",
-        "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by ID or all cells if cellIds is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIds), or operation='getMetadata' to get only cell status information without content.",
+        "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by index or all cells if cellIndices is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIndices), or operation='getMetadata' to get only cell status information without content.",
         "toolReferenceName": "getNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -815,11 +815,11 @@
               ],
               "description": "Type of read operation. 'get' retrieves cell info, 'getSelected' gets only selected cells, 'getOutputs' retrieves cell execution outputs, 'getMetadata' gets only status/execution info without content."
             },
-            "cellIds": {
+            "cellIndices": {
               "type": "array",
-              "description": "Optional array of cell IDs to retrieve. Required for 'getOutputs'. For 'get', returns all cells if omitted. Ignored for 'getSelected' and 'getMetadata'.",
+              "description": "Optional array of cell indices to retrieve (0-based). Required for 'getOutputs'. For 'get', returns all cells if omitted. Ignored for 'getSelected' and 'getMetadata'.",
               "items": {
-                "type": "string"
+                "type": "number"
               }
             }
           },

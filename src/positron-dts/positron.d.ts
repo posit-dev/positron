@@ -2455,19 +2455,19 @@ declare module 'positron' {
 		export function getCells(notebookUri: string): Thenable<NotebookCell[]>;
 
 		/**
-		 * Get a specific cell from a notebook by its ID
+		 * Get a specific cell from a notebook by its index
 		 * @param notebookUri URI of the notebook
-		 * @param cellId ID of the cell to retrieve
+		 * @param cellIndex Index of the cell to retrieve
 		 * @returns The cell or undefined if not found
 		 */
-		export function getCell(notebookUri: string, cellId: string): Thenable<NotebookCell | undefined>;
+		export function getCell(notebookUri: string, cellIndex: number): Thenable<NotebookCell | undefined>;
 
 		/**
 		 * Execute cells in a notebook
 		 * @param notebookUri URI of the notebook
-		 * @param cellIds Array of cell IDs to execute
+		 * @param cellIndices Array of cell indices to execute
 		 */
-		export function runCells(notebookUri: string, cellIds: string[]): Thenable<void>;
+		export function runCells(notebookUri: string, cellIndices: number[]): Thenable<void>;
 
 		/**
 		 * Add a new cell to a notebook
@@ -2482,17 +2482,17 @@ declare module 'positron' {
 		/**
 		 * Delete a cell from a notebook
 		 * @param notebookUri URI of the notebook
-		 * @param cellId ID of the cell to delete
+		 * @param cellIndex Index of the cell to delete
 		 */
-		export function deleteCell(notebookUri: string, cellId: string): Thenable<void>;
+		export function deleteCell(notebookUri: string, cellIndex: number): Thenable<void>;
 
 		/**
 		 * Update the content of a cell in a notebook
 		 * @param notebookUri URI of the notebook
-		 * @param cellId ID of the cell to update
+		 * @param cellIndex Index of the cell to update
 		 * @param content New content for the cell
 		 */
-		export function updateCellContent(notebookUri: string, cellId: string, content: string): Thenable<void>;
+		export function updateCellContent(notebookUri: string, cellIndex: number, content: string): Thenable<void>;
 
 		/**
 		 * Represents a cell output with its MIME type and data
@@ -2512,9 +2512,9 @@ declare module 'positron' {
 		/**
 		 * Get the outputs from a code cell
 		 * @param notebookUri URI of the notebook
-		 * @param cellId ID of the cell
+		 * @param cellIndex Index of the cell
 		 * @returns Array of output objects with MIME type and data
 		 */
-		export function getCellOutputs(notebookUri: string, cellId: string): Thenable<NotebookCellOutput[]>;
+		export function getCellOutputs(notebookUri: string, cellIndex: number): Thenable<NotebookCellOutput[]>;
 	}
 }

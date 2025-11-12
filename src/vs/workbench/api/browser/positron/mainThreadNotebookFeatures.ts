@@ -131,43 +131,43 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	}
 
 	/**
-	 * Gets a specific cell from a notebook by its ID.
+	 * Gets a specific cell from a notebook by its index.
 	 * @param notebookUri The URI of the notebook as a string.
-	 * @param cellId The ID (URI) of the cell to retrieve.
+	 * @param cellIndex The index of the cell to retrieve.
 	 * @returns The cell DTO, or undefined if not found.
 	 */
-	async $getCell(notebookUri: string, cellId: string): Promise<INotebookCellDTO | undefined> {
+	async $getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
 		const cells = instance.cells.get();
-		const cell = cells.find(c => c.uri.toString() === cellId);
-
-		if (!cell) {
+		if (cellIndex < 0 || cellIndex >= cells.length) {
 			return undefined;
 		}
 
-		return this.mapCellToDTO(cell);
+		return this.mapCellToDTO(cells[cellIndex]);
 	}
 
 	/**
 	 * Runs the specified cells in a notebook.
 	 * @param notebookUri The URI of the notebook as a string.
-	 * @param cellIds Array of cell IDs (cell URIs) to run.
+	 * @param cellIndices Array of cell indices to run.
 	 */
-	async $runCells(notebookUri: string, cellIds: string[]): Promise<void> {
+	async $runCells(notebookUri: string, cellIndices: number[]): Promise<void> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
 		const cells = instance.cells.get();
-		const cellsToRun = cells.filter(cell => cellIds.includes(cell.uri.toString()));
+		const cellsToRun = cellIndices
+			.filter(index => index >= 0 && index < cells.length)
+			.map(index => cells[index]);
 
 		if (cellsToRun.length === 0) {
-			throw new Error(`No cells found with IDs: ${cellIds.join(', ')}`);
+			throw new Error(`No cells found with indices: ${cellIndices.join(', ')}`);
 		}
 
 		// Select the last cell in the range (somewhat arbitrary)
@@ -183,9 +183,9 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	 * @param type The type of cell to add.
 	 * @param index The index where the cell should be inserted.
 	 * @param content The initial content for the cell.
-	 * @returns The ID (URI) of the newly created cell.
+	 * @returns The index of the newly created cell.
 	 */
-	async $addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<string> {
+	async $addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
@@ -206,55 +206,52 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		// Update content if provided
 		if (content) {
-			await this.$updateCellContent(notebookUri, newCell.uri.toString(), content);
+			await this.$updateCellContent(notebookUri, index, content);
 		}
 
-		return newCell.uri.toString();
+		return index;
 	}
 
 	/**
 	 * Deletes a cell from a notebook.
 	 * @param notebookUri The URI of the notebook as a string.
-	 * @param cellId The ID (URI) of the cell to delete.
+	 * @param cellIndex The index of the cell to delete.
 	 */
-	async $deleteCell(notebookUri: string, cellId: string): Promise<void> {
+	async $deleteCell(notebookUri: string, cellIndex: number): Promise<void> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
 		const cells = instance.cells.get();
-		const cell = cells.find(c => c.uri.toString() === cellId);
-
-		if (!cell) {
-			throw new Error(`Cell not found: ${cellId}`);
+		if (cellIndex < 0 || cellIndex >= cells.length) {
+			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
 
-		return instance.deleteCell(cell);
+		return instance.deleteCell(cells[cellIndex]);
 	}
 
 	/**
 	 * Updates the content of a cell in a notebook.
 	 * @param notebookUri The URI of the notebook as a string.
-	 * @param cellId The ID (URI) of the cell to update.
+	 * @param cellIndex The index of the cell to update.
 	 * @param content The new content for the cell.
 	 */
-	async $updateCellContent(notebookUri: string, cellId: string, content: string): Promise<void> {
+	async $updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
 		const cells = instance.cells.get();
-		const cell = cells.find(c => c.uri.toString() === cellId);
-
-		if (!cell) {
-			throw new Error(`Cell not found: ${cellId}`);
+		if (cellIndex < 0 || cellIndex >= cells.length) {
+			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
+
+		const cell = cells[cellIndex];
 
 		// Get the cell's model to access its properties
 		const cellModel = cell.model;
-		const cellIndex = cell.index;
 
 		// Use the notebook text model's applyEdits to replace the cell content
 		// This preserves all other cell properties (language, outputs, metadata, etc.)
@@ -291,21 +288,21 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 	/**
 	 * Gets the outputs from a code cell.
 	 * @param notebookUri The URI of the notebook as a string.
-	 * @param cellId The ID (URI) of the cell.
+	 * @param cellIndex The index of the cell.
 	 * @returns Array of output objects with MIME type and data (text or base64-encoded binary).
 	 */
-	async $getCellOutputs(notebookUri: string, cellId: string): Promise<INotebookCellOutputDTO[]> {
+	async $getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]> {
 		const instance = this._getInstanceByUri(notebookUri);
 		if (!instance) {
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
 		const cells = instance.cells.get();
-		const cell = cells.find(c => c.uri.toString() === cellId);
-
-		if (!cell) {
-			throw new Error(`Cell not found: ${cellId}`);
+		if (cellIndex < 0 || cellIndex >= cells.length) {
+			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
+
+		const cell = cells[cellIndex];
 
 		// Only code cells have outputs
 		if (!cell.isCodeCell()) {

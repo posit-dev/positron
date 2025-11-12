@@ -64,7 +64,7 @@ const CELL_TYPE_MAP: Record<string, positron.notebooks.NotebookCellType> = {
  * Supports both text and image outputs.
  */
 export const RunNotebookCellsTool = vscode.lm.registerTool<{
-	cellIds: string[];
+	cellIndices: number[];
 }>(PositronAssistantToolName.RunNotebookCells, {
 	prepareInvocation: async (options, _token) => {
 		return {
@@ -73,7 +73,7 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 		};
 	},
 	invoke: async (options, token) => {
-		const cellIds = options.input.cellIds;
+		const cellIndices = options.input.cellIndices;
 
 		try {
 			const context = await getActiveNotebookContext();
@@ -81,19 +81,19 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 				return createNoActiveNotebookErrorResult();
 			}
 
-			await positron.notebooks.runCells(context.uri, cellIds);
+			await positron.notebooks.runCells(context.uri, cellIndices);
 
 			// Build mixed content response with support for images
 			const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 			resultParts.push(
-				new vscode.LanguageModelTextPart(`Successfully executed ${cellIds.length} cell(s).\n\nOutputs:\n`)
+				new vscode.LanguageModelTextPart(`Successfully executed ${cellIndices.length} cell(s).\n\nOutputs:\n`)
 			);
 
-			for (const cellId of cellIds) {
-				const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cellId);
+			for (const cellIndex of cellIndices) {
+				const cellOutputs = await positron.notebooks.getCellOutputs(context.uri, cellIndex);
 
 				if (cellOutputs.length > 0) {
-					resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellId}:\n`));
+					resultParts.push(new vscode.LanguageModelTextPart(`\nCell ${cellIndex}:\n`));
 					// Convert outputs to LanguageModel parts using shared helper
 					const outputParts = convertOutputsToLanguageModelParts(cellOutputs);
 					resultParts.push(...outputParts);
@@ -118,7 +118,7 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 	cellType?: 'code' | 'markdown';
 	index?: number;
 	content?: string;
-	cellId?: string;
+	cellIndex?: number;
 }>(PositronAssistantToolName.EditNotebookCells, {
 	prepareInvocation: async (options, _token) => {
 		const { operation } = options.input;
@@ -139,7 +139,7 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 		return messages[operation];
 	},
 	invoke: async (options, token) => {
-		const { operation, cellType, index, content, cellId } = options.input;
+		const { operation, cellType, index, content, cellIndex } = options.input;
 
 		try {
 			const context = await getActiveNotebookContext();
@@ -178,7 +178,7 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 						]);
 					}
 
-					const newCellId = await positron.notebooks.addCell(
+					const newCellIndex = await positron.notebooks.addCell(
 						context.uri,
 						cellTypeEnum,
 						insertIndex,
@@ -187,16 +187,16 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 
 					return new vscode.LanguageModelToolResult([
 						new vscode.LanguageModelTextPart(
-							`Successfully added ${cellType} cell at index ${insertIndex}. Cell ID: ${newCellId}`
+							`Successfully added ${cellType} cell at index ${newCellIndex}`
 						)
 					]);
 				}
 
 				case 'update': {
 					// Validate required parameters for update operation
-					if (!cellId) {
+					if (cellIndex === undefined) {
 						return new vscode.LanguageModelToolResult([
-							new vscode.LanguageModelTextPart('Missing required parameter: cellId (ID of cell to update)')
+							new vscode.LanguageModelTextPart('Missing required parameter: cellIndex (index of cell to update)')
 						]);
 					}
 					if (content === undefined) {
@@ -207,27 +207,27 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 
 					await positron.notebooks.updateCellContent(
 						context.uri,
-						cellId,
+						cellIndex,
 						content
 					);
 
 					return new vscode.LanguageModelToolResult([
-						new vscode.LanguageModelTextPart(`Successfully updated cell ${cellId}`)
+						new vscode.LanguageModelTextPart(`Successfully updated cell ${cellIndex}`)
 					]);
 				}
 
 				case 'delete': {
 					// Validate required parameters for delete operation
-					if (!cellId) {
+					if (cellIndex === undefined) {
 						return new vscode.LanguageModelToolResult([
-							new vscode.LanguageModelTextPart('Missing required parameter: cellId (ID of cell to delete)')
+							new vscode.LanguageModelTextPart('Missing required parameter: cellIndex (index of cell to delete)')
 						]);
 					}
 
-					await positron.notebooks.deleteCell(context.uri, cellId);
+					await positron.notebooks.deleteCell(context.uri, cellIndex);
 
 					return new vscode.LanguageModelToolResult([
-						new vscode.LanguageModelTextPart(`Successfully deleted cell ${cellId}`)
+						new vscode.LanguageModelTextPart(`Successfully deleted cell ${cellIndex}`)
 					]);
 				}
 
@@ -256,7 +256,7 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
  */
 export const GetNotebookCellsTool = vscode.lm.registerTool<{
 	operation: 'get' | 'getSelected' | 'getOutputs' | 'getMetadata';
-	cellIds?: string[];
+	cellIndices?: number[];
 }>(PositronAssistantToolName.GetNotebookCells, {
 	prepareInvocation: async (options, _token) => {
 		return {
@@ -265,7 +265,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 		};
 	},
 	invoke: async (options, token) => {
-		const { operation, cellIds } = options.input;
+		const { operation, cellIndices } = options.input;
 
 		try {
 			const context = await getActiveNotebookContext();
@@ -275,11 +275,11 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 
 			switch (operation) {
 				case 'get': {
-					// If specific cell IDs requested, fetch those cells
-					if (cellIds && cellIds.length > 0) {
+					// If specific cell indices requested, fetch those cells
+					if (cellIndices && cellIndices.length > 0) {
 						const cells: positron.notebooks.NotebookCell[] = [];
-						for (const cellId of cellIds) {
-							const cell = await positron.notebooks.getCell(context.uri, cellId);
+						for (const cellIndex of cellIndices) {
+							const cell = await positron.notebooks.getCell(context.uri, cellIndex);
 							if (cell) {
 								cells.push(cell);
 							}
@@ -287,7 +287,7 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 
 						if (cells.length === 0) {
 							return new vscode.LanguageModelToolResult([
-								new vscode.LanguageModelTextPart('No cells found with the specified IDs')
+								new vscode.LanguageModelTextPart('No cells found with the specified indices')
 							]);
 						}
 
@@ -331,28 +331,28 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 
 				case 'getOutputs': {
 					// Get outputs from specified cells
-					if (!cellIds || cellIds.length === 0) {
+					if (!cellIndices || cellIndices.length === 0) {
 						return new vscode.LanguageModelToolResult([
 							new vscode.LanguageModelTextPart(
-								'Missing required parameter: cellIds (required for getOutputs operation)'
+								'Missing required parameter: cellIndices (required for getOutputs operation)'
 							)
 						]);
 					}
 
 					const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 					resultParts.push(
-						new vscode.LanguageModelTextPart(`Outputs for ${cellIds.length} cell(s):\n\n`)
+						new vscode.LanguageModelTextPart(`Outputs for ${cellIndices.length} cell(s):\n\n`)
 					);
 
-					for (const cellId of cellIds) {
-						const outputs = await positron.notebooks.getCellOutputs(context.uri, cellId);
+					for (const cellIndex of cellIndices) {
+						const outputs = await positron.notebooks.getCellOutputs(context.uri, cellIndex);
 
 						if (outputs.length === 0) {
 							resultParts.push(
-								new vscode.LanguageModelTextPart(`Cell ${cellId}: No outputs\n\n`)
+								new vscode.LanguageModelTextPart(`Cell ${cellIndex}: No outputs\n\n`)
 							);
 						} else {
-							resultParts.push(new vscode.LanguageModelTextPart(`Cell ${cellId}:\n`));
+							resultParts.push(new vscode.LanguageModelTextPart(`Cell ${cellIndex}:\n`));
 							const outputParts = convertOutputsToLanguageModelParts(outputs);
 							resultParts.push(...outputParts);
 							resultParts.push(new vscode.LanguageModelTextPart('\n'));
@@ -366,10 +366,10 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 					// Get only metadata (status info) without cell content
 					let cells: positron.notebooks.NotebookCell[];
 
-					if (cellIds && cellIds.length > 0) {
+					if (cellIndices && cellIndices.length > 0) {
 						cells = [];
-						for (const cellId of cellIds) {
-							const cell = await positron.notebooks.getCell(context.uri, cellId);
+						for (const cellIndex of cellIndices) {
+							const cell = await positron.notebooks.getCell(context.uri, cellIndex);
 							if (cell) {
 								cells.push(cell);
 							}

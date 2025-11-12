@@ -411,8 +411,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				}));
 			},
 
-			async getCell(notebookUri: string, cellId: string): Promise<positron.notebooks.NotebookCell | undefined> {
-				const cell = await extHostNotebookFeatures.getCell(notebookUri, cellId);
+			async getCell(notebookUri: string, cellIndex: number): Promise<positron.notebooks.NotebookCell | undefined> {
+				const cell = await extHostNotebookFeatures.getCell(notebookUri, cellIndex);
 				if (!cell) {
 					return undefined;
 				}
@@ -431,24 +431,30 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				};
 			},
 
-			async runCells(notebookUri: string, cellIds: string[]): Promise<void> {
-				return extHostNotebookFeatures.runCells(notebookUri, cellIds);
+			async runCells(notebookUri: string, cellIndices: number[]): Promise<void> {
+				return extHostNotebookFeatures.runCells(notebookUri, cellIndices);
 			},
 
 			async addCell(notebookUri: string, type: positron.notebooks.NotebookCellType, index: number, content: string): Promise<string> {
-				return extHostNotebookFeatures.addCell(notebookUri, type, index, content);
+				const cellIndex = await extHostNotebookFeatures.addCell(notebookUri, type, index, content);
+				// Get the cell to retrieve its ID
+				const cell = await extHostNotebookFeatures.getCell(notebookUri, cellIndex);
+				if (!cell) {
+					throw new Error(`Failed to retrieve newly added cell at index ${cellIndex}`);
+				}
+				return cell.id;
 			},
 
-			async deleteCell(notebookUri: string, cellId: string): Promise<void> {
-				return extHostNotebookFeatures.deleteCell(notebookUri, cellId);
+			async deleteCell(notebookUri: string, cellIndex: number): Promise<void> {
+				return extHostNotebookFeatures.deleteCell(notebookUri, cellIndex);
 			},
 
-			async updateCellContent(notebookUri: string, cellId: string, content: string): Promise<void> {
-				return extHostNotebookFeatures.updateCellContent(notebookUri, cellId, content);
+			async updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void> {
+				return extHostNotebookFeatures.updateCellContent(notebookUri, cellIndex, content);
 			},
 
-			async getCellOutputs(notebookUri: string, cellId: string): Promise<positron.notebooks.NotebookCellOutput[]> {
-				return extHostNotebookFeatures.getCellOutputs(notebookUri, cellId);
+			async getCellOutputs(notebookUri: string, cellIndex: number): Promise<positron.notebooks.NotebookCellOutput[]> {
+				return extHostNotebookFeatures.getCellOutputs(notebookUri, cellIndex);
 			}
 		};
 

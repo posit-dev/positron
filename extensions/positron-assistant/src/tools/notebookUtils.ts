@@ -70,7 +70,7 @@ export function formatCells(options: FormatCellsOptions): string {
 			? prefix
 			: `${prefix} ${idx + 1}`;
 		const parts = [
-			`<cell index="${cell.index}" type="${cell.type}" id="${cell.id}">`,
+			`<cell index="${cell.index}" type="${cell.type}">`,
 			`  <label>${cellLabel}</label>`,
 			`  <status>${statusInfo}</status>`,
 			includeContent ? `<content>${cell.content}</content>` : '',

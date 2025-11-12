@@ -234,12 +234,12 @@ export interface INotebookCellOutputDTO {
 export interface MainThreadNotebookFeaturesShape extends IDisposable {
 	$getActiveNotebookContext(): Promise<INotebookContextDTO | undefined>;
 	$getCells(notebookUri: string): Promise<INotebookCellDTO[]>;
-	$getCell(notebookUri: string, cellId: string): Promise<INotebookCellDTO | undefined>;
-	$runCells(notebookUri: string, cellIds: string[]): Promise<void>;
-	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<string>;
-	$deleteCell(notebookUri: string, cellId: string): Promise<void>;
-	$updateCellContent(notebookUri: string, cellId: string, content: string): Promise<void>;
-	$getCellOutputs(notebookUri: string, cellId: string): Promise<INotebookCellOutputDTO[]>;
+	$getCell(notebookUri: string, cellIndex: number): Promise<INotebookCellDTO | undefined>;
+	$runCells(notebookUri: string, cellIndices: number[]): Promise<void>;
+	$addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Promise<number>;
+	$deleteCell(notebookUri: string, cellIndex: number): Promise<void>;
+	$updateCellContent(notebookUri: string, cellIndex: number, content: string): Promise<void>;
+	$getCellOutputs(notebookUri: string, cellIndex: number): Promise<INotebookCellOutputDTO[]>;
 }
 
 /**
