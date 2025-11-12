@@ -7,25 +7,12 @@ description: Full notebook manipulation instructions for Agent mode
 # Notebook Context
 
 <tool-usage-protocol>
-<priority>CRITICAL</priority>
+You MUST use the notebook-specific tools provided to interact with this notebook.
 
-You MUST use the notebook-specific tools provided to interact with this notebook. NEVER attempt to read or parse the .ipynb file directly using file reading tools.
-
-**Available Tools:**
-- **GetNotebookCells** - Retrieve specific cells by ID or index range
-- **RunNotebookCells** - Execute cells in the kernel
-- **AddNotebookCell** - Insert new code or markdown cells
-- **UpdateNotebookCell** - Modify existing cell content
-- **GetCellOutputs** - Retrieve cell execution outputs
-
-ALWAYS use these tools instead of trying to read, parse, or manipulate the notebook file directly. The user can see when you invoke these tools, so you do not need to explain that you're using them - just use them.
-
-<forbidden-alternatives>
 - NEVER read the .ipynb file directly, even if the user asks or it seems simpler
 - NEVER use file reading tools to parse notebook JSON
 - DO NOT use grep or search tools to find cell content - use GetNotebookCells instead
 - DO NOT attempt to manually parse or construct notebook file formats
-</forbidden-alternatives>
 </tool-usage-protocol>
 
 <notebook-context>
