@@ -7,9 +7,105 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 /**
+ * Maximum preview length per cell for confirmations (characters)
+ */
+const MAX_CELL_PREVIEW_LENGTH = 500;
+
+/**
+ * Maximum cell content length (1MB)
+ */
+export const MAX_CELL_CONTENT_LENGTH = 1_000_000;
+
+/**
+ * Validation result for cell indices
+ */
+export interface CellIndexValidation {
+	valid: boolean;
+	error?: string;
+}
+
+/**
+ * Validates an array of cell indices against the total cell count.
+ *
+ * @param indices Array of cell indices to validate
+ * @param cellCount Total number of cells in the notebook
+ * @param allowEmpty Whether to allow an empty array (default: false)
+ * @returns Validation result with error message if invalid
+ */
+export function validateCellIndices(
+	indices: number[],
+	cellCount: number,
+	allowEmpty: boolean = false
+): CellIndexValidation {
+	// Check for empty array
+	if (indices.length === 0) {
+		if (allowEmpty) {
+			return { valid: true };
+		}
+		return { valid: false, error: 'Cell indices array cannot be empty' };
+	}
+
+	// Validate each index
+	for (const index of indices) {
+		// Check if integer
+		if (!Number.isInteger(index)) {
+			return { valid: false, error: `Cell index must be an integer: ${index}` };
+		}
+
+		// Check if negative
+		if (index < 0) {
+			return { valid: false, error: `Cell index cannot be negative: ${index}` };
+		}
+
+		// Check if within bounds
+		if (index >= cellCount) {
+			return { valid: false, error: `Cell index ${index} is out of bounds (notebook has ${cellCount} cells, valid indices: 0-${cellCount - 1})` };
+		}
+	}
+
+	return { valid: true };
+}
+
+/**
+ * Fetches and formats cell content for preview in confirmation dialogs.
+ * Truncates long content with ellipsis.
+ *
+ * @param uri The notebook URI (as string)
+ * @param cellIndices Array of cell indices to preview
+ * @returns Formatted preview string with cell content
+ */
+export async function getCellsPreview(
+	uri: string,
+	cellIndices: number[]
+): Promise<string> {
+	const previews: string[] = [];
+
+	for (const cellIndex of cellIndices) {
+		try {
+			const cell = await positron.notebooks.getCell(uri, cellIndex);
+			if (!cell) {
+				previews.push(`Cell ${cellIndex}: [Cell not found]`);
+				continue;
+			}
+
+			let content = cell.content.trim();
+			if (content.length > MAX_CELL_PREVIEW_LENGTH) {
+				content = content.substring(0, MAX_CELL_PREVIEW_LENGTH) + '...';
+			}
+
+			previews.push(`Cell ${cellIndex} (${cell.type}):\n${content}`);
+		} catch (error) {
+			previews.push(`Cell ${cellIndex}: [Error fetching cell]`);
+		}
+	}
+
+	return previews.join('\n\n');
+}
+
+/**
  * Format cell status information for display in prompts
  */
-export function formatCellStatus(cell: positron.notebooks.NotebookCell): string {
+function formatCellStatus(cell: positron.notebooks.NotebookCell): string {
 	const statusParts: string[] = [];
 
 	// Selection status

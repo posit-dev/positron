@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronAssistantToolName } from '../types.js';
 import { log } from '../extension.js';
-import { convertOutputsToLanguageModelParts, formatCellStatus, formatCells } from './notebookUtils.js';
+import { convertOutputsToLanguageModelParts, formatCells, validateCellIndices, MAX_CELL_CONTENT_LENGTH } from './notebookUtils.js';
 
 /**
  * Gets the active notebook context, returning null if no notebook is active.
@@ -67,8 +67,34 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 	cellIndices: number[];
 }>(PositronAssistantToolName.RunNotebookCells, {
 	prepareInvocation: async (options, _token) => {
+		const cellIndices = options.input.cellIndices;
+
+		// Get the active notebook context to fetch cell previews
+		const context = await getActiveNotebookContext();
+		if (!context) {
+			// If no notebook is active, we still need to return a PreparedToolInvocation
+			// The actual error will be shown during invoke()
+			return {
+				invocationMessage: vscode.l10n.t('Running notebook cells'),
+				pastTenseMessage: vscode.l10n.t('Ran notebook cells'),
+			};
+		}
+
+		// Build simple confirmation message
+		const cellList = cellIndices.length <= 5
+			? cellIndices.join(', ')
+			: `${cellIndices.slice(0, 5).join(', ')}, and ${cellIndices.length - 5} more`;
+
+		const message = cellIndices.length === 1
+			? vscode.l10n.t('Execute cell {0}?', cellIndices[0])
+			: vscode.l10n.t('Execute {0} cells ({1})?', cellIndices.length, cellList);
+
 		return {
 			invocationMessage: vscode.l10n.t('Running notebook cells'),
+			confirmationMessages: {
+				title: vscode.l10n.t('Run Notebook Cells'),
+				message: message
+			},
 			pastTenseMessage: vscode.l10n.t('Ran notebook cells'),
 		};
 	},
@@ -79,6 +105,14 @@ export const RunNotebookCellsTool = vscode.lm.registerTool<{
 			const context = await getActiveNotebookContext();
 			if (!context) {
 				return createNoActiveNotebookErrorResult();
+			}
+
+			// Validate cell indices
+			const validation = validateCellIndices(cellIndices, context.cellCount);
+			if (!validation.valid) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(validation.error!)
+				]);
 			}
 
 			await positron.notebooks.runCells(context.uri, cellIndices);
@@ -121,22 +155,87 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 	cellIndex?: number;
 }>(PositronAssistantToolName.EditNotebookCells, {
 	prepareInvocation: async (options, _token) => {
-		const { operation } = options.input;
-		const messages = {
-			add: {
-				invocationMessage: vscode.l10n.t('Adding notebook cell'),
-				pastTenseMessage: vscode.l10n.t('Added notebook cell'),
-			},
-			update: {
-				invocationMessage: vscode.l10n.t('Updating notebook cell'),
-				pastTenseMessage: vscode.l10n.t('Updated notebook cell'),
-			},
-			delete: {
-				invocationMessage: vscode.l10n.t('Deleting notebook cell'),
-				pastTenseMessage: vscode.l10n.t('Deleted notebook cell'),
-			},
-		};
-		return messages[operation];
+		const { operation, cellType, cellIndex } = options.input;
+
+		// Get the active notebook context
+		const context = await getActiveNotebookContext();
+		if (!context) {
+			// If no notebook is active, return basic messages
+			// The actual error will be shown during invoke()
+			const messages = {
+				add: {
+					invocationMessage: vscode.l10n.t('Adding notebook cell'),
+					pastTenseMessage: vscode.l10n.t('Added notebook cell'),
+				},
+				update: {
+					invocationMessage: vscode.l10n.t('Updating notebook cell'),
+					pastTenseMessage: vscode.l10n.t('Updated notebook cell'),
+				},
+				delete: {
+					invocationMessage: vscode.l10n.t('Deleting notebook cell'),
+					pastTenseMessage: vscode.l10n.t('Deleted notebook cell'),
+				},
+			};
+			return messages[operation];
+		}
+
+		// Build confirmation messages based on operation type
+		switch (operation) {
+			case 'add': {
+				const message = vscode.l10n.t('Add a {0} cell?', cellType || 'new');
+				return {
+					invocationMessage: vscode.l10n.t('Adding notebook cell'),
+					confirmationMessages: {
+						title: vscode.l10n.t('Add Notebook Cell'),
+						message: message
+					},
+					pastTenseMessage: vscode.l10n.t('Added notebook cell'),
+				};
+			}
+
+			case 'update': {
+				const message = vscode.l10n.t('Update the content of cell {0}?', cellIndex);
+				return {
+					invocationMessage: vscode.l10n.t('Updating notebook cell'),
+					confirmationMessages: {
+						title: vscode.l10n.t('Update Notebook Cell'),
+						message: message
+					},
+					pastTenseMessage: vscode.l10n.t('Updated notebook cell'),
+				};
+			}
+
+			case 'delete': {
+				// Try to fetch cell type for better message
+				let cellTypeLabel = 'cell';
+				if (cellIndex !== undefined) {
+					try {
+						const cell = await positron.notebooks.getCell(context.uri, cellIndex);
+						if (cell) {
+							cellTypeLabel = cell.type === 'code' ? 'code cell' : 'markdown cell';
+						}
+					} catch (error) {
+						// Use default label if fetch fails
+					}
+				}
+
+				const message = vscode.l10n.t('Delete {0} {1}? This cannot be undone.', cellTypeLabel, cellIndex);
+				return {
+					invocationMessage: vscode.l10n.t('Deleting notebook cell'),
+					confirmationMessages: {
+						title: vscode.l10n.t('Delete Notebook Cell'),
+						message: message
+					},
+					pastTenseMessage: vscode.l10n.t('Deleted notebook cell'),
+				};
+			}
+
+			default:
+				return {
+					invocationMessage: vscode.l10n.t('Editing notebook cell'),
+					pastTenseMessage: vscode.l10n.t('Edited notebook cell'),
+				};
+		}
 	},
 	invoke: async (options, token) => {
 		const { operation, cellType, index, content, cellIndex } = options.input;
@@ -166,8 +265,26 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 						]);
 					}
 
+					// Validate content length
+					if (content.length > MAX_CELL_CONTENT_LENGTH) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(
+								`Content too large: ${content.length} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`
+							)
+						]);
+					}
+
 					// Handle append case (-1 means append at end)
 					const insertIndex = index === -1 ? context.cellCount : index;
+
+					// Validate insert index (must be between 0 and cellCount inclusive)
+					if (!Number.isInteger(insertIndex) || insertIndex < 0 || insertIndex > context.cellCount) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(
+								`Invalid insert index: ${insertIndex}. Must be between 0 and ${context.cellCount} (inclusive)`
+							)
+						]);
+					}
 
 					// Map cell type string to enum (case-insensitive)
 					const normalizedCellType = cellType?.toLowerCase();
@@ -205,6 +322,23 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 						]);
 					}
 
+					// Validate content length
+					if (content.length > MAX_CELL_CONTENT_LENGTH) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(
+								`Content too large: ${content.length} bytes exceeds maximum of ${MAX_CELL_CONTENT_LENGTH} bytes`
+							)
+						]);
+					}
+
+					// Validate cell index
+					const validation = validateCellIndices([cellIndex], context.cellCount);
+					if (!validation.valid) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(validation.error!)
+						]);
+					}
+
 					await positron.notebooks.updateCellContent(
 						context.uri,
 						cellIndex,
@@ -221,6 +355,14 @@ export const EditNotebookCellsTool = vscode.lm.registerTool<{
 					if (cellIndex === undefined) {
 						return new vscode.LanguageModelToolResult([
 							new vscode.LanguageModelTextPart('Missing required parameter: cellIndex (index of cell to delete)')
+						]);
+					}
+
+					// Validate cell index
+					const validation = validateCellIndices([cellIndex], context.cellCount);
+					if (!validation.valid) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(validation.error!)
 						]);
 					}
 
@@ -277,6 +419,14 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 				case 'get': {
 					// If specific cell indices requested, fetch those cells
 					if (cellIndices && cellIndices.length > 0) {
+						// Validate cell indices
+						const validation = validateCellIndices(cellIndices, context.cellCount, true);
+						if (!validation.valid) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(validation.error!)
+							]);
+						}
+
 						const cells: positron.notebooks.NotebookCell[] = [];
 						for (const cellIndex of cellIndices) {
 							const cell = await positron.notebooks.getCell(context.uri, cellIndex);
@@ -339,6 +489,14 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 						]);
 					}
 
+					// Validate cell indices
+					const validation = validateCellIndices(cellIndices, context.cellCount);
+					if (!validation.valid) {
+						return new vscode.LanguageModelToolResult([
+							new vscode.LanguageModelTextPart(validation.error!)
+						]);
+					}
+
 					const resultParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 					resultParts.push(
 						new vscode.LanguageModelTextPart(`Outputs for ${cellIndices.length} cell(s):\n\n`)
@@ -367,6 +525,14 @@ export const GetNotebookCellsTool = vscode.lm.registerTool<{
 					let cells: positron.notebooks.NotebookCell[];
 
 					if (cellIndices && cellIndices.length > 0) {
+						// Validate cell indices
+						const validation = validateCellIndices(cellIndices, context.cellCount, true);
+						if (!validation.valid) {
+							return new vscode.LanguageModelToolResult([
+								new vscode.LanguageModelTextPart(validation.error!)
+							]);
+						}
+
 						cells = [];
 						for (const cellIndex of cellIndices) {
 							const cell = await positron.notebooks.getCell(context.uri, cellIndex);
