@@ -589,9 +589,17 @@ class ChatStatusDashboard extends Disposable {
 				description: '',
 				detail: '',
 			};
+
+			// Next Edit Suggestions not currently supported in Positron.
+			// When enabled, remove the defaultChat.nextEditSuggestionsSetting check and use the setting directly.
+			const nesEnabled = defaultChat.nextEditSuggestionsSetting
+				? this.configurationService.getValue<boolean>(defaultChat.nextEditSuggestionsSetting) ?? false
+				: false;
+
 			this.languageFeaturesService.inlineCompletionsProvider.allNoModel().forEach(provider => {
 				const name = provider.displayName;
-				if (name) {
+				const shouldExclude = provider.groupId === 'nes' && !nesEnabled;
+				if (name && !shouldExclude) {
 					// add an element to the container with the name
 					entry.description += `${name}\n`;
 				}
