@@ -57,7 +57,7 @@ When a notebook is active, `NotebookContext` provides:
 - `cellCount` - Total number of cells
 - `selectedCells[]` - Currently selected cells with:
   - `id` - Unique cell identifier (internal use only, not exposed to model)
-  - `index` - Cell position (0-based)
+  - `index` - **Zero-based cell position (0, 1, 2, ...) - this is what the model uses to reference cells**
   - `type` - 'code' or 'markdown'
   - `content` - Cell source code
   - `hasOutput` - Whether cell has output
@@ -97,12 +97,13 @@ The context is assembled across two layers:
 When notebook mode is enabled (attached context + active editor), the assistant's system prompt is augmented with:
 
 1. **Notebook metadata** - URI, kernel, cell count, selected cells
-2. **Cell details** - indices, content, status information (selection status, execution status, execution order, run success/failure, duration) for selected cells. For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selection, a sliding window around the selected cells is included.
+2. **Cell details** - Zero-based indices, content, status information (selection status, execution status, execution order, run success/failure, duration) for selected cells. For small notebooks (< 20 cells), all cells are included. For large notebooks (>= 20 cells) with selection, a sliding window around the selected cells is included.
 3. **Usage instructions**:
    - Focus on selected cells when analyzing/explaining
-   - Use cell indices when referencing specific cells
+   - Reference cells by zero-based index (e.g., "cell 0", "cell 3")
    - Pay attention to cell status information (selection status, execution status, execution order, run success/failure)
    - Consider execution order and cell dependencies
+   - Remember index shifting when adding/deleting cells
    - Maintain notebook structure with markdown cells
    - Use notebook-specific tools for manipulation
 
@@ -118,18 +119,17 @@ The `hasActiveNotebook` flag determines which tools are available. Each notebook
 
 **Mode-Based Tool Restrictions:**
 
-Notebook tools are conditionally available based on the assistant mode, with filtering implemented in switch-case logic (lines 245-269):
+Notebook tools are conditionally available based on the assistant mode, with filtering implemented in switch-case logic:
 
 **Execution Tools (Agent mode only):**
-- `RunNotebookCells` - Execute cells in the kernel
+- `RunNotebookCells` - Execute cells in the kernel using `cellIndices` parameter
 
 **Modification Tools (Edit and Agent modes):**
-- `AddNotebookCell` - Create new cells at specified positions
-- `UpdateNotebookCell` - Modify existing cell content
+- `EditNotebookCells` - Unified tool for adding, modifying, or deleting cells using `operation` parameter ('add', 'update', 'delete')
 
 **Read-Only Tools (Available in all modes - Ask, Edit, Agent):**
-- `GetNotebookCells` - Read cell contents with status information
-- `GetCellOutputs` - Retrieve cell execution outputs
+- `GetNotebookCells` - Read cell contents with status information using `cellIndices` parameter
+- `GetCellOutputs` - Retrieve cell execution outputs using `cellIndices` parameter
 
 Tool filtering in `extensions/positron-assistant/src/api.ts`:
 ```typescript
@@ -141,8 +141,7 @@ case PositronAssistantToolName.RunNotebookCells:
 		continue;
 	}
 	break;
-case PositronAssistantToolName.AddNotebookCell:
-case PositronAssistantToolName.UpdateNotebookCell:
+case PositronAssistantToolName.EditNotebookCells:
 	if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
 		continue;
 	}
@@ -168,11 +167,10 @@ All notebook tools can be explicitly referenced by users in chat prompts. This a
 
 All notebook tools have `canBeReferencedInPrompt: true` and can be referenced using their `toolReferenceName`:
 
-- **`#runNotebookCells`** - Execute cells in the kernel (Agent mode only)
-- **`#addNotebookCell`** - Create new cells at specified positions (Edit and Agent modes)
-- **`#updateNotebookCell`** - Modify existing cell content (Edit and Agent modes)
-- **`#getCellOutputs`** - Retrieve cell execution outputs (All modes)
-- **`#getNotebookCells`** - Read cell contents with status information (All modes)
+- **`#runNotebookCells`** - Execute cells in the kernel using `cellIndices` (Agent mode only)
+- **`#editNotebookCells`** - Add, modify, or delete cells using `operation` parameter (Edit and Agent modes)
+- **`#getCellOutputs`** - Retrieve cell execution outputs using `cellIndices` (All modes)
+- **`#getNotebookCells`** - Read cell contents with status information using `cellIndices` (All modes)
 
 **Important Notes:**
 
@@ -196,27 +194,27 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
   - `GetNotebookCells` - Read cell contents with status information (selection status, execution status, execution order, run success/failure, duration)
   - `GetCellOutputs` - Retrieve cell execution outputs
 - Can view notebook context, analyze code, explain cells, and inspect outputs
-- References cells by index in responses
+- References cells by zero-based index in responses (e.g., "cell 0", "cell 3")
 - System prompt includes selected cell content, metadata, and status information
 - For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
 - For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
-- When modifications are requested, suggests switching to Edit mode
-- When execution is requested, suggests switching to Agent mode
+- When modifications requested, responds: "I cannot modify cells in Ask mode. Switch to Edit mode to modify cells."
+- When execution requested, responds: "I cannot execute cells in Ask mode. Switch to Agent mode to run cells."
 
 **With notebook mode in Edit mode (notebook attached + active editor + Edit mode):**
 - Notebook-aware assistant with **modification access**
 - Access to read and modification tools:
   - `GetNotebookCells` - Read cell contents with status information
   - `GetCellOutputs` - Retrieve cell execution outputs
-  - `AddNotebookCell` - Create new cells at specified positions
-  - `UpdateNotebookCell` - Modify existing cell content
+  - `EditNotebookCells` - Add, modify, or delete cells (replaces AddNotebookCell and UpdateNotebookCell)
 - Can view, analyze, and modify notebook cells
 - Can add new code or markdown cells
-- References cells by index in responses
+- References cells by zero-based index in responses (e.g., "cell 0", "cell 3")
+- Understands index shifting when adding/deleting cells
 - System prompt includes selected cell content, metadata, and status information
 - For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
 - For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
-- When execution is requested, suggests switching to Agent mode
+- When execution requested, responds: "Cannot execute in Edit mode. Switch to Agent mode to run cells."
 
 **With notebook mode in Agent mode (notebook attached + active editor + Agent mode):**
 - Notebook-aware assistant with **full manipulation capabilities**
@@ -224,11 +222,11 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
   - `GetNotebookCells` - Read cell contents with status information
   - `GetCellOutputs` - Retrieve cell execution outputs
   - `RunNotebookCells` - Execute cells in the kernel
-  - `AddNotebookCell` - Create new cells at specified positions
-  - `UpdateNotebookCell` - Modify existing cell content
+  - `EditNotebookCells` - Add, modify, or delete cells
 - Can perform all operations: view, analyze, modify, execute, and create cells
-- References cells by index in responses
-- Suggests cell-based operations including modifications
+- References cells by zero-based index in responses (e.g., "cell 0", "cell 3")
+- Understands index shifting when adding/deleting cells
+- Suggests cell-based operations including modifications and execution
 - System prompt includes selected cell content, metadata, and status information
 - For small notebooks (< 20 cells), system prompt includes all cell content and status via `allCells` field
 - For large notebooks (>= 20 cells) with selection, system prompt includes a sliding window of cells around the selected cells via `allCells` field
@@ -244,41 +242,62 @@ Notebook instructions are split into mode-specific prompt files following the es
 - **Order:** 80
 - **Description:** Read-only notebook context and query tools for Ask mode
 - **Content:**
+  - **Tool usage protocol** with brief "why" explanations (e.g., "breaks notebook state sync")
+  - **Anti-pattern examples** showing wrong vs. right approaches using visual symbols (❌/✓)
   - Read-only tools only (GetNotebookCells, GetCellOutputs)
-  - Analysis and explanation workflows
-  - Clear guidance about mode limitations
-  - Suggests switching to Edit mode when modifications are requested
-  - Suggests switching to Agent mode when execution is requested
-  - Forbidden alternatives include attempting modifications
+  - Concise, action-oriented workflows for analysis and debugging
+  - **Exact response templates** for mode handoff:
+    - When modifications requested: "I cannot modify cells in Ask mode. Switch to Edit mode to modify cells."
+    - When execution requested: "I cannot execute cells in Ask mode. Switch to Agent mode to run cells."
+  - Critical rules emphasizing zero-based index referencing and execution state awareness
 
 ### `notebook-mode-edit.md`
 - **Mode:** `edit`
 - **Order:** 80
 - **Description:** Notebook modification instructions for Edit mode
 - **Content:**
+  - **Tool usage protocol** with brief "why" explanations for constraints
+  - **Anti-pattern examples** showing common mistakes and correct approaches
   - Read and modification tools (GetNotebookCells, GetCellOutputs, AddNotebookCell, UpdateNotebookCell)
-  - Modification workflows (analyze, modify, add cells, debug)
-  - Clear guidance that execution requires Agent mode
-  - Suggests switching to Agent mode when execution is requested
-  - Emphasizes using tools instead of direct file access
+  - **Workflows section** includes mode capabilities as first item, followed by concise workflows:
+    - Analyze/explain, Modify, Add, Delete, Debug, Execution requested
+  - **Exact response template** for execution requests: "Cannot execute in Edit mode. Switch to Agent mode to run cells."
+  - Critical rules with compressed execution state information and index shifting reminders
+  - Emphasizes using notebook-specific tools instead of file operations
 
 ### `notebook-mode-agent.md`
 - **Mode:** `agent`
 - **Order:** 80
 - **Description:** Full notebook manipulation instructions for Agent mode
 - **Content:**
+  - **Tool usage protocol** with brief "why" explanations (e.g., "causes sync issues")
+  - **Anti-pattern examples** demonstrating wrong approaches (file tools) vs. correct approaches (notebook tools)
   - Complete tool list (all 5 tools: GetNotebookCells, GetCellOutputs, RunNotebookCells, AddNotebookCell, UpdateNotebookCell)
-  - Full manipulation workflows (analyze, modify, add, execute, debug)
+  - Concise workflows covering all operations: analyze, modify, add, delete, execute, debug
+  - Critical rules with:
+    - Zero-based index referencing
+    - Compressed execution state checking (order [N], status, success/failure, duration)
+    - Index shifting reminders for add/delete operations
+    - Cell dependency considerations
   - No restrictions on modifications or execution
-  - Emphasizes using tools instead of direct file access
+
+**Prompt Engineering Improvements:**
+
+All prompt files now include:
+1. **Brief contextual explanations** - Parenthetical "why" for critical rules (e.g., "breaks notebook state sync")
+2. **Anti-pattern examples** - Visual wrong (❌) vs. right (✓) approaches to prevent common mistakes
+3. **Concise workflows** - Removed filler words, imperative voice, action-focused descriptions
+4. **Exact response templates** - Specific language for mode limitations to ensure consistent UX
+5. **Compressed rules** - Related concepts grouped without losing emphasis or clarity
 
 **Design Rationale:**
 
 This separation ensures:
 1. Appropriate tool availability without runtime conditionals in templates
 2. Clear user guidance about capabilities per mode
-3. Follows existing Positron Assistant architectural patterns
+3. Follows existing Positron Assistant architectural patterns (matching agent.md, python.md, terminal.md)
 4. Makes mode-specific behavior explicit and maintainable
+5. Information-dense prompts with strong emphasis on critical rules
 
 When the prompt renderer loads prompts for a specific mode, it automatically includes the appropriate notebook prompt file based on the YAML `mode` header.
 
@@ -297,9 +316,17 @@ if (!context) {
 
 **Location:** `extensions/positron-assistant/src/tools/notebookTools.ts`
 
-### Cell Status Information
+### Cell Referencing and Status Information
+
+**All notebook tools use zero-based indices to reference cells:**
+- First cell = index 0, second cell = index 1, etc.
+- Tools accept `cellIndex` (single cell) or `cellIndices` (array of cells) parameters
+- The assistant must remember that indices shift when adding or deleting cells:
+  - Adding cell at index N: cells N+ shift to N+1, N+2, etc.
+  - Deleting cell at index N: cells N+1+ shift down to N, N+1, etc.
 
 The `GetNotebookCells` tool returns cells with complete status information:
+- **Index**: Zero-based position in the notebook
 - **Selection status**: 'unselected' | 'selected' | 'active' (where 'active' indicates editing mode)
 - **Execution status**: 'running' | 'pending' | 'idle' (code cells only)
 - **Execution order**: Number indicating execution sequence (code cells only)
@@ -312,6 +339,7 @@ This status information helps the assistant understand:
 - Which cells are executing or queued for execution
 - The execution history and success/failure of previous runs
 - The execution order to understand dependencies
+- Cell positions using zero-based indexing
 
 ## API Definition
 
@@ -356,13 +384,13 @@ The chosen approach (attached context detection) provides the cleanest implement
 | Scenario | Notebook Attached? | Notebook Active Editor? | Mode | Notebook Mode? | Available Tools |
 |----------|-------------------|------------------------|------|----------------|-----------------|
 | 1 | ✅ Yes | ✅ Yes (same file) | Ask | ✅ ON (Read-only) | GetNotebookCells, GetCellOutputs |
-| 2 | ✅ Yes | ✅ Yes (same file) | Edit | ✅ ON (Modification) | GetNotebookCells, GetCellOutputs, AddNotebookCell, UpdateNotebookCell |
-| 3 | ✅ Yes | ✅ Yes (same file) | Agent | ✅ ON (Full access) | All 5 tools |
+| 2 | ✅ Yes | ✅ Yes (same file) | Edit | ✅ ON (Modification) | GetNotebookCells, GetCellOutputs, EditNotebookCells |
+| 3 | ✅ Yes | ✅ Yes (same file) | Agent | ✅ ON (Full access) | All 4 tools |
 | 4 | ✅ Yes | ❌ No (different file active) | Any | ❌ OFF | None |
 | 5 | ❌ No | ✅ Yes | Any | ❌ OFF | None |
 | 6 | ✅ Multiple notebooks | ✅ Yes (one is active) | Ask | ✅ ON (Read-only) | GetNotebookCells, GetCellOutputs |
-| 7 | ✅ Multiple notebooks | ✅ Yes (one is active) | Edit | ✅ ON (Modification) | GetNotebookCells, GetCellOutputs, AddNotebookCell, UpdateNotebookCell |
-| 8 | ✅ Multiple notebooks | ✅ Yes (one is active) | Agent | ✅ ON (Full access) | All 5 tools |
+| 7 | ✅ Multiple notebooks | ✅ Yes (one is active) | Edit | ✅ ON (Modification) | GetNotebookCells, GetCellOutputs, EditNotebookCells |
+| 8 | ✅ Multiple notebooks | ✅ Yes (one is active) | Agent | ✅ ON (Full access) | All 4 tools |
 | 9 | ✅ Multiple notebooks | ❌ No (none active) | Any | ❌ OFF | None |
 
 ### How to Test
@@ -373,12 +401,12 @@ The chosen approach (attached context detection) provides the cleanest implement
 3. **Switch to Ask mode** in the mode selector
 4. **Verify behavior**:
    - Only read-only tools appear in tool list: `GetNotebookCells`, `GetCellOutputs`
-   - Modification tools do NOT appear: `RunNotebookCells`, `AddNotebookCell`, `UpdateNotebookCell`
+   - Modification tools do NOT appear: `RunNotebookCells`, `EditNotebookCells`
    - Read-only tools can be referenced using `#getNotebookCells` and `#getCellOutputs`
    - System prompt includes selected cell information with status
-   - Ask "What does cell 1 do?" → Should work using GetNotebookCells
-   - Ask "Modify this cell" → Should suggest switching to Edit mode
-   - Ask "Run this cell" → Should suggest switching to Agent mode
+   - Ask "What does cell 0 do?" → Should work using GetNotebookCells
+   - Ask "Modify cell 2" → Should respond: "I cannot modify cells in Ask mode. Switch to Edit mode to modify cells."
+   - Ask "Run cell 1" → Should respond: "I cannot execute cells in Ask mode. Switch to Agent mode to run cells."
    - Try referencing: `#getNotebookCells show me all cells` → Should work
 
 #### Test 2: Edit Mode - Modification Access
@@ -386,29 +414,30 @@ The chosen approach (attached context detection) provides the cleanest implement
 2. **Open notebook** in Positron notebook editor
 3. **Switch to Edit mode** in the mode selector
 4. **Verify behavior**:
-   - Modification tools appear in tool list: `GetNotebookCells`, `GetCellOutputs`, `AddNotebookCell`, `UpdateNotebookCell`
+   - Modification tools appear in tool list: `GetNotebookCells`, `GetCellOutputs`, `EditNotebookCells`
    - Execution tools do NOT appear: `RunNotebookCells`
-   - All available tools can be referenced using `#getNotebookCells`, `#getCellOutputs`, `#addNotebookCell`, `#updateNotebookCell`
+   - All available tools can be referenced using `#getNotebookCells`, `#getCellOutputs`, `#editNotebookCells`
    - Ask "Show me the output of cell 2" → Should use GetCellOutputs
-   - Ask "Update cell 3 to add error handling" → Should use UpdateNotebookCell
-   - Ask "Add a new cell after cell 2" → Should use AddNotebookCell
-   - Ask "Run cell 1" → Should suggest switching to Agent mode
-   - Try referencing: `#updateNotebookCell modify cell 3` → Should work
-   - Try referencing: `#addNotebookCell add a markdown cell` → Should work
+   - Ask "Update cell 3 to add error handling" → Should use EditNotebookCells with `operation: 'update'`
+   - Ask "Add a new cell after cell 2" → Should use EditNotebookCells with `operation: 'add'`
+   - Ask "Run cell 1" → Should respond: "Cannot execute in Edit mode. Switch to Agent mode to run cells."
+   - Try referencing: `#editNotebookCells modify cell 3` → Should work
+   - Try referencing: `#editNotebookCells add a markdown cell` → Should work
 
 #### Test 3: Agent Mode - Full Access
 1. **Attach notebook file** using `@filename.ipynb` in chat
 2. **Open notebook** in Positron notebook editor
 3. **Switch to Agent mode** in the mode selector
 4. **Verify behavior**:
-   - All 5 notebook tools appear in tool list
-   - All tools can be referenced: `#runNotebookCells`, `#addNotebookCell`, `#updateNotebookCell`, `#getCellOutputs`, `#getNotebookCells`
-   - Request cell modification → Should use UpdateNotebookCell
-   - Request cell execution → Should use RunNotebookCells
-   - Request adding new cell → Should use AddNotebookCell
+   - All 4 notebook tools appear in tool list
+   - All tools can be referenced: `#runNotebookCells`, `#editNotebookCells`, `#getCellOutputs`, `#getNotebookCells`
+   - Request cell modification → Should use EditNotebookCells with `operation: 'update'`
+   - Request cell execution → Should use RunNotebookCells with `cellIndices`
+   - Request adding new cell → Should use EditNotebookCells with `operation: 'add'`
    - Assistant can perform all notebook operations
-   - Try referencing: `#runNotebookCells execute cell 1` → Should work
-   - Try referencing: `#addNotebookCell add a new markdown cell at the end` → Should work
+   - Assistant understands index shifting when adding/deleting cells
+   - Try referencing: `#runNotebookCells execute cell 0` → Should work
+   - Try referencing: `#editNotebookCells add a new markdown cell at the end` → Should work
 
 #### Test 4: Without Attached Notebook
 1. **Do NOT attach any notebook file**
@@ -432,15 +461,15 @@ The chosen approach (attached context detection) provides the cleanest implement
 3. **Test `#` syntax referencing:**
    - In Ask mode: Try `#getNotebookCells show all cells` → Should work
    - In Ask mode: Try `#getCellOutputs show outputs` → Should work
-   - In Ask mode: Try `#addNotebookCell add cell` → Should suggest switching to Edit mode (tool not available)
+   - In Ask mode: Try `#editNotebookCells add cell` → Should suggest switching to Edit mode (tool not available)
    - In Ask mode: Try `#runNotebookCells execute cell` → Should suggest switching to Agent mode (tool not available)
    - In Edit mode: Try `#getNotebookCells show all cells` → Should work
-   - In Edit mode: Try `#addNotebookCell add markdown cell` → Should work
-   - In Edit mode: Try `#updateNotebookCell update cell 2` → Should work
-   - In Edit mode: Try `#runNotebookCells execute cell` → Should suggest switching to Agent mode (tool not available)
-   - In Agent mode: Try `#runNotebookCells execute cell 1` → Should work
-   - In Agent mode: Try `#addNotebookCell add markdown cell` → Should work
-   - In Agent mode: Try `#updateNotebookCell update cell 2` → Should work
+   - In Edit mode: Try `#editNotebookCells add markdown cell` → Should work
+   - In Edit mode: Try `#editNotebookCells update cell 2` → Should work
+   - In Edit mode: Try `#runNotebookCells execute cell` → Should respond: "Cannot execute in Edit mode. Switch to Agent mode to run cells."
+   - In Agent mode: Try `#runNotebookCells execute cell 0` → Should work
+   - In Agent mode: Try `#editNotebookCells add markdown cell` → Should work
+   - In Agent mode: Try `#editNotebookCells update cell 2` → Should work
 4. **Test attachment button:**
    - Click paperclip button in chat
    - Verify notebook tools appear in the attachment list (only available ones based on mode)
@@ -448,5 +477,5 @@ The chosen approach (attached context detection) provides the cleanest implement
 5. **Verify behavior:**
    - Tool references appear in `request.toolReferences` array
    - Model receives tool reference context but still decides whether to use it
-   - Tool availability still respects mode restrictions (modification tools only in Agent mode)
+   - Tool availability still respects mode restrictions (execution tools only in Agent mode, modification tools in Edit and Agent modes)
 
