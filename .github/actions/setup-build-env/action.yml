@@ -5,10 +5,6 @@ inputs:
     description: "If 'true', skip running Playwright installer (use cache-hit output from cache-multi-paths)."
     required: false
     default: 'false'
-  skip-compile-if-cached:
-    description: "If 'true', skip compilation (use cache-hit output from cache-multi-paths)."
-    required: false
-    default: 'false'
 runs:
   using: "composite"
   steps:
@@ -56,14 +52,7 @@ runs:
 
     - name: Compile and Electron download
       shell: bash
-      run: |
-        if [ "${{ inputs.skip-compile-if-cached }}" = "true" ]; then
-          echo "Skipping compilation (using cached output)"
-          npm exec -- npm-run-all --max_old_space_size=8192 "electron x64"
-        else
-          echo "Running full compilation"
-          npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
-        fi
+      run: npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
 
     - name: Install Playwright browsers
       if: ${{ inputs.skip-playwright-if-cached != 'true' }}

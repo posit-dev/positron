@@ -5,9 +5,6 @@ outputs:
   cache-playwright-hit:
     description: "Whether Playwright cache was restored"
     value: ${{ steps.cache-playwright.outputs.cache-hit }}
-  cache-compiled-hit:
-    description: "Whether compiled output cache was restored"
-    value: ${{ steps.cache-compiled.outputs.cache-hit }}
 
 runs:
   using: "composite"
@@ -19,7 +16,7 @@ runs:
         echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
         mkdir -p .npm-cache .pip-cache .versions
 
-    - name: Cache npm tarball store
+    - name: Cache npm packages
       id: cache-npm
       uses: actions/cache@v4
       with:
@@ -29,7 +26,6 @@ runs:
             hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json')
           }}
         restore-keys: |
-          npm-cache-${{ runner.os }}-
           npm-cache-${{ runner.os }}-
 
     - name: Cache ark binary
@@ -91,22 +87,6 @@ runs:
         restore-keys: |
           builtins-${{ runner.os }}-
 
-    - name: Cache compiled output
-      id: cache-compiled
-      uses: actions/cache@v4
-      with:
-        path: |
-          out
-          out-build
-        # Use commit SHA for fast, deterministic cache keys. Restore-keys enable incremental compilation
-        # by reusing the most recent build from the same branch, then main, then any previous build.
-        # TypeScript's incremental compilation handles the delta efficiently.
-        key: compiled-v3-${{ runner.os }}-${{ github.sha }}
-        restore-keys: |
-          compiled-v3-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-
-          compiled-v3-${{ runner.os }}-main-
-          compiled-v3-${{ runner.os }}-
-
     - name: Log cache results
       if: always()
       shell: bash
@@ -118,4 +98,3 @@ runs:
         echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
         echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
         echo "  builtins:    hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
-        echo "  compiled:    hit=${{ steps['cache-compiled'].outputs['cache-hit'] || 'false' }}"
