@@ -103,6 +103,10 @@ export function convertOutputsToLanguageModelParts(
 	for (const output of outputs) {
 		if (output.mimeType.startsWith('image/')) {
 			// Handle image outputs - convert base64 to binary
+			if (!output.data) {
+				resultParts.push(new vscode.LanguageModelTextPart('[Image data unavailable]'));
+				continue;
+			}
 			const imageBuffer = Buffer.from(output.data, 'base64');
 			const imageData = new Uint8Array(imageBuffer);
 			resultParts.push(new vscode.LanguageModelDataPart(imageData, output.mimeType));
