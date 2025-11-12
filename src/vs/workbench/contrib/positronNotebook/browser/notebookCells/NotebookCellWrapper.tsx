@@ -14,7 +14,7 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType } from '../selectionMachine.js';
+import { CellSelectionType, getActiveCell } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
@@ -34,6 +34,11 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
+	const selectionState = useObservedValue(selectionStateMachine.state);
+
+	// Check if this cell is the active cell
+	const activeCell = getActiveCell(selectionState);
+	const isActiveCell = activeCell === cell;
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -42,19 +47,19 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 		}
 	}, [cell, cellRef]);
 
-	// Focus management based on selection status
+
+
+	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
 		if (!cellRef.current) {
 			return;
 		}
 
-		const status = selectionStatus;
-
-		if (status === CellSelectionStatus.Selected) {
-			// Cell is selected (not editing) - focus the cell container
+		// Focus when this cell is the active cell
+		if (isActiveCell) {
 			cellRef.current.focus();
 		}
-	}, [selectionStatus, cellRef]);
+	}, [isActiveCell, selectionStatus, cellRef]);
 
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
