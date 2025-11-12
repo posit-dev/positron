@@ -10,15 +10,9 @@ on:
       - "mi/setup-cross-browser-testing-workflow"  # Temporary: for testing
 
 jobs:
-  setup:
-    name: setup
-    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
-    secrets: inherit
-
   e2e-electron:
     name: e2e
-    needs: [setup]
-    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ""
       project: "e2e-electron"
@@ -43,8 +37,7 @@ jobs:
 
   e2e-linux-chromium:
     name: e2e
-    needs: [setup]
-    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ""
       display_name: "chromium (ubuntu)"
