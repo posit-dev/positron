@@ -155,6 +155,15 @@ jobs:
             chown -R $(id -u):$(id -g) /__w/positron || true
           fi
 
+      - name: Re-initialize git repository for SCM tests
+        run: |
+          cd /__w/positron
+          git init
+          git config user.email "ci@posit.dev"
+          git config user.name "Positron CI"
+          git add -A
+          git commit -m "Initial commit from CI build artifact"
+
       - name: Seed system tmp cache from bundled cache
         run: |
           if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
