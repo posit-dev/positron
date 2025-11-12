@@ -84,9 +84,11 @@ export function applyModelFilters(
 	if (models.length === 0) {
 		log.debug(`[${providerName}] No models to filter.`);
 		return models;
+	} else if (models.length === 1) {
+		log.debug(`[${providerName}] 1 model before applying user settings: ${models[0].id}`);
+	} else {
+		log.debug(`[${providerName}] ${models.length} models before applying user settings: ${models.map(m => m.id).join(', ')}`);
 	}
-
-	log.debug(`[${providerName}] ${models.length} Models before applying user settings: ${models.map(m => m.id).join(', ')}`);
 
 	// Check if this vendor is in the unfiltered providers list
 	let unfilteredProviders = vscode.workspace.getConfiguration('positron.assistant').get<string[]>('unfilteredProviders', []);
@@ -115,7 +117,13 @@ export function applyModelFilters(
 		)
 	);
 
-	log.debug(`[${providerName}] ${filteredModels.length} Models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+	if (filteredModels.length === 0) {
+		log.warn(`[${providerName}] No models remain after applying user settings.`);
+	} else if (filteredModels.length === 1) {
+		log.debug(`[${providerName}] 1 model after applying user settings: ${filteredModels[0].id}`);
+	} else {
+		log.debug(`[${providerName}] ${filteredModels.length} models after applying user settings: ${filteredModels.map(m => m.id).join(', ')}`);
+	}
 
 	return filteredModels;
 }

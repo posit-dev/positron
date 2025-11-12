@@ -796,7 +796,13 @@ export class OpenAILanguageModel extends AILanguageModel implements positron.ai.
 		if (removedModels.length > 0) {
 			log.debug(`[${this.providerName}] Removed ${removedModels.length} incompatible models: ${removedModels.join(', ')}`);
 		}
-		log.info(`[${this.providerName}] ${filteredModels.length} models remain after filtering models.`);
+		if (filteredModels.length === 0) {
+			log.warn(`[${this.providerName}] No models remain after filtering.`);
+		} else if (filteredModels.length === 1) {
+			log.debug(`[${this.providerName}] 1 model remains after filtering: ${filteredModels[0].id}`);
+		} else {
+			log.debug(`[${this.providerName}] ${filteredModels.length} models remain after filtering: ${filteredModels.map(m => m.id).join(', ')}`);
+		}
 		return filteredModels;
 	}
 

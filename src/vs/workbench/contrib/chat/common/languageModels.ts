@@ -528,7 +528,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._isInitialSetup = false;
 		}
 
-		// Listen for changes to the filterModels configuration. The intial filtering
+		// Listen for changes to the filterModels configuration. The initial filtering
 		// is done in the Positron Assistant extension when models are resolved.
 		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('positron.assistant.filterModels')) {
