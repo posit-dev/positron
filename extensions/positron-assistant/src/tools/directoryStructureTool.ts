@@ -101,6 +101,7 @@ export const DirectoryStructureTool = vscode.lm.registerTool<DirectoryStructureI
 		let excludedCount = 0;
 		const sparseThreshold = Math.floor(directoriesLimit / 10);
 		if (!skipExcludes && totalDirectories < sparseThreshold) {
+			log.debug(`[${PositronAssistantToolName.DirectoryStructure}] Default exclusions were applied and results were very sparse. Searching directories again to determine how many directories were excluded...`);
 			for (const folder of workspaceFolders) {
 				const startUri = path
 					? vscode.Uri.joinPath(folder.uri, path)
@@ -147,6 +148,7 @@ export const DirectoryStructureTool = vscode.lm.registerTool<DirectoryStructureI
 		// Inform the model if results were excluded
 		if (excludedCount > 0) {
 			const exclusionMessage = `${excludedCount} director${excludedCount === 1 ? 'y was' : 'ies were'} excluded. Set \`skipDefaultExcludes\` to \`true\` to see them.`;
+			log.debug(`[${PositronAssistantToolName.DirectoryStructure}] ${exclusionMessage}`);
 			resultParts.push(new vscode.LanguageModelTextPart(exclusionMessage));
 		}
 
