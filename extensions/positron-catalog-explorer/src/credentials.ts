@@ -14,9 +14,10 @@ import { traceError, traceInfo, traceWarn } from './logging.js';
 /**
  * Converts snake_case keys to camelCase in an object recursively
  * @param obj Object with snake_case keys
+ * @param skipTopLevel If true, skips conversion of top-level keys (used for connection names)
  * @returns Object with camelCase keys
  */
-export function toCamelCase<T>(obj: Record<string, any>): T {
+export function toCamelCase<T>(obj: Record<string, any>, skipTopLevel = false): T {
 	if (!obj || typeof obj !== 'object' || obj === null) {
 		return obj as T;
 	}
@@ -24,12 +25,13 @@ export function toCamelCase<T>(obj: Record<string, any>): T {
 	const result: Record<string, any> = {};
 
 	for (const [key, value] of Object.entries(obj)) {
-		// Convert snake_case to camelCase
-		const camelKey = key.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+		// Determine if we should convert this key
+		// Skip conversion if we're at the top level and skipTopLevel is true
+		const resultKey = skipTopLevel ? key : key.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
 
-		// Handle nested objects recursively
-		result[camelKey] = value && typeof value === 'object' && !Array.isArray(value)
-			? toCamelCase(value)
+		// Handle nested objects recursively (but don't skip conversion for nested objects)
+		result[resultKey] = value && typeof value === 'object' && !Array.isArray(value)
+			? toCamelCase(value, false)
 			: value;
 	}
 
@@ -155,8 +157,8 @@ export async function getSnowflakeConnectionOptions(): Promise<SnowflakeConnecti
 				traceInfo(`Loading Snowflake connections from: ${pathToTry}`);
 				const content = fs.readFileSync(pathToTry, 'utf8');
 				const rawConnections = toml.parse(content);
-				// Convert snake_case keys to camelCase
-				return toCamelCase<SnowflakeConnectionOptions>(rawConnections);
+				// Convert snake_case keys to camelCase, but skip connection names at top level
+				return toCamelCase<SnowflakeConnectionOptions>(rawConnections, true);
 			}
 		} catch (error) {
 			traceError(`Error reading or parsing Snowflake connections file at ${pathToTry}: ${error}`);

@@ -15,12 +15,13 @@ import { resourceUri } from '../resources';
 import { getPositronAPI } from '../positron';
 import { traceError, traceInfo, traceLog } from '../logging';
 import { getSnowflakeConnectionOptions, SnowflakeConnectionOptions } from '../credentials';
+import { l10n } from 'vscode';
 
 export type SnowflakeLogLevel = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'TRACE';
 
 export const registration: CatalogProviderRegistration = {
-	label: 'Snowflake',
-	detail: 'Explore tables and stages in a Snowflake account',
+	label: l10n.t('Snowflake'),
+	detail: l10n.t('Explore tables and stages in a Snowflake account'),
 	addProvider: registerSnowflakeCatalog,
 	removeProvider: async (
 		context: vscode.ExtensionContext,
@@ -84,15 +85,15 @@ export async function registerSnowflakeCatalog(
 			const connectionNames = Object.keys(connections);
 			items = connectionNames.map(name => ({
 				label: name,
-				description: `Connection from account (${connections[name].account || 'No account specified'})`
+				description: l10n.t(`Connection from account (${connections[name].account || 'No account specified'})`),
 			}));
 		} else {
 			// If no connections found, offer help options
 			items = [
 				{
-					label: 'No connections.toml file found',
-					description: 'Configure where to look for connections.toml',
-					detail: 'Create a connections.toml file in ~/.snowflake/ or set a custom path in settings.'
+					label: l10n.t('Update path in settings'),
+					description: l10n.t('Create a connections.toml file in ~/.snowflake/ or set a custom path in settings.'),
+					detail: l10n.t('Configure the path to your Snowflake connections.toml file')
 				}
 			];
 		}
@@ -106,7 +107,7 @@ export async function registerSnowflakeCatalog(
 			return undefined; // User canceled
 		}
 
-		if (selection.label === 'Update path in settings') {
+		if (selection.label === l10n.t('No connections.toml file found')) {
 			// Open settings UI focused on the connections.toml path setting
 			await vscode.commands.executeCommand('workbench.action.openSettings', 'catalogExplorer.snowflakeConnections');
 			return undefined;
@@ -163,7 +164,7 @@ export async function registerSnowflakeCatalog(
 	return await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
-			title: `Authenticating to Snowflake via ${connOptions.authenticator}... (will timeout after 30s)`,
+			title: l10n.t(`Authenticating to Snowflake via ${connOptions.authenticator}... (will timeout after 30s)`),
 		},
 		async () => {
 			const AUTH_TIMEOUT_MS = 30000;
@@ -517,7 +518,7 @@ async function generateCode(
 	// If we don't have a username from the connection profile, prompt for it
 	if (!username) {
 		username = await vscode.window.showInputBox({
-			prompt: 'Enter your Snowflake username',
+			prompt: l10n.t('Enter your Snowflake username'),
 			placeHolder: 'your-username@example.com'
 		});
 
@@ -529,7 +530,7 @@ async function generateCode(
 	// If we don't have a warehouse from the connection profile, prompt for it
 	if (!warehouse) {
 		warehouse = await vscode.window.showInputBox({
-			prompt: 'Enter your warehouse name',
+			prompt: l10n.t('Enter your warehouse name'),
 			placeHolder: 'my-warehouse'
 		});
 		if (!warehouse) {
@@ -670,11 +671,9 @@ function getTooltipInfo(connectionName: string, connInfo: any): string {
 	let tooltip = `${connectionName}`;
 
 	if (connInfo) {
-		if (connInfo.role) { tooltip += `\nRole: ${connInfo.role}`; }
 		if (connInfo.user) { tooltip += `\nUser: ${connInfo.user}`; }
-		if (connInfo.warehouse) { tooltip += `\nWarehouse: ${connInfo.warehouse}`; }
-		if (connInfo.database) { tooltip += `\nDatabase: ${connInfo.database}`; }
-		if (connInfo.schema) { tooltip += `\nSchema: ${connInfo.schema}`; }
+		if (connInfo.role) { tooltip += `\nRole: ${connInfo.role}`; }
+		if (connInfo.account) { tooltip += `\nAccount: ${connInfo.account}`; }
 	}
 
 	return tooltip;
