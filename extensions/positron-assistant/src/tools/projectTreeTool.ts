@@ -21,10 +21,7 @@ type DirectoryInfo = {
 interface ProjectTreeInput {
 	include?: string[];
 	exclude?: string[];
-	replaceDefaultExcludes?: boolean;
-	excludeSettings?: string;
-	ignoreFiles?: boolean;
-	filterResults?: boolean;
+	skipDefaultExcludes?: boolean;
 	maxFiles?: number;
 }
 
@@ -52,7 +49,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		log.debug(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree for ${workspaceFolders.length} workspace folders...`);
 
 		// Parse the input options
-		const { include, exclude, replaceDefaultExcludes, excludeSettings, ignoreFiles, filterResults, maxFiles } = options.input;
+		const { include, exclude, skipDefaultExcludes, maxFiles } = options.input;
 
 		log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
 
@@ -62,7 +59,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		const filePatterns = include;
 		const excludePatterns = exclude ?? [];
-		const filterResultsEnabled = filterResults ?? DEFAULT_FILTER_RESULTS;
+		const skipExcludes = skipDefaultExcludes ?? false;
 		// Don't allow more than the default max files, even if a higher value is provided,
 		// to prevent excessive token usage.
 		const filesLimit = maxFiles && maxFiles < DEFAULT_MAX_FILES
@@ -70,21 +67,23 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			: DEFAULT_MAX_FILES;
 
 		let findOptions: vscode.FindFiles2Options;
-		if (filterResultsEnabled) {
+		if (skipExcludes) {
+			// Skip all automatic exclusions, only use explicit exclude patterns
 			findOptions = {
-				exclude: replaceDefaultExcludes ? excludePatterns : [...DEFAULT_EXCLUDE_PATTERNS, ...excludePatterns],
-				useIgnoreFiles: ignoreFiles === false ? undefined : DEFAULT_USE_IGNORE_FILES,
-				useExcludeSettings: excludeSettings ? getExcludeSettingOptions(excludeSettings) : DEFAULT_EXCLUDE_SETTING_OPTIONS,
-			};
-		} else {
-			findOptions = {
-				exclude: undefined,
+				exclude: excludePatterns.length > 0 ? excludePatterns : undefined,
 				useIgnoreFiles: {
 					local: false,
 					parent: false,
 					global: false,
 				},
 				useExcludeSettings: vscode.ExcludeSettingOptions.None,
+			};
+		} else {
+			// Apply all exclusions: default patterns + .gitignore + VS Code settings
+			findOptions = {
+				exclude: [...DEFAULT_EXCLUDE_PATTERNS, ...excludePatterns],
+				useIgnoreFiles: DEFAULT_USE_IGNORE_FILES,
+				useExcludeSettings: DEFAULT_EXCLUDE_SETTING_OPTIONS,
 			};
 		}
 
@@ -94,7 +93,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			exclude: findOptions.exclude,
 			useIgnoreFiles: findOptions.useIgnoreFiles,
 			useExcludeSettings: findOptions.useExcludeSettings,
-			filterResults: filterResultsEnabled,
+			skipDefaultExcludes: skipExcludes,
 			maxFiles: filesLimit,
 		}, null, 2)}`);
 
@@ -112,6 +111,28 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		}
 
 		const totalFiles = workspaceTrees.reduce((sum, obj) => sum + obj.totalFiles, 0);
+
+		// If we applied default exclusions and results are very sparse, run the search without the default exclusions and note if there are additional, excluded results in the tool results.
+		let excludedCount = 0;
+		const sparseThreshold = Math.floor(filesLimit / 10);
+		if (!skipExcludes && totalFiles < sparseThreshold) {
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] Default exclusions were applied and results were very sparse. Searching files again to determine how many files were excluded...`);
+			const allMatchesUris = await vscode.workspace.findFiles2(
+				filePatterns,
+				{
+					exclude: excludePatterns.length > 0 ? excludePatterns : undefined,
+					useIgnoreFiles: {
+						local: false,
+						parent: false,
+						global: false,
+					},
+					useExcludeSettings: vscode.ExcludeSettingOptions.None,
+				},
+				token
+			);
+			const totalFilesBeforeExclusion = allMatchesUris.length;
+			excludedCount = totalFilesBeforeExclusion - totalFiles;
+		}
 
 		log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree constructed with ${totalFiles} items across ${workspaceFolders.length} workspace folders.`);
 		if (totalFiles > filesLimit) {
@@ -134,31 +155,19 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			resultParts.push(new vscode.LanguageModelTextPart(truncationMessage));
 		}
 
+		// Inform the model if results were excluded
+		if (excludedCount > 0) {
+			const exclusionMessage = `${excludedCount} result${excludedCount === 1 ? ' was' : 's were'} excluded. Set \`skipDefaultExcludes\` to \`true\` to include them.`;
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] ${exclusionMessage}`);
+			resultParts.push(new vscode.LanguageModelTextPart(exclusionMessage));
+		}
+
 		return new vscode.LanguageModelToolResult(resultParts);
 	}
 });
 
-/**
- * Convert from the tool input excludeSettings to the vscode.ExcludeSettingOptions
- * @param excludeSetting The exclude setting from the tool input.
- * @returns The corresponding vscode.ExcludeSettingOptions value.
- */
-function getExcludeSettingOptions(excludeSetting: string) {
-	switch (excludeSetting) {
-		case '':
-			return vscode.ExcludeSettingOptions.None;
-		case 'filesExclude':
-			return vscode.ExcludeSettingOptions.FilesExclude;
-		case 'searchAndFilesExclude':
-			return vscode.ExcludeSettingOptions.SearchAndFilesExclude;
-		default:
-			return DEFAULT_EXCLUDE_SETTING_OPTIONS;
-	}
-}
-
 // Default values for the project tree tool options
 const DEFAULT_MAX_FILES = 50;
-const DEFAULT_FILTER_RESULTS = true;
 const DEFAULT_USE_IGNORE_FILES = { local: true, parent: true, global: true };
 const DEFAULT_EXCLUDE_SETTING_OPTIONS = vscode.ExcludeSettingOptions.SearchAndFilesExclude;
 const DEFAULT_EXCLUDE_PATTERNS = [
