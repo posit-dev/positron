@@ -44,10 +44,13 @@ runs:
           npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
         fi
 
-    - name: Install Playwright (build-level)
+    - name: Install Playwright browsers
       if: ${{ inputs.skip-playwright-if-cached != 'true' }}
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=8192 -p playwright-install
+      run: |
+        echo "Cache miss - Installing all Playwright browsers"
+        # Installs chromium, firefox, webkit with system dependencies
+        npx playwright install --with-deps
 
     - name: Set permissions on SUID sandbox helper
       shell: bash

@@ -1,9 +1,8 @@
 name: "Test: E2E Cross Browser"
 
 on:
-  pull_request:
-      branches:
-        - main
+  schedule:
+    - cron: '0 10 * * *' # 4:00 AM CST = 10:00 UTC.
   workflow_dispatch:
     inputs:
       run_e2e_firefox:
@@ -37,7 +36,7 @@ on:
         - never
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -57,7 +56,6 @@ jobs:
       report_currents: false
       allow_soft_fail: false
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
-
 
   e2e-webkit:
     name: e2e
@@ -83,24 +81,24 @@ jobs:
       allow_soft_fail: false
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
-  # slack-notify:
-  #   if: always()
-  #   needs:
-  #     [e2e-firefox, e2e-webkit, e2e-edge]
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'always' }}
-  #   steps:
-  #     - run: |
-  #         echo "Will notify on: ${{ env.notify_on }}"
-  #     - name: Set short SHA
-  #       run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-  #     - name: Notify Slack
-  #       uses: midleman/slack-workflow-status@v3.1.2
-  #       with:
-  #         gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-  #         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-  #         slack_channel: "#test-slack-notifications" # "#positron-test-results"
-  #         notify_on: ${{ env.notify_on }}
-  #         filter_jobs: '^(?!.*build$).*'
-  #         custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
+  slack-notify:
+    if: always()
+    needs:
+      [e2e-firefox, e2e-webkit, e2e-edge]
+    runs-on: ubuntu-latest
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'always' }}
+    steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#test-slack-notifications" # "#positron-test-results"
+          notify_on: ${{ env.notify_on }}
+          filter_jobs: '^(?!.*build$).*'
+          custom_title: "E2E Cross Browser Tests — `main` (commit ${{ github.sha }})"

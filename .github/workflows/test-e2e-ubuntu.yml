@@ -216,13 +216,6 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Install Playwright browsers
-        if: ${{ steps.restore-caches.outputs.cache-playwright-hit != 'true' }}
-        run: |
-          echo "Cache miss - Installing all Playwright browsers"
-          # Installs chromium, firefox, webkit with system dependencies
-          npx playwright install --with-deps
-
       - name: Run Playwright Tests
         shell: bash
         env:
