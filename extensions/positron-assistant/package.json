@@ -745,10 +745,10 @@
         }
       },
       {
-        "name": "addNotebookCell",
-        "displayName": "Add Notebook Cell",
-        "modelDescription": "Add a new cell (code or markdown) to the active notebook at the specified position. Use this when the user wants to insert new cells or create new content in the notebook.",
-        "toolReferenceName": "addNotebookCell",
+        "name": "editNotebookCells",
+        "displayName": "Edit Notebook Cells",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellId and content), or operation='delete' to remove cells (requires cellId). Use index=-1 to append cells at the end when adding.",
+        "toolReferenceName": "editNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant",
@@ -757,85 +757,45 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "type": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "add",
+                "update",
+                "delete"
+              ],
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell."
+            },
+            "cellType": {
               "type": "string",
               "enum": [
                 "code",
                 "markdown"
               ],
-              "description": "Type of cell to add. Use 'code' for executable code cells, 'markdown' for documentation cells."
+              "description": "Type of cell to create. Required when operation is 'add'. Use 'code' for executable cells, 'markdown' for documentation."
             },
             "index": {
               "type": "number",
-              "description": "Position to insert the cell (0-based). Use -1 to append at the end of the notebook."
+              "description": "Position to insert the cell (0-based). Required when operation is 'add'. Use -1 to append at the end."
             },
             "content": {
               "type": "string",
-              "description": "Initial content for the new cell."
-            }
-          },
-          "required": [
-            "type",
-            "index",
-            "content"
-          ]
-        }
-      },
-      {
-        "name": "updateNotebookCell",
-        "displayName": "Update Notebook Cell",
-        "modelDescription": "Update the content of an existing cell in the active notebook. Use this when the user wants to modify or edit existing cell content.",
-        "toolReferenceName": "updateNotebookCell",
-        "canBeReferencedInPrompt": true,
-        "tags": [
-          "positron-assistant",
-          "requires-notebook"
-        ],
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "cellId": {
-              "type": "string",
-              "description": "ID of the cell to update. This uniquely identifies the cell in the notebook."
+              "description": "Cell content. Required when operation is 'add' or 'update'."
             },
-            "content": {
-              "type": "string",
-              "description": "New content for the cell. This will replace the existing cell content."
-            }
-          },
-          "required": [
-            "cellId",
-            "content"
-          ]
-        }
-      },
-      {
-        "name": "getCellOutputs",
-        "displayName": "Get Cell Outputs",
-        "modelDescription": "Get the outputs from a specific cell in the active notebook. Use this when the user wants to see the results or output from a previously executed cell.",
-        "toolReferenceName": "getCellOutputs",
-        "canBeReferencedInPrompt": true,
-        "tags": [
-          "positron-assistant",
-          "requires-notebook"
-        ],
-        "inputSchema": {
-          "type": "object",
-          "properties": {
             "cellId": {
               "type": "string",
-              "description": "ID of the cell to get outputs from. This uniquely identifies the cell in the notebook."
+              "description": "ID of the cell to modify or delete. Required when operation is 'update' or 'delete'."
             }
           },
           "required": [
-            "cellId"
+            "operation"
           ]
         }
       },
       {
         "name": "getNotebookCells",
         "displayName": "Get Notebook Cells",
-        "modelDescription": "Get information about cells in the active notebook. If cellIds are provided, returns only those specific cells. If no cellIds are provided, returns all cells in the notebook. Use this when the user asks about cells that are not currently selected, or wants to see the full notebook structure.",
+        "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by ID or all cells if cellIds is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIds), or operation='getMetadata' to get only cell status information without content.",
         "toolReferenceName": "getNotebookCells",
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -845,14 +805,27 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "get",
+                "getSelected",
+                "getOutputs",
+                "getMetadata"
+              ],
+              "description": "Type of read operation. 'get' retrieves cell info, 'getSelected' gets only selected cells, 'getOutputs' retrieves cell execution outputs, 'getMetadata' gets only status/execution info without content."
+            },
             "cellIds": {
               "type": "array",
-              "description": "Optional array of cell IDs to retrieve. If omitted, all cells are returned.",
+              "description": "Optional array of cell IDs to retrieve. Required for 'getOutputs'. For 'get', returns all cells if omitted. Ignored for 'getSelected' and 'getMetadata'.",
               "items": {
                 "type": "string"
               }
             }
-          }
+          },
+          "required": [
+            "operation"
+          ]
         }
       }
     ]

@@ -62,7 +62,7 @@ class PromptTemplateEngine {
 				: xml.node('kernel', 'No kernel attached');
 
 			// Format selected cells (already XML from formatCells)
-			notebookSelectedCellsInfo = formatCells(ctx.selectedCells, 'Selected Cell');
+			notebookSelectedCellsInfo = formatCells({ cells: ctx.selectedCells, prefix: 'Selected Cell' });
 
 			// Format all cells if available as XML
 			if (ctx.allCells && ctx.allCells.length > 0) {
@@ -70,7 +70,7 @@ class PromptTemplateEngine {
 				const description = isFullNotebook
 					? 'All cells in notebook (notebook has fewer than 20 cells)'
 					: 'Context window around selected cells (notebook has 20+ cells)';
-				notebookAllCellsInfo = xml.node('all-cells', formatCells(ctx.allCells, 'Cell'), {
+				notebookAllCellsInfo = xml.node('all-cells', formatCells({ cells: ctx.allCells, prefix: 'Cell' }), {
 					description
 				});
 			}

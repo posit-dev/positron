@@ -1025,10 +1025,10 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 		const contextCells = allCells.slice(startIndex, endIndex);
 
 		// Format current cell separately to highlight it
-		const currentCellText = formatCells([currentCell], 'Current Cell');
+		const currentCellText = formatCells({ cells: [currentCell], prefix: 'Current Cell' });
 
 		// Format context cells (including current cell in the window)
-		const contextCellsText = formatCells(contextCells, 'Cell');
+		const contextCellsText = formatCells({ cells: contextCells, prefix: 'Cell' });
 
 		// Get file path for context
 		const notebookPath = uriToString(vscode.Uri.parse(notebookContext.uri));
