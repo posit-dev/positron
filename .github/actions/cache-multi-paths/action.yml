@@ -106,3 +106,15 @@ runs:
           compiled-v3-${{ runner.os }}-main-
           compiled-v3-${{ runner.os }}-
 
+    - name: Log cache results
+      if: always()
+      shell: bash
+      run: |
+        echo "Cache results:"
+        echo "  npm:         hit=${{ steps['cache-npm'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-npm'].outputs['cache-matched-key'] || steps['cache-npm'].outputs['cache-primary-key'] || 'n/a' }}"
+        echo "  ark:         hit=${{ steps['cache-binaries-ark'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-binaries-ark'].outputs['cache-matched-key'] || steps['cache-binaries-ark'].outputs['cache-primary-key'] || 'n/a' }}"
+        echo "  kallichore:  hit=${{ steps['cache-binaries-kallichore'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-binaries-kallichore'].outputs['cache-matched-key'] || steps['cache-binaries-kallichore'].outputs['cache-primary-key'] || 'n/a' }}"
+        echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-playwright'].outputs['cache-matched-key'] || steps['cache-playwright'].outputs['cache-primary-key'] || 'n/a' }}"
+        echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-electron'].outputs['cache-matched-key'] || steps['cache-electron'].outputs['cache-primary-key'] || 'n/a' }}"
+        echo "  builtins:    hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-builtins'].outputs['cache-matched-key'] || steps['cache-builtins'].outputs['cache-primary-key'] || 'n/a' }}"
+        echo "  compiled:    hit=${{ steps['cache-compiled'].outputs['cache-hit'] || 'false' }} matched=${{ steps['cache-compiled'].outputs['cache-matched-key'] || steps['cache-compiled'].outputs['cache-primary-key'] || 'n/a' }}"

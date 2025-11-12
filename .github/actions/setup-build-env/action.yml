@@ -32,10 +32,10 @@ runs:
         mkdir -p "$NPM_CONFIG_CACHE"
 
         # Run all npm ci commands in parallel for faster installation. Store PIDs to check for failures.
+        # Note: extensions/ is handled by root's postinstall script to avoid race conditions with native modules
         pids=()
         npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
         npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
-        npm --prefix extensions ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
         npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
         npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
 

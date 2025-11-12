@@ -239,13 +239,36 @@ function generateRehWebPackageJson() {
 }
 
 // --- Start Positron ---
-// Check if parallel installation is enabled
+// Parallel Installation Support
+// =============================
+// This section enables faster builds by installing npm dependencies in parallel
+// instead of sequentially. It respects all the same configuration options as the
+// sequential version (build flags, remote configs, etc.) and is opt-in via env var.
+//
+// How it works:
+// - Collects all 60+ directories that need npm install
+// - Runs them in parallel with a configurable concurrency limit (default: 10)
+// - Uses async spawn instead of blocking spawnSync for parallelism
+//
+// Safety:
+// - Only enabled when POSITRON_PARALLEL_INSTALL=1 (CI only)
+// - Falls back to original sequential behavior when not set
+// - Respects all existing configuration (compiler flags, Docker, special handling)
+// - Fails fast if any installation fails
+//
+// Configuration:
+// - POSITRON_PARALLEL_INSTALL=1 : Enable parallel mode
+// - POSITRON_NPM_CONCURRENCY=N  : Max concurrent installs (default: 10)
+
 if (process.env['POSITRON_PARALLEL_INSTALL'] === '1') {
 	const concurrency = parseInt(process.env['POSITRON_NPM_CONCURRENCY'] || '10', 10);
 	console.log(`Using parallel installation (concurrency: ${concurrency})`);
 
-	// Collect all tasks
-	const tasks = [];
+	// Separate parent directories from nested ones to avoid race conditions
+	// Parent dirs (build, extensions, remote) must install first to compile native modules
+	const parentTasks = [];
+	const nestedTasks = [];
+
 	for (let dir of dirs) {
 		if (dir === '') continue;
 
@@ -279,14 +302,30 @@ if (process.env['POSITRON_PARALLEL_INSTALL'] === '1') {
 				setNpmrcConfig('remote', opts.env);
 			}
 		}
-		tasks.push({ dir, opts });
+
+		// Separate parent directories from nested subdirectories
+		// Parents (extensions, remote, etc.) contain shared node_modules with native addons
+		// that must be compiled before their children can use them
+		const isParent = dir === 'build' || dir === 'extensions' || dir === 'remote' ||
+			dir === 'remote/web' || dir === 'remote/reh-web';
+		if (isParent) {
+			parentTasks.push({ dir, opts });
+		} else {
+			nestedTasks.push({ dir, opts });
+		}
 	}
 
-	// Run in parallel
-	runBatch(tasks, concurrency).then(() => {
+	// Install parents first, then nested directories in parallel
+	(async () => {
+		console.log(`Installing ${parentTasks.length} parent directories first...`);
+		await runBatch(parentTasks, concurrency);
+
+		console.log(`Installing ${nestedTasks.length} nested directories in parallel...`);
+		await runBatch(nestedTasks, concurrency);
+
 		cp.execSync('git config pull.rebase merges');
 		cp.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
-	}).catch((err) => {
+	})().catch((err) => {
 		console.error('Parallel installation failed:', err);
 		process.exit(1);
 	});
