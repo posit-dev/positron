@@ -402,6 +402,11 @@
         "vendor": "openai-compatible",
         "displayName": "Custom Provider",
         "managementCommand": "positron-assistant.configureModels"
+      },
+      {
+        "vendor": "posit-ai",
+        "displayName": "Posit AI",
+        "managementCommand": "positron-assistant.configureModels"
       }
     ],
     "languageModelTools": [

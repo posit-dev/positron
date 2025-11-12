@@ -95,7 +95,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context);
+		await registerModelWithAPI(modelConfig, context, storage);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -141,7 +141,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	const registeredModels: ModelConfig[] = [];
 	for (const config of modelConfigs) {
 		try {
-			await registerModelWithAPI(config, context);
+			await registerModelWithAPI(config, context, storage);
 			registeredModels.push(config);
 		} catch (e) {
 			vscode.window.showErrorMessage(`${e}`);
@@ -159,13 +159,13 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext) {
+async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		// const models = availableModels.get(modelConfig.provider);
 		// const modelsCopy = models ? [...models] : [];
 
-		const languageModel = newLanguageModelChatProvider(modelConfig, context);
+		const languageModel = newLanguageModelChatProvider(modelConfig, context, storage);
 
 		try {
 			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);

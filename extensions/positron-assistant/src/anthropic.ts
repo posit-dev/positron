@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
-import { ModelConfig } from './config';
+import { ModelConfig, SecretStorage } from './config';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages, promptTsxPartToString } from './utils.js';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
@@ -73,6 +73,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	constructor(
 		private readonly _config: ModelConfig,
 		private readonly _context?: vscode.ExtensionContext,
+		private readonly _storage?: SecretStorage,
 		client?: Anthropic,
 	) {
 		this.name = _config.name;
@@ -380,7 +381,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 }
 
-function toTokenUsage(usage: Anthropic.MessageDeltaUsage): TokenUsage {
+export function toTokenUsage(usage: Anthropic.MessageDeltaUsage): TokenUsage {
 	const input = usage.input_tokens || 0;
 	const output = usage.output_tokens || 0;
 	const cache_creation = usage.cache_creation_input_tokens || 0;
@@ -396,7 +397,7 @@ function toTokenUsage(usage: Anthropic.MessageDeltaUsage): TokenUsage {
 	};
 }
 
-function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
+export function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
 	let userMessageIndex = 0;
 	let assistantMessageIndex = 0;
 	const anthropicMessages = processMessages(messages).map((message) => {
@@ -576,7 +577,7 @@ function languageModelPromptTsxPartToAnthropicBlock(
 	);
 }
 
-function toAnthropicTools(tools: readonly vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
+export function toAnthropicTools(tools: readonly vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
 	if (tools.length === 0) {
 		return [];
 	}
@@ -606,7 +607,7 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 	};
 }
 
-function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anthropic.ToolChoice | undefined {
+export function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anthropic.ToolChoice | undefined {
 	switch (toolMode) {
 		case vscode.LanguageModelChatToolMode.Auto:
 			return {
@@ -625,7 +626,7 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 /*
  * Convert a set of system messages into an anthropic system prompt.
  */
-function toAnthropicSystem(
+export function toAnthropicSystem(
 	messages: vscode.LanguageModelChatMessage2[],
 	cacheSystem = true,
 	system?: string | vscode.LanguageModelTextPart[],
@@ -671,7 +672,7 @@ function toAnthropicSystemParts(message: vscode.LanguageModelChatMessage2, sourc
 	return content;
 }
 
-function isCacheControlOptions(options: unknown): options is CacheControlOptions {
+export function isCacheControlOptions(options: unknown): options is CacheControlOptions {
 	if (typeof options !== 'object' || options === null) {
 		return false;
 	}
