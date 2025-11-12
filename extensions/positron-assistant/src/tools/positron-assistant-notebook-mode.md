@@ -235,7 +235,22 @@ All notebook tools have `canBeReferencedInPrompt: true` and can be referenced us
 
 **Location:** `src/md/prompts/chat/`
 
-Notebook instructions are split into mode-specific prompt files following the established pattern of mode-specific prompts (e.g., `agent.md`, `ask.md`, `edit.md`):
+Notebook instructions are split into mode-specific prompt files following the established pattern of mode-specific prompts (e.g., `agent.md`, `ask.md`, `edit.md`).
+
+### `notebook.md`
+- **Mode:** `notebook`
+- **Order:** 70
+- **Description:** Prompt for inline chat within notebook cells
+- **Content:**
+  - **Streaming edits section** (when `streamingEdits` is true):
+    - Primary directive: Direct code insertion is the goal
+    - Reordered response priorities: PREFERRED is direct `<replaceString>` tags, only allow brief answers for informational questions
+    - Anti-pattern examples showing wrong (code examples) vs. right (direct insertion) approaches
+    - Behavioral rules: Default to action, be confident, respect context
+  - **Non-streaming section** (when `streamingEdits` is false):
+    - Standard notebook assistance guidelines
+    - Focus on analysis, modification, execution, debugging
+    - General notebook context awareness
 
 ### `notebook-mode-ask.md`
 - **Mode:** `ask`
@@ -298,6 +313,19 @@ This separation ensures:
 3. Follows existing Positron Assistant architectural patterns (matching agent.md, python.md, terminal.md)
 4. Makes mode-specific behavior explicit and maintainable
 5. Information-dense prompts with strong emphasis on critical rules
+
+**Inline Editing Issue Resolution:**
+
+The original `notebook.md` prompt provided general guidelines but didn't prioritize direct code insertion, causing the model to prefer showing code examples over direct insertion when editing notebook cells inline.
+
+**Solution:** Modified `notebook.md` (mode: `notebook`, order 70) to include streaming-edit-specific instructions using `{{@if(positron.streamingEdits)}}`:
+- When streaming edits are enabled: Direct code insertion becomes the PREFERRED default action
+- When streaming edits are not enabled: Standard notebook assistance behavior is maintained
+- Provides clear anti-patterns showing wrong (examples) vs. right (direct insertion) approaches
+- Emphasizes "default to action" behavioral rules
+- Only affects inline editing in notebook cells; regular file editing (`editor.md`) remains unchanged
+
+This approach uses the existing `notebook.md` file (specifically for `mode: notebook`) with conditional content based on the streaming edits context.
 
 When the prompt renderer loads prompts for a specific mode, it automatically includes the appropriate notebook prompt file based on the YAML `mode` header.
 
@@ -455,7 +483,30 @@ The chosen approach (attached context detection) provides the cleanest implement
    - Edit mode loads `notebook-mode-edit.md`
    - Agent mode loads `notebook-mode-agent.md`
 
-#### Test 6: Tool Referencing
+#### Test 6: Inline Cell Editing Behavior
+1. **Open a notebook** in Positron notebook editor
+2. **Click into a code cell** to activate it
+3. **Trigger inline chat** (Ctrl+I or Cmd+I)
+4. **Test direct insertion behavior (notebook-specific):**
+   - Request: "add error handling" → Should insert try-except block directly into cell
+   - Request: "add a print statement" → Should insert print() directly at cursor
+   - Request: "fix this bug" (with code selected) → Should replace selected code with fix
+   - Request: "add logging" → Should insert logging code directly
+5. **Test informational responses:**
+   - Request: "what does this code do?" → Should provide brief explanation without edits
+   - Request: "explain this function" → Should provide explanation without edits
+6. **Verify notebook-specific behavior:**
+   - Code modification requests result in direct `<replaceString>` tag usage (visible in logs)
+   - No intermediate "here's an example" responses
+   - Minimal explanation unless code change is complex
+   - Edits respect cursor position and surrounding code style
+7. **Verify regular file behavior unchanged:**
+   - Open a `.py` or `.R` file (not a notebook)
+   - Trigger inline chat (Ctrl+I)
+   - Should see standard three-option behavior (brief answer, replaceString, or empty string)
+   - Regular files should NOT exhibit aggressive insertion behavior
+
+#### Test 7: Tool Referencing
 1. **Attach notebook file** using `@filename.ipynb` in chat
 2. **Open notebook** in Positron notebook editor
 3. **Test `#` syntax referencing:**
