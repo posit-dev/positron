@@ -97,8 +97,12 @@ runs:
         path: |
           out
           out-build
-        # Cache based on source files and package.json (dependencies affect compilation)
-        key: compiled-v2-${{ runner.os }}-${{ hashFiles('src/**/*.ts', 'src/**/*.js', 'extensions/**/*.ts', 'package.json', 'tsconfig*.json') }}
+        # Use commit SHA for fast, deterministic cache keys. Restore-keys enable incremental compilation
+        # by reusing the most recent build from the same branch, then main, then any previous build.
+        # TypeScript's incremental compilation handles the delta efficiently.
+        key: compiled-v3-${{ runner.os }}-${{ github.sha }}
         restore-keys: |
-          compiled-v2-${{ runner.os }}-
+          compiled-v3-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-
+          compiled-v3-${{ runner.os }}-main-
+          compiled-v3-${{ runner.os }}-
 

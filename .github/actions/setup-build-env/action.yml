@@ -28,10 +28,29 @@ runs:
         # fall back to a repository-local .npm-cache directory so local dev runs work too.
         NPM_CONFIG_CACHE=${NPM_CONFIG_CACHE:-.npm-cache}
         mkdir -p "$NPM_CONFIG_CACHE"
-        # Run root and test/e2e npm ci in parallel for faster installation
-        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" &
-        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" &
-        wait
+
+        # Run all npm ci commands in parallel for faster installation. Store PIDs to check for failures.
+        pids=()
+        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix extensions ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+
+        # Wait for all npm ci processes and check exit codes
+        exit_code=0
+        for pid in "${pids[@]}"; do
+          if ! wait "$pid"; then
+            exit_code=1
+          fi
+        done
+
+        if [ $exit_code -ne 0 ]; then
+          echo "One or more npm ci commands failed"
+          exit 1
+        fi
+
+        echo "All npm ci commands completed successfully"
 
     - name: Compile and Electron download
       shell: bash
