@@ -58,6 +58,8 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 				return <Bedrock className='language-model icon' />;
 			case 'openai-api':
 				return <OpenAI className='language-model icon' />;
+			case 'posit-ai':
+				return <div className={`language-model icon button-icon codicon codicon-positron-assistant`} />;
 			case 'error':
 				return <div className={`language-model icon button-icon codicon codicon-error`} />;
 			case 'echo':
