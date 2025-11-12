@@ -89,7 +89,7 @@ export const EditToolData: IToolData = {
 			},
 			filePath: {
 				type: 'string',
-				description: 'An absolute path to the file to edit, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1.',
+				description: 'A path to the file to edit, or the URI of a untitled, not yet named, file, such as `untitled:Untitled-1`. Only use absolute paths if you are sure the file you are editing is outside of the current workspace, otherwise use relative paths.',
 			},
 			code: {
 				type: 'string',
