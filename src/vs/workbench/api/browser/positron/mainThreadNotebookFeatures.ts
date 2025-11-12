@@ -193,21 +193,8 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 
 		const cellKind = type === NotebookCellType.Code ? CellKind.Code : CellKind.Markup;
 
-		// Add cell and enter edit mode
-		instance.addCell(cellKind, index, true);
-
-		// Get the newly added cell
-		const cells = instance.cells.get();
-		const newCell = cells[index];
-
-		if (!newCell) {
-			throw new Error('Failed to add cell');
-		}
-
-		// Update content if provided
-		if (content) {
-			await this.$updateCellContent(notebookUri, index, content);
-		}
+		// Add cell with content and enter edit mode
+		instance.addCell(cellKind, index, true, content);
 
 		return index;
 	}
