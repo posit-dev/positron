@@ -10,6 +10,7 @@ import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
 import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
 import { DocumentCreateTool } from './tools/documentCreate.js';
+import { registerNotebookTools } from './tools/notebookTools.js';
 
 
 /**
@@ -411,6 +412,14 @@ export function registerAssistantTools(
 	context.subscriptions.push(ProjectTreeTool);
 
 	context.subscriptions.push(DocumentCreateTool);
+
+	// Register notebook-specific tools for notebook participant
+	// These tools enable the assistant to interact with Jupyter notebooks:
+	// - RunNotebookCells: Execute cells and retrieve outputs
+	// - AddNotebookCell: Add new code or markdown cells
+	// - UpdateNotebookCell: Update existing cell content
+	// - GetCellOutputs: Retrieve outputs from executed cells
+	registerNotebookTools(context);
 }
 
 /**

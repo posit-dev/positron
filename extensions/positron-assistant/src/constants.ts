@@ -34,5 +34,15 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
  */
 export const TOOL_TAG_REQUIRES_ACTIVE_SESSION = 'requires-session';
 
+/**
+ * Tag used by tools to indicate that a Positron notebook must be active in order to use the tool.
+ *
+ * This tag provides fail-fast filtering in getEnabledTools to quickly exclude notebook tools
+ * when no notebook is attached with an active editor. Individual notebook tools have additional
+ * mode-based checks (Ask/Edit/Agent) in the switch statement for more granular control.
+ * See extensions/positron-assistant/src/api.ts (getEnabledTools function) for filtering logic.
+ */
+export const TOOL_TAG_REQUIRES_NOTEBOOK = 'requires-notebook';
+
 /** Max number of variables to include in language session context */
 export const MAX_CONTEXT_VARIABLES = 400;

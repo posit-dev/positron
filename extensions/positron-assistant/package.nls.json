@@ -35,6 +35,7 @@
 	"configuration.maxOutputTokens.description": "Override the maximum output tokens for specific language models. The key selects a model ID (partial match supported); the value is the maximum output tokens for that model.",
 	"configuration.followups.enable.description": "Enable suggested followup prompts after chat responses.",
 	"configuration.consoleActions.enable.description": "Enable Positron Assistant console actions, such as Fix and Explain.",
+	"configuration.notebookMode.enable.description": "Enable notebook-aware mode in chat pane. When enabled, Positron Assistant provides specialized tools and context for working with Positron Notebooks, including cell manipulation, execution, and analysis capabilities.",
 	"configuration.toolErrors.propagate.description": "Allow tool errors to propagate and halt the conversation, showing VS Code's error diagnostics. When disabled (default), tool errors are caught and returned to the model as conversational results.",
 	"configuration.providerTimeout.description": "Specifies the timeout in seconds when signing in to a provider.",
 	"configuration.alwaysIncludeCopilotTools.description": "Allow any model in Positron Assistant to use tools provided by GitHub Copilot.\n\nThis requires that you are signed into Copilot, and **may send data to Copilot models regardless of the selected provider**.\n\nSee also: `#chat.useCopilotParticipantsWithOtherProviders#`",

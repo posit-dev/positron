@@ -289,6 +289,14 @@
               "preview"
             ]
           },
+          "positron.assistant.notebookMode.enable": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%configuration.notebookMode.enable.description%",
+            "tags": [
+              "experimental"
+            ]
+          },
           "positron.assistant.toolErrors.propagate": {
             "type": "boolean",
             "default": false,
@@ -697,6 +705,116 @@
               }
             }
           }
+        }
+      },
+      {
+        "name": "runNotebookCells",
+        "displayName": "Run Notebook Cells",
+        "modelDescription": "Execute one or more cells in the active notebook and return their outputs. Use this when the user wants to run code cells or see the results of cell execution.",
+        "toolReferenceName": "runNotebookCells",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-notebook"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cellIndices": {
+              "type": "array",
+              "description": "Array of cell indices to execute. Each index is a 0-based position of the cell in the notebook.",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "cellIndices"
+          ]
+        }
+      },
+      {
+        "name": "editNotebookCells",
+        "displayName": "Edit Notebook Cells",
+        "modelDescription": "Perform edit operations on notebook cells. Use operation='add' to create new cells (requires cellType, index, and content), operation='update' to modify existing cells (requires cellIndex and content), or operation='delete' to remove cells (requires cellIndex). Use index=-1 to append cells at the end when adding.",
+        "toolReferenceName": "editNotebookCells",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-notebook"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "add",
+                "update",
+                "delete"
+              ],
+              "description": "Type of edit operation to perform. 'add' creates a new cell, 'update' modifies existing cell content, 'delete' removes a cell."
+            },
+            "cellType": {
+              "type": "string",
+              "enum": [
+                "code",
+                "markdown"
+              ],
+              "description": "Type of cell to create. Required when operation is 'add'. Use 'code' for executable cells, 'markdown' for documentation."
+            },
+            "index": {
+              "type": "number",
+              "description": "Position to insert the cell (0-based). Required when operation is 'add'. Use -1 to append at the end."
+            },
+            "content": {
+              "type": "string",
+              "description": "Cell content. Required when operation is 'add' or 'update'."
+            },
+            "cellIndex": {
+              "type": "number",
+              "description": "Index of the cell to modify or delete (0-based). Required when operation is 'update' or 'delete'."
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        }
+      },
+      {
+        "name": "getNotebookCells",
+        "displayName": "Get Notebook Cells",
+        "modelDescription": "Retrieve information about notebook cells with flexible operations. Use operation='get' to fetch specific cells by index or all cells if cellIndices is omitted, operation='getSelected' to get only selected cells, operation='getOutputs' to retrieve cell execution outputs (requires cellIndices), or operation='getMetadata' to get only cell status information without content.",
+        "toolReferenceName": "getNotebookCells",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-notebook"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "enum": [
+                "get",
+                "getSelected",
+                "getOutputs",
+                "getMetadata"
+              ],
+              "description": "Type of read operation. 'get' retrieves cell info, 'getSelected' gets only selected cells, 'getOutputs' retrieves cell execution outputs, 'getMetadata' gets only status/execution info without content."
+            },
+            "cellIndices": {
+              "type": "array",
+              "description": "Optional array of cell indices to retrieve (0-based). Required for 'getOutputs'. For 'get', returns all cells if omitted. Ignored for 'getSelected' and 'getMetadata'.",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "required": [
+            "operation"
+          ]
         }
       }
     ]

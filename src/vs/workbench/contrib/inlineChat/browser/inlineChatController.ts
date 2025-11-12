@@ -60,6 +60,10 @@ import { isNotebookContainingCellEditor as isNotebookWithCellEditor } from '../.
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { ICellEditOperation } from '../../notebook/common/notebookCommon.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
+// --- Start Positron ---
+import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
+import { updateLocationForPositronNotebooks } from './positronNotebookUtils.js';
+// --- End Positron ---
 import { CTX_INLINE_CHAT_EDITING, CTX_INLINE_CHAT_REQUEST_IN_PROGRESS, CTX_INLINE_CHAT_RESPONSE_TYPE, CTX_INLINE_CHAT_VISIBLE, INLINE_CHAT_ID, InlineChatConfigKeys, InlineChatResponseType } from '../common/inlineChat.js';
 import { HunkInformation, Session, StashedSession } from './inlineChatSession.js';
 import { IInlineChatSession2, IInlineChatSessionService } from './inlineChatSessionService.js';
@@ -218,7 +222,10 @@ export class InlineChatController1 implements IEditorContribution {
 		@INotebookEditorService notebookEditorService: INotebookEditorService,
 		@ISharedWebContentExtractorService private readonly _webContentExtractorService: ISharedWebContentExtractorService,
 		@IFileService private readonly _fileService: IFileService,
-		@IChatAttachmentResolveService private readonly _chatAttachmentResolveService: IChatAttachmentResolveService
+		@IChatAttachmentResolveService private readonly _chatAttachmentResolveService: IChatAttachmentResolveService,
+		// --- Start Positron ---
+		@IPositronNotebookService positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 	) {
 		this._ctxVisible = CTX_INLINE_CHAT_VISIBLE.bindTo(contextKeyService);
 		this._ctxEditing = CTX_INLINE_CHAT_EDITING.bindTo(contextKeyService);
@@ -260,6 +267,13 @@ export class InlineChatController1 implements IEditorContribution {
 					}
 				}
 			}
+
+			// --- Start Positron ---
+			// Check if this editor is part of a Positron notebook
+			if (!notebookEditor) {
+				updateLocationForPositronNotebooks(this._editor, location, positronNotebookService);
+			}
+			// --- End Positron ---
 
 			const zone = _instaService.createInstance(InlineChatZoneWidget, location, undefined, { editor: this._editor, notebookEditor });
 			this._store.add(zone);
@@ -1275,6 +1289,9 @@ export class InlineChatController2 implements IEditorContribution {
 		@IInlineChatSessionService inlineChatService: IInlineChatSessionService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IChatService chatService: IChatService,
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 	) {
 
 		const ctxInlineChatVisible = CTX_INLINE_CHAT_VISIBLE.bindTo(contextKeyService);
@@ -1330,6 +1347,12 @@ export class InlineChatController2 implements IEditorContribution {
 					}
 				}
 			}
+			// --- Start Positron ---
+			// Check if this editor is part of a Positron notebook
+			if (!notebookEditor) {
+				updateLocationForPositronNotebooks(this._editor, location, this._positronNotebookService);
+			}
+			// --- End Positron ---
 
 			const result = this._instaService.createInstance(InlineChatZoneWidget,
 				location,
