@@ -32,14 +32,41 @@ runs:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        POSITRON_PARALLEL_INSTALL: '1'
+        POSITRON_NPM_CONCURRENCY: '10'
+        NPM_CONFIG_AUDIT: 'false'
+        NPM_CONFIG_FUND: 'false'
+        NPM_CONFIG_UPDATE_NOTIFIER: 'false'
       run: |
         # Install node-gyp; this is required by some packages
         npm i --global node-gyp
 
-        # Perform the main npm command; this installs all Node packages and
-        # dependencies
-        npm ci --fetch-timeout 120000
-        npm --prefix test/e2e ci
+        # Configure npm cache
+        NPM_CONFIG_CACHE=${NPM_CONFIG_CACHE:-.npm-cache}
+        mkdir -p "$NPM_CONFIG_CACHE"
+
+        # Run npm ci commands in parallel for faster installation
+        # Note: extensions/ is handled by root's postinstall script to avoid race conditions with native modules
+        pids=()
+        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+
+        # Wait for all and check exit codes
+        exit_code=0
+        for pid in "${pids[@]}"; do
+          if ! wait "$pid"; then
+            exit_code=1
+          fi
+        done
+
+        if [ $exit_code -ne 0 ]; then
+          echo "One or more npm ci commands failed"
+          exit 1
+        fi
+
+        echo "All npm ci commands completed successfully"
 
     - name: Compile and Download
       shell: bash

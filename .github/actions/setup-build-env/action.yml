@@ -1,5 +1,10 @@
 name: "Setup Build Environment, Install Dependencies, and Compile App"
 description: "Installs necessary system dependencies."
+inputs:
+  skip-playwright-if-cached:
+    description: "If 'true', skip running Playwright installer (use cache-hit output from cache-multi-paths)."
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
@@ -9,15 +14,53 @@ runs:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        POSITRON_PARALLEL_INSTALL: '1'
+        POSITRON_NPM_CONCURRENCY: '10'
+        # Do not override NPM_CONFIG_CACHE here; let the cache composite set it (e.g. .npm-cache).
+        NPM_CONFIG_AUDIT: 'false'
+        NPM_CONFIG_FUND: 'false'
+        NPM_CONFIG_UPDATE_NOTIFIER: 'false'
       run: |
-        # Perform the main npm command; this installs all Node packages and
-        # dependencies
-        npm ci --fetch-timeout 120000
-        npm --prefix test/e2e ci
+        # Ensure npm cache dir exists and is writable. The composite action that restores
+        # caches should set NPM_CONFIG_CACHE (for example, to .npm-cache). If it isn't set,
+        # fall back to a repository-local .npm-cache directory so local dev runs work too.
+        NPM_CONFIG_CACHE=${NPM_CONFIG_CACHE:-.npm-cache}
+        mkdir -p "$NPM_CONFIG_CACHE"
 
-    - name: Compile and Download
+        # Run all npm ci commands in parallel for faster installation. Store PIDs to check for failures.
+        # Note: extensions/ is handled by root's postinstall script to avoid race conditions with native modules
+        pids=()
+        npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+        npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 --cache "$NPM_CONFIG_CACHE" & pids+=($!)
+
+        # Wait for all npm ci processes and check exit codes
+        exit_code=0
+        for pid in "${pids[@]}"; do
+          if ! wait "$pid"; then
+            exit_code=1
+          fi
+        done
+
+        if [ $exit_code -ne 0 ]; then
+          echo "One or more npm ci commands failed"
+          exit 1
+        fi
+
+        echo "All npm ci commands completed successfully"
+
+    - name: Compile and Electron download
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=8192 -lp compile "electron x64" playwright-install
+      run: npm exec -- npm-run-all --max_old_space_size=8192 -p compile "electron x64"
+
+    - name: Install Playwright browsers
+      if: ${{ inputs.skip-playwright-if-cached != 'true' }}
+      shell: bash
+      run: |
+        echo "Cache miss - Installing all Playwright browsers"
+        # Installs chromium, firefox, webkit with system dependencies
+        npx playwright install --with-deps
 
     - name: Set permissions on SUID sandbox helper
       shell: bash
@@ -28,5 +71,6 @@ runs:
         stat $ELECTRON_ROOT/chrome-sandbox
 
     # Downloads Builtin Extensions (needed for integration & e2e testing)
-    - shell: bash
+    - name: Prelaunch
+      shell: bash
       run: npm run prelaunch

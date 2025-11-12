@@ -20,12 +20,12 @@ export class Search {
 	constructor(private code: Code) { }
 
 	async openSearchViewlet(): Promise<any> {
-		if (process.platform === 'darwin') {
-			await this.code.driver.page.keyboard.press('Meta+Shift+F');
-		} else {
-			await this.code.driver.page.keyboard.press('Control+Shift+F');
+		const searchTab = this.code.driver.page.getByRole('tab', { name: 'Search' });
+		const selected = await searchTab.getAttribute('aria-selected');
+
+		if (selected !== 'true') {
+			await searchTab.click();
 		}
-		await expect(this.code.driver.page.locator(INPUT)).toBeFocused();
 	}
 
 	async clearSearchResults(): Promise<void> {

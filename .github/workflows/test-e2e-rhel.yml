@@ -28,11 +28,6 @@ on:
         description: "The tags to use for Currents recording."
         default: "@rhel"
         type: string
-      report_testrail:
-        required: false
-        description: "Whether or not to report results to TestRail."
-        default: false
-        type: boolean
       report_currents:
         required: false
         description: "Whether or not to report results to Currents."
