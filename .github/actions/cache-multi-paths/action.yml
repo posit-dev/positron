@@ -78,9 +78,9 @@ runs:
         path: |
           ~/.cache/ms-playwright
         # Include the e2e lockfile too in case test/e2e has its own playwright deps
-        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        key: playwright-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
         restore-keys: |
-          playwright-${{ runner.os }}-
+          playwright-v2-${{ runner.os }}-
 
     - name: Cache Electron binary
       id: cache-electron
