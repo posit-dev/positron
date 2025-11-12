@@ -10,10 +10,38 @@ import * as os from 'os';
 import * as toml from 'toml';
 import { traceError, traceInfo, traceWarn } from './logging.js';
 
+
+/**
+ * Converts snake_case keys to camelCase in an object recursively
+ * @param obj Object with snake_case keys
+ * @returns Object with camelCase keys
+ */
+export function toCamelCase<T>(obj: Record<string, any>): T {
+	if (!obj || typeof obj !== 'object' || obj === null) {
+		return obj as T;
+	}
+
+	const result: Record<string, any> = {};
+
+	for (const [key, value] of Object.entries(obj)) {
+		// Convert snake_case to camelCase
+		const camelKey = key.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+
+		// Handle nested objects recursively
+		result[camelKey] = value && typeof value === 'object' && !Array.isArray(value)
+			? toCamelCase(value)
+			: value;
+	}
+
+	return result as T;
+}
+
 /**
  * Interface representing Snowflake connections parsed from the TOML file.
  * Based on Snowflake Node.js Driver connection parameters.
  * See: https://docs.snowflake.com/en/developer-guide/node-js/nodejs-driver-options
+ *
+ * Note: TOML snake_case keys are automatically converted to camelCase.
  */
 export interface SnowflakeConnectionOptions {
 	[connectionName: string]: {
@@ -85,6 +113,8 @@ export function getDefaultSnowflakeConnectionsPaths(): string[] {
 
 /**
  * Reads and parses the Snowflake connections.toml file from the path specified in the settings.
+ * Snake_case keys are automatically converted to camelCase.
+ *
  * @returns The parsed connections object or undefined if the file doesn't exist or can't be parsed.
  */
 export async function getSnowflakeConnectionOptions(): Promise<SnowflakeConnectionOptions | undefined> {
@@ -124,7 +154,9 @@ export async function getSnowflakeConnectionOptions(): Promise<SnowflakeConnecti
 			if (fs.existsSync(pathToTry)) {
 				traceInfo(`Loading Snowflake connections from: ${pathToTry}`);
 				const content = fs.readFileSync(pathToTry, 'utf8');
-				return toml.parse(content) as SnowflakeConnectionOptions;
+				const rawConnections = toml.parse(content);
+				// Convert snake_case keys to camelCase
+				return toCamelCase<SnowflakeConnectionOptions>(rawConnections);
 			}
 		} catch (error) {
 			traceError(`Error reading or parsing Snowflake connections file at ${pathToTry}: ${error}`);

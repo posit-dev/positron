@@ -570,6 +570,7 @@ async function generateCode(
 				databaseName,
 				schemaName,
 				tableName,
+				connections
 			);
 		case 'r':
 			return await getRCodeForSnowflakeTable(
@@ -604,39 +605,33 @@ async function getPythonCodeForSnowflakeTable(
 	database?: string,
 	schema?: string,
 	table?: string,
+	connections?: any
 ): Promise<{ code: string; dependencies: string[] }> {
-	const dependencies = ['snowflake-connector-python[secure-local-storage]', 'pandas'];
+	const dependencies = ['snowflake-connector-python[secure-local-storage, pandas]', 'pandas'];
+	const absoluteTablePath = [database, schema, table].filter(part => part).join('.');
+	const label = absoluteTablePath ? `For ${absoluteTablePath}` : `For ${connName}`;
 
-	let code = `# pip install ${dependencies.join(' ')}\n`;
+	// Prepare SQL query based on whether a table was provided
+	const query = table
+		? `SELECT * FROM ${table} LIMIT 10`
+		: `SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()`;
 
-	if (database && schema && table) {
-		code += `# For ${connName}.${database}.${schema}.${table}\n`;
-	} else {
-		code += `# For ${connName}\n`;
-	}
+	// Use a single template literal for the entire Python code
+	const code = `# pip install ${dependencies.join(' ')}
+# ${label}
 
-	code += `\nimport snowflake.connector as sc`;
+import snowflake.connector
 
-	// complete the connection parameters dict and establish connection
-	code += `\nwith sc.connect(connection_name="${connName}") as conn:
+with snowflake.connector.connect(connection_name="${connName}") as conn:
 \twith conn.cursor() as cursor:
-\t\tcursor.execute("USE WAREHOUSE ${warehouse}")
-`;
-	// add query to fetch data from the specified table or default info
-	if (table) {
-		code += `\t\tquery = "SELECT * FROM ${table} LIMIT 10"`;
-	} else {
-		code += `\t\tquery = "SELECT CURRENT_VERSION(), CURRENT_USER(), CURRENT_ROLE()"`;
-	}
-
-	// execute the query
-	code += `\n\t\tcursor.execute(query)
-\t\t\# Fetch and display results
-\t\tresults = cursor.fetchall()
+${connections?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE
+${warehouse}")\n`}\t\tquery = "${query}"
+\t\t# Execute the query
+\t\tcursor.execute(query)
+\t\t# Fetch and display results
+\t\tresults = cursor.fetch_pandas_all()
 \t\tfor row in results:
-\t\t	print(row)
-
-\t\tcursor.close()
+\t\t\tprint(row)
 `;
 
 	return { code, dependencies };
