@@ -528,7 +528,8 @@ async function generateCode(
 	}
 
 	// If we don't have a warehouse from the connection profile, prompt for it
-	if (!warehouse) {
+	// Also make sure that we don't have a placeholder value
+	if (!warehouse || warehouse === '<none selected>') {
 		warehouse = await vscode.window.showInputBox({
 			prompt: l10n.t('Enter your warehouse name'),
 			placeHolder: 'my-warehouse'
