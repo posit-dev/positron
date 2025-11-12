@@ -116,6 +116,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		let excludedCount = 0;
 		const sparseThreshold = Math.floor(filesLimit / 10);
 		if (!skipExcludes && totalFiles < sparseThreshold) {
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] Default exclusions were applied and results were very sparse. Searching files again to determine how many files were excluded...`);
 			let totalFilesBeforeExclusion = 0;
 			for (const folder of workspaceFolders) {
 				const allMatchesUris = await vscode.workspace.findFiles2(
@@ -159,7 +160,8 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		// Inform the model if results were excluded
 		if (excludedCount > 0) {
-			const exclusionMessage = `${excludedCount} result${excludedCount === 1 ? ' was' : 's were'} excluded. Set \`skipDefaultExcludes\` to \`true\` to see them.`;
+			const exclusionMessage = `${excludedCount} result${excludedCount === 1 ? ' was' : 's were'} excluded. Set \`skipDefaultExcludes\` to \`true\` to include them.`;
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] ${exclusionMessage}`);
 			resultParts.push(new vscode.LanguageModelTextPart(exclusionMessage));
 		}
 
