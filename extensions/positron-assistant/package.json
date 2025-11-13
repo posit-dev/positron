@@ -204,6 +204,12 @@
         "title": "%commands.collectDiagnostics.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.resetState",
+        "title": "%commands.resetState.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "configuration": [

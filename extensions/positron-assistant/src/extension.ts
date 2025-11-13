@@ -26,6 +26,7 @@ import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
 import { BufferedLogOutputChannel } from './logBuffer.js';
+import { resetAssistantState } from './reset.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -288,6 +289,14 @@ function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 	);
 }
 
+function registerResetCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.resetState', async () => {
+			await resetAssistantState(context);
+		})
+	);
+}
+
 async function toggleInlineCompletions() {
 	// Get the current value of the setting
 	const config = vscode.workspace.getConfiguration('positron.assistant');
@@ -349,6 +358,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerCollectDiagnosticsCommand(context);
+	registerResetCommand(context);
 	registerPromptManagement(context);
 
 	// Register mapped edits provider

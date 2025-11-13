@@ -253,8 +253,9 @@ function getExtensionInfo(): string {
 
 	return `- Positron Assistant: ${assistantInfo}
 - GitHub Copilot Chat: ${copilotInfo}
-- VS Code: ${vscode.version}
-- Positron: ${vscode.env.appName}
+- Positron: ${positron.version} (build ${positron.buildNumber})
+- Code OSS: ${vscode.version}
+- Application: ${vscode.env.appName}
 - OS: ${process.platform} ${process.arch}${vscode.env.remoteName ? `\n- Remote: ${vscode.env.remoteName}` : ''}`;
 }
 
