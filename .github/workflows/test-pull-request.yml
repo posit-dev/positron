@@ -17,7 +17,7 @@ jobs:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     with:
-      shards: 6
+      shards: 10
       pr_number: ${{ github.event.pull_request.number }}
       repository: ${{ github.repository }}
     secrets: inherit
@@ -32,7 +32,7 @@ jobs:
       currents_tags: "pull-request,electron/ubuntu,${{ needs.setup.outputs.tags }}"
       report_currents: false
       upload_logs: true
-      shards: 6 # ${{ needs.setup.outputs.shards }}
+      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
       matrix: ${{ needs.setup.outputs.matrix }}
       workers: 3
       allow_soft_fail: false
@@ -55,18 +55,18 @@ jobs:
   e2e-ubuntu-browser:
     needs: [setup]
     if: ${{ needs.setup.outputs.web_tag_found == 'true' }}
-    name: e2e
+    name: chromium
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ${{ needs.setup.outputs.tags }}
-      display_name: "chromium (ubuntu)"
+      display_name: "ubuntu"
       project: "e2e-chromium"
       currents_tags: "pull-request,chromium/ubuntu,${{ needs.setup.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      shards: 6 # ${{ needs.setup.outputs.shards }}
+      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
       matrix: ${{ needs.setup.outputs.matrix }}
       workers: 1
       allow_soft_fail: false

@@ -36,7 +36,7 @@ on:
       display_name:
         required: false
         description: "The name of the job as it will appear in the GitHub Actions UI."
-        default: "e2e-linux-run"
+        default: "e2e-ubuntu-run"
         type: string
       currents_tags:
         required: false
@@ -80,8 +80,8 @@ permissions:
   packages: read
 
 jobs:
-  e2e-linux-run:
-    name: ${{ inputs.display_name || 'e2e-linux-run' }} ${{ matrix.shard }}/${{ inputs.shards }}
+  e2e-ubuntu-run:
+    name: ${{ inputs.display_name || 'e2e-ubuntu-run' }} ${{ matrix.shard }}/${{ inputs.shards }}
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     strategy:
@@ -328,7 +328,7 @@ jobs:
   merge-reports:
     name: report
     if: ${{ always() }}
-    needs: [e2e-linux-run]
+    needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -336,8 +336,8 @@ jobs:
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ inputs.aws-role-to-assume }}
-          aws-region: ${{ inputs.aws-region }}
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
