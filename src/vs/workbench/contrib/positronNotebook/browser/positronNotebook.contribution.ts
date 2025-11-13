@@ -52,6 +52,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookAction2 } from './NotebookAction2.js';
 import './AskAssistantAction.js'; // Register AskAssistantAction
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
@@ -337,22 +338,6 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 	PositronNotebookEditorSerializer
 );
 
-/**
- * Base class for notebook-level actions that operate on IPositronNotebookInstance.
- * Automatically gets the active notebook instance and passes it to the _run method.
- */
-abstract class NotebookAction2 extends Action2 {
-	override run(accessor: ServicesAccessor, ...args: any[]): void {
-		const editorService = accessor.get(IEditorService);
-		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
-		if (!activeNotebook) {
-			return;
-		}
-		this.runNotebookAction(activeNotebook, accessor);
-	}
-
-	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
-}
 
 //#region Notebook Commands
 registerAction2(class extends NotebookAction2 {

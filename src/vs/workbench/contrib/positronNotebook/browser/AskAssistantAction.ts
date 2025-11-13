@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -14,12 +14,11 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
-import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { NotebookAction2 } from './NotebookAction2.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
 
@@ -72,7 +71,7 @@ const ASSISTANT_PREDEFINED_ACTIONS: PromptQuickPickItem[] = [
  * Action that opens the assistant chat with predefined prompt options for the notebook.
  * Users can select a predefined prompt or type their own custom prompt.
  */
-export class AskAssistantAction extends Action2 {
+export class AskAssistantAction extends NotebookAction2 {
 	constructor() {
 		super({
 			id: ASK_ASSISTANT_ACTION_ID,
@@ -97,17 +96,10 @@ export class AskAssistantAction extends Action2 {
 		});
 	}
 
-	override async run(accessor: ServicesAccessor): Promise<void> {
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const notificationService = accessor.get(INotificationService);
-		const editorService = accessor.get(IEditorService);
-
-		// Get the active notebook instance
-		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
-		if (!activeNotebook) {
-			return;
-		}
 
 		// Create cancellation token source for AI generation requests (In case
 		// the user closes the quick pick before the suggestions are generated)
@@ -135,7 +127,7 @@ export class AskAssistantAction extends Action2 {
 				// Generate suggestions and update the quick pick in place
 				this.handleGenerateSuggestions(
 					quickPick,
-					activeNotebook,
+					notebook,
 					commandService,
 					notificationService,
 					cancellationTokenSource.token
