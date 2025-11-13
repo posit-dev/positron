@@ -56,8 +56,9 @@ export async function generateNotebookSuggestions(
 		allCells
 	};
 
-	// Build context summary using unified serialization helper
-	const contextSummary = buildContextSummary(contextWithAllCells);
+	// Build serialized context
+	const serialized = serializeNotebookContext(contextWithAllCells, { wrapInNotebookContext: true });
+	const contextSummary = serialized.fullContext || '';
 
 	// Load the system prompt template
 	const systemPrompt = await fs.promises.readFile(
@@ -103,24 +104,6 @@ export async function generateNotebookSuggestions(
 		);
 		return [];
 	}
-}
-
-/**
- * Build a context summary string from notebook context using XML format (matching chat mode)
- *
- * This function uses the unified serialization helper which handles filtering internally.
- * Filtering rules:
- * - Small notebooks (< 20 cells): All cells
- * - Large notebooks (>= 20 cells) with selection: Sliding window around selected cells
- * - Large notebooks (>= 20 cells) without selection: Sliding window around recent executed cells
- */
-function buildContextSummary(
-	context: positron.notebooks.NotebookContext
-): string {
-	const serialized = serializeNotebookContext(context, { wrapInNotebookContext: true });
-
-	// Return the full wrapped context (guaranteed to be present when wrapInNotebookContext is true)
-	return serialized.fullContext || '';
 }
 
 /**
