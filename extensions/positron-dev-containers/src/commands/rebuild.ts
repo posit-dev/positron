@@ -9,7 +9,7 @@ import { getLogger } from '../common/logger';
 import { Workspace } from '../common/workspace';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { RebuildStateManager, PendingRebuild } from '../common/rebuildState';
-import { encodeDevContainerAuthority } from '../common/authorityEncoding';
+import { encodeDevContainerAuthority, decodeDevContainerAuthority } from '../common/authorityEncoding';
 import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
 
 /**
@@ -188,49 +188,30 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 
 		const remoteWorkspaceFolder = workspaceFolder.uri.fsPath;
 
-		// Extract container ID from remote authority
+		// Extract container identifier from remote authority
 		const authority = workspaceFolder.uri.authority;
 		if (!authority) {
 			await vscode.window.showErrorMessage('Cannot determine container ID');
 			return;
 		}
 
-		// Authority format: dev-container+<containerId>
-		const containerId = authority.replace(/^(dev-container|attached-container)\+/, '');
-		if (!containerId) {
-			await vscode.window.showErrorMessage('Cannot determine container ID from authority');
+		// Decode authority to get identifier (may be workspace name or container ID)
+		const decoded = decodeDevContainerAuthority(authority);
+		if (!decoded) {
+			await vscode.window.showErrorMessage('Cannot decode container authority');
 			return;
 		}
+		const identifier = decoded.containerId; // May be workspace name like "js-devc"
 
 		logger.debug(`=== REBUILD: Looking up workspace mapping ===`);
-		logger.debug(`Container ID: ${containerId}`);
+		logger.debug(`Authority identifier: ${identifier}`);
 		logger.debug(`Remote name: ${vscode.env.remoteName}`);
 		logger.debug(`Extension context: ${context.extensionMode === vscode.ExtensionMode.Production ? 'production' : 'development'}`);
 
-		// Get local workspace folder from WorkspaceMappingStorage
-		// NOTE: This might not work in remote context due to separate extension hosts!
-		let localWorkspaceFolder: string | undefined;
-
-		try {
-			const storage = WorkspaceMappingStorage.getInstance();
-			logger.debug(`Storage instance retrieved, checking for container ${containerId}`);
-
-			const allMappings = storage.getAll();
-			logger.debug(`Total mappings in storage: ${allMappings.length}`);
-			allMappings.forEach(m => {
-				logger.debug(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath}`);
-			});
-
-			const mapping = storage.get(containerId);
-			if (mapping?.localWorkspacePath) {
-				localWorkspaceFolder = mapping.localWorkspacePath;
-				logger.info(`Found local workspace path from storage: ${localWorkspaceFolder}`);
-			} else {
-				logger.warn(`No mapping found for container ${containerId} in storage`);
-			}
-		} catch (error) {
-			logger.error('Failed to get workspace mapping from storage', error);
-		}
+		// Resolve workspace name to actual container ID and get local workspace path
+		const resolved = resolveContainerIdentifier(identifier, logger);
+		const containerId = resolved.containerId;
+		let localWorkspaceFolder = resolved.localWorkspacePath;
 
 		// Fallback 1: Try environment variables (legacy support)
 		if (!localWorkspaceFolder) {
@@ -311,48 +292,29 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 
 		const remoteWorkspaceFolder = workspaceFolder.uri.fsPath;
 
-		// Extract container ID from remote authority
+		// Extract container identifier from remote authority
 		const authority = workspaceFolder.uri.authority;
 		if (!authority) {
 			await vscode.window.showErrorMessage('Cannot determine container ID');
 			return;
 		}
 
-		// Authority format: dev-container+<containerId>
-		const containerId = authority.replace(/^(dev-container|attached-container)\+/, '');
-		if (!containerId) {
-			await vscode.window.showErrorMessage('Cannot determine container ID from authority');
+		// Decode authority to get identifier (may be workspace name or container ID)
+		const decoded = decodeDevContainerAuthority(authority);
+		if (!decoded) {
+			await vscode.window.showErrorMessage('Cannot decode container authority');
 			return;
 		}
+		const identifier = decoded.containerId; // May be workspace name like "js-devc"
 
 		logger.debug(`=== REBUILD NO CACHE: Looking up workspace mapping ===`);
-		logger.debug(`Container ID: ${containerId}`);
+		logger.debug(`Authority identifier: ${identifier}`);
 		logger.debug(`Remote name: ${vscode.env.remoteName}`);
 
-		// Get local workspace folder from WorkspaceMappingStorage
-		// NOTE: This might not work in remote context due to separate extension hosts!
-		let localWorkspaceFolder: string | undefined;
-
-		try {
-			const storage = WorkspaceMappingStorage.getInstance();
-			logger.debug(`Storage instance retrieved, checking for container ${containerId}`);
-
-			const allMappings = storage.getAll();
-			logger.debug(`Total mappings in storage: ${allMappings.length}`);
-			allMappings.forEach(m => {
-				logger.debug(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath}`);
-			});
-
-			const mapping = storage.get(containerId);
-			if (mapping?.localWorkspacePath) {
-				localWorkspaceFolder = mapping.localWorkspacePath;
-				logger.info(`Found local workspace path from storage: ${localWorkspaceFolder}`);
-			} else {
-				logger.warn(`No mapping found for container ${containerId} in storage`);
-			}
-		} catch (error) {
-			logger.error('Failed to get workspace mapping from storage', error);
-		}
+		// Resolve workspace name to actual container ID and get local workspace path
+		const resolved = resolveContainerIdentifier(identifier, logger);
+		const containerId = resolved.containerId;
+		let localWorkspaceFolder = resolved.localWorkspacePath;
 
 		// Fallback: Try environment variables (legacy support)
 		if (!localWorkspaceFolder) {
@@ -404,4 +366,53 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 			`Failed to initiate rebuild: ${error instanceof Error ? error.message : String(error)}`
 		);
 	}
+}
+
+/**
+ * Helper function to resolve a workspace name or identifier to a container ID
+ */
+function resolveContainerIdentifier(identifier: string, logger: any): { containerId: string; localWorkspacePath: string | undefined } {
+	let containerId: string = identifier;
+	let localWorkspaceFolder: string | undefined;
+
+	try {
+		const storage = WorkspaceMappingStorage.getInstance();
+		logger.debug(`Storage instance retrieved, checking for identifier ${identifier}`);
+
+		const allMappings = storage.getAll();
+		logger.debug(`Total mappings in storage: ${allMappings.length}`);
+		allMappings.forEach(m => {
+			logger.debug(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath} (remote: ${m.remoteWorkspacePath})`);
+		});
+
+		// First try direct lookup (if identifier is already a container ID)
+		let mapping = storage.get(identifier);
+
+		// If not found, try to resolve workspace name to container ID
+		if (!mapping) {
+			logger.debug(`No direct mapping found, trying to resolve workspace name to container ID`);
+			for (const [cid, m] of storage.entries()) {
+				if (m.remoteWorkspacePath) {
+					const workspaceName = m.remoteWorkspacePath.split('/').filter(s => s).pop();
+					if (workspaceName === identifier) {
+						logger.info(`Resolved workspace name "${identifier}" to container ${cid}`);
+						containerId = cid;
+						mapping = m;
+						break;
+					}
+				}
+			}
+		}
+
+		if (mapping?.localWorkspacePath) {
+			localWorkspaceFolder = mapping.localWorkspacePath;
+			logger.info(`Found local workspace path from storage: ${localWorkspaceFolder}`);
+		} else {
+			logger.warn(`No mapping found for identifier ${identifier} in storage`);
+		}
+	} catch (error) {
+		logger.error('Failed to get workspace mapping from storage', error);
+	}
+
+	return { containerId, localWorkspacePath: localWorkspaceFolder };
 }

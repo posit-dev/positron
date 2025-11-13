@@ -8,6 +8,8 @@ import * as positron from 'positron';
 import { getLogger } from '../common/logger';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { DevContainerTreeItem } from '../views/devContainersTreeProvider';
+import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
+import { encodeDevContainerAuthority } from '../common/authorityEncoding';
 
 /**
  * Attach to a running container selected from a quick pick menu
@@ -54,17 +56,31 @@ export async function attachToRunningContainer(): Promise<void> {
 
 		const containerInfo = selected.container;
 
-		// Get the workspace folder to open
-		const workspaceFolder = containerInfo.workspaceFolder;
-		if (!workspaceFolder) {
+		// Get the workspace folder to open (this is the LOCAL folder path from container labels)
+		const localWorkspaceFolder = containerInfo.workspaceFolder;
+		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage('No workspace folder found for this container');
 			return;
 		}
 
-		// Build the remote URI
-		const remoteUri = vscode.Uri.parse(
-			`vscode-remote://dev-container+${containerInfo.containerId}/workspaces/${workspaceFolder.split(/[/\\]/).pop()}`
-		);
+		// Determine the remote workspace path
+		const workspaceName = localWorkspaceFolder.split(/[/\\]/).pop();
+		const remoteWorkspaceFolder = `/workspaces/${workspaceName}`;
+
+		// Store workspace mapping BEFORE opening the window
+		// This ensures the mapping is available when the ConnectionManager resolves the authority
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			await storage.set(containerInfo.containerId, localWorkspaceFolder, remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${containerInfo.containerId} -> ${localWorkspaceFolder}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping', error);
+			// Continue anyway - ConnectionManager will try to determine paths from container
+		}
+
+		// Build the remote URI using workspace name for display
+		const authority = encodeDevContainerAuthority(workspaceName, workspaceName);
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${remoteWorkspaceFolder}`);
 
 		logger.info(`Opening container in new window: ${remoteUri.toString()}`);
 
@@ -107,18 +123,30 @@ export async function attachToContainerInCurrentWindow(treeItem?: DevContainerTr
 			);
 		}
 
-		// Get the workspace folder to open
-		const workspaceFolder = containerInfo.workspaceFolder;
-		if (!workspaceFolder) {
+		// Get the workspace folder to open (this is the LOCAL folder path from container labels)
+		const localWorkspaceFolder = containerInfo.workspaceFolder;
+		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage('No workspace folder found for this container');
 			return;
 		}
 
-		// Build the remote URI
-		// Format: vscode-remote://dev-container+<containerId>/path/to/workspace
-		const remoteUri = vscode.Uri.parse(
-			`vscode-remote://dev-container+${containerInfo.containerId}/workspaces/${workspaceFolder.split(/[/\\]/).pop()}`
-		);
+		// Determine the remote workspace path
+		const workspaceName = localWorkspaceFolder.split(/[/\\]/).pop();
+		const remoteWorkspaceFolder = `/workspaces/${workspaceName}`;
+
+		// Store workspace mapping BEFORE opening the window
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			await storage.set(containerInfo.containerId, localWorkspaceFolder, remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${containerInfo.containerId} -> ${localWorkspaceFolder}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping', error);
+			// Continue anyway - ConnectionManager will try to determine paths from container
+		}
+
+		// Build the remote URI using workspace name for display
+		const authority = encodeDevContainerAuthority(workspaceName, workspaceName);
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${remoteWorkspaceFolder}`);
 
 		logger.info(`Opening container in current window: ${remoteUri.toString()}`);
 
@@ -161,17 +189,30 @@ export async function attachToContainerInNewWindow(treeItem?: DevContainerTreeIt
 			);
 		}
 
-		// Get the workspace folder to open
-		const workspaceFolder = containerInfo.workspaceFolder;
-		if (!workspaceFolder) {
+		// Get the workspace folder to open (this is the LOCAL folder path from container labels)
+		const localWorkspaceFolder = containerInfo.workspaceFolder;
+		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage('No workspace folder found for this container');
 			return;
 		}
 
-		// Build the remote URI
-		const remoteUri = vscode.Uri.parse(
-			`vscode-remote://dev-container+${containerInfo.containerId}/workspaces/${workspaceFolder.split(/[/\\]/).pop()}`
-		);
+		// Determine the remote workspace path
+		const workspaceName = localWorkspaceFolder.split(/[/\\]/).pop();
+		const remoteWorkspaceFolder = `/workspaces/${workspaceName}`;
+
+		// Store workspace mapping BEFORE opening the window
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+			await storage.set(containerInfo.containerId, localWorkspaceFolder, remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${containerInfo.containerId} -> ${localWorkspaceFolder}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping', error);
+			// Continue anyway - ConnectionManager will try to determine paths from container
+		}
+
+		// Build the remote URI using workspace name for display
+		const authority = encodeDevContainerAuthority(workspaceName, workspaceName);
+		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${remoteWorkspaceFolder}`);
 
 		logger.info(`Opening container in new window: ${remoteUri.toString()}`);
 
