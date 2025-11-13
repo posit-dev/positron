@@ -273,6 +273,41 @@ function getAssistantLogs(includeTraceLevel: boolean = false): string {
 }
 
 /**
+ * Get Copilot Language Server logs.
+ * Attempts to access the buffered log target from the Copilot Chat extension.
+ */
+function getCopilotLogs(): string {
+	try {
+		const copilotExt = vscode.extensions.getExtension('github.copilot-chat');
+		if (!copilotExt || !copilotExt.isActive) {
+			return 'GitHub Copilot Chat extension is not active';
+		}
+
+		// Access the log target getter function from the extension exports
+		const getCopilotLogTarget = (copilotExt.exports as any)?.getCopilotLogTarget;
+		if (typeof getCopilotLogTarget !== 'function') {
+			return 'Unable to access Copilot Chat logs (buffered logging may not be enabled)';
+		}
+
+		const logTarget = getCopilotLogTarget();
+		if (!logTarget || typeof logTarget.formatEntriesForDiagnostics !== 'function') {
+			return 'Unable to access Copilot Chat logs (log target not initialized)';
+		}
+
+		// LogLevel.Debug = 2 in Copilot Chat's LogLevel enum (Off=0, Trace=1, Debug=2, Info=3, Warning=4, Error=5)
+		const logs = logTarget.formatEntriesForDiagnostics(500, 2);
+
+		if (logs === 'No log entries available') {
+			return 'No Copilot Chat log entries captured yet';
+		}
+
+		return logs;
+	} catch (error) {
+		return `Error retrieving Copilot Chat logs: ${error instanceof Error ? error.message : String(error)}`;
+	}
+}
+
+/**
  * Get Copilot Language Server log reference.
  * Note: We can't access Copilot's logs directly as they're in a separate extension.
  */
@@ -356,8 +391,17 @@ export async function collectDiagnostics(context: vscode.ExtensionContext): Prom
 	await appendText(editor, getAssistantLogs());
 	await appendText(editor, '\n```\n\n');
 
-	await appendText(editor, '## GitHub Copilot Logs\n\n');
-	await appendText(editor, getCopilotLogReference());
+	await appendText(editor, '## GitHub Copilot Chat Logs\n\n');
+	await appendText(editor, 'Recent log entries (last 500, debug level and above):\n\n');
+	const copilotLogs = getCopilotLogs();
+	if (copilotLogs.includes('extension is not active') || copilotLogs.includes('Unable to access')) {
+		await appendText(editor, `> ${copilotLogs}\n\n`);
+		await appendText(editor, getCopilotLogReference());
+	} else {
+		await appendText(editor, '```\n');
+		await appendText(editor, copilotLogs);
+		await appendText(editor, '\n```\n');
+	}
 	await appendText(editor, '\n\n');
 
 	// Footer
