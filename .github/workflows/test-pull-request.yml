@@ -31,7 +31,7 @@ jobs:
       display_name: "ubuntu"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.setup.outputs.tags }}"
       report_currents: false
-      upload_logs: true
+      upload_logs: false
       shards: ${{ fromJSON(needs.setup.outputs.shards) }}
       matrix: ${{ needs.setup.outputs.matrix }}
       workers: 3

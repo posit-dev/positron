@@ -209,6 +209,12 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Download previous .last-run.json from S3
+        continue-on-error: true
+        run: |
+          mkdir -p blob-report
+          aws s3 cp s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json blob-report/.last-run.json || echo "No previous .last-run.json found, starting fresh"
+
       - name: Preload Node.js Binary
         if: ${{ inputs.project != 'e2e-electron' }}
         run: npm run gulp node
@@ -366,6 +372,7 @@ jobs:
           npx playwright merge-reports \
             --reporter=html \
             --reporter=@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"] \
+            --last-run-file=../.last-run.json \
             ../all-blob-reports
 
       - name: Upload merged HTML report
@@ -375,3 +382,13 @@ jobs:
           name: ${{ inputs.project }}-html-report
           path: playwright-merge/playwright-report/
           retention-days: 30
+
+      - name: Upload .last-run.json to S3 for next run
+        if: always()
+        run: |
+          if [ -f .last-run.json ]; then
+            aws s3 cp .last-run.json s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json
+            echo "✓ Uploaded .last-run.json to S3 for future shard optimization"
+          else
+            echo "⚠ No .last-run.json generated - patch may not be applied correctly"
+          fi
