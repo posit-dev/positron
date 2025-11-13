@@ -19,6 +19,7 @@ import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
 
@@ -113,7 +114,7 @@ export class AskAssistantAction extends Action2 {
 		const cancellationTokenSource = new CancellationTokenSource();
 
 		// Create and configure the quick pick (items can include separators)
-		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>();
+		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>({ useSeparators: true });
 		quickPick.title = localize('positronNotebook.assistant.quickPick.title', 'Assistant');
 		quickPick.description = localize(
 			'positronNotebook.assistant.quickPick.description',
@@ -230,8 +231,8 @@ export class AskAssistantAction extends Action2 {
 	 * @returns Promise that resolves when suggestions are generated or cancelled
 	 */
 	private async handleGenerateSuggestions(
-		quickPick: IQuickPick<PromptQuickPickItem>,
-		notebook: any,
+		quickPick: IQuickPick<PromptQuickPickItem, { useSeparators: true }>,
+		notebook: IPositronNotebookInstance,
 		commandService: ICommandService,
 		notificationService: INotificationService,
 		token: CancellationToken
@@ -258,7 +259,7 @@ export class AskAssistantAction extends Action2 {
 
 		quickPick.items = [
 			...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
-			separator as any,
+			separator,
 			loadingItem
 		];
 
@@ -294,7 +295,7 @@ export class AskAssistantAction extends Action2 {
 			// Replace the loading item with actual suggestions
 			quickPick.items = [
 				...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
-				separator as any,
+				separator,
 				...suggestions
 			];
 
