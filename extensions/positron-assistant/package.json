@@ -678,6 +678,62 @@
         }
       },
       {
+        "name": "getDirectoryStructure",
+        "displayName": "Get Directory Structure",
+        "modelDescription": "Returns a list of directories without listing files within them. Empty directories are included. Unlike getProjectTree, this tool focuses on directories only and is more efficient for directory queries. Prefer this tool over running code in the terminal for finding directories.",
+        "icon": "$(folder)",
+        "toolReferenceName": "directoryStructure",
+        "userDescription": "Get the directory structure of the workspace.",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant",
+          "requires-workspace"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Starting path to explore (relative to workspace root). Defaults to workspace root if not specified."
+            },
+            "maxDepth": {
+              "type": "number",
+              "description": "Maximum recursion depth. 1 shows only immediate subdirectories. Must be between 1 and 3.",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 3
+            },
+            "maxDirectories": {
+              "type": "number",
+              "description": "Maximum number of directories to return.",
+              "default": 50,
+              "maximum": 100
+            },
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "A glob pattern to include directories."
+              },
+              "description": "Glob patterns to include directories. Only directories matching these patterns will be returned."
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "A glob pattern to exclude directories."
+              },
+              "description": "Glob patterns to exclude directories. These patterns will be applied in addition to the default excludes unless `skipDefaultExcludes` is true."
+            },
+            "skipDefaultExcludes": {
+              "type": "boolean",
+              "description": "Whether to skip all automatic exclusions (.gitignore rules, VS Code exclude settings, and default exclusions for dependencies, build artifacts, and other commonly ignored directories). When true, only the explicit `exclude` patterns will be applied.",
+              "default": false
+            }
+          }
+        }
+      },
+      {
         "name": "getChangedFiles",
         "displayName": "Get changed files",
         "modelDescription": "Get summaries and git diffs for current changes to files in this workspace.",

@@ -7,7 +7,7 @@ order: 25
 description: Instructions for using file paths
 ---
 <file-paths>
-When the user describes a file in the project or mentions a file name, you may need to invoke a tool to determine the path to the file, such as the project tree tool.
+When the user describes a file in the project or mentions a file name, you may need to invoke the project tree tool to determine the path to the file. Same goes for directories and the directory structure tool.
 
 Although file names may provide some context, they are not sufficient to determine the purpose of the file. Therefore, you should not use file names to infer the file type. Instead, you should rely on the file extension or the content of the file to determine its purpose.
 
