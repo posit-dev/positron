@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getStoredModels, getEnabledProviders } from './config';
+import { log } from './extension';
 
 /**
  * Helper function to append text to a document editor.
@@ -259,18 +260,28 @@ function getExtensionInfo(): string {
 
 /**
  * Get log output from the Assistant output channel.
- * Note: VS Code doesn't provide API access to output channel content,
- * so we can only provide a reference.
  */
-function getLogReference(): string {
-	return `Log output is available in the Output panel:
-- View → Output
-- Select "Assistant" from the dropdown
-- Select "GitHub Copilot Language Server" for Copilot logs
+function getAssistantLogs(includeTraceLevel: boolean = false): string {
+	const level = includeTraceLevel ? 'trace' : 'debug';
+	const logs = log.formatEntriesForDiagnostics(500, level);
 
-To include logs in a bug report:
-1. Reproduce the issue
-2. Open the Output panel
+	if (logs === 'No log entries available') {
+		return 'No log entries captured yet. Logs are captured from the moment the extension loads.';
+	}
+
+	return logs;
+}
+
+/**
+ * Get Copilot Language Server log reference.
+ * Note: We can't access Copilot's logs directly as they're in a separate extension.
+ */
+function getCopilotLogReference(): string {
+	return `Copilot Language Server logs are managed separately and cannot be captured automatically.
+
+To include Copilot logs in a bug report:
+1. Open the Output panel (View → Output)
+2. Select "GitHub Copilot Language Server" from the dropdown
 3. Copy relevant log entries manually`;
 }
 
@@ -336,8 +347,17 @@ export async function collectDiagnostics(context: vscode.ExtensionContext): Prom
 	await appendText(editor, '\n\n');
 
 	// Logs
-	await appendText(editor, '## Logs\n\n');
-	await appendText(editor, getLogReference());
+	await appendText(editor, '## Positron Assistant Logs\n\n');
+	await appendText(editor, 'Recent log entries (last 500, debug level and above):\n\n');
+	await appendText(editor, '> **Note**: To include trace-level logs, set the log level to "Trace" in:\n');
+	await appendText(editor, '> Settings → Extensions → Positron Assistant → Log Level, or\n');
+	await appendText(editor, '> Output panel → Assistant → Set Log Level (gear icon)\n\n');
+	await appendText(editor, '```\n');
+	await appendText(editor, getAssistantLogs());
+	await appendText(editor, '\n```\n\n');
+
+	await appendText(editor, '## GitHub Copilot Logs\n\n');
+	await appendText(editor, getCopilotLogReference());
 	await appendText(editor, '\n\n');
 
 	// Footer

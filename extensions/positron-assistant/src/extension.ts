@@ -25,6 +25,7 @@ import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
 import { collectDiagnostics } from './diagnostics.js';
+import { BufferedLogOutputChannel } from './logBuffer.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -68,7 +69,9 @@ export function disposeModels(id?: string) {
 	}
 }
 
-export const log = vscode.window.createOutputChannel('Assistant', { log: true });
+export const log = new BufferedLogOutputChannel(
+	vscode.window.createOutputChannel('Assistant', { log: true })
+);
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
