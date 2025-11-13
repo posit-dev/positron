@@ -81,12 +81,19 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 			setAnnouncement('');
 		}
 
-		// Close any open markdown cell editors when clicking on a different cell
-		// This must happen before any early returns to ensure markdown cell editors
-		// always close when clicking outside them
-		for (const otherCell of cells) {
-			if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
-				otherCell.toggleEditor();
+		/**
+		 * Close other markdown cell editors when this cell is selected or enters edit mode
+		 * This ensures only one markdown cell editor is open at a time.
+		 *
+		 * Note: We do not want to close other editors when this cell is unselected,
+		 * as that would interfere with multi-cell selection -> editing transitions
+		 * where multiple cells become unselected.
+		 */
+		if (selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing) {
+			for (const otherCell of cells) {
+				if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
+					otherCell.toggleEditor();
+				}
 			}
 		}
 	}, [selectionStatus, cell, notebookInstance]);

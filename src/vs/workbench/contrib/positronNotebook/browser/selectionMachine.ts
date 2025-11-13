@@ -352,9 +352,9 @@ export class SelectionStateMachine extends Disposable {
 			// Use the provided cell
 			cellToEdit = cell;
 		} else {
-			// Use currently selected cell
+			// Use the active cell (works in both single and multi-selection)
 			const state = this._state.get();
-			if (state.type !== SelectionState.SingleSelection) {
+			if (state.type === SelectionState.NoCells) {
 				return;
 			}
 			cellToEdit = state.active;
