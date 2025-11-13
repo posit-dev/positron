@@ -255,8 +255,6 @@ export interface SerializedNotebookContext {
 	contextNote: string;
 	/** Full wrapped context (if wrapInNotebookContext is true) */
 	fullContext?: string;
-	/** Filtered cells that were included (for use cases that need the actual cells) */
-	cellsToInclude?: positron.notebooks.NotebookCell[];
 }
 
 /**
@@ -349,12 +347,15 @@ export function serializeNotebookContext(
 
 	// Generate all cells XML if available
 	let allCellsInfo: string | undefined;
+	let formattedCells: string | undefined;
 	if (cellsToInclude.length > 0) {
 		const isFullNotebook = context.cellCount < 20;
 		const description = isFullNotebook
 			? 'All cells in notebook (notebook has fewer than 20 cells)'
 			: 'Context window around selected/recent cells (notebook has 20+ cells)';
-		allCellsInfo = xml.node('all-cells', formatCells({ cells: cellsToInclude, prefix: 'Cell' }), {
+		// Format cells once and reuse
+		formattedCells = formatCells({ cells: cellsToInclude, prefix: 'Cell' });
+		allCellsInfo = xml.node('all-cells', formattedCells, {
 			description
 		});
 	}
@@ -377,8 +378,7 @@ export function serializeNotebookContext(
 		cellCountInfo,
 		selectedCellsInfo,
 		allCellsInfo,
-		contextNote,
-		cellsToInclude
+		contextNote
 	};
 
 	// Optionally wrap in notebook-context node

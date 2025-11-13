@@ -21,7 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
-import { formatCells, SerializedNotebookContext, serializeNotebookContext, getAttachedNotebookContext } from './tools/notebookUtils.js';
+import { SerializedNotebookContext, serializeNotebookContext, getAttachedNotebookContext } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -954,7 +954,6 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 		}
 
 		const currentIndex = currentCell.index;
-		const totalCells = allCells.length;
 
 		// Ensure context has allCells populated for serialization
 		const contextWithAllCells = {
@@ -962,51 +961,15 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 			allCells
 		};
 
-		// Use unified serialization helper with current cell as anchor
-		// This applies filtering logic (sliding window around current cell)
+		// Use unified serialization helper with current cell as anchor and full wrapping
+		// This applies filtering logic (sliding window around current cell) and formats consistently with chat pane
 		const serialized = serializeNotebookContext(contextWithAllCells, {
-			anchorIndex: currentIndex
+			anchorIndex: currentIndex,
+			wrapInNotebookContext: true
 		});
 
-		// Get filtered context cells (helper applies sliding window internally)
-		const contextCells = serialized.cellsToInclude || [];
-
-		// Format current cell separately to highlight it
-		const currentCellText = formatCells({ cells: [currentCell], prefix: 'Current Cell' });
-
-		// Format context cells (including current cell in the window)
-		const contextCellsText = formatCells({ cells: contextCells, prefix: 'Cell' });
-
-		// Calculate window bounds for description (helper uses sliding window internally)
-		const startIndex = contextCells.length > 0 ? Math.min(...contextCells.map(c => c.index)) : currentIndex;
-		const endIndex = contextCells.length > 0 ? Math.max(...contextCells.map(c => c.index)) + 1 : currentIndex + 1;
-
-		// Get file path for context
-		const notebookPath = uriToString(vscode.Uri.parse(notebookContext.uri));
-
-		// Build the notebook context node
-		const notebookNodes = [
-			xml.node('current-cell', currentCellText, {
-				description: 'The cell where inline chat was triggered',
-				index: currentCell.index,
-				type: currentCell.type,
-			}),
-			xml.node('context-cells', contextCellsText, {
-				description: `Context window: cells ${startIndex} to ${endIndex - 1} of ${totalCells - 1}`,
-				windowSize: contextCells.length,
-				totalCells: totalCells,
-			}),
-		];
-
-		const notebookNode = xml.node('notebook', notebookNodes.join('\n'), {
-			description: 'Notebook context for inline chat',
-			notebookPath,
-			kernelLanguage: notebookContext.kernelLanguage || 'unknown',
-			currentCellIndex: currentIndex,
-		});
-
-		log.debug(`[notebook participant] Adding notebook context: ${notebookNode.length} characters, ${contextCells.length} cells in window`);
-		return notebookNode;
+		const serializedContext = serialized.fullContext || '';
+		return serializedContext;
 	}
 }
 
