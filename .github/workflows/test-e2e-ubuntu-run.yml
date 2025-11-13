@@ -284,7 +284,7 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob"
 
           if [[ "${ALLOW_SOFT_FAIL}" == "true" ]]; then
             eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
@@ -346,11 +346,11 @@ jobs:
           pattern: blob-report-${{ inputs.project }}-shard-*
           merge-multiple: true
 
-      - name: Merge into single HTML report
-        run: npx playwright merge-reports --reporter html ./all-blob-reports
-
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+
+      - name: Merge reports and generate GitHub summary + HTML
+        run: npx playwright merge-reports --reporter=@midleman/github-actions-reporter,html ./all-blob-reports
 
       - name: Upload Merged Playwright Report to S3
         if: ${{ success() || failure() }}
