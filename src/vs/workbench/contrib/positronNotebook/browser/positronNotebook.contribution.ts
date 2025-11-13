@@ -48,6 +48,7 @@ import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
+import { ChatModeKind } from '../../chat/common/constants.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
@@ -1355,7 +1356,7 @@ registerAction2(class extends NotebookAction2 {
 		// Create quick pick items with the three prompt options
 		interface PromptQuickPickItem extends IQuickPickItem {
 			query: string;
-			mode: 'ask' | 'edit' | 'agent';
+			mode: ChatModeKind;
 		}
 
 		// Create items array with prompt options and helpful details
@@ -1364,21 +1365,21 @@ registerAction2(class extends NotebookAction2 {
 				label: localize('positronNotebook.assistant.prompt.describe', 'Describe the notebook'),
 				detail: localize('positronNotebook.assistant.prompt.describe.detail', 'Get an overview of the notebook\'s contents and structure'),
 				query: 'Can you describe the open notebook for me?',
-				mode: 'ask',
+				mode: ChatModeKind.Ask,
 				iconClass: ThemeIcon.asClassName(Codicon.book)
 			},
 			{
 				label: localize('positronNotebook.assistant.prompt.comments', 'Add inline comments'),
 				detail: localize('positronNotebook.assistant.prompt.comments.detail', 'Add explanatory comments to the selected cell(s)'),
 				query: 'Can you add inline comments to the selected cell(s)?',
-				mode: 'edit',
+				mode: ChatModeKind.Edit,
 				iconClass: ThemeIcon.asClassName(Codicon.commentAdd)
 			},
 			{
 				label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
 				detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get recommendations for what to do next with this notebook'),
 				query: 'Can you suggest next steps for this notebook?',
-				mode: 'ask',
+				mode: ChatModeKind.Ask,
 				iconClass: ThemeIcon.asClassName(Codicon.lightbulb)
 			}
 		];
@@ -1400,30 +1401,25 @@ registerAction2(class extends NotebookAction2 {
 		quickPick.show();
 
 		// Wait for user selection or custom input
-		const result = await new Promise<{ item: PromptQuickPickItem; isCustom: boolean } | undefined>((resolve) => {
+		const result = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
 			const disposables = new DisposableStore();
 			disposables.add(quickPick.onDidAccept(() => {
 				// Check if a predefined item was selected
 				const selected = quickPick.selectedItems[0];
 				const customValue = quickPick.value.trim();
 
-				if (selected && 'query' in selected && 'mode' in selected) {
+				if (selected) {
 					// User selected a predefined prompt item
-					const promptItem: PromptQuickPickItem = {
-						label: selected.label,
-						query: selected.query,
-						mode: selected.mode
-					};
-					resolve({ item: promptItem, isCustom: false });
+					resolve(selected);
 				} else if (customValue) {
 					// User typed a custom prompt - create a temporary item with their input
 					// Default to 'agent' mode for custom prompts
 					const customItem: PromptQuickPickItem = {
 						label: customValue,
 						query: customValue,
-						mode: 'agent'
+						mode: ChatModeKind.Agent
 					};
-					resolve({ item: customItem, isCustom: true });
+					resolve(customItem);
 				} else {
 					// No selection and no input
 					resolve(undefined);
@@ -1441,8 +1437,8 @@ registerAction2(class extends NotebookAction2 {
 		// If user selected an item or typed a custom prompt, execute the chat command
 		if (result) {
 			commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-				query: result.item.query,
-				mode: result.item.mode
+				query: result.query,
+				mode: result.mode
 			});
 		}
 	}
