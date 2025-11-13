@@ -48,8 +48,8 @@ export const DirectoryStructureTool = vscode.lm.registerTool<DirectoryStructureI
 			: 1;
 
 		// Enforce maxDirectories limits (default: 50, max: 100)
-		const directoriesLimit = maxDirectories && maxDirectories < 100
-			? maxDirectories
+		const directoriesLimit = maxDirectories && maxDirectories >= 1
+			? Math.min(maxDirectories, 100)
 			: DEFAULT_MAX_DIRECTORIES;
 
 		const includePatterns = include ?? [];
