@@ -32,10 +32,15 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
+  setup:
+    name: setup
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+
   e2e-ubuntu-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
-    needs: pr-tags
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    needs: [pr-tags, setup]
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (ubuntu)"
@@ -44,7 +49,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      workers: 3
+      shards: 4
+      workers: 1
       allow_soft_fail: false
     secrets: inherit
 
@@ -63,10 +69,10 @@ jobs:
     secrets: inherit
 
   e2e-ubuntu-browser:
-    needs: pr-tags
+    needs: [pr-tags, setup]
     if: ${{ needs.pr-tags.outputs.web_tag_found == 'true' }}
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (ubuntu)"
@@ -76,6 +82,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
+      shards: 4
+      workers: 1
       allow_soft_fail: false
     secrets: inherit
 

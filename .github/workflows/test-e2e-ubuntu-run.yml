@@ -18,6 +18,11 @@ on:
         description: "Number of parallel workers to use, defaults to 2."
         default: 2
         type: number
+      shards:
+        required: false
+        description: "Number of shards to split tests across. Use 1 for no sharding (default), or 4-6 for parallel execution."
+        default: 1
+        type: number
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -74,6 +79,19 @@ jobs:
     name: ${{ inputs.display_name || 'e2e-linux-run' }}
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{
+          inputs.shards == 1 && fromJson('[1]') ||
+          inputs.shards == 2 && fromJson('[1, 2]') ||
+          inputs.shards == 3 && fromJson('[1, 2, 3]') ||
+          inputs.shards == 4 && fromJson('[1, 2, 3, 4]') ||
+          inputs.shards == 5 && fromJson('[1, 2, 3, 4, 5]') ||
+          inputs.shards == 6 && fromJson('[1, 2, 3, 4, 5, 6]') ||
+          inputs.shards == 7 && fromJson('[1, 2, 3, 4, 5, 6, 7]') ||
+          inputs.shards == 8 && fromJson('[1, 2, 3, 4, 5, 6, 7, 8]') ||
+          fromJson('[1]') }}
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
       options: --user 0:0
@@ -264,7 +282,15 @@ jobs:
             GREP_ARG="--grep \"$PW_TAGS\""
           fi
 
+          # Build the --shard argument only if shards > 1
+          if [ "${{ inputs.shards }}" -gt "1" ]; then
+            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
+          else
+            SHARD_ARG=""
+          fi
+
           echo "Final --grep argument: $GREP_ARG"
+          echo "Final --shard argument: $SHARD_ARG"
 
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
             echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
@@ -275,14 +301,14 @@ jobs:
             SKIP_CLONE_ARG=""
           fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
 
           if [[ "${ALLOW_SOFT_FAIL}" == "true" ]]; then
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
 
             node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
           else
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
           fi
 
       - name: Upload Playwright Report to S3

@@ -8,9 +8,15 @@ on:
       - "release/**"
 
 jobs:
+  setup:
+    name: setup
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+
   e2e-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
       project: "e2e-electron"
@@ -19,6 +25,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
+      shards: 6
+      workers: 1
       allow_soft_fail: true
     secrets: inherit
 
@@ -35,7 +43,8 @@ jobs:
 
   e2e-linux-chromium:
     name: e2e
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
       display_name: "chromium (ubuntu)"
@@ -44,6 +53,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
+      shards: 6
+      workers: 1
       allow_soft_fail: true
     secrets: inherit
 
@@ -63,6 +74,7 @@ jobs:
     if: failure()
     needs:
       [
+        setup,
         unit-tests,
         integration-tests,
         e2e-electron,
