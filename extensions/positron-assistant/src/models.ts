@@ -1263,11 +1263,10 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		// - Bedrock is enabled in settings, and
 		// - If managed credentials are available
 
-		// TODO @samclark2015: Re-enable web check before PR!
-		// const isWeb = vscode.env.uiKind === vscode.UIKind.Web;
-		// if (!isWeb) {
-		// 	return undefined;
-		// }
+		const isWeb = vscode.env.uiKind === vscode.UIKind.Web;
+		if (!isWeb) {
+			return undefined;
+		}
 		const bedrockEnabled = await getEnabledProviders().then(providers => providers.includes(AWSLanguageModel.source.provider.id));
 		if (!bedrockEnabled) {
 			return { signedIn: false };
