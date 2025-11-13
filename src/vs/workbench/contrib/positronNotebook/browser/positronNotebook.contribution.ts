@@ -43,20 +43,16 @@ import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { Codicon } from '../../../../base/common/codicons.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
-import { ChatModeKind } from '../../chat/common/constants.js';
-import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import './AskAssistantAction.js'; // Register AskAssistantAction
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
@@ -1328,131 +1324,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Ask Assistant - Opens assistant chat with prompt options for the notebook
-registerAction2(class extends NotebookAction2 {
-	constructor() {
-		super({
-			id: 'positronNotebook.askAssistant',
-			title: localize2('askAssistant', 'Ask Assistant'),
-			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
-			icon: ThemeIcon.fromId('positron-assistant'),
-			f1: true,
-			category: POSITRON_NOTEBOOK_CATEGORY,
-			positronActionBarOptions: {
-				controlType: 'button',
-				displayTitle: false
-			},
-			menu: {
-				id: MenuId.EditorActionsLeft,
-				group: 'navigation',
-				order: 50,
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
-			}
-		});
-	}
-
-	override async runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
-		const commandService = accessor.get(ICommandService);
-		const quickInputService = accessor.get(IQuickInputService);
-		const notificationService = accessor.get(INotificationService);
-
-		// Create quick pick items with the three prompt options
-		interface PromptQuickPickItem extends IQuickPickItem {
-			query: string;
-			mode: ChatModeKind;
-		}
-
-		// Create items array with prompt options and helpful details
-		const assistantPredefinedActions: PromptQuickPickItem[] = [
-			{
-				label: localize('positronNotebook.assistant.prompt.describe', 'Describe the notebook'),
-				detail: localize('positronNotebook.assistant.prompt.describe.detail', 'Get an overview of the notebook\'s contents and structure'),
-				query: 'Can you describe the open notebook for me?',
-				mode: ChatModeKind.Ask,
-				iconClass: ThemeIcon.asClassName(Codicon.book)
-			},
-			{
-				label: localize('positronNotebook.assistant.prompt.comments', 'Add inline comments'),
-				detail: localize('positronNotebook.assistant.prompt.comments.detail', 'Add explanatory comments to the selected cell(s)'),
-				query: 'Can you add inline comments to the selected cell(s)?',
-				mode: ChatModeKind.Edit,
-				iconClass: ThemeIcon.asClassName(Codicon.commentAdd)
-			},
-			{
-				label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
-				detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get recommendations for what to do next with this notebook'),
-				query: 'Can you suggest next steps for this notebook?',
-				mode: ChatModeKind.Ask,
-				iconClass: ThemeIcon.asClassName(Codicon.lightbulb)
-			}
-		];
-
-		// Create the description for the quick pick
-		const description = localize(
-			'positronNotebook.assistant.quickPick.description',
-			'Type your own prompt or select one of the options below.'
-		);
-
-		// Create and configure the quick pick
-		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>();
-		quickPick.title = localize('positronNotebook.assistant.quickPick.title', 'Assistant');
-		quickPick.description = description;
-		quickPick.placeholder = localize('positronNotebook.assistant.quickPick.placeholder', 'Type your prompt...');
-		quickPick.items = assistantPredefinedActions;
-		quickPick.canSelectMany = false;
-
-		// Wait for user selection or custom input
-		const result = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
-			quickPick.onDidAccept(() => {
-				// Check if a predefined item was selected
-				const selected = quickPick.selectedItems[0];
-				const customValue = quickPick.value.trim();
-
-				if (selected) {
-					// User selected a predefined prompt item
-					resolve(selected);
-				} else if (customValue) {
-					// User typed a custom prompt - create a temporary item with their input
-					// Default to 'agent' mode for custom prompts
-					const customItem: PromptQuickPickItem = {
-						label: customValue,
-						query: customValue,
-						mode: ChatModeKind.Agent
-					};
-					resolve(customItem);
-				} else {
-					// No selection and no input
-					resolve(undefined);
-				}
-				quickPick.dispose();
-			});
-
-			quickPick.show();
-
-			quickPick.onDidHide(() => {
-				quickPick.dispose();
-				resolve(undefined);
-			});
-		});
-
-		// If user selected an item or typed a custom prompt, execute the chat command
-		if (result) {
-			try {
-				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-					query: result.query,
-					mode: result.mode
-				});
-			} catch (error) {
-				notificationService.error(
-					localize(
-						'positronNotebook.assistant.error',
-						'Failed to open assistant chat: {0}',
-						error instanceof Error ? error.message : String(error)
-					)
-				);
-			}
-		}
-	}
-});
+// Action is defined in AskAssistantAction.ts
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton
