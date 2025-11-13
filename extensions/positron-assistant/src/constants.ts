@@ -46,3 +46,6 @@ export const TOOL_TAG_REQUIRES_NOTEBOOK = 'requires-notebook';
 
 /** Max number of variables to include in language session context */
 export const MAX_CONTEXT_VARIABLES = 400;
+
+/** Max number of models to attempt connecting to when checking auth for a provider */
+export const DEFAULT_MAX_CONNECTION_ATTEMPTS = 3;
