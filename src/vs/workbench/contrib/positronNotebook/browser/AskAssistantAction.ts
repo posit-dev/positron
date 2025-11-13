@@ -12,6 +12,8 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IQuickInputService, IQuickPick, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
@@ -106,6 +108,10 @@ export class AskAssistantAction extends Action2 {
 			return;
 		}
 
+		// Create cancellation token source for AI generation requests (In case
+		// the user closes the quick pick before the suggestions are generated)
+		const cancellationTokenSource = new CancellationTokenSource();
+
 		// Create and configure the quick pick (items can include separators)
 		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>();
 		quickPick.title = localize('positronNotebook.assistant.quickPick.title', 'Assistant');
@@ -130,7 +136,8 @@ export class AskAssistantAction extends Action2 {
 					quickPick,
 					activeNotebook,
 					commandService,
-					notificationService
+					notificationService,
+					cancellationTokenSource.token
 				).catch(() => {
 					// Reset state on error (handleGenerateSuggestions already handles item cleanup)
 					quickPick.busy = false;
@@ -173,10 +180,15 @@ export class AskAssistantAction extends Action2 {
 			quickPick.show();
 
 			quickPick.onDidHide(() => {
+				// Cancel any ongoing AI generation when the quick pick is hidden
+				cancellationTokenSource.cancel();
+				cancellationTokenSource.dispose();
 				quickPick.dispose();
 				resolve(undefined);
 			});
 		});
+
+		cancellationTokenSource.dispose();
 
 		// If user selected an item or typed a custom prompt, execute the chat command
 		if (result) {
@@ -199,14 +211,30 @@ export class AskAssistantAction extends Action2 {
 	}
 
 	/**
-	 * Handle AI-generated suggestion generation
-	 * Updates the quick pick in place with generated suggestions
+	 * Handle AI-generated suggestion generation for the notebook.
+	 *
+	 * This method updates the quick pick in place to show a loading state, then calls
+	 * the extension command to generate AI suggestions based on the notebook context.
+	 * The generated suggestions are displayed in the quick pick below the predefined actions.
+	 *
+	 * If cancellation is requested (e.g., user closes the quick pick), the request is
+	 * cancelled and the quick pick is restored to its original state without showing
+	 * error notifications.
+	 *
+	 * @param quickPick The quick pick instance to update with generated suggestions
+	 * @param notebook The active notebook instance to analyze for suggestions
+	 * @param commandService Service for executing extension commands
+	 * @param notificationService Service for displaying notifications to the user
+	 * @param token Cancellation token that will be cancelled if the user closes the quick pick.
+	 *              The extension command uses this token to cancel ongoing LLM requests.
+	 * @returns Promise that resolves when suggestions are generated or cancelled
 	 */
 	private async handleGenerateSuggestions(
 		quickPick: IQuickPick<PromptQuickPickItem>,
 		notebook: any,
 		commandService: ICommandService,
-		notificationService: INotificationService
+		notificationService: INotificationService,
+		token: CancellationToken
 	): Promise<void> {
 		// Create a loading item with animated spinner icon
 		const loadingItem: PromptQuickPickItem = {
@@ -238,8 +266,17 @@ export class AskAssistantAction extends Action2 {
 			// Call extension command to generate suggestions
 			const suggestions = await commandService.executeCommand<PromptQuickPickItem[]>(
 				'positron-assistant.generateNotebookSuggestions',
-				notebook.uri.toString()
+				notebook.uri.toString(),
+				token
 			);
+
+			// Check if cancellation was requested during the call
+			// The extension may return an empty array instead of throwing on cancellation
+			if (token.isCancellationRequested) {
+				// Remove loading item and separator, restore original items
+				quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+				return;
+			}
 
 			if (!suggestions || suggestions.length === 0) {
 				notificationService.info(
@@ -264,13 +301,16 @@ export class AskAssistantAction extends Action2 {
 			quickPick.placeholder = localize('positronNotebook.assistant.selectAction', 'Select an action');
 
 		} catch (error) {
-			notificationService.error(
-				localize(
-					'positronNotebook.assistant.generateError',
-					'Failed to generate suggestions: {0}',
-					error instanceof Error ? error.message : String(error)
-				)
-			);
+			// Don't show error notification for cancellation errors (user closed the pick)
+			if (!isCancellationError(error)) {
+				notificationService.error(
+					localize(
+						'positronNotebook.assistant.generateError',
+						'Failed to generate suggestions: {0}',
+						error instanceof Error ? error.message : String(error)
+					)
+				);
+			}
 			// Remove loading item and separator, restore original items on error
 			quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
 		} finally {
