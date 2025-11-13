@@ -16,6 +16,7 @@ import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
+import { generateNotebookSuggestions } from './notebookSuggestions.js';
 import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
@@ -229,6 +230,22 @@ function registerGenerateCommitMessageCommand(
 	);
 }
 
+function registerGenerateNotebookSuggestionsCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron-assistant.generateNotebookSuggestions',
+			async (notebookUri: string, token?: vscode.CancellationToken) => {
+				const cancellationToken = token || new vscode.CancellationTokenSource().token;
+				return await generateNotebookSuggestions(notebookUri, participantService, log, cancellationToken);
+			}
+		)
+	);
+}
+
 function registerExportChatCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
@@ -307,6 +324,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Commands
 	registerConfigureModelsCommand(context, storage);
 	registerGenerateCommitMessageCommand(context, participantService, log);
+	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerPromptManagement(context);
