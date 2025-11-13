@@ -21,8 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
-import { formatCells } from './tools/notebookUtils.js';
-import { filterNotebookContext, calculateSlidingWindow } from './notebookContextFilter.js';
+import { formatCells, SerializedNotebookContext, serializeNotebookContext, getAttachedNotebookContext } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -752,64 +751,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	dispose(): void { }
 }
 
-/**
- * Checks if notebook mode should be enabled based on attached context.
- * Returns filtered notebook context only if:
- * 1. A notebook editor is currently active
- * 2. That notebook's URI is attached as context
- *
- * Applies filtering to limit context size for large notebooks.
- */
-export async function getAttachedNotebookContext(
-	request: vscode.ChatRequest
-): Promise<positron.notebooks.NotebookContext | undefined> {
-	// Check if notebook mode feature is enabled
-	const notebookModeEnabled = vscode.workspace
-		.getConfiguration('positron.assistant.notebookMode')
-		.get('enable', false);
-
-	if (!notebookModeEnabled) {
-		return undefined;
-	}
-
-	// Get active editor's notebook context (unfiltered from main thread)
-	const activeContext = await positron.notebooks.getContext();
-	if (!activeContext) {
-		return undefined;
-	}
-
-	// Extract attached notebook URIs
-	const attachedNotebookUris = request.references
-		.map(ref => {
-			// Check for activeSession.notebookUri
-			const sessionNotebookUri = (ref.value as any)?.activeSession?.notebookUri;
-			if (typeof sessionNotebookUri === 'string') {
-				return sessionNotebookUri;
-			}
-			// Check for direct .ipynb file reference
-			if (ref.value instanceof vscode.Uri && ref.value.path.endsWith('.ipynb')) {
-				return ref.value.toString();
-			}
-			return undefined;
-		})
-		.filter(uri => typeof uri === 'string');
-
-	if (attachedNotebookUris.length === 0) {
-		return undefined;
-	}
-
-	// Check if active notebook is in attached context
-	const isActiveNotebookAttached = attachedNotebookUris.includes(
-		activeContext.uri
-	);
-
-	if (!isActiveNotebookAttached) {
-		return undefined;
-	}
-
-	// Apply filtering before returning context
-	return filterNotebookContext(activeContext);
-}
 
 /** The participant used in the chat pane in Ask mode. */
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
@@ -820,7 +761,7 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 
 		// Get notebook context if available, with error handling
-		let notebookContext: positron.notebooks.NotebookContext | undefined;
+		let notebookContext: SerializedNotebookContext | undefined;
 		try {
 			notebookContext = await getAttachedNotebookContext(request);
 		} catch (err) {
@@ -1012,23 +953,33 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 			return super.getCustomPrompt(request);
 		}
 
-		// Calculate adaptive 20-cell context window around the current cell
-		// Window rules:
-		// - Cell in middle: 10 cells before + current + 10 cells after
-		// - Cell at top: current + 20 cells after
-		// - Cell at bottom: 20 cells before + current
-		// - Notebook < 21 cells: all cells included
 		const currentIndex = currentCell.index;
 		const totalCells = allCells.length;
 
-		const { startIndex, endIndex } = calculateSlidingWindow(totalCells, currentIndex);
-		const contextCells = allCells.slice(startIndex, endIndex);
+		// Ensure context has allCells populated for serialization
+		const contextWithAllCells = {
+			...notebookContext,
+			allCells
+		};
+
+		// Use unified serialization helper with current cell as anchor
+		// This applies filtering logic (sliding window around current cell)
+		const serialized = serializeNotebookContext(contextWithAllCells, {
+			anchorIndex: currentIndex
+		});
+
+		// Get filtered context cells (helper applies sliding window internally)
+		const contextCells = serialized.cellsToInclude || [];
 
 		// Format current cell separately to highlight it
 		const currentCellText = formatCells({ cells: [currentCell], prefix: 'Current Cell' });
 
 		// Format context cells (including current cell in the window)
 		const contextCellsText = formatCells({ cells: contextCells, prefix: 'Cell' });
+
+		// Calculate window bounds for description (helper uses sliding window internally)
+		const startIndex = contextCells.length > 0 ? Math.min(...contextCells.map(c => c.index)) : currentIndex;
+		const endIndex = contextCells.length > 0 ? Math.max(...contextCells.map(c => c.index)) + 1 : currentIndex + 1;
 
 		// Get file path for context
 		const notebookPath = uriToString(vscode.Uri.parse(notebookContext.uri));

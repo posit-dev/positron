@@ -10,6 +10,7 @@ import * as path from 'path';
 
 import { ParticipantService } from './participants.js';
 import { MARKDOWN_DIR } from './constants';
+import { serializeNotebookContext } from './tools/notebookUtils.js';
 
 /**
  * Interface for notebook action suggestions returned to the workbench
@@ -36,11 +37,8 @@ export async function generateNotebookSuggestions(
 	log: vscode.LogOutputChannel,
 	token: vscode.CancellationToken
 ): Promise<NotebookActionSuggestion[]> {
-	log.info(`[notebook-suggestions] Generating suggestions for notebook: ${notebookUri}`);
-
 	// Get the model to use for generation
 	const model = await getModel(participantService);
-	log.info(`[notebook-suggestions] Using model (${model.vendor}) ${model.id}`);
 
 	// Get notebook context
 	const context = await positron.notebooks.getContext();
@@ -52,9 +50,14 @@ export async function generateNotebookSuggestions(
 	// Get all cells if not already included in context
 	const allCells = context.allCells || await positron.notebooks.getCells(notebookUri);
 
-	// Build context summary for the prompt
-	const contextSummary = buildContextSummary(context, allCells);
-	log.trace(`[notebook-suggestions] Context summary:\n${contextSummary}`);
+	// Ensure context has allCells populated for serialization
+	const contextWithAllCells = {
+		...context,
+		allCells
+	};
+
+	// Build context summary using unified serialization helper
+	const contextSummary = buildContextSummary(contextWithAllCells);
 
 	// Load the system prompt template
 	const systemPrompt = await fs.promises.readFile(
@@ -63,30 +66,30 @@ export async function generateNotebookSuggestions(
 	);
 
 	try {
+		// Construct messages for the request
+		const systemMessage = new vscode.LanguageModelChatMessage(
+			vscode.LanguageModelChatMessageRole.System,
+			systemPrompt
+		);
+		const userMessage = vscode.LanguageModelChatMessage.User(contextSummary);
+
 		// Send request to LLM
 		const response = await model.sendRequest([
-			new vscode.LanguageModelChatMessage(
-				vscode.LanguageModelChatMessageRole.System,
-				systemPrompt
-			),
-			vscode.LanguageModelChatMessage.User(contextSummary)
+			systemMessage,
+			userMessage
 		], {}, token);
 
 		// Accumulate the response
 		let jsonResponse = '';
 		for await (const delta of response.text) {
 			if (token.isCancellationRequested) {
-				log.info('[notebook-suggestions] Generation cancelled by user');
 				return [];
 			}
 			jsonResponse += delta;
 		}
 
-		log.trace(`[notebook-suggestions] Raw LLM response:\n${jsonResponse}`);
-
 		// Parse and validate the JSON response
 		const suggestions = parseAndValidateSuggestions(jsonResponse, log);
-		log.info(`[notebook-suggestions] Generated ${suggestions.length} suggestions`);
 
 		return suggestions;
 
@@ -103,68 +106,21 @@ export async function generateNotebookSuggestions(
 }
 
 /**
- * Build a context summary string from notebook context
+ * Build a context summary string from notebook context using XML format (matching chat mode)
+ *
+ * This function uses the unified serialization helper which handles filtering internally.
+ * Filtering rules:
+ * - Small notebooks (< 20 cells): All cells
+ * - Large notebooks (>= 20 cells) with selection: Sliding window around selected cells
+ * - Large notebooks (>= 20 cells) without selection: Sliding window around recent executed cells
  */
 function buildContextSummary(
-	context: positron.notebooks.NotebookContext,
-	allCells: positron.notebooks.NotebookCell[]
+	context: positron.notebooks.NotebookContext
 ): string {
-	const parts: string[] = [];
+	const serialized = serializeNotebookContext(context, { wrapInNotebookContext: true });
 
-	// Basic info
-	parts.push(`Notebook: ${context.uri}`);
-	parts.push(`Kernel Language: ${context.kernelLanguage || 'unknown'}`);
-	parts.push(`Total Cells: ${context.cellCount}`);
-	parts.push(`Selected Cells: ${context.selectedCells.length}`);
-
-	// Cell type breakdown
-	const codeCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Code);
-	const markdownCells = allCells.filter(c => c.type === positron.notebooks.NotebookCellType.Markdown);
-	parts.push(`Code Cells: ${codeCells.length}`);
-	parts.push(`Markdown Cells: ${markdownCells.length}`);
-
-	// Execution status
-	const executedCells = codeCells.filter(c => c.executionOrder !== undefined);
-	const failedCells = codeCells.filter(c => c.lastRunSuccess === false);
-	const cellsWithOutput = allCells.filter(c => c.hasOutput);
-	parts.push(`Executed Cells: ${executedCells.length}`);
-	parts.push(`Failed Cells: ${failedCells.length}`);
-	parts.push(`Cells with Output: ${cellsWithOutput.length}`);
-
-	// Selected cell content (if any)
-	if (context.selectedCells.length > 0) {
-		parts.push('\n## Selected Cells:');
-		context.selectedCells.forEach(cell => {
-			parts.push(`\n### Cell ${cell.index} (${cell.type})`);
-			if (cell.type === positron.notebooks.NotebookCellType.Code) {
-				parts.push(`Status: ${cell.executionStatus || 'not executed'}`);
-				if (cell.lastRunSuccess !== undefined) {
-					parts.push(`Last Run: ${cell.lastRunSuccess ? 'success' : 'failed'}`);
-				}
-			}
-			// Include a snippet of the content (first 200 characters)
-			const contentSnippet = cell.content.substring(0, 200);
-			parts.push(`Content: ${contentSnippet}${cell.content.length > 200 ? '...' : ''}`);
-		});
-	}
-
-	// Recent cells (last 3 executed cells if no selection)
-	if (context.selectedCells.length === 0 && executedCells.length > 0) {
-		const recentCells = executedCells
-			.sort((a, b) => (b.executionOrder || 0) - (a.executionOrder || 0))
-			.slice(0, 3);
-
-		parts.push('\n## Recently Executed Cells:');
-		recentCells.forEach(cell => {
-			parts.push(`\n### Cell ${cell.index}`);
-			parts.push(`Status: ${cell.executionStatus || 'completed'}`);
-			parts.push(`Success: ${cell.lastRunSuccess ? 'yes' : 'no'}`);
-			const contentSnippet = cell.content.substring(0, 150);
-			parts.push(`Content: ${contentSnippet}${cell.content.length > 150 ? '...' : ''}`);
-		});
-	}
-
-	return parts.join('\n');
+	// Return the full wrapped context (guaranteed to be present when wrapInNotebookContext is true)
+	return serialized.fullContext || '';
 }
 
 /**
@@ -198,7 +154,6 @@ function parseAndValidateSuggestions(
 
 	} catch (error) {
 		log.error(`[notebook-suggestions] Failed to parse LLM response as JSON: ${error}`);
-		log.trace(`[notebook-suggestions] Attempted to parse: ${jsonResponse}`);
 		return [];
 	}
 }
