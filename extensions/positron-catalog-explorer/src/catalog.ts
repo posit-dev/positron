@@ -265,7 +265,8 @@ export interface CatalogProviderRegistration {
 	iconPath?: vscode.IconPath;
 	addProvider(
 		context: vscode.ExtensionContext,
-		account?: string,
+		account?: string | any, // Using 'any' here to accommodate different provider types
+		connectionName?: string
 	): Promise<CatalogProvider | undefined>;
 	removeProvider?(
 		context: vscode.ExtensionContext,
@@ -306,9 +307,9 @@ export class CatalogProviderRegistry {
 		return sorted.map((v) => v.providers).flat();
 	}
 
-	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string): Promise<void> {
+	async addProvider(context: vscode.ExtensionContext, provider?: CatalogProviderRegistration, account?: string | any, connectionName?: string): Promise<void> {
 		let item = provider;
-		if (!provider) {
+		if (!(provider && account)) {
 			item = await vscode.window.showQuickPick(this.registry, {
 				title: 'Choose a Catalog Provider',
 			});
@@ -317,31 +318,25 @@ export class CatalogProviderRegistry {
 			return;
 		}
 
-		if (account) {
-			try {
-				const allProviders = await this.listAllProviders(context);
-
-				// Look for placeholder providers with the same account name
-				const placeholders = allProviders.filter(p =>
-					p.getTreeItem().contextValue?.includes('placeholder')
-				);
-
-				// Remove any matching placeholders
-				for (const placeholder of placeholders) {
-					await this.removeProvider(placeholder, context);
-				}
-			} catch (error) {
-				console.warn('Error removing placeholder provider:', error);
-				// Continue with adding the new provider even if removing placeholder fails
+		if (account && provider && connectionName) {
+			const allProviders = await this.listAllProviders(context);
+			const matchingProvider = allProviders.find((p) => p.id.includes(connectionName));
+			if (matchingProvider) {
+				traceInfo(`Provider with account ID ${connectionName} already exists. Removing existing provider.`);
+				this.removeCatalog.fire(matchingProvider);
+				matchingProvider?.dispose();
 			}
 		}
-		const added = await item.addProvider(context, account);
+
+		// Attempt to add the new provider
+		const added = await item.addProvider(context, account, connectionName);
 		if (!added) {
 			traceWarn(`Failed to add catalog provider: ${item.label}`);
 			return;
 		}
-		traceInfo(`Successfully added catalog provider: ${item.label}`);
 		this.addCatalog.fire(added);
+		traceInfo(`Successfully added catalog provider: ${item.label}`);
+
 	}
 	async removeProvider(
 		provider: CatalogProvider,
@@ -353,6 +348,7 @@ export class CatalogProviderRegistry {
 
 			for (const registration of this.registry) {
 				const providers = await registration.listProviders(context);
+				traceInfo(`Providers from registration ${registration.label}: ${providers.map(p => p.id).join(', ')}`);
 				const matchingProvider = providers.find((p) => p.id === providerId);
 
 				if (!matchingProvider) {
@@ -487,7 +483,7 @@ export function registerCatalogCommands(
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.addCatalogProvider',
-			async (provider?, account?) => await registry.addProvider(context, provider, account),
+			async (provider?, account?, connectionName?) => await registry.addProvider(context, provider, account, connectionName),
 		),
 		vscode.commands.registerCommand(
 			'posit.catalog-explorer.removeCatalogProvider',
