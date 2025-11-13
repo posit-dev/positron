@@ -333,14 +333,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install GitHub Actions Reporter
-        run: npm install @midleman/github-actions-reporter
+      - name: Install Playwright and reporter
+        run: npm install --no-save @playwright/test @midleman/github-actions-reporter
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
