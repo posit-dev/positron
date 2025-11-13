@@ -1282,11 +1282,11 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
-// Add Code Cell at End - Inserts a new code cell at the end of the notebook
+// Add Code Cell - Inserts a new code cell after the active cell
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.addCodeCellAtEnd',
+			id: 'positronNotebook.addCodeCell',
 			title: localize2('addCodeCell', 'Code'),
 			icon: ThemeIcon.fromId('add'),
 			f1: true,
@@ -1305,16 +1305,24 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Code, cellCount, true);
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type !== SelectionState.NoCells) {
+			// get the active cell
+			const cell = state.active;
+			// insert a code cell after the active cell
+			notebook.addCell(CellKind.Code, cell.index + 1, true);
+		} else {
+			// If there are no cells, just add a code cell at index 0
+			notebook.addCell(CellKind.Code, 0, true);
+		}
 	}
 });
 
-// Add Markdown Cell at End - Inserts a new markdown cell at the end of the notebook
+// Add Markdown Cell - Inserts a new markdown cell after the active cell
 registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
-			id: 'positronNotebook.addMarkdownCellAtEnd',
+			id: 'positronNotebook.addMarkdownCell',
 			title: localize2('addMarkdownCell', 'Markdown'),
 			icon: ThemeIcon.fromId('add'),
 			f1: true,
@@ -1333,8 +1341,16 @@ registerAction2(class extends NotebookAction2 {
 	}
 
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		const cellCount = notebook.cells.get().length;
-		notebook.addCell(CellKind.Markup, cellCount, true);
+		const state = notebook.selectionStateMachine.state.get();
+		if (state.type !== SelectionState.NoCells) {
+			// get the active cell
+			const cell = state.active;
+			// insert a code cell after the active cell
+			notebook.addCell(CellKind.Markup, cell.index + 1, true);
+		} else {
+			// If there are no cells, just add a code cell at index 0
+			notebook.addCell(CellKind.Markup, 0, true);
+		}
 	}
 });
 
