@@ -63,7 +63,6 @@ jobs:
       project: "e2e-electron"
       display_name: "electron (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       install_license: false
@@ -78,7 +77,6 @@ jobs:
       grep: ""
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
-      report_testrail: false
       report_currents: false
       allow_soft_fail: false
 
@@ -92,7 +90,6 @@ jobs:
       project: "e2e-chromium"
       display_name: "chromium (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/ubuntu' || 'chromium/ubuntu' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       install_license: true
@@ -108,7 +105,6 @@ jobs:
       project: "e2e-electron"
       display_name: "electron (rhel)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/rhel' || 'electron/rhel' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       install_license: false
@@ -124,7 +120,6 @@ jobs:
       project: "e2e-chromium"
       display_name: "chromium (rhel)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/rhel' || 'chromium/rhel' }}
-      report_testrail: false
       report_currents: false
       install_undetectable_interpreters: true
       install_license: true

@@ -1,46 +1,100 @@
-name: "Cache Multiple Directories"
-description: "Restores/Saves cache for node_modules, build, extensions, and remote"
+name: "Cache: Package Stores & Binaries"
+description: "Save and restore caches for multiple package managers and binaries."
+
+outputs:
+  cache-playwright-hit:
+    description: "Whether Playwright cache was restored"
+    value: ${{ steps.cache-playwright.outputs.cache-hit }}
+
 runs:
   using: "composite"
   steps:
-    - name: Cache root
-      id: cache-root
-      uses: actions/cache@v4
-      with:
-        path: ./node_modules
-        key: cache-root-v4-${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
+    - name: Configure local caches
+      shell: bash
+      run: |
+        echo "NPM_CONFIG_CACHE=.npm-cache" >> "$GITHUB_ENV"
+        echo "PIP_CACHE_DIR=.pip-cache" >> "$GITHUB_ENV"
+        mkdir -p .npm-cache .pip-cache .versions
 
-    - name: Cache build
-      id: cache-build
+    - name: Cache npm packages
+      id: cache-npm
       uses: actions/cache@v4
       with:
-        path: ./build/node_modules
-        key: cache-build-v4-${{ runner.os }}-${{ hashFiles('build/package-lock.json') }}
+        path: .npm-cache
+        key: >
+          npm-cache-${{ runner.os }}-${{
+            hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json')
+          }}
+        restore-keys: |
+          npm-cache-${{ runner.os }}-
 
-    - name: Cache extensions
-      id: cache-extensions
+    - name: Cache ark binary
+      id: cache-binaries-ark
       uses: actions/cache@v4
       with:
-        path: ./extensions/node_modules
-        key: cache-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/package-lock.json') }}
+        # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
+        path: |
+          extensions/positron-r/resources/ark
+          ./ark
+        # Use the extension package.json as the key source so updates to the declared binary version invalidates cache
+        key: ark-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-r/package.json') }}
+        restore-keys: |
+          ark-bin-${{ runner.os }}-
 
-    - name: Cache nested extensions
-      id: cache-nested-extensions
+    - name: Cache kallichore binary
+      id: cache-binaries-kallichore
       uses: actions/cache@v4
       with:
-        path: ./extensions/**/node_modules
-        key: cache-nested-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/**/package-lock.json') }}
+        path: |
+          extensions/positron-supervisor/resources/kallichore
+          ./kallichore
+        key: kallichore-bin-${{ runner.os }}-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+        restore-keys: |
+          kallichore-bin-${{ runner.os }}-
 
-    - name: Cache remote
-      id: cache-remote
+    - name: Cache Playwright browsers
+      id: cache-playwright
       uses: actions/cache@v4
       with:
-        path: ./remote/node_modules
-        key: cache-remote-v4-${{ runner.os }}-${{ hashFiles('remote/package-lock.json') }}
+        path: |
+          ~/.cache/ms-playwright
+          /root/.cache/ms-playwright
+        # Include the e2e lockfile too in case test/e2e has its own playwright deps
+        key: playwright-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+        restore-keys: |
+          playwright-v3-${{ runner.os }}-
 
-    - name: Cache nested remote
-      id: cache-nested-remote
+    - name: Cache Electron binary
+      id: cache-electron
       uses: actions/cache@v4
       with:
-        path: ./remote/**/node_modules
-        key: cache-nested-remote-v4-${{ runner.os }}-${{ hashFiles('remote/**/package-lock.json') }}
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+        # electron binaries are tied to package-lock and the electron version in package.json
+        key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}
+        restore-keys: |
+          electron-${{ runner.os }}-
+
+    - name: Cache built-in extensions
+      id: cache-builtins
+      uses: actions/cache@v4
+      with:
+        path: |
+          .build/builtInExtensions
+        # product.json contains the list and versions of built-in extensions
+        key: builtins-${{ runner.os }}-${{ hashFiles('product.json') }}
+        restore-keys: |
+          builtins-${{ runner.os }}-
+
+    - name: Log cache results
+      if: always()
+      shell: bash
+      run: |
+        echo "Cache results:"
+        echo "  npm:         hit=${{ steps['cache-npm'].outputs['cache-hit'] || 'false' }}"
+        echo "  ark:         hit=${{ steps['cache-binaries-ark'].outputs['cache-hit'] || 'false' }}"
+        echo "  kallichore:  hit=${{ steps['cache-binaries-kallichore'].outputs['cache-hit'] || 'false' }}"
+        echo "  playwright:  hit=${{ steps['cache-playwright'].outputs['cache-hit'] || 'false' }}"
+        echo "  electron:    hit=${{ steps['cache-electron'].outputs['cache-hit'] || 'false' }}"
+        echo "  builtins:    hit=${{ steps['cache-builtins'].outputs['cache-hit'] || 'false' }}"
