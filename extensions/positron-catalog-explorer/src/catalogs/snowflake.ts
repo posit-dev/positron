@@ -606,8 +606,8 @@ ${connOptions?.warehouse ? '' : `\t\tcursor.execute("USE WAREHOUSE ${warehouse}"
 \t\tcursor.execute(query)
 \t\t# Fetch and display results
 \t\tresults = cursor.fetch_pandas_all()
-\t\tfor row in results:
-\t\t\tprint(row)
+\t\tfor colname in results:
+\t\t\tprint(colname)
 `;
 
 	return { code, dependencies };
