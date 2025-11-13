@@ -86,7 +86,10 @@ export class AskAssistantAction extends Action2 {
 				id: MenuId.EditorActionsLeft,
 				group: 'navigation',
 				order: 50,
-				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
+				)
 			}
 		});
 	}
@@ -129,10 +132,14 @@ export class AskAssistantAction extends Action2 {
 					commandService,
 					notificationService
 				).catch(() => {
-					// Reset state on error
+					// Reset state on error (handleGenerateSuggestions already handles item cleanup)
 					quickPick.busy = false;
 					quickPick.enabled = true;
 					quickPick.placeholder = localize('positronNotebook.assistant.quickPick.placeholder', 'Type your prompt...');
+					// Ensure items are restored if handleGenerateSuggestions didn't complete
+					if (quickPick.items.length === 0 || (quickPick.items[0] as PromptQuickPickItem).pickable === false) {
+						quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+					}
 				});
 			}
 		});
@@ -201,10 +208,31 @@ export class AskAssistantAction extends Action2 {
 		commandService: ICommandService,
 		notificationService: INotificationService
 	): Promise<void> {
+		// Create a loading item with animated spinner icon
+		const loadingItem: PromptQuickPickItem = {
+			label: localize('positronNotebook.assistant.generating.label', 'Generating AI suggestions...'),
+			query: '', // Empty query since this is not selectable
+			mode: ChatModeKind.Agent,
+			iconClass: ThemeIcon.asClassName(ThemeIcon.modify(Codicon.loading, 'spin')),
+			pickable: false // Prevent selection of the loading item
+		};
+
 		// Update quick pick to show loading state
 		quickPick.busy = true;
 		quickPick.enabled = false;
 		quickPick.placeholder = localize('positronNotebook.assistant.generating.placeholder', 'Generating AI suggestions...');
+
+		// Add loading item in the AI-generated suggestions section (beneath predefined items)
+		const separator: IQuickPickSeparator = {
+			type: 'separator',
+			label: localize('positronNotebook.assistant.aiSuggestions', 'AI-Generated Suggestions')
+		};
+
+		quickPick.items = [
+			...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
+			separator as any,
+			loadingItem
+		];
 
 		try {
 			// Call extension command to generate suggestions
@@ -220,15 +248,13 @@ export class AskAssistantAction extends Action2 {
 						'No suggestions generated. Try selecting cells or executing code first.'
 					)
 				);
+				// Remove loading item and separator, restore original items
+				quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
 				return;
 			}
 
 			// Update quick pick items to show predefined actions first, then AI suggestions below
-			const separator: IQuickPickSeparator = {
-				type: 'separator',
-				label: localize('positronNotebook.assistant.aiSuggestions', 'AI-Generated Suggestions')
-			};
-
+			// Replace the loading item with actual suggestions
 			quickPick.items = [
 				...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
 				separator as any,
@@ -245,6 +271,8 @@ export class AskAssistantAction extends Action2 {
 					error instanceof Error ? error.message : String(error)
 				)
 			);
+			// Remove loading item and separator, restore original items on error
+			quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
 		} finally {
 			// Reset busy state
 			quickPick.busy = false;
