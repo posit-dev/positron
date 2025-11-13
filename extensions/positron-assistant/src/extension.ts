@@ -23,6 +23,7 @@ import { registerParticipantDetectionProvider } from './participantDetection.js'
 import { registerAssistantCommands } from './commands/index.js';
 import { PositronAssistantApi } from './api.js';
 import { registerPromptManagement } from './promptRender.js';
+import { collectDiagnostics } from './diagnostics.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -250,6 +251,14 @@ function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext
 	);
 }
 
+function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
+			await collectDiagnostics(context);
+		})
+	);
+}
+
 async function toggleInlineCompletions() {
 	// Get the current value of the setting
 	const config = vscode.workspace.getConfiguration('positron.assistant');
@@ -309,6 +318,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerGenerateCommitMessageCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
+	registerCollectDiagnosticsCommand(context);
 	registerPromptManagement(context);
 
 	// Register mapped edits provider
