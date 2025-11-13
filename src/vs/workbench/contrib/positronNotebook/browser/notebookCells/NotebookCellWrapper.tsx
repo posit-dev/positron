@@ -14,7 +14,7 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getActiveCell } from '../selectionMachine.js';
+import { CellSelectionType } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../EnvironmentProvider.js';
 import { useObservedValue } from '../useObservedValue.js';
@@ -34,11 +34,7 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
-	const selectionState = useObservedValue(selectionStateMachine.state);
-
-	// Check if this cell is the active cell
-	const activeCell = getActiveCell(selectionState);
-	const isActiveCell = activeCell === cell;
+	const isActiveCell = useObservedValue(cell.isActive);
 
 	React.useEffect(() => {
 		if (cellRef.current) {

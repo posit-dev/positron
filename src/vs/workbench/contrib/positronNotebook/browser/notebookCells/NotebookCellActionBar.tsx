@@ -19,8 +19,6 @@ import { useMenu } from '../useMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useCellScopedContextKeyService } from './CellContextKeyServiceProvider.js';
 import { useMenuActions } from '../useMenuActions.js';
-import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { getActiveCell } from '../selectionMachine.js';
 
 interface NotebookCellActionBarProps {
 	cell: IPositronNotebookCell;
@@ -29,10 +27,9 @@ interface NotebookCellActionBarProps {
 export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	// Context
 	const contextKeyService = useCellScopedContextKeyService();
-	const notebookInstance = useNotebookInstance();
 
 	// State
-	const selectionState = useObservedValue(notebookInstance.selectionStateMachine.state);
+	const isActiveCell = useObservedValue(cell.isActive);
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionBarLeft, contextKeyService);
 	const submenu = useMenu(MenuId.PositronNotebookCellActionBarSubmenu, contextKeyService);
 	const rightMenu = useMenu(MenuId.PositronNotebookCellActionBarRight, contextKeyService);
@@ -41,10 +38,6 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	const rightActions = useMenuActions(rightMenu);
 
 	const hasSubmenuActions = submenuActions.length > 0;
-
-	// Check if this cell is the active cell in the selection
-	const activeCell = getActiveCell(selectionState);
-	const isActiveCell = activeCell === cell;
 
 	// Only show action bar for the active cell
 	const shouldShowActionBar = isActiveCell;

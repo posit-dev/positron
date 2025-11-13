@@ -614,9 +614,8 @@ export class SelectionStateMachine extends Disposable {
 		this._state.set(correctedState, undefined);
 	}
 
-	//TODO: update to handle active cell?
 	/**
-	 * Surgically updates the selection status of cells that have changed state.
+	 * Surgically updates the selection status and active state of cells that have changed state.
 	 * @param startState The selection state before the change
 	 * @param endState The selection state after the change
 	 */
@@ -627,8 +626,10 @@ export class SelectionStateMachine extends Disposable {
 		// Extract selected and editing cells from start and end states
 		const previouslySelected = getSelectedCells(startState);
 		const previouslyEditing = getEditingCell(startState);
+		const previouslyActive = getActiveCell(startState);
 		const newlySelected = getSelectedCells(endState);
 		const newlyEditing = getEditingCell(endState);
+		const newlyActive = getActiveCell(endState);
 
 		// Create sets for efficient lookups
 		const previousSelectedSet = new Set(previouslySelected);
@@ -672,6 +673,19 @@ export class SelectionStateMachine extends Disposable {
 			// New cell is being edited
 			newlyEditing.selectionStatus.set(CellSelectionStatus.Editing, undefined);
 		}
+
+		//#region Update active cell state
+		// Handle active cell transitions
+		if (previouslyActive && previouslyActive !== newlyActive) {
+			// Previous active cell is no longer active
+			previouslyActive.isActive.set(false, undefined);
+		}
+
+		if (newlyActive) {
+			// New cell is now active
+			newlyActive.isActive.set(true, undefined);
+		}
+		//#endregion Update active cell state
 	}
 
 	private _moveSelection(up: boolean, addMode: boolean) {
