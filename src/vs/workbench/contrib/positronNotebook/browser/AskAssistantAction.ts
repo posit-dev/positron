@@ -14,6 +14,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
@@ -123,8 +124,11 @@ export class AskAssistantAction extends NotebookAction2 {
 		quickPick.items = ASSISTANT_PREDEFINED_ACTIONS;
 		quickPick.canSelectMany = false;
 
+		// Create a disposable store to track event listener disposables
+		const disposables = new DisposableStore();
+
 		// Handle accept with veto pattern for AI generation and custom prompt validation
-		quickPick.onWillAccept((e) => {
+		disposables.add(quickPick.onWillAccept((e) => {
 			const selected = quickPick.selectedItems[0];
 
 
@@ -165,11 +169,11 @@ export class AskAssistantAction extends NotebookAction2 {
 					)
 				);
 			}
-		});
+		}));
 
 		// Wait for user selection or custom input
 		const result = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
-			quickPick.onDidAccept(() => {
+			disposables.add(quickPick.onDidAccept(() => {
 				// Check if a predefined item was selected
 				const selected = quickPick.selectedItems[0];
 				const customValue = quickPick.value.trim();
@@ -190,18 +194,20 @@ export class AskAssistantAction extends NotebookAction2 {
 					// No selection and no input
 					resolve(undefined);
 				}
+				disposables.dispose();
 				quickPick.dispose();
-			});
+			}));
 
 			quickPick.show();
 
-			quickPick.onDidHide(() => {
+			disposables.add(quickPick.onDidHide(() => {
 				// Cancel any ongoing AI generation when the quick pick is hidden
 				cancellationTokenSource.cancel();
 				cancellationTokenSource.dispose();
+				disposables.dispose();
 				quickPick.dispose();
 				resolve(undefined);
-			});
+			}));
 		});
 
 		cancellationTokenSource.dispose();
