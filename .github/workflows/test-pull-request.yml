@@ -23,18 +23,18 @@ jobs:
     secrets: inherit
 
   e2e-ubuntu-electron:
-    name: e2e-electron
+    name: electron
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     needs: [setup]
     with:
       grep: ${{ needs.setup.outputs.tags }}
-      display_name: "electron (ubuntu)"
+      display_name: "ubuntu"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.setup.outputs.tags }}"
       report_currents: false
       upload_logs: true
       shards: 6 # ${{ needs.setup.outputs.shards }}
       matrix: ${{ needs.setup.outputs.matrix }}
-      workers: 2
+      workers: 3
       allow_soft_fail: false
     secrets: inherit
 
