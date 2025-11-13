@@ -20,9 +20,14 @@ on:
         type: number
       shards:
         required: false
-        description: "Number of shards to split tests across. Use 1 for no sharding (default), or 4-6 for parallel execution."
+        description: "Total number of shards (for display purposes and shard argument)"
         default: 1
         type: number
+      matrix:
+        required: false
+        description: "Pre-calculated matrix JSON from build workflow"
+        default: '{"shard":[1]}'
+        type: string
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -75,26 +80,13 @@ permissions:
   packages: read
 
 jobs:
-  build-matrix:
-    name: Build shard matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.mk.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: mk
-        shell: bash
-        run: |
-          matrix=$(bash scripts/generate-test-matrix.sh ${{ inputs.shards }})
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
   e2e-linux-run:
-    name: ${{ inputs.display_name || 'e2e-linux-run' }}
+    name: ${{ inputs.display_name || 'e2e-linux-run' }} ${{ matrix.shard }}/${{ inputs.shards }}
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
-    needs: build-matrix
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(inputs.matrix) }}
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
       options: --user 0:0
@@ -230,9 +222,6 @@ jobs:
         if: ${{ inputs.project != 'e2e-electron' }}
         run: npm run gulp node
 
-      - name: Send Results to GH Summary
-        uses: ./.github/actions/gen-report-dir
-
       - name: Alter AppArmor Restrictions for Playwright
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
@@ -346,12 +335,18 @@ jobs:
           path: test/assistant-inspect-ai/*.json
 
   merge-reports:
-    name: Merge Ubuntu Reports
+    name: report
     if: ${{ always() }}
     needs: [e2e-linux-run]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.aws-role-to-assume }}
+          aws-region: ${{ inputs.aws-region }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
@@ -365,7 +360,7 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
-
+        
       - name: Upload Merged Playwright Report to S3
         if: ${{ success() || failure() }}
         uses: ./.github/actions/upload-report-to-s3

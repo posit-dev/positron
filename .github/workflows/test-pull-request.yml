@@ -35,10 +35,12 @@ jobs:
   setup:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    with:
+      shards: 6
     secrets: inherit
 
   e2e-ubuntu-electron:
-    name: e2e
+    name: e2e-electron
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     needs: [pr-tags, setup]
     with:
@@ -49,7 +51,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 6
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       workers: 1
       allow_soft_fail: false
     secrets: inherit
@@ -82,7 +85,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      shards: 4
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       workers: 1
       allow_soft_fail: false
     secrets: inherit

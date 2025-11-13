@@ -55,6 +55,8 @@ jobs:
       project: "e2e-firefox"
       report_currents: false
       allow_soft_fail: false
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-webkit:
@@ -67,6 +69,8 @@ jobs:
       project: "e2e-webkit"
       report_currents: false
       allow_soft_fail: false
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-edge:
@@ -79,6 +83,8 @@ jobs:
       project: "e2e-edge"
       report_currents: false
       allow_soft_fail: false
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   slack-notify:
