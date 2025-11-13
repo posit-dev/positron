@@ -49,7 +49,7 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 4
+      shards: 6
       workers: 1
       allow_soft_fail: false
     secrets: inherit
