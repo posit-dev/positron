@@ -689,8 +689,9 @@
             },
             "maxDirectories": {
               "type": "number",
-              "description": "Maximum number of directories to return. Must be <=100.",
-              "default": 50
+              "description": "Maximum number of directories to return.",
+              "default": 50,
+              "maximum": 100
             },
             "include": {
               "type": "array",
