@@ -215,6 +215,10 @@ jobs:
           mkdir -p blob-report
           aws s3 cp s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json blob-report/.last-run.json || echo "No previous .last-run.json found, starting fresh"
 
+      - name: Log Shard Distribution Info
+        run: |
+          bash scripts/log-shard-info.sh "${{ inputs.project }}" "${{ matrix.shard }}" "${{ inputs.shards }}" "$PW_TAGS"
+
       - name: Preload Node.js Binary
         if: ${{ inputs.project != 'e2e-electron' }}
         run: npm run gulp node
@@ -349,12 +353,12 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install Playwright and reporter in clean directory
+      - name: Install Playwright and apply patch
         run: |
-          mkdir -p playwright-merge
-          cd playwright-merge
-          npm init -y
-          npm install @playwright/test @midleman/github-actions-reporter
+          # Install only what we need: Playwright, patch-package, and reporter
+          npm install --no-save @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
+          # Apply the patch from patches/ directory
+          npx patch-package
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
@@ -367,20 +371,35 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Merge into HTML report and GitHub summary
-        working-directory: playwright-merge
         run: |
           npx playwright merge-reports \
             --reporter=html \
             --reporter=@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"] \
-            --last-run-file=../.last-run.json \
-            ../all-blob-reports
+            --last-run-file=.last-run.json \
+            ./all-blob-reports
+
+      - name: Verify .last-run.json was generated
+        run: |
+          if [ -f .last-run.json ]; then
+            FILE_SIZE=$(ls -lh .last-run.json | awk '{print $5}')
+            echo "✓ Generated .last-run.json ($FILE_SIZE)"
+            if command -v jq &> /dev/null; then
+              TEST_COUNT=$(jq '.testDurations | length' .last-run.json)
+              TOTAL_DURATION=$(jq '[.testDurations[]] | add' .last-run.json)
+              TOTAL_DURATION_SEC=$(echo "scale=1; $TOTAL_DURATION / 1000" | bc)
+              echo "  • Tests with duration data: $TEST_COUNT"
+              echo "  • Total test duration: ${TOTAL_DURATION_SEC}s"
+            fi
+          else
+            echo "⚠ No .last-run.json generated - patch may not be working correctly"
+          fi
 
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ${{ inputs.project }}-html-report
-          path: playwright-merge/playwright-report/
+          path: playwright-report/
           retention-days: 30
 
       - name: Upload .last-run.json to S3 for next run
