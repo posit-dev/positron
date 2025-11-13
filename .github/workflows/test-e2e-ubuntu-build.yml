@@ -45,19 +45,6 @@ permissions:
   packages: read
 
 jobs:
-  build-matrix:
-    name: build-matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.mk.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: mk
-        shell: bash
-        run: |
-          matrix=$(bash scripts/generate-test-matrix.sh ${{ inputs.shards }})
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
-
   pr-tags:
     name: pr-tags
     runs-on: ubuntu-latest
@@ -77,6 +64,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ inputs.repository }}
           GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ inputs.pr_number }}
+
+  build-matrix:
+    name: build-matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.mk.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: mk
+        shell: bash
+        run: |
+          matrix=$(bash scripts/generate-test-matrix.sh ${{ inputs.shards }})
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
 
   build-app:
     name: build-app
