@@ -650,7 +650,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// If no session was provided and the language desired is the language
 		// of the current console session, prefer that
 		if (!positronConsoleInstance) {
-			if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId) {
+			if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId &&
+				this._activePositronConsoleInstance?.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
 					this._activePositronConsoleInstance.sessionId);
 				sessionId = positronConsoleInstance?.sessionId;
@@ -666,7 +667,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			// most recently created session
 			allInstances.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp);
 			for (const instance of allInstances) {
-				if (instance.runtimeMetadata.languageId === languageId) {
+				if (instance.runtimeMetadata.languageId === languageId &&
+					instance.sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console
+				) {
 					positronConsoleInstance = instance;
 					break;
 				}
