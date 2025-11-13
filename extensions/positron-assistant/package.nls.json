@@ -11,6 +11,7 @@
 	"commands.toggleInlineCompletions.title": "Toggle (Enable/Disable) Completions",
 	"commands.managePromptFiles.title": "Manage Prompt Files",
 	"commands.collectDiagnostics.title": "Collect Diagnostics",
+	"commands.resetState.title": "Reset Assistant State",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",
