@@ -263,6 +263,11 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 //#endregion
 //#region Language Models
 
+/**
+ * Result of an autoconfiguration attempt.
+ * - Signed in indicates whether the model is configured and ready to use.
+ * - Message provides additional information to be displayed to user in the configuration modal, if signed in.
+ */
 type AutoconfigureResult = {
 	signedIn: false;
 } | {
@@ -679,6 +684,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		return this._config.model === id;
 	}
 
+	/**
+	 * Autoconfigures the language model, if supported.
+	 * May implement functionality such as checking for environment variables or assessing managed credentials.
+	 * @returns A promise that resolves to the autoconfigure result.
+	 */
 	static autoconfigure?: () => Promise<AutoconfigureResult>;
 }
 
@@ -1281,6 +1291,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 		return {
 			signedIn: true,
+			// Displayed as "Amazon Bedrock has been automatically
+			// configured using AWS managed credentials" in the configuration modal UI
 			message: 'AWS managed credentials',
 		};
 	}

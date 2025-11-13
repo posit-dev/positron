@@ -34,6 +34,10 @@ let tokenTracker: TokenTracker;
 
 const autoconfiguredModels: ModelConfig[] = [];
 
+/**
+ * Get all models which were automatically configured (e.g., via environment variables or managed credentials).
+ * @returns A list of models that were automatically configured
+ */
 export function getAutoconfiguredModels(): ModelConfig[] {
 	return [...autoconfiguredModels];
 }
@@ -151,6 +155,12 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 			await registerModelWithAPI(config, context, storage);
 			registeredModels.push(config);
 			if (autoModelConfigs.includes(config)) {
+				// In addition, track auto-configured models separately
+				// at a module level so that we can expose them via
+				// getAutoconfiguredModels()
+				// This is needed since auto-configured models are not
+				// stored in persistent storage like manually configured models
+				// are, and configuration data needs to be retrieved from memory.
 				autoconfiguredModels.push(config);
 			}
 		} catch (e) {

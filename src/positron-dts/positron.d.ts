@@ -2225,18 +2225,29 @@ declare module 'positron' {
 			autoconfigure?: LanguageModelAutoconfigure;
 		}
 
+		/**
+		 * Types of autoconfiguration support for language models.
+		 */
 		export enum LanguageModelAutoconfigureType {
+			// Autoconfigured using environment variables
 			EnvVariable = 0,
+			// Autoconfigured using a custom function on the language model provider
+			// E.g., for Workbench managed credentials
 			Custom = 1
 		}
+		/**
+		 * Language model autoconfiguration options.
+		 */
 		export type LanguageModelAutoconfigure = (
 			{
 				type: LanguageModelAutoconfigureType.EnvVariable;
+				// Environment variable key used to retrieve API key, if set
 				key: string;
 				signedIn: boolean;
 			} |
 			{
 				type: LanguageModelAutoconfigureType.Custom;
+				// Message to show in the UI if autoconfiguration was successful
 				message: string;
 				signedIn: boolean;
 			}
