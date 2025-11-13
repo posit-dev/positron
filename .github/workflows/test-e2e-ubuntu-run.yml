@@ -355,9 +355,15 @@ jobs:
 
       - name: Install Playwright and apply patch
         run: |
-          # Install only what we need: Playwright, patch-package, and reporter
-          npm install --no-save @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
-          # Apply the patch from patches/ directory
+          # Create clean directory for merge dependencies
+          mkdir -p playwright-merge
+          cd playwright-merge
+          npm init -y
+          # Install only what we need
+          npm install @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
+          # Copy patch from repo and apply it
+          mkdir -p patches
+          cp ../patches/playwright+1.56.1.patch patches/
           npx patch-package
 
       - name: Download all blob reports
@@ -371,12 +377,13 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Merge into HTML report and GitHub summary
+        working-directory: playwright-merge
         run: |
           npx playwright merge-reports \
             --reporter=html \
             --reporter=@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"] \
-            --last-run-file=.last-run.json \
-            ./all-blob-reports
+            --last-run-file=../.last-run.json \
+            ../all-blob-reports
 
       - name: Verify .last-run.json was generated
         run: |
@@ -399,7 +406,7 @@ jobs:
         if: always()
         with:
           name: ${{ inputs.project }}-html-report
-          path: playwright-report/
+          path: playwright-merge/playwright-report/
           retention-days: 30
 
       - name: Upload .last-run.json to S3 for next run
