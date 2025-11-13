@@ -11,6 +11,7 @@ import * as vscode from 'vscode';
 export const RECENT_SNOWFLAKE_ACCOUNTS_KEY = 'recentSnowflakeAccounts';
 export const TEST_ACCOUNT_NAME = 'test-account';
 export const TEST_ACCOUNT_NAME2 = 'another-account';
+export const STATE_KEY_SNOWFLAKE_CONNECTIONS = 'snowflakeConnections';
 
 // Mock database data
 export const mockDatabases = [
@@ -73,10 +74,12 @@ export class SnowflakeMock {
 	static setupStubs(sandbox: sinon.SinonSandbox) {
 
 		const mockConnectionObj = {
-			connectAsync: sandbox.stub().callsFake((callback) => {
+			connectAsync: (callback: Function) => {
 				// Successfully connect
 				setTimeout(() => callback(null), 10);
-			}),
+				// This is needed for async/await usage
+				return Promise.resolve();
+			},
 			execute: sandbox.stub().callsFake(({ sqlText, complete }) => {
 				if (sqlText === 'SHOW DATABASES') {
 					complete(null, {}, mockDatabases);
@@ -123,7 +126,8 @@ export class SnowflakeMock {
 
 		const mockSnowflakeModule = {
 			...snowflake, // Preserve other exports
-			createConnection: () => mockConnection
+			createConnection: () => mockConnection,
+			configure: sandbox.stub().returns(undefined)
 		};
 
 		// Mock module instead of stubbing a single method
