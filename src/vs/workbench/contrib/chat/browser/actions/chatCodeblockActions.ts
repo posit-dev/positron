@@ -67,7 +67,7 @@ function isResponseFiltered(context: ICodeBlockActionContext) {
 }
 
 abstract class ChatCodeBlockAction extends Action2 {
-	run(accessor: ServicesAccessor, ...args: any[]) {
+	run(accessor: ServicesAccessor, ...args: unknown[]) {
 		let context = args[0];
 		if (!isCodeBlockActionContext(context)) {
 			const codeEditorService = accessor.get(ICodeEditorService);
@@ -143,7 +143,7 @@ export function registerChatCodeBlockActions() {
 			});
 		}
 
-		run(accessor: ServicesAccessor, ...args: any[]) {
+		run(accessor: ServicesAccessor, ...args: unknown[]) {
 			const context = args[0];
 			if (!isCodeBlockActionContext(context) || isResponseFiltered(context)) {
 				return;
@@ -160,7 +160,7 @@ export function registerChatCodeBlockActions() {
 				chatService.notifyUserAction({
 					agentId: context.element.agent?.id,
 					command: context.element.slashCommand?.name,
-					sessionId: context.element.sessionId,
+					sessionResource: context.element.sessionResource,
 					requestId: context.element.requestId,
 					result: context.element.result,
 					action: {
@@ -227,7 +227,7 @@ export function registerChatCodeBlockActions() {
 			chatService.notifyUserAction({
 				agentId: element.agent?.id,
 				command: element.slashCommand?.name,
-				sessionId: element.sessionId,
+				sessionResource: element.sessionResource,
 				requestId: element.requestId,
 				result: element.result,
 				action: {
@@ -388,7 +388,7 @@ export function registerChatCodeBlockActions() {
 				chatService.notifyUserAction({
 					agentId: context.element.agent?.id,
 					command: context.element.slashCommand?.name,
-					sessionId: context.element.sessionId,
+					sessionResource: context.element.sessionResource,
 					requestId: context.element.requestId,
 					result: context.element.result,
 					action: {
@@ -498,7 +498,7 @@ export function registerChatCodeBlockActions() {
 				chatService.notifyUserAction({
 					agentId: context.element.agent?.id,
 					command: context.element.slashCommand?.name,
-					sessionId: context.element.sessionId,
+					sessionResource: context.element.sessionResource,
 					requestId: context.element.requestId,
 					result: context.element.result,
 					action: {
@@ -559,7 +559,7 @@ export function registerChatCodeBlockActions() {
 			});
 		}
 
-		run(accessor: ServicesAccessor, ...args: any[]) {
+		run(accessor: ServicesAccessor, ...args: unknown[]) {
 			navigateCodeBlocks(accessor);
 		}
 	});
@@ -581,7 +581,7 @@ export function registerChatCodeBlockActions() {
 			});
 		}
 
-		run(accessor: ServicesAccessor, ...args: any[]) {
+		run(accessor: ServicesAccessor, ...args: unknown[]) {
 			navigateCodeBlocks(accessor, true);
 		}
 	});
@@ -614,14 +614,14 @@ function getContextFromEditor(editor: ICodeEditor, accessor: ServicesAccessor): 
 		code: editor.getValue(),
 		languageId: editor.getModel()!.getLanguageId(),
 		codemapperUri: codeBlockInfo.codemapperUri,
-		chatSessionId: codeBlockInfo.chatSessionId,
+		chatSessionResource: codeBlockInfo.chatSessionResource,
 	};
 }
 
 export function registerChatCodeCompareBlockActions() {
 
 	abstract class ChatCompareCodeBlockAction extends Action2 {
-		run(accessor: ServicesAccessor, ...args: any[]) {
+		run(accessor: ServicesAccessor, ...args: unknown[]) {
 			const context = args[0];
 			if (!isCodeCompareBlockActionContext(context)) {
 				return;

@@ -3,10 +3,21 @@
 		"c": "from",
 		"t": "source.python keyword.control.import.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -23,10 +34,21 @@
 		"c": "import",
 		"t": "source.python keyword.control.import.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -543,10 +565,21 @@
 		"c": "return",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -793,10 +826,21 @@
 		"c": "for",
 		"t": "source.python meta.function.python meta.function.parameters.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -833,10 +877,21 @@
 		"c": "in",
 		"t": "source.python meta.function.python meta.function.parameters.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -873,10 +928,21 @@
 		"c": "if",
 		"t": "source.python meta.function.python meta.function.parameters.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -953,10 +1019,21 @@
 		"c": "else",
 		"t": "source.python meta.function.python meta.function.parameters.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1073,20 +1150,42 @@
 		"c": "pass",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "pass",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1203,10 +1302,21 @@
 		"c": "for",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1223,10 +1333,21 @@
 		"c": "in",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1303,10 +1424,21 @@
 		"c": "yield",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2313,10 +2445,21 @@
 		"c": "if",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2383,10 +2526,21 @@
 		"c": "return",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2423,10 +2577,21 @@
 		"c": "elif",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2593,10 +2758,21 @@
 		"c": "return",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2733,10 +2909,21 @@
 		"c": "else",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2763,10 +2950,21 @@
 		"c": "return",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -3663,10 +3861,21 @@
 		"c": "if",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -3943,10 +4152,21 @@
 		"c": "return",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4353,10 +4573,21 @@
 		"c": "while",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4403,10 +4634,21 @@
 		"c": "try",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4593,10 +4835,21 @@
 		"c": "break",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4613,10 +4866,21 @@
 		"c": "except",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4723,10 +4987,21 @@
 		"c": "async",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4743,10 +5018,21 @@
 		"c": "with",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4783,10 +5069,21 @@
 		"c": "as",
 		"t": "source.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -5343,10 +5640,21 @@
 		"c": ">>> ",
 		"t": "source.python string.quoted.docstring.raw.multi.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -5373,10 +5681,21 @@
 		"c": "... ",
 		"t": "source.python string.quoted.docstring.raw.multi.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -5403,10 +5722,21 @@
 		"c": "... ",
 		"t": "source.python string.quoted.docstring.raw.multi.python keyword.control.flow.python",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{

@@ -43,20 +43,42 @@
 		"c": "#",
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp punctuation.definition.directive.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "import",
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -103,20 +125,42 @@
 		"c": "#",
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp punctuation.definition.directive.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "import",
 		"t": "source.objcpp meta.preprocessor.include.objcpp keyword.control.directive.import.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1213,10 +1257,21 @@
 		"c": "if",
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp meta.bracket.square.access.objcpp keyword.control.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1483,10 +1538,21 @@
 		"c": "return",
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2723,10 +2789,21 @@
 		"c": "return",
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2763,10 +2840,21 @@
 		"c": "return",
 		"t": "source.objcpp meta.implementation.objcpp meta.scope.implementation.objcpp meta.function-with-body.objcpp meta.block.objcpp keyword.control.objcpp",
 		"r": {
+<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
+=======
+			"dark_plus": "keyword.control: #CE92A4",
+			"light_plus": "keyword.control: #AF00DB",
+			"dark_vs": "keyword.control: #569CD6",
+			"light_vs": "keyword.control: #0000FF",
+			"hc_black": "keyword.control: #C586C0",
+			"dark_modern": "keyword.control: #CE92A4",
+			"hc_light": "keyword.control: #B5200D",
+			"light_modern": "keyword.control: #AF00DB"
+>>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{

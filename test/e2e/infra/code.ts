@@ -28,6 +28,7 @@ export interface LaunchOptions {
 	readonly logger: Logger;
 	logsPath: string;
 	crashesPath: string;
+	readonly videosPath?: string;
 	verbose?: boolean;
 	useInMemorySecretStorage?: boolean;
 	readonly extraArgs?: string[];
@@ -146,6 +147,7 @@ export class Code {
 					throw new Error('Invalid usage');
 				}
 
+				// eslint-disable-next-line local/code-no-any-casts
 				const targetProp = (target as any)[prop];
 				if (typeof targetProp !== 'function') {
 					return targetProp;
@@ -163,14 +165,13 @@ export class Code {
 		return !(this.quality === Quality.Stable && this.version.major === 1 && this.version.minor < 101);
 	}
 
-	async startTracing(name: string): Promise<void> {
+	async startTracing(name?: string): Promise<void> {
 		return await this.driver.startTracing(name);
 	}
 
-
 	// --- Start Positron ---
 	// Add custom path argument.
-	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
+	async stopTracing(name?: string, persist: boolean = false, customPath?: string = ""): Promise<void> {
 		return await this.driver.stopTracing(name, persist, customPath);
 	}
 	// --- End Positron ---

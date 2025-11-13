@@ -53,13 +53,13 @@ export class PlaywrightDriver {
 		return this.page;
 	}
 
-	async startTracing(name: string): Promise<void> {
+	async startTracing(name?: string): Promise<void> {
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
 
 		try {
-			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing for ${name}`, this.options.logger);
+			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing${name ? ` for ${name}` : ''}`, this.options.logger);
 		} catch (error) {
 			// Ignore
 		}
@@ -67,7 +67,7 @@ export class PlaywrightDriver {
 
 	// --- Start Positron ---
 	// Added customPath parameter to allow specifying a custom path for the trace file
-	async stopTracing(name: string, persist: boolean = true, customPath?: string): Promise<void> {
+	async stopTracing(name: string, persist: boolean = false, customPath?: string = ""): Promise<void> {
 		// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled
@@ -76,12 +76,22 @@ export class PlaywrightDriver {
 		try {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
+				const nameSuffix = name ? `-${name.replace(/\s+/g, '-')}` : '';
 				// --- Start Positron ---
 				//  Windows has issues with long paths; shortened the name
-				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
+				persistPath = join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}${nameSuffix}.zip`);
 				// --- End Positron ---
 			}
-			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
+
+			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing${name ? ` for ${name}` : ''}`, this.options.logger);
+
+			// To ensure we have a screenshot at the end where
+			// it failed, also trigger one explicitly. Tracing
+			// does not guarantee to give us a screenshot unless
+			// some driver action ran before.
+			if (persist) {
+				await this.takeScreenshot(name);
+			}
 		} catch (error) {
 			// Ignore
 		}
@@ -168,11 +178,12 @@ export class PlaywrightDriver {
 
 	// --- Start Positron ---
 	// Make this method public for access from R/Python fixtures
-	async takeScreenshot(name: string): Promise<void> {
+	async takeScreenshot(name?: string): Promise<void> {
 		// --- End Positron ---
 		try {
-			// Positron: Windows has issues with long paths, shortened the name
-			const persistPath = join(this.options.logsPath, `screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
+			const nameSuffix = name ? `-${name.replace(/\s+/g, '-')}` : '';
+			const persistPath = join(this.options.logsPath, `playwright-screenshot-${PlaywrightDriver.screenShotCounter++}${nameSuffix}.png`);
+
 			await measureAndLog(() => this.page.screenshot({ path: persistPath, type: 'png' }), 'takeScreenshot', this.options.logger);
 		} catch (error) {
 			// Ignore

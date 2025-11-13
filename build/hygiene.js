@@ -43,10 +43,10 @@ const positCopyrightHeaderLinesHash = [
 // --- Start Positron ---
 /**
  * @param {string[] | NodeJS.ReadWriteStream} some
- * @param {boolean} linting
+ * @param {boolean} runEslint
  * @param {boolean} secrets - should we scan for secrets?
  */
-function hygiene(some, linting = true, secrets = true) {
+function hygiene(some, runEslint = true, secrets = true) {
 	// --- End Positron ---
 	const eslint = require('./gulp-eslint');
 	const gulpstylelint = require('./stylelint');
@@ -218,7 +218,7 @@ function hygiene(some, linting = true, secrets = true) {
 	const unicodeFilterStream = filter(unicodeFilter, { restore: true });
 
 	const result = input
-		.pipe(filter((f) => !f.stat.isDirectory()))
+		.pipe(filter((f) => Boolean(f.stat && !f.stat.isDirectory())))
 		.pipe(snapshotFilter)
 		// --- Start Positron ---
 		.pipe(testDataFiles)
@@ -240,7 +240,7 @@ function hygiene(some, linting = true, secrets = true) {
 		result.pipe(filter(tsFormattingFilter)).pipe(formatting)
 	];
 
-	if (linting) {
+	if (runEslint) {
 		streams.push(
 			result
 				.pipe(filter(eslintFilter))
@@ -250,16 +250,6 @@ function hygiene(some, linting = true, secrets = true) {
 						errorCount += results.errorCount;
 					})
 				)
-		);
-		streams.push(
-			result.pipe(filter(stylelintFilter)).pipe(gulpstylelint(((message, isError) => {
-				if (isError) {
-					console.error(message);
-					errorCount++;
-				} else {
-					console.warn(message);
-				}
-			})))
 		);
 		// --- Start Positron ---
 		streams.push(
@@ -289,6 +279,17 @@ function hygiene(some, linting = true, secrets = true) {
 		);
 	}
 	// --- End Positron ---
+
+	streams.push(
+		result.pipe(filter(stylelintFilter)).pipe(gulpstylelint(((message, isError) => {
+			if (isError) {
+				console.error(message);
+				errorCount++;
+			} else {
+				console.warn(message);
+			}
+		})))
+	);
 
 	let count = 0;
 	return es.merge(...streams).pipe(

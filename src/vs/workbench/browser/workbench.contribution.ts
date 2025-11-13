@@ -498,6 +498,12 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('askChatLocation.quickChat', "Ask chat questions in Quick Chat.")
 				]
 			},
+			'workbench.commandPalette.showAskInChat': {
+				'type': 'boolean',
+				tags: ['experimental'],
+				'description': localize('showAskInChat', "Controls whether the command palette shows 'Ask in Chat' option at the bottom."),
+				'default': true
+			},
 			'workbench.commandPalette.experimental.enableNaturalLanguageSearch': {
 				'type': 'boolean',
 				tags: ['experimental'],
@@ -569,6 +575,15 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('workbench.secondarySideBar.defaultVisibility.maximizedInWorkspace', "The secondary side bar is visible and maximized by default if a workspace is opened."),
 					localize('workbench.secondarySideBar.defaultVisibility.maximized', "The secondary side bar is visible and maximized by default.")
 				]
+			},
+			'workbench.secondarySideBar.enableDefaultVisibilityInOldWorkspace': {
+				'type': 'boolean',
+				'default': false,
+				'description': localize('enableDefaultVisibilityInOldWorkspace', "Enables the default secondary sidebar visibility in older workspaces before we had default visibility support."),
+				'tags': ['advanced'],
+				'experiment': {
+					'mode': 'auto'
+				}
 			},
 			'workbench.secondarySideBar.showLabels': {
 				'type': 'boolean',
@@ -916,7 +931,7 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 
 Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 	.registerConfigurationMigrations([{
-		key: 'workbench.activityBar.visible', migrateFn: (value: any) => {
+		key: 'workbench.activityBar.visible', migrateFn: (value: unknown) => {
 			const result: ConfigurationKeyValuePairs = [];
 			if (value !== undefined) {
 				result.push(['workbench.activityBar.visible', { value: undefined }]);
@@ -930,7 +945,7 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 
 Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 	.registerConfigurationMigrations([{
-		key: LayoutSettings.ACTIVITY_BAR_LOCATION, migrateFn: (value: any) => {
+		key: LayoutSettings.ACTIVITY_BAR_LOCATION, migrateFn: (value: unknown) => {
 			const results: ConfigurationKeyValuePairs = [];
 			if (value === 'side') {
 				results.push([LayoutSettings.ACTIVITY_BAR_LOCATION, { value: ActivityBarPosition.DEFAULT }]);
@@ -941,7 +956,7 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 
 Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 	.registerConfigurationMigrations([{
-		key: 'workbench.editor.doubleClickTabToToggleEditorGroupSizes', migrateFn: (value: any) => {
+		key: 'workbench.editor.doubleClickTabToToggleEditorGroupSizes', migrateFn: (value: unknown) => {
 			const results: ConfigurationKeyValuePairs = [];
 			if (typeof value === 'boolean') {
 				value = value ? 'expand' : 'off';
@@ -950,7 +965,7 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 			return results;
 		}
 	}, {
-		key: LayoutSettings.EDITOR_TABS_MODE, migrateFn: (value: any) => {
+		key: LayoutSettings.EDITOR_TABS_MODE, migrateFn: (value: unknown) => {
 			const results: ConfigurationKeyValuePairs = [];
 			if (typeof value === 'boolean') {
 				value = value ? EditorTabsMode.MULTIPLE : EditorTabsMode.SINGLE;
@@ -959,7 +974,7 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 			return results;
 		}
 	}, {
-		key: 'workbench.editor.tabCloseButton', migrateFn: (value: any) => {
+		key: 'workbench.editor.tabCloseButton', migrateFn: (value: unknown) => {
 			const result: ConfigurationKeyValuePairs = [];
 			if (value === 'left' || value === 'right') {
 				result.push(['workbench.editor.tabActionLocation', { value }]);
@@ -969,7 +984,7 @@ Registry.as<IConfigurationMigrationRegistry>(Extensions.ConfigurationMigration)
 			return result;
 		}
 	}, {
-		key: 'zenMode.hideTabs', migrateFn: (value: any) => {
+		key: 'zenMode.hideTabs', migrateFn: (value: unknown) => {
 			const result: ConfigurationKeyValuePairs = [['zenMode.hideTabs', { value: undefined }]];
 			if (value === true) {
 				result.push(['zenMode.showTabs', { value: 'single' }]);
