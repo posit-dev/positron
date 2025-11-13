@@ -8,6 +8,14 @@ on:
         description: "Number of shards for test distribution"
         default: 1
         type: number
+      pr_number:
+        required: false
+        description: "Pull request number (for parsing PR tags)"
+        type: number
+      repository:
+        required: false
+        description: "Repository name (for parsing PR tags)"
+        type: string
     outputs:
       matrix:
         description: "Matrix configuration for test sharding"
@@ -15,6 +23,21 @@ on:
       shards:
         description: "Number of shards (passed through)"
         value: ${{ inputs.shards }}
+      tags:
+        description: "Parsed PR tags"
+        value: ${{ jobs.pr-tags.outputs.tags }}
+      win_tag_found:
+        description: "Whether Windows tag was found"
+        value: ${{ jobs.pr-tags.outputs.win_tag_found }}
+      web_tag_found:
+        description: "Whether web tag was found"
+        value: ${{ jobs.pr-tags.outputs.web_tag_found }}
+      rhel_electron_tag_found:
+        description: "Whether RHEL electron tag was found"
+        value: ${{ jobs.pr-tags.outputs.rhel_electron_tag_found }}
+      rhel_web_tag_found:
+        description: "Whether RHEL web tag was found"
+        value: ${{ jobs.pr-tags.outputs.rhel_web_tag_found }}
 
 permissions:
   id-token: write
@@ -34,6 +57,26 @@ jobs:
         run: |
           matrix=$(bash scripts/generate-test-matrix.sh ${{ inputs.shards }})
           echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+  pr-tags:
+    name: pr-tags
+    runs-on: ubuntu-latest
+    if: ${{ inputs.pr_number != '' && inputs.pr_number != null }}
+    outputs:
+      tags: ${{ steps.pr-tags.outputs.tags }}
+      win_tag_found: ${{ steps.pr-tags.outputs.win_tag_found }}
+      web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
+      rhel_electron_tag_found: ${{ steps.pr-tags.outputs.rhel_electron_tag_found }}
+      rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Parse Tags from PR Body
+        id: pr-tags
+        run: bash scripts/pr-tags-parse.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ inputs.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ inputs.pr_number }}
 
   build-app:
     name: build-app
@@ -100,7 +143,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-compile-if-cached: ${{ steps.restore-caches.outputs.cache-compiled-hit }}
         env:
           NODE_ENV: ${{ env.NODE_ENV }}
 
@@ -111,7 +153,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-compile-if-cached: ${{ steps.restore-caches.outputs.cache-compiled-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
@@ -119,7 +160,6 @@ jobs:
         uses: ./.github/actions/setup-build-env
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          skip-compile-if-cached: ${{ steps.restore-caches.outputs.cache-compiled-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure'  }}
