@@ -199,7 +199,7 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          POSITRON_NPM_CONCURRENCY: '15'
+          POSITRON_NPM_CONCURRENCY: '12'
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}

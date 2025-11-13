@@ -15,7 +15,7 @@ runs:
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
         POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         POSITRON_PARALLEL_INSTALL: '1'
-        POSITRON_NPM_CONCURRENCY: '15'
+        POSITRON_NPM_CONCURRENCY: '12'
         # Do not override NPM_CONFIG_CACHE here; let the cache composite set it (e.g. .npm-cache).
         NPM_CONFIG_AUDIT: 'false'
         NPM_CONFIG_FUND: 'false'

@@ -387,7 +387,7 @@ jobs:
         run: |
           npx playwright merge-reports \
             --reporter=html \
-            --reporter=@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"] \
+            --reporter='@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"]' \
             --last-run-file=../.last-run.json \
             ../all-blob-reports
 
