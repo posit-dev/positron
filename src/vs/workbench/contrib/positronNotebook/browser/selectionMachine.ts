@@ -363,16 +363,13 @@ export class SelectionStateMachine extends Disposable {
 		// Update state to editing mode
 		this._setState({ type: SelectionState.EditingSelection, active: cellToEdit });
 
-		// Automatically detect if editor already has focus
-		// If it does, skip focus management to avoid double-focusing
-		if (cellToEdit.editor?.hasWidgetFocus()) {
-			return;
-		}
-
-		// Editor doesn't have focus - perform focus management
-		// Ensure editor is shown first (important for markdown cells and lazy-loaded editors)
+		// Always ensure editor is shown and focused
+		// For markdown cells, this creates the editor if needed
+		// For code cells, this ensures the cursor appears
+		// Note: We removed the hasWidgetFocus() check because code cells
+		// always have their editors mounted and report "has focus" even when
+		// not in edit mode, which prevented the cursor from appearing
 		await cellToEdit.showEditor();
-		// Request editor focus through observable - React will handle it
 		cellToEdit.requestEditorFocus();
 	}
 
