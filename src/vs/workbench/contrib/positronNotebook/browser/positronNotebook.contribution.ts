@@ -1354,37 +1354,76 @@ registerAction2(class extends NotebookAction2 {
 		// Create quick pick items with the three prompt options
 		interface PromptQuickPickItem extends IQuickPickItem {
 			query: string;
+			mode: 'ask' | 'edit' | 'agent';
 		}
 
-		const quickPickItems: PromptQuickPickItem[] = [
+		// Create items array with prompt options and helpful details
+		const assistantPredefinedActions: PromptQuickPickItem[] = [
 			{
-				label: localize('positronNotebook.askAssistant.prompt.describe', 'Can you describe the open notebook for me'),
-				query: 'Can you describe the open notebook for me?'
+				label: localize('positronNotebook.assistant.prompt.describe', 'Describe the notebook'),
+				detail: localize('positronNotebook.assistant.prompt.describe.detail', 'Get an overview of the notebook\'s contents and structure'),
+				query: 'Can you describe the open notebook for me?',
+				mode: 'ask'
 			},
 			{
-				label: localize('positronNotebook.askAssistant.prompt.comments', 'Can you add inline comments to the selected cell(s)'),
-				query: 'Can you add inline comments to the selected cell(s)?'
+				label: localize('positronNotebook.assistant.prompt.comments', 'Add inline comments'),
+				detail: localize('positronNotebook.assistant.prompt.comments.detail', 'Add explanatory comments to the selected cell(s)'),
+				query: 'Can you add inline comments to the selected cell(s)?',
+				mode: 'edit'
 			},
 			{
-				label: localize('positronNotebook.askAssistant.prompt.suggest', 'Can you suggest next steps for this notebook'),
-				query: 'Can you suggest next steps for this notebook?'
+				label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
+				detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get recommendations for what to do next with this notebook'),
+				query: 'Can you suggest next steps for this notebook?',
+				mode: 'ask'
 			}
 		];
 
+		// Create the description for the quick pick
+		const description = localize(
+			'positronNotebook.assistant.quickPick.description',
+			'Type your own prompt or select one of the options below.'
+		);
+
 		// Create and show the quick pick
 		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>();
-		quickPick.title = localize('positronNotebook.askAssistant.quickPick.title', 'Select a prompt');
-		quickPick.placeholder = localize('positronNotebook.askAssistant.quickPick.placeholder', 'Choose a prompt to send to the assistant');
-		quickPick.items = quickPickItems;
+		quickPick.title = localize('positronNotebook.assistant.quickPick.title', 'Assistant');
+		quickPick.description = description;
+		quickPick.placeholder = localize('positronNotebook.assistant.quickPick.placeholder', 'Type your prompt...');
+		quickPick.items = assistantPredefinedActions;
 		quickPick.canSelectMany = false;
 
 		quickPick.show();
 
-		// Wait for user selection
-		const selectedItem = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
+		// Wait for user selection or custom input
+		const result = await new Promise<{ item: PromptQuickPickItem; isCustom: boolean } | undefined>((resolve) => {
 			const disposables = new DisposableStore();
 			disposables.add(quickPick.onDidAccept(() => {
-				resolve(quickPick.selectedItems[0]);
+				// Check if a predefined item was selected
+				const selected = quickPick.selectedItems[0];
+				const customValue = quickPick.value.trim();
+
+				if (selected && 'query' in selected && 'mode' in selected) {
+					// User selected a predefined prompt item
+					const promptItem: PromptQuickPickItem = {
+						label: selected.label,
+						query: selected.query,
+						mode: selected.mode
+					};
+					resolve({ item: promptItem, isCustom: false });
+				} else if (customValue) {
+					// User typed a custom prompt - create a temporary item with their input
+					// Default to 'agent' mode for custom prompts
+					const customItem: PromptQuickPickItem = {
+						label: customValue,
+						query: customValue,
+						mode: 'agent'
+					};
+					resolve({ item: customItem, isCustom: true });
+				} else {
+					// No selection and no input
+					resolve(undefined);
+				}
 				quickPick.dispose();
 				disposables.dispose();
 			}));
@@ -1395,11 +1434,11 @@ registerAction2(class extends NotebookAction2 {
 			}));
 		});
 
-		// If user selected an item, execute the chat command with the selected query
-		if (selectedItem) {
+		// If user selected an item or typed a custom prompt, execute the chat command
+		if (result) {
 			commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-				query: selectedItem.query,
-				mode: 'ask'
+				query: result.item.query,
+				mode: result.item.mode
 			});
 		}
 	}
