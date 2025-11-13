@@ -701,11 +701,9 @@ export class SelectionStateMachine extends Disposable {
 			return;
 		}
 
-		// For addMode (Shift+Arrow), use edge cells to determine which cell to add
-		// For normal mode, use active cell to determine where to move from
-		const referenceCell = (addMode && state.type === SelectionState.MultiSelection)
-			? state.selected[up ? 0 : state.selected.length - 1]  // When expanding, use edge cell
-			: state.active;  // When collapsing or in single selection, use active cell
+		// Always use the active cell as the reference point for movement
+		// This allows us to detect whether we're expanding or shrinking the selection
+		const referenceCell = state.active;
 
 		const indexOfReferenceCell = referenceCell.index;
 		const nextCell = cells[indexOfReferenceCell + (up ? -1 : 1)];
@@ -721,6 +719,37 @@ export class SelectionStateMachine extends Disposable {
 				return;
 			}
 			const currentSelection = getSelectedCells(state);
+
+			// Check if we're shrinking the selection by moving back towards the previously selected cells.
+			// If nextCell is already in the selection, we need to remove the active cell and make the
+			// nextCell the new active cell.
+			if (state.type === SelectionState.MultiSelection && currentSelection.includes(nextCell)) {
+				// Remove the current active cell from selection
+				const newSelection = currentSelection.filter(c => c !== state.active);
+
+				if (newSelection.length === 0) {
+					// This shouldn't happen, but handle gracefully
+					return;
+				}
+
+				if (newSelection.length === 1) {
+					// Reduced to single selection
+					this._setState({
+						type: SelectionState.SingleSelection,
+						active: newSelection[0]
+					});
+				} else {
+					// Still multi-selection, but smaller
+					this._setState({
+						type: SelectionState.MultiSelection,
+						selected: verifyNonEmptyArray(newSelection),
+						active: nextCell  // nextCell becomes the new active cell
+					});
+				}
+				return;
+			}
+
+			// Otherwise, we're expanding the selection
 			const newSelection = verifyNonEmptyArray(up ? [nextCell, ...currentSelection] : [...currentSelection, nextCell]);
 			// The newly added cell becomes the active cell
 			this._setState({
