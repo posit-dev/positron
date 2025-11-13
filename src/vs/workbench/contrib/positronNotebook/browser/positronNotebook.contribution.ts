@@ -480,6 +480,36 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+/**
+ * Escape key: Reduce multi-selection to just the active cell when in command mode.
+ * This allows users to quickly collapse a multi-selection back to a single cell.
+ */
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.reduceSelectionToActiveCell',
+			title: localize2('positronNotebook.reduceSelectionToActiveCell', "Reduce Selection to Active Cell"),
+			keybinding: {
+				when: ContextKeyExpr.and(
+					POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+					POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.toNegated()
+				),
+				weight: KeybindingWeight.EditorContrib,
+				primary: KeyCode.Escape
+			}
+		});
+	}
+
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		const state = notebook.selectionStateMachine.state.get();
+		// Only reduce multi-selection; single selection and no cells state remain unchanged
+		if (state.type === SelectionState.MultiSelection) {
+			// Reduce to a single selection with just the active cell
+			notebook.selectionStateMachine.selectCell(state.active);
+		}
+	}
+});
+
 // Z key: Undo in command mode (Jupyter-style)
 // Adds keybinding to existing 'undo' command that's handled by contrib/undoRedo/positronNotebookUndoRedo.ts
 KeybindingsRegistry.registerKeybindingRule({
