@@ -331,6 +331,8 @@ jobs:
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -341,8 +343,12 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install Playwright and reporter
-        run: npm install --no-save @playwright/test @midleman/github-actions-reporter
+      - name: Install Playwright and reporter in clean directory
+        run: |
+          mkdir -p playwright-merge
+          cd playwright-merge
+          npm init -y
+          npm install @playwright/test @midleman/github-actions-reporter
 
       - name: Download all blob reports
         uses: actions/download-artifact@v4
@@ -351,26 +357,21 @@ jobs:
           pattern: blob-report-${{ inputs.project }}-shard-*
           merge-multiple: true
 
-      - name: Send Results to GH Summary
+      - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
 
-      - name: Merge reports and generate GitHub summary + HTML
+      - name: Merge into HTML report and GitHub summary
+        working-directory: playwright-merge
         run: |
           npx playwright merge-reports \
             --reporter=html \
             --reporter=@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"] \
-            ./all-blob-reports
-
-      - name: Upload Merged Playwright Report to S3
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: playwright-report
+            ../all-blob-reports
 
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: ${{ inputs.project }}-html-report
-          path: playwright-report
-          retention-days: 14
+          path: playwright-merge/playwright-report/
+          retention-days: 30
