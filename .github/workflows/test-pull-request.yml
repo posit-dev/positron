@@ -17,7 +17,7 @@ jobs:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     with:
-      shards: 10
+      shards: 6
       pr_number: ${{ github.event.pull_request.number }}
       repository: ${{ github.repository }}
     secrets: inherit

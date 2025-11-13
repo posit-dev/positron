@@ -339,6 +339,9 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Install GitHub Actions Reporter
+        run: npm install @midleman/github-actions-reporter
+
       - name: Download all blob reports
         uses: actions/download-artifact@v4
         with:
@@ -350,7 +353,11 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Merge reports and generate GitHub summary + HTML
-        run: npx playwright merge-reports --reporter=@midleman/github-actions-reporter,html ./all-blob-reports
+        run: |
+          npx playwright merge-reports \
+            --reporter=html \
+            --reporter=@midleman/github-actions-reporter,title="",useDetails=true,showError=true,showAnnotations=false,includeResults=["fail","flaky"] \
+            ./all-blob-reports
 
       - name: Upload Merged Playwright Report to S3
         if: ${{ success() || failure() }}

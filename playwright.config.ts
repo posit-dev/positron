@@ -43,13 +43,13 @@ export default defineConfig<ExtendedTestOptions>({
 	reporter: process.env.CI
 		? [
 			// eslint-disable-next-line local/code-no-dangerous-type-assertions
-			['@midleman/github-actions-reporter', <GitHubActionOptions>{
-				title: '',
-				useDetails: true,
-				showError: true,
-				showAnnotations: false,
-				includeResults: ['fail', 'flaky']
-			}],
+			// ['@midleman/github-actions-reporter', <GitHubActionOptions>{
+			// 	title: '',
+			// 	useDetails: true,
+			// 	showError: true,
+			// 	showAnnotations: false,
+			// 	includeResults: ['fail', 'flaky']
+			// }],
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
