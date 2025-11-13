@@ -43,6 +43,7 @@ import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ExecuteSelectionInConsoleAction } from './ExecuteSelectionInConsoleAction.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -1363,19 +1364,22 @@ registerAction2(class extends NotebookAction2 {
 				label: localize('positronNotebook.assistant.prompt.describe', 'Describe the notebook'),
 				detail: localize('positronNotebook.assistant.prompt.describe.detail', 'Get an overview of the notebook\'s contents and structure'),
 				query: 'Can you describe the open notebook for me?',
-				mode: 'ask'
+				mode: 'ask',
+				iconClass: ThemeIcon.asClassName(Codicon.book)
 			},
 			{
 				label: localize('positronNotebook.assistant.prompt.comments', 'Add inline comments'),
 				detail: localize('positronNotebook.assistant.prompt.comments.detail', 'Add explanatory comments to the selected cell(s)'),
 				query: 'Can you add inline comments to the selected cell(s)?',
-				mode: 'edit'
+				mode: 'edit',
+				iconClass: ThemeIcon.asClassName(Codicon.commentAdd)
 			},
 			{
 				label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
 				detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get recommendations for what to do next with this notebook'),
 				query: 'Can you suggest next steps for this notebook?',
-				mode: 'ask'
+				mode: 'ask',
+				iconClass: ThemeIcon.asClassName(Codicon.lightbulb)
 			}
 		];
 
