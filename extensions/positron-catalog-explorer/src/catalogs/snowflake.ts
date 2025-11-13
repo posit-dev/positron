@@ -107,7 +107,7 @@ export async function registerSnowflakeCatalog(
 			return undefined; // User canceled
 		}
 
-		if (selection.label === l10n.t('No connections.toml file found')) {
+		if (selection.label === l10n.t('Update path in settings')) {
 			// Open settings UI focused on the connections.toml path setting
 			await vscode.commands.executeCommand('workbench.action.openSettings', 'catalogExplorer.snowflakeConnections');
 			return undefined;
