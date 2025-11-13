@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -46,6 +46,8 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { KernelStatusBadge } from './KernelStatusBadge.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -1319,6 +1321,87 @@ registerAction2(class extends NotebookAction2 {
 	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		const cellCount = notebook.cells.get().length;
 		notebook.addCell(CellKind.Markup, cellCount, true);
+	}
+});
+
+// Ask Assistant - Opens assistant chat with prompt options for the notebook
+registerAction2(class extends NotebookAction2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.askAssistant',
+			title: localize2('askAssistant', 'Ask Assistant'),
+			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
+			icon: ThemeIcon.fromId('positron-assistant'),
+			f1: true,
+			category: POSITRON_NOTEBOOK_CATEGORY,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 50,
+				when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID)
+			}
+		});
+	}
+
+	override async runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
+		const commandService = accessor.get(ICommandService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		// Create quick pick items with the three prompt options
+		interface PromptQuickPickItem extends IQuickPickItem {
+			query: string;
+		}
+
+		const quickPickItems: PromptQuickPickItem[] = [
+			{
+				label: localize('positronNotebook.askAssistant.prompt.describe', 'Can you describe the open notebook for me'),
+				query: 'Can you describe the open notebook for me?'
+			},
+			{
+				label: localize('positronNotebook.askAssistant.prompt.comments', 'Can you add inline comments to the selected cell(s)'),
+				query: 'Can you add inline comments to the selected cell(s)?'
+			},
+			{
+				label: localize('positronNotebook.askAssistant.prompt.suggest', 'Can you suggest next steps for this notebook'),
+				query: 'Can you suggest next steps for this notebook?'
+			}
+		];
+
+		// Create and show the quick pick
+		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>();
+		quickPick.title = localize('positronNotebook.askAssistant.quickPick.title', 'Select a prompt');
+		quickPick.placeholder = localize('positronNotebook.askAssistant.quickPick.placeholder', 'Choose a prompt to send to the assistant');
+		quickPick.items = quickPickItems;
+		quickPick.canSelectMany = false;
+
+		quickPick.show();
+
+		// Wait for user selection
+		const selectedItem = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
+			const disposables = new DisposableStore();
+			disposables.add(quickPick.onDidAccept(() => {
+				resolve(quickPick.selectedItems[0]);
+				quickPick.dispose();
+				disposables.dispose();
+			}));
+			disposables.add(quickPick.onDidHide(() => {
+				resolve(undefined);
+				quickPick.dispose();
+				disposables.dispose();
+			}));
+		});
+
+		// If user selected an item, execute the chat command with the selected query
+		if (selectedItem) {
+			commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+				query: selectedItem.query,
+				mode: 'ask'
+			});
+		}
 	}
 });
 
