@@ -955,15 +955,9 @@ export class PositronAssistantNotebookParticipant extends PositronAssistantEdito
 
 		const currentIndex = currentCell.index;
 
-		// Ensure context has allCells populated for serialization
-		const contextWithAllCells = {
-			...notebookContext,
-			allCells
-		};
-
 		// Use unified serialization helper with current cell as anchor and full wrapping
 		// This applies filtering logic (sliding window around current cell) and formats consistently with chat pane
-		const serialized = serializeNotebookContext(contextWithAllCells, {
+		const serialized = serializeNotebookContext(notebookContext, {
 			anchorIndex: currentIndex,
 			wrapInNotebookContext: true
 		});

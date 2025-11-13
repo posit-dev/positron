@@ -24,6 +24,25 @@ export interface NotebookActionSuggestion {
 }
 
 /**
+ * Raw suggestion object structure as parsed from JSON
+ * Used for type-safe validation of LLM responses
+ */
+interface RawSuggestion {
+	label?: unknown;
+	detail?: unknown;
+	query?: unknown;
+	mode?: unknown;
+	iconClass?: unknown;
+}
+
+/**
+ * Type guard to check if a value is a record-like object
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
  * Generate AI-powered action suggestions based on notebook context
  * @param notebookUri URI of the notebook to analyze
  * @param participantService Service for accessing the current chat model
@@ -123,15 +142,16 @@ function parseAndValidateSuggestions(
 			jsonString = codeBlockMatch[1].trim();
 		}
 
-		// Parse the JSON
-		const parsed = JSON.parse(jsonString);
+		// Parse the JSON - result is unknown, not any
+		const parsed: unknown = JSON.parse(jsonString);
 
-		// Ensure it's an array
-		const suggestions = Array.isArray(parsed) ? parsed : [parsed];
+		// Ensure it's an array of unknown values
+		const suggestions: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
 
 		// Validate and normalize each suggestion
+		// Type guard narrows unknown to RawSuggestion, then normalize converts to NotebookActionSuggestion
 		return suggestions
-			.filter(s => validateSuggestion(s, log))
+			.filter((s): s is RawSuggestion => validateSuggestion(s, log))
 			.map(s => normalizeSuggestion(s))
 			.slice(0, 5); // Limit to 5 suggestions
 
@@ -142,10 +162,13 @@ function parseAndValidateSuggestions(
 }
 
 /**
- * Validate that a suggestion object has required fields
+ * Type guard to validate that a suggestion object has required fields
+ * @param suggestion The unknown value to validate
+ * @param log Log output channel for debugging
+ * @returns True if the suggestion is a valid RawSuggestion
  */
-function validateSuggestion(suggestion: any, log: vscode.LogOutputChannel): boolean {
-	if (!suggestion || typeof suggestion !== 'object') {
+function validateSuggestion(suggestion: unknown, log: vscode.LogOutputChannel): suggestion is RawSuggestion {
+	if (!isRecord(suggestion)) {
 		log.warn('[notebook-suggestions] Invalid suggestion: not an object');
 		return false;
 	}
@@ -164,21 +187,29 @@ function validateSuggestion(suggestion: any, log: vscode.LogOutputChannel): bool
 }
 
 /**
- * Normalize a suggestion object to match the expected interface
+ * Normalize a validated suggestion object to match the expected interface
+ * @param suggestion The validated raw suggestion from JSON parsing
+ * @returns Normalized NotebookActionSuggestion
  */
-function normalizeSuggestion(suggestion: any): NotebookActionSuggestion {
+function normalizeSuggestion(suggestion: RawSuggestion): NotebookActionSuggestion {
 	// Normalize mode to valid values
 	let mode: 'ask' | 'edit' | 'agent' = 'agent';
 	if (suggestion.mode === 'ask' || suggestion.mode === 'edit' || suggestion.mode === 'agent') {
 		mode = suggestion.mode;
 	}
 
+	// validateSuggestion ensures label and query are strings, so these are safe to use
+	// We still check at runtime for extra safety
+	if (typeof suggestion.label !== 'string' || typeof suggestion.query !== 'string') {
+		throw new Error('Invalid suggestion: label and query must be strings');
+	}
+
 	return {
 		label: suggestion.label,
-		detail: suggestion.detail || undefined,
+		detail: typeof suggestion.detail === 'string' ? suggestion.detail : undefined,
 		query: suggestion.query,
 		mode,
-		iconClass: suggestion.iconClass || undefined
+		iconClass: typeof suggestion.iconClass === 'string' ? suggestion.iconClass : undefined
 	};
 }
 
