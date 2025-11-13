@@ -23,6 +23,13 @@ import { NotebookAction2 } from './NotebookAction2.js';
 const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
 
 /**
+ * Maximum allowed length for custom prompts in characters.
+ * Set to 15,000 characters (approximately 2-3 pages of text) to prevent abuse
+ * while still allowing legitimate use cases.
+ */
+const MAX_CUSTOM_PROMPT_LENGTH = 15000;
+
+/**
  * Interface for quick pick items that represent assistant prompt options
  */
 interface PromptQuickPickItem extends IQuickPickItem {
@@ -116,9 +123,10 @@ export class AskAssistantAction extends NotebookAction2 {
 		quickPick.items = ASSISTANT_PREDEFINED_ACTIONS;
 		quickPick.canSelectMany = false;
 
-		// Handle accept with veto pattern for AI generation
+		// Handle accept with veto pattern for AI generation and custom prompt validation
 		quickPick.onWillAccept((e) => {
 			const selected = quickPick.selectedItems[0];
+
 
 			// Check if "Generate AI suggestions" was selected (type guard for PromptQuickPickItem)
 			if (selected && 'generateSuggestions' in selected && selected.generateSuggestions) {
@@ -141,6 +149,21 @@ export class AskAssistantAction extends NotebookAction2 {
 						quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
 					}
 				});
+				return;
+			}
+
+			const customValue = quickPick.value.trim();
+
+			// Validate custom prompt length if no predefined item is selected
+			if (!selected && customValue && customValue.length > MAX_CUSTOM_PROMPT_LENGTH) {
+				e.veto(); // Prevent the quick pick from closing
+				notificationService.error(
+					localize(
+						'positronNotebook.assistant.prompt.tooLong',
+						'Custom prompt is too long. Maximum length is {0} characters. Please shorten your prompt or switch to the chat pane directly.',
+						MAX_CUSTOM_PROMPT_LENGTH
+					)
+				);
 			}
 		});
 
