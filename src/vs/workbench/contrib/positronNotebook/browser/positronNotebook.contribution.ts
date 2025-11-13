@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -50,6 +50,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
 import { ChatModeKind } from '../../chat/common/constants.js';
 import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { UpdateNotebookWorkingDirectoryAction } from './UpdateNotebookWorkingDirectoryAction.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -1352,6 +1353,7 @@ registerAction2(class extends NotebookAction2 {
 	override async runNotebookAction(_notebook: IPositronNotebookInstance, accessor: ServicesAccessor) {
 		const commandService = accessor.get(ICommandService);
 		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
 
 		// Create quick pick items with the three prompt options
 		interface PromptQuickPickItem extends IQuickPickItem {
@@ -1390,7 +1392,7 @@ registerAction2(class extends NotebookAction2 {
 			'Type your own prompt or select one of the options below.'
 		);
 
-		// Create and show the quick pick
+		// Create and configure the quick pick
 		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>();
 		quickPick.title = localize('positronNotebook.assistant.quickPick.title', 'Assistant');
 		quickPick.description = description;
@@ -1398,12 +1400,9 @@ registerAction2(class extends NotebookAction2 {
 		quickPick.items = assistantPredefinedActions;
 		quickPick.canSelectMany = false;
 
-		quickPick.show();
-
 		// Wait for user selection or custom input
 		const result = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
-			const disposables = new DisposableStore();
-			disposables.add(quickPick.onDidAccept(() => {
+			quickPick.onDidAccept(() => {
 				// Check if a predefined item was selected
 				const selected = quickPick.selectedItems[0];
 				const customValue = quickPick.value.trim();
@@ -1425,21 +1424,32 @@ registerAction2(class extends NotebookAction2 {
 					resolve(undefined);
 				}
 				quickPick.dispose();
-				disposables.dispose();
-			}));
-			disposables.add(quickPick.onDidHide(() => {
-				resolve(undefined);
+			});
+
+			quickPick.show();
+
+			quickPick.onDidHide(() => {
 				quickPick.dispose();
-				disposables.dispose();
-			}));
+				resolve(undefined);
+			});
 		});
 
 		// If user selected an item or typed a custom prompt, execute the chat command
 		if (result) {
-			commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
-				query: result.query,
-				mode: result.mode
-			});
+			try {
+				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+					query: result.query,
+					mode: result.mode
+				});
+			} catch (error) {
+				notificationService.error(
+					localize(
+						'positronNotebook.assistant.error',
+						'Failed to open assistant chat: {0}',
+						error instanceof Error ? error.message : String(error)
+					)
+				);
+			}
 		}
 	}
 });
