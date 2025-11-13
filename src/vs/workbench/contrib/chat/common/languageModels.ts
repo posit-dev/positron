@@ -26,7 +26,6 @@ import { ExtensionsRegistry } from '../../../services/extensions/common/extensio
 import { ChatContextKeys } from './chatContextKeys.js';
 
 // --- Start Positron ---
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { applyModelFilters } from './positron/modelFilters.js';
 // --- End Positron ---
 
@@ -517,7 +516,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			}
 
 			// Fire the public language model changed event
-			this._onLanguageModelChange.fire();
+			this._onLanguageModelChange.fire(this.currentProvider?.id || '');
 		}));
 
 		// Restore the current provider from storage, if it exists.

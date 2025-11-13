@@ -79,10 +79,6 @@ import { LINUX_SYSTEM_POLICY_FILE_PATH } from '../../base/common/policy.js';
 import { AdminPolicyService, IAdminPolicyService } from '../../platform/policy/common/adminPolicyService.js';
 // --- End PWB ---
 
-// --- Start PWB ---
-import { AdminPolicyService, IAdminPolicyService } from '../../platform/policy/common/adminPolicyService.js';
-// --- End PWB ---
-
 /**
  * The main VS Code entry point.
  *

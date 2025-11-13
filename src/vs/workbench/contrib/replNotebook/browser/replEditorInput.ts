@@ -69,7 +69,7 @@ export class ReplEditorInput extends NotebookEditorInput implements ICompositeNo
 	) {
 		// --- Start Positron ---
 		// Add runtime session service & log service
-		super(resource, undefined, 'jupyter-notebook', {}, _notebookService, _notebookModelResolverService, _fileDialogService, labelService, fileService, filesConfigurationService, extensionService, editorService, textResourceConfigurationService, customEditorLabelService, runtimeSessionService, logService, environmentService, pathService));
+		super(resource, undefined, 'jupyter-notebook', {}, _notebookService, _notebookModelResolverService, _fileDialogService, labelService, fileService, filesConfigurationService, extensionService, editorService, textResourceConfigurationService, customEditorLabelService, runtimeSessionService, logService, environmentService, pathService);
 		// --- End Positron ---
 		this.isScratchpad = resource.scheme === 'untitled' && configurationService.getValue<boolean>(NotebookSetting.InteractiveWindowPromptToSave) !== true;
 		this.label = label ?? this.createEditorLabel(resource);

@@ -349,8 +349,16 @@ export function isChatImagePart(part: vscode.LanguageModelDataPart): boolean {
 	return 'mimeType' in part && isChatImageMimeType(part.mimeType);
 }
 
-export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatImageMimeType {
-	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
+export enum ChatImageMimeType {
+	PNG = 'image/png',
+	JPEG = 'image/jpeg',
+	GIF = 'image/gif',
+	WEBP = 'image/webp',
+	BMP = 'image/bmp',
+}
+
+export function isChatImageMimeType(mimeType: string): mimeType is ChatImageMimeType {
+	return Object.values(ChatImageMimeType).includes(mimeType as ChatImageMimeType);
 }
 
 export const EMPTY_TOOL_RESULT_PLACEHOLDER = '';

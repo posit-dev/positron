@@ -86,7 +86,9 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	thinkingProgress(thinkingDelta: vscode.ThinkingDelta): void {
 	}
-
+	externalEdit<T>(target: vscode.Uri | vscode.Uri[], callback: () => Thenable<T>): Thenable<T> {
+		return callback();
+	}
 }
 
 suite('PositronAssistantParticipant', () => {

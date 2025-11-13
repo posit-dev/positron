@@ -19,6 +19,7 @@ import { IExtHostFileSystemInfo } from '../../common/extHostFileSystemInfo.js';
 import { runWithFakedTimers } from '../../../../base/test/common/timeTravelScheduler.js';
 import { IExtHostDocumentsAndEditors } from '../../common/extHostDocumentsAndEditors.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { ProxyIdentifier } from '../../../services/extensions/common/proxyIdentifier.js';
 
 suite('ExtHostDiagnostics', () => {
 
@@ -490,6 +491,9 @@ suite('ExtHostDiagnostics', () => {
 			assertRegistered(): void { }
 			drain() {
 				return undefined!;
+			}
+			getRaw<T, R extends T>(identifier: ProxyIdentifier<T>): R {
+				return null as any;
 			}
 		}, new NullLogService(), fileSystemInfoService, new class extends mock<IExtHostDocumentsAndEditors>() {
 			override getDocument() {

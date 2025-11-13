@@ -254,7 +254,7 @@ const viewsContribution: IJSONSchema = {
 		// --- Start Positron ---
 		'connections': {
 			description: localize('views.connections', "Contributes views to Connections container in the Auxiliary sidebar"),
-		}
+		},
 		// --- End Positron ---
 		'agentSessions': {
 			description: localize('views.agentSessions', "Contributes views to Agent Sessions container in the Activity bar. To contribute to this container, the 'chatSessionsProvider' API proposal must be enabled."),

@@ -24,6 +24,7 @@ import { usePositronReactServicesContext } from '../../../../../../base/browser/
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
+import { createBareFontInfoFromRawSettings } from '../../../../../../editor/common/config/fontInfoFromSettings.js';
 
 /**
  * Constants.
@@ -143,7 +144,7 @@ export const DataExplorer = () => {
 		// Get the editor font space width.
 		const { spaceWidth } = FontMeasurements.readFontInfo(
 			window,
-			BareFontInfo.createFromRawSettings(
+			createBareFontInfoFromRawSettings(
 				services.configurationService.getValue<IEditorOptions>('editor'),
 				PixelRatio.getInstance(window).value
 			)
@@ -178,7 +179,7 @@ export const DataExplorer = () => {
 					// Get the editor font space width.
 					const { spaceWidth } = FontMeasurements.readFontInfo(
 						window,
-						BareFontInfo.createFromRawSettings(
+						createBareFontInfoFromRawSettings(
 							services.configurationService.getValue<IEditorOptions>('editor'),
 							PixelRatio.getInstance(window).value
 						)
