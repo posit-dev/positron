@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
-import { createModelConfigsFromEnv, newLanguageModelChatProvider } from './models';
+import { createAutomaticModelConfigs, newLanguageModelChatProvider } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { ParticipantService, registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -31,6 +31,12 @@ const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 let modelDisposables: ModelDisposable[] = [];
 let assistantEnabled = false;
 let tokenTracker: TokenTracker;
+
+const autoconfiguredModels: ModelConfig[] = [];
+
+export function getAutoconfiguredModels(): ModelConfig[] {
+	return [...autoconfiguredModels];
+}
 
 /** A chat or completion model provider disposable with associated configuration. */
 class ModelDisposable implements vscode.Disposable {
@@ -108,6 +114,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	// Dispose of existing models
 	disposeModels();
 
+	let autoModelConfigs: ModelConfig[];
 	let modelConfigs: ModelConfig[] = [];
 	try {
 		// Refresh the set of enabled providers
@@ -123,10 +130,10 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 			return enabled;
 		});
 
-		// Add any configs that should automatically work when the right environment variables are set
-		const modelConfigsFromEnv = createModelConfigsFromEnv();
+		// Add any configs that should automatically work when the right conditions are met
+		autoModelConfigs = await createAutomaticModelConfigs();
 		// we add in the config if we don't already have it configured
-		for (const config of modelConfigsFromEnv) {
+		for (const config of autoModelConfigs) {
 			if (!modelConfigs.find(c => c.provider === config.provider)) {
 				modelConfigs.push(config);
 			}
@@ -143,6 +150,9 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		try {
 			await registerModelWithAPI(config, context, storage);
 			registeredModels.push(config);
+			if (autoModelConfigs.includes(config)) {
+				autoconfiguredModels.push(config);
+			}
 		} catch (e) {
 			vscode.window.showErrorMessage(`${e}`);
 		}

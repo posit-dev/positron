@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { getLanguageModels } from './models';
 import { completionModels } from './completion';
-import { clearTokenUsage, disposeModels, log, registerModel } from './extension';
+import { clearTokenUsage, disposeModels, getAutoconfiguredModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
 import { PositLanguageModel } from './posit.js';
@@ -154,34 +154,42 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	// Gather model sources; ignore disabled providers
 	const enabledProviders = await getEnabledProviders();
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
-	const sources = [...getLanguageModels(), ...completionModels]
+	const autoconfiguredModels = getAutoconfiguredModels();
+	const sources: positron.ai.LanguageModelSource[] = [...getLanguageModels(), ...completionModels]
 		.map((provider) => {
-			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
-			return {
+			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id) || autoconfiguredModels.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
+			const source: positron.ai.LanguageModelSource = {
 				...provider.source,
 				signedIn: !!isRegistered,
 				defaults: isRegistered
 					? { ...provider.source.defaults, ...isRegistered }
 					: provider.source.defaults
 			};
+			return source;
 		})
 		.filter((source) => {
 			// If no specific set of providers was specified, include all
 			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
 		})
 		.map((source) => {
-			// Resolve environment variables in apiKeyEnvVar
-			if ('apiKeyEnvVar' in source.defaults && source.defaults.apiKeyEnvVar) {
-				const envVarName = (source.defaults as any).apiKeyEnvVar.key;
-				const envVarValue = process.env[envVarName];
+			// Handle autoconfigurable providers
+			if ('autoconfigure' in source.defaults && source.defaults.autoconfigure) {
+				// Resolve environment variables
+				if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
+					const envVarName = source.defaults.autoconfigure.key;
+					const envVarValue = process.env[envVarName];
 
-				return {
-					...source,
-					defaults: {
-						...source.defaults,
-						apiKeyEnvVar: { key: envVarName, signedIn: !!envVarValue }
-					},
-				};
+					return {
+						...source,
+						defaults: {
+							...source.defaults,
+							autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: envVarName, signedIn: !!envVarValue }
+						},
+					};
+				} else if (source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
+					// TODO @samclark2015: Handle custom auto-configuration... do we need to?
+					return source;
+				}
 			}
 			return source;
 		});

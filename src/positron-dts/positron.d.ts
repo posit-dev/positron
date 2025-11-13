@@ -2222,8 +2222,25 @@ declare module 'positron' {
 			maxInputTokens?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
-			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
+			autoconfigure?: LanguageModelAutoconfigure;
 		}
+
+		export enum LanguageModelAutoconfigureType {
+			EnvVariable = 0,
+			Custom = 1
+		}
+		export type LanguageModelAutoconfigure = (
+			{
+				type: LanguageModelAutoconfigureType.EnvVariable;
+				key: string;
+				signedIn: boolean;
+			} |
+			{
+				type: LanguageModelAutoconfigureType.Custom;
+				message: string;
+				signedIn: boolean;
+			}
+		);
 
 		/**
 		 * Request the current plot data.
