@@ -104,7 +104,7 @@ jobs:
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#test-slack-notifications" # "#positron-test-results"
+          slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
           filter_jobs: '^(?!.*build$).*'
-          custom_title: "E2E Cross Browser Tests — `main` (commit ${{ github.sha }})"
+          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
