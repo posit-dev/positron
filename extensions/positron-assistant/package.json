@@ -302,22 +302,30 @@
           "positron.assistant.providerTimeout": {
             "type": "number",
             "default": 60,
-            "description": "%configuration.providerTimeout.description%",
+            "markdownDescription": "%configuration.providerTimeout.description%",
             "minimum": 1
+          },
+          "positron.assistant.maxConnectionAttempts": {
+            "type": "number",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 10,
+            "markdownDescription": "%configuration.maxConnectionAttempts.description%"
           },
           "positron.assistant.filterModels": {
             "type": "array",
             "default": [
-              "*Claude*",
-              "*GPT*",
-              "*claude*",
-              "*gpt*"
+              "claude",
+              "gpt"
             ],
             "markdownDescription": "%configuration.filterModels.description%",
             "items": {
               "type": "string"
             },
             "examples": [
+              [
+                "sonnet"
+              ],
               [
                 "Claude*",
                 "GPT-5"
