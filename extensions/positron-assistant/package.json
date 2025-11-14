@@ -366,6 +366,30 @@
               "experimental"
             ]
           },
+          "positron.assistant.notebookSuggestions.model": {
+            "type": "array",
+            "default": [
+              "haiku",
+              "mini"
+            ],
+            "markdownDescription": "%configuration.notebookSuggestions.model.description%",
+            "items": {
+              "type": "string"
+            },
+            "examples": [
+              [
+                "haiku",
+                "mini"
+              ],
+              [
+                "Claude Sonnet 4.5",
+                "GPT-5"
+              ]
+            ],
+            "tags": [
+              "experimental"
+            ]
+          },
           "positron.assistant.providerVariables.bedrock": {
             "type": "object",
             "default": {},
