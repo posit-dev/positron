@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { URI } from '../../../../base/common/uri.js';
 import { isString } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
 import { Position } from '../../../../editor/common/core/position.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
@@ -315,6 +317,8 @@ export function registerPositronConsoleActions() {
 		 *   - advance: Optionally, if the cursor should be advanced to the next statement. If `undefined`, fallbacks to `true`.
 		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
 		 *   - errorBehavior: Optionally, the error behavior for a language runtime. If `undefined` fallbacks to `Continue`.
+		 *   - uri: The URI of the document to execute code from. Must be provided together with `position`.
+		 *   - position: The position in the document to execute code from. Must be provided together with `uri`.
 		 */
 		async run(
 			accessor: ServicesAccessor,
@@ -324,13 +328,17 @@ export function registerPositronConsoleActions() {
 				advance?: boolean;
 				mode?: RuntimeCodeExecutionMode;
 				errorBehavior?: RuntimeErrorBehavior;
-			} = {}
+			} & (
+					| { uri: URI; position: Position }
+					| { uri?: never; position?: never }
+				) = {}
 		) {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 			const languageService = accessor.get(ILanguageService);
 			const logService = accessor.get(ILogService);
+			const modelService = accessor.get(IModelService);
 			const notificationService = accessor.get(INotificationService);
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 
@@ -340,15 +348,43 @@ export function registerPositronConsoleActions() {
 			// The code to execute.
 			let code: string | undefined = undefined;
 
-			// If there is no active editor, there is nothing to execute.
-			const editor = editorService.activeTextEditorControl as IEditor;
-			if (!editor) {
-				return;
+			// Determine if we're using a provided URI or the active editor
+			let editor: IEditor | undefined;
+			let model: ITextModel | undefined;
+			let position: Position;
+
+			if (opts.uri) {
+				// Use the provided URI to get the model
+				const foundModel = modelService.getModel(opts.uri);
+				if (!foundModel) {
+					notificationService.notify({
+						severity: Severity.Info,
+						message: localize('positron.executeCode.noModel', "Cannot execute code. Unable to find document at {0}.", opts.uri.toString()),
+						sticky: false
+					});
+					return;
+				}
+				model = foundModel;
+				// Use the provided position (guaranteed to exist when uri is provided)
+				position = opts.position;
+				// No editor context when URI is provided
+				editor = undefined;
+			} else {
+				// Use the active editor
+				editor = editorService.activeTextEditorControl as IEditor;
+				if (!editor) {
+					return;
+				}
+				model = editor.getModel() as ITextModel;
+				const editorPosition = editor.getPosition();
+				if (!editorPosition) {
+					return;
+				}
+				position = editorPosition;
 			}
 
 			// Get the code to execute.
-			const selection = editor.getSelection();
-			const model = editor.getModel() as ITextModel;
+			const selection = editor?.getSelection();
 
 			// If we have a selection and it isn't empty, then we use its contents (even if it
 			// only contains whitespace or comments) and also retain the user's selection location.
@@ -365,13 +401,6 @@ export function registerPositronConsoleActions() {
 					}
 				}
 				// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-			}
-
-			// Get the position of the cursor. If we don't have a selection, we'll use this to
-			// determine the code to execute.
-			const position = editor.getPosition();
-			if (!position) {
-				return;
 			}
 
 			// Get all the statement range providers for the active document.
@@ -400,7 +429,7 @@ export function registerPositronConsoleActions() {
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 
-					if (advance) {
+					if (advance && editor) {
 						await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
 					}
 				} else {
@@ -412,8 +441,7 @@ export function registerPositronConsoleActions() {
 			// If no selection was found, use the contents of the line containing the cursor
 			// position.
 			if (!isString(code)) {
-				const position = editor.getPosition();
-				let lineNumber = position?.lineNumber ?? 0;
+				let lineNumber = position.lineNumber;
 
 				if (lineNumber > 0) {
 					// Find the first non-empty line after the cursor position and read the
@@ -431,11 +459,11 @@ export function registerPositronConsoleActions() {
 
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
-				if (advance && isString(code) && position) {
+				if (advance && isString(code) && editor) {
 					this.advanceLine(model, editor, position, lineNumber, code, editorService);
 				}
 
-				if (!isString(code) && position && lineNumber === model.getLineCount()) {
+				if (!isString(code) && lineNumber === model.getLineCount()) {
 					// If we still don't have code and we are at the end of the document, add a
 					// newline to the end of the document.
 					this.amendNewlineToEnd(model);
@@ -443,9 +471,11 @@ export function registerPositronConsoleActions() {
 					// We don't move to that new line to avoid adding a bunch of empty
 					// lines to the end. The edit operation typically moves us to the new line,
 					// so we have to undo that.
-					const newPosition = new Position(lineNumber, 1);
-					editor.setPosition(newPosition);
-					editor.revealPositionInCenterIfOutsideViewport(newPosition);
+					if (editor) {
+						const newPosition = new Position(lineNumber, 1);
+						editor.setPosition(newPosition);
+						editor.revealPositionInCenterIfOutsideViewport(newPosition);
+					}
 				}
 
 				// If we still don't have code after looking at the cursor position,
