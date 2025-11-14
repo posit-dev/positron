@@ -13,74 +13,81 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    name: setup
-    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
-    with:
-      shards: 6
-      pr_number: ${{ github.event.pull_request.number }}
-      repository: ${{ github.repository }}
-    secrets: inherit
+  pr-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.pr-tags.outputs.tags }}
+      win_tag_found: ${{ steps.pr-tags.outputs.win_tag_found }}
+      web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
+      rhel_electron_tag_found: ${{ steps.pr-tags.outputs.rhel_electron_tag_found }}
+      rhel_web_tag_found: ${{ steps.pr-tags.outputs.rhel_web_tag_found }}
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Parse Tags from PR Body
+        id: pr-tags
+        run: bash scripts/pr-tags-parse.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
   e2e-ubuntu-electron:
-    name: electron
-    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
-    needs: [setup]
+    name: e2e
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    needs: pr-tags
     with:
-      grep: ${{ needs.setup.outputs.tags }}
-      display_name: "ubuntu"
-      currents_tags: "pull-request,electron/ubuntu,${{ needs.setup.outputs.tags }}"
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "electron (ubuntu)"
+      currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
+      install_undetectable_interpreters: false
+      install_license: false
       upload_logs: false
-      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
-      matrix: ${{ needs.setup.outputs.matrix }}
       workers: 3
       allow_soft_fail: false
     secrets: inherit
 
   e2e-windows-electron:
-    needs: setup
-    if: ${{ needs.setup.outputs.win_tag_found == 'true' }}
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.win_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-windows.yml
     with:
-      grep: ${{ needs.setup.outputs.tags }}
+      grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (windows)"
-      currents_tags: "pull-request,electron/windows,${{ needs.setup.outputs.tags }}"
+      currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       upload_logs: false
       allow_soft_fail: false
     secrets: inherit
 
   e2e-ubuntu-browser:
-    needs: [setup]
-    if: ${{ needs.setup.outputs.web_tag_found == 'true' }}
-    name: chromium
-    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.web_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
-      grep: ${{ needs.setup.outputs.tags }}
-      display_name: "ubuntu"
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "chromium (ubuntu)"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/ubuntu,${{ needs.setup.outputs.tags }}"
+      currents_tags: "pull-request,chromium/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
-      matrix: ${{ needs.setup.outputs.matrix }}
-      workers: 1
       allow_soft_fail: false
     secrets: inherit
 
   e2e-rhel-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-rhel.yml
-    needs: setup
-    if: ${{ needs.setup.outputs.rhel_electron_tag_found == 'true' }}
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.rhel_electron_tag_found == 'true' }}
     with:
-      grep: ${{ needs.setup.outputs.tags }}
+      grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (RHEL)"
-      currents_tags: "pull-request,electron/rhel,${{ needs.setup.outputs.tags }}"
+      currents_tags: "pull-request,electron/rhel,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
       install_license: false
@@ -90,15 +97,15 @@ jobs:
     secrets: inherit
 
   e2e-rhel-chromium:
-    needs: setup
-    if: ${{ needs.setup.outputs.rhel_web_tag_found == 'true' }}
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.rhel_web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-rhel.yml
     with:
-      grep: ${{ needs.setup.outputs.tags }}
+      grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "chromium (RHEL)"
       project: "e2e-chromium"
-      currents_tags: "pull-request,chromium/rhel,${{ needs.setup.outputs.tags }}"
+      currents_tags: "pull-request,chromium/rhel,${{ needs.pr-tags.outputs.tags }}"
       report_currents: false
       install_undetectable_interpreters: false
       install_license: true
@@ -107,14 +114,14 @@ jobs:
       allow_soft_fail: false
     secrets: inherit
 
-  # unit-tests:
-  #   name: test
-  #   uses: ./.github/workflows/test-unit.yml
-  #   secrets: inherit
+  unit-tests:
+    name: test
+    uses: ./.github/workflows/test-unit.yml
+    secrets: inherit
 
-  # integration-tests:
-  #   name: test
-  #   uses: ./.github/workflows/test-integration.yml
-  #   secrets: inherit
-  #   with:
-  #     pull_request: true
+  integration-tests:
+    name: test
+    uses: ./.github/workflows/test-integration.yml
+    secrets: inherit
+    with:
+      pull_request: true
