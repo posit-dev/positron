@@ -206,6 +206,7 @@
         "command": "remote-containers.reopenInContainer",
         "title": "%command.reopenInContainer%",
         "category": "%command.category%",
+        "icon": "$(remote-explorer)",
         "actionBarOptions": {
           "controlType": "button",
           "displayTitle": true
@@ -257,6 +258,7 @@
         "command": "remote-containers.rebuildContainer",
         "title": "%command.rebuildContainer%",
         "category": "%command.category%",
+        "icon": "$(refresh)",
         "actionBarOptions": {
           "controlType": "button",
           "displayTitle": true
