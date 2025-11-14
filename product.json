@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.34",
+			"version": "1.6.35",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "4d95688030d3921528ddacf7a0cf74a2cd9b9ed8e497546645df16eabcc8c2f2",
+			"sha256": "bcec0a627541681ffcd8e6396dc8d4630b675e75834931b99fa2ba33d4b92966",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
