@@ -124,6 +124,18 @@
 	background-color: var(--vscode-errorForeground);
 }
 
+/* When hovering, for empty markdown cells: change border to solid line with hover color */
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-markdown-rendered:has(.empty-output-msg) {
+	border-style: solid;
+	border-color: var(--vscode-editorWidget-border);
+}
+
+/* When hovering, for non-empty markdown cells with hidden editor: add outline (to prevent layout shift) with hover color */
+.positron-notebook-cell:not(.selected):not(.editing):hover:has(.positron-notebook-editor-container.editor-hidden) .positron-notebook-markdown-rendered:not(:has(.empty-output-msg)) {
+	outline: 1px solid var(--vscode-editorWidget-border);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+}
+
 /* Respect user's motion preferences */
 @media (prefers-reduced-motion: reduce) {
 	.positron-notebook-editor-container::after {
