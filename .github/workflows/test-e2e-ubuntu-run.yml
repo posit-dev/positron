@@ -215,6 +215,13 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Setup AWS S3 Access for .last-run.json download
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
       - name: Download previous .last-run.json from S3
         continue-on-error: true
         run: |
@@ -438,8 +445,8 @@ jobs:
         working-directory: playwright-merge
         run: |
           if [ -f playwright-report/.last-run.json ]; then
-            # Upload to well-known location with public-read ACL so read-only role can download it
-            aws s3 cp playwright-report/.last-run.json s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json --acl public-read
+            # Upload to well-known location (bucket uses IAM policies)
+            aws s3 cp playwright-report/.last-run.json s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
             echo "✓ Uploaded .last-run.json to S3 for future runs"
           else
             echo "⚠ No .last-run.json to upload"
