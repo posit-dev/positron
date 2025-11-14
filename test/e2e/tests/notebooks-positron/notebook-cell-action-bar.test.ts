@@ -152,7 +152,6 @@ test.describe('Positron Notebooks: Action Bar Behavior', {
 		// await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 0', '# Cell 0']);
 	});
 
-	// ISSUE #10280: Action bar insert actions don't work with multiple selected cells
 	test('Cell actions with multiple cells selected', async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
