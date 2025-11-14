@@ -1,630 +1,638 @@
 {
-	"name": "dev-containers",
-	"displayName": "%displayName%",
-	"description": "%description%",
-	"publisher": "positron",
-	"version": "0.0.1",
-	"extensionKind": [
-		"ui"
-	],
-	"engines": {
-		"vscode": "^1.105.0"
-	},
-	"enabledApiProposals": [
-		"resolvers",
-		"contribViewsRemote"
-	],
-	"capabilities": {
-		"untrustedWorkspaces": {
-			"supported": "limited",
-			"description": "%capabilities.untrustedWorkspaces.description%"
-		},
-		"virtualWorkspaces": true
-	},
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onDebugResolve:extensionHost",
-		"onResolveRemoteAuthority:attached-container",
-		"onResolveRemoteAuthority:dev-container",
-		"onStartupFinished",
-		"workspaceContains:.devcontainer.json",
-		"workspaceContains:.devcontainer/devcontainer.json"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"configuration": {
-			"title": "%configuration.title%",
-			"properties": {
-				"dev.containers.defaultExtensions": {
-					"scope": "application",
-					"type": "array",
-					"description": "%configuration.defaultExtensions.description%",
-					"default": [],
-					"items": {
-						"type": "string",
-						"pattern": "([a-z0-9A-Z][a-z0-9\\-A-Z]*)\\.([a-z0-9A-Z][a-z0-9\\-A-Z]*)",
-						"errorMessage": "%configuration.defaultExtensions.errorMessage%"
-					}
-				},
-				"dev.containers.defaultFeatures": {
-					"scope": "application",
-					"type": "object",
-					"description": "%configuration.defaultFeatures%",
-					"default": {}
-				},
-				"dev.containers.workspaceMountConsistency": {
-					"scope": "application",
-					"type": "string",
-					"enum": [
-						"consistent",
-						"cached",
-						"delegated"
-					],
-					"enumDescriptions": [
-						"%configuration.workspaceMountConsistency.consistent%",
-						"%configuration.workspaceMountConsistency.cached%",
-						"%configuration.workspaceMountConsistency.delegated%"
-					],
-					"description": "%configuration.workspaceMountConsistency.description%",
-					"default": "cached"
-				},
-				"dev.containers.gpuAvailability": {
-					"scope": "machine",
-					"type": "string",
-					"enum": [
-						"all",
-						"detect",
-						"none"
-					],
-					"enumDescriptions": [
-						"%configuration.gpuAvailability.all%",
-						"%configuration.gpuAvailability.detect%",
-						"%configuration.gpuAvailability.none%"
-					],
-					"description": "%configuration.gpuAvailability.description%",
-					"default": "detect"
-				},
-				"dev.containers.cacheVolume": {
-					"scope": "application",
-					"type": "boolean",
-					"description": "%configuration.cacheVolume.description%",
-					"default": true
-				},
-				"dev.containers.copyGitConfig": {
-					"scope": "machine",
-					"type": "boolean",
-					"markdownDescription": "%configuration.copyGitConfig.markdownDescription%",
-					"default": true
-				},
-				"dev.containers.gitCredentialHelperConfigLocation": {
-					"scope": "machine",
-					"type": "string",
-					"enum": [
-						"system",
-						"global",
-						"none"
-					],
-					"enumDescriptions": [
-						"%configuration.gitCredentialHelperConfigLocation.system%",
-						"%configuration.gitCredentialHelperConfigLocation.global%",
-						"%configuration.gitCredentialHelperConfigLocation.none%"
-					],
-					"description": "%configuration.gitCredentialHelperConfigLocation.description%",
-					"default": "global"
-				},
-				"dev.containers.dockerCredentialHelper": {
-					"scope": "machine",
-					"type": "boolean",
-					"markdownDescription": "%configuration.dockerCredentialHelper.markdownDescription%",
-					"default": true
-				},
-				"dev.containers.githubCLILoginWithToken": {
-					"scope": "machine",
-					"type": "boolean",
-					"markdownDescription": "%configuration.githubCLILoginWithToken.markdownDescription%",
-					"default": false
-				},
-				"dev.containers.mountWaylandSocket": {
-					"scope": "application",
-					"ignoreSync": true,
-					"type": "boolean",
-					"markdownDescription": "%configuration.mountWaylandSocket.markdownDescription%",
-					"default": true
-				},
-				"dev.containers.logLevel": {
-					"scope": "application",
-					"type": "string",
-					"description": "%configuration.logLevel.description%",
-					"default": "debug",
-					"enum": [
-						"info",
-						"debug",
-						"trace"
-					]
-				},
-				"dev.containers.dockerPath": {
-					"scope": "application",
-					"type": "string",
-					"description": "%configuration.dockerPath.description%",
-					"default": "docker"
-				},
-				"dev.containers.dockerComposePath": {
-					"scope": "application",
-					"type": "string",
-					"description": "%configuration.dockerComposePath.description%",
-					"default": "docker-compose"
-				},
-				"dev.containers.dockerSocketPath": {
-					"scope": "application",
-					"type": "string",
-					"description": "%configuration.dockerSocketPath.description%",
-					"default": "/var/run/docker.sock"
-				},
-				"dev.containers.serverDownloadUrlTemplate": {
-					"scope": "application",
-					"type": "string",
-					"markdownDescription": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- `${quality}`: Positron server quality, e.g. stable or insiders\n- `${version}`: Positron server version, e.g. 2024.10.0-123\n- `${commit}`: Positron server release commit\n- `${os}`: Positron server OS, e.g. linux, darwin, win32\n- `${arch}`: Positron server arch, e.g. x64, arm64\n- `${arch-long}`: Positron server arch in long format, e.g. x86_64, arm64"
-				},
-				"dev.containers.executeInWSL": {
-					"scope": "application",
-					"type": "boolean",
-					"description": "%configuration.executeInWSL.description%",
-					"default": false
-				},
-				"dev.containers.executeInWSLDistro": {
-					"scope": "application",
-					"type": "string",
-					"markdownDescription": "%configuration.executeInWSLDistro.markdownDescription%"
-				},
-				"dev.containers.forwardWSLServices": {
-					"scope": "application",
-					"type": "boolean",
-					"description": "%configuration.forwardWSLServices.description%",
-					"default": true
-				},
-				"dev.containers.repositoryConfigurationPaths": {
-					"scope": "application",
-					"type": "array",
-					"markdownDescription": "%configuration.repositoryConfigurationPaths.markdownDescription%",
-					"default": [],
-					"items": {
-						"type": "string"
-					}
-				},
-				"dev.containers.optimisticallyLaunchDocker": {
-					"scope": "application",
-					"type": "boolean",
-					"description": "%configuration.optimisticallyLaunchDocker.description%",
-					"default": true
-				}
-			}
-		},
-		"commands": [
-			{
-				"command": "remote-containers.reopenInContainer",
-				"title": "%command.reopenInContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.rebuildAndReopenInContainer",
-				"title": "%command.rebuildAndReopenInContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.rebuildNoCacheAndReopenInContainer",
-				"title": "%command.rebuildNoCacheAndReopenInContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.reopenLocally",
-				"title": "%command.reopenLocally%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.openFolder",
-				"title": "%command.openFolder%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.openFolderInContainerInCurrentWindow",
-				"title": "%command.openFolderInContainerInCurrentWindow%",
-				"category": "%command.category%",
-				"icon": "$(arrow-right)"
-			},
-			{
-				"command": "remote-containers.openFolderInContainerInNewWindow",
-				"title": "%command.openFolderInContainerInNewWindow%",
-				"category": "%command.category%",
-				"icon": "$(empty-window)"
-			},
-			{
-				"command": "remote-containers.openWorkspace",
-				"title": "%command.openWorkspace%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.attachToRunningContainer",
-				"title": "%command.attachToRunningContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.rebuildContainer",
-				"title": "%command.rebuildContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.rebuildContainerNoCache",
-				"title": "%command.rebuildContainerNoCache%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.settings",
-				"title": "%command.settings%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.openDevContainerFile",
-				"title": "%command.openDevContainerFile%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.revealLogTerminal",
-				"title": "%command.revealLogTerminal%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.openLogFile",
-				"title": "%command.openLogFile%",
-				"category": "%command.developerCategory%"
-			},
-			{
-				"command": "remote-containers.openLastLogFile",
-				"title": "%command.openLastLogFile%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.testConnection",
-				"title": "%command.testConnection%",
-				"category": "%command.developerCategory%"
-			},
-			{
-				"command": "remote-containers.attachToContainerInCurrentWindow",
-				"title": "%command.attachToContainerInCurrentWindow%",
-				"category": "%command.category%",
-				"icon": "$(arrow-right)"
-			},
-			{
-				"command": "remote-containers.attachToContainerInNewWindow",
-				"title": "%command.attachToContainerInNewWindow%",
-				"category": "%command.category%",
-				"icon": "$(empty-window)"
-			},
-			{
-				"command": "remote-containers.stopContainer",
-				"title": "%command.stopContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.startContainer",
-				"title": "%command.startContainer%",
-				"category": "%command.category%"
-			},
-			{
-				"command": "remote-containers.removeContainer",
-				"title": "%command.removeContainer%",
-				"category": "%command.category%",
-				"icon": "$(trash)"
-			},
-			{
-				"command": "remote-containers.explorerTargetsRefresh",
-				"title": "%command.explorerTargetsRefresh%",
-				"category": "%command.category%",
-				"icon": "$(refresh)"
-			},
-			{
-				"command": "remote-containers.showContainerLog",
-				"title": "%command.showContainerLog%",
-				"category": "%command.category%"
-			}
-		],
-		"menus": {
-			"editor/actions/left": [
-				{
-					"command": "remote-containers.reopenInContainer",
-					"when": "!hideConnectCommands && !remoteName && (resourceFilename == 'devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
-					"group": "devcontainer@1"
-				},
-				{
-					"command": "remote-containers.rebuildContainer",
-					"when": "!hideRebuildCommands && remoteName =~ /^(dev-container|attached-container)$/ && (resourceFilename == 'devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
-					"group": "devcontainer@1"
-				}
-			],
-			"commandPalette": [
-				{
-					"command": "remote-containers.reopenInContainer",
-					"when": "!hideConnectCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
-				},
-				{
-					"command": "remote-containers.reopenInContainer",
-					"when": "!hideConnectCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.reopenInContainer",
-					"when": "!hideConnectCommands && workspaceFolderCount != 0 && remoteName == dev-container && isRecoveryContainer"
-				},
-				{
-					"command": "remote-containers.rebuildAndReopenInContainer",
-					"when": "!hideRebuildCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
-				},
-				{
-					"command": "remote-containers.rebuildAndReopenInContainer",
-					"when": "!hideRebuildCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.rebuildNoCacheAndReopenInContainer",
-					"when": "!hideRebuildCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
-				},
-				{
-					"command": "remote-containers.rebuildNoCacheAndReopenInContainer",
-					"when": "!hideRebuildCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.reopenLocally",
-					"when": "!hideConnectCommands && canReopenLocally"
-				},
-				{
-					"command": "remote-containers.openFolder",
-					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
-				},
-				{
-					"command": "remote-containers.openWorkspace",
-					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
-				},
-				{
-					"command": "remote-containers.attachToRunningContainer",
-					"when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
-				},
-				{
-					"command": "remote-containers.rebuildContainer",
-					"when": "!hideRebuildCommands && remoteName =~ /^dev-container$/"
-				},
-				{
-					"command": "remote-containers.rebuildContainerNoCache",
-					"when": "!hideRebuildCommands && remoteName =~ /^dev-container$/"
-				},
-				{
-					"command": "remote-containers.testConnection",
-					"when": "remoteName =~ /^(dev|attached)-container$/"
-				},
-				{
-					"command": "remote-containers.openDevContainerFile",
-					"when": "workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
-				},
-				{
-					"command": "remote-containers.openDevContainerFile",
-					"when": "workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.openDevContainerFile",
-					"when": "remoteName =~ /^(dev|attached)-container$/"
-				},
-				{
-					"command": "remote-containers.attachToContainerInCurrentWindow",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.attachToContainerInNewWindow",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.stopContainer",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.removeContainer",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.startContainer",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.explorerTargetsRefresh",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.openFolderInContainerInCurrentWindow",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.openFolderInContainerInNewWindow",
-					"when": "false"
-				},
-				{
-					"command": "remote-containers.showContainerLog",
-					"when": "false"
-				}
-			],
-			"statusBar/remoteIndicator": [
-				{
-					"command": "remote-containers.openDevContainerFile",
-					"group": "remote_30_dev-container_2_actions@0",
-					"when": "true"
-				},
-				{
-					"command": "remote-containers.attachToRunningContainer",
-					"group": "remote_30_dev-container_2_actions@2",
-					"when": "!hideConnectCommands"
-				},
-				{
-					"command": "remote-containers.rebuildContainer",
-					"group": "remote_30_dev-container_2_actions@6",
-					"when": "!hideRebuildCommands && remoteName =~ /^dev-container$/"
-				},
-				{
-					"command": "remote-containers.reopenLocally",
-					"group": "remote_30_dev-container_2_actions@7",
-					"when": "!hideConnectCommands && canReopenLocally"
-				},
-				{
-					"command": "remote-containers.reopenInContainer",
-					"group": "remote_30_dev-container_2_actions@8",
-					"when": "!hideConnectCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
-				},
-				{
-					"command": "remote-containers.reopenInContainer",
-					"group": "remote_30_dev-container_2_actions@8",
-					"when": "!hideConnectCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
-				},
-				{
-					"command": "remote-containers.openFolder",
-					"group": "remote_30_dev-container_2_actions@8",
-					"when": "!hideConnectCommands && workspaceFolderCount == 0 && !remoteName && !virtualWorkspace"
-				}
-			],
-			"view/title": [
-				{
-					"command": "remote-containers.explorerTargetsRefresh",
-					"when": "view == targetsContainers && !remote-containers:needsDockerStartOrInstall && !remote-containers:noContainersWithFolder && !remote-containers:noContainersWithoutFolder",
-					"group": "navigation@3"
-				}
-			],
-			"view/item/context": [
-				{
-					"command": "remote-containers.openFolderInContainerInCurrentWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
-					"group": "1_folder@1"
-				},
-				{
-					"command": "remote-containers.openFolderInContainerInCurrentWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
-					"group": "inline@1"
-				},
-				{
-					"command": "remote-containers.openFolderInContainerInNewWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
-					"group": "1_folder@2"
-				},
-				{
-					"command": "remote-containers.openFolderInContainerInNewWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
-					"group": "inline@2"
-				},
-				{
-					"command": "workbench.action.closeFolder",
-					"when": "view == targetsContainers && viewItem =~ /active.*Folder/",
-					"group": "1_folder@1"
-				},
-				{
-					"command": "remote-containers.reopenLocally",
-					"when": "!hideConnectCommands && canReopenLocally && view == targetsContainers && viewItem =~ /active(d|D)ev/",
-					"group": "1_folder@1"
-				},
-				{
-					"command": "remote-containers.attachToContainerInCurrentWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
-					"group": "1_container@1"
-				},
-				{
-					"command": "remote-containers.attachToContainerInCurrentWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
-					"group": "inline@1"
-				},
-				{
-					"command": "remote-containers.attachToContainerInNewWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
-					"group": "1_container@2"
-				},
-				{
-					"command": "remote-containers.attachToContainerInNewWindow",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
-					"group": "inline@2"
-				},
-				{
-					"command": "remote-containers.stopContainer",
-					"when": "view == targetsContainers && viewItem =~ /^running(Dev|)Container/",
-					"group": "2_container@2"
-				},
-				{
-					"command": "remote-containers.removeContainer",
-					"when": "view == targetsContainers && viewItem =~ /^(running|exited)(Dev|)Container/",
-					"group": "2_container@3"
-				},
-				{
-					"command": "remote-containers.rebuildContainer",
-					"when": "!hideRebuildCommands && view == targetsContainers && viewItem =~ /activeDevContainer/",
-					"group": "2_container@1"
-				},
-				{
-					"command": "remote-containers.removeContainer",
-					"when": "view == targetsContainers && viewItem =~ /^(running|exited)(Dev|)Container/",
-					"group": "inline@3",
-					"icon": "$(trash)"
-				},
-				{
-					"command": "remote-containers.startContainer",
-					"when": "view == targetsContainers && viewItem =~ /^exited(Dev|)Container/",
-					"group": "1_container@3"
-				},
-				{
-					"command": "remote-containers.showContainerLog",
-					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container/",
-					"group": "1_container@6"
-				}
-			],
-			"extension/context": []
-		},
-		"views": {
-			"remote": [
-				{
-					"id": "targetsContainers",
-					"name": "%views.remote.targetsContainers%",
-					"when": "!hideConnectCommands && !isInDevContainer",
-					"group": "targets@2",
-					"remoteName": [
-						"dev-container",
-						"attached-container",
-						"exec"
-					]
-				}
-			]
-		}
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
-		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/posit-dev/positron"
-	},
-	"dependencies": {
-		"chalk": "^4.1.2",
-		"follow-redirects": "^1.15.6",
-		"js-yaml": "^4.1.0",
-		"jsonc-parser": "^3.2.1",
-		"ncp": "^2.0.0",
-		"node-pty": "^1.0.0",
-		"proxy-agent": "^6.5.0",
-		"pull-stream": "^3.7.0",
-		"recursive-readdir": "^2.2.3",
-		"semver": "^7.6.0",
-		"shell-quote": "^1.8.1",
-		"stream-to-pull-stream": "^1.7.3",
-		"tar": "^6.2.0",
-		"text-table": "^0.2.0",
-		"yargs": "^17.7.2"
-	},
-	"devDependencies": {
-		"@types/ncp": "^2.0.8",
-		"@types/recursive-readdir": "^2.2.4",
-		"chai": "^4.3.10"
-	}
+  "name": "dev-containers",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "publisher": "positron",
+  "version": "0.0.1",
+  "extensionKind": [
+    "ui"
+  ],
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "enabledApiProposals": [
+    "resolvers",
+    "contribViewsRemote"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%capabilities.untrustedWorkspaces.description%"
+    },
+    "virtualWorkspaces": true
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onDebugResolve:extensionHost",
+    "onResolveRemoteAuthority:attached-container",
+    "onResolveRemoteAuthority:dev-container",
+    "onStartupFinished",
+    "workspaceContains:.devcontainer.json",
+    "workspaceContains:.devcontainer/devcontainer.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "dev.containers.defaultExtensions": {
+          "scope": "application",
+          "type": "array",
+          "description": "%configuration.defaultExtensions.description%",
+          "default": [],
+          "items": {
+            "type": "string",
+            "pattern": "([a-z0-9A-Z][a-z0-9\\-A-Z]*)\\.([a-z0-9A-Z][a-z0-9\\-A-Z]*)",
+            "errorMessage": "%configuration.defaultExtensions.errorMessage%"
+          }
+        },
+        "dev.containers.defaultFeatures": {
+          "scope": "application",
+          "type": "object",
+          "description": "%configuration.defaultFeatures%",
+          "default": {}
+        },
+        "dev.containers.workspaceMountConsistency": {
+          "scope": "application",
+          "type": "string",
+          "enum": [
+            "consistent",
+            "cached",
+            "delegated"
+          ],
+          "enumDescriptions": [
+            "%configuration.workspaceMountConsistency.consistent%",
+            "%configuration.workspaceMountConsistency.cached%",
+            "%configuration.workspaceMountConsistency.delegated%"
+          ],
+          "description": "%configuration.workspaceMountConsistency.description%",
+          "default": "cached"
+        },
+        "dev.containers.gpuAvailability": {
+          "scope": "machine",
+          "type": "string",
+          "enum": [
+            "all",
+            "detect",
+            "none"
+          ],
+          "enumDescriptions": [
+            "%configuration.gpuAvailability.all%",
+            "%configuration.gpuAvailability.detect%",
+            "%configuration.gpuAvailability.none%"
+          ],
+          "description": "%configuration.gpuAvailability.description%",
+          "default": "detect"
+        },
+        "dev.containers.cacheVolume": {
+          "scope": "application",
+          "type": "boolean",
+          "description": "%configuration.cacheVolume.description%",
+          "default": true
+        },
+        "dev.containers.copyGitConfig": {
+          "scope": "machine",
+          "type": "boolean",
+          "markdownDescription": "%configuration.copyGitConfig.markdownDescription%",
+          "default": true
+        },
+        "dev.containers.gitCredentialHelperConfigLocation": {
+          "scope": "machine",
+          "type": "string",
+          "enum": [
+            "system",
+            "global",
+            "none"
+          ],
+          "enumDescriptions": [
+            "%configuration.gitCredentialHelperConfigLocation.system%",
+            "%configuration.gitCredentialHelperConfigLocation.global%",
+            "%configuration.gitCredentialHelperConfigLocation.none%"
+          ],
+          "description": "%configuration.gitCredentialHelperConfigLocation.description%",
+          "default": "global"
+        },
+        "dev.containers.dockerCredentialHelper": {
+          "scope": "machine",
+          "type": "boolean",
+          "markdownDescription": "%configuration.dockerCredentialHelper.markdownDescription%",
+          "default": true
+        },
+        "dev.containers.githubCLILoginWithToken": {
+          "scope": "machine",
+          "type": "boolean",
+          "markdownDescription": "%configuration.githubCLILoginWithToken.markdownDescription%",
+          "default": false
+        },
+        "dev.containers.mountWaylandSocket": {
+          "scope": "application",
+          "ignoreSync": true,
+          "type": "boolean",
+          "markdownDescription": "%configuration.mountWaylandSocket.markdownDescription%",
+          "default": true
+        },
+        "dev.containers.logLevel": {
+          "scope": "application",
+          "type": "string",
+          "description": "%configuration.logLevel.description%",
+          "default": "debug",
+          "enum": [
+            "info",
+            "debug",
+            "trace"
+          ]
+        },
+        "dev.containers.dockerPath": {
+          "scope": "application",
+          "type": "string",
+          "description": "%configuration.dockerPath.description%",
+          "default": "docker"
+        },
+        "dev.containers.dockerComposePath": {
+          "scope": "application",
+          "type": "string",
+          "description": "%configuration.dockerComposePath.description%",
+          "default": "docker-compose"
+        },
+        "dev.containers.dockerSocketPath": {
+          "scope": "application",
+          "type": "string",
+          "description": "%configuration.dockerSocketPath.description%",
+          "default": "/var/run/docker.sock"
+        },
+        "dev.containers.serverDownloadUrlTemplate": {
+          "scope": "application",
+          "type": "string",
+          "markdownDescription": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- `${quality}`: Positron server quality, e.g. stable or insiders\n- `${version}`: Positron server version, e.g. 2024.10.0-123\n- `${commit}`: Positron server release commit\n- `${os}`: Positron server OS, e.g. linux, darwin, win32\n- `${arch}`: Positron server arch, e.g. x64, arm64\n- `${arch-long}`: Positron server arch in long format, e.g. x86_64, arm64"
+        },
+        "dev.containers.executeInWSL": {
+          "scope": "application",
+          "type": "boolean",
+          "description": "%configuration.executeInWSL.description%",
+          "default": false
+        },
+        "dev.containers.executeInWSLDistro": {
+          "scope": "application",
+          "type": "string",
+          "markdownDescription": "%configuration.executeInWSLDistro.markdownDescription%"
+        },
+        "dev.containers.forwardWSLServices": {
+          "scope": "application",
+          "type": "boolean",
+          "description": "%configuration.forwardWSLServices.description%",
+          "default": true
+        },
+        "dev.containers.repositoryConfigurationPaths": {
+          "scope": "application",
+          "type": "array",
+          "markdownDescription": "%configuration.repositoryConfigurationPaths.markdownDescription%",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "dev.containers.optimisticallyLaunchDocker": {
+          "scope": "application",
+          "type": "boolean",
+          "description": "%configuration.optimisticallyLaunchDocker.description%",
+          "default": true
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "remote-containers.reopenInContainer",
+        "title": "%command.reopenInContainer%",
+        "category": "%command.category%",
+        "actionBarOptions": {
+          "controlType": "button",
+          "displayTitle": true
+        }
+      },
+      {
+        "command": "remote-containers.rebuildAndReopenInContainer",
+        "title": "%command.rebuildAndReopenInContainer%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.rebuildNoCacheAndReopenInContainer",
+        "title": "%command.rebuildNoCacheAndReopenInContainer%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.reopenLocally",
+        "title": "%command.reopenLocally%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.openFolder",
+        "title": "%command.openFolder%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.openFolderInContainerInCurrentWindow",
+        "title": "%command.openFolderInContainerInCurrentWindow%",
+        "category": "%command.category%",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "remote-containers.openFolderInContainerInNewWindow",
+        "title": "%command.openFolderInContainerInNewWindow%",
+        "category": "%command.category%",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "remote-containers.openWorkspace",
+        "title": "%command.openWorkspace%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.attachToRunningContainer",
+        "title": "%command.attachToRunningContainer%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.rebuildContainer",
+        "title": "%command.rebuildContainer%",
+        "category": "%command.category%",
+        "actionBarOptions": {
+          "controlType": "button",
+          "displayTitle": true
+        }
+      },
+      {
+        "command": "remote-containers.rebuildContainerNoCache",
+        "title": "%command.rebuildContainerNoCache%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.settings",
+        "title": "%command.settings%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.openDevContainerFile",
+        "title": "%command.openDevContainerFile%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.revealLogTerminal",
+        "title": "%command.revealLogTerminal%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.openLogFile",
+        "title": "%command.openLogFile%",
+        "category": "%command.developerCategory%"
+      },
+      {
+        "command": "remote-containers.openLastLogFile",
+        "title": "%command.openLastLogFile%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.testConnection",
+        "title": "%command.testConnection%",
+        "category": "%command.developerCategory%"
+      },
+      {
+        "command": "remote-containers.attachToContainerInCurrentWindow",
+        "title": "%command.attachToContainerInCurrentWindow%",
+        "category": "%command.category%",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "remote-containers.attachToContainerInNewWindow",
+        "title": "%command.attachToContainerInNewWindow%",
+        "category": "%command.category%",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "remote-containers.stopContainer",
+        "title": "%command.stopContainer%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.startContainer",
+        "title": "%command.startContainer%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "remote-containers.removeContainer",
+        "title": "%command.removeContainer%",
+        "category": "%command.category%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "remote-containers.explorerTargetsRefresh",
+        "title": "%command.explorerTargetsRefresh%",
+        "category": "%command.category%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "remote-containers.showContainerLog",
+        "title": "%command.showContainerLog%",
+        "category": "%command.category%"
+      }
+    ],
+    "menus": {
+      "editor/actions/left": [
+        {
+          "command": "remote-containers.reopenInContainer",
+          "when": "!hideConnectCommands && !remoteName && (resourceFilename == 'devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
+          "group": "devcontainer@1"
+        },
+        {
+          "command": "remote-containers.rebuildContainer",
+          "when": "!hideRebuildCommands && remoteName =~ /^(dev-container|attached-container)$/ && (resourceFilename == 'devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
+          "group": "devcontainer@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "remote-containers.reopenInContainer",
+          "when": "!hideConnectCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
+        },
+        {
+          "command": "remote-containers.reopenInContainer",
+          "when": "!hideConnectCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
+        },
+        {
+          "command": "remote-containers.reopenInContainer",
+          "when": "!hideConnectCommands && workspaceFolderCount != 0 && remoteName == dev-container && isRecoveryContainer"
+        },
+        {
+          "command": "remote-containers.rebuildAndReopenInContainer",
+          "when": "!hideRebuildCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
+        },
+        {
+          "command": "remote-containers.rebuildAndReopenInContainer",
+          "when": "!hideRebuildCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
+        },
+        {
+          "command": "remote-containers.rebuildNoCacheAndReopenInContainer",
+          "when": "!hideRebuildCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
+        },
+        {
+          "command": "remote-containers.rebuildNoCacheAndReopenInContainer",
+          "when": "!hideRebuildCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
+        },
+        {
+          "command": "remote-containers.reopenLocally",
+          "when": "!hideConnectCommands && canReopenLocally"
+        },
+        {
+          "command": "remote-containers.openFolder",
+          "when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
+        },
+        {
+          "command": "remote-containers.openWorkspace",
+          "when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
+        },
+        {
+          "command": "remote-containers.attachToRunningContainer",
+          "when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
+        },
+        {
+          "command": "remote-containers.rebuildContainer",
+          "when": "!hideRebuildCommands && remoteName =~ /^dev-container$/"
+        },
+        {
+          "command": "remote-containers.rebuildContainerNoCache",
+          "when": "!hideRebuildCommands && remoteName =~ /^dev-container$/"
+        },
+        {
+          "command": "remote-containers.testConnection",
+          "when": "remoteName =~ /^(dev|attached)-container$/"
+        },
+        {
+          "command": "remote-containers.openDevContainerFile",
+          "when": "workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
+        },
+        {
+          "command": "remote-containers.openDevContainerFile",
+          "when": "workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
+        },
+        {
+          "command": "remote-containers.openDevContainerFile",
+          "when": "remoteName =~ /^(dev|attached)-container$/"
+        },
+        {
+          "command": "remote-containers.attachToContainerInCurrentWindow",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.attachToContainerInNewWindow",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.stopContainer",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.removeContainer",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.startContainer",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.explorerTargetsRefresh",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.openFolderInContainerInCurrentWindow",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.openFolderInContainerInNewWindow",
+          "when": "false"
+        },
+        {
+          "command": "remote-containers.showContainerLog",
+          "when": "false"
+        }
+      ],
+      "statusBar/remoteIndicator": [
+        {
+          "command": "remote-containers.openDevContainerFile",
+          "group": "remote_30_dev-container_2_actions@0",
+          "when": "true"
+        },
+        {
+          "command": "remote-containers.attachToRunningContainer",
+          "group": "remote_30_dev-container_2_actions@2",
+          "when": "!hideConnectCommands"
+        },
+        {
+          "command": "remote-containers.rebuildContainer",
+          "group": "remote_30_dev-container_2_actions@6",
+          "when": "!hideRebuildCommands && remoteName =~ /^dev-container$/"
+        },
+        {
+          "command": "remote-containers.reopenLocally",
+          "group": "remote_30_dev-container_2_actions@7",
+          "when": "!hideConnectCommands && canReopenLocally"
+        },
+        {
+          "command": "remote-containers.reopenInContainer",
+          "group": "remote_30_dev-container_2_actions@8",
+          "when": "!hideConnectCommands && workspaceFolderCount != 0 && remoteName =~ /^(wsl|ssh-remote)$/"
+        },
+        {
+          "command": "remote-containers.reopenInContainer",
+          "group": "remote_30_dev-container_2_actions@8",
+          "when": "!hideConnectCommands && workspaceFolderCount != 0 && !remoteName && !virtualWorkspace"
+        },
+        {
+          "command": "remote-containers.openFolder",
+          "group": "remote_30_dev-container_2_actions@8",
+          "when": "!hideConnectCommands && workspaceFolderCount == 0 && !remoteName && !virtualWorkspace"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "remote-containers.explorerTargetsRefresh",
+          "when": "view == targetsContainers && !remote-containers:needsDockerStartOrInstall && !remote-containers:noContainersWithFolder && !remote-containers:noContainersWithoutFolder",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "remote-containers.openFolderInContainerInCurrentWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
+          "group": "1_folder@1"
+        },
+        {
+          "command": "remote-containers.openFolderInContainerInCurrentWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "remote-containers.openFolderInContainerInNewWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
+          "group": "1_folder@2"
+        },
+        {
+          "command": "remote-containers.openFolderInContainerInNewWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(dev|attached|exited|running).*Folder$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "workbench.action.closeFolder",
+          "when": "view == targetsContainers && viewItem =~ /active.*Folder/",
+          "group": "1_folder@1"
+        },
+        {
+          "command": "remote-containers.reopenLocally",
+          "when": "!hideConnectCommands && canReopenLocally && view == targetsContainers && viewItem =~ /active(d|D)ev/",
+          "group": "1_folder@1"
+        },
+        {
+          "command": "remote-containers.attachToContainerInCurrentWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
+          "group": "1_container@1"
+        },
+        {
+          "command": "remote-containers.attachToContainerInCurrentWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "remote-containers.attachToContainerInNewWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
+          "group": "1_container@2"
+        },
+        {
+          "command": "remote-containers.attachToContainerInNewWindow",
+          "when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "remote-containers.stopContainer",
+          "when": "view == targetsContainers && viewItem =~ /^running(Dev|)Container/",
+          "group": "2_container@2"
+        },
+        {
+          "command": "remote-containers.removeContainer",
+          "when": "view == targetsContainers && viewItem =~ /^(running|exited)(Dev|)Container/",
+          "group": "2_container@3"
+        },
+        {
+          "command": "remote-containers.rebuildContainer",
+          "when": "!hideRebuildCommands && view == targetsContainers && viewItem =~ /activeDevContainer/",
+          "group": "2_container@1"
+        },
+        {
+          "command": "remote-containers.removeContainer",
+          "when": "view == targetsContainers && viewItem =~ /^(running|exited)(Dev|)Container/",
+          "group": "inline@3",
+          "icon": "$(trash)"
+        },
+        {
+          "command": "remote-containers.startContainer",
+          "when": "view == targetsContainers && viewItem =~ /^exited(Dev|)Container/",
+          "group": "1_container@3"
+        },
+        {
+          "command": "remote-containers.showContainerLog",
+          "when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container/",
+          "group": "1_container@6"
+        }
+      ],
+      "extension/context": []
+    },
+    "views": {
+      "remote": [
+        {
+          "id": "targetsContainers",
+          "name": "%views.remote.targetsContainers%",
+          "when": "!hideConnectCommands && !isInDevContainer",
+          "group": "targets@2",
+          "remoteName": [
+            "dev-container",
+            "attached-container",
+            "exec"
+          ]
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "follow-redirects": "^1.15.6",
+    "js-yaml": "^4.1.0",
+    "jsonc-parser": "^3.2.1",
+    "ncp": "^2.0.0",
+    "node-pty": "^1.0.0",
+    "proxy-agent": "^6.5.0",
+    "pull-stream": "^3.7.0",
+    "recursive-readdir": "^2.2.3",
+    "semver": "^7.6.0",
+    "shell-quote": "^1.8.1",
+    "stream-to-pull-stream": "^1.7.3",
+    "tar": "^6.2.0",
+    "text-table": "^0.2.0",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/ncp": "^2.0.8",
+    "@types/recursive-readdir": "^2.2.4",
+    "chai": "^4.3.10"
+  }
 }
