@@ -53,10 +53,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  setup:
+    name: setup
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    with:
+      shards: 10
+    secrets: inherit
+
   e2e-electron:
     name: e2e
+    needs: [setup]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       grep: ""
@@ -67,6 +75,8 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
+      matrix: ${{ needs.setup.outputs.matrix }}
 
   e2e-windows:
     name: e2e
@@ -82,8 +92,9 @@ jobs:
 
   e2e-chromium:
     name: e2e
+    needs: [setup]
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       grep: ""
@@ -94,6 +105,8 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
+      matrix: ${{ needs.setup.outputs.matrix }}
 
   e2e-rhel:
     name: e2e

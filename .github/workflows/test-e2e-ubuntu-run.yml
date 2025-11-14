@@ -350,7 +350,7 @@ jobs:
           path: test/assistant-inspect-ai/*.json
 
   merge-reports:
-    name: report
+    name: ${{ inputs.project || 'merge-reports' }}
     if: ${{ always() }}
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest
