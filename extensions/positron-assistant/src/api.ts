@@ -109,8 +109,8 @@ export class PositronAssistantApi {
 	 *
 	 * @returns The list of enabled tool names.
 	 */
-	public async getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Promise<Array<string>> {
-		return await getEnabledTools(request, tools);
+	public getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Array<string> {
+		return getEnabledTools(request, tools);
 	}
 
 	/**
