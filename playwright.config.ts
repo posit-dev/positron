@@ -17,14 +17,16 @@ const jsonOut = process.env.PW_JSON_FILE || 'test-results/results.json';
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
+const projectName = process.env.PW_PROJECT_NAME || 'default';
+
 export default defineConfig<ExtendedTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
 	shardingMode: 'duration-round-robin',
-	// @ts-expect-error playwright added by playwright patch
-	lastRunFile: './blob-report/.last-run.json',
+	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
+	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: [
 		'example.test.ts',
 		'**/workbench/**',

@@ -226,8 +226,8 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p blob-report
-          # Download from well-known location (using same path pattern as reports)
-          aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run.json || echo "No previous .last-run.json found, starting fresh"
+          # Download project-specific .last-run.json
+          aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
 
       - name: Restore AWS S3 Access to read-only role
         uses: aws-actions/configure-aws-credentials@v4
@@ -288,6 +288,7 @@ jobs:
           USE_KEY: true
           PW_JSON_FILE: test-results/ubuntu.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+          PW_PROJECT_NAME: ${{ inputs.project }}
         run: |
           if [ -z "$PW_TAGS" ]; then
             GREP_ARG=""
@@ -396,17 +397,16 @@ jobs:
       - name: Generate Report Directory
         uses: ./.github/actions/gen-report-dir
 
-      - name: Merge into HTML report and GitHub summary
+      - name: Merge into HTML report with .last-run.json
         working-directory: playwright-merge
         run: |
           # Create output directory
           mkdir -p playwright-report
 
-          # Merge reports and generate HTML + .last-run.json
-          # NOTE: Reporter order matters! GitHub Actions Reporter must come before HTML reporter
+          # Generate HTML report, GH Summary and project-specific .last-run.json
           PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
             --reporter=@midleman/github-actions-reporter,html \
-            --last-run-file=playwright-report/.last-run.json \
+            --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
             ../all-blob-reports
 
           # Verify HTML was generated
@@ -416,18 +416,19 @@ jobs:
       - name: Verify .last-run.json was generated
         working-directory: playwright-merge
         run: |
-          if [ -f playwright-report/.last-run.json ]; then
-            FILE_SIZE=$(ls -lh playwright-report/.last-run.json | awk '{print $5}')
-            echo "✓ Generated .last-run.json ($FILE_SIZE)"
+          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
+            echo "✓ Generated $LAST_RUN_FILE ($FILE_SIZE)"
             if command -v jq &> /dev/null; then
-              TEST_COUNT=$(jq '.testDurations | length' playwright-report/.last-run.json)
-              TOTAL_DURATION=$(jq '[.testDurations[]] | add' playwright-report/.last-run.json)
+              TEST_COUNT=$(jq '.testDurations | length' "$LAST_RUN_FILE")
+              TOTAL_DURATION=$(jq '[.testDurations[]] | add' "$LAST_RUN_FILE")
               TOTAL_DURATION_SEC=$(echo "scale=1; $TOTAL_DURATION / 1000" | bc)
               echo "  • Tests with duration data: $TEST_COUNT"
               echo "  • Total test duration: ${TOTAL_DURATION_SEC}s"
             fi
           else
-            echo "⚠ No .last-run.json generated - patch may not be working correctly"
+            echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
           fi
 
       - name: Upload HTML report to S3
@@ -449,10 +450,11 @@ jobs:
         if: always()
         working-directory: playwright-merge
         run: |
-          if [ -f playwright-report/.last-run.json ]; then
-            # Upload to well-known location (bucket uses IAM policies)
-            aws s3 cp playwright-report/.last-run.json s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
-            echo "✓ Uploaded .last-run.json to S3 for future runs"
+          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
+            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
+            echo "✓ Uploaded ${{ inputs.project }}-last-run.json to S3 for future runs"
           else
-            echo "⚠ No .last-run.json to upload"
+            echo "⚠ No $LAST_RUN_FILE to upload"
           fi

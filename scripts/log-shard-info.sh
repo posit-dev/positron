@@ -18,8 +18,8 @@ if [ -n "$GREP_PATTERN" ]; then
 fi
 echo ""
 
-# Check for .last-run.json
-LAST_RUN_FILE="blob-report/.last-run.json"
+# Check for project-specific .last-run.json
+LAST_RUN_FILE="blob-report/.last-run-${PROJECT}.json"
 if [ -f "$LAST_RUN_FILE" ]; then
   FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
   echo "✓ Last run data found: $LAST_RUN_FILE ($FILE_SIZE)"
