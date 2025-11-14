@@ -6,7 +6,7 @@
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { MarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { ThemeIcon } from '../../../../../../base/common/themables.js';
-import { MarkdownRenderer } from '../../../../../../editor/browser/widget/markdownRenderer/browser/markdownRenderer.js';
+import { IMarkdownRenderer } from '../../../../../../platform/markdown/browser/markdownRenderer.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { IChatMarkdownContent, IChatToolInvocation, IChatToolInvocationSerialized } from '../../../common/chatService.js';
 import { CodeBlockModelCollection } from '../../../common/codeBlockModelCollection.js';
@@ -14,7 +14,7 @@ import { IChatCodeBlockInfo } from '../../chat.js';
 import { ICodeBlockRenderOptions } from '../../codeBlockPart.js';
 import { IChatContentPartRenderContext } from '../chatContentParts.js';
 import { ChatMarkdownContentPart, EditorPool } from '../chatMarkdownContentPart.js';
-import { ChatCustomProgressPart } from '../chatProgressContentPart.js';
+import { ChatProgressSubPart } from '../chatProgressContentPart.js';
 import { BaseChatToolInvocationSubPart } from './chatToolInvocationSubPart.js';
 
 
@@ -34,7 +34,7 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 	constructor(
 		toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized,
 		context: IChatContentPartRenderContext,
-		renderer: MarkdownRenderer,
+		renderer: IMarkdownRenderer,
 		editorPool: EditorPool,
 		currentWidthDelegate: () => number,
 		codeBlockStartIndex: number,
@@ -59,11 +59,25 @@ export class ChatToolMarkdownProgressPart extends BaseChatToolInvocationSubPart 
 		};
 		this.markdownPart = this._register(instantiationService.createInstance(ChatMarkdownContentPart, chatMarkdownContent, context, editorPool, false, codeBlockStartIndex, renderer, /* markdownRenderOptions */ undefined, currentWidthDelegate(), codeBlockModelCollection, { codeBlockRenderOptions }));
 		this._register(this.markdownPart.onDidChangeHeight(() => this._onDidChangeHeight.fire()));
-		const icon = !toolInvocation.isConfirmed ?
-			Codicon.error :
-			toolInvocation.isComplete ?
-				Codicon.check : ThemeIcon.modify(Codicon.loading, 'spin');
-		const progressPart = instantiationService.createInstance(ChatCustomProgressPart, this.markdownPart.domNode, icon);
+
+		// Determine icon based on tool invocation state
+		let icon: ThemeIcon;
+		if ('state' in toolInvocation && typeof toolInvocation.state === 'object') {
+			// IChatToolInvocation with state observable
+			const state = toolInvocation.state.get();
+			if (state.type === IChatToolInvocation.StateKind.Completed) {
+				icon = Codicon.check;
+			} else if (state.type === IChatToolInvocation.StateKind.WaitingForConfirmation) {
+				icon = Codicon.error;
+			} else {
+				icon = ThemeIcon.modify(Codicon.loading, 'spin');
+			}
+		} else {
+			// IChatToolInvocationSerialized - assume completed
+			icon = Codicon.check;
+		}
+
+		const progressPart = instantiationService.createInstance(ChatProgressSubPart, this.markdownPart.domNode, icon, undefined);
 		this.domNode = progressPart.domNode;
 	}
 }
