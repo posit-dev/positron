@@ -21,7 +21,7 @@ const findTextInProjectModelDescription = `
 This tool searches for the specified text inside files in the project and returns snippets of matching lines in the format: /path/to/file:line: [...]content[...]
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
 Other search options such as case sensitivity, regex, whole word matching, and multiline matching can be specified.
-Prefer your project tree tool when you want to find files and directories in
+Prefer your project tree tool when you want to find files and the directory structure tool when you want to find directories in
 the workspace rather than search within them.
 `;
 

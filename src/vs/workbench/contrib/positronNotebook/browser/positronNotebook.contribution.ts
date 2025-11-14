@@ -52,6 +52,8 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookAction2 } from './NotebookAction2.js';
+import './AskAssistantAction.js'; // Register AskAssistantAction
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
@@ -336,22 +338,6 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 	PositronNotebookEditorSerializer
 );
 
-/**
- * Base class for notebook-level actions that operate on IPositronNotebookInstance.
- * Automatically gets the active notebook instance and passes it to the _run method.
- */
-abstract class NotebookAction2 extends Action2 {
-	override run(accessor: ServicesAccessor, ...args: any[]): void {
-		const editorService = accessor.get(IEditorService);
-		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
-		if (!activeNotebook) {
-			return;
-		}
-		this.runNotebookAction(activeNotebook, accessor);
-	}
-
-	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
-}
 
 //#region Notebook Commands
 registerAction2(class extends NotebookAction2 {
@@ -1321,6 +1307,9 @@ registerAction2(class extends NotebookAction2 {
 		notebook.addCell(CellKind.Markup, cellCount, true);
 	}
 });
+
+// Ask Assistant - Opens assistant chat with prompt options for the notebook
+// Action is defined in AskAssistantAction.ts
 
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton
