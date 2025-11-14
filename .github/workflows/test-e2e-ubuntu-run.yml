@@ -391,11 +391,16 @@ jobs:
       - name: Merge into HTML report and GitHub summary
         working-directory: playwright-merge
         run: |
+          # Merge reports and generate HTML + .last-run.json
           npx playwright merge-reports \
             --reporter=html \
             --reporter=@midleman/github-actions-reporter \
             --last-run-file=playwright-report/.last-run.json \
             ../all-blob-reports
+
+          # Verify HTML was generated
+          echo "Checking for generated files..."
+          ls -la playwright-report/ || echo "playwright-report directory not found!"
 
       - name: Verify .last-run.json was generated
         working-directory: playwright-merge
@@ -413,14 +418,6 @@ jobs:
           else
             echo "⚠ No .last-run.json generated - patch may not be working correctly"
           fi
-
-      - name: Upload merged HTML report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ${{ inputs.project }}-html-report
-          path: playwright-merge/playwright-report/
-          retention-days: 30
 
       - name: Upload HTML report (including .last-run.json) to S3
         if: always()
