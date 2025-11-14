@@ -229,6 +229,12 @@ jobs:
           # Download from well-known location (using same path pattern as reports)
           aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run.json || echo "No previous .last-run.json found, starting fresh"
 
+      - name: Restore AWS S3 Access to read-only role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
       - name: Log Shard Distribution Info
         run: |
           bash scripts/log-shard-info.sh "${{ inputs.project }}" "${{ matrix.shard }}" "${{ inputs.shards }}" "$PW_TAGS"
