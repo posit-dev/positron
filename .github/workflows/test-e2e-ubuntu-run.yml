@@ -219,7 +219,13 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p blob-report
-          aws s3 cp s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json blob-report/.last-run.json || echo "No previous .last-run.json found, starting fresh"
+          # Try to find the most recent report directory and download .last-run.json from it
+          LATEST_REPORT=$(aws s3 ls s3://positron-test-reports/ | grep "playwright-report-" | sort -r | head -1 | awk '{print $2}' | tr -d '/')
+          if [ -n "$LATEST_REPORT" ]; then
+            aws s3 cp s3://positron-test-reports/$LATEST_REPORT/.last-run.json blob-report/.last-run.json || echo "No .last-run.json in latest report"
+          else
+            echo "No previous reports found, starting fresh"
+          fi
 
       - name: Log Shard Distribution Info
         run: |
@@ -388,17 +394,18 @@ jobs:
           npx playwright merge-reports \
             --reporter=html \
             --reporter=@midleman/github-actions-reporter \
-            --last-run-file=../.last-run.json \
+            --last-run-file=playwright-report/.last-run.json \
             ../all-blob-reports
 
       - name: Verify .last-run.json was generated
+        working-directory: playwright-merge
         run: |
-          if [ -f .last-run.json ]; then
-            FILE_SIZE=$(ls -lh .last-run.json | awk '{print $5}')
+          if [ -f playwright-report/.last-run.json ]; then
+            FILE_SIZE=$(ls -lh playwright-report/.last-run.json | awk '{print $5}')
             echo "✓ Generated .last-run.json ($FILE_SIZE)"
             if command -v jq &> /dev/null; then
-              TEST_COUNT=$(jq '.testDurations | length' .last-run.json)
-              TOTAL_DURATION=$(jq '[.testDurations[]] | add' .last-run.json)
+              TEST_COUNT=$(jq '.testDurations | length' playwright-report/.last-run.json)
+              TOTAL_DURATION=$(jq '[.testDurations[]] | add' playwright-report/.last-run.json)
               TOTAL_DURATION_SEC=$(echo "scale=1; $TOTAL_DURATION / 1000" | bc)
               echo "  • Tests with duration data: $TEST_COUNT"
               echo "  • Total test duration: ${TOTAL_DURATION_SEC}s"
@@ -415,12 +422,10 @@ jobs:
           path: playwright-merge/playwright-report/
           retention-days: 30
 
-      - name: Upload .last-run.json to S3 for next run
+      - name: Upload HTML report (including .last-run.json) to S3
         if: always()
-        run: |
-          if [ -f .last-run.json ]; then
-            aws s3 cp .last-run.json s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json
-            echo "✓ Uploaded .last-run.json to S3 for future shard optimization"
-          else
-            echo "⚠ No .last-run.json generated - patch may not be applied correctly"
-          fi
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: playwright-merge
