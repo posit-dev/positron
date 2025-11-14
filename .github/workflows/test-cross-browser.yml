@@ -55,6 +55,8 @@ jobs:
       project: "e2e-firefox"
       report_currents: false
       allow_soft_fail: false
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-webkit:
@@ -67,6 +69,8 @@ jobs:
       project: "e2e-webkit"
       report_currents: false
       allow_soft_fail: false
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-edge:
@@ -79,6 +83,8 @@ jobs:
       project: "e2e-edge"
       report_currents: false
       allow_soft_fail: false
+      shards: ${{ needs.setup.outputs.shards }}
+      matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   slack-notify:
@@ -98,7 +104,7 @@ jobs:
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#test-slack-notifications" # "#positron-test-results"
+          slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
           filter_jobs: '^(?!.*build$).*'
-          custom_title: "E2E Cross Browser Tests — `main` (commit ${{ github.sha }})"
+          custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
