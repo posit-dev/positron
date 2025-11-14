@@ -43,8 +43,6 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 		}
 	}, [cell, cellRef]);
 
-
-
 	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
 		if (!cellRef.current) {

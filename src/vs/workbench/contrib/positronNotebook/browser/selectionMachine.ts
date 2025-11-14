@@ -701,7 +701,6 @@ export class SelectionStateMachine extends Disposable {
 		// Always use the active cell as the reference point for movement
 		// This allows us to detect whether we're expanding or shrinking the selection
 		const referenceCell = state.active;
-
 		const indexOfReferenceCell = referenceCell.index;
 		const nextCell = cells[indexOfReferenceCell + (up ? -1 : 1)];
 
