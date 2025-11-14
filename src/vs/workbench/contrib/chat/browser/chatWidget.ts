@@ -1116,7 +1116,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 			// Use Positron's welcome view content
 			// const welcomeContent = this.getWelcomeViewContent(additionalMessage);
-			const welcomeContent = this.getPositronWelcomeViewContent(additionalMessage);
+			const welcomeContent = numItems ? this.getWelcomeViewContent :
+				this.getPositronWelcomeViewContent(additionalMessage);
 			// --- End Positron ---
 			if (!this.welcomePart.value || this.welcomePart.value.needsRerender(welcomeContent)) {
 				this.historyViewStore.clear();

@@ -7,11 +7,15 @@ import assert from 'assert';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatSelector, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../common/languageModels.js';
+import { ILanguageModelChatMetadata, ILanguageModelChatMetadataAndIdentifier, ILanguageModelChatProvider, ILanguageModelChatSelector, ILanguageModelsChangeEvent, ILanguageModelsService, IUserFriendlyLanguageModel } from '../../common/languageModels.js';
 import { ChatModelsViewModel, IModelItemEntry, IVendorItemEntry, isVendorEntry } from '../../browser/chatManagement/chatModelsViewModel.js';
 import { IChatEntitlementService, ChatEntitlement } from '../../../../services/chat/common/chatEntitlementService.js';
 import { IObservable, observableValue } from '../../../../../base/common/observable.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+
+// --- Start Positron ---
+import { IPositronChatProvider } from '../../common/languageModels.js';
+// --- End Positron ---
 
 class MockLanguageModelsService implements ILanguageModelsService {
 	_serviceBrand: undefined;
@@ -22,6 +26,16 @@ class MockLanguageModelsService implements ILanguageModelsService {
 
 	private readonly _onDidChangeLanguageModels = new Emitter<string>();
 	readonly onDidChangeLanguageModels = this._onDidChangeLanguageModels.event;
+
+	// --- Start Positron ---
+	private readonly _onDidChangeCurrentProvider = new Emitter<string | undefined>();
+	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
+
+	private readonly _onDidChangeProviders = new Emitter<ILanguageModelsChangeEvent>();
+	readonly onDidChangeProviders = this._onDidChangeProviders.event;
+
+	private _currentProvider: IPositronChatProvider | undefined;
+	// --- End Positron ---
 
 	addVendor(vendor: IUserFriendlyLanguageModel): void {
 		this.vendors.push(vendor);
@@ -83,6 +97,36 @@ class MockLanguageModelsService implements ILanguageModelsService {
 	computeTokenLength(): Promise<number> {
 		throw new Error('Method not implemented.');
 	}
+
+	// --- Start Positron ---
+	get currentProvider(): IPositronChatProvider | undefined {
+		return this._currentProvider;
+	}
+
+	set currentProvider(provider: IPositronChatProvider | undefined) {
+		this._currentProvider = provider;
+		this._onDidChangeCurrentProvider.fire(provider?.id);
+	}
+
+	getLanguageModelIdsForCurrentProvider(): string[] {
+		return Array.from(this.models.keys());
+	}
+
+	getLanguageModelProviders(): IPositronChatProvider[] {
+		return this.vendors.map(v => ({ id: v.vendor, displayName: v.displayName }));
+	}
+
+	setCurrentProvider(id: string): void {
+		const provider = this.vendors.find(v => v.vendor === id);
+		if (provider) {
+			this.currentProvider = { id: provider.vendor, displayName: provider.displayName };
+		}
+	}
+
+	getExtensionIdentifierForProvider(vendorId: string): ExtensionIdentifier | undefined {
+		return undefined;
+	}
+	// --- End Positron ---
 }
 
 class MockChatEntitlementService implements IChatEntitlementService {

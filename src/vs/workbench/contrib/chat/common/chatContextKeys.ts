@@ -106,16 +106,13 @@ export namespace ChatContextKeyExprs {
 	/**
 	 * Context expression that indicates when the welcome/setup view should be shown
 	 */
-	// --- Start Positron ---
-	// Don't show this upstream view in Positron
-	/*
 	export const agentViewWhen = ContextKeyExpr.and(
 		ChatEntitlementContextKeys.Setup.hidden.negate(),
 		ChatEntitlementContextKeys.Setup.disabled.negate(),
-		ContextKeyExpr.equals(`config.${ChatConfiguration.AgentSessionsViewLocation}`, 'view'));
-	*/
-	export const agentViewWhen = ContextKeyExpr.and(
-		ContextKeyFalseExpr.INSTANCE
+		// --- Start Positron ---
+		// Don't show this upstream view in Positron
+		ContextKeyFalseExpr.INSTANCE,
+		// --- End Positron ---
+		ContextKeyExpr.equals(`config.${ChatConfiguration.AgentSessionsViewLocation}`, 'view')
 	);
-	// --- End Positron ---
 }
