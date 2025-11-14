@@ -14,7 +14,7 @@ import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
  * Automatically gets the active notebook instance and passes it to the runNotebookAction method.
  */
 export abstract class NotebookAction2 extends Action2 {
-	override async run(accessor: ServicesAccessor, ...args: any[]): Promise<void> {
+	override async run(accessor: ServicesAccessor, ...args: unknown[]): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
 		if (!activeNotebook) {
@@ -27,6 +27,6 @@ export abstract class NotebookAction2 extends Action2 {
 		}
 	}
 
-	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<any> | void;
+	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> | void;
 }
 
