@@ -232,9 +232,9 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
 
-      - name: Install jq for duration parsing
+      - name: Install jq and bc for duration parsing
         run: |
-          apt-get update && apt-get install -y jq
+          apt-get update && apt-get install -y jq bc
 
       - name: Download previous .last-run.json from S3
         continue-on-error: true
@@ -428,7 +428,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: all-blob-reports
-          pattern: blob-report-${{ inputs.project }}-shard-*
+          pattern: blob-report-${{ inputs.project }}-*
           merge-multiple: true
 
       - name: Generate Report Directory
