@@ -388,7 +388,7 @@ jobs:
         run: |
           # Merge reports and generate HTML + .last-run.json
           npx playwright merge-reports \
-            --reporter=html \
+            --reporter='html,{"outputFolder":"playwright-report"}' \
             --reporter=@midleman/github-actions-reporter \
             --last-run-file=playwright-report/.last-run.json \
             ../all-blob-reports
