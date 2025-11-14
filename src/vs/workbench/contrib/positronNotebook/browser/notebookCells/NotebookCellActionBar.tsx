@@ -39,13 +39,10 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 
 	const hasSubmenuActions = submenuActions.length > 0;
 
-	// Only show action bar for the active cell
-	const shouldShowActionBar = isActiveCell;
-
 	return <div
-		aria-hidden={!shouldShowActionBar}
+		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
-		className={`positron-notebooks-cell-action-bar ${shouldShowActionBar ? 'visible' : 'hidden'}`}
+		className={`positron-notebooks-cell-action-bar ${isActiveCell ? 'visible' : 'hidden'}`}
 		role='toolbar'
 	>
 		{/* Render contributed main actions - will auto-update when registry changes */}
