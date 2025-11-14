@@ -565,7 +565,9 @@ const newCommands: ApiCommand[] = [
 			ApiCommandArgument.Uri.with('uri', 'The URI of the document to execute code from'),
 			ApiCommandArgument.Position.with('position', 'The position in the document to execute code from')
 		],
-		ApiCommandResult.Void
+		new ApiCommandResult<IPosition | undefined, types.Position | undefined>('A promise that resolves to the next position after executing the code.', result => {
+			return result ? typeConverters.Position.to(result) : undefined;
+		})
 	),
 	// --- End Positron
 

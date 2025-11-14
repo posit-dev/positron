@@ -332,7 +332,7 @@ export function registerPositronConsoleActions() {
 					| { uri: URI; position: Position }
 					| { uri?: never; position?: never }
 				) = {}
-		) {
+		): Promise<Position | undefined> {
 			// Access services.
 			const editorService = accessor.get(IEditorService);
 			const languageFeaturesService = accessor.get(ILanguageFeaturesService);
@@ -352,6 +352,7 @@ export function registerPositronConsoleActions() {
 			let editor: IEditor | undefined;
 			let model: ITextModel | undefined;
 			let position: Position;
+			let nextPosition: Position | undefined;
 
 			if (opts.uri) {
 				// Use the provided URI to get the model
@@ -429,8 +430,8 @@ export function registerPositronConsoleActions() {
 					// returned `undefined` if it didn't think it was important.
 					code = isString(statementRange.code) ? statementRange.code : model.getValueInRange(statementRange.range);
 
-					if (advance && editor) {
-						await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
+					if (advance) {
+						nextPosition = await this.advanceStatement(model, editor, statementRange, statementRangeProviders[0], logService);
 					}
 				} else {
 					// The statement range provider didn't return a range. This
@@ -459,8 +460,8 @@ export function registerPositronConsoleActions() {
 
 				// If we have code and a position move the cursor to the next line with code on it,
 				// or just to the next line if all additional lines are blank.
-				if (advance && isString(code) && editor) {
-					this.advanceLine(model, editor, position, lineNumber, code, editorService);
+				if (advance && isString(code)) {
+					nextPosition = this.advanceLine(model, editor, position, lineNumber, code, editorService);
 				}
 
 				if (!isString(code) && lineNumber === model.getLineCount()) {
@@ -502,18 +503,18 @@ export function registerPositronConsoleActions() {
 					mode: opts.mode,
 					errorBehavior: opts.errorBehavior
 				});
+			return nextPosition;
 		}
 
 		async advanceStatement(
 			model: ITextModel,
-			editor: IEditor,
+			editor: IEditor | undefined,
 			statementRange: IStatementRange,
 			provider: StatementRangeProvider,
 			logService: ILogService,
-		) {
+		): Promise<Position> {
 
-			// Move the cursor to the next
-			// statement by creating a position on the line
+			// Calculate the next position by creating a position on the line
 			// following the statement and then invoking the
 			// statement range provider again to find the appropriate
 			// boundary of the next statement.
@@ -535,8 +536,6 @@ export function registerPositronConsoleActions() {
 					model.getLineCount(),
 					1
 				);
-				editor.setPosition(newPosition);
-				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			} else {
 				// Invoke the statement range provider again to
 				// find the appropriate boundary of the next statement.
@@ -578,20 +577,24 @@ export function registerPositronConsoleActions() {
 						);
 					}
 				}
+			}
 
+			// Only move the cursor if we have an editor
+			if (editor) {
 				editor.setPosition(newPosition);
 				editor.revealPositionInCenterIfOutsideViewport(newPosition);
 			}
+			return newPosition;
 		}
 
 		advanceLine(
 			model: ITextModel,
-			editor: IEditor,
+			editor: IEditor | undefined,
 			position: Position,
 			lineNumber: number,
 			code: string,
 			editorService: IEditorService,
-		) {
+		): Position {
 			// HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
 			// This attempts to address https://github.com/posit-dev/positron/issues/1177
 			// by tacking a newline onto indented Python code fragments that end at an empty
@@ -628,8 +631,12 @@ export function registerPositronConsoleActions() {
 			}
 
 			const newPosition = position.with(lineNumber, 0);
-			editor.setPosition(newPosition);
-			editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			// Only move the cursor if we have an editor
+			if (editor) {
+				editor.setPosition(newPosition);
+				editor.revealPositionInCenterIfOutsideViewport(newPosition);
+			}
+			return newPosition;
 		}
 
 		amendNewlineToEnd(model: ITextModel) {
