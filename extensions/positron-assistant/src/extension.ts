@@ -16,6 +16,7 @@ import { registerCopilotAuthProvider } from './authProvider.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
+import { generateNotebookSuggestions } from './notebookSuggestions.js';
 import { TokenUsage, TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
@@ -229,6 +230,31 @@ function registerGenerateCommitMessageCommand(
 	);
 }
 
+function registerGenerateNotebookSuggestionsCommand(
+	context: vscode.ExtensionContext,
+	participantService: ParticipantService,
+	log: vscode.LogOutputChannel,
+) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positron-assistant.generateNotebookSuggestions',
+			async (notebookUri: string, token?: vscode.CancellationToken) => {
+				// Create a token source only if no token is provided
+				let tokenSource: vscode.CancellationTokenSource | undefined;
+				// If there is no provided token, create a new one and also
+				// assign it to the tokenSource so we know to dispose it later.
+				const cancellationToken = token || (tokenSource = new vscode.CancellationTokenSource()).token;
+				try {
+					return await generateNotebookSuggestions(notebookUri, participantService, log, cancellationToken);
+				} finally {
+					// We only want to dispose the token if we created it
+					tokenSource?.dispose();
+				}
+			}
+		)
+	);
+}
+
 function registerExportChatCommands(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
@@ -307,6 +333,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Commands
 	registerConfigureModelsCommand(context, storage);
 	registerGenerateCommitMessageCommand(context, participantService, log);
+	registerGenerateNotebookSuggestionsCommand(context, participantService, log);
 	registerExportChatCommands(context);
 	registerToggleInlineCompletionsCommand(context);
 	registerPromptManagement(context);

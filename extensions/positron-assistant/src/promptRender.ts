@@ -10,7 +10,7 @@ import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
-import { formatCells } from './tools/notebookUtils.js';
+import { SerializedNotebookContext, serializeNotebookContext } from './tools/notebookUtils.js';
 import * as xml from './xml.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
@@ -51,40 +51,10 @@ class PromptTemplateEngine {
 		let notebookContextNote: string | undefined;
 
 		if (data.notebookContext) {
-			const ctx = data.notebookContext;
-
-			// Format kernel information as XML
-			notebookKernelInfo = ctx.kernelId
-				? xml.node('kernel', '', {
-					language: ctx.kernelLanguage || 'unknown',
-					id: ctx.kernelId
-				})
-				: xml.node('kernel', 'No kernel attached');
-
-			// Format selected cells (already XML from formatCells)
-			notebookSelectedCellsInfo = formatCells({ cells: ctx.selectedCells, prefix: 'Selected Cell' });
-
-			// Format all cells if available as XML
-			if (ctx.allCells && ctx.allCells.length > 0) {
-				const isFullNotebook = ctx.cellCount < 20;
-				const description = isFullNotebook
-					? 'All cells in notebook (notebook has fewer than 20 cells)'
-					: 'Context window around selected cells (notebook has 20+ cells)';
-				notebookAllCellsInfo = xml.node('all-cells', formatCells({ cells: ctx.allCells, prefix: 'Cell' }), {
-					description
-				});
-			}
-
-			// Context note as XML
-			if (ctx.allCells && ctx.allCells.length > 0) {
-				if (ctx.cellCount < 20) {
-					notebookContextNote = xml.node('note', 'All cells are provided above because this notebook has fewer than 20 cells.');
-				} else {
-					notebookContextNote = xml.node('note', 'A context window around the selected cells is provided above. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
-				}
-			} else {
-				notebookContextNote = xml.node('note', 'Only selected cells are shown above to conserve tokens. Use the GetNotebookCells tool to retrieve additional cells by index when needed.');
-			}
+			notebookKernelInfo = data.notebookContext.kernelInfo;
+			notebookSelectedCellsInfo = data.notebookContext.selectedCellsInfo;
+			notebookAllCellsInfo = data.notebookContext.allCellsInfo;
+			notebookContextNote = data.notebookContext.contextNote;
 		}
 
 		return {
@@ -317,7 +287,7 @@ interface PromptRenderData {
 	document?: vscode.TextDocument;
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
-	notebookContext?: positron.notebooks.NotebookContext;
+	notebookContext?: SerializedNotebookContext;
 }
 
 export class PromptRenderer {

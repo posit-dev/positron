@@ -237,6 +237,14 @@
 	align-items: center;
 	justify-content: center;
 }
+/* --- Start Positron --- */
+/* Fix wobbling spinner animation by ensuring rotation happens around center */
+.quick-input-list .quick-input-list-icon.codicon-loading.codicon-modifier-spin {
+	transform-origin: center;
+	width: 22px;
+	padding-right: 0;
+}
+/* --- End Positron --- */
 
 .quick-input-list .quick-input-list-rows {
 	overflow: hidden;
