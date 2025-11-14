@@ -174,23 +174,23 @@ export class TerminalBuilder {
 		// Write marker file to indicate completion
 		scriptContent += 'echo "==> Container ready!"\n';
 		scriptContent += `echo "done" > "${markerPath}"\n`;
-		// Disable error trap since build succeeded
+		// Disable error trap since build succeeded and exit cleanly
 		scriptContent += 'trap - ERR\n';
+		scriptContent += 'exit 0\n';
 
 		// Write the script file
 		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
 		logger.info(`Created build script: ${scriptPath}`);
 
-		// Create terminal and run the script
+		// Create terminal and run the script (shellPath and shellArgs hide the command from display)
 		const terminal = vscode.window.createTerminal({
 			name: 'Dev Container Build',
-			iconPath: new vscode.ThemeIcon('debug-console')
+			iconPath: new vscode.ThemeIcon('debug-console'),
+			shellPath: '/bin/sh',
+			shellArgs: [scriptPath]
 		});
 		terminal.show();
-
-		// Execute the script in the terminal (using source to hide the filename)
-		terminal.sendText(`source "${scriptPath}"`, true);
 
 		// Wait for the marker file to appear
 		logger.info('Waiting for container build to complete...');
