@@ -395,7 +395,7 @@
         },
         {
           "command": "remote-containers.attachToRunningContainer",
-          "when": "!hideConnectCommands && remoteName =~ /^(dev-container|attached-container|exec|wsl|ssh-remote)?$/"
+          "when": "!hideConnectCommands && remoteName =~ /^(wsl|ssh-remote)?$/"
         },
         {
           "command": "remote-containers.rebuildContainer",
@@ -467,7 +467,7 @@
         {
           "command": "remote-containers.attachToRunningContainer",
           "group": "remote_30_dev-container_2_actions@2",
-          "when": "!hideConnectCommands"
+          "when": "!hideConnectCommands && remoteName =~ /^(wsl|ssh-remote)?$/"
         },
         {
           "command": "remote-containers.rebuildContainer",
