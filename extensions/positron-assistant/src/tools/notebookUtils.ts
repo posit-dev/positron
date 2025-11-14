@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
 import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
+import { isRuntimeSessionReference } from '../utils.js';
 
 /**
  * Maximum preview length per cell for confirmations (characters)
@@ -416,27 +417,35 @@ function isNotebookModeEnabled(): boolean {
 /**
  * Extracts notebook URIs from chat request references.
  * Looks for URIs in two places:
- * 1. activeSession.notebookUri property in reference values
+ * 1. activeSession.notebookUri property in reference values (from RuntimeSessionReference)
  * 2. Direct .ipynb file URIs in reference values
  *
  * @param request The chat request containing references
  * @returns Array of notebook URI strings found in the request
  */
 function extractAttachedNotebookUris(request: vscode.ChatRequest): string[] {
-	return request.references
-		.map(ref => {
-			// Check for activeSession.notebookUri
-			const sessionNotebookUri = (ref.value as any)?.activeSession?.notebookUri;
-			if (typeof sessionNotebookUri === 'string') {
-				return sessionNotebookUri;
+	const uris: string[] = [];
+
+	for (const ref of request.references) {
+		const value = ref.value;
+
+		// Check for RuntimeSessionReference with activeSession.notebookUri
+		if (isRuntimeSessionReference(value)) {
+			const notebookUri = value.activeSession.notebookUri;
+			// Match original behavior: accept any string (including empty strings)
+			if (typeof notebookUri === 'string') {
+				uris.push(notebookUri);
 			}
-			// Check for direct .ipynb file reference
-			if (ref.value instanceof vscode.Uri && ref.value.path.endsWith('.ipynb')) {
-				return ref.value.toString();
-			}
-			return undefined;
-		})
-		.filter(uri => typeof uri === 'string');
+			continue;
+		}
+
+		// Check for direct .ipynb file URI reference
+		if (value instanceof vscode.Uri && value.path.endsWith('.ipynb')) {
+			uris.push(value.toString());
+		}
+	}
+
+	return uris;
 }
 
 /**
