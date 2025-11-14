@@ -61,9 +61,10 @@
 	background-color: var(--vscode-focusBorder);
 }
 
-/* On hover, when NOT selected/editing: change to hover color */
+/* On hover, when NOT selected/editing: change to hover color and remove borders */
 .positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-editor-container::after {
 	background-color: var(--vscode-editorWidget-border);
+	border: none;
 }
 
 /* Selection bar for outputs - conditional (only when selected/editing OR on hover when not selected/editing) */
@@ -91,9 +92,10 @@
 	background-color: var(--vscode-focusBorder);
 }
 
-/* When hovering and not selected/editing: use hover color */
+/* When hovering and not selected/editing: use hover color and remove borders */
 .positron-notebook-cell:not(.selected):not(.editing):hover .positron-notebook-cell-outputs::after {
 	background-color: var(--vscode-editorWidget-border);
+	border: none;
 }
 
 /* When selected/editing AND no outputs: restore bottom rounding */
