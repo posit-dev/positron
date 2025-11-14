@@ -308,7 +308,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-${{ inputs.project }}-shard-${{ matrix.shard }}
+          name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
           path: blob-report
           retention-days: 1
 
@@ -316,7 +316,7 @@ jobs:
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-logs-shard-${{ matrix.shard }}
+          name: ${{ inputs.project }}-logs-${{ matrix.shard }}
           path: test-logs
           if-no-files-found: ignore
 
@@ -324,7 +324,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-ubuntu-json-results-shard-${{ matrix.shard }}
+          name: ${{ inputs.project }}-ubuntu-json-results-${{ matrix.shard }}
           path: test-results/ubuntu.json
           if-no-files-found: ignore
 
@@ -332,7 +332,7 @@ jobs:
         if: ${{ always() && inputs.project == 'inspect-ai' }}
         uses: actions/upload-artifact@v4
         with:
-          name: inspect-ai-responses-shard-${{ matrix.shard }}
+          name: inspect-ai-responses-${{ matrix.shard }}
           path: test/assistant-inspect-ai/*.json
 
   merge-reports:
