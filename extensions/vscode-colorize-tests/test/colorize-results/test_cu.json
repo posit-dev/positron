@@ -3,42 +3,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "include",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -85,42 +63,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "include",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -167,42 +123,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "include",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -249,42 +183,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "include",
 		"t": "source.cuda-cpp meta.preprocessor.include.cuda-cpp keyword.control.directive.include.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -331,42 +243,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp keyword.control.directive.conditional.if.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "if",
 		"t": "source.cuda-cpp keyword.control.directive.conditional.if.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -383,21 +273,10 @@
 		"c": "defined",
 		"t": "source.cuda-cpp meta.preprocessor.conditional.cuda-cpp keyword.control.directive.conditional.defined.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -434,42 +313,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.undef.cuda-cpp keyword.control.directive.undef.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "undef",
 		"t": "source.cuda-cpp meta.preprocessor.undef.cuda-cpp keyword.control.directive.undef.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -496,84 +353,40 @@
 		"c": "#",
 		"t": "source.cuda-cpp keyword.control.directive.endif.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "endif",
 		"t": "source.cuda-cpp keyword.control.directive.endif.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "define",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -660,21 +473,10 @@
 		"c": "do",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.do.cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -731,21 +533,10 @@
 		"c": "if",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp meta.block.cpp keyword.control.if.cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1332,21 +1123,10 @@
 		"c": "while",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.while.cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1383,42 +1163,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "define",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1505,21 +1263,10 @@
 		"c": "do",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.do.cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -1656,21 +1403,10 @@
 		"c": "if",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp meta.block.cpp keyword.control.if.cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2317,21 +2053,10 @@
 		"c": "while",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.while.cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -2368,42 +2093,20 @@
 		"c": "#",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp punctuation.definition.directive.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
 		"c": "define",
 		"t": "source.cuda-cpp meta.preprocessor.macro.cuda-cpp keyword.control.directive.define.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4440,21 +4143,10 @@
 		"c": "for",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -4841,21 +4533,10 @@
 		"c": "for",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -6192,21 +5873,10 @@
 		"c": "for",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -6753,21 +6423,10 @@
 		"c": "for",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp meta.block.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -7244,21 +6903,10 @@
 		"c": "for",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp meta.block.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -10275,21 +9923,10 @@
 		"c": "for",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp keyword.control.for.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
@@ -10476,21 +10113,10 @@
 		"c": "if",
 		"t": "source.cuda-cpp meta.function.definition.cuda-cpp meta.body.function.definition.cuda-cpp meta.block.cuda-cpp keyword.control.if.cuda-cpp",
 		"r": {
-<<<<<<< HEAD
 			"hc_black": "keyword.control: #C586C0",
-			"positron_dark": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #CE92A4",
 			"positron_light": "keyword.control: #AF00DB",
 			"hc_light": "keyword.control: #B5200D"
-=======
-			"dark_plus": "keyword.control: #CE92A4",
-			"light_plus": "keyword.control: #AF00DB",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
-			"hc_black": "keyword.control: #C586C0",
-			"dark_modern": "keyword.control: #CE92A4",
-			"hc_light": "keyword.control: #B5200D",
-			"light_modern": "keyword.control: #AF00DB"
->>>>>>> 5ea224bedc4 (Upstream Code OSS changes from 1.105.0 to 1.106.0)
 		}
 	},
 	{
