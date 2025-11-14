@@ -10,7 +10,7 @@ import * as positron from 'positron';
  * Notebooks with more cells will have filtering applied to avoid consuming
  * too much context space.
  */
-const MAX_CELLS_FOR_ALL_CELLS_CONTEXT = 20;
+export const MAX_CELLS_FOR_ALL_CELLS_CONTEXT = 20;
 
 /**
  * Default window size for sliding window filtering.

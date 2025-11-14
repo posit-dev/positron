@@ -6,19 +6,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
-import { calculateSlidingWindow, filterNotebookContext } from '../notebookContextFilter.js';
+import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
 
 /**
  * Maximum preview length per cell for confirmations (characters)
  */
 const MAX_CELL_PREVIEW_LENGTH = 500;
-
-/**
- * Maximum number of cells in a notebook to include all cells in the context.
- * Notebooks with more cells will have filtering applied to avoid consuming
- * too much context space.
- */
-const MAX_CELLS_FOR_ALL_CELLS_CONTEXT = 20;
 
 /**
  * Maximum cell content length (1MB)
