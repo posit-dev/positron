@@ -219,13 +219,8 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p blob-report
-          # Try to find the most recent report directory and download .last-run.json from it
-          LATEST_REPORT=$(aws s3 ls s3://positron-test-reports/ | grep "playwright-report-" | sort -r | head -1 | awk '{print $2}' | tr -d '/')
-          if [ -n "$LATEST_REPORT" ]; then
-            aws s3 cp s3://positron-test-reports/$LATEST_REPORT/.last-run.json blob-report/.last-run.json || echo "No .last-run.json in latest report"
-          else
-            echo "No previous reports found, starting fresh"
-          fi
+          # Download from fixed location (no ListBucket permission needed)
+          aws s3 cp s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json blob-report/.last-run.json || echo "No previous .last-run.json found, starting fresh"
 
       - name: Log Shard Distribution Info
         run: |
@@ -419,10 +414,22 @@ jobs:
             echo "⚠ No .last-run.json generated - patch may not be working correctly"
           fi
 
-      - name: Upload HTML report (including .last-run.json) to S3
+      - name: Upload HTML report to S3
         if: always()
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
           working-directory: playwright-merge
+
+      - name: Upload .last-run.json to fixed S3 location
+        if: always()
+        working-directory: playwright-merge
+        run: |
+          if [ -f playwright-report/.last-run.json ]; then
+            # Configure AWS with write role
+            aws s3 cp playwright-report/.last-run.json s3://positron-test-reports/.last-run-data/${{ inputs.project }}-last-run.json
+            echo "✓ Uploaded .last-run.json to S3 for future runs"
+          else
+            echo "⚠ No .last-run.json to upload"
+          fi
