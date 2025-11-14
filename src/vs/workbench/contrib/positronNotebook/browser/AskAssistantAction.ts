@@ -45,25 +45,32 @@ interface PromptQuickPickItem extends IQuickPickItem {
  */
 const ASSISTANT_PREDEFINED_ACTIONS: PromptQuickPickItem[] = [
 	{
-		label: localize('positronNotebook.assistant.prompt.describe', 'Describe the notebook'),
-		detail: localize('positronNotebook.assistant.prompt.describe.detail', 'Get an overview of the notebook\'s contents and structure'),
-		query: 'Can you describe the open notebook for me?',
+		label: localize('positronNotebook.assistant.prompt.explain', 'Explain this notebook'),
+		detail: localize('positronNotebook.assistant.prompt.explain.detail', 'Summarize what this notebook does and how it works'),
+		query: 'Explain this notebook: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code sections or techniques used, 4) Note any assumptions or prerequisites',
 		mode: ChatModeKind.Ask,
 		iconClass: ThemeIcon.asClassName(Codicon.book)
 	},
 	{
-		label: localize('positronNotebook.assistant.prompt.comments', 'Add inline comments'),
-		detail: localize('positronNotebook.assistant.prompt.comments.detail', 'Add explanatory comments to the selected cell(s)'),
-		query: 'Can you add inline comments to the selected cell(s)?',
+		label: localize('positronNotebook.assistant.prompt.fix', 'Fix errors and issues'),
+		detail: localize('positronNotebook.assistant.prompt.fix.detail', 'Debug problems in notebook and suggest improvements'),
+		query: 'Fix issues in the notebook: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
 		mode: ChatModeKind.Edit,
-		iconClass: ThemeIcon.asClassName(Codicon.commentAdd)
+		iconClass: ThemeIcon.asClassName(Codicon.wrench)
+	},
+	{
+		label: localize('positronNotebook.assistant.prompt.improve', 'Improve this notebook'),
+		detail: localize('positronNotebook.assistant.prompt.improve.detail', 'Add documentation, organize structure, and enhance readability'),
+		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
+		mode: ChatModeKind.Edit,
+		iconClass: ThemeIcon.asClassName(Codicon.edit)
 	},
 	{
 		label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
-		detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get recommendations for what to do next with this notebook'),
-		query: 'Can you suggest next steps for this notebook?',
-		mode: ChatModeKind.Ask,
-		iconClass: ThemeIcon.asClassName(Codicon.lightbulb)
+		detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get AI recommendations for what to do next'),
+		query: 'Analyze this notebook and suggest next steps: 1) Assess what\'s been accomplished so far, 2) Identify what\'s incomplete or missing (analysis, validation, documentation, error handling), 3) Recommend 3-4 specific next actions with reasoning, 4) Flag any potential issues or improvements',
+		mode: ChatModeKind.Agent,
+		iconClass: ThemeIcon.asClassName(Codicon.lightbulbAutofix)
 	},
 	{
 		label: localize('positronNotebook.assistant.prompt.generateSuggestions', 'Generate AI suggestions...'),
