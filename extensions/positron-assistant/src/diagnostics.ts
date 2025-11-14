@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getStoredModels, getEnabledProviders } from './config';
 import { log } from './extension';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 
 /**
  * Helper function to append text to a document editor.
@@ -25,7 +26,8 @@ function getAssistantSettings(): string {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const settings: Record<string, unknown> = {};
 
-	// List of all Positron Assistant settings
+
+	// VS Code's API doesn't provide a way to iterate over keys so we maintain a list here
 	const settingKeys = [
 		'enable',
 		'toolDetails.enable',
@@ -117,38 +119,52 @@ function getCopilotChatSettings(): string {
 /**
  * Get information about stored language models and providers.
  */
-function getModelInfo(context: vscode.ExtensionContext): string {
+async function getModelInfo(context: vscode.ExtensionContext): Promise<string> {
 	const storedModels = getStoredModels(context);
 
 	if (storedModels.length === 0) {
 		return 'No models configured';
 	}
 
-	return storedModels.map(model => {
-		// Sanitize sensitive information
-		const sanitized = {
-			id: model.id,
-			provider: model.provider,
-			name: model.name,
-			model: model.model,
-			type: model.type,
-			toolCalls: model.toolCalls,
-			completions: model.completions,
-			baseUrl: model.baseUrl ? '[REDACTED]' : undefined,
-			maxInputTokens: model.maxInputTokens,
-			maxOutputTokens: model.maxOutputTokens,
-		};
+	const modelInfos = await Promise.all(storedModels.map(async model => {
+		const fields = [
+			`- **${model.name}**`,
+			`	- Provider: ${model.provider}`,
+			`	- Type: ${model.type}`,
+			`	- Model ID: ${model.model}`,
+		];
 
-		return `- **${model.name}**
-	- Provider: ${model.provider}
-	- Type: ${model.type}
-	- Model ID: ${model.model}
-	- Tool Calls: ${model.toolCalls ?? 'N/A'}
-	- Completions: ${model.completions ?? 'N/A'}
-	- Base URL: ${sanitized.baseUrl ?? 'default'}
-	- Max Input Tokens: ${model.maxInputTokens ?? 'default'}
-	- Max Output Tokens: ${model.maxOutputTokens ?? 'default'}`;
-	}).join('\n\n');
+		if (model.toolCalls !== undefined && model.toolCalls !== null) {
+			fields.push(`	- Tool Calls: ${model.toolCalls}`);
+		}
+
+		if (model.completions !== undefined && model.completions !== null) {
+			fields.push(`	- Completions: ${model.completions}`);
+		}
+
+		if (model.baseUrl) {
+			fields.push(`	- Base URL: ${model.baseUrl}`);
+		}
+
+		// Report if an API key is configured
+		try {
+			const apiKey = await context.secrets.get(`apiKey-${model.id}`);
+			if (apiKey) {
+				fields.push(`	- API Key: Yes`);
+			}
+		} catch {
+			// Ignore errors - don't display anything if we can't check
+		}
+
+		fields.push(
+			`	- Max Input Tokens: ${model.maxInputTokens ?? `default (${DEFAULT_MAX_TOKEN_INPUT})`}`,
+			`	- Max Output Tokens: ${model.maxOutputTokens ?? `default (${DEFAULT_MAX_TOKEN_OUTPUT})`}`
+		);
+
+		return fields.join('\n');
+	}));
+
+	return modelInfos.join('\n\n');
 }
 
 /**
@@ -262,9 +278,9 @@ function getExtensionInfo(): string {
 /**
  * Get log output from the Assistant output channel.
  */
-function getAssistantLogs(includeTraceLevel: boolean = false): string {
-	const level = includeTraceLevel ? 'trace' : 'debug';
-	const logs = log.formatEntriesForDiagnostics(500, level);
+function getAssistantLogs(): string {
+	// Passing trace here will only retrieve trace logs if the user has enabled trace logging
+	const logs = log.formatEntriesForDiagnostics(500, 'trace');
 
 	if (logs === 'No log entries available') {
 		return 'No log entries captured yet. Logs are captured from the moment the extension loads.';
@@ -306,19 +322,6 @@ function getCopilotLogs(): string {
 	} catch (error) {
 		return `Error retrieving Copilot Chat logs: ${error instanceof Error ? error.message : String(error)}`;
 	}
-}
-
-/**
- * Get Copilot Language Server log reference.
- * Note: We can't access Copilot's logs directly as they're in a separate extension.
- */
-function getCopilotLogReference(): string {
-	return `Copilot Language Server logs are managed separately and cannot be captured automatically.
-
-To include Copilot logs in a bug report:
-1. Open the Output panel (View → Output)
-2. Select "GitHub Copilot Language Server" from the dropdown
-3. Copy relevant log entries manually`;
 }
 
 /**
@@ -374,7 +377,7 @@ export async function collectDiagnostics(context: vscode.ExtensionContext): Prom
 
 	// Configured Models
 	await appendText(editor, '## Configured Models\n\n');
-	await appendText(editor, getModelInfo(context));
+	await appendText(editor, await getModelInfo(context));
 	await appendText(editor, '\n\n');
 
 	// Active Chat Session
@@ -384,10 +387,7 @@ export async function collectDiagnostics(context: vscode.ExtensionContext): Prom
 
 	// Logs
 	await appendText(editor, '## Positron Assistant Logs\n\n');
-	await appendText(editor, 'Recent log entries (last 500, debug level and above):\n\n');
-	await appendText(editor, '> **Note**: To include trace-level logs, set the log level to "Trace" in:\n');
-	await appendText(editor, '> Settings → Extensions → Positron Assistant → Log Level, or\n');
-	await appendText(editor, '> Output panel → Assistant → Set Log Level (gear icon)\n\n');
+	await appendText(editor, 'Recent log entries (last 500):\n\n');
 	await appendText(editor, '```\n');
 	await appendText(editor, getAssistantLogs());
 	await appendText(editor, '\n```\n\n');
@@ -395,14 +395,9 @@ export async function collectDiagnostics(context: vscode.ExtensionContext): Prom
 	await appendText(editor, '## GitHub Copilot Chat Logs\n\n');
 	await appendText(editor, 'Recent log entries (last 500, debug level and above):\n\n');
 	const copilotLogs = getCopilotLogs();
-	if (copilotLogs.includes('extension is not active') || copilotLogs.includes('Unable to access')) {
-		await appendText(editor, `> ${copilotLogs}\n\n`);
-		await appendText(editor, getCopilotLogReference());
-	} else {
-		await appendText(editor, '```\n');
-		await appendText(editor, copilotLogs);
-		await appendText(editor, '\n```\n');
-	}
+	await appendText(editor, '```\n');
+	await appendText(editor, copilotLogs);
+	await appendText(editor, '\n```\n');
 	await appendText(editor, '\n\n');
 
 	// Footer
