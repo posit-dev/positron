@@ -16,7 +16,6 @@ jobs:
       project: "e2e-electron"
       display_name: "electron (ubuntu)"
       currents_tags: "merge,electron/ubuntu"
-      report_testrail: false
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
@@ -30,7 +29,6 @@ jobs:
       grep: ""
       display_name: "electron (windows)"
       currents_tags: "merge,electron/windows"
-      report_testrail: false
       upload_logs: false
       allow_soft_fail: true
     secrets: inherit
@@ -43,7 +41,6 @@ jobs:
       display_name: "chromium (ubuntu)"
       project: "e2e-chromium"
       currents_tags: "merge,chromium/ubuntu"
-      report_testrail: false
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true

@@ -1,0 +1,104 @@
+name: "Test: E2E Cross Browser"
+
+on:
+  schedule:
+    - cron: '0 10 * * *' # 4:00 AM CST = 10:00 UTC.
+  workflow_dispatch:
+    inputs:
+      run_e2e_firefox:
+        description: "E2E Tests / Firefox (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_webkit:
+        description: "E2E Tests / WebKit (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      run_e2e_edge:
+        description: "E2E Tests / Edge (Ubuntu)"
+        required: false
+        default: true
+        type: boolean
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: "search.test"
+        type: string
+      notify_on:
+        description: "Slack notification on:"
+        required: true
+        default: "always"
+        type: choice
+        options:
+        - failure
+        - always
+        - never
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: setup
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+
+  e2e-firefox:
+    name: e2e
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    secrets: inherit
+    with:
+      display_name: "firefox (ubuntu)"
+      project: "e2e-firefox"
+      report_currents: false
+      allow_soft_fail: false
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+
+  e2e-webkit:
+    name: e2e
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    secrets: inherit
+    with:
+      display_name: "webkit (ubuntu)"
+      project: "e2e-webkit"
+      report_currents: false
+      allow_soft_fail: false
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+
+  e2e-edge:
+    name: e2e
+    needs: [setup]
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
+    secrets: inherit
+    with:
+      display_name: "edge (ubuntu)"
+      project: "e2e-edge"
+      report_currents: false
+      allow_soft_fail: false
+      grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
+
+  slack-notify:
+    if: always()
+    needs:
+      [e2e-firefox, e2e-webkit, e2e-edge]
+    runs-on: ubuntu-latest
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'always' }}
+    steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#test-slack-notifications" # "#positron-test-results"
+          notify_on: ${{ env.notify_on }}
+          filter_jobs: '^(?!.*build$).*'
+          custom_title: "E2E Cross Browser Tests — `main` (commit ${{ github.sha }})"

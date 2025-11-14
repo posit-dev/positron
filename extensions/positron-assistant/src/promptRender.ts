@@ -10,6 +10,8 @@ import * as positron from 'positron';
 import * as yaml from 'yaml';
 import { MARKDOWN_DIR } from './constants';
 import { log } from './extension.js';
+import { SerializedNotebookContext, serializeNotebookContext } from './tools/notebookUtils.js';
+import * as xml from './xml.js';
 
 const PROMPT_MODE_SELECTIONS_KEY = 'positron.assistant.promptModeSelections';
 
@@ -23,6 +25,11 @@ type StoredPromptSelectionConfig = Partial<Record<PromptMetadataMode, { file: st
 interface AugmentedRenderData {
 	hasRSession: boolean;
 	hasPythonSession: boolean;
+	hasNotebookContext: boolean;
+	notebookKernelInfo?: string;
+	notebookSelectedCellsInfo?: string;
+	notebookAllCellsInfo?: string;
+	notebookContextNote?: string;
 }
 
 /**
@@ -36,10 +43,29 @@ class PromptTemplateEngine {
 		const hasRSession = data.sessions?.some(s => s.languageId === 'r') ?? false;
 		const hasPythonSession = data.sessions?.some(s => s.languageId === 'python') ?? false;
 
+		// Notebook context augmentation
+		const hasNotebookContext = !!data.notebookContext;
+		let notebookKernelInfo: string | undefined;
+		let notebookSelectedCellsInfo: string | undefined;
+		let notebookAllCellsInfo: string | undefined;
+		let notebookContextNote: string | undefined;
+
+		if (data.notebookContext) {
+			notebookKernelInfo = data.notebookContext.kernelInfo;
+			notebookSelectedCellsInfo = data.notebookContext.selectedCellsInfo;
+			notebookAllCellsInfo = data.notebookContext.allCellsInfo;
+			notebookContextNote = data.notebookContext.contextNote;
+		}
+
 		return {
 			...data,
 			hasRSession,
 			hasPythonSession,
+			hasNotebookContext,
+			notebookKernelInfo,
+			notebookSelectedCellsInfo,
+			notebookAllCellsInfo,
+			notebookContextNote,
 		};
 	}
 
@@ -261,6 +287,7 @@ interface PromptRenderData {
 	document?: vscode.TextDocument;
 	sessions?: Array<positron.LanguageRuntimeMetadata>;
 	streamingEdits?: boolean;
+	notebookContext?: SerializedNotebookContext;
 }
 
 export class PromptRenderer {
@@ -485,7 +512,8 @@ export class PromptRenderer {
 	 * Get combined prompt for a specific command
 	 */
 	static renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {
-		return PromptRenderer.instance._renderModePrompt(mode, data);
+		const promptData = PromptRenderer.instance._renderModePrompt(mode, data);
+		return promptData;
 	}
 
 	private _renderModePrompt(mode: PromptMetadataMode, data: PromptRenderData): PromptDocument {

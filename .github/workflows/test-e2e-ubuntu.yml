@@ -33,11 +33,6 @@ on:
         description: "The tags to use for Currents recording."
         default: "@ubuntu"
         type: string
-      report_testrail:
-        required: false
-        description: "Whether or not to report results to TestRail."
-        default: false
-        type: boolean
       report_currents:
         required: false
         description: "Whether or not to report results to Currents."
@@ -167,21 +162,31 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
         uses: ./.github/actions/setup-build-env
         continue-on-error: true
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Attempt 3 - Setup Build and Compile
         id: attempt3
         if: ${{ steps.attempt2.outcome == 'failure' }}
         uses: ./.github/actions/setup-build-env
+        with:
+          skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}

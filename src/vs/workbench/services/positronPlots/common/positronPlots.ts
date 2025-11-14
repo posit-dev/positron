@@ -9,8 +9,18 @@ import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
+
+/**
+ * Context key that tracks where plots are currently displayed.
+ * Value is 'MainWindow' or 'AuxiliaryWindow'
+ */
+export const POSITRON_PLOTS_LOCATION_CONTEXT = new RawContextKey<string>(
+	'positronPlotsLocation',
+	'MainWindow'
+);
 
 export const POSITRON_PLOTS_SERVICE_ID = 'positronPlotsService';
 
@@ -86,6 +96,16 @@ export const isZoomablePlotClient = (obj: any): obj is IZoomablePlotClient => {
 	return 'zoomLevel' in obj && typeof obj.zoomLevel === 'number' &&
 		'onDidChangeZoomLevel' in obj && typeof obj.onDidChangeZoomLevel === 'function';
 };
+
+/**
+ * The location where the plots pane is currently being displayed.
+ */
+export enum PlotsDisplayLocation {
+	/** Plots are displayed in the main window (auxiliary bar view pane) */
+	MainWindow = 'main',
+	/** Plots are displayed in an auxiliary window */
+	AuxiliaryWindow = 'auxiliary'
+}
 
 /**
  * Creates a suggested file name for a plot.
@@ -334,6 +354,23 @@ export interface IPositronPlotsService {
 	 * @param settings The new settings.
 	 */
 	setPlotsRenderSettings(settings: PlotRenderSettings): void;
+
+	/**
+	 * Gets the current display location of the plots pane.
+	 */
+	readonly displayLocation: PlotsDisplayLocation;
+
+	/**
+	 * Notifies subscribers when the display location changes.
+	 */
+	readonly onDidChangeDisplayLocation: Event<PlotsDisplayLocation>;
+
+	/**
+	 * Sets the display location of the plots pane.
+	 *
+	 * @param location The new display location.
+	 */
+	setDisplayLocation(location: PlotsDisplayLocation): void;
 
 	/**
 	 * Placeholder for service initialization.

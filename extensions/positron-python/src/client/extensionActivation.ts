@@ -63,7 +63,6 @@ import { registerEnvExtFeatures } from './envExt/api.internal';
 
 // --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
-import { registerPythonLanguageModelTools } from './llm-tools/llm-tools';
 // --- End Positron ---
 
 export async function activateComponents(
@@ -122,8 +121,6 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
     const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
         IPythonRuntimeManager,
     );
-
-    registerPythonLanguageModelTools(ext.context, ext.legacyIOC.serviceContainer);
     // --- End Positron ---
 
     registerPixiFeatures(ext.disposables);

@@ -21,6 +21,7 @@ import { getCommitChanges } from './git.js';
 import { getEnabledTools, getPositronContextPrompts } from './api.js';
 import { TokenUsage } from './tokens.js';
 import { PromptRenderer } from './promptRender.js';
+import { SerializedNotebookContext, serializeNotebookContext, getAttachedNotebookContext } from './tools/notebookUtils.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -260,7 +261,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
 		// List of tools for use by the language model.
-		const enabledTools = getEnabledTools(request, vscode.lm.tools, this.id);
+		const enabledTools = await getEnabledTools(request, vscode.lm.tools, this.id);
 		const toolAvailability = new Map(
 			vscode.lm.tools.map(
 				tool => [tool.name as PositronAssistantToolName, enabledTools.includes(tool.name as PositronAssistantToolName)]
@@ -750,6 +751,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	dispose(): void { }
 }
 
+
 /** The participant used in the chat pane in Ask mode. */
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
@@ -757,7 +759,22 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, { request, sessions });
+
+		// Get notebook context if available, with error handling
+		let notebookContext: SerializedNotebookContext | undefined;
+		try {
+			notebookContext = await getAttachedNotebookContext(request);
+		} catch (err) {
+			log.error('[PositronAssistantChatParticipant] Error checking notebook context:', err);
+		}
+
+		// Render prompt with notebook context
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Ask, {
+			request,
+			sessions,
+			notebookContext
+		});
+
 		return prompt.content;
 	}
 }
@@ -769,7 +786,17 @@ export class PositronAssistantEditParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, { request, sessions });
+
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
+
+		// Render prompt with notebook context
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Edit, {
+			request,
+			sessions,
+			notebookContext
+		});
+
 		return prompt.content;
 	}
 }
@@ -781,7 +808,17 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
-		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, { request, sessions });
+
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
+
+		// Render prompt with notebook context
+		const prompt = PromptRenderer.renderModePrompt(positron.PositronChatMode.Agent, {
+			request,
+			sessions,
+			notebookContext
+		});
+
 		return prompt.content;
 	}
 }
@@ -866,7 +903,68 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 /** The participant used in notebook inline chats. */
 export class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
-	// For now, the Notebook Participant inherits everything from the Editor Participant.
+
+	override async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
+		// Check if notebook mode feature is enabled
+		const notebookModeEnabled = vscode.workspace
+			.getConfiguration('positron.assistant.notebookMode')
+			.get('enable', false);
+
+		if (!notebookModeEnabled) {
+			log.debug('[notebook participant] Notebook mode disabled via feature flag');
+			return super.getCustomPrompt(request);
+		}
+
+		// Get the active notebook context
+		const notebookContext = await positron.notebooks.getContext();
+		if (!notebookContext) {
+			log.debug('[notebook participant] No notebook context available for inline chat');
+			return super.getCustomPrompt(request);
+		}
+
+		// Positron notebooks send requests with the location2 type of
+		// ChatRequestEditorData which is because it's much easier/cleaner to
+		// just route the requests from positron notebooks here without totally
+		// changing the request body. Standard VS Code notebooks send We rely on
+		// the editor being a positron notebook for notebook-wide awareness so
+		// we can return early if it's not.
+		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
+			// Fall back to non-positron-notebook aware behavior.
+			return super.getCustomPrompt(request);
+		}
+
+		const cellDoc = request.location2.document;
+
+		const cellUri = cellDoc.uri.toString();
+
+		// Get all cells from the notebook
+		let allCells: positron.notebooks.NotebookCell[];
+		try {
+			allCells = await positron.notebooks.getCells(notebookContext.uri);
+		} catch (err) {
+			log.error('[notebook participant] Failed to get notebook cells:', err);
+			return super.getCustomPrompt(request);
+		}
+
+		// Find the current cell by matching URI
+		const currentCell = allCells.find(c => c.id === cellUri);
+		if (!currentCell) {
+			log.debug('[notebook participant] Could not find current cell in notebook');
+			return super.getCustomPrompt(request);
+		}
+
+		const currentIndex = currentCell.index;
+
+		// Use unified serialization helper with current cell as anchor and full wrapping
+		// This applies filtering logic (sliding window around current cell) and formats consistently with chat pane
+		const serialized = serializeNotebookContext(notebookContext, {
+			anchorIndex: currentIndex,
+			wrapInNotebookContext: true
+		});
+
+		const serializedContext = serialized.fullContext || '';
+		return serializedContext;
+	}
 }
 
 export function registerParticipants(context: vscode.ExtensionContext) {

@@ -10,6 +10,8 @@ import { completionModels } from './completion';
 import { clearTokenUsage, disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 import { PositronAssistantApi } from './api.js';
+import { PositLanguageModel } from './posit.js';
+import { DEFAULT_MAX_CONNECTION_ATTEMPTS } from './constants.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -131,6 +133,22 @@ export async function getEnabledProviders(): Promise<string[]> {
 	return enabledProviders;
 }
 
+export function getProviderTimeoutMs(): number {
+	const cfg = vscode.workspace.getConfiguration('positron.assistant');
+	const timeoutSec = cfg.get<number>('providerTimeout', 60);
+	return timeoutSec * 1000;
+}
+
+export function getMaxConnectionAttempts(): number {
+	const cfg = vscode.workspace.getConfiguration('positron.assistant');
+	const maxAttempts = cfg.get<number>('maxConnectionAttempts', DEFAULT_MAX_CONNECTION_ATTEMPTS);
+	if (maxAttempts < 1) {
+		log.warn(`Invalid maxConnectionAttempts value: ${maxAttempts}. Using default of ${DEFAULT_MAX_CONNECTION_ATTEMPTS}.`);
+		return DEFAULT_MAX_CONNECTION_ATTEMPTS;
+	}
+	return maxAttempts;
+}
+
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 
 	// Gather model sources; ignore disabled providers
@@ -186,6 +204,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			case 'cancel':
 				// User cancelled the dialog, clean up any pending operations
 				CopilotService.instance().cancelCurrentOperation();
+				PositLanguageModel.cancelCurrentSignIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
@@ -285,6 +304,9 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 			case 'copilot':
 				await CopilotService.instance().signIn();
 				break;
+			case 'posit-ai':
+				await PositLanguageModel.signIn(storage);
+				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
 		}
@@ -309,6 +331,9 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 		switch (userConfig.provider) {
 			case 'copilot':
 				oauthCompleted = await CopilotService.instance().signOut();
+				break;
+			case 'posit-ai':
+				oauthCompleted = await PositLanguageModel.signOut(storage);
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));

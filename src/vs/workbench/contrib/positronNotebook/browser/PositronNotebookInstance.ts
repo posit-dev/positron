@@ -724,9 +724,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Adds a new cell to the notebook at the specified index.
 	 * @param type The type of cell to add (`CellKind`)
 	 * @param index The position where the cell should be inserted
+	 * @param enterEditMode Whether to put the new cell into edit mode immediately
+	 * @param content Optional content to set for the cell. Defaults to an empty string if not provided.
 	 * @throws Error if no language is set for the notebook
 	 */
-	addCell(type: CellKind, index: number, enterEditMode: boolean): void {
+	addCell(type: CellKind, index: number, enterEditMode: boolean, content: string = ''): void {
 		this._assertTextModel();
 
 		if (!this.language) {
@@ -758,7 +760,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 						mime: undefined,
 						outputs: [],
 						metadata: undefined,
-						source: ''
+						source: content
 					}
 				]
 			}

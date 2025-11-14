@@ -1,0 +1,316 @@
+name: "Test: E2E (Ubuntu) — Run-only"
+
+on:
+  workflow_call:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: "@:critical"
+        type: string
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: string
+      workers:
+        required: false
+        description: "Number of parallel workers to use, defaults to 2."
+        default: 2
+        type: number
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-linux-run"
+        type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: "@:ubuntu"
+        type: string
+      report_currents:
+        required: false
+        description: "Whether or not to report results to Currents."
+        type: boolean
+        default: true
+      install_undetectable_interpreters:
+        required: false
+        description: "Whether or not to install undetectable interpreters."
+        type: boolean
+        default: false
+      install_license:
+        required: false
+        description: "Whether or not to install positron-license"
+        type: boolean
+        default: false
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: true
+      skip_extension_test:
+        required: false
+        description: "Whether to skip the bootstrap extensions test."
+        type: boolean
+        default: false
+      allow_soft_fail:
+        required: false
+        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  e2e-linux-run:
+    name: ${{ inputs.display_name || 'e2e-linux-run' }}
+    timeout-minutes: 120
+    runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
+      options: --user 0:0
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    services:
+      postgres:
+        image: ghcr.io/posit-dev/positron-postgres-ubuntu24-amd64:56
+        credentials:
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DOCKER_CONFIG: /tmp/.docker
+      POSITRON_BUILD_NUMBER: 0
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+      AWS_S3_BUCKET: positron-test-reports
+      E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+      E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+      E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+      RETICULATE_PYTHON: /root/.venv/bin/python
+      HOME: /root
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: "positron-build"
+          path: /tmp/artifacts
+
+      - name: Extract build artifact
+        run: |
+          mkdir -p /__w
+          if [ -f /tmp/artifacts/positron-build.tar.zst ]; then
+            echo "Extracting zstd archive with parallel decompression"
+            zstd -d -T0 --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
+          elif [ -f /tmp/artifacts/positron-build.tar.gz ]; then
+            echo "Extracting gzip archive"
+            tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w || true
+          else
+            echo "No known build artifact found in /tmp/artifacts"; ls -la /tmp/artifacts || true; exit 1
+          fi
+
+          if [ -d /__w/positron ]; then
+            chown -R $(id -u):$(id -g) /__w/positron || true
+          fi
+
+      - name: Re-initialize git repository for SCM tests
+        run: |
+          cd /__w/positron
+          git init
+          git config user.email "ci@posit.dev"
+          git config user.name "Positron CI"
+          git add -A
+          git commit -m "Initial commit from CI build artifact"
+
+      - name: Seed system tmp cache from bundled cache
+        run: |
+          if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
+            rm -rf /tmp/qa-example-content-cache || true
+            cp -R /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
+            if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+              echo "✓ Seeded /tmp/qa-example-content-cache"
+            fi
+          fi
+
+      - name: Validate bundled QA cache
+        run: |
+          echo "Checking for seeded QA cache at /tmp/qa-example-content-cache/.cached-commit"
+          if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
+            echo "✓ Cached commit found: $(cat /tmp/qa-example-content-cache/.cached-commit)"
+          else
+            echo "✗ Cached commit missing at /tmp/qa-example-content-cache/.cached-commit"
+            echo "Contents of /tmp:"; ls -la /tmp || true
+            echo "Contents of extracted workspace (/__w/positron/test/e2e):"; ls -la /__w/positron/test/e2e || true
+            exit 1
+          fi
+
+          if [ "${{ inputs.install_license }}" = "true" ]; then
+            LICENSE_PATH="/__w/positron/positron-license/pdol/target/debug/pdol_rsa"
+            echo "Checking for Positron license at $LICENSE_PATH"
+            if [ -f "$LICENSE_PATH" ]; then
+              echo "✓ Positron license present"
+            else
+              echo "✗ Positron license missing at $LICENSE_PATH"
+              echo "Contents of /__w/positron/positron-license (if any):"; ls -la /__w/positron/positron-license || true
+              echo "Contents of /__w/positron/test/e2e (for context):"; ls -la /__w/positron/test/e2e || true
+              exit 1
+            fi
+          fi
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Preload Node.js Binary
+        if: ${{ inputs.project != 'e2e-electron' }}
+        run: npm run gulp node
+
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+
+      - name: Alter AppArmor Restrictions for Playwright
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Restore Playwright browser cache
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json', 'test/e2e/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing default Playwright browser binaries into $HOME/.cache/ms-playwright"
+          npx playwright install --with-deps
+
+      - name: Install Microsoft Edge for e2e-edge project
+        if: ${{ inputs.project == 'e2e-edge' }}
+        run: |
+          echo "Installing Microsoft Edge browser channel for Playwright (msedge)"
+          npx playwright install msedge
+
+      - name: Run Playwright Tests
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: "3.10.12"
+          POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
+          POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
+          POSITRON_HIDDEN_R: 4.4.1
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
+          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+          USE_KEY: true
+          PW_JSON_FILE: test-results/ubuntu.json
+          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+        run: |
+          if [ -z "$PW_TAGS" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"$PW_TAGS\""
+          fi
+
+          echo "Final --grep argument: $GREP_ARG"
+
+          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+            echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
+            npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+            SKIP_CLONE_ARG="SKIP_CLONE=true"
+          else
+            echo "Skipping bootstrap extensions test (skip_extension_test=true)"
+            SKIP_CLONE_ARG=""
+          fi
+
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+
+          if [[ "${ALLOW_SOFT_FAIL}" == "true" ]]; then
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+
+            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+          else
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          fi
+
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: test-results
+
+      - name: Upload Test Logs
+        if: ${{ always() && inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-logs
+          path: test-logs
+          if-no-files-found: ignore
+
+      - name: Upload Test Results File
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-ubuntu-json-results
+          path: test-results/ubuntu.json
+          if-no-files-found: ignore
+
+      - name: Upload inspect-ai JSON Responses
+        if: ${{ always() && inputs.project == 'inspect-ai' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-ai-responses
+          path: test/assistant-inspect-ai/*.json

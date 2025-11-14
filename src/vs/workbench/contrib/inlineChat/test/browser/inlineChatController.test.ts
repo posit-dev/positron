@@ -77,6 +77,9 @@ import { MockLanguageModelToolsService } from '../../../chat/test/common/mockLan
 import { IMcpService } from '../../../mcp/common/mcpTypes.js';
 import { TestMcpService } from '../../../mcp/test/common/testMcpService.js';
 import { INotebookEditorService } from '../../../notebook/browser/services/notebookEditorService.js';
+// --- Start Positron ---
+import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
+// --- End Positron ---
 import { RerunAction } from '../../browser/inlineChatActions.js';
 import { InlineChatController1, State } from '../../browser/inlineChatController.js';
 import { IInlineChatSessionService } from '../../browser/inlineChatSessionService.js';
@@ -207,6 +210,11 @@ suite('InlineChatController', function () {
 			[INotebookEditorService, new class extends mock<INotebookEditorService>() {
 				override listNotebookEditors() { return []; }
 			}],
+			// --- Start Positron ---
+			[IPositronNotebookService, new class extends mock<IPositronNotebookService>() {
+				override listInstances() { return []; }
+			}],
+			// --- End Positron ---
 			[IWorkbenchAssignmentService, new NullWorkbenchAssignmentService()],
 			[ILanguageModelsService, new SyncDescriptor(LanguageModelsService)],
 			[ITextModelService, new SyncDescriptor(TextModelResolverService)],

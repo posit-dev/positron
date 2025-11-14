@@ -2324,4 +2324,197 @@ declare module 'positron' {
 		 */
 		export function areCompletionsEnabled(uri: vscode.Uri): Thenable<boolean>;
 	}
+
+	/**
+	 * Namespace for interacting with Positron notebooks
+	 */
+	export namespace notebooks {
+		/**
+		 * Context about the currently active notebook
+		 */
+		export interface NotebookContext {
+			/**
+			 * URI of the notebook
+			 */
+			uri: string;
+
+			/**
+			 * ID of the active kernel
+			 */
+			kernelId?: string;
+
+			/**
+			 * Language of the kernel (e.g., 'python', 'r')
+			 */
+			kernelLanguage?: string;
+
+			/**
+			 * Total number of cells in the notebook
+			 */
+			cellCount: number;
+
+			/**
+			 * Currently selected cells
+			 */
+			selectedCells: NotebookCell[];
+
+			/**
+			 * All cells in the notebook. Included if notebook is small enough
+			 * to fit without taking too much context.
+			 */
+			allCells?: NotebookCell[];
+		}
+
+		/**
+		 * Type of notebook cell
+		 */
+		export enum NotebookCellType {
+			/** A code cell */
+			Code = 'code',
+
+			/** A markdown cell */
+			Markdown = 'markdown',
+		}
+
+		/**
+		 * Represents a cell in a notebook
+		 */
+		export interface NotebookCell {
+			/**
+			 * Unique identifier for the cell
+			 */
+			id: string;
+
+			/**
+			 * Index of the cell in the notebook (0-based)
+			 */
+			index: number;
+
+			/**
+			 * Type of cell
+			 */
+			type: NotebookCellType;
+
+			/**
+			 * Content of the cell
+			 */
+			content: string;
+
+			/**
+			 * Whether the cell has output
+			 */
+			hasOutput: boolean;
+
+			/**
+			 * Selection status of the cell ('unselected' | 'selected' | 'active')
+			 */
+			selectionStatus: string;
+
+			/**
+			 * Execution status of the cell ('running' | 'pending' | 'idle')
+			 * Only present for code cells
+			 */
+			executionStatus?: string;
+
+			/**
+			 * Execution order number for the last execution
+			 * Only present for code cells
+			 */
+			executionOrder?: number;
+
+			/**
+			 * Whether the last execution was successful
+			 * Only present for code cells
+			 */
+			lastRunSuccess?: boolean;
+
+			/**
+			 * Duration of the last execution in milliseconds
+			 * Only present for code cells
+			 */
+			lastExecutionDuration?: number;
+
+			/**
+			 * Timestamp when the last execution ended
+			 * Only present for code cells
+			 */
+			lastRunEndTime?: number;
+		}
+
+		/**
+		 * Get context about the active notebook
+		 * @returns The notebook context or undefined if no notebook is active
+		 */
+		export function getContext(): Thenable<NotebookContext | undefined>;
+
+		/**
+		 * Get all cells from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @returns Array of all cells in the notebook
+		 */
+		export function getCells(notebookUri: string): Thenable<NotebookCell[]>;
+
+		/**
+		 * Get a specific cell from a notebook by its index
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell to retrieve
+		 * @returns The cell or undefined if not found
+		 */
+		export function getCell(notebookUri: string, cellIndex: number): Thenable<NotebookCell | undefined>;
+
+		/**
+		 * Execute cells in a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndices Array of cell indices to execute
+		 */
+		export function runCells(notebookUri: string, cellIndices: number[]): Thenable<void>;
+
+		/**
+		 * Add a new cell to a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param type Type of cell to add
+		 * @param index Index where the cell should be inserted
+		 * @param content Initial content for the cell
+		 * @returns The ID of the newly created cell
+		 */
+		export function addCell(notebookUri: string, type: NotebookCellType, index: number, content: string): Thenable<string>;
+
+		/**
+		 * Delete a cell from a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell to delete
+		 */
+		export function deleteCell(notebookUri: string, cellIndex: number): Thenable<void>;
+
+		/**
+		 * Update the content of a cell in a notebook
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell to update
+		 * @param content New content for the cell
+		 */
+		export function updateCellContent(notebookUri: string, cellIndex: number, content: string): Thenable<void>;
+
+		/**
+		 * Represents a cell output with its MIME type and data
+		 */
+		export interface NotebookCellOutput {
+			/**
+			 * MIME type of the output (e.g., 'text/plain', 'image/png', 'image/jpeg')
+			 */
+			mimeType: string;
+
+			/**
+			 * Output data - plain text for text outputs, base64-encoded string for images and other binary data
+			 */
+			data: string;
+		}
+
+		/**
+		 * Get the outputs from a code cell
+		 * @param notebookUri URI of the notebook
+		 * @param cellIndex Index of the cell
+		 * @returns Array of output objects with MIME type and data
+		 */
+		export function getCellOutputs(notebookUri: string, cellIndex: number): Thenable<NotebookCellOutput[]>;
+	}
 }

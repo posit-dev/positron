@@ -7,7 +7,8 @@ import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants.js';
+import { hasAttachedNotebookContext } from './tools/notebookUtils.js';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
 import path = require('path');
@@ -108,8 +109,8 @@ export class PositronAssistantApi {
 	 *
 	 * @returns The list of enabled tool names.
 	 */
-	public getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Array<string> {
-		return getEnabledTools(request, tools);
+	public async getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Promise<Array<string>> {
+		return await getEnabledTools(request, tools);
 	}
 
 	/**
@@ -143,10 +144,10 @@ export class PositronAssistantApi {
  *
  * @returns The list of enabled tool names.
  */
-export function getEnabledTools(
+export async function getEnabledTools(
 	request: vscode.ChatRequest,
 	tools: readonly vscode.LanguageModelToolInformation[],
-	positronParticipantId?: string): Array<string> {
+	positronParticipantId?: string): Promise<Array<string>> {
 
 	const enabledTools: Array<string> = [];
 
@@ -172,6 +173,9 @@ export function getEnabledTools(
 			hasVariables = true;
 		}
 	}
+
+	// Check if a notebook is attached as context and has an active editor
+	const hasActiveNotebook = await hasAttachedNotebookContext(request);
 
 	// Define more readable variables for filtering.
 	const inChatPane = request.location2 === undefined;
@@ -216,6 +220,12 @@ export function getEnabledTools(
 			}
 		}
 
+		// If the tool requires a notebook, but no notebook is attached with active editor,
+		// skip it early. Specific notebook tools have additional mode-based checks below.
+		if (tool.tags.includes(TOOL_TAG_REQUIRES_NOTEBOOK) && !(inChatPane && hasActiveNotebook)) {
+			continue;
+		}
+
 		// If the tool is designed for Positron Assistant but we don't have a
 		// Positron assistant ID, skip it.
 		if (tool.name.startsWith('positron') && positronParticipantId === undefined) {
@@ -234,6 +244,29 @@ export function getEnabledTools(
 				// when in agent mode; it does not currently support
 				// notebook mode.
 				if (!(inChatPane && hasConsoleSessions && isAgentMode)) {
+					continue;
+				}
+				break;
+			// Notebook tools require both a notebook attached as context AND an active notebook editor.
+			// Tool availability varies by mode:
+			// - Execution tools (RunNotebookCells): Agent mode only
+			// - Modification tools (EditNotebookCells): Edit and Agent modes
+			// - Read-only tools (GetNotebookCells): All modes (Ask, Edit, Agent)
+			case PositronAssistantToolName.RunNotebookCells:
+				// Execution requires Agent mode
+				if (!(inChatPane && hasActiveNotebook && isAgentMode)) {
+					continue;
+				}
+				break;
+			case PositronAssistantToolName.EditNotebookCells:
+				// Modification requires Edit or Agent mode
+				if (!(inChatPane && hasActiveNotebook && (isEditMode || isAgentMode))) {
+					continue;
+				}
+				break;
+			case PositronAssistantToolName.GetNotebookCells:
+				// Read-only tools available in all modes
+				if (!(inChatPane && hasActiveNotebook)) {
 					continue;
 				}
 				break;

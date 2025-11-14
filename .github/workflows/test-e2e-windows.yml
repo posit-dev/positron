@@ -27,11 +27,6 @@ on:
         description: "The tags to use for Currents recording."
         default: ""
         type: string
-      report_testrail:
-        required: false
-        description: "Whether or not to report results to TestRail."
-        default: false
-        type: boolean
       report_currents:
         required: false
         description: "Whether or not to report results to Currents."
@@ -295,19 +290,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
-
-      - name: Upload Test Results to TestRail
-        if: ${{ inputs.report_testrail }}
-        shell: bash
-        run: |
-          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
-          echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-        env:
-          TESTRAIL_TITLE: "e2e-windows"
-          TESTRAIL_PROJECT: "Positron"
-          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
-
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4

@@ -416,5 +416,16 @@ export enum CodeAttributionSource {
 	Script = 'script',
 }
 
+/**
+ * Type of notebook cell
+ */
+export enum NotebookCellType {
+	/** A code cell */
+	Code = 'code',
+
+	/** A markdown cell */
+	Markdown = 'markdown',
+}
+
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

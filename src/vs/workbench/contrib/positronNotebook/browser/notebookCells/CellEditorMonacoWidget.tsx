@@ -26,6 +26,7 @@ import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../ContextKeysManager.js'
 import { SelectionState } from '../selectionMachine.js';
 import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
 import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
+import { CTX_INLINE_CHAT_FOCUSED } from '../../../../contrib/inlineChat/common/inlineChat.js';
 
 /**
  *
@@ -124,26 +125,39 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			// This prevents the command palette, quick open, find widget, etc. from closing
 			// immediately when opened from a cell in edit mode.
 			const activeElement = editor.getContainerDomNode().ownerDocument.activeElement;
-			if (activeElement) {
-				// Get the context of where focus moved to
-				const contextKeyContext = services.contextKeyService.getContext(activeElement);
+			if (!activeElement) {
+				// No active element - focus has truly left, exit edit mode
+				instance.selectionStateMachine.exitEditor(cell);
+				return;
+			}
 
-				// Don't exit edit mode if focus moved to quick pick (command palette, quick open, etc.)
-				if (contextKeyContext.getValue(InQuickPickContextKey.key)) {
-					return;
-				}
+			const contextKeyContext = services.contextKeyService.getContext(activeElement);
 
-				// Don't exit edit mode if focus moved to another editor (e.g., find widget input)
-				if (contextKeyContext.getValue(EditorContextKeys.textInputFocus.key)) {
-					return;
-				}
+			// Context keys that indicate focus is still within VS Code overlays or related UI
+			const shouldKeepEditModeContextKeys = [
+				// VS Code overlays (command palette, quick open, etc.)
+				InQuickPickContextKey.key,
+				// Other editor inputs (find widget, etc.)
+				EditorContextKeys.textInputFocus.key,
+				// Chat-related contexts (assistant inline or panel chat)
+				CTX_INLINE_CHAT_FOCUSED.key,
+				// Other editors like find widget etc..
+				EditorContextKeys.textInputFocus.key,
+				// Action widget menus (model switcher, etc.)
+				// Not exported anywhere but set in src/vs/platform/actionWidget/browser/actionWidget.ts
+				'codeActionMenuVisible',
+			];
 
-				// Don't exit edit mode if focus is still within the notebook editor container
-				// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
-				const notebookContainer = instance.container;
-				if (notebookContainer?.contains(activeElement)) {
-					return;
-				}
+			const shouldKeepEditMode = shouldKeepEditModeContextKeys.some(contextKey => contextKeyContext.getValue(contextKey));
+			if (shouldKeepEditMode) {
+				return;
+			}
+
+			// Check if focus is still within the notebook editor container
+			// This covers both internal focus changes (cell to cell) and focus on notebook UI elements
+			const notebookContainer = instance.container;
+			if (notebookContainer?.contains(activeElement)) {
+				return;
 			}
 
 			// Focus has truly left the notebook editor - exit edit mode
