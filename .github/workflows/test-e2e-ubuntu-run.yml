@@ -399,8 +399,7 @@ jobs:
           # Merge reports and generate HTML + .last-run.json
           # NOTE: Reporter order matters! GitHub Actions Reporter must come before HTML reporter
           PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
-            --reporter=@midleman/github-actions-reporter \
-            --reporter=html \
+            --reporter=@midleman/github-actions-reporter,html \
             --last-run-file=playwright-report/.last-run.json \
             ../all-blob-reports
 

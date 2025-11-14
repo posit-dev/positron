@@ -22,8 +22,8 @@ export default defineConfig<ExtendedTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	// @ts-expect-error: shardingMode is added by local playwright patch
 	shardingMode: 'duration-round-robin',
+	// @ts-expect-error playwright added by playwright patch
 	lastRunFile: './blob-report/.last-run.json',
 	testIgnore: [
 		'example.test.ts',
@@ -45,13 +45,6 @@ export default defineConfig<ExtendedTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			// ['@midleman/github-actions-reporter', <GitHubActionOptions>{
-			// 	title: '',
-			// 	useDetails: true,
-			// 	showError: true,
-			// 	showAnnotations: false,
-			// 	includeResults: ['fail', 'flaky']
-			// }],
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
