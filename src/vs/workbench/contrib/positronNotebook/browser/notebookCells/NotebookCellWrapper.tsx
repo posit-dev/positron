@@ -49,8 +49,11 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 			return;
 		}
 
-		// Focus when this cell is the active cell
-		if (isActiveCell) {
+		/**
+		 * Focus the cell container element when this cell becomes the active cell,
+		 * except when in editing mode (the Monaco editor should have focus then).
+		 */
+		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing) {
 			cellRef.current.focus();
 		}
 	}, [isActiveCell, selectionStatus, cellRef]);
