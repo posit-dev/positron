@@ -20,13 +20,16 @@ test.describe('Reticulate', {
 	test.beforeAll(async function ({ app, settings }) {
 		try {
 			await settings.set({
-				'positron.reticulate.enabled': true
-			}, { 'reload': 'web' });
+				'positron.reticulate.enabled': true,
+				'kernelSupervisor.transport': 'tcp'
+			});
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
+
+		await app.restart();
 	});
 
 	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', async function ({ app, sessions, logger }) {
