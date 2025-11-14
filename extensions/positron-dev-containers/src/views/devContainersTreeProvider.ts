@@ -36,13 +36,6 @@ export class DevContainerTreeItem extends vscode.TreeItem {
 		// Set context value for menu items
 		// Use the same pattern as the existing targetsContainers view
 		this.contextValue = containerInfo.state === 'running' ? 'runningDevContainer' : 'exitedDevContainer';
-
-		// Make the item a command to open in current window on click
-		this.command = {
-			command: 'remote-containers.attachToContainerInCurrentWindow',
-			title: 'Open Container',
-			arguments: [this]
-		};
 	}
 
 	private createTooltip(): string {
@@ -87,6 +80,14 @@ export class DevContainersTreeProvider implements vscode.TreeDataProvider<DevCon
 		// Prevent concurrent refreshes
 		if (this.isLoading) {
 			logger.debug('Tree refresh already in progress, skipping...');
+			return;
+		}
+
+		// Skip Docker operations when in remote mode (UI extension running inside container)
+		if (vscode.env.remoteName) {
+			logger.debug(`Skipping tree refresh in remote context (${vscode.env.remoteName})`);
+			this.containers = [];
+			this._onDidChangeTreeData.fire();
 			return;
 		}
 

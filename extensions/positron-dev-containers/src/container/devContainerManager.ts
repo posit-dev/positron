@@ -275,12 +275,17 @@ export class DevContainerManager {
 			const details = await inspectContainer(params, containerId);
 			return ContainerStateManager.fromInspect(this.toContainerInspectInfo(details));
 		} catch (error) {
-			logger.error('Failed to get container info', error);
+			// Only log as error if it's not a Docker availability issue
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			if (errorMsg.includes('ENOENT') || errorMsg.includes('spawn')) {
+				logger.debug('Failed to get container info - Docker not available', error);
+			} else {
+				logger.error('Failed to get container info', error);
+			}
 			throw new Error(`Failed to get container info: ${error}`);
 		}
 	}
 
-	// --- Start Positron ---
 	/**
 	 * Get detailed container inspection info including mounts
 	 */
@@ -293,11 +298,16 @@ export class DevContainerManager {
 			const details = await inspectContainer(params, containerId);
 			return this.toContainerInspectInfo(details);
 		} catch (error) {
-			logger.error('Failed to inspect container details', error);
+			// Only log as error if it's not a Docker availability issue
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			if (errorMsg.includes('ENOENT') || errorMsg.includes('spawn')) {
+				logger.debug('Failed to inspect container details - Docker not available', error);
+			} else {
+				logger.error('Failed to inspect container details', error);
+			}
 			throw new Error(`Failed to inspect container details: ${error}`);
 		}
 	}
-	// --- End Positron ---
 
 	/**
 	 * List all dev containers
@@ -492,12 +502,18 @@ export class DevContainerManager {
 	async isDockerAvailable(): Promise<boolean> {
 		const logger = getLogger();
 
+		// Docker is never available in remote context (UI extension running inside container)
+		if (vscode.env.remoteName) {
+			logger.debug(`Docker not available in remote context (${vscode.env.remoteName})`);
+			return false;
+		}
+
 		try {
 			const params = await this.createDockerParams();
 			await dockerCLI(params, 'version');
 			return true;
 		} catch (error) {
-			logger.error('Docker not available', error);
+			logger.debug('Docker not available', error);
 			return false;
 		}
 	}
