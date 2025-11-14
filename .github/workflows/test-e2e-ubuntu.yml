@@ -18,11 +18,6 @@ on:
         description: "Number of parallel workers to use, defaults to 2."
         default: 2
         type: number
-      shards:
-        required: false
-        description: "Number of shards to split tests across. Use 1 for no sharding (default), or 4-6 for parallel execution."
-        default: 1
-        type: number
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -99,11 +94,6 @@ on:
         description: "Number of parallel workers to use, defaults to 2."
         default: 2
         type: number
-      shards:
-        required: false
-        description: "Number of shards to split tests across. Use 1 for no sharding (default), or 4-6 for parallel execution."
-        default: 1
-        type: number
 
 permissions:
   id-token: write
@@ -111,27 +101,10 @@ permissions:
   packages: read
 
 jobs:
-  build-matrix:
-    name: Build shard matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.mk.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: mk
-        shell: bash
-        run: |
-          matrix=$(bash scripts/generate-test-matrix.sh ${{ inputs.shards }})
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
-
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
-    needs: build-matrix
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:56
       options: --user 0:0
@@ -199,7 +172,6 @@ jobs:
         continue-on-error: true
         with:
           skip-playwright-if-cached: ${{ steps.restore-caches.outputs.cache-playwright-hit }}
-          POSITRON_NPM_CONCURRENCY: '12'
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
@@ -272,16 +244,8 @@ jobs:
             GREP_ARG="--grep \"${{ env.PW_TAGS }}\""
           fi
 
-          # Build the --shard argument only if shards > 1
-          if [ "${{ inputs.shards }}" -gt "1" ]; then
-            SHARD_ARG="--shard=${{ matrix.shard }}/${{ inputs.shards }}"
-          else
-            SHARD_ARG=""
-          fi
-
           # Log the arguments
           echo "Final --grep argument: $GREP_ARG"
-          echo "Final --shard argument: $SHARD_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
           if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
@@ -294,29 +258,28 @@ jobs:
           fi
 
           # Run the Playwright test command directly using eval
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
 
           if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
 
             node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
           else
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
           fi
 
-      - name: Upload Blob Report
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
         with:
-          name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
-          path: blob-report
-          retention-days: 1
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-logs-${{ matrix.shard }}
+          name: ${{ inputs.project }}-logs
           path: test-logs
           if-no-files-found: ignore
 
@@ -324,7 +287,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-ubuntu-json-results-${{ matrix.shard }}
+          name: ${{ inputs.project }}-ubuntu-json-results
           path: test-results/ubuntu.json
           if-no-files-found: ignore
 
@@ -332,40 +295,5 @@ jobs:
         if: ${{ always() && inputs.project == 'inspect-ai' }}
         uses: actions/upload-artifact@v4
         with:
-          name: inspect-ai-responses-${{ matrix.shard }}
+          name: inspect-ai-responses
           path: test/assistant-inspect-ai/*.json
-
-  merge-reports:
-    name: Merge HTML Reports
-    if: ${{ always() }}
-    needs: [build-matrix, e2e-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Download all blob reports
-        uses: actions/download-artifact@v4
-        with:
-          path: all-blob-reports
-          pattern: blob-report-${{ inputs.project }}-shard-*
-          merge-multiple: true
-
-      - name: Merge into single HTML report
-        run: npx playwright merge-reports --reporter html ./all-blob-reports
-
-      - name: Send Results to GH Summary
-        uses: ./.github/actions/gen-report-dir
-
-      - name: Upload Merged Playwright Report to S3
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: playwright-report
-
-      - name: Upload merged HTML report
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.project }}-html-report
-          path: playwright-report
-          retention-days: 14
