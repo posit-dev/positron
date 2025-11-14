@@ -680,7 +680,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private initSelectedModel() {
 		// --- Start Positron ---
 		// Allow user to override application persisted model with config setting
-		const persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
+		let persistedSelection = this.storageService.get(this.getSelectedModelStorageKey(), StorageScope.APPLICATION);
 		let persistedAsDefault = this.storageService.getBoolean(this.getSelectedModelIsDefaultStorageKey(), StorageScope.APPLICATION, persistedSelection === 'copilot/gpt-4.1');
 		const config = this.configurationService.getValue<{ preferredModel: string }>('positron.assistant');
 		if (config.preferredModel) {

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AsyncIterableObject } from '../../../../base/common/async.js';
+import { AsyncIterableProducer } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -551,7 +551,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		return RuntimeErrorBehavior.Stop;
 	}
 
-	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
+	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableProducer<VariablesResult> {
 		throw new Error('provideVariables not implemented.');
 	}
 }

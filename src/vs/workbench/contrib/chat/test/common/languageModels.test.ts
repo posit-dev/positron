@@ -21,10 +21,6 @@ import { MockContextKeyService } from '../../../../../platform/keybinding/test/c
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
 
-// --- Start Positron ---
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-// --- End Positron ---
-
 suite('LanguageModels', function () {
 
 	let languageModels: LanguageModelsService;
@@ -51,7 +47,6 @@ suite('LanguageModels', function () {
 			new NullLogService(),
 			new TestStorageService(),
 			new MockContextKeyService(),
-			new TestConfigurationService(),
 			new TestChatEntitlementService()
 		);
 
@@ -406,6 +401,7 @@ suite('LanguageModels - When Clause', function () {
 		contextKeyService.createKey('testKey', true);
 
 		languageModelsWithWhen = new LanguageModelsService(
+			new TestConfigurationService(),
 			new class extends mock<IExtensionService>() {
 				override activateByEvent(name: string) {
 					return Promise.resolve();
@@ -414,7 +410,6 @@ suite('LanguageModels - When Clause', function () {
 			new NullLogService(),
 			new TestStorageService(),
 			contextKeyService,
-			new TestConfigurationService(),
 			new TestChatEntitlementService()
 		);
 

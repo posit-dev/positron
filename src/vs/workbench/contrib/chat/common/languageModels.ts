@@ -401,7 +401,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 		@ILogService private readonly _logService: ILogService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IContextKeyService _contextKeyService: IContextKeyService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IChatEntitlementService private readonly _chatEntitlementService: IChatEntitlementService,
 	) {
 		this._hasUserSelectableModels = ChatContextKeys.languageModelsAreUserSelectable.bindTo(_contextKeyService);
@@ -778,7 +777,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			this._resolveLanguageModels(vendor, true).then(() => {
 				this._logService.trace('[LM] Provider models resolved, firing onDidChangeProviders', vendor);
 				this._onDidChangeProviders.fire({ added: [vendor] });
-				this._onLanguageModelChange.fire();
+				this._onLanguageModelChange.fire(vendor);
 			});
 			// --- End Positron ---
 		}

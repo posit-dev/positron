@@ -724,16 +724,16 @@ export class TerminalService extends Disposable implements ITerminalService {
 
 		// For backgrounded terminal instances, dispose them if either (a) they
 		// are marked as transient, or (b) we are not persisting terminals.
-		for (const instance of this._backgroundedTerminalInstances) {
+		for (const backgroundTerminal of this._backgroundedTerminalInstances) {
 			if (shouldPersistTerminals) {
 				// Dispose transient terminals even if we are persisting terminals.
-				if (!instance.shouldPersist) {
-					instance.dispose(TerminalExitReason.Shutdown);
+				if (!backgroundTerminal.instance.shouldPersist) {
+					backgroundTerminal.instance.dispose(TerminalExitReason.Shutdown);
 				}
 			} else {
 				// We aren't persisting terminals, so all backgrounded instances
 				// should be disposed.
-				instance.dispose(TerminalExitReason.Shutdown);
+				backgroundTerminal.instance.dispose(TerminalExitReason.Shutdown);
 			}
 		}
 		// --- End Positron ---

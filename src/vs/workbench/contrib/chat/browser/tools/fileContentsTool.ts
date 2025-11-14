@@ -121,7 +121,7 @@ export class FileContentsTool implements IToolImpl {
 
 		// If we have a chat context, create a clickable file reference
 		if (invocation.context) {
-			const model = this._chatService.getSession(invocation.context?.sessionId) as ChatModel;
+			const model = this._chatService.getSession(invocation.context?.sessionResource) as ChatModel;
 			const request = model.getRequests().at(-1)!;
 			model.acceptResponseProgress(request, {
 				kind: 'inlineReference',

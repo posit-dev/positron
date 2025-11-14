@@ -35,7 +35,7 @@ class MockLanguageModelsService implements ILanguageModelsService {
 		this.modelsByVendor.set(vendorId, models);
 	}
 
-	registerLanguageModelProvider(vendor: string, provider: ILanguageModelChatProvider): IDisposable {
+	registerLanguageModelProvider(vendor: string, extensionId: ExtensionIdentifier, provider: ILanguageModelChatProvider): IDisposable {
 		throw new Error('Method not implemented.');
 	}
 

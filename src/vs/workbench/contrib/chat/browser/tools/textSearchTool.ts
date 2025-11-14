@@ -173,7 +173,7 @@ export class TextSearchTool implements IToolImpl {
 
 		// Add UI references if we have chat context
 		if (invocation.context) {
-			const model = this._chatService.getSession(invocation.context.sessionId) as ChatModel;
+			const model = this._chatService.getSession(invocation.context.sessionResource) as ChatModel;
 			const request = model.getRequests().at(-1)!;
 
 			for (const result of results) {

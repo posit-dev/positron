@@ -13,7 +13,6 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as DOM from '../../../../../../base/browser/dom.js';
 import { PixelRatio } from '../../../../../../base/browser/pixelRatio.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { BareFontInfo } from '../../../../../../editor/common/config/fontInfo.js';
 import { PositronDataGrid } from '../../../../positronDataGrid/positronDataGrid.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
 import { IEditorOptions } from '../../../../../../editor/common/config/editorOptions.js';
