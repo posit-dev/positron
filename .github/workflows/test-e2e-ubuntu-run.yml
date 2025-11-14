@@ -235,6 +235,10 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Install jq for duration parsing
+        run: |
+          apt-get update && apt-get install -y jq
+
       - name: Log Shard Distribution Info
         run: |
           bash scripts/log-shard-info.sh "${{ inputs.project }}" "${{ matrix.shard }}" "${{ inputs.shards }}" "$PW_TAGS"
@@ -373,6 +377,11 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install dependencies
+        run: |
+          # Install jq for parsing .last-run.json
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: Install Playwright and apply patch
         run: |
