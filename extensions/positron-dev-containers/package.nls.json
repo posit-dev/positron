@@ -62,11 +62,9 @@
 	"command.startContainer": "Start Container",
 	"command.removeContainer": "Remove Container",
 	"command.explorerTargetsRefresh": "Refresh",
-	"command.explorerDetailsRefresh": "Refresh",
 	"command.showContainerLog": "Show Container Log",
 	"resourceLabelFormatters.exec.workspaceSuffix": "Exec",
 	"resourceLabelFormatters.dev-container.workspaceSuffix":"Dev Container",
 	"resourceLabelFormatters.attached-container.workspaceSuffix":"Container",
-	"views.remote.targetsContainers": "Dev Containers",
-	"views.remote.detailsContainers": "Details (Containers)"
+	"views.remote.targetsContainers": "Dev Containers"
 }

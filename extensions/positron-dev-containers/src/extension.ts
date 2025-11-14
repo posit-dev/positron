@@ -257,7 +257,6 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 			await devContainersTreeProvider.refresh();
 		}
 	});
-	registerCommand(context, 'remote-containers.explorerDetailsRefresh', explorerDetailsRefresh);
 
 	logger.debug('All commands registered');
 }
@@ -356,22 +355,6 @@ async function openLogFile(): Promise<void> {
 
 	const document = await vscode.workspace.openTextDocument(logFilePath);
 	await vscode.window.showTextDocument(document);
-}
-
-/**
- * Refresh the details explorer view
- */
-async function explorerDetailsRefresh(): Promise<void> {
-	const logger = getLogger();
-	logger.info('Command: explorerDetailsRefresh');
-
-	// The details view would show information about the current container
-	// when connected to a dev container. For now, this is a placeholder
-	// that could be expanded when a details tree provider is implemented.
-
-	// TODO: Implement a details tree provider and refresh it here
-	// For now, we'll just log that the command was called
-	logger.debug('Details view refresh requested (view not yet fully implemented)');
 }
 
 /**

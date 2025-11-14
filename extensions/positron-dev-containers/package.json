@@ -324,11 +324,6 @@
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "remote-containers.explorerDetailsRefresh",
-				"title": "%command.explorerDetailsRefresh%",
-				"category": "%command.category%"
-			},
-			{
 				"command": "remote-containers.showContainerLog",
 				"title": "%command.showContainerLog%",
 				"category": "%command.category%"
@@ -429,10 +424,6 @@
 					"when": "false"
 				},
 				{
-					"command": "remote-containers.explorerDetailsRefresh",
-					"when": "false"
-				},
-				{
 					"command": "remote-containers.openFolderInContainerInCurrentWindow",
 					"when": "false"
 				},
@@ -487,26 +478,6 @@
 					"command": "remote-containers.explorerTargetsRefresh",
 					"when": "view == targetsContainers && !remote-containers:needsDockerStartOrInstall && !remote-containers:noContainersWithFolder && !remote-containers:noContainersWithoutFolder",
 					"group": "navigation@3"
-				},
-				{
-					"command": "remote-containers.explorerDetailsRefresh",
-					"when": "view == detailsContainers",
-					"group": "navigation"
-				},
-				{
-					"command": "remote-containers.attachToContainerInNewWindow",
-					"when": "view == detailsContainers",
-					"group": "navigation"
-				},
-				{
-					"command": "remote-containers.rebuildContainer",
-					"when": "!hideRebuildCommands && view == detailsContainers && remoteName == dev-container",
-					"group": "navigation"
-				},
-				{
-					"command": "remote-containers.openDevContainerFile",
-					"when": "view == detailsContainers && remoteName =~ /^(dev|attached)-container$/",
-					"group": "navigation"
 				}
 			],
 			"view/item/context": [
@@ -590,10 +561,6 @@
 					"command": "remote-containers.showContainerLog",
 					"when": "view == targetsContainers && viewItem =~ /^(active|running|exited)(Dev|)Container/",
 					"group": "1_container@6"
-				},
-				{
-					"command": "remote-containers.openDevContainerFile",
-					"when": "view == detailsContainers && viewItem == devContainer"
 				}
 			],
 			"extension/context": []
@@ -609,16 +576,6 @@
 						"dev-container",
 						"attached-container",
 						"exec"
-					]
-				},
-				{
-					"id": "detailsContainers",
-					"name": "%views.remote.detailsContainers%",
-					"when": "!hideConnectCommands && !isInDevContainer",
-					"group": "details@1",
-					"remoteName": [
-						"dev-container",
-						"attached-container"
 					]
 				}
 			]

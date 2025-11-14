@@ -71,6 +71,27 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 					existing.connectionToken
 				);
 
+				// Register ResourceLabelFormatter for existing connection too
+				let workspaceName: string | undefined;
+				if (existing.localWorkspacePath) {
+					workspaceName = existing.localWorkspacePath.split(/[/\\]/).filter(s => s).pop();
+				}
+
+				if (workspaceName) {
+					this.labelFormatterDisposable?.dispose();
+					this.labelFormatterDisposable = vscode.workspace.registerResourceLabelFormatter({
+						scheme: 'vscode-remote',
+						authority: `dev-container+*`,
+						formatting: {
+							label: '${path}',
+							separator: '/',
+							tildify: true,
+							workspaceSuffix: `Dev Container: ${workspaceName}`
+						}
+					});
+					this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container: ${workspaceName}`);
+				}
+
 				// Return ResolverResult with environment variables
 				// Note: We don't set isTrusted here - we rely on getCanonicalURI mapping
 				// to let VS Code recognize that the remote workspace maps to a trusted local workspace
@@ -106,8 +127,13 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			}
 
 			// Register ResourceLabelFormatter dynamically to show workspace name in remote indicator
-			// Extract workspace name from the authority (format: dev-container+workspaceName)
-			const workspaceName = authority.split('+')[1];
+			// Extract workspace folder name from the local workspace path in the mapping
+			let workspaceName: string | undefined;
+			if (connection.localWorkspacePath) {
+				// Get the last component of the path (folder name)
+				workspaceName = connection.localWorkspacePath.split(/[/\\]/).filter(s => s).pop();
+			}
+
 			if (workspaceName) {
 				this.labelFormatterDisposable?.dispose();
 				this.labelFormatterDisposable = vscode.workspace.registerResourceLabelFormatter({
