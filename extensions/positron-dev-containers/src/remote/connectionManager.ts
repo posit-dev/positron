@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { Logger } from '../common/logger';
 import { PortForwardingManager } from './portForwarding';
 import { installAndStartServer } from '../server/serverInstaller';
@@ -10,6 +11,7 @@ import { revokeConnectionToken } from '../server/connectionToken';
 import { getDevContainerManager } from '../container/devContainerManager';
 import { decodeDevContainerAuthority } from '../common/authorityEncoding';
 import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
+import { getConfiguration } from '../common/configuration';
 
 /**
  * Connection state
@@ -248,6 +250,14 @@ export class ConnectionManager {
 		} catch (error) {
 			this.logger.error(`Failed to establish connection to ${containerId}`, error);
 			this.updateConnectionState(containerId, ConnectionState.Failed, error);
+
+			// Check if this is a server installation failure
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes('Installation script failed') || errorMessage.includes('Failed to install server')) {
+				// Extract log file path and show helpful error message
+				await this.handleServerInstallationError(containerId, errorMessage);
+			}
+
 			throw error;
 		}
 	}
@@ -500,6 +510,128 @@ export class ConnectionManager {
 	 */
 	private delay(ms: number): Promise<void> {
 		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+	/**
+	 * Handle server installation errors by showing a toast with option to view logs
+	 */
+	private async handleServerInstallationError(containerId: string, errorMessage: string): Promise<void> {
+		// Extract log file path from error message
+		const logPath = this.extractLogFilePath(errorMessage);
+
+		if (logPath) {
+			this.logger.info(`Server installation failed. Log file: ${logPath}`);
+
+			// Show error message with button to view log
+			const viewLogButton = 'View Log';
+			const result = await vscode.window.showErrorMessage(
+				'Failed to install Positron server in container. Click "View Log" to see details.',
+				viewLogButton
+			);
+
+			if (result === viewLogButton) {
+				await this.showServerLog(containerId, logPath);
+			}
+		} else {
+			// Fallback if we can't extract log path
+			this.logger.warn('Could not extract log file path from error message');
+			await vscode.window.showErrorMessage(
+				'Failed to install Positron server in container. Check the extension output for details.'
+			);
+		}
+	}
+
+	/**
+	 * Extract log file path from error message
+	 */
+	private extractLogFilePath(errorMessage: string): string | null {
+		// Look for pattern: "Server output is being written to: /path/to/log"
+		const match = errorMessage.match(/Server output is being written to:\s*(\S+)/);
+		if (match && match[1]) {
+			return match[1];
+		}
+
+		// Fallback: look for common log path patterns
+		const fallbackMatch = errorMessage.match(/\/[^\s]+\/server\.log/);
+		if (fallbackMatch) {
+			return fallbackMatch[0];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Show server log from container in an output channel
+	 */
+	private async showServerLog(containerId: string, logPath: string): Promise<void> {
+		try {
+			this.logger.info(`Reading server log from container: ${logPath}`);
+
+			// Read log file from container
+			const logContent = await this.readLogFileFromContainer(containerId, logPath);
+
+			// Create output channel and show log content
+			const outputChannel = vscode.window.createOutputChannel('Positron Server Installation Log');
+			outputChannel.clear();
+			outputChannel.appendLine(`Container: ${containerId}`);
+			outputChannel.appendLine(`Log file: ${logPath}`);
+			outputChannel.appendLine('='.repeat(80));
+			outputChannel.appendLine('');
+			outputChannel.append(logContent);
+			outputChannel.show();
+
+			this.logger.info('Server log displayed successfully');
+		} catch (error) {
+			this.logger.error(`Failed to read server log from container: ${error}`);
+			await vscode.window.showErrorMessage(
+				`Failed to read log file: ${error instanceof Error ? error.message : String(error)}`
+			);
+		}
+	}
+
+	/**
+	 * Read log file from container using docker exec
+	 */
+	private async readLogFileFromContainer(containerId: string, logPath: string): Promise<string> {
+		const config = getConfiguration();
+		const dockerPath = config.getDockerPath();
+
+		return new Promise((resolve, reject) => {
+			const { spawn } = require('child_process');
+
+			// Use cat to read the log file
+			const command = `cat ${logPath} 2>/dev/null || echo "[Log file not found or not readable]"`;
+			const args = ['exec', '-i', containerId, 'sh', '-c', command];
+
+			this.logger.debug(`Reading log: ${dockerPath} ${args.join(' ')}`);
+
+			const proc = spawn(dockerPath, args);
+
+			let stdout = '';
+			let stderr = '';
+
+			proc.stdout.on('data', (data: Buffer) => {
+				stdout += data.toString();
+			});
+
+			proc.stderr.on('data', (data: Buffer) => {
+				stderr += data.toString();
+			});
+
+			proc.on('error', (error: Error) => {
+				this.logger.error(`Failed to read log file from container: ${error.message}`);
+				reject(error);
+			});
+
+			proc.on('close', (code: number) => {
+				if (code === 0) {
+					resolve(stdout);
+				} else {
+					const errorMsg = `Failed to read log file (exit code ${code})${stderr ? ': ' + stderr : ''}`;
+					reject(new Error(errorMsg));
+				}
+			});
+		});
 	}
 
 	/**

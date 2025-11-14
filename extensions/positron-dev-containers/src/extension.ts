@@ -198,6 +198,25 @@ async function handlePendingRebuild(context: vscode.ExtensionContext): Promise<v
 
 		logger.info(`Container rebuilt successfully: ${result.containerId}`);
 
+		// Store workspace mapping BEFORE opening the window
+		// This ensures the mapping is available when the authority resolver runs
+		try {
+			const storage = WorkspaceMappingStorage.getInstance();
+
+			// Delete old container mapping if it exists (container ID changes on rebuild)
+			if (pending.containerId && pending.containerId !== result.containerId) {
+				logger.info(`Removing old container mapping: ${pending.containerId}`);
+				await storage.delete(pending.containerId);
+			}
+
+			// Store new container mapping
+			await storage.set(result.containerId, pending.workspaceFolder, result.remoteWorkspaceFolder);
+			logger.info(`Stored workspace mapping: ${result.containerId} -> ${pending.workspaceFolder}`);
+		} catch (error) {
+			logger.error('Failed to store workspace mapping before window reload', error);
+			// Continue anyway - but this may cause issues with the reopen
+		}
+
 		// Automatically reopen in the rebuilt container
 		const authority = `dev-container+${result.containerId}`;
 		const remoteUri = vscode.Uri.parse(`vscode-remote://${authority}${result.remoteWorkspaceFolder}`);
