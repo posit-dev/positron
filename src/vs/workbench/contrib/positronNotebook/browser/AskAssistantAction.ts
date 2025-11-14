@@ -131,7 +131,6 @@ export class AskAssistantAction extends NotebookAction2 {
 		disposables.add(quickPick.onWillAccept((e) => {
 			const selected = quickPick.selectedItems[0];
 
-
 			// Check if "Generate AI suggestions" was selected (type guard for PromptQuickPickItem)
 			if (selected && 'generateSuggestions' in selected && selected.generateSuggestions) {
 				e.veto(); // Prevent the quick pick from closing
