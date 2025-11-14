@@ -5,14 +5,14 @@
 
 import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
-import { isString } from '../../../../base/common/types.js';
+import { isString, assertType } from '../../../../base/common/types.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { IRange } from '../../../../editor/common/core/range.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
-import { Position } from '../../../../editor/common/core/position.js';
+import { IPosition, Position } from '../../../../editor/common/core/position.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
@@ -34,7 +34,7 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED } from '../../positronNotebook/browser/ContextKeysManager.js';
 import { getContextFromActiveEditor } from '../../notebook/browser/controller/coreActions.js';
 
@@ -1092,3 +1092,22 @@ export function registerPositronConsoleActions() {
 		}
 	});
 }
+
+
+/**
+ * Register the internal command for executing code in console from the extension API.
+ * This command is called by the positron.executeCodeInConsole API command.
+ */
+CommandsRegistry.registerCommand('_executeCodeInConsole', async (accessor, ...args: [string, URI, IPosition]) => {
+	const [languageId, uri, position] = args;
+	assertType(typeof languageId === 'string');
+	assertType(URI.isUri(uri));
+	assertType(Position.isIPosition(position));
+
+	const commandService = accessor.get(ICommandService);
+	return await commandService.executeCommand('workbench.action.positronConsole.executeCode', {
+		languageId,
+		uri,
+		position: Position.lift(position)
+	});
+});

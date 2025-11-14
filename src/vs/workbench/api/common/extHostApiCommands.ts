@@ -557,6 +557,16 @@ const newCommands: ApiCommand[] = [
 			return result;
 		})
 	),
+	// -- execute code in console
+	new ApiCommand(
+		'positron.executeCodeInConsole', '_executeCodeInConsole', 'Execute code in the Positron console.',
+		[
+			ApiCommandArgument.String.with('languageId', 'The language ID of the code to execute'),
+			ApiCommandArgument.Uri.with('uri', 'The URI of the document to execute code from'),
+			ApiCommandArgument.Position.with('position', 'The position in the document to execute code from')
+		],
+		ApiCommandResult.Void
+	),
 	// --- End Positron
 
 	// --- context keys
