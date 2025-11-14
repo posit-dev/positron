@@ -15242,6 +15242,13 @@ declare module 'vscode' {
 		 * @param revealType The scrolling strategy for revealing `range`.
 		 */
 		revealRange(range: NotebookRange, revealType?: NotebookEditorRevealType): void;
+		// --- Start Positron ---
+		/**
+		 * Whether this notebook editor is a Positron notebook editor.
+		 * This property is only set to `true` for Positron notebooks
+		*/
+		readonly isPositronNotebook?: boolean;
+		// --- End Positron ---
 	}
 
 	/**

@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as xml from '../xml.js';
 import { calculateSlidingWindow, filterNotebookContext, MAX_CELLS_FOR_ALL_CELLS_CONTEXT } from '../notebookContextFilter.js';
+import { isRuntimeSessionReference } from '../utils.js';
 
 /**
  * Maximum preview length per cell for confirmations (characters)
@@ -403,6 +404,51 @@ export function serializeNotebookContext(
 }
 
 /**
+ * Checks if notebook mode feature is enabled in workspace configuration.
+ *
+ * @returns True if notebook mode is enabled, false otherwise
+ */
+function isNotebookModeEnabled(): boolean {
+	return vscode.workspace
+		.getConfiguration('positron.assistant.notebookMode')
+		.get('enable', false);
+}
+
+/**
+ * Extracts notebook URIs from chat request references.
+ * Looks for URIs in two places:
+ * 1. activeSession.notebookUri property in reference values (from RuntimeSessionReference)
+ * 2. Direct .ipynb file URIs in reference values
+ *
+ * @param request The chat request containing references
+ * @returns Array of notebook URI strings found in the request
+ */
+function extractAttachedNotebookUris(request: vscode.ChatRequest): string[] {
+	const uris: string[] = [];
+
+	for (const ref of request.references) {
+		const value = ref.value;
+
+		// Check for RuntimeSessionReference with activeSession.notebookUri
+		if (isRuntimeSessionReference(value)) {
+			const notebookUri = value.activeSession.notebookUri;
+			// Match original behavior: accept any string (including empty strings)
+			if (typeof notebookUri === 'string') {
+				uris.push(notebookUri);
+			}
+			continue;
+		}
+
+		// Check for direct .ipynb file URI reference
+		if (value instanceof vscode.Uri && value.path.endsWith('.ipynb')) {
+			uris.push(value.toString());
+		}
+	}
+
+	return uris;
+}
+
+/**
  * Checks if there is an attached notebook context without applying filtering or serialization.
  * Returns the raw notebook context if:
  * 1. Notebook mode feature is enabled
@@ -418,11 +464,7 @@ async function getRawAttachedNotebookContext(
 	request: vscode.ChatRequest
 ): Promise<positron.notebooks.NotebookContext | undefined> {
 	// Check if notebook mode feature is enabled
-	const notebookModeEnabled = vscode.workspace
-		.getConfiguration('positron.assistant.notebookMode')
-		.get('enable', false);
-
-	if (!notebookModeEnabled) {
+	if (!isNotebookModeEnabled()) {
 		return undefined;
 	}
 
@@ -433,21 +475,7 @@ async function getRawAttachedNotebookContext(
 	}
 
 	// Extract attached notebook URIs
-	const attachedNotebookUris = request.references
-		.map(ref => {
-			// Check for activeSession.notebookUri
-			const sessionNotebookUri = (ref.value as any)?.activeSession?.notebookUri;
-			if (typeof sessionNotebookUri === 'string') {
-				return sessionNotebookUri;
-			}
-			// Check for direct .ipynb file reference
-			if (ref.value instanceof vscode.Uri && ref.value.path.endsWith('.ipynb')) {
-				return ref.value.toString();
-			}
-			return undefined;
-		})
-		.filter(uri => typeof uri === 'string');
-
+	const attachedNotebookUris = extractAttachedNotebookUris(request);
 	if (attachedNotebookUris.length === 0) {
 		return undefined;
 	}
@@ -468,20 +496,38 @@ async function getRawAttachedNotebookContext(
  * Checks if there is an attached notebook context.
  * Returns true if:
  * 1. Notebook mode feature is enabled
- * 2. A notebook editor is currently active
+ * 2. A Positron notebook editor is currently active
  * 3. That notebook's URI is attached as context
  *
- * This is a lightweight check for tool availability that doesn't require
+ * This is a lightweight synchronous check for tool availability that doesn't require
  * filtering or serialization of the notebook context.
  *
  * @param request The chat request to check for attached notebook context
  * @returns True if there is an attached notebook context, false otherwise
  */
-export async function hasAttachedNotebookContext(
+export function hasAttachedNotebookContext(
 	request: vscode.ChatRequest
-): Promise<boolean> {
-	const context = await getRawAttachedNotebookContext(request);
-	return context !== undefined;
+): boolean {
+	// Check if notebook mode feature is enabled
+	if (!isNotebookModeEnabled()) {
+		return false;
+	}
+
+	// Check if a Positron notebook editor is currently active
+	const activeEditor = vscode.window.activeNotebookEditor;
+	if (!activeEditor || activeEditor.isPositronNotebook !== true) {
+		return false;
+	}
+
+	// Extract attached notebook URIs
+	const attachedNotebookUris = extractAttachedNotebookUris(request);
+	if (attachedNotebookUris.length === 0) {
+		return false;
+	}
+
+	// Check if active notebook is in attached context
+	const activeNotebookUri = activeEditor.notebook.uri.toString();
+	return attachedNotebookUris.includes(activeNotebookUri);
 }
 
 /**
