@@ -22,7 +22,7 @@
 export function encodeDevContainerAuthority(containerId: string, workspaceName?: string): string {
 	if (workspaceName) {
 		// Use workspace name as the authority identifier for display
-		// VS Code will show "Dev Container: workspaceName" in the remote indicator
+		// VS Code will show "Dev Container" in the remote indicator
 		return `dev-container+${workspaceName}`;
 	}
 	return `dev-container+${containerId}`;

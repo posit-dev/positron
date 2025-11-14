@@ -86,10 +86,10 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 							label: '${path}',
 							separator: '/',
 							tildify: true,
-							workspaceSuffix: `Dev Container: ${workspaceName}`
+							workspaceSuffix: 'Dev Container'
 						}
 					});
-					this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container: ${workspaceName}`);
+					this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container`);
 				}
 
 				// Return ResolverResult with environment variables
@@ -143,10 +143,10 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 						label: '${path}',
 						separator: '/',
 						tildify: true,
-						workspaceSuffix: `Dev Container: ${workspaceName}`
+						workspaceSuffix: 'Dev Container'
 					}
 				});
-				this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container: ${workspaceName}`);
+				this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container`);
 			}
 			// --- End Positron ---
 
