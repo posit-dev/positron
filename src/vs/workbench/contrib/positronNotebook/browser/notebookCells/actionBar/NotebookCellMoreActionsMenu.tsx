@@ -14,18 +14,14 @@ import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
 
 interface NotebookCellMoreActionsMenuProps {
-	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][],
-	onMenuStateChange: (isOpen: boolean) => void;
+	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][]
 }
 
 /**
  * More actions dropdown menu component for notebook cells.
  * Encapsulates all dropdown menu logic including state management and menu display.
  */
-export function NotebookCellMoreActionsMenu({
-	menuActions,
-	onMenuStateChange
-}: NotebookCellMoreActionsMenuProps) {
+export function NotebookCellMoreActionsMenu({ menuActions }: NotebookCellMoreActionsMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 	const showMoreActionsMenu = () => {
@@ -38,7 +34,6 @@ export function NotebookCellMoreActionsMenu({
 			const entries = buildMoreActionsMenuItems(menuActions);
 
 			setIsMenuOpen(true);
-			onMenuStateChange(true);
 
 			showCustomContextMenu({
 				anchorElement: buttonRef.current,
@@ -48,14 +43,12 @@ export function NotebookCellMoreActionsMenu({
 				entries,
 				onClose: () => {
 					setIsMenuOpen(false);
-					onMenuStateChange(false);
 				}
 			});
 		} catch (error) {
 			// If the menu fails to show for whatever reason, make sure we don't
 			// get stuck in a bad state.
 			setIsMenuOpen(false);
-			onMenuStateChange(false);
 		}
 	};
 

@@ -62,9 +62,10 @@ export function useCellContextKeys(
 				return;
 			}
 
-			// Subscribe to observables neccesary to update context keys
+			// Subscribe to observables necessary to update context keys
 			const executionStatus = cell.executionStatus.read(reader);
 			const selectionStatus = cell.selectionStatus.read(reader);
+			const isActiveCell = cell.isActive.read(reader);
 			const cells = notebookInstance.cells.read(reader);
 
 			const cellType = cell.kind;
@@ -77,7 +78,7 @@ export function useCellContextKeys(
 			keys.isOnly.set(cells.length === 1);
 			keys.markdownEditorOpen.set(cell.isMarkdownCell() ? cell.editorShown.read(reader) : false);
 			keys.isSelected.set(selectionStatus === CellSelectionStatus.Selected);
-			keys.isEditing.set(selectionStatus === CellSelectionStatus.Editing);
+			keys.isActive.set(isActiveCell);
 			keys.canMoveUp.set(cell.index > 0 && cells.length > 1);
 			keys.canMoveDown.set(cell.index < cells.length - 1 && cells.length > 1);
 		}));

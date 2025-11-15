@@ -7,11 +7,11 @@
 import './NotebookCellActionBar.css';
 
 // React.
-import React, { useState } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
+import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellMoreActionsMenu } from './actionBar/NotebookCellMoreActionsMenu.js';
 import { CellActionButton } from './actionBar/CellActionButton.js';
 import { useObservedValue } from '../useObservedValue.js';
@@ -29,8 +29,7 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 	const contextKeyService = useCellScopedContextKeyService();
 
 	// State
-	const [isMenuOpen, setIsMenuOpen] = useState(false);
-	const selectionStatus = useObservedValue(cell.selectionStatus);
+	const isActiveCell = useObservedValue(cell.isActive);
 	const leftMenu = useMenu(MenuId.PositronNotebookCellActionBarLeft, contextKeyService);
 	const submenu = useMenu(MenuId.PositronNotebookCellActionBarSubmenu, contextKeyService);
 	const rightMenu = useMenu(MenuId.PositronNotebookCellActionBarRight, contextKeyService);
@@ -40,13 +39,10 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 
 	const hasSubmenuActions = submenuActions.length > 0;
 
-	// Determine visibility using the extracted hook
-	const shouldShowActionBar = isMenuOpen || selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing;
-
 	return <div
-		aria-hidden={!shouldShowActionBar}
+		aria-hidden={!isActiveCell}
 		aria-label={localize('cellActions', 'Cell actions')}
-		className={`positron-notebooks-cell-action-bar ${shouldShowActionBar ? 'visible' : 'hidden'}`}
+		className={`positron-notebooks-cell-action-bar ${isActiveCell ? 'visible' : 'hidden'}`}
 		role='toolbar'
 	>
 		{/* Render contributed main actions - will auto-update when registry changes */}
@@ -64,7 +60,6 @@ export function NotebookCellActionBar({ cell }: NotebookCellActionBarProps) {
 		{hasSubmenuActions ? (
 			<NotebookCellMoreActionsMenu
 				menuActions={submenuActions}
-				onMenuStateChange={setIsMenuOpen}
 			/>
 		) : null}
 
