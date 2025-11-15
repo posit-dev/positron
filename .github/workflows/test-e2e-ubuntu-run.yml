@@ -83,7 +83,7 @@ jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }} ${{ matrix.shard }}/${{ inputs.shards }}
     timeout-minutes: 120
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-4x
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
