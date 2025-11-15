@@ -309,7 +309,6 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
-          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           PW_PROJECT_NAME: ${{ inputs.project }}
         run: |
           if [ -z "$PW_TAGS" ]; then
@@ -339,13 +338,9 @@ jobs:
 
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob"
 
-          # When ALLOW_SOFT_FAIL is true, don't fail the shard on test failures
-          # The soft-fail check will happen in merge-reports job after all shards complete
-          if [[ "${ALLOW_SOFT_FAIL}" == "true" ]]; then
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob || true
-          else
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob
-          fi
+          # Don't fail the shard on test failures - let all shards complete and upload results
+          # The merge-reports job will determine pass/fail based on the complete test results
+          eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob || true
 
       - name: Upload Blob Report
         if: ${{ always() }}
@@ -458,19 +453,31 @@ jobs:
             echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
           fi
 
-      - name: Check soft-fail test results
-        if: ${{ inputs.allow_soft_fail }}
+      - name: Check test results
         run: |
-          # Run the soft-fail check script on the merged JSON report
           JSON_REPORT="playwright-merge/playwright-report/results.json"
-          if [ -f "$JSON_REPORT" ]; then
-            echo "Checking for non-soft-fail failures in $JSON_REPORT"
-            node scripts/check-soft-fail-failures.js "$JSON_REPORT"
-          else
+          if [ ! -f "$JSON_REPORT" ]; then
             echo "⚠ JSON report not found at $JSON_REPORT"
             echo "Contents of playwright-merge/playwright-report:"
             ls -la playwright-merge/playwright-report/ || true
             exit 1
+          fi
+
+          if [[ "${{ inputs.allow_soft_fail }}" == "true" ]]; then
+            # When soft-fail is enabled, only fail if non-soft-fail tests failed
+            echo "Checking for non-soft-fail failures in $JSON_REPORT"
+            node scripts/check-soft-fail-failures.js "$JSON_REPORT"
+          else
+            # When soft-fail is disabled, fail if ANY tests failed
+            echo "Checking for any test failures in $JSON_REPORT"
+            FAILED_COUNT=$(jq '[.suites[].specs[] | select(.ok == false)] | length' "$JSON_REPORT")
+            echo "Found $FAILED_COUNT failed test(s)"
+            if [ "$FAILED_COUNT" -gt 0 ]; then
+              echo "Tests failed - exiting with error"
+              exit 1
+            else
+              echo "All tests passed"
+            fi
           fi
 
       - name: Upload HTML report to S3
