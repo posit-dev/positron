@@ -83,9 +83,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                             newTerminalPerFile,
                         })
                             .then(() => {
-                                if (this.shouldTerminalFocusOnStart(file)) {
+                                if (this.shouldTerminalFocusOnStart(file))
                                     this.commandManager.executeCommand('workbench.action.terminal.focus');
-                                }
                             })
                             .catch((ex) => traceError('Failed to execute file in terminal', ex));
                     }),
@@ -178,9 +177,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
                 triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                 await this.executeSelectionInTerminal().then(() => {
-                    if (this.shouldTerminalFocusOnStart(file)) {
+                    if (this.shouldTerminalFocusOnStart(file))
                         this.commandManager.executeCommand('workbench.action.terminal.focus');
-                    }
                 });
             }),
         );
@@ -197,9 +195,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
                     triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                     await this.executeSelectionInDjangoShell().then(() => {
-                        if (this.shouldTerminalFocusOnStart(file)) {
+                        if (this.shouldTerminalFocusOnStart(file))
                             this.commandManager.executeCommand('workbench.action.terminal.focus');
-                        }
                     });
                 },
             ),
@@ -216,7 +213,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
 
         // Check on setting terminal.executeInFileDir
         const pythonSettings = this.configSettings.getSettings(file);
-        const cwd = pythonSettings.terminal.executeInFileDir ? path.dirname(fileToExecute.fsPath) : undefined;
+        let cwd = pythonSettings.terminal.executeInFileDir ? path.dirname(fileToExecute.fsPath) : undefined;
 
         // Check on setting terminal.launchArgs
         const launchArgs = pythonSettings.terminal.launchArgs;
