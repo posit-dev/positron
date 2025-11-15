@@ -293,7 +293,7 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: e2e-win-logs
           path: test-logs
@@ -301,7 +301,7 @@ jobs:
 
       - name: Upload Test Results File
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ inputs.project }}-windows-json-results
           path: test-results/windows.json
@@ -316,7 +316,7 @@ jobs:
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: inspect-ai-responses
           path: test/assistant-inspect-ai/*.json
