@@ -143,7 +143,7 @@ export class DevContainerManager {
 				logger.info(`Starting existing container: ${existingContainer.containerId}`);
 				await this.startContainer(existingContainer.containerId);
 			} else {
-				logger.info(`Container already running: ${existingContainer.containerId}`);
+				logger.debug(`Container already running: ${existingContainer.containerId}`);
 			}
 
 			// Get updated container info
@@ -158,7 +158,7 @@ export class DevContainerManager {
 			);
 			if (workspaceMount) {
 				remoteWorkspaceFolder = workspaceMount.Destination;
-				logger.info(`Found remote workspace folder from mount: ${remoteWorkspaceFolder}`);
+				logger.debug(`Found remote workspace folder from mount: ${remoteWorkspaceFolder}`);
 			} else {
 				// Fallback: try to generate from local path
 				const folderName = options.workspaceFolder.split(/[/\\]/).pop() || 'workspace';

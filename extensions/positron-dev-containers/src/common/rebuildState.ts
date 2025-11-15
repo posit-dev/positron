@@ -53,7 +53,7 @@ export class RebuildStateManager {
 	 */
 	async setPendingRebuild(rebuild: PendingRebuild): Promise<void> {
 		const logger = getLogger();
-		logger.info(`Storing pending rebuild for: ${rebuild.workspaceFolder}`);
+		logger.debug(`Storing pending rebuild for: ${rebuild.workspaceFolder}`);
 		await this.context.globalState.update(PENDING_REBUILD_KEY, rebuild);
 	}
 

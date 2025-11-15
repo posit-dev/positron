@@ -181,7 +181,7 @@ export class TerminalBuilder {
 		// Write the script file
 		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
-		logger.info(`Created build script: ${scriptPath}`);
+		logger.debug(`Created build script: ${scriptPath}`);
 
 		// Create terminal and run the script (shellPath and shellArgs hide the command from display)
 		const terminal = vscode.window.createTerminal({
@@ -193,7 +193,7 @@ export class TerminalBuilder {
 		terminal.show();
 
 		// Wait for the marker file to appear
-		logger.info('Waiting for container build to complete...');
+		logger.debug('Waiting for container build to complete...');
 		const startTime = Date.now();
 		const timeout = 10 * 60 * 1000; // 10 minutes
 

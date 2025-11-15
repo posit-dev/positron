@@ -84,12 +84,11 @@ export class ConnectionManager {
 	 * @param authority Full authority string
 	 */
 	async connect(containerIdOrWorkspace: string, authority: string): Promise<ConnectionResult> {
-		this.logger.info(`===== CONNECTION MANAGER: connect() called =====`);
 		this.logger.info(`Establishing connection with identifier: ${containerIdOrWorkspace}`);
 
 		// Resolve workspace name to container ID if needed
 		const containerId = await this.resolveContainerId(containerIdOrWorkspace);
-		this.logger.info(`Resolved to container ID: ${containerId}`);
+		this.logger.debug(`Resolved to container ID: ${containerId}`);
 
 		// Update state
 		this.updateConnectionState(containerId, ConnectionState.Connecting);
@@ -109,10 +108,10 @@ export class ConnectionManager {
 				const mapping = storage.get(containerId);
 				if (mapping?.localWorkspacePath) {
 					localWorkspacePath = mapping.localWorkspacePath;
-					this.logger.info(`Local workspace path from storage: ${localWorkspacePath}`);
+					this.logger.debug(`Local workspace path from storage: ${localWorkspacePath}`);
 				}
 			} catch (error) {
-				this.logger.debug('WorkspaceMappingStorage not initialized yet, will try other methods');
+				this.logger.trace('WorkspaceMappingStorage not initialized yet, will try other methods');
 			}
 
 			// Fallback: Extract local workspace path from authority (for initial opens with encoded path)
@@ -120,7 +119,7 @@ export class ConnectionManager {
 				const decoded = decodeDevContainerAuthority(authority);
 				if (decoded?.localWorkspacePath) {
 					localWorkspacePath = decoded.localWorkspacePath;
-					this.logger.info(`Local workspace path from authority: ${localWorkspacePath}`);
+					this.logger.debug(`Local workspace path from authority: ${localWorkspacePath}`);
 				}
 			}
 
@@ -136,19 +135,19 @@ export class ConnectionManager {
 				);
 				if (workspaceMount) {
 					remoteWorkspacePath = workspaceMount.Destination;
-					this.logger.info(`Remote workspace path from mount: ${remoteWorkspacePath}`);
+					this.logger.debug(`Remote workspace path from mount: ${remoteWorkspacePath}`);
 				} else if (localWorkspacePath) {
 					// Fallback: construct from local path
 					const folderName = localWorkspacePath.split(/[/\\]/).pop() || 'workspace';
 					remoteWorkspacePath = `/workspaces/${folderName}`;
-					this.logger.warn(`No workspace mount found, using fallback: ${remoteWorkspacePath}`);
+					this.logger.debug(`No workspace mount found, using fallback: ${remoteWorkspacePath}`);
 				}
 			} catch (error) {
 				// If container inspection fails (e.g., in remote context), construct from local path
 				if (localWorkspacePath) {
 					const folderName = localWorkspacePath.split(/[/\\]/).pop() || 'workspace';
 					remoteWorkspacePath = `/workspaces/${folderName}`;
-					this.logger.info(`Container inspection failed, using fallback remote path: ${remoteWorkspacePath}`);
+					this.logger.debug(`Container inspection failed, using fallback remote path: ${remoteWorkspacePath}`);
 				}
 			}
 
@@ -158,15 +157,15 @@ export class ConnectionManager {
 			// Add workspace paths to environment
 			if (localWorkspacePath) {
 				extensionHostEnv.LOCAL_WORKSPACE_FOLDER = localWorkspacePath;
-				this.logger.info(`Setting LOCAL_WORKSPACE_FOLDER in extensionHostEnv: ${localWorkspacePath}`);
+				this.logger.debug(`Setting LOCAL_WORKSPACE_FOLDER: ${localWorkspacePath}`);
 			} else {
-				this.logger.warn('No localWorkspacePath available to set in extensionHostEnv');
+				this.logger.debug('No localWorkspacePath available');
 			}
 			if (remoteWorkspacePath) {
 				extensionHostEnv.CONTAINER_WORKSPACE_FOLDER = remoteWorkspacePath;
-				this.logger.info(`Setting CONTAINER_WORKSPACE_FOLDER in extensionHostEnv: ${remoteWorkspacePath}`);
+				this.logger.debug(`Setting CONTAINER_WORKSPACE_FOLDER: ${remoteWorkspacePath}`);
 			} else {
-				this.logger.warn('No remoteWorkspacePath available to set in extensionHostEnv');
+				this.logger.debug('No remoteWorkspacePath available');
 			}
 			// --- End Positron ---
 
@@ -182,7 +181,7 @@ export class ConnectionManager {
 			// 3. Forward the port (if using port instead of socket)
 			let localPort: number;
 			if (serverInfo.isPort && serverInfo.port) {
-				this.logger.info(`Forwarding port ${serverInfo.port} to localhost...`);
+				this.logger.debug(`Forwarding port ${serverInfo.port} to localhost`);
 				localPort = await this.portForwardingManager.forwardPort(
 					containerId,
 					serverInfo.port
@@ -190,7 +189,7 @@ export class ConnectionManager {
 			} else {
 				// For socket-based connections, we'll use a default port
 				// The actual socket path will be used directly
-				this.logger.info(`Using socket path: ${serverInfo.socketPath}`);
+				this.logger.debug(`Using socket path: ${serverInfo.socketPath}`);
 				localPort = 0; // Socket-based connection
 			}
 
@@ -224,17 +223,16 @@ export class ConnectionManager {
 				try {
 					const storage = WorkspaceMappingStorage.getInstance();
 					await storage.set(containerId, localWorkspacePath, remoteWorkspacePath);
-					this.logger.info(`Stored workspace mapping: ${containerId} -> ${localWorkspacePath}`);
+					this.logger.debug(`Stored workspace mapping: ${containerId} -> ${localWorkspacePath}`);
 				} catch (error) {
-					this.logger.warn('Failed to store workspace mapping', error);
+					this.logger.debug('Failed to store workspace mapping', error);
 					// Don't fail connection if storage fails
 				}
 			}
 			// --- End Positron ---
 
-			this.logger.debug('=== CONNECTION: Returning connection result ===');
-			this.logger.debug(`extensionHostEnv keys: ${Object.keys(extensionHostEnv).join(', ')}`);
-			this.logger.debug(`extensionHostEnv: ${JSON.stringify(extensionHostEnv, null, 2)}`);
+			this.logger.trace(`Extension host env keys: ${Object.keys(extensionHostEnv).join(', ')}`);
+			this.logger.trace(`Extension host env: ${JSON.stringify(extensionHostEnv, null, 2)}`);
 
 			return {
 				host: connectionInfo.host,
@@ -266,7 +264,7 @@ export class ConnectionManager {
 	 * Reconnect to a container
 	 */
 	async reconnect(containerId: string, authority: string, attempt: number = 1): Promise<ConnectionResult> {
-		this.logger.info(`Reconnecting to container ${containerId} (attempt ${attempt}/${this.maxReconnectAttempts})`);
+		this.logger.debug(`Reconnecting to container ${containerId} (attempt ${attempt}/${this.maxReconnectAttempts})`);
 
 		this.updateConnectionState(containerId, ConnectionState.Reconnecting);
 
@@ -298,7 +296,7 @@ export class ConnectionManager {
 	 * Disconnect from a container
 	 */
 	async disconnect(containerId: string): Promise<void> {
-		this.logger.info(`Disconnecting from container ${containerId}`);
+		this.logger.debug(`Disconnecting from container ${containerId}`);
 
 		const connection = this.connections.get(containerId);
 		if (!connection) {
@@ -322,7 +320,7 @@ export class ConnectionManager {
 			// Remove connection
 			this.connections.delete(containerId);
 
-			this.logger.info(`Disconnected from container ${containerId}`);
+			this.logger.debug(`Disconnected from container ${containerId}`);
 
 		} catch (error) {
 			this.logger.error(`Error during disconnect from ${containerId}`, error);
@@ -392,7 +390,7 @@ export class ConnectionManager {
 		}
 
 		if (bestMatch) {
-			this.logger.info(`Resolved workspace name "${identifier}" to container ${bestMatch.containerId}`);
+			this.logger.debug(`Resolved workspace name "${identifier}" to container ${bestMatch.containerId}`);
 			return bestMatch.containerId;
 		}
 
@@ -565,7 +563,7 @@ export class ConnectionManager {
 	 */
 	private async showServerLog(containerId: string, logPath: string): Promise<void> {
 		try {
-			this.logger.info(`Reading server log from container: ${logPath}`);
+			this.logger.debug(`Reading server log from container: ${logPath}`);
 
 			// Read log file from container
 			const logContent = await this.readLogFileFromContainer(containerId, logPath);
@@ -580,7 +578,7 @@ export class ConnectionManager {
 			outputChannel.append(logContent);
 			outputChannel.show();
 
-			this.logger.info('Server log displayed successfully');
+			this.logger.debug('Server log displayed successfully');
 		} catch (error) {
 			this.logger.error(`Failed to read server log from container: ${error}`);
 			await vscode.window.showErrorMessage(

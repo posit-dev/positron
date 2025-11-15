@@ -98,7 +98,7 @@ export class ServerConfigProvider {
 		const serverDirName = `positron-server-${version}`;
 		const downloadUrl = this.getDownloadUrl(version, commit, quality, platform);
 
-		this.logger.info(`Server config: version=${version}, commit=${commit}, quality=${quality}, platform=${platform.platformString}`);
+		this.logger.debug(`Server config: version=${version}, commit=${commit}, quality=${quality}, platform=${platform.platformString}`);
 
 		return {
 			version,
@@ -132,7 +132,7 @@ export class ServerConfigProvider {
 		const serverDirName = `positron-server-${version}`;
 		const downloadUrl = this.getDownloadUrl(version, commit, quality, platform);
 
-		this.logger.info(`Container server config: version=${version}, commit=${commit}, quality=${quality}, platform=${platform.platformString}`);
+		this.logger.debug(`Container server config: version=${version}, commit=${commit}, quality=${quality}, platform=${platform.platformString}`);
 
 		return {
 			version,

@@ -15,7 +15,7 @@ import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
  */
 export async function reopenInContainer(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: reopenInContainer');
+	logger.debug('Command: reopenInContainer');
 
 	try {
 		// Check if already in a dev container
@@ -73,10 +73,9 @@ export async function reopenInContainer(): Promise<void> {
 
 		// Reload window with the remote authority
 		// The authority resolver will handle installing the server and establishing the connection
-		logger.info(`===== REOPENING WINDOW WITH REMOTE URI =====`);
-		logger.info(`About to execute vscode.openFolder with URI: ${remoteUri.toString()}`);
+		logger.debug(`About to execute vscode.openFolder with URI: ${remoteUri.toString()}`);
 		await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
-		logger.info(`vscode.openFolder command completed`);
+		logger.debug(`vscode.openFolder command completed`);
 	} catch (error) {
 		logger.error('Failed to reopen in container', error);
 		await vscode.window.showErrorMessage(
@@ -90,7 +89,7 @@ export async function reopenInContainer(): Promise<void> {
  */
 export async function reopenLocally(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: reopenLocally');
+	logger.debug('Command: reopenLocally');
 
 	try {
 		// Check if in a dev container

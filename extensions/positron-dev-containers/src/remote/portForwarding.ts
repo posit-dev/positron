@@ -41,7 +41,7 @@ export class PortForwardingManager {
 		// Check if already forwarding
 		const existing = this.activeForwards.get(forwardKey);
 		if (existing) {
-			this.logger.info(`Port forward already exists: ${existing.localPort} -> ${containerId}:${remotePort}`);
+			this.logger.debug(`Port forward already exists: ${existing.localPort} -> ${containerId}:${remotePort}`);
 			return existing.localPort;
 		}
 

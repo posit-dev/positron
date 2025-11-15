@@ -17,7 +17,7 @@ import { WorkspaceMappingStorage } from '../common/workspaceMappingStorage';
  */
 export async function rebuildAndReopenInContainer(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: rebuildAndReopenInContainer');
+	logger.debug('Command: rebuildAndReopenInContainer');
 
 	try {
 		// Get current workspace folder
@@ -92,7 +92,7 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
  */
 export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: rebuildNoCacheAndReopenInContainer');
+	logger.debug('Command: rebuildNoCacheAndReopenInContainer');
 
 	try {
 		// Get current workspace folder
@@ -170,7 +170,7 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
  */
 export async function rebuildContainer(context: vscode.ExtensionContext): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: rebuildContainer');
+	logger.debug('Command: rebuildContainer');
 
 	try {
 		// Check if in a dev container
@@ -203,10 +203,9 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 		}
 		const identifier = decoded.containerId; // May be workspace name like "js-devc"
 
-		logger.debug(`=== REBUILD: Looking up workspace mapping ===`);
-		logger.debug(`Authority identifier: ${identifier}`);
-		logger.debug(`Remote name: ${vscode.env.remoteName}`);
-		logger.debug(`Extension context: ${context.extensionMode === vscode.ExtensionMode.Production ? 'production' : 'development'}`);
+		logger.trace(`Authority identifier: ${identifier}`);
+		logger.trace(`Remote name: ${vscode.env.remoteName}`);
+		logger.trace(`Extension context: ${context.extensionMode === vscode.ExtensionMode.Production ? 'production' : 'development'}`);
 
 		// Resolve workspace name to actual container ID and get local workspace path
 		const resolved = resolveContainerIdentifier(identifier, logger);
@@ -217,7 +216,7 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 		if (!localWorkspaceFolder) {
 			localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
 			if (localWorkspaceFolder) {
-				logger.info(`Found local workspace path from env var: ${localWorkspaceFolder}`);
+				logger.debug(`Found local workspace path from env var: ${localWorkspaceFolder}`);
 			}
 		}
 
@@ -274,7 +273,7 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
  */
 export async function rebuildContainerNoCache(context: vscode.ExtensionContext): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: rebuildContainerNoCache');
+	logger.debug('Command: rebuildContainerNoCache');
 
 	try {
 		// Check if in a dev container
@@ -307,9 +306,8 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 		}
 		const identifier = decoded.containerId; // May be workspace name like "js-devc"
 
-		logger.debug(`=== REBUILD NO CACHE: Looking up workspace mapping ===`);
-		logger.debug(`Authority identifier: ${identifier}`);
-		logger.debug(`Remote name: ${vscode.env.remoteName}`);
+		logger.trace(`Authority identifier: ${identifier}`);
+		logger.trace(`Remote name: ${vscode.env.remoteName}`);
 
 		// Resolve workspace name to actual container ID and get local workspace path
 		const resolved = resolveContainerIdentifier(identifier, logger);
@@ -320,7 +318,7 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 		if (!localWorkspaceFolder) {
 			localWorkspaceFolder = process.env.LOCAL_WORKSPACE_FOLDER;
 			if (localWorkspaceFolder) {
-				logger.info(`Found local workspace path from env var: ${localWorkspaceFolder}`);
+				logger.debug(`Found local workspace path from env var: ${localWorkspaceFolder}`);
 			}
 		}
 
@@ -377,12 +375,12 @@ function resolveContainerIdentifier(identifier: string, logger: any): { containe
 
 	try {
 		const storage = WorkspaceMappingStorage.getInstance();
-		logger.debug(`Storage instance retrieved, checking for identifier ${identifier}`);
+		logger.trace(`Storage instance retrieved, checking for identifier ${identifier}`);
 
 		const allMappings = storage.getAll();
-		logger.debug(`Total mappings in storage: ${allMappings.length}`);
+		logger.trace(`Total mappings in storage: ${allMappings.length}`);
 		allMappings.forEach(m => {
-			logger.debug(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath} (remote: ${m.remoteWorkspacePath})`);
+			logger.trace(`  Mapping: ${m.containerId} -> ${m.localWorkspacePath} (remote: ${m.remoteWorkspacePath})`);
 		});
 
 		// First try direct lookup (if identifier is already a container ID)
@@ -390,12 +388,12 @@ function resolveContainerIdentifier(identifier: string, logger: any): { containe
 
 		// If not found, try to resolve workspace name to container ID
 		if (!mapping) {
-			logger.debug(`No direct mapping found, trying to resolve workspace name to container ID`);
+			logger.trace(`No direct mapping found, trying to resolve workspace name to container ID`);
 			for (const [cid, m] of storage.entries()) {
 				if (m.remoteWorkspacePath) {
 					const workspaceName = m.remoteWorkspacePath.split('/').filter(s => s).pop();
 					if (workspaceName === identifier) {
-						logger.info(`Resolved workspace name "${identifier}" to container ${cid}`);
+						logger.debug(`Resolved workspace name "${identifier}" to container ${cid}`);
 						containerId = cid;
 						mapping = m;
 						break;
@@ -406,7 +404,7 @@ function resolveContainerIdentifier(identifier: string, logger: any): { containe
 
 		if (mapping?.localWorkspacePath) {
 			localWorkspaceFolder = mapping.localWorkspacePath;
-			logger.info(`Found local workspace path from storage: ${localWorkspaceFolder}`);
+			logger.debug(`Found local workspace path from storage: ${localWorkspaceFolder}`);
 		} else {
 			logger.warn(`No mapping found for identifier ${identifier} in storage`);
 		}

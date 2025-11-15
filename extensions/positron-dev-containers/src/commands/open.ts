@@ -14,7 +14,7 @@ import { getDevContainerManager } from '../container/devContainerManager';
  */
 export async function openFolder(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: openFolder');
+	logger.debug('Command: openFolder');
 
 	try {
 		// Show folder picker
@@ -76,7 +76,7 @@ export async function openFolder(): Promise<void> {
  */
 export async function openFolderInContainerInCurrentWindow(folderPath?: string): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: openFolderInContainerInCurrentWindow');
+	logger.debug('Command: openFolderInContainerInCurrentWindow');
 
 	try {
 		// If no folder path provided, show picker
@@ -111,7 +111,7 @@ export async function openFolderInContainerInCurrentWindow(folderPath?: string):
  */
 export async function openFolderInContainerInNewWindow(folderPath?: string): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: openFolderInContainerInNewWindow');
+	logger.debug('Command: openFolderInContainerInNewWindow');
 
 	try {
 		// If no folder path provided, show picker
@@ -146,7 +146,7 @@ export async function openFolderInContainerInNewWindow(folderPath?: string): Pro
  */
 export async function openWorkspace(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: openWorkspace');
+	logger.debug('Command: openWorkspace');
 
 	try {
 		// Show workspace file picker

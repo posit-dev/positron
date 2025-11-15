@@ -45,26 +45,25 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 	 * Called by VS Code when connecting to a remote with our authority scheme
 	 */
 	async resolve(authority: string): Promise<vscode.ResolverResult> {
-		this.logger.info(`===== AUTHORITY RESOLVER: resolve() called =====`);
-		this.logger.info(`Resolving authority: ${authority}`);
+		this.logger.debug(`Resolving authority: ${authority}`);
 
 		// --- Start Positron ---
 		// If we're already in a remote context, log it for debugging
 		// VS Code may call resolve() even when remote for verification purposes
 		if (vscode.env.remoteName) {
-			this.logger.info(`Already in remote context: ${vscode.env.remoteName}`);
+			this.logger.debug(`Already in remote context: ${vscode.env.remoteName}`);
 		}
 		// --- End Positron ---
 
 		try {
 			// Parse the authority
 			const parsed = this.parseAuthority(authority);
-			this.logger.info(`Parsed authority: type=${parsed.type}, containerId=${parsed.containerId}`);
+			this.logger.debug(`Parsed authority: type=${parsed.type}, containerId=${parsed.containerId}`);
 
 			// Check for existing connection
 			const existing = this.connectionManager.getConnection(parsed.containerId);
 			if (existing && existing.state === ConnectionState.Connected) {
-				this.logger.info(`Using existing connection to ${parsed.containerId}`);
+				this.logger.debug(`Using existing connection to ${parsed.containerId}`);
 				const resolvedAuthority = new vscode.ResolvedAuthority(
 					existing.host,
 					existing.port,
@@ -89,7 +88,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 							workspaceSuffix: 'Dev Container'
 						}
 					});
-					this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container`);
+					this.logger.debug(`Registered ResourceLabelFormatter with suffix: Dev Container`);
 				}
 
 				// Return ResolverResult with environment variables
@@ -101,7 +100,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			}
 
 			// Establish new connection (pass full authority for path decoding)
-			this.logger.info(`Establishing new connection to ${parsed.containerId}`);
+			this.logger.debug(`Establishing new connection to ${parsed.containerId}`);
 			const connection = await this.connectionManager.connect(parsed.containerId, authority);
 
 			// Return resolved authority with environment variables
@@ -123,7 +122,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			// If we have workspace path mapping, include it in the resolver result
 			// This helps VS Code understand the workspace identity for MRU and trust
 			if (connection.localWorkspacePath && connection.remoteWorkspacePath) {
-				this.logger.info(`Including workspace path mapping in resolver result: local=${connection.localWorkspacePath}, remote=${connection.remoteWorkspacePath}`);
+				this.logger.debug(`Including workspace path mapping in resolver result: local=${connection.localWorkspacePath}, remote=${connection.remoteWorkspacePath}`);
 			}
 
 			// Register ResourceLabelFormatter dynamically to show workspace name in remote indicator
@@ -146,7 +145,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 						workspaceSuffix: 'Dev Container'
 					}
 				});
-				this.logger.info(`Registered ResourceLabelFormatter with suffix: Dev Container`);
+				this.logger.debug(`Registered ResourceLabelFormatter with suffix: Dev Container`);
 			}
 			// --- End Positron ---
 
@@ -217,7 +216,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 						const localPath = mapping.localWorkspacePath.replace(/\\/g, '/') + relativePath;
 
 						const fileUri = vscode.Uri.file(localPath);
-						this.logger.info(`Remapping remote to local (from storage): ${uri.toString()} -> ${fileUri.toString()}`);
+						this.logger.debug(`Remapping remote to local (from storage): ${uri.toString()} -> ${fileUri.toString()}`);
 
 						// Return file URI for workspace trust and MRU
 						// This is the KEY to making workspace trust and MRU work correctly

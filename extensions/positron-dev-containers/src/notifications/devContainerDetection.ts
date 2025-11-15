@@ -64,7 +64,7 @@ async function showDevContainerNotification(
 ): Promise<void> {
 	const logger = getLogger();
 
-	logger.info('Showing dev container detection notification');
+	logger.debug('Showing dev container detection notification');
 
 	const message = 'Folder contains a Dev Container configuration file. Reopen folder to develop in a container?';
 	const reopenButton = 'Reopen in Container';
@@ -77,10 +77,10 @@ async function showDevContainerNotification(
 	);
 
 	if (result === reopenButton) {
-		logger.info('User clicked "Reopen in Container"');
+		logger.debug('User clicked "Reopen in Container"');
 		await vscode.commands.executeCommand('remote-containers.reopenInContainer');
 	} else if (result === dontShowButton) {
-		logger.info('User clicked "Don\'t Show Again..."');
+		logger.debug('User clicked "Don\'t Show Again..."');
 		await handleDontShowAgain(context, workspaceFolder);
 	}
 }
@@ -113,7 +113,7 @@ async function handleDontShowAgain(
 	if (scope === allFoldersOption) {
 		// Store in global state
 		await context.globalState.update(GLOBAL_DONT_SHOW_KEY, true);
-		logger.info('User opted out of dev container notifications globally');
+		logger.debug('User opted out of dev container notifications globally');
 		await vscode.window.showInformationMessage(
 			'Dev container notifications will not be shown for any folder.'
 		);
@@ -123,7 +123,7 @@ async function handleDontShowAgain(
 			`${WORKSPACE_DONT_SHOW_KEY}.${workspaceFolder.uri.toString()}`,
 			true
 		);
-		logger.info(`User opted out of dev container notifications for workspace: ${workspaceFolder.name}`);
+		logger.debug(`User opted out of dev container notifications for workspace: ${workspaceFolder.name}`);
 		await vscode.window.showInformationMessage(
 			`Dev container notifications will not be shown for ${workspaceFolder.name}.`
 		);

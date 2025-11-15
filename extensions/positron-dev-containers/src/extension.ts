@@ -44,12 +44,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	logger.debug(`Is in dev container: ${isInDevContainer}`);
 	logger.debug(`Remote name: ${Workspace.getRemoteName() || 'none'}`);
 
-	// Debug: Check environment variables on activation
-	logger.debug('=== EXTENSION ACTIVATION: Environment Variables ===');
-	logger.debug(`LOCAL_WORKSPACE_FOLDER: ${process.env.LOCAL_WORKSPACE_FOLDER || 'NOT SET'}`);
-	logger.debug(`CONTAINER_WORKSPACE_FOLDER: ${process.env.CONTAINER_WORKSPACE_FOLDER || 'NOT SET'}`);
-	logger.debug(`POSITRON_CONTAINER_ID: ${process.env.POSITRON_CONTAINER_ID || 'NOT SET'}`);
-	logger.debug(`POSITRON_REMOTE_ENV: ${process.env.POSITRON_REMOTE_ENV || 'NOT SET'}`);
+	// Check environment variables on activation (trace level for detailed diagnostics)
+	logger.trace(`LOCAL_WORKSPACE_FOLDER: ${process.env.LOCAL_WORKSPACE_FOLDER || 'NOT SET'}`);
+	logger.trace(`CONTAINER_WORKSPACE_FOLDER: ${process.env.CONTAINER_WORKSPACE_FOLDER || 'NOT SET'}`);
+	logger.trace(`POSITRON_CONTAINER_ID: ${process.env.POSITRON_CONTAINER_ID || 'NOT SET'}`);
+	logger.trace(`POSITRON_REMOTE_ENV: ${process.env.POSITRON_REMOTE_ENV || 'NOT SET'}`);
 
 	// --- Start Positron ---
 	// Initialize workspace mapping storage FIRST (before authority resolver)
@@ -118,7 +117,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('dev.containers')) {
-				logger.debug('Dev containers configuration changed');
 				config.reload();
 
 				// Update log level if it changed
@@ -276,8 +274,6 @@ function registerCommands(context: vscode.ExtensionContext, devContainersTreePro
 			await devContainersTreeProvider.refresh();
 		}
 	});
-
-	logger.debug('All commands registered');
 }
 
 /**
@@ -299,7 +295,7 @@ function registerCommand(
  */
 async function openDevContainerFile(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: openDevContainerFile');
+	logger.debug('Command: openDevContainerFile');
 
 	const currentFolder = Workspace.getCurrentWorkspaceFolder();
 	if (!currentFolder) {
@@ -307,42 +303,30 @@ async function openDevContainerFile(): Promise<void> {
 		return;
 	}
 
-	logger.debug(`Looking for dev container configuration in workspace: ${currentFolder.uri.fsPath}`);
-	logger.debug(`Workspace URI: ${currentFolder.uri.toString()}`);
-
 	// Check for .devcontainer/devcontainer.json
 	let devContainerUri = vscode.Uri.joinPath(currentFolder.uri, '.devcontainer', 'devcontainer.json');
-	logger.debug(`Checking for dev container configuration at: ${devContainerUri.toString()}`);
 
 	try {
 		await vscode.workspace.fs.stat(devContainerUri);
-		logger.debug(`Found dev container configuration at: ${devContainerUri.toString()}`);
 		const document = await vscode.workspace.openTextDocument(devContainerUri);
 		await vscode.window.showTextDocument(document);
 		return;
 	} catch {
 		// File doesn't exist, try next location
-		logger.debug(`Not found at: ${devContainerUri.toString()}`);
 	}
 
 	// Check for .devcontainer.json in workspace root
 	devContainerUri = vscode.Uri.joinPath(currentFolder.uri, '.devcontainer.json');
-	logger.debug(`Checking for dev container configuration at: ${devContainerUri.toString()}`);
 
 	try {
 		await vscode.workspace.fs.stat(devContainerUri);
-		logger.debug(`Found dev container configuration at: ${devContainerUri.toString()}`);
 		const document = await vscode.workspace.openTextDocument(devContainerUri);
 		await vscode.window.showTextDocument(document);
 		return;
 	} catch {
 		// File doesn't exist
-		logger.debug(`Not found at: ${devContainerUri.toString()}`);
 	}
 
-	logger.debug(`No dev container configuration found. Checked locations:`);
-	logger.debug(`  - ${currentFolder.uri.fsPath}/.devcontainer/devcontainer.json`);
-	logger.debug(`  - ${currentFolder.uri.fsPath}/.devcontainer.json`);
 	await vscode.window.showErrorMessage('No dev container configuration found');
 }
 
@@ -381,7 +365,7 @@ async function openLogFile(): Promise<void> {
  */
 async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: showContainerLog');
+	logger.debug('Command: showContainerLog');
 
 	// Type check: ensure we have a tree item with container info
 	if (!treeItem || !treeItem.containerInfo) {
@@ -432,7 +416,7 @@ async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> 
  */
 async function testConnection(connectionManager: ConnectionManager): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: testConnection');
+	logger.debug('Command: testConnection');
 
 	// Check if we're in a dev container
 	if (!Workspace.isInDevContainer()) {

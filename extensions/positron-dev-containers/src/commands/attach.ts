@@ -16,7 +16,7 @@ import { encodeDevContainerAuthority } from '../common/authorityEncoding';
  */
 export async function attachToRunningContainer(): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: attachToRunningContainer');
+	logger.debug('Command: attachToRunningContainer');
 
 	try {
 		// Get all containers
@@ -97,7 +97,7 @@ export async function attachToRunningContainer(): Promise<void> {
  */
 export async function attachToContainerInCurrentWindow(treeItem?: DevContainerTreeItem): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: attachToContainerInCurrentWindow');
+	logger.debug('Command: attachToContainerInCurrentWindow');
 
 	if (!treeItem || !treeItem.containerInfo) {
 		await vscode.window.showErrorMessage('No container selected');
@@ -163,7 +163,7 @@ export async function attachToContainerInCurrentWindow(treeItem?: DevContainerTr
  */
 export async function attachToContainerInNewWindow(treeItem?: DevContainerTreeItem): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: attachToContainerInNewWindow');
+	logger.debug('Command: attachToContainerInNewWindow');
 
 	if (!treeItem || !treeItem.containerInfo) {
 		await vscode.window.showErrorMessage('No container selected');
@@ -229,7 +229,7 @@ export async function attachToContainerInNewWindow(treeItem?: DevContainerTreeIt
  */
 export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: stopContainer');
+	logger.debug('Command: stopContainer');
 
 	if (!treeItem || !treeItem.containerInfo) {
 		await vscode.window.showErrorMessage('No container selected');
@@ -274,7 +274,7 @@ export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<vo
  */
 export async function startContainer(treeItem?: DevContainerTreeItem): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: startContainer');
+	logger.debug('Command: startContainer');
 
 	if (!treeItem || !treeItem.containerInfo) {
 		await vscode.window.showErrorMessage('No container selected');
@@ -319,7 +319,7 @@ export async function startContainer(treeItem?: DevContainerTreeItem): Promise<v
  */
 export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<void> {
 	const logger = getLogger();
-	logger.info('Command: removeContainer');
+	logger.debug('Command: removeContainer');
 
 	if (!treeItem || !treeItem.containerInfo) {
 		await vscode.window.showErrorMessage('No container selected');

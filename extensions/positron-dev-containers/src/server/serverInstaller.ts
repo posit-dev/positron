@@ -151,7 +151,7 @@ export class ServerInstaller {
 			// Step 1: Detect container platform
 			progress?.report({ message: 'Detecting container platform...', increment: 10 });
 			const platformInfo = await this.detectContainerPlatform(containerId);
-			this.logger.info(`Container platform: ${platformInfo.platform}-${platformInfo.arch}`);
+			this.logger.debug(`Container platform: ${platformInfo.platform}-${platformInfo.arch}`);
 
 			// Step 2: Get server configuration for container platform
 			progress?.report({ message: 'Preparing server configuration...', increment: 10 });
@@ -377,7 +377,7 @@ export class ServerInstaller {
 						}
 					} else {
 						// Log non-progress lines normally
-						this.logger.info(`[Container] ${line}`);
+						this.logger.debug(`[Container] ${line}`);
 					}
 				});
 			});
@@ -390,7 +390,7 @@ export class ServerInstaller {
 				text.split('\n').filter(line => line.trim()).forEach(line => {
 					// Use info level for script output (scripts use stderr for normal logging)
 					// Actual errors will be caught by the exit code and error handling
-					this.logger.info(`[Container] ${line}`);
+					this.logger.debug(`[Container] ${line}`);
 				});
 			});
 
