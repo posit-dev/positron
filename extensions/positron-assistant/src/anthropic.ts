@@ -62,12 +62,12 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
-		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
+		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
-			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
+			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false }
 		},
 	};
 

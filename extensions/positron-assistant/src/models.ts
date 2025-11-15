@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
-import { getMaxConnectionAttempts, getProviderTimeoutMs, ModelConfig, SecretStorage } from './config';
+import { getMaxConnectionAttempts, getProviderTimeoutMs, getEnabledProviders, ModelConfig, SecretStorage } from './config';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { AzureOpenAIProvider, createAzure } from '@ai-sdk/azure';
 import { createVertex, GoogleVertexProvider } from '@ai-sdk/google-vertex';
@@ -263,7 +263,21 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 //#endregion
 //#region Language Models
 
+/**
+ * Result of an autoconfiguration attempt.
+ * - Signed in indicates whether the model is configured and ready to use.
+ * - Message provides additional information to be displayed to user in the configuration modal, if signed in.
+ */
+type AutoconfigureResult = {
+	signedIn: false;
+} | {
+	signedIn: true;
+	message: string;
+};
+
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	public static source: positron.ai.LanguageModelSource;
+
 	public readonly name;
 	public readonly provider;
 	public readonly id;
@@ -669,6 +683,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 		return this._config.model === id;
 	}
+
+	/**
+	 * Autoconfigures the language model, if supported.
+	 * May implement functionality such as checking for environment variables or assessing managed credentials.
+	 * @returns A promise that resolves to the autoconfigure result.
+	 */
+	static autoconfigure?: () => Promise<AutoconfigureResult>;
 }
 
 class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -683,12 +704,12 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 			id: 'anthropic-api',
 			displayName: 'Anthropic'
 		},
-		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
+		supportedOptions: ['apiKey', 'autoconfigure'],
 		defaults: {
 			name: DEFAULT_ANTHROPIC_MODEL_NAME,
 			model: DEFAULT_ANTHROPIC_MODEL_MATCH + '-latest',
 			toolCalls: true,
-			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
+			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.EnvVariable, key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
 
@@ -1035,11 +1056,12 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			id: 'amazon-bedrock',
 			displayName: 'Amazon Bedrock'
 		},
-		supportedOptions: ['toolCalls'],
+		supportedOptions: ['toolCalls', 'autoconfigure'],
 		defaults: {
 			name: 'Claude 4 Sonnet Bedrock',
 			model: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 			toolCalls: true,
+			autoconfigure: { type: positron.ai.LanguageModelAutoconfigureType.Custom, message: 'Automatically configured using AWS credentials', signedIn: false },
 		},
 	};
 	bedrockClient: BedrockClient;
@@ -1245,6 +1267,36 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		return undefined;
 	}
 
+	static override async autoconfigure(): Promise<AutoconfigureResult> {
+		// Configure automatically if:
+		// - We are on web, and
+		// - Bedrock is enabled in settings, and
+		// - If managed credentials are available
+
+		const isWeb = vscode.env.uiKind === vscode.UIKind.Web;
+		if (!isWeb) {
+			return undefined;
+		}
+		const bedrockEnabled = await getEnabledProviders().then(providers => providers.includes(AWSLanguageModel.source.provider.id));
+		if (!bedrockEnabled) {
+			return { signedIn: false };
+		}
+
+		const managedCredentialsAvailable = 'AWS_ROLE_ARN' in process.env && 'AWS_WEB_IDENTITY_TOKEN_FILE' in process.env;
+		if (!managedCredentialsAvailable) {
+			return { signedIn: false };
+		}
+
+		log.info('Auto-configuring Amazon Bedrock language model with managed credentials.');
+
+		return {
+			signedIn: true,
+			// Displayed as "Amazon Bedrock has been automatically
+			// configured using AWS managed credentials" in the configuration modal UI
+			message: 'AWS managed credentials',
+		};
+	}
+
 }
 
 //#endregion
@@ -1282,31 +1334,62 @@ export function getLanguageModels() {
  *
  * @returns The model configurations that are configured by the environment.
  */
-export function createModelConfigsFromEnv(): ModelConfig[] {
+export async function createAutomaticModelConfigs(): Promise<ModelConfig[]> {
 	const models = getLanguageModels();
 	const modelConfigs: ModelConfig[] = [];
 
-	models.forEach(model => {
-		if ('apiKeyEnvVar' in model.source.defaults) {
-			const key = model.source.defaults.apiKeyEnvVar?.key;
+	for (const model of models) {
+		if (!('autoconfigure' in model.source.defaults)) {
+			// Not an autoconfigurable model
+			continue;
+		}
+
+		if (model.source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.EnvVariable) {
+			// Handle environment variable based auto-configuration
+			const key = model.source.defaults.autoconfigure.key;
 			// pragma: allowlist nextline secret
 			const apiKey = key ? process.env[key] : undefined;
 
 			if (key && apiKey) {
-				const modelConfig = {
+				const modelConfig: ModelConfig = {
 					id: `${model.source.provider.id}`,
 					provider: model.source.provider.id,
 					type: positron.PositronLanguageModelType.Chat,
 					name: model.source.provider.displayName,
 					model: model.source.defaults.model,
 					apiKey: apiKey,
-					// pragma: allowlist nextline secret
-					apiKeyEnvVar: 'apiKeyEnvVar' in model.source.defaults ? model.source.defaults.apiKeyEnvVar : undefined,
+					autoconfigure: {
+						type: positron.ai.LanguageModelAutoconfigureType.EnvVariable,
+						key: key,
+						signedIn: true,
+					}
 				};
 				modelConfigs.push(modelConfig);
 			}
+		} else if (model.source.defaults.autoconfigure.type === positron.ai.LanguageModelAutoconfigureType.Custom) {
+			// Handle custom auto-configuration
+			if ('autoconfigure' in model && model.autoconfigure) {
+				const result = await model.autoconfigure();
+				if (result.signedIn) {
+					const modelConfig: ModelConfig = {
+						id: `${model.source.provider.id}`,
+						provider: model.source.provider.id,
+						type: positron.PositronLanguageModelType.Chat,
+						name: model.source.provider.displayName,
+						model: model.source.defaults.model,
+						apiKey: undefined,
+						// pragma: allowlist nextline secret
+						autoconfigure: {
+							type: positron.ai.LanguageModelAutoconfigureType.Custom,
+							message: result.message,
+							signedIn: true
+						}
+					};
+					modelConfigs.push(modelConfig);
+				}
+			}
 		}
-	});
+	}
 
 	return modelConfigs;
 }
