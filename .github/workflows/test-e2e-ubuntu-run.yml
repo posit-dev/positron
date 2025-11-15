@@ -356,14 +356,7 @@ jobs:
         with:
           name: ${{ inputs.project }}-logs-${{ matrix.shard }}
           path: test-logs
-          if-no-files-found: ignore
-
-      - name: Upload Test Results File
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.project }}-ubuntu-json-results-${{ matrix.shard }}
-          path: test-results/ubuntu.json
+          retention-days: 3
           if-no-files-found: ignore
 
       - name: Upload inspect-ai JSON Responses
@@ -372,6 +365,7 @@ jobs:
         with:
           name: inspect-ai-responses-${{ matrix.shard }}
           path: test/assistant-inspect-ai/*.json
+          retention-days: 3
 
   merge-reports:
     name: ${{ inputs.project || 'merge-reports' }}
@@ -512,3 +506,9 @@ jobs:
           else
             echo "⚠ No $LAST_RUN_FILE to upload"
           fi
+
+      - name: Clean up blob report artifacts
+        if: success()
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: blob-report-${{ inputs.project }}-*

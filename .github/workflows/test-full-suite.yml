@@ -75,6 +75,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      upload_logs: false
       shards: ${{ fromJSON(needs.setup.outputs.shards) }}
       matrix: ${{ needs.setup.outputs.matrix }}
 
@@ -105,6 +106,7 @@ jobs:
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      upload_logs: false
       shards: ${{ fromJSON(needs.setup.outputs.shards) }}
       matrix: ${{ needs.setup.outputs.matrix }}
 
