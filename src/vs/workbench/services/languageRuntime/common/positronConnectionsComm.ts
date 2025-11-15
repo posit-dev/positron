@@ -25,6 +25,13 @@ export interface ObjectSchema {
 	 */
 	kind: string;
 
+	/**
+	 * Indicates if the object has children that can be listed. This property
+	 * is optional and when omitted, it is assumed that the object may have
+	 * children unless its kind is 'field'.
+	 */
+	has_children?: boolean;
+
 }
 
 /**

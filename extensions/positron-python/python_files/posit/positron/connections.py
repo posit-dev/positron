@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import re
 import uuid
 from typing import TYPE_CHECKING, Any, Tuple, TypedDict
 
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 
     import sqlalchemy
     from comm.base_comm import BaseComm
+    from typing_extensions import NotRequired
 
     from .positron_ipkernel import PositronIPyKernel
 
@@ -48,6 +50,7 @@ class ConnectionObjectInfo(TypedDict):
 class ConnectionObject(TypedDict):
     name: str
     kind: str
+    has_children: NotRequired[bool]
 
 
 class ConnectionObjectFields(TypedDict):
@@ -307,6 +310,8 @@ class ConnectionsService:
             return DuckDBConnection(obj)
         elif safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection"):
             return SnowflakeConnection(obj)
+        elif safe_isinstance(obj, "databricks.sql.client", "Connection"):
+            return DatabricksConnection(obj)
         else:
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
@@ -321,6 +326,7 @@ class ConnectionsService:
                 or safe_isinstance(obj, "sqlalchemy", "Engine")
                 or safe_isinstance(obj, "duckdb", "DuckDBPyConnection")
                 or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
+                or safe_isinstance(obj, "databricks.sql.client", "Connection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -1007,3 +1013,190 @@ class SnowflakeConnection(Connection):
                 code += f"    {arg}={val},\n"
         code += ")\n"
         return code
+
+
+class DatabricksConnection(Connection):
+    """Support for Databricks connections to databases."""
+
+    HOST_SUFFIX_RE = re.compile(r"\.(?:cloud\.)?databricks\.com$", re.IGNORECASE)
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+
+        # try conn.host
+        host = getattr(conn, "host", None)
+        if host is None:
+            # fallback to conn.session.host
+            host = getattr(getattr(conn, "session", None), "host", None)
+        if host is None:
+            host = "<unknown>"
+        self.host = str(host)
+
+        self.display_name = f"Databricks ({self.HOST_SUFFIX_RE.sub('', self.host, count=1)})"
+        self.type = "Databricks"
+        self.code = self._make_code()
+
+        self.icon = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMzMSIgdmlld0JveD0iMCAwIDMwMCAzMzEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yODMuOTIzIDEzNi40NDlMMTUwLjE0NCAyMTMuNjI0TDYuODg5OTUgMTMxLjE2OEwwIDEzNC45ODJWMTk0Ljg0NEwxNTAuMTQ0IDI4MS4xMTVMMjgzLjkyMyAyMDQuMjM0VjIzNS45MjZMMTUwLjE0NCAzMTMuMUw2Ljg4OTk1IDIzMC42NDRMMCAyMzQuNDU4VjI0NC43MjlMMTUwLjE0NCAzMzFMMzAwIDI0NC43MjlWMTg0Ljg2N0wyOTMuMTEgMTgxLjA1MkwxNTAuMTQ0IDI2My4yMTVMMTYuMDc2NiAxODYuMzM0VjE1NC42NDNMMTUwLjE0NCAyMzEuNTI0TDMwMCAxNDUuMjUzVjg2LjI3MTNMMjkyLjUzNiA4MS44Njk3TDE1MC4xNDQgMTYzLjczOUwyMi45NjY1IDkwLjk2NjNMMTUwLjE0NCAxNy44OTk4TDI1NC42NDEgNzguMDU1TDI2My44MjggNzIuNzczVjY1LjQzNzFMMTUwLjE0NCAwTDAgODYuMjcxM1Y5NS42NjEzTDE1MC4xNDQgMTgxLjkzM0wyODMuOTIzIDEwNC43NThWMTM2LjQ0OVoiIGZpbGw9IiNGRjM2MjEiLz4KPC9zdmc+Cg=="
+
+    def disconnect(self):
+        with contextlib.suppress(Exception):
+            self.conn.close()
+
+    def list_object_types(self):
+        return {
+            "catalog": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "volume": ConnectionObjectInfo({"contains": None, "icon": None}),
+        }
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            rows = self._query("SHOW CATALOGS;")
+            return [ConnectionObject({"name": row["catalog"], "kind": "catalog"}) for row in rows]
+
+        if len(path) == 1:
+            catalog = path[0]
+            if catalog.kind != "catalog":
+                raise ValueError("Expected catalog on path position 0.", f"Path: {path}")
+            catalog_ident = self._qualify(catalog.name)
+            rows = self._query(f"SHOW SCHEMAS IN {catalog_ident};")
+            return [
+                ConnectionObject(
+                    {
+                        "name": row["databaseName"],
+                        "kind": "schema",
+                    }
+                )
+                for row in rows
+            ]
+
+        if len(path) == 2:
+            catalog, schema = path
+            if catalog.kind != "catalog" or schema.kind != "schema":
+                raise ValueError(
+                    "Expected catalog and schema objects at positions 0 and 1.", f"Path: {path}"
+                )
+            location = f"{self._qualify(catalog.name)}.{self._qualify(schema.name)}"
+
+            tables = self._query(f"SHOW TABLES IN {location};")
+            tables = [
+                ConnectionObject(
+                    {
+                        "name": row["tableName"],
+                        "kind": "table",
+                    }
+                )
+                for row in tables
+            ]
+
+            try:
+                volumes = self._query(f"SHOW VOLUMES IN {location};")
+                volumes = [
+                    ConnectionObject(
+                        {
+                            "name": row["volume_name"],
+                            "kind": "volume",
+                            "has_children": False,
+                        }
+                    )
+                    for row in volumes
+                ]
+            except Exception:
+                volumes = []
+
+            return tables + volumes
+
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            catalog.kind != "catalog"
+            or schema.kind != "schema"
+            or table.kind not in ("table", "view")
+        ):
+            raise ValueError(
+                "Expected catalog, schema, and table/view kinds in the path.",
+                f"Path: {path}",
+            )
+
+        identifier = ".".join(
+            [self._qualify(catalog.name), self._qualify(schema.name), self._qualify(table.name)]
+        )
+        rows = self._query(f"DESCRIBE TABLE {identifier};")
+        return [
+            ConnectionObjectFields(
+                {
+                    "name": row["col_name"],
+                    "dtype": row["data_type"],
+                }
+            )
+            for row in rows
+        ]
+
+    def preview_object(self, path: list[ObjectSchema], var_name: str | None = None):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            catalog.kind != "catalog"
+            or schema.kind != "schema"
+            or table.kind not in ("table", "view")
+        ):
+            raise ValueError(
+                "Expected catalog, schema, and table/view kinds in the path.",
+                f"Path: {path}",
+            )
+
+        identifier = ".".join(
+            [self._qualify(catalog.name), self._qualify(schema.name), self._qualify(table.name)]
+        )
+        sql = f"SELECT * FROM {identifier} LIMIT 1000;"
+
+        with self.conn.cursor() as cursor:
+            cursor.execute(sql)
+            frame = cursor.fetchall_arrow().to_pandas()
+        var_name = var_name or "conn"
+        return frame, (
+            f"with {var_name}.cursor() as cursor:\n"
+            f"    cursor.execute({sql!r})\n"
+            f"    {table.name} = cursor.fetchall_arrow().to_pandas()"
+        )
+
+    def _query(self, sql: str) -> list[dict[str, Any]]:
+        with self.conn.cursor() as cursor:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            description = cursor.description or []
+        columns = [col[0] for col in description]
+        return [dict(zip(columns, row)) for row in rows]
+
+    def _qualify(self, identifier: str) -> str:
+        escaped = identifier.replace("`", "``")
+        return f"`{escaped}`"
+
+    def _make_code(self) -> str:
+        try:
+            hostname = str(self.conn.session.http_client.config.hostname)
+        except AttributeError:
+            hostname = "<hostname>"
+
+        try:
+            http_path = str(self.conn.session.http_path)
+        except AttributeError:
+            http_path = "<http_path>"
+
+        return (
+            "from databricks import sql\n"
+            "con = sql.connect(\n"
+            f"    server_hostname = '{hostname}',\n"
+            f"    http_path       = '{http_path}'\n"
+            ")\n"
+            "%connection_show con\n"
+        )
