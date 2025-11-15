@@ -83,8 +83,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                             newTerminalPerFile,
                         })
                             .then(() => {
-                                if (this.shouldTerminalFocusOnStart(file))
+                                if (this.shouldTerminalFocusOnStart(file)) {
                                     this.commandManager.executeCommand('workbench.action.terminal.focus');
+                                }
                             })
                             .catch((ex) => traceError('Failed to execute file in terminal', ex));
                     }),
@@ -93,17 +94,22 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         );
         // --- Start Positron ---
         this.disposableRegistry.push(
-            this.commandManager.registerCommand(Commands.Exec_In_Console as any, async () => {
-                // Get the active text editor.
-                // We get the editor here, rather than passing it in, because passing it in also
-                // confuses the Positron Console for a file
-                const editor = vscode.window.activeTextEditor;
-                if (!editor) {
-                    // No editor; nothing to do
-                    return;
+            this.commandManager.registerCommand(Commands.Exec_In_Console as any, async (resource?: Uri) => {
+                let filePath: string | undefined;
+
+                if (resource) {
+                    // Use the provided resource URI (from editor action bar button)
+                    filePath = resource.fsPath;
+                } else {
+                    // Fall back to active text editor (from command palette or other invocations)
+                    const editor = vscode.window.activeTextEditor;
+                    if (!editor) {
+                        // No editor; nothing to do
+                        return;
+                    }
+                    filePath = editor.document.uri.fsPath;
                 }
 
-                const filePath = editor.document.uri.fsPath;
                 if (!filePath) {
                     // File is unsaved; show a warning
                     vscode.window.showWarningMessage('Cannot source unsaved file.');
@@ -112,7 +118,16 @@ export class CodeExecutionManager implements ICodeExecutionManager {
 
                 // Save the file before sourcing it to ensure that the contents are
                 // up to date with editor buffer.
-                await vscode.commands.executeCommand('workbench.action.files.save');
+                if (resource) {
+                    // Save the specific document
+                    const document = await vscode.workspace.openTextDocument(resource);
+                    if (document.isDirty) {
+                        await document.save();
+                    }
+                } else {
+                    // Save the active editor
+                    await vscode.commands.executeCommand('workbench.action.files.save');
+                }
 
                 try {
                     // Check to see if the fsPath is an actual path to a file using
@@ -163,8 +178,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
                 triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                 await this.executeSelectionInTerminal().then(() => {
-                    if (this.shouldTerminalFocusOnStart(file))
+                    if (this.shouldTerminalFocusOnStart(file)) {
                         this.commandManager.executeCommand('workbench.action.terminal.focus');
+                    }
                 });
             }),
         );
@@ -181,8 +197,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_TRIGGER, undefined, { trigger: 'run-selection' });
                     triggerCreateEnvironmentCheckNonBlocking(CreateEnvironmentCheckKind.File, file);
                     await this.executeSelectionInDjangoShell().then(() => {
-                        if (this.shouldTerminalFocusOnStart(file))
+                        if (this.shouldTerminalFocusOnStart(file)) {
                             this.commandManager.executeCommand('workbench.action.terminal.focus');
+                        }
                     });
                 },
             ),
@@ -199,7 +216,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
 
         // Check on setting terminal.executeInFileDir
         const pythonSettings = this.configSettings.getSettings(file);
-        let cwd = pythonSettings.terminal.executeInFileDir ? path.dirname(fileToExecute.fsPath) : undefined;
+        const cwd = pythonSettings.terminal.executeInFileDir ? path.dirname(fileToExecute.fsPath) : undefined;
 
         // Check on setting terminal.launchArgs
         const launchArgs = pythonSettings.terminal.launchArgs;
