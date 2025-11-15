@@ -37,11 +37,9 @@ export interface ConnectionInfo {
 	extensionHostEnv?: { [key: string]: string };
 	connectedAt?: Date;
 	lastError?: string;
-	// --- Start Positron ---
 	// Workspace path mapping for URI remapping
 	localWorkspacePath?: string;  // e.g., /Users/jmcphers/git/cli
 	remoteWorkspacePath?: string; // e.g., /workspaces/cli
-	// --- End Positron ---
 }
 
 /**
@@ -52,10 +50,8 @@ export interface ConnectionResult {
 	port: number;
 	connectionToken: string;
 	extensionHostEnv: { [key: string]: string };
-	// --- Start Positron ---
 	localWorkspacePath?: string;
 	remoteWorkspacePath?: string;
-	// --- End Positron ---
 }
 
 /**
@@ -98,7 +94,6 @@ export class ConnectionManager {
 			await this.ensureContainerRunning(containerId);
 
 			// 2. Get workspace path mapping from container
-			// --- Start Positron ---
 			let localWorkspacePath: string | undefined;
 			let remoteWorkspacePath: string | undefined;
 
@@ -167,7 +162,6 @@ export class ConnectionManager {
 			} else {
 				this.logger.debug('No remoteWorkspacePath available');
 			}
-			// --- End Positron ---
 
 			// 3. Install Positron server with environment variables
 			this.logger.info('Installing Positron server in container...');
@@ -207,16 +201,13 @@ export class ConnectionManager {
 				remotePort: serverInfo.port || 0,
 				extensionHostEnv,
 				connectedAt: new Date(),
-				// --- Start Positron ---
 				localWorkspacePath,
 				remoteWorkspacePath
-				// --- End Positron ---
 			};
 
 			this.connections.set(containerId, connectionInfo);
 			this.logger.info(`Connection established: ${connectionInfo.host}:${connectionInfo.port}`);
 
-			// --- Start Positron ---
 			// Store workspace mapping in global state for persistence
 			// This is idempotent and ensures mapping is always fresh even if state was cleared
 			if (localWorkspacePath) {
@@ -229,7 +220,6 @@ export class ConnectionManager {
 					// Don't fail connection if storage fails
 				}
 			}
-			// --- End Positron ---
 
 			this.logger.trace(`Extension host env keys: ${Object.keys(extensionHostEnv).join(', ')}`);
 			this.logger.trace(`Extension host env: ${JSON.stringify(extensionHostEnv, null, 2)}`);
@@ -239,10 +229,8 @@ export class ConnectionManager {
 				port: connectionInfo.port,
 				connectionToken,
 				extensionHostEnv,
-				// --- Start Positron ---
 				localWorkspacePath,
 				remoteWorkspacePath
-				// --- End Positron ---
 			};
 
 		} catch (error) {
@@ -428,7 +416,6 @@ export class ConnectionManager {
 	 * Ensure container is running
 	 */
 	private async ensureContainerRunning(containerId: string): Promise<void> {
-		// --- Start Positron ---
 		// Skip docker operations when running in remote context (docker not available)
 		// We can detect this by checking if docker commands will fail
 		try {
@@ -460,7 +447,6 @@ export class ConnectionManager {
 			// Re-throw other errors
 			throw error;
 		}
-		// --- End Positron ---
 	}
 
 	/**

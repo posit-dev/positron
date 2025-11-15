@@ -47,13 +47,11 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 	async resolve(authority: string): Promise<vscode.ResolverResult> {
 		this.logger.debug(`Resolving authority: ${authority}`);
 
-		// --- Start Positron ---
 		// If we're already in a remote context, log it for debugging
 		// VS Code may call resolve() even when remote for verification purposes
 		if (vscode.env.remoteName) {
 			this.logger.debug(`Already in remote context: ${vscode.env.remoteName}`);
 		}
-		// --- End Positron ---
 
 		try {
 			// Parse the authority
@@ -113,7 +111,6 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			this.logger.info(`Authority resolved: ${connection.host}:${connection.port}`);
 			this.logger.debug(`Extension host env: ${JSON.stringify(connection.extensionHostEnv, null, 2)}`);
 
-			// --- Start Positron ---
 			// Add workspace folder metadata to help VS Code display the correct path
 			const options: any = {
 				extensionHostEnv: connection.extensionHostEnv
@@ -147,7 +144,6 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 				});
 				this.logger.debug(`Registered ResourceLabelFormatter with suffix: Dev Container`);
 			}
-			// --- End Positron ---
 
 			// Return ResolverResult with environment variables
 			// Note: We rely on getCanonicalURI mapping to let VS Code recognize
@@ -182,7 +178,6 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 	 * - MRU entries: Ensures local paths are displayed instead of container paths
 	 */
 	getCanonicalURI(uri: vscode.Uri): vscode.ProviderResult<vscode.Uri> {
-		// --- Start Positron ---
 		// IMPORTANT: For workspace trust and MRU to work correctly, we need to return
 		// the LOCAL file:// URI as the canonical form of the remote URI.
 		// This tells VS Code that vscode-remote://dev-container+xxx/workspaces/foo
@@ -278,7 +273,6 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 
 		// Unknown scheme, no remapping
 		return uri;
-		// --- End Positron ---
 	}
 
 	/**

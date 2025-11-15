@@ -150,7 +150,6 @@ export class DevContainerManager {
 			const updatedInfo = await this.getContainerInfo(existingContainer.containerId);
 			const inspectInfo = await this.inspectContainerById(existingContainer.containerId);
 
-			// --- Start Positron ---
 			// Extract the actual remote workspace folder from container mounts
 			let remoteWorkspaceFolder = '/workspaces';
 			const workspaceMount = inspectInfo.Mounts?.find(mount =>
@@ -165,7 +164,6 @@ export class DevContainerManager {
 				remoteWorkspaceFolder = `/workspaces/${folderName}`;
 				logger.warn(`No workspace mount found, using fallback: ${remoteWorkspaceFolder}`);
 			}
-			// --- End Positron ---
 
 			return {
 				containerId: existingContainer.containerId,

@@ -50,7 +50,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	logger.trace(`POSITRON_CONTAINER_ID: ${process.env.POSITRON_CONTAINER_ID || 'NOT SET'}`);
 	logger.trace(`POSITRON_REMOTE_ENV: ${process.env.POSITRON_REMOTE_ENV || 'NOT SET'}`);
 
-	// --- Start Positron ---
 	// Initialize workspace mapping storage FIRST (before authority resolver)
 	// This must be loaded synchronously before any getCanonicalURI calls
 	const workspaceMappingStorage = WorkspaceMappingStorage.initialize(context, logger);
@@ -108,7 +107,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			authorityResolver.dispose();
 		}
 	});
-	// --- End Positron ---
 
 	// Register commands
 	registerCommands(context, devContainersTreeProvider, connectionManager);
@@ -287,7 +285,6 @@ function registerCommand(
 	context.subscriptions.push(vscode.commands.registerCommand(command, callback));
 }
 
-// --- Start Positron ---
 // Command implementations (utility commands)
 
 /**
@@ -494,4 +491,3 @@ async function testConnection(connectionManager: ConnectionManager): Promise<voi
 		await vscode.window.showErrorMessage(`Failed to test connection: ${error}`);
 	}
 }
-// --- End Positron ---
