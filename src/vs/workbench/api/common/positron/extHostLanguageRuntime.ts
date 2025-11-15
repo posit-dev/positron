@@ -587,8 +587,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				buffers: message.buffers?.map(buffer => VSBuffer.wrap(buffer)),
 			};
 
-			// First check if this message relates to an execution with an observer
-			if (message.parent_id && this._executionObservers.has(message.parent_id)) {
+			// Allow empty string parent_id as it may be valid in some cases
+			if (message.parent_id !== null && this._executionObservers.has(message.parent_id)) {
 				// Get the observer for this execution
 				const observer = this._executionObservers.get(message.parent_id);
 
