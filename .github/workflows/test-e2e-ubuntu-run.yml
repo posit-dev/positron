@@ -309,7 +309,6 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
-          PW_JSON_FILE: test-results/ubuntu.json
           ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           PW_PROJECT_NAME: ${{ inputs.project }}
         run: |
@@ -340,12 +339,12 @@ jobs:
 
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob"
 
+          # When ALLOW_SOFT_FAIL is true, don't fail the shard on test failures
+          # The soft-fail check will happen in merge-reports job after all shards complete
           if [[ "${ALLOW_SOFT_FAIL}" == "true" ]]; then
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
-
-            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob || true
           else
-            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+            eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 --reporter=blob
           fi
 
       - name: Upload Blob Report
@@ -431,13 +430,13 @@ jobs:
           # Create output directory
           mkdir -p playwright-report
 
-          # Generate HTML report, GH Summary and project-specific .last-run.json
+          # Generate HTML report, GH Summary, JSON report, and project-specific .last-run.json
           PLAYWRIGHT_HTML_REPORT=playwright-report npx playwright merge-reports \
-            --reporter=@midleman/github-actions-reporter,html \
+            --reporter=@midleman/github-actions-reporter,html,json \
             --last-run-file=playwright-report/.last-run-${{ inputs.project }}.json \
             ../all-blob-reports
 
-          # Verify HTML was generated
+          # Verify HTML and JSON were generated
           echo "Checking for generated files..."
           ls -laR playwright-report/
 
@@ -457,6 +456,21 @@ jobs:
             fi
           else
             echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
+          fi
+
+      - name: Check soft-fail test results
+        if: ${{ inputs.allow_soft_fail }}
+        run: |
+          # Run the soft-fail check script on the merged JSON report
+          JSON_REPORT="playwright-merge/playwright-report/results.json"
+          if [ -f "$JSON_REPORT" ]; then
+            echo "Checking for non-soft-fail failures in $JSON_REPORT"
+            node scripts/check-soft-fail-failures.js "$JSON_REPORT"
+          else
+            echo "⚠ JSON report not found at $JSON_REPORT"
+            echo "Contents of playwright-merge/playwright-report:"
+            ls -la playwright-merge/playwright-report/ || true
+            exit 1
           fi
 
       - name: Upload HTML report to S3
