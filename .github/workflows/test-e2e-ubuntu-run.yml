@@ -134,7 +134,7 @@ jobs:
         shell: bash
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: "positron-build"
           path: /tmp/artifacts
