@@ -228,27 +228,28 @@ jobs:
           if command -v zstd >/dev/null 2>&1; then
             echo "Using zstd (multithreaded) for compression"
             # Place options (exclude) before the filenames so tar respects them.
+            # Only exclude root .git, not nested ones (e.g., qa-example-content-cache/.git)
             tar -C /__w \
-              --exclude='.git' \
-              --exclude='.npm-cache' \
-              --exclude='.pip-cache' \
+              --exclude='positron/.git' \
+              --exclude='positron/.npm-cache' \
+              --exclude='positron/.pip-cache' \
               --use-compress-program='zstd -T0 -1' \
               -cf /tmp/artifacts/positron-build.tar.zst positron || true
           elif command -v pigz >/dev/null 2>&1; then
             echo "zstd not available; using pigz (parallel gzip) for compression"
             tar -C /__w \
-              --exclude='.git' \
-              --exclude='.npm-cache' \
-              --exclude='.pip-cache' \
+              --exclude='positron/.git' \
+              --exclude='positron/.npm-cache' \
+              --exclude='positron/.pip-cache' \
               --use-compress-program=pigz \
               -cf /tmp/artifacts/positron-build.tar.gz positron || true
           else
             echo "zstd and pigz not available; using gzip -1 for faster compression"
             # Use gzip -1 via a pipe to avoid using the deprecated GZIP env var
             tar -C /__w \
-              --exclude='.git' \
-              --exclude='.npm-cache' \
-              --exclude='.pip-cache' \
+              --exclude='positron/.git' \
+              --exclude='positron/.npm-cache' \
+              --exclude='positron/.pip-cache' \
               -cf - positron | gzip -1 > /tmp/artifacts/positron-build.tar.gz || true
           fi
 
