@@ -20,21 +20,21 @@ export async function reopenInContainer(): Promise<void> {
 	try {
 		// Check if already in a dev container
 		if (Workspace.isInDevContainer()) {
-			await vscode.window.showInformationMessage('You are already in a dev container');
+			await vscode.window.showInformationMessage(vscode.l10n.t('You are already in a dev container'));
 			return;
 		}
 
 		// Get current workspace folder
 		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
 		if (!workspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder is open');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder is open'));
 			return;
 		}
 
 		// Check if workspace has dev container configuration
 		if (!Workspace.hasDevContainer(workspaceFolder)) {
 			await vscode.window.showErrorMessage(
-				'No dev container configuration found. Create a .devcontainer/devcontainer.json file first.'
+				vscode.l10n.t('No dev container configuration found. Create a .devcontainer/devcontainer.json file first.')
 			);
 			return;
 		}
@@ -79,7 +79,7 @@ export async function reopenInContainer(): Promise<void> {
 	} catch (error) {
 		logger.error('Failed to reopen in container', error);
 		await vscode.window.showErrorMessage(
-			`Failed to open in dev container: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to open in dev container: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -94,7 +94,7 @@ export async function reopenLocally(): Promise<void> {
 	try {
 		// Check if in a dev container
 		if (!Workspace.isInDevContainer()) {
-			await vscode.window.showInformationMessage('You are not currently in a dev container');
+			await vscode.window.showInformationMessage(vscode.l10n.t('You are not currently in a dev container'));
 			return;
 		}
 
@@ -103,7 +103,7 @@ export async function reopenLocally(): Promise<void> {
 		const localPath = await Workspace.getLocalWorkspaceFolder();
 		if (!localPath) {
 			await vscode.window.showErrorMessage(
-				'Cannot determine local workspace folder. Please reopen the workspace manually.'
+				vscode.l10n.t('Cannot determine local workspace folder. Please reopen the workspace manually.')
 			);
 			return;
 		}
@@ -116,7 +116,7 @@ export async function reopenLocally(): Promise<void> {
 	} catch (error) {
 		logger.error('Failed to reopen locally', error);
 		await vscode.window.showErrorMessage(
-			`Failed to reopen locally: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to reopen locally: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }

@@ -66,9 +66,9 @@ async function showDevContainerNotification(
 
 	logger.debug('Showing dev container detection notification');
 
-	const message = 'Folder contains a Dev Container configuration file. Reopen folder to develop in a container?';
-	const reopenButton = 'Reopen in Container';
-	const dontShowButton = 'Don\'t Show Again...';
+	const message = vscode.l10n.t('Folder contains a Dev Container configuration file. Reopen folder to develop in a container?');
+	const reopenButton = vscode.l10n.t('Reopen in Container');
+	const dontShowButton = vscode.l10n.t("Don't Show Again...");
 
 	const result = await vscode.window.showInformationMessage(
 		message,
@@ -95,13 +95,13 @@ async function handleDontShowAgain(
 	const logger = getLogger();
 
 	// Ask user about the scope
-	const currentFolderOption = 'Current Folder Only';
-	const allFoldersOption = 'All Folders';
+	const currentFolderOption = vscode.l10n.t('Current Folder Only');
+	const allFoldersOption = vscode.l10n.t('All Folders');
 
 	const scope = await vscode.window.showQuickPick(
 		[currentFolderOption, allFoldersOption],
 		{
-			placeHolder: 'Don\'t show dev container notification for...'
+			placeHolder: vscode.l10n.t("Don't show dev container notification for...")
 		}
 	);
 
@@ -115,7 +115,7 @@ async function handleDontShowAgain(
 		await context.globalState.update(GLOBAL_DONT_SHOW_KEY, true);
 		logger.debug('User opted out of dev container notifications globally');
 		await vscode.window.showInformationMessage(
-			'Dev container notifications will not be shown for any folder.'
+			vscode.l10n.t('Dev container notifications will not be shown for any folder.')
 		);
 	} else if (scope === currentFolderOption && workspaceFolder) {
 		// Store in workspace state
@@ -125,12 +125,12 @@ async function handleDontShowAgain(
 		);
 		logger.debug(`User opted out of dev container notifications for workspace: ${workspaceFolder.name}`);
 		await vscode.window.showInformationMessage(
-			`Dev container notifications will not be shown for ${workspaceFolder.name}.`
+			vscode.l10n.t("Dev container notifications will not be shown for {0}.", workspaceFolder.name)
 		);
 	} else if (scope === currentFolderOption && !workspaceFolder) {
 		logger.error('Cannot store workspace preference: no workspace folder found');
 		await vscode.window.showErrorMessage(
-			'Cannot disable notifications for current folder: no workspace folder found.'
+			vscode.l10n.t('Cannot disable notifications for current folder: no workspace folder found.')
 		);
 	}
 }

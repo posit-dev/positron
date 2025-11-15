@@ -507,9 +507,9 @@ export class ConnectionManager {
 			this.logger.info(`Server installation failed. Log file: ${logPath}`);
 
 			// Show error message with button to view log
-			const viewLogButton = 'View Log';
+			const viewLogButton = vscode.l10n.t('View Log');
 			const result = await vscode.window.showErrorMessage(
-				'Failed to install Positron server in container. Click "View Log" to see details.',
+				vscode.l10n.t('Failed to install Positron server in container. Click "View Log" to see details.'),
 				viewLogButton
 			);
 
@@ -520,7 +520,7 @@ export class ConnectionManager {
 			// Fallback if we can't extract log path
 			this.logger.warn('Could not extract log file path from error message');
 			await vscode.window.showErrorMessage(
-				'Failed to install Positron server in container. Check the extension output for details.'
+				vscode.l10n.t('Failed to install Positron server in container. Check the extension output for details.')
 			);
 		}
 	}
@@ -568,7 +568,7 @@ export class ConnectionManager {
 		} catch (error) {
 			this.logger.error(`Failed to read server log from container: ${error}`);
 			await vscode.window.showErrorMessage(
-				`Failed to read log file: ${error instanceof Error ? error.message : String(error)}`
+				vscode.l10n.t('Failed to read log file: {0}', error instanceof Error ? error.message : String(error))
 			);
 		}
 	}

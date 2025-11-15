@@ -76,14 +76,14 @@ export class BuildProgressReporter {
 	 * Report progress for resolving features
 	 */
 	reportResolvingFeatures(featureCount: number): void {
-		this.report(BuildStep.ResolvingFeatures, `${featureCount} feature${featureCount !== 1 ? 's' : ''}`);
+		this.report(BuildStep.ResolvingFeatures, vscode.l10n.t('{0} feature(s)', featureCount));
 	}
 
 	/**
 	 * Report progress for downloading features
 	 */
 	reportDownloadingFeature(featureName: string, current: number, total: number): void {
-		this.report(BuildStep.DownloadingFeatures, `${featureName} (${current}/${total})`);
+		this.report(BuildStep.DownloadingFeatures, vscode.l10n.t('{0} ({1}/{2})', featureName, current, total));
 	}
 
 	/**
@@ -111,7 +111,7 @@ export class BuildProgressReporter {
 	 * Report progress for installing features
 	 */
 	reportInstallingFeatures(featureName: string, current: number, total: number): void {
-		this.report(BuildStep.InstallingFeatures, `${featureName} (${current}/${total})`);
+		this.report(BuildStep.InstallingFeatures, vscode.l10n.t('{0} ({1}/{2})', featureName, current, total));
 	}
 
 	/**
@@ -127,7 +127,7 @@ export class BuildProgressReporter {
 	reportComplete(containerId: string): void {
 		const elapsed = Date.now() - this.startTime;
 		const elapsedSeconds = Math.round(elapsed / 1000);
-		this.report(BuildStep.Complete, `Container ${containerId.substring(0, 12)} ready in ${elapsedSeconds}s`);
+		this.report(BuildStep.Complete, vscode.l10n.t('Container {0} ready in {1}s', containerId.substring(0, 12), elapsedSeconds));
 	}
 
 	/**
@@ -135,7 +135,7 @@ export class BuildProgressReporter {
 	 */
 	reportError(error: Error | string): void {
 		const errorMessage = error instanceof Error ? error.message : error;
-		this.progress.report({ message: `Error: ${errorMessage}` });
+		this.progress.report({ message: vscode.l10n.t('Error: {0}', errorMessage) });
 		getLogger().error(`Build error: ${errorMessage}`);
 	}
 

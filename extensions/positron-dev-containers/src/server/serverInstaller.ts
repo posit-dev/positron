@@ -149,12 +149,12 @@ export class ServerInstaller {
 
 		try {
 			// Step 1: Detect container platform
-			progress?.report({ message: 'Detecting container platform...', increment: 10 });
+			progress?.report({ message: vscode.l10n.t('Detecting container platform...'), increment: 10 });
 			const platformInfo = await this.detectContainerPlatform(containerId);
 			this.logger.debug(`Container platform: ${platformInfo.platform}-${platformInfo.arch}`);
 
 			// Step 2: Get server configuration for container platform
-			progress?.report({ message: 'Preparing server configuration...', increment: 10 });
+			progress?.report({ message: vscode.l10n.t('Preparing server configuration...'), increment: 10 });
 			const serverConfig = this.serverConfigProvider.getServerConfigForContainer(
 				platformInfo.platform,
 				platformInfo.arch
@@ -168,7 +168,7 @@ export class ServerInstaller {
 			const extensions = options.extensions || config.getDefaultExtensions();
 
 			// Step 5: Generate installation script
-			progress?.report({ message: 'Generating installation script...', increment: 10 });
+			progress?.report({ message: vscode.l10n.t('Generating installation script...'), increment: 10 });
 			const scriptOptions: InstallScriptOptions = {
 				serverConfig,
 				connectionToken,
@@ -185,11 +185,11 @@ export class ServerInstaller {
 			this.logger.debug('Installation script generated');
 
 			// Step 6: Execute installation script in container
-			progress?.report({ message: 'Installing server in container...', increment: 30 });
+			progress?.report({ message: vscode.l10n.t('Installing server in container...'), increment: 30 });
 			const scriptOutput = await this.executeInstallScript(containerId, installScript);
 
 			// Step 7: Parse output
-			progress?.report({ message: 'Verifying installation...', increment: 20 });
+			progress?.report({ message: vscode.l10n.t('Verifying installation...'), increment: 20 });
 			const parsedOutput = parseInstallScriptOutput(scriptOutput);
 
 			if (!parsedOutput) {
@@ -201,7 +201,7 @@ export class ServerInstaller {
 			}
 
 			// Step 8: Build result
-			progress?.report({ message: 'Server installed successfully', increment: 20 });
+			progress?.report({ message: vscode.l10n.t('Server installed successfully'), increment: 20 });
 
 			const isPort = !options.useSocket;
 			const result: ServerInstallResult = {

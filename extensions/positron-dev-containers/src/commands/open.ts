@@ -22,8 +22,8 @@ export async function openFolder(): Promise<void> {
 			canSelectFiles: false,
 			canSelectFolders: true,
 			canSelectMany: false,
-			openLabel: 'Open in Container',
-			title: 'Select Folder to Open in Container'
+			openLabel: vscode.l10n.t('Open in Container'),
+			title: vscode.l10n.t('Select Folder to Open in Container')
 		});
 
 		if (!folderUris || folderUris.length === 0) {
@@ -43,10 +43,10 @@ export async function openFolder(): Promise<void> {
 		const hasDevContainer = Workspace.hasDevContainer(tempFolder);
 		if (!hasDevContainer) {
 			const response = await positron.window.showSimpleModalDialogPrompt(
-				'No Dev Container Configuration',
-				'No dev container configuration found in this folder. Do you want to create one?',
-				'Create Configuration',
-				'Cancel'
+				vscode.l10n.t('No Dev Container Configuration'),
+				vscode.l10n.t('No dev container configuration found in this folder. Do you want to create one?'),
+				vscode.l10n.t('Create Configuration'),
+				vscode.l10n.t('Cancel')
 			);
 
 			if (response) {
@@ -54,8 +54,8 @@ export async function openFolder(): Promise<void> {
 				await vscode.commands.executeCommand('vscode.openFolder', folderUris[0]);
 				// Suggest creating dev container file
 				await vscode.window.showInformationMessage(
-					'Use "Dev Containers: Add Dev Container Configuration Files..." to create a configuration.',
-					'OK'
+					vscode.l10n.t('Use "Dev Containers: Add Dev Container Configuration Files..." to create a configuration.'),
+					vscode.l10n.t('OK')
 				);
 			}
 			return;
@@ -66,7 +66,7 @@ export async function openFolder(): Promise<void> {
 	} catch (error) {
 		logger.error('Failed to open folder in container', error);
 		await vscode.window.showErrorMessage(
-			`Failed to open folder in container: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to open folder in container: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -85,8 +85,8 @@ export async function openFolderInContainerInCurrentWindow(folderPath?: string):
 				canSelectFiles: false,
 				canSelectFolders: true,
 				canSelectMany: false,
-				openLabel: 'Open in Container',
-				title: 'Select Folder to Open in Container'
+				openLabel: vscode.l10n.t('Open in Container'),
+				title: vscode.l10n.t('Select Folder to Open in Container')
 			});
 
 			if (!folderUris || folderUris.length === 0) {
@@ -101,7 +101,7 @@ export async function openFolderInContainerInCurrentWindow(folderPath?: string):
 	} catch (error) {
 		logger.error('Failed to open folder in container', error);
 		await vscode.window.showErrorMessage(
-			`Failed to open folder in container: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to open folder in container: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -120,8 +120,8 @@ export async function openFolderInContainerInNewWindow(folderPath?: string): Pro
 				canSelectFiles: false,
 				canSelectFolders: true,
 				canSelectMany: false,
-				openLabel: 'Open in Container',
-				title: 'Select Folder to Open in Container'
+				openLabel: vscode.l10n.t('Open in Container'),
+				title: vscode.l10n.t('Select Folder to Open in Container')
 			});
 
 			if (!folderUris || folderUris.length === 0) {
@@ -136,7 +136,7 @@ export async function openFolderInContainerInNewWindow(folderPath?: string): Pro
 	} catch (error) {
 		logger.error('Failed to open folder in container', error);
 		await vscode.window.showErrorMessage(
-			`Failed to open folder in container: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to open folder in container: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -154,10 +154,10 @@ export async function openWorkspace(): Promise<void> {
 			canSelectFiles: true,
 			canSelectFolders: false,
 			canSelectMany: false,
-			openLabel: 'Open Workspace in Container',
-			title: 'Select Workspace File to Open in Container',
+			openLabel: vscode.l10n.t('Open Workspace in Container'),
+			title: vscode.l10n.t('Select Workspace File to Open in Container'),
 			filters: {
-				'Workspace Files': ['code-workspace']
+				[vscode.l10n.t('Workspace Files')]: ['code-workspace']
 			}
 		});
 
@@ -173,13 +173,13 @@ export async function openWorkspace(): Promise<void> {
 		await vscode.commands.executeCommand('vscode.openFolder', workspaceUris[0]);
 
 		await vscode.window.showInformationMessage(
-			'Workspace opened. Use "Reopen in Container" to open it in a dev container.',
-			'OK'
+			vscode.l10n.t('Workspace opened. Use "Reopen in Container" to open it in a dev container.'),
+			vscode.l10n.t('OK')
 		);
 	} catch (error) {
 		logger.error('Failed to open workspace', error);
 		await vscode.window.showErrorMessage(
-			`Failed to open workspace: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to open workspace: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -201,7 +201,7 @@ async function openFolderInContainer(folderPath: string, forceNewWindow: boolean
 	};
 	if (!Workspace.hasDevContainer(tempFolder)) {
 		await vscode.window.showErrorMessage(
-			'No dev container configuration found. Create a .devcontainer/devcontainer.json file first.'
+			vscode.l10n.t('No dev container configuration found. Create a .devcontainer/devcontainer.json file first.')
 		);
 		return;
 	}

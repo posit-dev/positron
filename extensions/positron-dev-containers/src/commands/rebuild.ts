@@ -23,7 +23,7 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 		// Get current workspace folder
 		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
 		if (!workspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder is open');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder is open'));
 			return;
 		}
 
@@ -31,17 +31,17 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 		// Use async version to work with remote filesystems (inside containers)
 		if (!await Workspace.hasDevContainerAsync(workspaceFolder)) {
 			await vscode.window.showErrorMessage(
-				'No dev container configuration found. Create a .devcontainer/devcontainer.json file first.'
+				vscode.l10n.t('No dev container configuration found. Create a .devcontainer/devcontainer.json file first.')
 			);
 			return;
 		}
 
 		// Confirm rebuild action
 		const confirm = await positron.window.showSimpleModalDialogPrompt(
-			'Rebuild Container',
-			'This will rebuild the container and may take several minutes. Continue?',
-			'Rebuild',
-			'Cancel'
+			vscode.l10n.t('Rebuild Container'),
+			vscode.l10n.t('This will rebuild the container and may take several minutes. Continue?'),
+			vscode.l10n.t('Rebuild'),
+			vscode.l10n.t('Cancel')
 		);
 
 		if (!confirm) {
@@ -82,7 +82,7 @@ export async function rebuildAndReopenInContainer(): Promise<void> {
 	} catch (error) {
 		logger.error('Failed to rebuild and reopen in container', error);
 		await vscode.window.showErrorMessage(
-			`Failed to rebuild dev container: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to rebuild dev container: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -98,7 +98,7 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 		// Get current workspace folder
 		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
 		if (!workspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder is open');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder is open'));
 			return;
 		}
 
@@ -106,17 +106,17 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 		// Use async version to work with remote filesystems (inside containers)
 		if (!await Workspace.hasDevContainerAsync(workspaceFolder)) {
 			await vscode.window.showErrorMessage(
-				'No dev container configuration found. Create a .devcontainer/devcontainer.json file first.'
+				vscode.l10n.t('No dev container configuration found. Create a .devcontainer/devcontainer.json file first.')
 			);
 			return;
 		}
 
 		// Confirm rebuild action (no cache is more expensive)
 		const confirm = await positron.window.showSimpleModalDialogPrompt(
-			'Rebuild Container Without Cache',
-			'This will rebuild the container without cache and may take a long time. Continue?',
-			'Rebuild',
-			'Cancel'
+			vscode.l10n.t('Rebuild Container Without Cache'),
+			vscode.l10n.t('This will rebuild the container without cache and may take a long time. Continue?'),
+			vscode.l10n.t('Rebuild'),
+			vscode.l10n.t('Cancel')
 		);
 
 		if (!confirm) {
@@ -157,7 +157,7 @@ export async function rebuildNoCacheAndReopenInContainer(): Promise<void> {
 	} catch (error) {
 		logger.error('Failed to rebuild (no cache) and reopen in container', error);
 		await vscode.window.showErrorMessage(
-			`Failed to rebuild dev container: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to rebuild dev container: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -175,14 +175,14 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 	try {
 		// Check if in a dev container
 		if (!Workspace.isInDevContainer()) {
-			await vscode.window.showErrorMessage('You are not currently in a dev container');
+			await vscode.window.showErrorMessage(vscode.l10n.t('You are not currently in a dev container'));
 			return;
 		}
 
 		// Get current workspace folder and remote workspace path
 		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
 		if (!workspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder is open');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder is open'));
 			return;
 		}
 
@@ -191,14 +191,14 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 		// Extract container identifier from remote authority
 		const authority = workspaceFolder.uri.authority;
 		if (!authority) {
-			await vscode.window.showErrorMessage('Cannot determine container ID');
+			await vscode.window.showErrorMessage(vscode.l10n.t('Cannot determine container ID'));
 			return;
 		}
 
 		// Decode authority to get identifier (may be workspace name or container ID)
 		const decoded = decodeDevContainerAuthority(authority);
 		if (!decoded) {
-			await vscode.window.showErrorMessage('Cannot decode container authority');
+			await vscode.window.showErrorMessage(vscode.l10n.t('Cannot decode container authority'));
 			return;
 		}
 		const identifier = decoded.containerId; // May be workspace name like "js-devc"
@@ -222,17 +222,17 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 
 		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage(
-				'Cannot determine local workspace folder. Please reopen the container.'
+				vscode.l10n.t('Cannot determine local workspace folder. Please reopen the container.')
 			);
 			return;
 		}
 
 		// Confirm rebuild action
 		const confirm = await positron.window.showSimpleModalDialogPrompt(
-			'Rebuild Container',
-			'This will rebuild the container and reload the window. Continue?',
-			'Rebuild',
-			'Cancel'
+			vscode.l10n.t('Rebuild Container'),
+			vscode.l10n.t('This will rebuild the container and reload the window. Continue?'),
+			vscode.l10n.t('Rebuild'),
+			vscode.l10n.t('Cancel')
 		);
 
 		if (!confirm) {
@@ -260,7 +260,7 @@ export async function rebuildContainer(context: vscode.ExtensionContext): Promis
 	} catch (error) {
 		logger.error('Failed to initiate container rebuild', error);
 		await vscode.window.showErrorMessage(
-			`Failed to initiate rebuild: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to initiate rebuild: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }
@@ -278,14 +278,14 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 	try {
 		// Check if in a dev container
 		if (!Workspace.isInDevContainer()) {
-			await vscode.window.showErrorMessage('You are not currently in a dev container');
+			await vscode.window.showErrorMessage(vscode.l10n.t('You are not currently in a dev container'));
 			return;
 		}
 
 		// Get current workspace folder and remote workspace path
 		const workspaceFolder = Workspace.getCurrentWorkspaceFolder();
 		if (!workspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder is open');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder is open'));
 			return;
 		}
 
@@ -294,14 +294,14 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 		// Extract container identifier from remote authority
 		const authority = workspaceFolder.uri.authority;
 		if (!authority) {
-			await vscode.window.showErrorMessage('Cannot determine container ID');
+			await vscode.window.showErrorMessage(vscode.l10n.t('Cannot determine container ID'));
 			return;
 		}
 
 		// Decode authority to get identifier (may be workspace name or container ID)
 		const decoded = decodeDevContainerAuthority(authority);
 		if (!decoded) {
-			await vscode.window.showErrorMessage('Cannot decode container authority');
+			await vscode.window.showErrorMessage(vscode.l10n.t('Cannot decode container authority'));
 			return;
 		}
 		const identifier = decoded.containerId; // May be workspace name like "js-devc"
@@ -324,17 +324,17 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 
 		if (!localWorkspaceFolder) {
 			await vscode.window.showErrorMessage(
-				'Cannot determine local workspace folder. Please reopen the container.'
+				vscode.l10n.t('Cannot determine local workspace folder. Please reopen the container.')
 			);
 			return;
 		}
 
 		// Confirm rebuild action
 		const confirm = await positron.window.showSimpleModalDialogPrompt(
-			'Rebuild Container Without Cache',
-			'This will rebuild the container without cache and reload the window. This may take a long time. Continue?',
-			'Rebuild',
-			'Cancel'
+			vscode.l10n.t('Rebuild Container Without Cache'),
+			vscode.l10n.t('This will rebuild the container without cache and reload the window. This may take a long time. Continue?'),
+			vscode.l10n.t('Rebuild'),
+			vscode.l10n.t('Cancel')
 		);
 
 		if (!confirm) {
@@ -361,7 +361,7 @@ export async function rebuildContainerNoCache(context: vscode.ExtensionContext):
 	} catch (error) {
 		logger.error('Failed to initiate container rebuild (no cache)', error);
 		await vscode.window.showErrorMessage(
-			`Failed to initiate rebuild: ${error instanceof Error ? error.message : String(error)}`
+			vscode.l10n.t('Failed to initiate rebuild: {0}', error instanceof Error ? error.message : String(error))
 		);
 	}
 }

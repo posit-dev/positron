@@ -27,7 +27,7 @@ export async function attachToRunningContainer(): Promise<void> {
 		const runningContainers = containers.filter(c => c.state === 'running');
 
 		if (runningContainers.length === 0) {
-			await vscode.window.showInformationMessage('No running containers found');
+			await vscode.window.showInformationMessage(vscode.l10n.t('No running containers found'));
 			return;
 		}
 
@@ -39,13 +39,13 @@ export async function attachToRunningContainer(): Promise<void> {
 		const items: ContainerQuickPickItem[] = runningContainers.map(container => ({
 			label: container.containerName,
 			description: container.workspaceFolder ? `$(folder) ${container.workspaceFolder}` : undefined,
-			detail: `ID: ${container.containerId.substring(0, 12)}`,
+			detail: vscode.l10n.t('ID: {0}', container.containerId.substring(0, 12)),
 			container
 		}));
 
 		// Show quick pick
 		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: 'Select a running container to attach to',
+			placeHolder: vscode.l10n.t('Select a running container to attach to'),
 			matchOnDescription: true,
 			matchOnDetail: true
 		});
@@ -59,7 +59,7 @@ export async function attachToRunningContainer(): Promise<void> {
 		// Get the workspace folder to open (this is the LOCAL folder path from container labels)
 		const localWorkspaceFolder = containerInfo.workspaceFolder;
 		if (!localWorkspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder found for this container');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder found for this container'));
 			return;
 		}
 
@@ -88,7 +88,7 @@ export async function attachToRunningContainer(): Promise<void> {
 		await vscode.commands.executeCommand('vscode.openFolder', remoteUri, true);
 	} catch (error) {
 		logger.error('Failed to attach to running container', error);
-		await vscode.window.showErrorMessage(`Failed to attach to running container: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to attach to running container: {0}', error));
 	}
 }
 
@@ -100,7 +100,7 @@ export async function attachToContainerInCurrentWindow(treeItem?: DevContainerTr
 	logger.debug('Command: attachToContainerInCurrentWindow');
 
 	if (!treeItem || !treeItem.containerInfo) {
-		await vscode.window.showErrorMessage('No container selected');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No container selected'));
 		return;
 	}
 
@@ -120,13 +120,13 @@ export async function attachToContainerInCurrentWindow(treeItem?: DevContainerTr
 				async () => {
 					await manager.startContainer(containerInfo.containerId);
 				}
-			);
+			)
 		}
 
 		// Get the workspace folder to open (this is the LOCAL folder path from container labels)
 		const localWorkspaceFolder = containerInfo.workspaceFolder;
 		if (!localWorkspaceFolder) {
-			await vscode.window.showErrorMessage('No workspace folder found for this container');
+			await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder found for this container'));
 			return;
 		}
 
@@ -154,7 +154,7 @@ export async function attachToContainerInCurrentWindow(treeItem?: DevContainerTr
 		await vscode.commands.executeCommand('vscode.openFolder', remoteUri, false);
 	} catch (error) {
 		logger.error('Failed to attach to container', error);
-		await vscode.window.showErrorMessage(`Failed to attach to container: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to attach to container: {0}', error));
 	}
 }
 
@@ -166,7 +166,7 @@ export async function attachToContainerInNewWindow(treeItem?: DevContainerTreeIt
 	logger.debug('Command: attachToContainerInNewWindow');
 
 	if (!treeItem || !treeItem.containerInfo) {
-		await vscode.window.showErrorMessage('No container selected');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No container selected'));
 		return;
 	}
 
@@ -220,7 +220,7 @@ export async function attachToContainerInNewWindow(treeItem?: DevContainerTreeIt
 		await vscode.commands.executeCommand('vscode.openFolder', remoteUri, true);
 	} catch (error) {
 		logger.error('Failed to attach to container', error);
-		await vscode.window.showErrorMessage(`Failed to attach to container: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to attach to container: {0}', error));
 	}
 }
 
@@ -232,7 +232,7 @@ export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<vo
 	logger.debug('Command: stopContainer');
 
 	if (!treeItem || !treeItem.containerInfo) {
-		await vscode.window.showErrorMessage('No container selected');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No container selected'));
 		return;
 	}
 
@@ -240,7 +240,7 @@ export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<vo
 
 	// Check if the container is already stopped
 	if (containerInfo.state !== 'running') {
-		await vscode.window.showWarningMessage(`Container '${containerInfo.containerName}' is not running`);
+		await vscode.window.showWarningMessage(vscode.l10n.t("Container '{0}' is not running", containerInfo.containerName));
 		return;
 	}
 
@@ -250,7 +250,7 @@ export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<vo
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `Stopping container ${containerInfo.containerName}...`,
+				title: vscode.l10n.t('Stopping container {0}...', containerInfo.containerName),
 				cancellable: false
 			},
 			async () => {
@@ -259,13 +259,13 @@ export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<vo
 			}
 		);
 
-		await vscode.window.showInformationMessage(`Container '${containerInfo.containerName}' stopped successfully`);
+		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' stopped successfully", containerInfo.containerName));
 
 		// Refresh the tree view
 		await vscode.commands.executeCommand('remote-containers.explorerTargetsRefresh');
 	} catch (error) {
 		logger.error('Failed to stop container', error);
-		await vscode.window.showErrorMessage(`Failed to stop container: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to stop container: {0}', error));
 	}
 }
 
@@ -277,7 +277,7 @@ export async function startContainer(treeItem?: DevContainerTreeItem): Promise<v
 	logger.debug('Command: startContainer');
 
 	if (!treeItem || !treeItem.containerInfo) {
-		await vscode.window.showErrorMessage('No container selected');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No container selected'));
 		return;
 	}
 
@@ -285,7 +285,7 @@ export async function startContainer(treeItem?: DevContainerTreeItem): Promise<v
 
 	// Check if the container is already running
 	if (containerInfo.state === 'running') {
-		await vscode.window.showWarningMessage(`Container '${containerInfo.containerName}' is already running`);
+		await vscode.window.showWarningMessage(vscode.l10n.t("Container '{0}' is already running", containerInfo.containerName));
 		return;
 	}
 
@@ -295,7 +295,7 @@ export async function startContainer(treeItem?: DevContainerTreeItem): Promise<v
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `Starting container ${containerInfo.containerName}...`,
+				title: vscode.l10n.t('Starting container {0}...', containerInfo.containerName),
 				cancellable: false
 			},
 			async () => {
@@ -304,13 +304,13 @@ export async function startContainer(treeItem?: DevContainerTreeItem): Promise<v
 			}
 		);
 
-		await vscode.window.showInformationMessage(`Container '${containerInfo.containerName}' started successfully`);
+		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' started successfully", containerInfo.containerName));
 
 		// Refresh the tree view
 		await vscode.commands.executeCommand('remote-containers.explorerTargetsRefresh');
 	} catch (error) {
 		logger.error('Failed to start container', error);
-		await vscode.window.showErrorMessage(`Failed to start container: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to start container: {0}', error));
 	}
 }
 
@@ -322,7 +322,7 @@ export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<
 	logger.debug('Command: removeContainer');
 
 	if (!treeItem || !treeItem.containerInfo) {
-		await vscode.window.showErrorMessage('No container selected');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No container selected'));
 		return;
 	}
 
@@ -330,10 +330,10 @@ export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<
 
 	// Confirm deletion
 	const answer = await positron.window.showSimpleModalDialogPrompt(
-		'Remove Container',
-		`Are you sure you want to remove container '${containerInfo.containerName}'?`,
-		'Remove',
-		'Cancel'
+		vscode.l10n.t('Remove Container'),
+		vscode.l10n.t("Are you sure you want to remove container '{0}'?", containerInfo.containerName),
+		vscode.l10n.t('Remove'),
+		vscode.l10n.t('Cancel')
 	);
 
 	if (!answer) {
@@ -346,7 +346,7 @@ export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `Removing container ${containerInfo.containerName}...`,
+				title: vscode.l10n.t('Removing container {0}...', containerInfo.containerName),
 				cancellable: false
 			},
 			async () => {
@@ -355,12 +355,12 @@ export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<
 			}
 		);
 
-		await vscode.window.showInformationMessage(`Container '${containerInfo.containerName}' removed successfully`);
+		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' removed successfully", containerInfo.containerName));
 
 		// Refresh the tree view
 		await vscode.commands.executeCommand('remote-containers.explorerTargetsRefresh');
 	} catch (error) {
 		logger.error('Failed to remove container', error);
-		await vscode.window.showErrorMessage(`Failed to remove container: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to remove container: {0}', error));
 	}
 }

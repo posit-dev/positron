@@ -296,7 +296,7 @@ async function openDevContainerFile(): Promise<void> {
 
 	const currentFolder = Workspace.getCurrentWorkspaceFolder();
 	if (!currentFolder) {
-		await vscode.window.showErrorMessage('No workspace folder is open');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No workspace folder is open'));
 		return;
 	}
 
@@ -324,7 +324,7 @@ async function openDevContainerFile(): Promise<void> {
 		// File doesn't exist
 	}
 
-	await vscode.window.showErrorMessage('No dev container configuration found');
+	await vscode.window.showErrorMessage(vscode.l10n.t('No dev container configuration found'));
 }
 
 /**
@@ -349,7 +349,7 @@ async function openLogFile(): Promise<void> {
 	const logFilePath = logger.getLogFilePath();
 
 	if (!logFilePath) {
-		await vscode.window.showErrorMessage('No log file available');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No log file available'));
 		return;
 	}
 
@@ -366,7 +366,7 @@ async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> 
 
 	// Type check: ensure we have a tree item with container info
 	if (!treeItem || !treeItem.containerInfo) {
-		await vscode.window.showErrorMessage('No container selected');
+		await vscode.window.showErrorMessage(vscode.l10n.t('No container selected'));
 		return;
 	}
 
@@ -377,7 +377,7 @@ async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> 
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `Fetching logs for ${containerInfo.containerName}...`,
+				title: vscode.l10n.t('Fetching logs for {0}...', containerInfo.containerName),
 				cancellable: false
 			},
 			async () => {
@@ -404,7 +404,7 @@ async function showContainerLog(treeItem?: DevContainerTreeItem): Promise<void> 
 		);
 	} catch (error) {
 		logger.error('Failed to get container logs', error);
-		await vscode.window.showErrorMessage(`Failed to get container logs: ${error}`);
+		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to get container logs: {0}', error));
 	}
 }
 
@@ -418,7 +418,7 @@ async function testConnection(connectionManager: ConnectionManager): Promise<voi
 	// Check if we're in a dev container
 	if (!Workspace.isInDevContainer()) {
 		await vscode.window.showInformationMessage(
-			'Not currently connected to a dev container. This command is only available when running inside a dev container.'
+			vscode.l10n.t('Not currently connected to a dev container. This command is only available when running inside a dev container.')
 		);
 		return;
 	}
@@ -427,7 +427,7 @@ async function testConnection(connectionManager: ConnectionManager): Promise<voi
 		// Get container ID from workspace authority
 		const currentFolder = Workspace.getCurrentWorkspaceFolder();
 		if (!currentFolder || !currentFolder.uri.authority) {
-			await vscode.window.showErrorMessage('Could not determine container ID from workspace');
+			await vscode.window.showErrorMessage(vscode.l10n.t('Could not determine container ID from workspace'));
 			return;
 		}
 
@@ -437,7 +437,7 @@ async function testConnection(connectionManager: ConnectionManager): Promise<voi
 		const containerId = match?.[1];
 
 		if (!containerId) {
-			await vscode.window.showErrorMessage(`Could not extract container ID from authority: ${authority}`);
+			await vscode.window.showErrorMessage(vscode.l10n.t('Could not extract container ID from authority: {0}', authority));
 			return;
 		}
 

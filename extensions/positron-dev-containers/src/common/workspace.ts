@@ -288,7 +288,7 @@ export class Workspace {
 		const foldersWithDevContainers = this.getWorkspaceFoldersWithDevContainers();
 
 		if (foldersWithDevContainers.length === 0) {
-			vscode.window.showErrorMessage('No workspace folders with dev container configuration found');
+			vscode.window.showErrorMessage(vscode.l10n.t('No workspace folders with dev container configuration found'));
 			return undefined;
 		}
 
@@ -304,7 +304,7 @@ export class Workspace {
 		}));
 
 		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: 'Select a workspace folder to open in container'
+			placeHolder: vscode.l10n.t('Select a workspace folder to open in container')
 		});
 
 		return selected?.folder;
