@@ -408,21 +408,14 @@ jobs:
             --reporter=json \
             ../all-blob-reports
 
-          # Verify HTML and JSON were generated
-          echo "Checking for generated files..."
-          ls -laR playwright-report/
-
-      - name: Upload HTML report to S3
-        if: always()
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          working-directory: playwright-merge
-
-      - name: Verify .last-run.json was generated
+      - name: Verify generated reports
         working-directory: playwright-merge
         run: |
+          # List all generated files
+          echo "Generated report files:"
+          ls -laR playwright-report/
+
+          # Verify .last-run.json
           LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
           if [ -f "$LAST_RUN_FILE" ]; then
             FILE_SIZE=$(ls -lh "$LAST_RUN_FILE" | awk '{print $5}')
@@ -437,6 +430,14 @@ jobs:
           else
             echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
           fi
+
+      - name: Upload HTML report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: playwright-merge
 
       - name: Setup AWS S3 Access for .last-run.json upload
         if: always()
