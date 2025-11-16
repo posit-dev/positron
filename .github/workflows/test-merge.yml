@@ -22,12 +22,12 @@ jobs:
     with:
       grep: ""
       project: "e2e-electron"
-      display_name: "electron (ubuntu)"
+      display_name: "electron"
       currents_tags: "merge,electron/ubuntu"
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 6
+      shards: 4
       matrix: ${{ needs.setup.outputs.matrix }}
       workers: 2
       allow_soft_fail: true
@@ -50,13 +50,13 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
-      display_name: "chromium (ubuntu)"
+      display_name: "chromium"
       project: "e2e-chromium"
       currents_tags: "merge,chromium/ubuntu"
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
-      shards: 6
+      shards: 4
       matrix: ${{ needs.setup.outputs.matrix }}
       workers: 2
       allow_soft_fail: true
@@ -93,4 +93,5 @@ jobs:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
+          filter_jobs: "(e2e / ([^0-9]*)|unit-tests|integration-tests)$"
           notify_on: "failure"

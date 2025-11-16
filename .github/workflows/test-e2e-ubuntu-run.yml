@@ -81,7 +81,7 @@ permissions:
 
 jobs:
   e2e-ubuntu-run:
-    name: ${{ inputs.display_name || 'e2e-ubuntu-run' }} ${{ matrix.shard }}/${{ inputs.shards }}
+    name: ${{ inputs.display_name || 'e2e-ubuntu-run' }}-${{ matrix.shard }}
     timeout-minutes: 50
     runs-on: ubuntu-latest-8x
     strategy:
@@ -345,7 +345,7 @@ jobs:
           retention-days: 3
 
   merge-reports:
-    name: ${{ inputs.project || 'merge-reports' }}
+    name: ${{ inputs.display_name || inputs.project || 'merge-reports' }}
     if: ${{ always() }}
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest

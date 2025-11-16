@@ -47,16 +47,6 @@ on:
           - failure
           - always
           - never
-      shards:
-        description: "# Shards (faster → pricier)"
-        required: false
-        type: choice
-        default: '6'
-        options:
-          - '4'
-          - '6'
-          - '8'
-          - '10'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -67,11 +57,11 @@ jobs:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     with:
-      shards: ${{ fromJSON(inputs.shards || '6') }}
+      shards: 4
     secrets: inherit
 
   e2e-electron:
-    name: run
+    name: e2e
     needs: [setup]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
@@ -86,7 +76,7 @@ jobs:
       install_license: false
       allow_soft_fail: false
       upload_logs: false
-      shards: 10
+      shards: 4
       matrix: ${{ needs.setup.outputs.matrix }}
 
   e2e-windows:
@@ -117,7 +107,7 @@ jobs:
       install_license: true
       allow_soft_fail: false
       upload_logs: false
-      shards: 10
+      shards: 4
       matrix: ${{ needs.setup.outputs.matrix }}
 
   e2e-rhel:
@@ -180,5 +170,5 @@ jobs:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#test-slack-notifications"
-          filter_jobs: "(e2e-.*|unit-tests|integration-tests)$"
+          filter_jobs: "(e2e / ([^0-9]*)|unit-tests|integration-tests)$"
           notify_on: ${{ env.notify_on }}
