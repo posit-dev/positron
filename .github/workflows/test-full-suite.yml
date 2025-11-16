@@ -71,7 +71,7 @@ jobs:
     secrets: inherit
 
   e2e-electron:
-    name: e2e
+    name: run
     needs: [setup]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
@@ -79,7 +79,7 @@ jobs:
     with:
       grep: ""
       project: "e2e-electron"
-      display_name: "electron (ubuntu)"
+      display_name: "electron"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
       report_currents: false
       install_undetectable_interpreters: true
@@ -102,7 +102,7 @@ jobs:
       allow_soft_fail: false
 
   e2e-chromium:
-    name: e2e
+    name: run
     needs: [setup]
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
@@ -110,7 +110,7 @@ jobs:
     with:
       grep: ""
       project: "e2e-chromium"
-      display_name: "chromium (ubuntu)"
+      display_name: "chromium"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/ubuntu' || 'chromium/ubuntu' }}
       report_currents: false
       install_undetectable_interpreters: true
@@ -180,6 +180,5 @@ jobs:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#test-slack-notifications"
-          # should filter on e2e-* and unit/integration tests
-          filter_jobs: "^(e2e-.*|unit-tests|integration-tests)$"
+          filter_jobs: "(e2e-.*|unit-tests|integration-tests)$"
           notify_on: ${{ env.notify_on }}
