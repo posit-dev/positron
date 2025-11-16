@@ -100,7 +100,7 @@ jobs:
       - name: Set short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
+        uses: midleman/slack-workflow-status@v3.1.3
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}

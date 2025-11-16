@@ -167,7 +167,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [e2e-electron, e2e-windows, e2e-chromium, unit-tests, integration-tests]
+      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
@@ -175,9 +175,11 @@ jobs:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
+        uses: midleman/slack-workflow-status@v3.1.3
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
+          slack_channel: "#test-slack-notifications"
+          # should filter on e2e-* and unit/integration tests
+          filter_jobs: "^(e2e-.*|unit-tests|integration-tests)$"
           notify_on: ${{ env.notify_on }}
