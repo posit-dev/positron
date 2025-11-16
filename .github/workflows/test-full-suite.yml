@@ -47,6 +47,16 @@ on:
           - failure
           - always
           - never
+      shards:
+        description: "# Shards (faster → pricier)"
+        required: false
+        type: choice
+        default: '6'
+        options:
+          - '4'
+          - '6'
+          - '8'
+          - '10'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -57,7 +67,7 @@ jobs:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     with:
-      shards: 10
+      shards: ${{ fromJSON(inputs.shards || '6') }}
     secrets: inherit
 
   e2e-electron:

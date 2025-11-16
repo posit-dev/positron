@@ -82,7 +82,7 @@ permissions:
 jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }} ${{ matrix.shard }}/${{ inputs.shards }}
-    timeout-minutes: 120
+    timeout-minutes: 50
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
@@ -374,6 +374,7 @@ jobs:
           cd playwright-merge
           npm init -y
           # Install only what we need
+          # We need the patch to capture test durations in .last-run.json for better shard balancing
           npm install @playwright/test@1.56.1 patch-package @midleman/github-actions-reporter
           # Copy patch from repo and apply it
           mkdir -p patches
