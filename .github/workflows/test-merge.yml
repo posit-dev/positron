@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     with:
       grep: ""
-      project: "e2e-electron"
+      project: "electron"
       display_name: "electron"
       currents_tags: "merge,electron/ubuntu"
       install_undetectable_interpreters: false
