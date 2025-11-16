@@ -222,11 +222,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-
-      - name: Install jq and bc for duration parsing
-        run: |
-          apt-get update && apt-get install -y jq bc
-
       - name: Download previous .last-run.json from S3
         continue-on-error: true
         run: |
@@ -234,33 +229,15 @@ jobs:
           # Download project-specific .last-run.json
           aws s3 cp s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json blob-report/.last-run-${{ inputs.project }}.json || echo "No previous .last-run.json found for ${{ inputs.project }}, starting fresh"
 
-      - name: Debug downloaded .last-run.json
-        continue-on-error: true
-        run: |
-          LAST_RUN_FILE="blob-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            echo "=== Downloaded file info ==="
-            ls -lh "$LAST_RUN_FILE"
-            echo ""
-            echo "=== First 5 test durations ==="
-            jq '.testDurations | to_entries | .[0:5]' "$LAST_RUN_FILE" || echo "jq parse failed"
-            echo ""
-            echo "=== Summary ==="
-            jq '{status, failedTestsCount: (.failedTests | length), totalTests: (.testDurations | length), totalDuration: ([.testDurations[]] | add)}' "$LAST_RUN_FILE" || echo "jq parse failed"
-          else
-            echo "No .last-run.json file found to debug"
-          fi
-
       - name: Restore AWS S3 Access to read-only role
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-
-      - name: Log Shard Distribution Info
-        run: |
-          bash scripts/log-shard-info.sh "${{ inputs.project }}" "${{ matrix.shard }}" "${{ inputs.shards }}" "$PW_TAGS"
+      # - name: Log Shard Distribution Info
+      #   run: |
+      #     bash scripts/log-shard-info.sh "${{ inputs.project }}" "${{ matrix.shard }}" "${{ inputs.shards }}" "$PW_TAGS"
 
       - name: Preload Node.js Binary
         if: ${{ inputs.project != 'e2e-electron' }}
