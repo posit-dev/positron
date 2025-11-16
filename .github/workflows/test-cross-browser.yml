@@ -2,7 +2,7 @@ name: "Test: E2E Cross Browser"
 
 on:
   schedule:
-    - cron: '0 10 * * *' # 4:00 AM CST = 10:00 UTC.
+    - cron: '0 10 * * 1-5' # 4:00 AM CST = 10:00 UTC, Mon-Fri only
   workflow_dispatch:
     inputs:
       run_e2e_firefox:
@@ -55,7 +55,7 @@ jobs:
       project: "e2e-firefox"
       report_currents: false
       allow_soft_fail: false
-      shards: ${{ needs.setup.outputs.shards }}
+      shards: 1
       matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
@@ -69,7 +69,7 @@ jobs:
       project: "e2e-webkit"
       report_currents: false
       allow_soft_fail: false
-      shards: ${{ needs.setup.outputs.shards }}
+      shards: 1
       matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
@@ -83,7 +83,7 @@ jobs:
       project: "e2e-edge"
       report_currents: false
       allow_soft_fail: false
-      shards: ${{ needs.setup.outputs.shards }}
+      shards: 1
       matrix: ${{ needs.setup.outputs.matrix }}
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 

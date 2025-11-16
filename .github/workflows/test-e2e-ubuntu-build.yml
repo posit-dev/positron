@@ -12,9 +12,6 @@ on:
       matrix:
         description: "Matrix configuration for test sharding"
         value: ${{ jobs.build-matrix.outputs.matrix }}
-      shards:
-        description: "Number of shards (passed through)"
-        value: ${{ inputs.shards }}
 
 permissions:
   id-token: write

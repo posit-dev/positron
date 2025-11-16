@@ -76,7 +76,7 @@ jobs:
       install_license: false
       allow_soft_fail: false
       upload_logs: false
-      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
+      shards: 10
       matrix: ${{ needs.setup.outputs.matrix }}
 
   e2e-windows:
@@ -107,7 +107,7 @@ jobs:
       install_license: true
       allow_soft_fail: false
       upload_logs: false
-      shards: ${{ fromJSON(needs.setup.outputs.shards) }}
+      shards: 10
       matrix: ${{ needs.setup.outputs.matrix }}
 
   e2e-rhel:
