@@ -381,6 +381,9 @@ jobs:
           cp ../patches/playwright+1.56.1.patch patches/
           npx patch-package
 
+      - name: Generate Report Directory
+        uses: ./.github/actions/gen-report-dir
+
       - name: Download all blob reports
         uses: actions/download-artifact@v4
         with:
@@ -388,10 +391,7 @@ jobs:
           pattern: blob-report-${{ inputs.project }}-*
           merge-multiple: true
 
-      - name: Generate Report Directory
-        uses: ./.github/actions/gen-report-dir
-
-      - name: Merge into HTML report with .last-run.json
+      - name: Merge Playwright Blob Reports, Generate HTML and JSON Reports
         working-directory: playwright-merge
         run: |
           # Create output directory
@@ -412,6 +412,14 @@ jobs:
           echo "Checking for generated files..."
           ls -laR playwright-report/
 
+      - name: Upload HTML report to S3
+        if: always()
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          working-directory: playwright-merge
+
       - name: Verify .last-run.json was generated
         working-directory: playwright-merge
         run: |
@@ -430,7 +438,28 @@ jobs:
             echo "⚠ No $LAST_RUN_FILE generated - patch may not be working correctly"
           fi
 
+      - name: Setup AWS S3 Access for .last-run.json upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Upload .last-run.json to fixed S3 location
+        if: always()
+        working-directory: playwright-merge
+        run: |
+          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
+          if [ -f "$LAST_RUN_FILE" ]; then
+            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
+            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
+            echo "✓ Uploaded ${{ inputs.project }}-last-run.json to S3 for future runs"
+          else
+            echo "⚠ No $LAST_RUN_FILE to upload"
+          fi
+
       - name: Check test results
+        if: always()
         run: |
           JSON_REPORT="playwright-merge/playwright-report/results.json"
           if [ ! -f "$JSON_REPORT" ]; then
@@ -455,34 +484,6 @@ jobs:
             else
               echo "All tests passed"
             fi
-          fi
-
-      - name: Upload HTML report to S3
-        if: always()
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          working-directory: playwright-merge
-
-      - name: Setup AWS S3 Access for .last-run.json upload
-        if: always()
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Upload .last-run.json to fixed S3 location
-        if: always()
-        working-directory: playwright-merge
-        run: |
-          LAST_RUN_FILE="playwright-report/.last-run-${{ inputs.project }}.json"
-          if [ -f "$LAST_RUN_FILE" ]; then
-            # Upload project-specific .last-run.json to S3 (bucket uses IAM policies)
-            aws s3 cp "$LAST_RUN_FILE" s3://positron-test-reports/last-run-latest/${{ inputs.project }}-last-run.json
-            echo "✓ Uploaded ${{ inputs.project }}-last-run.json to S3 for future runs"
-          else
-            echo "⚠ No $LAST_RUN_FILE to upload"
           fi
 
       - name: Clean up blob report artifacts
