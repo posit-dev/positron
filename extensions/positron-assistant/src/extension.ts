@@ -284,7 +284,7 @@ function registerToggleInlineCompletionsCommand(context: vscode.ExtensionContext
 function registerCollectDiagnosticsCommand(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.collectDiagnostics', async () => {
-			await collectDiagnostics(context);
+			await collectDiagnostics(context, log);
 		})
 	);
 }

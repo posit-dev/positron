@@ -6,27 +6,64 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getStoredModels, getEnabledProviders } from './config';
-import { log } from './extension';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { BufferedLogOutputChannel } from './logBuffer.js';
 
 /**
- * Helper function to append text to a document editor.
+ * Check if a value is an empty array or object that matches the default empty array or object.
+ * This helps filter out settings that appear different but are functionally the same.
+ * @param value The current value of the setting
+ * @param defaultValue The default value of the setting
+ * @returns True if both are empty arrays or empty objects
  */
-async function appendText(editor: vscode.TextEditor, text: string): Promise<void> {
-	await editor.edit(builder => {
-		const lastLine = editor.document.lineAt(editor.document.lineCount - 1);
-		builder.insert(lastLine.range.end, text);
-	});
+function isEmptyArrayOrObjectMatchingDefault(value: unknown, defaultValue: unknown): boolean {
+	// Check for matching empty arrays
+	const isBothEmptyArrays = Array.isArray(value) && Array.isArray(defaultValue) &&
+		value.length === 0 && defaultValue.length === 0;
+
+	// Check for matching empty objects (excluding arrays)
+	const isBothEmptyObjects = typeof value === 'object' && typeof defaultValue === 'object' &&
+		value !== null && defaultValue !== null &&
+		!Array.isArray(value) && !Array.isArray(defaultValue) &&
+		Object.keys(value).length === 0 && Object.keys(defaultValue).length === 0;
+
+	return isBothEmptyArrays || isBothEmptyObjects;
+}
+
+/**
+ * Get configuration settings with non-default values for a given section.
+ * @param configSection The configuration section to inspect (e.g., 'positron.assistant')
+ * @param settingKeys Array of setting keys to check
+ * @returns A formatted string containing settings that differ from their default values
+ */
+function getNonDefaultSettings(configSection: string, settingKeys: string[]): string {
+	const config = vscode.workspace.getConfiguration(configSection);
+	const settings: Record<string, unknown> = {};
+
+	for (const key of settingKeys) {
+		const inspection = config.inspect(key);
+		const value = config.get(key);
+
+		if (inspection && value !== inspection.defaultValue) {
+			if (!isEmptyArrayOrObjectMatchingDefault(value, inspection.defaultValue)) {
+				settings[`${configSection}.${key}`] = value;
+			}
+		}
+	}
+
+	if (Object.keys(settings).length === 0) {
+		return '\n  // No non-default settings configured';
+	}
+
+	return '\n' + Object.entries(settings)
+		.map(([key, value]) => `  "${key}": ${JSON.stringify(value, null, 2).split('\n').join('\n  ')}`)
+		.join(',\n');
 }
 
 /**
  * Get all Positron Assistant configuration settings with non-default values.
  */
 function getAssistantSettings(): string {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const settings: Record<string, unknown> = {};
-
-
 	// VS Code's API doesn't provide a way to iterate over keys so we maintain a list here
 	const settingKeys = [
 		'enable',
@@ -53,42 +90,13 @@ function getAssistantSettings(): string {
 		'enabledProviders',
 	];
 
-	for (const key of settingKeys) {
-		const inspection = config.inspect(key);
-		const value = config.get(key);
-
-		// Only include settings that differ from default
-		if (inspection && value !== inspection.defaultValue) {
-			// Check if it's not just an empty array/object matching default empty array/object
-			const isEmptyArrayOrObject =
-				(Array.isArray(value) && Array.isArray(inspection.defaultValue) &&
-					value.length === 0 && inspection.defaultValue.length === 0) ||
-				(typeof value === 'object' && typeof inspection.defaultValue === 'object' &&
-					!Array.isArray(value) && !Array.isArray(inspection.defaultValue) &&
-					Object.keys(value).length === 0 && Object.keys(inspection.defaultValue).length === 0);
-
-			if (!isEmptyArrayOrObject) {
-				settings[`positron.assistant.${key}`] = value;
-			}
-		}
-	}
-
-	if (Object.keys(settings).length === 0) {
-		return '\n  // No non-default settings configured';
-	}
-
-	return '\n' + Object.entries(settings)
-		.map(([key, value]) => `  "${key}": ${JSON.stringify(value, null, 2).split('\n').join('\n  ')}`)
-		.join(',\n');
+	return getNonDefaultSettings('positron.assistant', settingKeys);
 }
 
 /**
  * Get GitHub Copilot Chat configuration settings with non-default values.
  */
 function getCopilotChatSettings(): string {
-	const config = vscode.workspace.getConfiguration('github.copilot');
-	const settings: Record<string, any> = {};
-
 	// Key Copilot settings that may affect Assistant behavior
 	const settingKeys = [
 		'enable',
@@ -98,22 +106,7 @@ function getCopilotChatSettings(): string {
 		'advanced.debug.useNodeFetchFetcher',
 	];
 
-	for (const key of settingKeys) {
-		const inspection = config.inspect(key);
-		const value = config.get(key);
-
-		if (inspection && value !== inspection.defaultValue) {
-			settings[`github.copilot.${key}`] = value;
-		}
-	}
-
-	if (Object.keys(settings).length === 0) {
-		return '\n  // No non-default Copilot settings configured';
-	}
-
-	return '\n' + Object.entries(settings)
-		.map(([key, value]) => `  "${key}": ${JSON.stringify(value, null, 2).split('\n').join('\n  ')}`)
-		.join(',\n');
+	return getNonDefaultSettings('github.copilot', settingKeys);
 }
 
 /**
@@ -278,7 +271,7 @@ function getExtensionInfo(): string {
 /**
  * Get log output from the Assistant output channel.
  */
-function getAssistantLogs(): string {
+function getAssistantLogs(log: BufferedLogOutputChannel): string {
 	// Passing trace here will only retrieve trace logs if the user has enabled trace logging
 	const logs = log.formatEntriesForDiagnostics(500, 'trace');
 
@@ -311,8 +304,8 @@ function getCopilotLogs(): string {
 			return 'Unable to access Copilot Chat logs (log target not initialized)';
 		}
 
-		// LogLevel.Debug = 2 in Copilot Chat's LogLevel enum (Off=0, Trace=1, Debug=2, Info=3, Warning=4, Error=5)
-		const logs = logTarget.formatEntriesForDiagnostics(500, 2);
+		// LogLevel.Trace = 1 in Copilot Chat's LogLevel enum (Off=0, Trace=1, Debug=2, Info=3, Warning=4, Error=5)
+		const logs = logTarget.formatEntriesForDiagnostics(500, 1);
 
 		if (logs === 'No log entries available') {
 			return 'No Copilot Chat log entries captured yet';
@@ -325,84 +318,98 @@ function getCopilotLogs(): string {
 }
 
 /**
- * Collect and display comprehensive diagnostics for Positron Assistant.
+ * Generate comprehensive diagnostics content for Positron Assistant.
+ * @returns The diagnostics content as a markdown string.
  */
-export async function collectDiagnostics(context: vscode.ExtensionContext): Promise<void> {
-	// Create a new untitled markdown document
-	const document = await vscode.workspace.openTextDocument({
-		language: 'markdown',
-		content: ''
-	});
-	const editor = await vscode.window.showTextDocument(document);
+export async function generateDiagnosticsContent(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
+	const parts: string[] = [];
 
 	// Header
-	await appendText(editor, '# Positron Assistant Diagnostics\n\n');
-	await appendText(editor, `Generated: ${new Date().toISOString()}\n\n`);
+	parts.push('# Positron Assistant Diagnostics\n\n');
+	parts.push(`Generated: ${new Date().toISOString()}\n\n`);
+	parts.push('**Note**: This diagnostic report contains configuration details but does not include secrets or API keys. However, please review it before sharing publicly.\n\n');
 
 	// Extension Information
-	await appendText(editor, '## Extension Information\n\n');
-	await appendText(editor, getExtensionInfo());
-	await appendText(editor, '\n\n');
+	parts.push('## Extension Information\n\n');
+	parts.push(getExtensionInfo());
+	parts.push('\n\n');
 
 	// Configuration Settings
-	await appendText(editor, '## Configuration Settings\n\n');
-	await appendText(editor, '### Positron Assistant Settings (Non-Default)\n\n');
-	await appendText(editor, '```json' + getAssistantSettings() + '\n```\n\n');
+	parts.push('## Configuration Settings\n\n');
+	parts.push('### Positron Assistant Settings (Non-Default)\n\n');
+	parts.push('```json' + getAssistantSettings() + '\n```\n\n');
 
-	await appendText(editor, '### GitHub Copilot Settings (Non-Default)\n\n');
-	await appendText(editor, '```json' + getCopilotChatSettings() + '\n```\n\n');
+	parts.push('### GitHub Copilot Settings (Non-Default)\n\n');
+	parts.push('```json' + getCopilotChatSettings() + '\n```\n\n');
 
 	// Providers
-	await appendText(editor, '## Language Model Providers\n\n');
+	parts.push('## Language Model Providers\n\n');
 
-	await appendText(editor, '### Enabled Providers (Configuration)\n\n');
+	parts.push('### Enabled Providers (Configuration)\n\n');
 	try {
 		const enabledProviders = await getEnabledProviders();
 		if (enabledProviders.length === 0) {
-			await appendText(editor, 'All providers enabled (no filter configured)\n\n');
+			parts.push('All providers enabled (no filter configured)\n\n');
 		} else {
-			await appendText(editor, enabledProviders.map(p => `- ${p}`).join('\n') + '\n\n');
+			parts.push(enabledProviders.map(p => `- ${p}`).join('\n') + '\n\n');
 		}
 	} catch (error) {
-		await appendText(editor, `Error: ${error instanceof Error ? error.message : String(error)}\n\n`);
+		parts.push(`Error: ${error instanceof Error ? error.message : String(error)}\n\n`);
 	}
 
-	await appendText(editor, '### Positron Supported Providers\n\n');
-	await appendText(editor, await getPositronProviders());
-	await appendText(editor, '\n\n');
+	parts.push('### Positron Supported Providers\n\n');
+	parts.push(await getPositronProviders());
+	parts.push('\n\n');
 
-	await appendText(editor, '### Available Models (VS Code Language Model API)\n\n');
-	await appendText(editor, await getAvailableProviders());
-	await appendText(editor, '\n\n');
+	parts.push('### Available Models (VS Code Language Model API)\n\n');
+	parts.push(await getAvailableProviders());
+	parts.push('\n\n');
 
 	// Configured Models
-	await appendText(editor, '## Configured Models\n\n');
-	await appendText(editor, await getModelInfo(context));
-	await appendText(editor, '\n\n');
+	parts.push('## Configured Models\n\n');
+	parts.push(await getModelInfo(context));
+	parts.push('\n\n');
 
 	// Active Chat Session
-	await appendText(editor, '## Active Chat Session\n\n');
-	await appendText(editor, await getChatExportInfo());
-	await appendText(editor, '\n\n');
+	parts.push('## Active Chat Session\n\n');
+	parts.push(await getChatExportInfo());
+	parts.push('\n\n');
 
 	// Logs
-	await appendText(editor, '## Positron Assistant Logs\n\n');
-	await appendText(editor, 'Recent log entries (last 500):\n\n');
-	await appendText(editor, '```\n');
-	await appendText(editor, getAssistantLogs());
-	await appendText(editor, '\n```\n\n');
+	parts.push('## Positron Assistant Logs\n\n');
+	parts.push('Recent log entries (last 500):\n\n');
+	parts.push('```\n');
+	parts.push(getAssistantLogs(log));
+	parts.push('\n```\n\n');
 
-	await appendText(editor, '## GitHub Copilot Chat Logs\n\n');
-	await appendText(editor, 'Recent log entries (last 500, debug level and above):\n\n');
+	parts.push('## GitHub Copilot Chat Logs\n\n');
+	parts.push('Recent log entries (last 500):\n\n');
 	const copilotLogs = getCopilotLogs();
-	await appendText(editor, '```\n');
-	await appendText(editor, copilotLogs);
-	await appendText(editor, '\n```\n');
-	await appendText(editor, '\n\n');
+	parts.push('```\n');
+	parts.push(copilotLogs);
+	parts.push('\n```\n');
+	parts.push('\n\n');
 
 	// Footer
-	await appendText(editor, '---\n\n');
-	await appendText(editor, '## Documentation\n\n');
-	await appendText(editor, '- [Positron Assistant Documentation](https://positron.posit.co/assistant)\n');
-	await appendText(editor, '- [Report Issues](https://github.com/posit-dev/positron/issues)\n');
+	parts.push('---\n\n');
+	parts.push('## Documentation\n\n');
+	parts.push('- [Positron Assistant Documentation](https://positron.posit.co/assistant)\n');
+	parts.push('- [Report Issues](https://github.com/posit-dev/positron/issues)\n');
+
+	return parts.join('');
+}
+
+/**
+ * Collect and display comprehensive diagnostics for Positron Assistant in a new document.
+ */
+export async function collectDiagnostics(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<void> {
+	const content = await generateDiagnosticsContent(context, log);
+
+	// Create a new untitled markdown document with the content
+	const document = await vscode.workspace.openTextDocument({
+		language: 'markdown',
+		content: content
+	});
+
+	await vscode.window.showTextDocument(document);
 }

@@ -4,71 +4,40 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
 import * as path from 'path';
-import * as fs from 'fs';
-import { collectDiagnostics } from './diagnostics';
+import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
 import { PositLanguageModel } from './posit';
 import { getStoredModels, GlobalSecretStorage } from './config';
-import { disposeModels } from './extension';
+import { disposeModels, log } from './extension';
 
 /**
- * Save diagnostics to a file in a reasonable location.
- * Priority: workspace folder > home directory > temp directory
+ * Save diagnostics to a file in the extension's global storage directory.
+ * This is located in the user data directory and persists across sessions.
  */
 async function saveDiagnosticsToFile(context: vscode.ExtensionContext): Promise<string | undefined> {
 	try {
-		// First, collect the diagnostics (this opens a new untitled document)
-		await collectDiagnostics(context);
-
-		// Wait a moment for the diagnostics to finish collecting
-		await new Promise(resolve => setTimeout(resolve, 1000));
-
-		// Get the active editor which should be the diagnostics document
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			throw new Error('No active editor found after collecting diagnostics');
-		}
-
-		const content = editor.document.getText();
+		// Generate the diagnostics content
+		const content = await generateDiagnosticsContent(context, log);
 
 		// Generate timestamp for filename
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T').join('_').substring(0, 19);
 		const filename = `positron-assistant-diagnostics-${timestamp}.md`;
 
-		// Determine save location
-		let saveDir: string | undefined;
+		// Use the extension's global storage URI (in user data directory)
+		const storageUri = context.globalStorageUri;
 
-		// Try workspace folder first
-		const workspaceFolders = vscode.workspace.workspaceFolders;
-		if (workspaceFolders && workspaceFolders.length > 0) {
-			saveDir = workspaceFolders[0].uri.fsPath;
-		}
+		// Ensure the directory exists
+		await vscode.workspace.fs.createDirectory(storageUri);
 
-		// Fall back to home directory
-		if (!saveDir) {
-			const homeDir = process.env.HOME || process.env.USERPROFILE;
-			if (homeDir) {
-				saveDir = homeDir;
-			}
-		}
-
-		// Last resort: temp directory
-		if (!saveDir) {
-			saveDir = process.env.TMPDIR || process.env.TEMP || '/tmp';
-		}
-
-		const filePath = path.join(saveDir, filename);
+		// Create the file URI in the storage directory
+		const fileUri = vscode.Uri.joinPath(storageUri, filename);
 
 		// Save to file
-		fs.writeFileSync(filePath, content, 'utf8');
+		const fileBuffer = Buffer.from(content, 'utf8');
+		await vscode.workspace.fs.writeFile(fileUri, fileBuffer);
 
-		// Close the diagnostics document without prompting to save
-		// We need to revert the document first to mark it as not dirty
-		await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
-
-		return filePath;
+		return fileUri.fsPath;
 	} catch (error) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Failed to save diagnostics: {0}', error instanceof Error ? error.message : String(error))
