@@ -6,7 +6,6 @@ on:
       - main
       - "prerelease/**"
       - "release/**"
-      - mi/pw-shards
 
 jobs:
   setup:
@@ -74,7 +73,7 @@ jobs:
       pull_request: false
 
   slack-notify:
-    if: failure()
+    if: always()
     needs:
       [
         setup,
@@ -91,6 +90,6 @@ jobs:
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#test-slack-notifications"
-          filter_jobs: "(e2e / ([^0-9]*)|unit-tests|integration-tests)$"
+          slack_channel: "#positron-test-results"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
           notify_on: "failure"

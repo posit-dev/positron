@@ -75,7 +75,7 @@ jobs:
 
   e2e-edge:
     name: e2e
-    needs: [build]
+    needs: [setup]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
