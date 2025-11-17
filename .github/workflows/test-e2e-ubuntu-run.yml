@@ -153,7 +153,7 @@ jobs:
         shell: bash
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: "positron-build"
           path: /tmp/artifacts
@@ -386,7 +386,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*
