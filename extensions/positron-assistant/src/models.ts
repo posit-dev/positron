@@ -1110,6 +1110,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		// We use the Bedrock SDK to retrieve the list of available models instead
 		// of a predefined list.
 		this.bedrockClient = new BedrockClient({
+			profile,
 			region,
 			credentials: credentials
 		});
@@ -1142,7 +1143,56 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		}
 
 		if (name === 'CredentialsProviderError') {
-			return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+			// This is specifically the error thrown the refresh token is expired and
+			// we need to re-authenticate with AWS SSO
+			if (message.includes('aws sso login')) {
+				// Give the user the option to login automatically
+				// Display an error message with an action the user can take
+				const action = { title: vscode.l10n.t('Run in Terminal'), id: 'aws-sso-login' };
+				vscode.window.showErrorMessage(`Amazon Bedrock: ${message}`, action).then(async selection => {
+					if (selection?.id === action.id) {
+						// Grab the profile to refresh from the Bedrock client config
+						const profile = this.bedrockClient.config.profile;
+						// Execute the AWS SSO login command as a native task
+						const taskExecution = await vscode.tasks.executeTask(new vscode.Task(
+							{ type: 'shell' },
+							vscode.TaskScope.Workspace,
+							'AWS SSO Login',
+							'AWS',
+							new vscode.ShellExecution(`aws sso login --profile ${profile}`)
+						));
+
+						vscode.tasks.onDidEndTaskProcess(e => {
+							if (e.execution === taskExecution) {
+								// Notify the user of the result
+								if (e.exitCode === 0 || e.exitCode === undefined) {
+									// Success
+									vscode.window.showInformationMessage(vscode.l10n.t('AWS login completed successfully'));
+								} else {
+									// Failure
+									vscode.window.showErrorMessage(vscode.l10n.t('AWS login failed with exit code {0}', e.exitCode));
+								}
+
+								// Open a URI to bring Positron to the foreground
+								// This is a little sneaky, but works + no other native method
+								const redirectUri = vscode.Uri.from({ scheme: vscode.env.uriScheme });
+								vscode.env.openExternal(redirectUri);
+							}
+						});
+					}
+				});
+
+				if (error.stack?.includes('resolveConnection')) {
+					// We're in a connection test, so just return undefined and use this own method's error display
+					return undefined;
+				} else {
+					// We are in a chat response, so we should return an error to display in the chat pane
+					throw new Error(vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile}\` in the terminal to authenticate.`));
+					// return vscode.l10n.t(`AWS login required. Please run \`aws sso login --profile ${this.bedrockClient.config.profile}\` in the terminal to authenticate.`);
+				}
+			} else {
+				return vscode.l10n.t(`Invalid AWS credentials. {0}`, message);
+			}
 		}
 
 		return vscode.l10n.t(`Amazon Bedrock error: {0}`, message);
@@ -1152,7 +1202,16 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		// The Vercel and Bedrock SDKs both use the node provider chain for credentials so getting a listing
 		// means the credentials are valid.
 		log.debug(`[${this.providerName}] Resolving connection by fetching available models...`);
-		await this.resolveModels(token);
+		try {
+			await this.resolveModels(token);
+		} catch (error) {
+			// Try to parse specific Bedrock errors
+			// This way, we can handle SSO login errors specifically
+			const parsedError = this.parseProviderError(error);
+			if (parsedError) {
+				return new Error(parsedError);
+			}
+		}
 
 		return undefined;
 	}
