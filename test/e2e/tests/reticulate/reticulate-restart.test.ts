@@ -21,12 +21,15 @@ test.describe('Reticulate', {
 		try {
 			await settings.set({
 				'positron.reticulate.enabled': true,
-			}, { 'reload': 'web' });
+				'kernelSupervisor.transport': 'tcp'
+			});
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
+
+		await app.restart();
 	});
 
 	test('R - Verify Reticulate Restart', {

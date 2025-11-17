@@ -65,6 +65,11 @@ export class ExtHostNotebookEditor {
 				get viewColumn() {
 					return that._viewColumn;
 				},
+				// --- Start Positron ---
+				get isPositronNotebook() {
+					return that.id.startsWith('positron-notebook-');
+				},
+				// --- End Positron ---
 				get replOptions() {
 					if (that.viewType === 'repl') {
 						return { appendIndex: this.notebook.cellCount - 1 };

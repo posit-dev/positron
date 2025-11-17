@@ -126,7 +126,8 @@ jobs:
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       RETICULATE_PYTHON: /root/.venv/bin/python
       HOME: /root
-
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
       - uses: actions/checkout@v5
         with:
