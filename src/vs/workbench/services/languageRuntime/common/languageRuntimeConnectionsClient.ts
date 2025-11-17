@@ -12,8 +12,11 @@ export class ConnectionsClientInstance extends Disposable {
 
 	constructor(client: IRuntimeClientInstance<any, any>) {
 		super();
-
-		this._positronConnectionsComm = new PositronConnectionsComm(client);
+		this._positronConnectionsComm = new PositronConnectionsComm(client, {
+			// No timeout for listing or previewing objects
+			list_objects: { timeout: undefined },
+			preview_object: { timeout: undefined },
+		});
 		this._register(this._positronConnectionsComm);
 	}
 
