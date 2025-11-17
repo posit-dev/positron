@@ -80,7 +80,13 @@ jobs:
     name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
-    timeout-minutes: 120
+
+    # Use pre-built Docker image with all dependencies
+    container:
+      image: ghcr.io/posit-dev/positron-windows2022-amd64:1
+      options: --isolation process
+
+    timeout-minutes: 90  # Reduced from 120 due to faster setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -109,22 +115,29 @@ jobs:
         run: |
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
+      # ========================================================================
+      # All tools pre-installed in Docker image:
+      # - Node.js 22.19.0
+      # - Python 3.10.10, 3.13.0, 3.12.10 (with packages)
+      # - R 4.4.0, 4.4.2, 4.4.1 (with packages)
+      # - Quarto + TinyTeX
+      # - Git, Graphviz, UV
+      # ========================================================================
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"
         shell: bash
 
-      - name: Install System Level Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10.10"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+      - name: Verify pre-installed tools
+        shell: pwsh
+        run: |
+          Write-Host "=== Pre-installed Tools ===" -ForegroundColor Cyan
+          Write-Host "Node.js: $(node --version)"
+          Write-Host "Python: $(python --version)"
+          Write-Host "R versions:"
+          rig list
+          Write-Host "Quarto: $(quarto --version)"
+          Write-Host "Git: $(git --version)"
 
       - name: Install node dependencies
         env:
@@ -132,17 +145,32 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '1'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         shell: pwsh
-        # nvm on windows does not see .nvmrc
-        #
-        # the installation of the npm package windows-process-tree is known to fail
-        # intermittently in the Github Actions build environment, so we retry
-        # this step a few times if necessary.
-        #
-        # see https://github.com/posit-dev/positron/issues/3481
+        # Run npm ci commands in parallel for faster installation
+        # Note: extensions/ is handled by root's postinstall script
         run: |
-          .\scripts\run-with-retry.ps1 -maxAttempts 5 -command "npm clean-install --fetch-timeout 120000"
-          npm --prefix test/e2e ci
+          # Run npm ci commands in parallel using PowerShell jobs
+          $jobs = @()
+          $jobs += Start-Job -ScriptBlock { npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 }
+          $jobs += Start-Job -ScriptBlock { npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 }
+          $jobs += Start-Job -ScriptBlock { npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 }
+          $jobs += Start-Job -ScriptBlock { npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000 }
+
+          # Wait for all jobs and check for failures
+          $jobs | Wait-Job | Receive-Job
+          $failed = $jobs | Where-Object { $_.State -eq 'Failed' }
+
+          if ($failed) {
+            Write-Error "One or more npm ci commands failed"
+            exit 1
+          }
+
+          Write-Host "All npm ci commands completed successfully"
 
       - name: Compile and Download
         run: npm exec -- npm-run-all --max-old-space-size=8192 -lp compile "electron x64" playwright-install
@@ -154,60 +182,6 @@ jobs:
       - name: Compile E2E Tests
         run: |
           npm --prefix test/e2e run compile
-
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install trcli
-
-      # Alternate python version
-      - name: Install Python 3.13.0
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13.0"
-
-      # Ensure Python 3.13.0 is used and only install ipykernel
-      - name: Install ipykernel for Python 3.13.0
-        run: |
-          python --version  # Verify it's 3.13.0
-          python -m pip install --upgrade pip
-          python -m pip install ipykernel
-
-      # Install rig (R Installation Manager)
-      - name: Install rig
-        run: |
-          choco install rig
-
-      # Install R 4.4.0 using rig
-      - name: Install R 4.4.0
-        run: |
-          rig add 4.4.0
-          rig default 4.4.0
-          rig ls
-
-      - name: Install R packages for 4.4.0
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "install.packages('pak')"
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
-
-      # Install R 4.4.2 using rig
-      - name: Install R 4.4.2
-        run: |
-          rig add 4.4.2
-          rig ls
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
-
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tinytex: true
 
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v5
