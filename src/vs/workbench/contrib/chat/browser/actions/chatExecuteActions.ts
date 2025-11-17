@@ -642,6 +642,10 @@ export class CreateRemoteAgentJobAction extends Action2 {
 					group: 'navigation',
 					order: 3.4,
 					when: ContextKeyExpr.and(
+						// --- Start Positron ---
+						// Never enable this action in Positron
+						ContextKeyExpr.false(),
+						// --- End Positron ---
 						ContextKeyExpr.or(
 							ChatContextKeys.hasRemoteCodingAgent,
 							ChatContextKeys.hasCloudButtonV2
