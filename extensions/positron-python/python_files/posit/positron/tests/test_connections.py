@@ -44,7 +44,7 @@ except ImportError:
     HAS_DATABRICKS = False
 
 try:
-    from google.cloud import bigquery
+    import google.cloud.bigquery
 
     HAS_GOOGLE_BIGQUERY = True
 except ImportError:
@@ -114,7 +114,7 @@ def get_bigquery_connection(project: str = "bigquery-public-data"):
     if not HAS_GOOGLE_BIGQUERY:
         pytest.skip("Google BigQuery not available")
 
-    return bigquery.Client(project=project)
+    return google.cloud.bigquery.Client(project=project)
 
 
 def get_sqlite_connections():
