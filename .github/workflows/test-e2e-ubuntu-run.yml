@@ -353,7 +353,7 @@ jobs:
     name: ${{ inputs.display_name }}
     if: ${{ !cancelled() }}
     needs: [e2e-ubuntu-run]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4x
     steps:
       - uses: actions/checkout@v4
 
