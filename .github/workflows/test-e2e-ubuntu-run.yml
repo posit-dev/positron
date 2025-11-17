@@ -183,7 +183,8 @@ jobs:
         run: |
           if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
             rm -rf /tmp/qa-example-content-cache || true
-            cp -R /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
+            # Move instead of copy to avoid duplication
+            mv /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
             if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
               echo "✓ Seeded /tmp/qa-example-content-cache"
             fi
@@ -353,7 +354,7 @@ jobs:
     name: ${{ inputs.display_name }}
     if: ${{ !cancelled() }}
     needs: [e2e-ubuntu-run]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4x
     steps:
       - uses: actions/checkout@v4
 
