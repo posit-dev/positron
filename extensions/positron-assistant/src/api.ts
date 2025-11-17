@@ -6,7 +6,8 @@
 import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getAttachedNotebookContext, isStreamingEditsEnabled, ParticipantID } from './participants.js';
+import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
+import { hasAttachedNotebookContext } from './tools/notebookUtils.js';
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
@@ -108,8 +109,8 @@ export class PositronAssistantApi {
 	 *
 	 * @returns The list of enabled tool names.
 	 */
-	public async getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Promise<Array<string>> {
-		return await getEnabledTools(request, tools);
+	public getEnabledTools(request: vscode.ChatRequest, tools: readonly vscode.LanguageModelToolInformation[]): Array<string> {
+		return getEnabledTools(request, tools);
 	}
 
 	/**
@@ -143,10 +144,10 @@ export class PositronAssistantApi {
  *
  * @returns The list of enabled tool names.
  */
-export async function getEnabledTools(
+export function getEnabledTools(
 	request: vscode.ChatRequest,
 	tools: readonly vscode.LanguageModelToolInformation[],
-	positronParticipantId?: string): Promise<Array<string>> {
+	positronParticipantId?: string): Array<string> {
 
 	const enabledTools: Array<string> = [];
 
@@ -174,8 +175,7 @@ export async function getEnabledTools(
 	}
 
 	// Check if a notebook is attached as context and has an active editor
-	const notebookContext = await getAttachedNotebookContext(request);
-	const hasActiveNotebook = !!notebookContext;
+	const hasActiveNotebook = hasAttachedNotebookContext(request);
 
 	// Define more readable variables for filtering.
 	const inChatPane = request.location2 === undefined;

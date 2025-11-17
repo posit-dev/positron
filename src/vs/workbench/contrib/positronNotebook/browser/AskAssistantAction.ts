@@ -1,0 +1,353 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { localize, localize2 } from '../../../../nls.js';
+import { MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IQuickInputService, IQuickPick, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { isCancellationError } from '../../../../base/common/errors.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { CHAT_OPEN_ACTION_ID } from '../../chat/browser/actions/chatActions.js';
+import { ChatModeKind } from '../../chat/common/constants.js';
+import { POSITRON_NOTEBOOK_EDITOR_ID } from '../common/positronNotebookCommon.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { NotebookAction2 } from './NotebookAction2.js';
+
+const ASK_ASSISTANT_ACTION_ID = 'positronNotebook.askAssistant';
+
+/**
+ * Maximum allowed length for custom prompts in characters.
+ * Set to 15,000 characters (approximately 2-3 pages of text) to prevent abuse
+ * while still allowing legitimate use cases.
+ */
+const MAX_CUSTOM_PROMPT_LENGTH = 15000;
+
+/**
+ * Interface for quick pick items that represent assistant prompt options
+ */
+interface PromptQuickPickItem extends IQuickPickItem {
+	query: string;
+	mode: ChatModeKind;
+	/** Flag to indicate this item should trigger AI suggestion generation */
+	generateSuggestions?: boolean;
+}
+
+/**
+ * Predefined prompt options for the assistant quick pick
+ */
+const ASSISTANT_PREDEFINED_ACTIONS: PromptQuickPickItem[] = [
+	{
+		label: localize('positronNotebook.assistant.prompt.explain', 'Explain this notebook'),
+		detail: localize('positronNotebook.assistant.prompt.explain.detail', 'Summarize what this notebook does and how it works'),
+		query: 'Explain this notebook: 1) Summarize the overall purpose and what it accomplishes, 2) Describe the key steps or workflow, 3) Highlight important code sections or techniques used, 4) Note any assumptions or prerequisites',
+		mode: ChatModeKind.Ask,
+		iconClass: ThemeIcon.asClassName(Codicon.book)
+	},
+	{
+		label: localize('positronNotebook.assistant.prompt.fix', 'Fix errors and issues'),
+		detail: localize('positronNotebook.assistant.prompt.fix.detail', 'Debug problems in notebook and suggest improvements'),
+		query: 'Fix issues in the notebook: 1) Identify and resolve any errors or warnings, 2) Explain what was wrong and why it occurred, 3) Suggest code quality improvements if applicable, 4) Provide corrected code following best practices',
+		mode: ChatModeKind.Edit,
+		iconClass: ThemeIcon.asClassName(Codicon.wrench)
+	},
+	{
+		label: localize('positronNotebook.assistant.prompt.improve', 'Improve this notebook'),
+		detail: localize('positronNotebook.assistant.prompt.improve.detail', 'Add documentation, organize structure, and enhance readability'),
+		query: 'Improve this notebook: 1) Add markdown documentation explaining what the notebook does, 2) Add comments to complex code sections, 3) Organize cells into logical sections, 4) Remove redundant code or cells, 5) Suggest structural improvements for clarity',
+		mode: ChatModeKind.Edit,
+		iconClass: ThemeIcon.asClassName(Codicon.edit)
+	},
+	{
+		label: localize('positronNotebook.assistant.prompt.suggest', 'Suggest next steps'),
+		detail: localize('positronNotebook.assistant.prompt.suggest.detail', 'Get AI recommendations for what to do next'),
+		query: 'Analyze this notebook and suggest next steps: 1) Assess what\'s been accomplished so far, 2) Identify what\'s incomplete or missing (analysis, validation, documentation, error handling), 3) Recommend 3-4 specific next actions with reasoning, 4) Flag any potential issues or improvements',
+		mode: ChatModeKind.Agent,
+		iconClass: ThemeIcon.asClassName(Codicon.lightbulbAutofix)
+	},
+	{
+		label: localize('positronNotebook.assistant.prompt.generateSuggestions', 'Generate AI suggestions...'),
+		detail: localize('positronNotebook.assistant.prompt.generateSuggestions.detail', 'Let AI analyze your notebook and suggest relevant actions'),
+		query: '', // Will be generated by AI
+		mode: ChatModeKind.Agent,
+		iconClass: ThemeIcon.asClassName(Codicon.sparkle),
+		generateSuggestions: true
+	}
+];
+
+/**
+ * Action that opens the assistant chat with predefined prompt options for the notebook.
+ * Users can select a predefined prompt or type their own custom prompt.
+ */
+export class AskAssistantAction extends NotebookAction2 {
+	constructor() {
+		super({
+			id: ASK_ASSISTANT_ACTION_ID,
+			title: localize2('askAssistant', 'Ask Assistant'),
+			tooltip: localize2('askAssistant.tooltip', 'Ask the assistant about this notebook'),
+			icon: ThemeIcon.fromId('positron-assistant'),
+			f1: true,
+			category: localize2('positronNotebook.category', 'Notebook'),
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: 'navigation',
+				order: 50,
+				when: ContextKeyExpr.and(
+					ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+					ContextKeyExpr.has('config.positron.assistant.notebookMode.enable')
+				)
+			}
+		});
+	}
+
+	override async runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Create cancellation token source for AI generation requests (In case
+		// the user closes the quick pick before the suggestions are generated)
+		const cancellationTokenSource = new CancellationTokenSource();
+
+		// Create and configure the quick pick (items can include separators)
+		const quickPick = quickInputService.createQuickPick<PromptQuickPickItem>({ useSeparators: true });
+		quickPick.title = localize('positronNotebook.assistant.quickPick.title', 'Assistant');
+		quickPick.description = localize(
+			'positronNotebook.assistant.quickPick.description',
+			'Type your own prompt or select one of the options below.'
+		);
+		quickPick.placeholder = localize('positronNotebook.assistant.quickPick.placeholder', 'Type your prompt...');
+		quickPick.items = ASSISTANT_PREDEFINED_ACTIONS;
+		quickPick.canSelectMany = false;
+
+		// Create a disposable store to track event listener disposables
+		const disposables = new DisposableStore();
+
+		// Handle accept with veto pattern for AI generation and custom prompt validation
+		disposables.add(quickPick.onWillAccept((e) => {
+			const selected = quickPick.selectedItems[0];
+
+			// Check if "Generate AI suggestions" was selected (type guard for PromptQuickPickItem)
+			if (selected && 'generateSuggestions' in selected && selected.generateSuggestions) {
+				e.veto(); // Prevent the quick pick from closing
+
+				// Generate suggestions and update the quick pick in place
+				this.handleGenerateSuggestions(
+					quickPick,
+					notebook,
+					commandService,
+					notificationService,
+					cancellationTokenSource.token
+				).catch(() => {
+					// Reset state on error (handleGenerateSuggestions already handles item cleanup)
+					quickPick.busy = false;
+					quickPick.enabled = true;
+					quickPick.placeholder = localize('positronNotebook.assistant.quickPick.placeholder', 'Type your prompt...');
+					// Ensure items are restored if handleGenerateSuggestions didn't complete
+					if (quickPick.items.length === 0 || (quickPick.items[0] as PromptQuickPickItem).pickable === false) {
+						quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+					}
+				});
+				return;
+			}
+
+			const customValue = quickPick.value.trim();
+
+			// Validate custom prompt length if no predefined item is selected
+			if (!selected && customValue && customValue.length > MAX_CUSTOM_PROMPT_LENGTH) {
+				e.veto(); // Prevent the quick pick from closing
+				notificationService.error(
+					localize(
+						'positronNotebook.assistant.prompt.tooLong',
+						'Custom prompt is too long. Maximum length is {0} characters. Please shorten your prompt or switch to the chat pane directly.',
+						MAX_CUSTOM_PROMPT_LENGTH
+					)
+				);
+			}
+		}));
+
+		// Wait for user selection or custom input
+		const result = await new Promise<PromptQuickPickItem | undefined>((resolve) => {
+			disposables.add(quickPick.onDidAccept(() => {
+				// Check if a predefined item was selected
+				const selected = quickPick.selectedItems[0];
+				const customValue = quickPick.value.trim();
+
+				if (selected) {
+					// User selected a predefined prompt item
+					resolve(selected);
+				} else if (customValue) {
+					// User typed a custom prompt - create a temporary item with their input
+					// Default to 'agent' mode for custom prompts
+					const customItem: PromptQuickPickItem = {
+						label: customValue,
+						query: customValue,
+						mode: ChatModeKind.Agent
+					};
+					resolve(customItem);
+				} else {
+					// No selection and no input
+					resolve(undefined);
+				}
+				disposables.dispose();
+				quickPick.dispose();
+			}));
+
+			quickPick.show();
+
+			disposables.add(quickPick.onDidHide(() => {
+				// Cancel any ongoing AI generation when the quick pick is hidden
+				cancellationTokenSource.cancel();
+				cancellationTokenSource.dispose();
+				disposables.dispose();
+				quickPick.dispose();
+				resolve(undefined);
+			}));
+		});
+
+		cancellationTokenSource.dispose();
+
+		// If user selected an item or typed a custom prompt, execute the chat command
+		if (result) {
+			// Execute the selected/custom prompt (generation suggestions are handled above via veto)
+			try {
+				await commandService.executeCommand(CHAT_OPEN_ACTION_ID, {
+					query: result.query,
+					mode: result.mode
+				});
+			} catch (error) {
+				notificationService.error(
+					localize(
+						'positronNotebook.assistant.error',
+						'Failed to open assistant chat: {0}',
+						error instanceof Error ? error.message : String(error)
+					)
+				);
+			}
+		}
+	}
+
+	/**
+	 * Handle AI-generated suggestion generation for the notebook.
+	 *
+	 * This method updates the quick pick in place to show a loading state, then calls
+	 * the extension command to generate AI suggestions based on the notebook context.
+	 * The generated suggestions are displayed in the quick pick below the predefined actions.
+	 *
+	 * If cancellation is requested (e.g., user closes the quick pick), the request is
+	 * cancelled and the quick pick is restored to its original state without showing
+	 * error notifications.
+	 *
+	 * @param quickPick The quick pick instance to update with generated suggestions
+	 * @param notebook The active notebook instance to analyze for suggestions
+	 * @param commandService Service for executing extension commands
+	 * @param notificationService Service for displaying notifications to the user
+	 * @param token Cancellation token that will be cancelled if the user closes the quick pick.
+	 *              The extension command uses this token to cancel ongoing LLM requests.
+	 * @returns Promise that resolves when suggestions are generated or cancelled
+	 */
+	private async handleGenerateSuggestions(
+		quickPick: IQuickPick<PromptQuickPickItem, { useSeparators: true }>,
+		notebook: IPositronNotebookInstance,
+		commandService: ICommandService,
+		notificationService: INotificationService,
+		token: CancellationToken
+	): Promise<void> {
+		// Create a loading item with animated spinner icon
+		const loadingItem: PromptQuickPickItem = {
+			label: localize('positronNotebook.assistant.generating.label', 'Generating AI suggestions...'),
+			query: '', // Empty query since this is not selectable
+			mode: ChatModeKind.Agent,
+			iconClass: ThemeIcon.asClassName(ThemeIcon.modify(Codicon.loading, 'spin')),
+			pickable: false // Prevent selection of the loading item
+		};
+
+		// Update quick pick to show loading state
+		quickPick.busy = true;
+		quickPick.enabled = false;
+		quickPick.placeholder = localize('positronNotebook.assistant.generating.placeholder', 'Generating AI suggestions...');
+
+		// Add loading item in the AI-generated suggestions section (beneath predefined items)
+		const separator: IQuickPickSeparator = {
+			type: 'separator',
+			label: localize('positronNotebook.assistant.aiSuggestions', 'AI-Generated Suggestions')
+		};
+
+		quickPick.items = [
+			...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
+			separator,
+			loadingItem
+		];
+
+		try {
+			// Call extension command to generate suggestions
+			const suggestions = await commandService.executeCommand<PromptQuickPickItem[]>(
+				'positron-assistant.generateNotebookSuggestions',
+				notebook.uri.toString(),
+				token
+			);
+
+			// Check if cancellation was requested during the call
+			// The extension may return an empty array instead of throwing on cancellation
+			if (token.isCancellationRequested) {
+				// Remove loading item and separator, restore original items
+				quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+				return;
+			}
+
+			if (!suggestions || suggestions.length === 0) {
+				notificationService.info(
+					localize(
+						'positronNotebook.assistant.noSuggestions',
+						'No suggestions generated. Try selecting cells or executing code first.'
+					)
+				);
+				// Remove loading item and separator, restore original items
+				quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+				return;
+			}
+
+			// Update quick pick items to show predefined actions first, then AI suggestions below
+			// Replace the loading item with actual suggestions
+			quickPick.items = [
+				...ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions),
+				separator,
+				...suggestions
+			];
+
+			quickPick.placeholder = localize('positronNotebook.assistant.selectAction', 'Select an action');
+
+		} catch (error) {
+			// Don't show error notification for cancellation errors (user closed the pick)
+			if (!isCancellationError(error)) {
+				notificationService.error(
+					localize(
+						'positronNotebook.assistant.generateError',
+						'Failed to generate suggestions: {0}',
+						error instanceof Error ? error.message : String(error)
+					)
+				);
+			}
+			// Remove loading item and separator, restore original items on error
+			quickPick.items = ASSISTANT_PREDEFINED_ACTIONS.filter(item => !item.generateSuggestions);
+		} finally {
+			// Reset busy state
+			quickPick.busy = false;
+			quickPick.enabled = true;
+		}
+	}
+}
+
+registerAction2(AskAssistantAction);
+

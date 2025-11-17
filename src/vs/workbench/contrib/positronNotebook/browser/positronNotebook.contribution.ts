@@ -52,6 +52,8 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { getNotebookInstanceFromActiveEditorPane } from './notebookUtils.js';
 import { ActiveNotebookHasRunningRuntime } from '../../runtimeNotebookKernel/common/activeRuntimeNotebookContextManager.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { NotebookAction2 } from './NotebookAction2.js';
+import './AskAssistantAction.js'; // Register AskAssistantAction
 
 const POSITRON_NOTEBOOK_CATEGORY = localize2('positronNotebook.category', 'Notebook');
 
@@ -336,22 +338,6 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 	PositronNotebookEditorSerializer
 );
 
-/**
- * Base class for notebook-level actions that operate on IPositronNotebookInstance.
- * Automatically gets the active notebook instance and passes it to the _run method.
- */
-abstract class NotebookAction2 extends Action2 {
-	override run(accessor: ServicesAccessor, ...args: any[]): void {
-		const editorService = accessor.get(IEditorService);
-		const activeNotebook = getNotebookInstanceFromActiveEditorPane(editorService);
-		if (!activeNotebook) {
-			return;
-		}
-		this.runNotebookAction(activeNotebook, accessor);
-	}
-
-	protected abstract runNotebookAction(notebook: IPositronNotebookInstance, accessor: ServicesAccessor): any;
-}
 
 //#region Notebook Commands
 registerAction2(class extends NotebookAction2 {
@@ -1322,6 +1308,9 @@ registerAction2(class extends NotebookAction2 {
 	}
 });
 
+// Ask Assistant - Opens assistant chat with prompt options for the notebook
+// Action is defined in AskAssistantAction.ts
+
 // Kernel Status Widget - Shows live kernel connection status at far right of action bar
 // Widget is self-contained: manages its own menu interactions via ActionBarMenuButton
 registerNotebookWidget({
@@ -1347,6 +1336,19 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	submenu: MenuId.PositronNotebookCellContext,
 	title: localize('positronNotebook.menu.editorContext.cell', 'Notebook Cell'),
 	group: '2_notebook',
-	when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+	when: ContextKeyExpr.and(
+		ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+		// Only show these menu items when a notebook editor has focus to
+		// avoid these menu items showing up in other editors, such as the
+		// output panel (which is a monaco editor).
+		ContextKeyExpr.or(
+			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+			// Need to include this context key to ensure the menu shows up
+			// when right-clicking inside a cell editor. This is because the
+			// POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED key gets set to false
+			// when user is editing a cell.
+			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+		)
+	),
 	order: 0
 });

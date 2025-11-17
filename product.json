@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.6.31",
+			"version": "1.6.34",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "056a082d65c00e31f4c76942b1814b7dde6d9b2a0bef47555d1926d8099b8f0b",
+			"sha256": "4d95688030d3921528ddacf7a0cf74a2cd9b9ed8e497546645df16eabcc8c2f2",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -269,8 +269,8 @@
 		},
 		{
 			"name": "posit.shiny",
-			"version": "1.3.1",
-			"sha256sum": "aa7054fb54854408913a55191be78f2ab183cbb8c8294ad41cc74c0a1dfa4b57",
+			"version": "1.3.2",
+			"sha256sum": "c030931ff473103523c5ec167cbadc377737bdaa2ab7a09005fa1cda390cc19a",
 			"repo": "https://github.com/posit-dev/shiny-vscode",
 			"metadata": {
 				"id": "7ffa9a66-85ab-44de-ab80-2eecce45b0fe",
@@ -316,7 +316,8 @@
 		"https://connect.posit.cloud",
 		"https://login.staging.posit.cloud",
 		"https://staging.connect.posit.cloud",
-		"https://posit.co"
+		"https://posit.co",
+		"https://support.posit.co"
 	],
 	"defaultChatAgent": {
 		"extensionId": "positron.positron-assistant",

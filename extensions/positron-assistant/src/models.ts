@@ -848,7 +848,7 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 			model: 'openai-compatible',
 			baseUrl: 'https://localhost:1337/v1',
 			toolCalls: true,
-			completions: true,
+			completions: false,
 		},
 	};
 

@@ -22,6 +22,7 @@ export enum TestTags {
 	APPS = '@:apps',
 	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
+	CATALOG_EXPLORER = '@:catalog-explorer',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
