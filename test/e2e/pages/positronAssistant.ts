@@ -38,7 +38,7 @@ const MODE_DROPDOWN = 'a.action-label[aria-label^="Set Mode"]';
 const MODE_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
 const MODEL_PICKER_DROPDOWN = '.action-item.chat-modelPicker-item .monaco-dropdown .dropdown-label a.action-label[aria-label*="Pick Model"]';
 const MODEL_DROPDOWN_ITEM = '.monaco-list-row[role="menuitemcheckbox"]';
-const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage language models"]';
+const MANAGE_MODELS_ITEM = '.action-widget a.action-label[aria-label="Manage Language Models"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
