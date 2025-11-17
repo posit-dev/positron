@@ -11,6 +11,8 @@ export interface LogEntry {
 	message: string;
 }
 
+export const DIAGNOSTIC_LOG_BUFFER_SIZE = 500;
+
 /**
  * A wrapper around LogOutputChannel that maintains an in-memory circular buffer
  * of recent log entries for diagnostics collection.
@@ -21,7 +23,7 @@ export class BufferedLogOutputChannel implements vscode.LogOutputChannel {
 
 	constructor(
 		private readonly channel: vscode.LogOutputChannel,
-		maxEntries: number = 1000
+		maxEntries: number = DIAGNOSTIC_LOG_BUFFER_SIZE
 	) {
 		this.maxEntries = maxEntries;
 	}
@@ -144,9 +146,9 @@ export class BufferedLogOutputChannel implements vscode.LogOutputChannel {
 	/**
 	 * Format log entries as text for inclusion in diagnostics.
 	 * @param count Number of entries to include (default: 500)
-	 * @param level Minimum log level to include (default: 'debug')
+	 * @param level Minimum log level to include (default: 'trace')
 	 */
-	formatEntriesForDiagnostics(count: number = 500, level: LogEntry['level'] = 'debug'): string {
+	formatEntriesForDiagnostics(count: number = 500, level: LogEntry['level'] = 'trace'): string {
 		const entries = this.getRecentEntries(count, level);
 
 		if (entries.length === 0) {

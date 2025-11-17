@@ -7,7 +7,16 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getStoredModels, getEnabledProviders } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { BufferedLogOutputChannel } from './logBuffer.js';
+import { BufferedLogOutputChannel, DIAGNOSTIC_LOG_BUFFER_SIZE } from './logBuffer.js';
+
+interface ChatExportData {
+	requests?: Array<{
+		response?: {
+			agent?: string;
+		};
+	}>;
+	initialLocation?: string;
+}
 
 /**
  * Check if a value is an empty array or object that matches the default empty array or object.
@@ -112,7 +121,7 @@ function getCopilotChatSettings(): string {
 /**
  * Get information about stored language models and providers.
  */
-async function getModelInfo(context: vscode.ExtensionContext): Promise<string> {
+async function getModelInfo(context: vscode.ExtensionContext, log: BufferedLogOutputChannel): Promise<string> {
 	const storedModels = getStoredModels(context);
 
 	if (storedModels.length === 0) {
@@ -145,8 +154,8 @@ async function getModelInfo(context: vscode.ExtensionContext): Promise<string> {
 			if (apiKey) {
 				fields.push(`	- API Key: Yes`);
 			}
-		} catch {
-			// Ignore errors - don't display anything if we can't check
+		} catch (error) {
+			log.trace(`Failed to check API key for model ${model.id}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 
 		fields.push(
@@ -219,7 +228,7 @@ async function getChatExportInfo(): Promise<string> {
 		}
 
 		// Cast to access internal structure (API returns object type for stability)
-		const chatData = chatExport as any;
+		const chatData = chatExport as ChatExportData;
 
 		if (!chatData.requests || !Array.isArray(chatData.requests)) {
 			return 'Chat session found but data format is unexpected';
@@ -273,7 +282,7 @@ function getExtensionInfo(): string {
  */
 function getAssistantLogs(log: BufferedLogOutputChannel): string {
 	// Passing trace here will only retrieve trace logs if the user has enabled trace logging
-	const logs = log.formatEntriesForDiagnostics(500, 'trace');
+	const logs = log.formatEntriesForDiagnostics(DIAGNOSTIC_LOG_BUFFER_SIZE);
 
 	if (logs === 'No log entries available') {
 		return 'No log entries captured yet. Logs are captured from the moment the extension loads.';
@@ -304,8 +313,7 @@ function getCopilotLogs(): string {
 			return 'Unable to access Copilot Chat logs (log target not initialized)';
 		}
 
-		// LogLevel.Trace = 1 in Copilot Chat's LogLevel enum (Off=0, Trace=1, Debug=2, Info=3, Warning=4, Error=5)
-		const logs = logTarget.formatEntriesForDiagnostics(500, 1);
+		const logs = logTarget.formatEntriesForDiagnostics(DIAGNOSTIC_LOG_BUFFER_SIZE, COPILOT_LOG_LEVEL_TRACE);
 
 		if (logs === 'No log entries available') {
 			return 'No Copilot Chat log entries captured yet';
@@ -327,7 +335,13 @@ export async function generateDiagnosticsContent(context: vscode.ExtensionContex
 	// Header
 	parts.push('# Positron Assistant Diagnostics\n\n');
 	parts.push(`Generated: ${new Date().toISOString()}\n\n`);
-	parts.push('**Note**: This diagnostic report contains configuration details but does not include secrets or API keys. However, please review it before sharing publicly.\n\n');
+	parts.push('**⚠️ Privacy Notice**: This diagnostic report includes:\n');
+	parts.push('- Extension versions and configuration settings\n');
+	parts.push('- Model configurations (including base URLs and model IDs)\n');
+	parts.push('- System information (OS, architecture)\n');
+	parts.push('- Recent log entries\n');
+	parts.push('- Chat session metadata\n\n');
+	parts.push('**The report does NOT include API keys or authentication tokens.** However, base URLs may reveal internal endpoints, and configuration settings might expose security policies. Please review carefully before sharing publicly.\n\n');
 
 	// Extension Information
 	parts.push('## Extension Information\n\n');
@@ -345,7 +359,12 @@ export async function generateDiagnosticsContent(context: vscode.ExtensionContex
 	// Providers
 	parts.push('## Language Model Providers\n\n');
 
-	parts.push('### Enabled Providers (Configuration)\n\n');
+	// Configured Models
+	parts.push('## Configured Providers and Models\n\n');
+	parts.push(await getModelInfo(context, log));
+	parts.push('\n\n');
+
+	parts.push('### Enabled Providers \n\n');
 	try {
 		const enabledProviders = await getEnabledProviders();
 		if (enabledProviders.length === 0) {
@@ -363,11 +382,6 @@ export async function generateDiagnosticsContent(context: vscode.ExtensionContex
 
 	parts.push('### Available Models (VS Code Language Model API)\n\n');
 	parts.push(await getAvailableProviders());
-	parts.push('\n\n');
-
-	// Configured Models
-	parts.push('## Configured Models\n\n');
-	parts.push(await getModelInfo(context));
 	parts.push('\n\n');
 
 	// Active Chat Session

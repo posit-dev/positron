@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { generateDiagnosticsContent } from './diagnostics';
 import { CopilotService } from './copilot';
 import { PositLanguageModel } from './posit';
@@ -97,8 +96,8 @@ async function clearAssistantState(context: vscode.ExtensionContext): Promise<vo
 	for (const model of storedModels) {
 		try {
 			await storage.delete(`apiKey-${model.id}`);
-		} catch {
-			// Ignore errors - key might not exist
+		} catch (error) {
+			log.trace(`Failed to delete API key for model ${model.id}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
@@ -115,8 +114,8 @@ async function clearAssistantState(context: vscode.ExtensionContext): Promise<vo
 	for (const secret of knownSecrets) {
 		try {
 			await storage.delete(secret);
-		} catch {
-			// Ignore errors
+		} catch (error) {
+			log.trace(`Failed to delete secret ${secret}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 }
@@ -203,7 +202,6 @@ export async function resetAssistantState(context: vscode.ExtensionContext): Pro
 
 			// Step 5: Reload window
 			progress.report({ increment: 80, message: vscode.l10n.t('Reloading window...') });
-			await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause
 
 			vscode.window.showInformationMessage(
 				vscode.l10n.t('Assistant state has been reset. The window will now reload.')
