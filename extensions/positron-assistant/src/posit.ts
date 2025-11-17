@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as os from 'os';
 import Anthropic from '@anthropic-ai/sdk';
 import { deleteConfiguration, ModelConfig, SecretStorage } from './config';
 import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
@@ -318,7 +319,15 @@ export class PositLanguageModel implements positron.ai.LanguageModelChatProvider
 			messages: anthropicMessages,
 		};
 
-		const stream = this._anthropicClient.messages.stream(body);
+		// Set user agent in stream options
+		const streamOptions = {
+			headers: {
+				'User-Agent': `Positron/${positron.version}+${positron.buildNumber} (${os.platform()}) ${options.requestInitiator}`,
+				'X-Origin-Application': `Positron ${positron.version}+${positron.buildNumber}`,
+			}
+		};
+
+		const stream = this._anthropicClient.messages.stream(body, streamOptions);
 
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
