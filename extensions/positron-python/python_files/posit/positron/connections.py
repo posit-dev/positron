@@ -577,8 +577,7 @@ class SQLite3Connection(Connection):
             schema = path[0]
             if schema.kind != "schema":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'. Path: {path}"
                 )
 
             # https://www.sqlite.org/schematab.html
@@ -610,7 +609,7 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                f"Path must include a schema and a table/view in this order. Path: {path}"
             )
 
         # https://www.sqlite.org/pragma.html#pragma_table_info
@@ -636,7 +635,7 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                f"Path must include a schema and a table/view in this order. Path: {path}"
             )
 
         sql_string = f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;"
@@ -691,8 +690,7 @@ class SQLAlchemyConnection(Connection):
             schema = path[0]
             if schema.kind != "schema":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a schema, but got '{schema.kind}'. Path: {path}"
                 )
 
             tables = sqlalchemy.inspect(self.conn).get_table_names(schema.name)
@@ -766,14 +764,13 @@ class SQLAlchemyConnection(Connection):
     def _check_table_path(self, path: list[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(
-                f"Invalid path. Length path ({len(path)}) expected to be 2.", f"Path: {path}"
+                f"Invalid path. Length path ({len(path)}) expected to be 2. Path: {path}"
             )
 
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Invalid path. Expected path to contain a schema and a table/view.",
-                f"But got schema.kind={schema.kind} and table.kind={table.kind}",
+                f"Invalid path. Expected path to contain a schema and a table/view. But got schema.kind={schema.kind} and table.kind={table.kind}",
             )
 
 
@@ -817,8 +814,7 @@ class DuckDBConnection(Connection):
             catalog = path[0]
             if catalog.kind != "catalog":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a catalog, but got '{catalog.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a catalog, but got '{catalog.kind}'. Path: {path}"
                 )
 
             res = self.conn.execute(
@@ -838,7 +834,7 @@ class DuckDBConnection(Connection):
             catalog, schema = path
             if catalog.kind != "catalog" or schema.kind != "schema":
                 raise ValueError(
-                    "Path must include a catalog and a schema in this order.", f"Path: {path}"
+                    f"Path must include a catalog and a schema in this order. Path: {path}"
                 )
 
             res = self.conn.execute(
@@ -873,8 +869,7 @@ class DuckDBConnection(Connection):
             or catalog.kind != "catalog"
         ):
             raise ValueError(
-                "Path must include a catalog, a schema and a table/view in this order.",
-                f"Path: {path}",
+                f"Path must include a catalog, a schema and a table/view in this order. Path: {path}"
             )
 
         # Query for column information
@@ -903,8 +898,7 @@ class DuckDBConnection(Connection):
             or catalog.kind != "catalog"
         ):
             raise ValueError(
-                "Path must include a catalog, a schema and a table/view in this order.",
-                f"Path: {path}",
+                f"Path must include a catalog, a schema and a table/view in this order. Path: {path}"
             )
 
         # Use DuckDB's native pandas integration via .df() method
@@ -959,8 +953,7 @@ class GoogleBigQueryConnection(Connection):
             dataset = path[0]
             if dataset.kind != "dataset":
                 raise ValueError(
-                    f"Invalid path. Expected it to include a dataset, but got '{dataset.kind}'",
-                    f"Path: {path}",
+                    f"Invalid path. Expected it to include a dataset, but got '{dataset.kind}'. Path: {path}",
                 )
 
             dataset_identifier = self._dataset_identifier(dataset.name)
@@ -1034,15 +1027,13 @@ class GoogleBigQueryConnection(Connection):
     def _validate_table_path(self, path: list[ObjectSchema]) -> tuple[ObjectSchema, ObjectSchema]:
         if len(path) != 2:
             raise ValueError(
-                f"Invalid path. Expected length 2 for dataset/table, but got {len(path)}.",
-                f"Path: {path}",
+                f"Invalid path. Expected length 2 for dataset/table, but got {len(path)}. Path: {path}"
             )
 
         dataset, table = path
         if dataset.kind != "dataset" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a dataset and a table/view in this order.",
-                f"Path: {path}",
+                f"Path must include a dataset and a table/view in this order. Path: {path}"
             )
         return dataset, table
 
@@ -1192,7 +1183,7 @@ class DatabricksConnection(Connection):
         if len(path) == 1:
             catalog = path[0]
             if catalog.kind != "catalog":
-                raise ValueError("Expected catalog on path position 0.", f"Path: {path}")
+                raise ValueError(f"Expected catalog on path position 0.  Path: {path}")
             catalog_ident = self._qualify(catalog.name)
             rows = self._query(f"SHOW SCHEMAS IN {catalog_ident};")
             return [
@@ -1209,7 +1200,7 @@ class DatabricksConnection(Connection):
             catalog, schema = path
             if catalog.kind != "catalog" or schema.kind != "schema":
                 raise ValueError(
-                    "Expected catalog and schema objects at positions 0 and 1.", f"Path: {path}"
+                    f"Expected catalog and schema objects at positions 0 and 1. Path: {path}"
                 )
             location = f"{self._qualify(catalog.name)}.{self._qualify(schema.name)}"
 
@@ -1254,8 +1245,7 @@ class DatabricksConnection(Connection):
             or table.kind not in ("table", "view")
         ):
             raise ValueError(
-                "Expected catalog, schema, and table/view kinds in the path.",
-                f"Path: {path}",
+                f"Expected catalog, schema, and table/view kinds in the path. Path: {path}",
             )
 
         identifier = ".".join(
@@ -1283,8 +1273,7 @@ class DatabricksConnection(Connection):
             or table.kind not in ("table", "view")
         ):
             raise ValueError(
-                "Expected catalog, schema, and table/view kinds in the path.",
-                f"Path: {path}",
+                f"Expected catalog, schema, and table/view kinds in the path. Path: {path}",
             )
 
         identifier = ".".join(
