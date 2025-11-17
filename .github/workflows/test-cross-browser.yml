@@ -51,7 +51,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
-      display_name: "firefox (ubuntu)"
+      display_name: "firefox"
       project: "e2e-firefox"
       report_currents: false
       allow_soft_fail: false
@@ -65,7 +65,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
-      display_name: "webkit (ubuntu)"
+      display_name: "webkit"
       project: "e2e-webkit"
       report_currents: false
       allow_soft_fail: false
@@ -79,7 +79,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
-      display_name: "edge (ubuntu)"
+      display_name: "edge"
       project: "e2e-edge"
       report_currents: false
       allow_soft_fail: false
