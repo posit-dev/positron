@@ -43,6 +43,14 @@ try:
 except ImportError:
     HAS_DATABRICKS = False
 
+try:
+    from google.cloud import bigquery
+
+    HAS_GOOGLE_BIGQUERY = True
+except ImportError:
+    HAS_GOOGLE_BIGQUERY = False
+
+
 from positron.access_keys import encode_access_key
 from positron.connections import ConnectionsService
 
@@ -100,6 +108,13 @@ def get_databricks_connection():
         http_path=os.environ["DATABRICKS_HTTP_PATH"],
         access_token=os.environ["DATABRICKS_ACCESS_TOKEN"],
     )
+
+
+def get_bigquery_connection(project: str = "bigquery-public-data"):
+    if not HAS_GOOGLE_BIGQUERY:
+        pytest.skip("Google BigQuery not available")
+
+    return bigquery.Client(project=project)
 
 
 def get_sqlite_connections():
@@ -326,6 +341,115 @@ class TestDuckDBConnectionsService:
         )
         dummy_comm.handle_msg(msg)
         # cleanup the data_explorer state, so we don't break its own tests
+        connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is None
+
+
+@pytest.mark.skipif(not HAS_GOOGLE_BIGQUERY, reason="Google BigQuery not available")
+class TestGoogleBigQueryConnectionsService:
+    PROJECT_NAME = "bigquery-public-data"
+    DATASET_NAME = "usa_names"
+    TABLE_NAME = "usa_1910_2013"
+
+    def _dataset_path(self):
+        return [{"kind": "dataset", "name": self.DATASET_NAME}]
+
+    def _table_path(self):
+        return [*self._dataset_path(), {"kind": "table", "name": self.TABLE_NAME}]
+
+    def _resolve_path(self, kind: str):
+        if kind == "root":
+            return []
+        if kind == "dataset":
+            return self._dataset_path()
+        if kind == "table":
+            return self._table_path()
+        raise ValueError(f"Unknown path kind: {kind}")
+
+    def _open_comm(self, connections_service: ConnectionsService):
+        con = get_bigquery_connection(self.PROJECT_NAME)
+        comm_id = connections_service.register_connection(con)
+        dummy_comm = DummyComm(TARGET_NAME, comm_id=comm_id)
+        connections_service.on_comm_open(dummy_comm)
+        dummy_comm.messages.clear()
+        return dummy_comm, comm_id
+
+    def test_register_connection(self, connections_service: ConnectionsService):
+        con = get_bigquery_connection(self.PROJECT_NAME)
+        comm_id = connections_service.register_connection(con)
+        assert comm_id in connections_service.comms
+
+    @pytest.mark.parametrize(
+        ("path_kind", "expected"),
+        [
+            pytest.param("root", False, id="root"),
+            pytest.param("dataset", False, id="dataset"),
+            pytest.param("table", True, id="table"),
+        ],
+    )
+    def test_contains_data(
+        self, connections_service: ConnectionsService, path_kind: str, expected: bool
+    ):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._resolve_path(path_kind)
+
+        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        assert result is expected
+
+    @pytest.mark.parametrize(
+        ("path_kind", "expected"),
+        [
+            pytest.param("root", "data:image", id="root"),
+            pytest.param("dataset", "", id="dataset"),
+            pytest.param("table", "", id="table"),
+        ],
+    )
+    def test_get_icon(self, connections_service: ConnectionsService, path_kind: str, expected: str):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._resolve_path(path_kind)
+
+        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        if expected:
+            assert expected in result
+        else:
+            assert result == ""
+
+    @pytest.mark.parametrize("path_kind", ["root", "dataset"])
+    def test_list_objects(self, connections_service: ConnectionsService, path_kind: str):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._resolve_path(path_kind)
+
+        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        names = [item["name"] for item in result]
+        expected_contains = self.DATASET_NAME if path_kind == "root" else self.TABLE_NAME
+        assert expected_contains in names
+
+    def test_list_fields(self, connections_service: ConnectionsService):
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._table_path()
+
+        msg = _make_msg(params={"path": path}, method="list_fields", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
+        result = dummy_comm.messages[0]["data"]["result"]
+        field_names = [field["name"] for field in result]
+        for expected_field in ["name", "gender", "state", "year", "number"]:
+            assert expected_field in field_names
+
+    def test_preview_object(self, connections_service: ConnectionsService):
+        pytest.importorskip("db_dtypes", reason="db-dtypes not installed")
+
+        dummy_comm, comm_id = self._open_comm(connections_service)
+        path = self._table_path()
+
+        msg = _make_msg(params={"path": path}, method="preview_object", comm_id=comm_id)
+        dummy_comm.handle_msg(msg)
         connections_service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
         result = dummy_comm.messages[0]["data"]["result"]
         assert result is None
