@@ -1,6 +1,6 @@
 duckdb
 fastcore
-geopandas
+geopandas; python_version < '3.14'
 haystack-ai
 holoviews
 hvplot
