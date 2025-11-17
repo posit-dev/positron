@@ -82,7 +82,7 @@ permissions:
 jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }}-${{ matrix.shard }}
-    timeout-minutes: 50
+    timeout-minutes: 45
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
@@ -362,7 +362,7 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install dependencies
+      - name: Install jq for JSON parsing
         run: |
           # Install jq for parsing .last-run.json
           sudo apt-get update && sudo apt-get install -y jq

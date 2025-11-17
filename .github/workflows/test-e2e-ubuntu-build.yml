@@ -9,8 +9,8 @@ permissions:
   packages: read
 
 jobs:
-  build-app:
-    name: build-app
+  build:
+    name: build
     timeout-minutes: 25
     runs-on: ubuntu-latest-8x
     container:

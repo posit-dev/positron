@@ -5,7 +5,6 @@
 
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
-// import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
 import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@currents/playwright';
 
 // Merge Currents Fixtures into CustomTestOptions
@@ -24,8 +23,8 @@ export default defineConfig<ExtendedTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testMatch: '*.test.ts',
-	shardingMode: 'duration-round-robin',
 	// @ts-expect-error shardingMode and lastRunFile added by playwright patch
+	shardingMode: 'duration-round-robin',
 	lastRunFile: `./blob-report/.last-run-${projectName}.json`,
 	testIgnore: [
 		'example.test.ts',
@@ -47,6 +46,7 @@ export default defineConfig<ExtendedTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
+			['@midleman/github-actions-reporter'],
 			['json', { outputFile: jsonOut }],
 			['list'], ['html'], ['blob'],
 			...(process.env.ENABLE_CURRENTS_REPORTER === 'true'
