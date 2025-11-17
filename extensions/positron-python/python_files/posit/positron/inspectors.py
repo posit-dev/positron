@@ -1227,6 +1227,18 @@ class SnowflakeConnectionInspector(BaseConnectionInspector):
         return True
 
 
+class DatabricksConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("databricks.sql.client.Connection",)
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1267,6 +1279,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(DuckDBConnectionInspector.CLASS_QNAME, DuckDBConnectionInspector),
     **dict.fromkeys(IbisDataFrameInspector.CLASS_QNAME, IbisDataFrameInspector),
     **dict.fromkeys(SnowflakeConnectionInspector.CLASS_QNAME, SnowflakeConnectionInspector),
+    **dict.fromkeys(DatabricksConnectionInspector.CLASS_QNAME, DatabricksConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
