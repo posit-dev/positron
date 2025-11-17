@@ -106,5 +106,5 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
-          filter_jobs: "(e2e / ([^0-9]*)$"
+          filter_jobs: "(e2e / ([^0-9]*))$"
           custom_title: "E2E Cross Browser Tests — `main` (commit <https://github.com/posit-dev/positron/commit/${{ github.sha }}|${{ env.SHORT_SHA }}>)"
