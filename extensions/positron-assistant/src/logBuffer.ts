@@ -180,9 +180,9 @@ export class BufferedLogOutputChannel implements vscode.LogOutputChannel {
 		if (args.length === 0) {
 			return message;
 		}
-		// Simple formatting - VS Code handles the actual formatting for the output channel
-		return message + (args.length > 0 ? ' ' + args.map(a =>
+		const formattedArgs = args.map(a =>
 			typeof a === 'object' ? JSON.stringify(a) : String(a)
-		).join(' ') : '');
+		).join(' ');
+		return `${message} ${formattedArgs}`;
 	}
 }

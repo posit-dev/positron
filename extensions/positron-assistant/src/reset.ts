@@ -20,7 +20,8 @@ async function saveDiagnosticsToFile(context: vscode.ExtensionContext): Promise<
 		const content = await generateDiagnosticsContent(context, log);
 
 		// Generate timestamp for filename
-		const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T').join('_').substring(0, 19);
+		const timestamp = new Date().toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
+
 		const filename = `positron-assistant-diagnostics-${timestamp}.md`;
 
 		// Use the extension's global storage URI (in user data directory)
@@ -77,10 +78,11 @@ async function signOutAllProviders(context: vscode.ExtensionContext): Promise<vo
  * Clear all Assistant state from global state and secret storage.
  */
 async function clearAssistantState(context: vscode.ExtensionContext): Promise<void> {
-	// Dispose all registered models
+	const storedModels = getStoredModels(context);
 	disposeModels();
 
 	// Clear global state
+	// TO DO: REVIEW KEYS TO BE MORE SPECIFIC
 	const globalStateKeys = context.globalState.keys();
 	for (const key of globalStateKeys) {
 		if (key.startsWith('positron.assistant') || key.includes('assistant')) {
@@ -90,7 +92,6 @@ async function clearAssistantState(context: vscode.ExtensionContext): Promise<vo
 
 	// Clear secret storage - we need to clear known secret keys
 	const storage = new GlobalSecretStorage(context);
-	const storedModels = getStoredModels(context);
 
 	// Clear API keys for all stored models
 	for (const model of storedModels) {
@@ -141,21 +142,20 @@ async function clearChatHistory(): Promise<void> {
  * Reset all Positron Assistant state.
  *
  * This command:
- * 1. Generates and saves diagnostic information
+ * 1. Optionally generates and saves diagnostic information (user choice)
  * 2. Signs out of all providers (including Copilot)
  * 3. Clears all Assistant state (global state and secrets)
  * 4. Deletes all chat history
  * 5. Reloads the window for a clean start
  */
 export async function resetAssistantState(context: vscode.ExtensionContext): Promise<void> {
-	// Show confirmation dialog
+	// Show confirmation dialog with options
 	const result = await vscode.window.showWarningMessage(
 		vscode.l10n.t('Reset Positron Assistant State'),
 		{
 			modal: true,
 			detail: vscode.l10n.t(
 				'This will:\n' +
-				'• Generate and save diagnostic information\n' +
 				'• Sign out of all language model providers (including Copilot)\n' +
 				'• Clear all Assistant configuration and state\n' +
 				'• Delete all chat history\n' +
@@ -163,13 +163,15 @@ export async function resetAssistantState(context: vscode.ExtensionContext): Pro
 				'This action cannot be undone.'
 			)
 		},
-		vscode.l10n.t('Reset'),
-		vscode.l10n.t('Cancel')
+		vscode.l10n.t('Reset with Diagnostics'),
+		vscode.l10n.t('Reset without Diagnostics')
 	);
 
-	if (result !== vscode.l10n.t('Reset')) {
+	if (result === undefined) {
 		return;
 	}
+
+	const saveDiagnostics = result === vscode.l10n.t('Reset with Diagnostics');
 
 	// Show progress
 	await vscode.window.withProgress(
@@ -179,29 +181,42 @@ export async function resetAssistantState(context: vscode.ExtensionContext): Pro
 			cancellable: false
 		},
 		async (progress) => {
-			// Step 1: Save diagnostics
-			progress.report({ increment: 0, message: vscode.l10n.t('Saving diagnostics...') });
-			const diagnosticsPath = await saveDiagnosticsToFile(context);
-			if (diagnosticsPath) {
-				vscode.window.showInformationMessage(
-					vscode.l10n.t('Diagnostics saved to: {0}', diagnosticsPath)
-				);
+			let currentStep = 0;
+			const stepIncrement = saveDiagnostics ? 20 : 25;
+
+			// Step 1: Save diagnostics (optional)
+			if (saveDiagnostics) {
+				progress.report({ increment: 0, message: vscode.l10n.t('Saving diagnostics...') });
+				const diagnosticsPath = await saveDiagnosticsToFile(context);
+				if (diagnosticsPath) {
+					vscode.window.showInformationMessage(
+						vscode.l10n.t('Diagnostics saved to: {0}', diagnosticsPath)
+					);
+					// Open the diagnostics file so it will be restored after reload
+					const fileUri = vscode.Uri.file(diagnosticsPath);
+					const document = await vscode.workspace.openTextDocument(fileUri);
+					await vscode.window.showTextDocument(document, { preview: false });
+				}
+				currentStep += stepIncrement;
 			}
 
 			// Step 2: Sign out of all providers
-			progress.report({ increment: 20, message: vscode.l10n.t('Signing out of providers...') });
+			progress.report({ increment: currentStep, message: vscode.l10n.t('Signing out of providers...') });
 			await signOutAllProviders(context);
+			currentStep += stepIncrement;
 
 			// Step 3: Clear Assistant state
-			progress.report({ increment: 40, message: vscode.l10n.t('Clearing Assistant state...') });
+			progress.report({ increment: currentStep, message: vscode.l10n.t('Clearing Assistant state...') });
 			await clearAssistantState(context);
+			currentStep += stepIncrement;
 
 			// Step 4: Clear chat history
-			progress.report({ increment: 60, message: vscode.l10n.t('Clearing chat history...') });
+			progress.report({ increment: currentStep, message: vscode.l10n.t('Clearing chat history...') });
 			await clearChatHistory();
+			currentStep += stepIncrement;
 
 			// Step 5: Reload window
-			progress.report({ increment: 80, message: vscode.l10n.t('Reloading window...') });
+			progress.report({ increment: currentStep, message: vscode.l10n.t('Reloading window...') });
 
 			vscode.window.showInformationMessage(
 				vscode.l10n.t('Assistant state has been reset. The window will now reload.')

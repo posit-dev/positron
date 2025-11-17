@@ -313,7 +313,7 @@ function getCopilotLogs(): string {
 			return 'Unable to access Copilot Chat logs (log target not initialized)';
 		}
 
-		const logs = logTarget.formatEntriesForDiagnostics(DIAGNOSTIC_LOG_BUFFER_SIZE, COPILOT_LOG_LEVEL_TRACE);
+		const logs = logTarget.formatEntriesForDiagnostics(DIAGNOSTIC_LOG_BUFFER_SIZE);
 
 		if (logs === 'No log entries available') {
 			return 'No Copilot Chat log entries captured yet';
@@ -335,7 +335,7 @@ export async function generateDiagnosticsContent(context: vscode.ExtensionContex
 	// Header
 	parts.push('# Positron Assistant Diagnostics\n\n');
 	parts.push(`Generated: ${new Date().toISOString()}\n\n`);
-	parts.push('**⚠️ Privacy Notice**: This diagnostic report includes:\n');
+	parts.push('** Privacy Notice**: This diagnostic report includes:\n');
 	parts.push('- Extension versions and configuration settings\n');
 	parts.push('- Model configurations (including base URLs and model IDs)\n');
 	parts.push('- System information (OS, architecture)\n');
