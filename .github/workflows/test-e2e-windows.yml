@@ -148,42 +148,12 @@ jobs:
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         shell: pwsh
-        # Run npm ci commands in parallel for faster installation
-        # Note: extensions/ is handled by root's postinstall script
+        # Note: Root npm ci triggers postinstall.js which installs 60+ extension
+        # directories in parallel when POSITRON_PARALLEL_INSTALL=1 is set.
+        # This reduces extension install time from ~10min to ~2-3min.
         run: |
-          $workDir = Get-Location
-
-          # Run npm ci commands in parallel, each with explicit working directory
-          $jobs = @()
-          $jobs += Start-Job -WorkingDirectory $workDir -ScriptBlock {
-            npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          }
-          $jobs += Start-Job -WorkingDirectory "$workDir\build" -ScriptBlock {
-            npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          }
-          $jobs += Start-Job -WorkingDirectory "$workDir\remote" -ScriptBlock {
-            npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          }
-          $jobs += Start-Job -WorkingDirectory "$workDir\test\e2e" -ScriptBlock {
-            npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          }
-
-          # Wait for all jobs and collect output
-          $jobs | Wait-Job | ForEach-Object {
-            Receive-Job $_
-            if ($_.State -eq 'Failed') {
-              Write-Error "Job failed"
-            }
-            Remove-Job $_
-          }
-
-          # Check if any failed
-          if ($jobs | Where-Object { $_.State -eq 'Failed' }) {
-            Write-Error "One or more npm ci commands failed"
-            exit 1
-          }
-
-          Write-Host "All npm ci commands completed successfully"
+          npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
+          npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
