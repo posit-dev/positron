@@ -19,7 +19,7 @@ import { processMessages, toAIMessage } from './utils';
 import { AmazonBedrockProvider, createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel, DEFAULT_ANTHROPIC_MODEL_MATCH, DEFAULT_ANTHROPIC_MODEL_NAME } from './anthropic';
-import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { DEFAULT_MAX_TOKEN_INPUT, DEFAULT_MAX_TOKEN_OUTPUT, IS_RUNNING_ON_PWB } from './constants.js';
 import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
@@ -1269,26 +1269,26 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
 		// Configure automatically if:
-		// - We are on web, and
+		// - We are on PWB, and
 		// - Bedrock is enabled in settings, and
 		// - If managed credentials are available
 
-		const isWeb = vscode.env.uiKind === vscode.UIKind.Web;
-		if (!isWeb) {
-			return undefined;
+		if (!IS_RUNNING_ON_PWB) {
+			return { signedIn: false };
 		}
 		const bedrockEnabled = await getEnabledProviders().then(providers => providers.includes(AWSLanguageModel.source.provider.id));
 		if (!bedrockEnabled) {
 			return { signedIn: false };
 		}
 
-		const managedCredentialsAvailable = 'AWS_ROLE_ARN' in process.env && 'AWS_WEB_IDENTITY_TOKEN_FILE' in process.env;
-		if (!managedCredentialsAvailable) {
+		// Pull PWB managed credentials from the environment
+		const awsTokenEnv = process.env['AWS_WEB_IDENTITY_TOKEN_FILE'];
+		if (!awsTokenEnv || !awsTokenEnv.includes('posit-workbench')) {
+			// PWB managed credentials not set
 			return { signedIn: false };
 		}
 
-		log.info('Auto-configuring Amazon Bedrock language model with managed credentials.');
-
+		log.info(`[${this.source.provider.displayName}] Auto-configuring with managed credentials.`);
 		return {
 			signedIn: true,
 			// Displayed as "Amazon Bedrock has been automatically
