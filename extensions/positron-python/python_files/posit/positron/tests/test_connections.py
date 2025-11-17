@@ -381,23 +381,21 @@ class TestGoogleBigQueryConnectionsService:
         assert comm_id in connections_service.comms
 
     @pytest.mark.parametrize(
-        ("path_kind", "expected"),
+        ("path_kind"),
         [
-            pytest.param("root", False, id="root"),
-            pytest.param("dataset", False, id="dataset"),
-            pytest.param("table", True, id="table"),
+            pytest.param("root", id="root"),
+            pytest.param("dataset", id="dataset"),
+            pytest.param("table", id="table"),
         ],
     )
-    def test_contains_data(
-        self, connections_service: ConnectionsService, path_kind: str, expected: bool
-    ):
+    def test_contains_data(self, connections_service: ConnectionsService, path_kind: str):
         dummy_comm, comm_id = self._open_comm(connections_service)
         path = self._resolve_path(path_kind)
 
         msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm_id)
         dummy_comm.handle_msg(msg)
         result = dummy_comm.messages[0]["data"]["result"]
-        assert result is expected
+        assert result is (path_kind == "table")
 
     @pytest.mark.parametrize(
         ("path_kind", "expected"),
