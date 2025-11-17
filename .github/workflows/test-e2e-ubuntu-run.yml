@@ -347,7 +347,7 @@ jobs:
 
   merge-reports:
     name: ${{ inputs.display_name || inputs.project || 'merge-reports' }}
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest
     steps:
