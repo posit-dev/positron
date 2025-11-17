@@ -316,9 +316,13 @@ if (true) {
 
 		// Install parents first, then nested directories in parallel
 		(async () => {
-			console.log(`Installing ${parentTasks.length} parent directories first...`);
-			await runBatch(parentTasks, concurrency);
+			// Install parent directories sequentially to avoid native module race conditions
+			// These directories contain complex native addons (node-gyp builds) that can fail
+			// if dependencies aren't fully resolved before compilation starts
+			console.log(`Installing ${parentTasks.length} parent directories sequentially...`);
+			await runBatch(parentTasks, 1); // concurrency=1 for parents
 
+			// Nested directories (extensions) are simpler and can safely run in parallel
 			console.log(`Installing ${nestedTasks.length} nested directories in parallel...`);
 			await runBatch(nestedTasks, concurrency);
 
