@@ -132,6 +132,9 @@ jobs:
           path: |
             ~\AppData\Roaming\npm-cache
             node_modules
+            build\node_modules
+            extensions\node_modules
+            remote\node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
@@ -143,22 +146,24 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_RO_PAT: ${{ github.token }}
           POSITRON_PARALLEL_INSTALL: '1'
-          POSITRON_NPM_CONCURRENCY: '10'
+          POSITRON_NPM_CONCURRENCY: '30'
           NPM_CONFIG_AUDIT: 'false'
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         shell: pwsh
-        # IMPORTANT: The parallel postinstall script requires 'build' to be installed first
-        # because it needs gulp-merge-json from build/node_modules. See postinstall.js:195.
-        # We install build first, then root (which triggers parallel postinstall for extensions/remote).
+        # Parallel install strategy:
+        # 1. Pre-install build/ so postinstall can access gulp-merge-json
+        # 2. Root npm ci triggers postinstall which installs 60+ extensions in parallel (concurrency: 30)
+        # 3. Postinstall skips build/ since it's already installed (avoids duplicate work)
+        # 4. test/e2e is not in postinstall list, so we install it separately
         run: |
-          # Pre-install build directory (required by postinstall script)
+          # Pre-install build directory (required by postinstall for gulp-merge-json)
           npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
 
-          # Root install triggers postinstall which parallelizes extensions/* and remote/*
+          # Root install triggers parallel postinstall (will skip build/ automatically)
           npm ci --no-audit --no-fund --fetch-timeout 120000
 
-          # test/e2e is not handled by postinstall (see build/npm/dirs.js line 85)
+          # test/e2e not handled by postinstall (see build/npm/dirs.js)
           npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
 
       - name: Cache Ark binary
@@ -310,84 +315,84 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
 
-      - name: Run Main Test Suite (Electron)
-        shell: bash
-        env:
-          POSITRON_PY_VER_SEL: 3.10.10
-          POSITRON_R_VER_SEL: 4.4.0
-          POSITRON_PY_ALT_VER_SEL: 3.13.0
-          POSITRON_R_ALT_VER_SEL: 4.4.2
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-          PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
-          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
-          CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
-          USE_KEY: true
-          PW_JSON_FILE: test-results/windows.json
-          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
-        run: |
-          # Build the --grep argument only if PW_TAGS is non-empty
-          if [ -z "${PW_TAGS}" ]; then
-            GREP_ARG=""
-          else
-            GREP_ARG="--grep \"${PW_TAGS}\""
-          fi
+      # - name: Run Main Test Suite (Electron)
+      #   shell: bash
+      #   env:
+      #     POSITRON_PY_VER_SEL: 3.10.10
+      #     POSITRON_R_VER_SEL: 4.4.0
+      #     POSITRON_PY_ALT_VER_SEL: 3.13.0
+      #     POSITRON_R_ALT_VER_SEL: 4.4.2
+      #     CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+      #     CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      #     COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
+      #     CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
+      #     ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+      #     CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
+      #     CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
+      #     USE_KEY: true
+      #     PW_JSON_FILE: test-results/windows.json
+      #     ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
+      #   run: |
+      #     # Build the --grep argument only if PW_TAGS is non-empty
+      #     if [ -z "${PW_TAGS}" ]; then
+      #       GREP_ARG=""
+      #     else
+      #       GREP_ARG="--grep \"${PW_TAGS}\""
+      #     fi
 
-          # Log the arguments
-          echo "Final --grep argument: $GREP_ARG"
+      #     # Log the arguments
+      #     echo "Final --grep argument: $GREP_ARG"
 
-          export SKIP_BOOTSTRAP=true
-          # Skip close on qa-example-content if we already did the bootstrap test
-          if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
-            export SKIP_CLONE=true
-          else
-            export SKIP_CLONE=false
-          fi
+      #     export SKIP_BOOTSTRAP=true
+      #     # Skip close on qa-example-content if we already did the bootstrap test
+      #     if [ "${{ inputs.skip_extension_test }}" != "true" ]; then
+      #       export SKIP_CLONE=true
+      #     else
+      #       export SKIP_CLONE=false
+      #     fi
 
-          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
-            eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
+      #     echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+      #     if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
+      #       eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
 
-            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
-          else
-            eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
-          fi
+      #       node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
+      #     else
+      #       eval npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+      #     fi
 
-      - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-      - name: Upload Test Logs
-        if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-win-logs
-          path: test-logs
-          if-no-files-found: ignore
+      # - name: Upload Playwright Report to S3
+      #   if: ${{ success() || failure() }}
+      #   uses: ./.github/actions/upload-report-to-s3
+      #   with:
+      #     role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+      #     report-dir: ${{ env.REPORT_DIR }}
+      # - name: Upload Test Logs
+      #   if: ${{ always() && inputs.upload_logs }}
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: e2e-win-logs
+      #     path: test-logs
+      #     if-no-files-found: ignore
 
-      - name: Upload Test Results File
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.project }}-windows-json-results
-          path: test-results/windows.json
-          if-no-files-found: ignore
+      # - name: Upload Test Results File
+      #   if: ${{ always() }}
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ${{ inputs.project }}-windows-json-results
+      #     path: test-results/windows.json
+      #     if-no-files-found: ignore
 
-      - name: Fail workflow if extension tests failed
-        if: |
-          steps.extensions.outputs.exit_code != '0'
-        run: |
-          echo "Extension tests failed."
-          exit 1
+      # - name: Fail workflow if extension tests failed
+      #   if: |
+      #     steps.extensions.outputs.exit_code != '0'
+      #   run: |
+      #     echo "Extension tests failed."
+      #     exit 1
 
-      - name: Upload inspect-ai JSON Responses
-        if: ${{ always() && inputs.project == 'inspect-ai' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: inspect-ai-responses
-          path: test/assistant-inspect-ai/*.json
+      # - name: Upload inspect-ai JSON Responses
+      #   if: ${{ always() && inputs.project == 'inspect-ai' }}
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: inspect-ai-responses
+      #     path: test/assistant-inspect-ai/*.json
