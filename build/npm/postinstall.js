@@ -271,15 +271,6 @@ if (true) {
 		for (let dir of dirs) {
 			if (dir === '') continue;
 
-			// Skip directories that already have node_modules installed
-			// This avoids duplicate work when build/ is pre-installed for gulp-merge-json
-			const dirPath = path.join(root, dir);
-			const nodeModulesPath = path.join(dirPath, 'node_modules');
-			if (fs.existsSync(nodeModulesPath)) {
-				console.log(`Skipping ${dir} - already installed`);
-				continue;
-			}
-
 			let opts;
 			if (dir === 'build') {
 				opts = { env: { ...process.env } };
