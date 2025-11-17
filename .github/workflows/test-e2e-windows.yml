@@ -150,9 +150,11 @@ jobs:
         shell: pwsh
         # Note: Root npm ci triggers postinstall.js which installs 60+ extension
         # directories in parallel when POSITRON_PARALLEL_INSTALL=1 is set.
-        # This reduces extension install time from ~10min to ~2-3min.
+        # build, remote, and test/e2e have separate package.json files and must be installed separately.
         run: |
           npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
+          npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
+          npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
           npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
 
       - name: Cache Playwright browsers
