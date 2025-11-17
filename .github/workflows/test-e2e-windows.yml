@@ -148,28 +148,17 @@ jobs:
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         shell: pwsh
-        # The postinstall script should handle build/extensions/remote, but there may be
-        # timing issues on Windows with parallel mode. Install critical directories explicitly
-        # to ensure all dependencies are available before compilation.
+        # IMPORTANT: The parallel postinstall script requires 'build' to be installed first
+        # because it needs gulp-merge-json from build/node_modules. See postinstall.js:195.
+        # We install build first, then root (which triggers parallel postinstall for extensions/remote).
         run: |
-          # Root install triggers postinstall which handles subdirectories
+          # Pre-install build directory (required by postinstall script)
+          npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+
+          # Root install triggers postinstall which parallelizes extensions/* and remote/*
           npm ci --no-audit --no-fund --fetch-timeout 120000
 
-          # Verify critical directories were installed by postinstall
-          if (-not (Test-Path "build\node_modules")) {
-            Write-Host "build/node_modules missing, installing explicitly..."
-            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
-          }
-          if (-not (Test-Path "extensions\node_modules")) {
-            Write-Host "extensions/node_modules missing, installing explicitly..."
-            npm --prefix extensions ci --no-audit --no-fund --fetch-timeout 120000
-          }
-          if (-not (Test-Path "remote\node_modules")) {
-            Write-Host "remote/node_modules missing, installing explicitly..."
-            npm --prefix remote ci --no-audit --no-fund --fetch-timeout 120000
-          }
-
-          # test/e2e is not handled by postinstall (see build/npm/dirs.js)
+          # test/e2e is not handled by postinstall (see build/npm/dirs.js line 85)
           npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
 
       - name: Cache Ark binary
