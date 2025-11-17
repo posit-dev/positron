@@ -67,7 +67,7 @@ export class PlaywrightDriver {
 
 	// --- Start Positron ---
 	// Added customPath parameter to allow specifying a custom path for the trace file
-	async stopTracing(name: string, persist: boolean = false, customPath?: string = ""): Promise<void> {
+	async stopTracing(name?: string, persist: boolean = false, customPath: string = ""): Promise<void> {
 		// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled

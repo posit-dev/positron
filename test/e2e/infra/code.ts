@@ -171,7 +171,7 @@ export class Code {
 
 	// --- Start Positron ---
 	// Add custom path argument.
-	async stopTracing(name?: string, persist: boolean = false, customPath?: string = ""): Promise<void> {
+	async stopTracing(name?: string, persist: boolean = false, customPath: string = ""): Promise<void> {
 		return await this.driver.stopTracing(name, persist, customPath);
 	}
 	// --- End Positron ---
