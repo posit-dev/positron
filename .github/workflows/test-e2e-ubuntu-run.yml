@@ -346,7 +346,7 @@ jobs:
           retention-days: 3
 
   merge-reports:
-    name: ${{ inputs.display_name || inputs.project || 'merge-reports' }}
+    name: ${{ inputs.display_name }}
     if: ${{ !cancelled() }}
     needs: [e2e-ubuntu-run]
     runs-on: ubuntu-latest
