@@ -181,11 +181,11 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		// Commands used to source the current file
-		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
-			sourceCurrentFile(false);
+		vscode.commands.registerCommand('r.sourceCurrentFile', async (resource?: vscode.Uri) => {
+			sourceCurrentFile(false, resource);
 		}),
-		vscode.commands.registerCommand('r.sourceCurrentFileWithEcho', async () => {
-			sourceCurrentFile(true);
+		vscode.commands.registerCommand('r.sourceCurrentFileWithEcho', async (resource?: vscode.Uri) => {
+			sourceCurrentFile(true, resource);
 		}),
 
 		// Command used to source the current file
@@ -351,15 +351,21 @@ async function executeCodeForCommand(pkg: string, code: string) {
 	}
 }
 
-export async function getEditorFilePathForCommand() {
-	// Get the active text editor
-	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		// No editor; nothing to do
-		return;
-	}
+export async function getEditorFilePathForCommand(resource?: vscode.Uri) {
+	let filePath: string | undefined;
 
-	const filePath = editor.document.uri.fsPath;
+	if (resource) {
+		// Use the provided resource URI (from editor action bar button)
+		filePath = resource.fsPath;
+	} else {
+		// Fall back to active text editor (from command palette or other invocations)
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			// No editor; nothing to do
+			return;
+		}
+		filePath = editor.document.uri.fsPath;
+	}
 	if (!filePath) {
 		// File is unsaved; show a warning
 		vscode.window.showWarningMessage('Cannot save untitled file.');
@@ -368,7 +374,16 @@ export async function getEditorFilePathForCommand() {
 
 	// Save the file before executing command to ensure that the contents are
 	// up to date with editor buffer.
-	await vscode.commands.executeCommand('workbench.action.files.save');
+	if (resource) {
+		// Save the specific document
+		const document = await vscode.workspace.openTextDocument(resource);
+		if (document.isDirty) {
+			await document.save();
+		}
+	} else {
+		// Save the active editor
+		await vscode.commands.executeCommand('workbench.action.files.save');
+	}
 
 	// Check to see if the fsPath is an actual path to a file using
 	// the VS Code file system API.
@@ -382,9 +397,9 @@ export async function getEditorFilePathForCommand() {
 	return;
 }
 
-async function sourceCurrentFile(echo: boolean) {
+async function sourceCurrentFile(echo: boolean, resource?: vscode.Uri) {
 	try {
-		const filePath = await getEditorFilePathForCommand();
+		const filePath = await getEditorFilePathForCommand(resource);
 		// In the future, we may want to shorten the path by making it
 		// relative to the current working directory.
 		if (filePath) {

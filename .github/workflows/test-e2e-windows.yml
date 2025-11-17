@@ -87,7 +87,8 @@ jobs:
       AWS_S3_BUCKET: positron-test-reports
       E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
-
+      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
     steps:
       - uses: actions/checkout@v5
         with:

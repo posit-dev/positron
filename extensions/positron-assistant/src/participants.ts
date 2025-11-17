@@ -261,7 +261,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
 		// List of tools for use by the language model.
-		const enabledTools = await getEnabledTools(request, vscode.lm.tools, this.id);
+		const enabledTools = getEnabledTools(request, vscode.lm.tools, this.id);
 		const toolAvailability = new Map(
 			vscode.lm.tools.map(
 				tool => [tool.name as PositronAssistantToolName, enabledTools.includes(tool.name as PositronAssistantToolName)]

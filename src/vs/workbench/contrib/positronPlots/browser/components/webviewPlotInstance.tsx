@@ -36,7 +36,9 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		// the parent view pane is collapsed.
 		if (props.visible) {
 			client.activate().then(() => {
-				client.claim(this);
+				// Pass the element ref so the webview gets the correct window context
+				// (important for auxiliary windows)
+				client.claim(this, webviewRef.current || undefined);
 				setClientIsClaimed(true);
 			});
 		}
