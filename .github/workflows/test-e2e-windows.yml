@@ -148,14 +148,41 @@ jobs:
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         shell: pwsh
-        # Note: Root npm ci triggers postinstall.js which installs 60+ extension
-        # directories in parallel when POSITRON_PARALLEL_INSTALL=1 is set.
-        # build, remote, and test/e2e have separate package.json files and must be installed separately.
+        # Note: Root npm ci triggers postinstall.js which automatically installs
+        # build, extensions (60+ subdirectories in parallel), and remote directories
+        # when POSITRON_PARALLEL_INSTALL=1 is set. Only test/e2e needs separate install.
+        # See build/npm/dirs.js for the complete list.
         run: |
-          npm ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          npm --prefix build ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          npm --prefix remote ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
-          npm --prefix test/e2e ci --prefer-offline --no-audit --no-fund --fetch-timeout 120000
+          npm ci --no-audit --no-fund --fetch-timeout 120000
+          npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
+
+      - name: Cache Ark binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            extensions/positron-r/resources/ark
+            ./ark
+          key: ${{ runner.os }}-ark-${{ hashFiles('extensions/positron-r/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-ark-
+
+      - name: Cache Kallichore binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            extensions/positron-supervisor/resources/kallichore
+            ./kallichore
+          key: ${{ runner.os }}-kallichore-${{ hashFiles('extensions/positron-supervisor/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-kallichore-
+
+      - name: Cache built-in extensions
+        uses: actions/cache@v4
+        with:
+          path: .build/builtInExtensions
+          key: ${{ runner.os }}-builtins-${{ hashFiles('product.json') }}
+          restore-keys: |
+            ${{ runner.os }}-builtins-
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
