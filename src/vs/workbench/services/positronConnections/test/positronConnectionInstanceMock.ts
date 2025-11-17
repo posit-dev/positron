@@ -5,7 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { IPositronConnectionEntry, IPositronConnectionInstance } from '../common/interfaces/positronConnectionsInstance.js';
+import { IPositronConnectionInstance, IPositronConnectionsEntriesChangedEvent } from '../common/interfaces/positronConnectionsInstance.js';
 
 export class TestConnectionInstance extends Disposable implements IPositronConnectionInstance {
 	id: string;
@@ -35,7 +35,7 @@ export class TestConnectionInstance extends Disposable implements IPositronConne
 		return Promise.resolve();
 	}
 
-	onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>();
+	onDidChangeEntriesEmitter = new Emitter<IPositronConnectionsEntriesChangedEvent>();
 	onDidChangeStatusEmitter = new Emitter<boolean>();
 
 	onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
