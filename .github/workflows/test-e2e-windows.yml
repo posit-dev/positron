@@ -148,12 +148,28 @@ jobs:
           NPM_CONFIG_FUND: 'false'
           NPM_CONFIG_UPDATE_NOTIFIER: 'false'
         shell: pwsh
-        # Note: Root npm ci triggers postinstall.js which automatically installs
-        # build, extensions (60+ subdirectories in parallel), and remote directories
-        # when POSITRON_PARALLEL_INSTALL=1 is set. Only test/e2e needs separate install.
-        # See build/npm/dirs.js for the complete list.
+        # The postinstall script should handle build/extensions/remote, but there may be
+        # timing issues on Windows with parallel mode. Install critical directories explicitly
+        # to ensure all dependencies are available before compilation.
         run: |
+          # Root install triggers postinstall which handles subdirectories
           npm ci --no-audit --no-fund --fetch-timeout 120000
+
+          # Verify critical directories were installed by postinstall
+          if (-not (Test-Path "build\node_modules")) {
+            Write-Host "build/node_modules missing, installing explicitly..."
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+          }
+          if (-not (Test-Path "extensions\node_modules")) {
+            Write-Host "extensions/node_modules missing, installing explicitly..."
+            npm --prefix extensions ci --no-audit --no-fund --fetch-timeout 120000
+          }
+          if (-not (Test-Path "remote\node_modules")) {
+            Write-Host "remote/node_modules missing, installing explicitly..."
+            npm --prefix remote ci --no-audit --no-fund --fetch-timeout 120000
+          }
+
+          # test/e2e is not handled by postinstall (see build/npm/dirs.js)
           npm --prefix test/e2e ci --no-audit --no-fund --fetch-timeout 120000
 
       - name: Cache Ark binary
