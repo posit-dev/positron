@@ -1,0 +1,288 @@
+diff --git a/node_modules/playwright/lib/common/config.js b/node_modules/playwright/lib/common/config.js
+index d0b0857..6ff9c91 100644
+--- a/node_modules/playwright/lib/common/config.js
++++ b/node_modules/playwright/lib/common/config.js
+@@ -97,6 +97,8 @@ class FullConfigInternal {
+       workers: resolveWorkers(takeFirst(configCLIOverrides.debug ? 1 : void 0, configCLIOverrides.workers, userConfig.workers, "50%")),
+       webServer: null
+     };
++    this.shardingMode = takeFirst(configCLIOverrides.shardingMode, userConfig.shardingMode, "partition");
++    this.lastRunFile = configCLIOverrides.lastRunFile;
+     for (const key in userConfig) {
+       if (key.startsWith("@"))
+         this.config[key] = userConfig[key];
+diff --git a/node_modules/playwright/lib/common/configLoader.js b/node_modules/playwright/lib/common/configLoader.js
+index a089d48..58704d2 100644
+--- a/node_modules/playwright/lib/common/configLoader.js
++++ b/node_modules/playwright/lib/common/configLoader.js
+@@ -231,6 +231,10 @@ function validateConfig(file, config) {
+     if (!("current" in config.shard) || typeof config.shard.current !== "number" || config.shard.current < 1 || config.shard.current > config.shard.total)
+       throw (0, import_util.errorWithFile)(file, `config.shard.current must be a positive number, not greater than config.shard.total`);
+   }
++  if ("shardingMode" in config && config.shardingMode !== void 0) {
++    if (typeof config.shardingMode !== "string" || !["partition", "round-robin", "duration-round-robin"].includes(config.shardingMode))
++      throw (0, import_util.errorWithFile)(file, `config.shardingMode must be one of "partition", "round-robin" or "duration-round-robin"`);
++  }
+   if ("updateSnapshots" in config && config.updateSnapshots !== void 0) {
+     if (typeof config.updateSnapshots !== "string" || !["all", "changed", "missing", "none"].includes(config.updateSnapshots))
+       throw (0, import_util.errorWithFile)(file, `config.updateSnapshots must be one of "all", "changed", "missing" or "none"`);
+@@ -330,8 +334,8 @@ function resolveConfigFile(configFileOrDirectory) {
+ async function loadConfigFromFile(configFile, overrides, ignoreDeps) {
+   return await loadConfig(resolveConfigLocation(configFile), overrides, ignoreDeps);
+ }
+-async function loadEmptyConfigForMergeReports() {
+-  return await loadConfig({ configDir: process.cwd() });
++async function loadEmptyConfigForMergeReports(overrides) {
++  return await loadConfig({ configDir: process.cwd() }, overrides);
+ }
+ // Annotate the CommonJS export names for ESM import in node:
+ 0 && (module.exports = {
+diff --git a/node_modules/playwright/lib/program.js b/node_modules/playwright/lib/program.js
+index 81cf65f..fb32a9c 100644
+--- a/node_modules/playwright/lib/program.js
++++ b/node_modules/playwright/lib/program.js
+@@ -139,6 +139,7 @@ function addMergeReportsCommand(program3) {
+   });
+   command.option("-c, --config <file>", `Configuration file. Can be used to specify additional configuration for the output report.`);
+   command.option("--reporter <reporter>", `Reporter to use, comma-separated, can be ${import_config.builtInReporters.map((name) => `"${name}"`).join(", ")} (default: "${import_config.defaultReporter}")`);
++  command.option("--last-run-file <file>", `Path to a json file where the last run information is written to (default: test-results/.last-run.json)`);
+   command.addHelpText("afterAll", `
+ Arguments [dir]:
+   Directory containing blob reports.
+@@ -262,7 +263,8 @@ async function runTestServer(opts) {
+ }
+ async function mergeReports(reportDir, opts) {
+   const configFile = opts.config;
+-  const config = configFile ? await (0, import_configLoader.loadConfigFromFile)(configFile) : await (0, import_configLoader.loadEmptyConfigForMergeReports)();
++  const cliOverrides = overridesFromOptions(opts);
++  const config = configFile ? await (0, import_configLoader.loadConfigFromFile)(configFile, cliOverrides) : await (0, import_configLoader.loadEmptyConfigForMergeReports)(cliOverrides);
+   const dir = import_path.default.resolve(process.cwd(), reportDir || "");
+   const dirStat = await import_fs.default.promises.stat(dir).catch((e) => null);
+   if (!dirStat)
+@@ -291,6 +293,8 @@ function overridesFromOptions(options) {
+     retries: options.retries ? parseInt(options.retries, 10) : void 0,
+     reporter: resolveReporterOption(options.reporter),
+     shard: resolveShardOption(options.shard),
++    shardingMode: options.shardingMode ? resolveShardingModeOption(options.shardingMode) : void 0,
++    lastRunFile: options.lastRunFile ? import_path.default.resolve(process.cwd(), options.lastRunFile) : void 0,
+     timeout: options.timeout ? parseInt(options.timeout, 10) : void 0,
+     tsconfig: options.tsconfig ? import_path.default.resolve(process.cwd(), options.tsconfig) : void 0,
+     ignoreSnapshots: options.ignoreSnapshots ? !!options.ignoreSnapshots : void 0,
+@@ -324,6 +328,14 @@ function overridesFromOptions(options) {
+     throw new Error(`--tsconfig "${options.tsconfig}" does not exist`);
+   return overrides;
+ }
++const shardingModes = ["partition", "round-robin", "duration-round-robin"];
++function resolveShardingModeOption(shardingMode) {
++  if (!shardingMode)
++    return void 0;
++  if (!shardingModes.includes(shardingMode))
++    throw new Error(`Unsupported sharding mode "${shardingMode}", must be one of: ${shardingModes.map((mode) => `"${mode}"`).join(", ")}`);
++  return shardingMode;
++}
+ function resolveReporterOption(reporter) {
+   if (!reporter || !reporter.length)
+     return void 0;
+@@ -372,6 +384,7 @@ const testOptions = [
+   ["--headed", { description: `Run tests in headed browsers (default: headless)` }],
+   ["--ignore-snapshots", { description: `Ignore screenshot and snapshot expectations` }],
+   ["--last-failed", { description: `Only re-run the failures` }],
++  ["--last-run-file <file>", { description: `Path to a json file where the last run information is read from and written to (default: test-results/.last-run.json)` }],
+   ["--list", { description: `Collect all the tests and report them, but do not run` }],
+   ["--max-failures <N>", { description: `Stop after the first N failures` }],
+   ["--no-deps", { description: `Do not run project dependencies` }],
+@@ -384,6 +397,7 @@ const testOptions = [
+   ["--reporter <reporter>", { description: `Reporter to use, comma-separated, can be ${import_config.builtInReporters.map((name) => `"${name}"`).join(", ")} (default: "${import_config.defaultReporter}")` }],
+   ["--retries <retries>", { description: `Maximum retry count for flaky tests, zero for no retries (default: no retries)` }],
+   ["--shard <shard>", { description: `Shard tests and execute only the selected shard, specify in the form "current/all", 1-based, for example "3/5"` }],
++  ["--sharding-mode <mode>", { description: `Sharding algorithm to use; "partition", "round-robin" or "duration-round-robin". Defaults to "partition".`, choices: shardingModes }],
+   ["--test-list <file>", { description: `Path to a file containing a list of tests to run. See https://playwright.dev/docs/test-cli for more details.` }],
+   ["--test-list-invert <file>", { description: `Path to a file containing a list of tests to skip. See https://playwright.dev/docs/test-cli for more details.` }],
+   ["--timeout <timeout>", { description: `Specify test timeout threshold in milliseconds, zero for unlimited (default: ${import_config.defaultTimeout})` }],
+diff --git a/node_modules/playwright/lib/reporters/merge.js b/node_modules/playwright/lib/reporters/merge.js
+index 17ee9a9..061d717 100644
+--- a/node_modules/playwright/lib/reporters/merge.js
++++ b/node_modules/playwright/lib/reporters/merge.js
+@@ -40,9 +40,11 @@ var import_stringInternPool = require("../isomorphic/stringInternPool");
+ var import_teleReceiver = require("../isomorphic/teleReceiver");
+ var import_reporters = require("../runner/reporters");
+ var import_util = require("../util");
++var import_lastRun = require("../runner/lastRun");
+ async function createMergedReport(config, dir, reporterDescriptions, rootDirOverride) {
+   const reporters = await (0, import_reporters.createReporters)(config, "merge", false, reporterDescriptions);
+-  const multiplexer = new import_multiplexer.Multiplexer(reporters);
++  const lastRun = new import_lastRun.LastRunReporter(config);
++  const multiplexer = new import_multiplexer.Multiplexer([...reporters, lastRun]);
+   const stringPool = new import_stringInternPool.StringInternPool();
+   let printStatus = () => {
+   };
+diff --git a/node_modules/playwright/lib/runner/lastRun.js b/node_modules/playwright/lib/runner/lastRun.js
+index ee3417c..8e36127 100644
+--- a/node_modules/playwright/lib/runner/lastRun.js
++++ b/node_modules/playwright/lib/runner/lastRun.js
+@@ -37,20 +37,29 @@ var import_projectUtils = require("./projectUtils");
+ class LastRunReporter {
+   constructor(config) {
+     this._config = config;
+-    const [project] = (0, import_projectUtils.filterProjects)(config.projects, config.cliProjectFilter);
+-    if (project)
+-      this._lastRunFile = import_path.default.join(project.project.outputDir, ".last-run.json");
++    if (config.lastRunFile) {
++      this._lastRunFile = config.lastRunFile;
++    } else {
++      const [project] = (0, import_projectUtils.filterProjects)(config.projects, config.cliProjectFilter);
++      if (project)
++        this._lastRunFile = import_path.default.join(project.project.outputDir, ".last-run.json");
++    }
+   }
+-  async filterLastFailed() {
++  async lastRunInfo() {
+     if (!this._lastRunFile)
+       return;
+     try {
+-      const lastRunInfo = JSON.parse(await import_fs.default.promises.readFile(this._lastRunFile, "utf8"));
+-      const failedTestIds = new Set(lastRunInfo.failedTests);
+-      this._config.postShardTestFilters.push((test) => failedTestIds.has(test.id));
++      return JSON.parse(await import_fs.default.promises.readFile(this._lastRunFile, "utf8"));
+     } catch {
+     }
+   }
++  async filterLastFailed() {
++    const lastRunInfo = await this.lastRunInfo();
++    if (!lastRunInfo)
++      return;
++    const failedTestIds = new Set(lastRunInfo.failedTests);
++    this._config.postShardTestFilters.push((test) => failedTestIds.has(test.id));
++  }
+   version() {
+     return "v2";
+   }
+@@ -68,7 +77,14 @@ class LastRunReporter {
+       failedTests: this._suite?.allTests().filter((t) => !t.ok()).map((t) => t.id) || []
+     };
+     await import_fs.default.promises.mkdir(import_path.default.dirname(this._lastRunFile), { recursive: true });
+-    await import_fs.default.promises.writeFile(this._lastRunFile, JSON.stringify(lastRunInfo, void 0, 2));
++    const failedTests = this._suite?.allTests().filter((t) => !t.ok()).map((t) => t.id) || [];
++    const testDurations = this._suite?.allTests().reduce((map, t) => {
++      map[t.id] = t.results.map((r) => r.duration).reduce((a, b) => a + b, 0);
++      return map;
++    }, {});
++    const lastRun = { status: result.status, failedTests, testDurations };
++    const lastRunReport = JSON.stringify(lastRun, void 0, 2);
++    await import_fs.default.promises.writeFile(this._lastRunFile, lastRunReport);
+   }
+ }
+ // Annotate the CommonJS export names for ESM import in node:
+diff --git a/node_modules/playwright/lib/runner/loadUtils.js b/node_modules/playwright/lib/runner/loadUtils.js
+index 9bc0b2a..fe60c06 100644
+--- a/node_modules/playwright/lib/runner/loadUtils.js
++++ b/node_modules/playwright/lib/runner/loadUtils.js
+@@ -161,7 +161,7 @@ async function createRootSuite(testRun, errors, shouldFilterOnly) {
+     for (const projectSuite of rootSuite.suites) {
+       testGroups.push(...(0, import_testGroups.createTestGroups)(projectSuite, config.config.shard.total));
+     }
+-    const testGroupsInThisShard = (0, import_testGroups.filterForShard)(config.config.shard, testGroups);
++    const testGroupsInThisShard = await (0, import_testGroups.filterForShard)(config, testGroups);
+     const testsInThisShard = /* @__PURE__ */ new Set();
+     for (const group of testGroupsInThisShard) {
+       for (const test of group.tests)
+diff --git a/node_modules/playwright/lib/runner/testGroups.js b/node_modules/playwright/lib/runner/testGroups.js
+index 643588d..9861601 100644
+--- a/node_modules/playwright/lib/runner/testGroups.js
++++ b/node_modules/playwright/lib/runner/testGroups.js
+@@ -22,6 +22,7 @@ __export(testGroups_exports, {
+   filterForShard: () => filterForShard
+ });
+ module.exports = __toCommonJS(testGroups_exports);
++var import_lastRun = require("./lastRun");
+ function createTestGroups(projectSuite, expectedParallelism) {
+   const groups = /* @__PURE__ */ new Map();
+   const createGroup = (test) => {
+@@ -92,7 +93,19 @@ function createTestGroups(projectSuite, expectedParallelism) {
+   }
+   return result;
+ }
+-function filterForShard(shard, testGroups) {
++async function filterForShard(config, testGroups) {
++  const mode = config.shardingMode;
++  const shard = config.config.shard;
++  if (mode === "round-robin")
++    return filterForShardRoundRobin(shard, testGroups);
++  if (mode === "duration-round-robin") {
++    const lastRun = new import_lastRun.LastRunReporter(config);
++    const lastRunInfo = await lastRun.lastRunInfo();
++    return filterForShardRoundRobin(shard, testGroups, lastRunInfo);
++  }
++  return filterForShardPartition(shard, testGroups);
++}
++function filterForShardPartition(shard, testGroups) {
+   let shardableTotal = 0;
+   for (const group of testGroups)
+     shardableTotal += group.tests.length;
+@@ -110,6 +123,23 @@ function filterForShard(shard, testGroups) {
+   }
+   return result;
+ }
++function filterForShardRoundRobin(shard, testGroups, lastRunInfo) {
++  const weights = new Array(shard.total).fill(0);
++  const shardSet = new Array(shard.total).fill(0).map(() => /* @__PURE__ */ new Set());
++  const averageDuration = lastRunInfo ? Object.values(lastRunInfo?.testDurations || {}).reduce((a, b) => a + b, 1) / Math.max(1, Object.values(lastRunInfo?.testDurations || {}).length) : 0;
++  const weight = (group) => {
++    if (!lastRunInfo)
++      return group.tests.length;
++    return group.tests.reduce((sum, test) => sum + Math.max(1, lastRunInfo.testDurations?.[test.id] || averageDuration), 0);
++  };
++  const sortedTestGroups = testGroups.slice().sort((a, b) => weight(b) - weight(a));
++  for (const group of sortedTestGroups) {
++    const index = weights.reduce((minIndex, currentLength, currentIndex) => currentLength < weights[minIndex] ? currentIndex : minIndex, 0);
++    weights[index] += weight(group);
++    shardSet[index].add(group);
++  }
++  return shardSet[shard.current - 1];
++}
+ // Annotate the CommonJS export names for ESM import in node:
+ 0 && (module.exports = {
+   createTestGroups,
+diff --git a/node_modules/playwright/types/test.d.ts b/node_modules/playwright/types/test.d.ts
+index 91c168c..b92c0de 100644
+--- a/node_modules/playwright/types/test.d.ts
++++ b/node_modules/playwright/types/test.d.ts
+@@ -1587,7 +1587,7 @@ interface TestConfig<TestArgs = {}, WorkerArgs = {}> {
+   /**
+    * Shard tests and execute only the selected shard. Specify in the one-based form like `{ total: 5, current: 2 }`.
+    *
+-   * Learn more about [parallelism and sharding](https://playwright.dev/docs/test-parallel) with Playwright Test.
++   * Learn more about [parallelism](https://playwright.dev/docs/test-parallel) and [sharding](https://playwright.dev/docs/test-sharding) with Playwright Test.
+    *
+    * **Usage**
+    *
+@@ -1613,6 +1613,21 @@ interface TestConfig<TestArgs = {}, WorkerArgs = {}> {
+     total: number;
+   };
+ 
++  /**
++   * Defines the algorithm to be used for sharding. Defaults to `'partition'`.
++   * - `'partition'` - divide the set of test groups by number of shards. e.g. first half goes to shard 1/2 and
++   *   seconds half to shard 2/2.
++   * - `'round-robin'` - spread test groups to shards in a round-robin way. e.g. loop over test groups and always
++   *   assign to the shard that has the lowest number of tests.
++   * - `'duration-round-robin'` - use duration info from `.last-run.json` to spread test groups to shards in a
++   *   round-robin way. e.g. loop over test groups and always assign to the shard that has the lowest duration of
++   *   tests. new tests which were not present in the last run will use an average duration time. When no
++   *   `.last-run.json` could be found the behavior is identical to `'round-robin'`.
++   *
++   * Learn more about [sharding](https://playwright.dev/docs/test-sharding) with Playwright Test.
++   */
++  shardingMode?: "partition"|"round-robin"|"duration-round-robin";
++
+   /**
+    * **NOTE** Use
+    * [testConfig.snapshotPathTemplate](https://playwright.dev/docs/api/class-testconfig#test-config-snapshot-path-template)
+@@ -6881,6 +6896,7 @@ export interface PlaywrightWorkerOptions {
+   video: VideoMode | /** deprecated */ 'retry-with-video' | { mode: VideoMode, size?: ViewportSize };
+ }
+ 
++export type ShardingMode = Exclude<PlaywrightTestConfig['shardingMode'], undefined>;
+ export type ScreenshotMode = 'off' | 'on' | 'only-on-failure' | 'on-first-failure';
+ export type TraceMode = 'off' | 'on' | 'retain-on-failure' | 'on-first-retry' | 'on-all-retries' | 'retain-on-first-failure';
+ export type VideoMode = 'off' | 'on' | 'retain-on-failure' | 'on-first-retry';
