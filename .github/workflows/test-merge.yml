@@ -25,8 +25,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      shards: 4
-      matrix: '{"shard":[1,2,3,4]}'
+      shards: 2
+      matrix: '{"shard":[1,2]}'
       workers: 2
       allow_soft_fail: true
     secrets: inherit
@@ -54,8 +54,8 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: true
-      shards: 4
-      matrix: '{"shard":[1,2,3,4]}'
+      shards: 2
+      matrix: '{"shard":[1,2]}'
       workers: 2
       allow_soft_fail: true
     secrets: inherit
