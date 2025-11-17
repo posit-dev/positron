@@ -185,7 +185,7 @@ jobs:
           fi
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: "positron-build"
           path: /tmp/artifacts

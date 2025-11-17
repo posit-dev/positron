@@ -279,7 +279,7 @@ jobs:
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ inputs.project }}-logs
           path: test-logs
@@ -287,7 +287,7 @@ jobs:
 
       - name: Upload Test Results File
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ inputs.project }}-ubuntu-json-results
           path: test-results/ubuntu.json
@@ -295,7 +295,7 @@ jobs:
 
       - name: Upload inspect-ai JSON Responses
         if: ${{ always() && inputs.project == 'inspect-ai' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: inspect-ai-responses
           path: test/assistant-inspect-ai/*.json

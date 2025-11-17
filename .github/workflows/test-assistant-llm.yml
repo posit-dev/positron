@@ -101,7 +101,7 @@ jobs:  # to input into inspect-ai-test job below
 
       - name: Upload inspect-ai eval logs
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: inspect-ai-logs
           path: test/assistant-inspect-ai/logs/*
