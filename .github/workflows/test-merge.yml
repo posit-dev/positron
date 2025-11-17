@@ -12,8 +12,6 @@ jobs:
   setup:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
-    with:
-      shards: 4
     secrets: inherit
 
   e2e-electron:
@@ -29,7 +27,7 @@ jobs:
       install_license: false
       upload_logs: false
       shards: 4
-      matrix: ${{ needs.setup.outputs.matrix }}
+      matrix: '{"shard":[1,2,3,4]}'
       workers: 2
       allow_soft_fail: true
     secrets: inherit
@@ -58,7 +56,7 @@ jobs:
       install_license: true
       upload_logs: true
       shards: 4
-      matrix: ${{ needs.setup.outputs.matrix }}
+      matrix: '{"shard":[1,2,3,4]}'
       workers: 2
       allow_soft_fail: true
     secrets: inherit

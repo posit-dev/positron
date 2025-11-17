@@ -1,17 +1,7 @@
 name: "E2E: Build Postiron (Ubuntu)"
 
 on:
-  workflow_call:
-    inputs:
-      shards:
-        required: false
-        description: "Number of shards for test distribution"
-        default: 1
-        type: number
-    outputs:
-      matrix:
-        description: "Matrix configuration for test sharding"
-        value: ${{ jobs.build-matrix.outputs.matrix }}
+  workflow_call: {}
 
 permissions:
   id-token: write
@@ -19,19 +9,6 @@ permissions:
   packages: read
 
 jobs:
-  build-matrix:
-    name: build-matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.mk.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: mk
-        shell: bash
-        run: |
-          matrix=$(bash scripts/generate-test-matrix.sh ${{ inputs.shards }})
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
-
   build-app:
     name: build-app
     timeout-minutes: 25

@@ -40,14 +40,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    name: setup
+  build:
+    name: build
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
   e2e-firefox:
     name: e2e
-    needs: [setup]
+    needs: [build]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
@@ -56,12 +56,12 @@ jobs:
       report_currents: false
       allow_soft_fail: false
       shards: 1
-      matrix: ${{ needs.setup.outputs.matrix }}
+      matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-webkit:
     name: e2e
-    needs: [setup]
+    needs: [build]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
@@ -70,12 +70,12 @@ jobs:
       report_currents: false
       allow_soft_fail: false
       shards: 1
-      matrix: ${{ needs.setup.outputs.matrix }}
+      matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   e2e-edge:
     name: e2e
-    needs: [setup]
+    needs: [build]
     uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
@@ -84,7 +84,7 @@ jobs:
       report_currents: false
       allow_soft_fail: false
       shards: 1
-      matrix: ${{ needs.setup.outputs.matrix }}
+      matrix: '{"shard":[1]}'
       grep: ${{ inputs.grep && inputs.grep || 'search.test' }}
 
   slack-notify:

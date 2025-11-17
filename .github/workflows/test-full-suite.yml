@@ -47,16 +47,6 @@ on:
           - failure
           - always
           - never
-      shards:
-        description: "# Shards (faster → pricier)"
-        required: false
-        type: choice
-        default: '4'
-        options:
-          - '4'
-          - '6'
-          - '8'
-          - '10'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -66,8 +56,6 @@ jobs:
   setup:
     name: setup
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
-    with:
-      shards: ${{ fromJSON(inputs.shards || '4') }}
     secrets: inherit
 
   e2e-electron:
@@ -86,8 +74,8 @@ jobs:
       install_license: false
       allow_soft_fail: false
       upload_logs: false
-      shards: ${{ fromJSON(inputs.shards || '4') }}
-      matrix: ${{ needs.setup.outputs.matrix }}
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
 
   e2e-windows:
     name: e2e
@@ -117,8 +105,8 @@ jobs:
       install_license: true
       allow_soft_fail: false
       upload_logs: false
-      shards: ${{ fromJSON(inputs.shards || '4') }}
-      matrix: ${{ needs.setup.outputs.matrix }}
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
 
   e2e-rhel:
     name: e2e
