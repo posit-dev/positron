@@ -57,6 +57,7 @@ import { ILanguageFeaturesService } from '../../editor/common/services/languageF
 import { ILanguageConfigurationService } from '../../editor/common/languages/languageConfigurationRegistry.js';
 import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
 import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
+import { ITerminalService } from '../../workbench/contrib/terminal/browser/terminal.js';
 
 /**
  * PositronReactServices interface.
@@ -125,6 +126,7 @@ export class PositronReactServices {
 		@IQuickInputService public readonly quickInputService: IQuickInputService,
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService public readonly runtimeStartupService: IRuntimeStartupService,
+		@ITerminalService public readonly terminalService: ITerminalService,
 		@ITextModelService public readonly textModelService: ITextModelService,
 		@IThemeService public readonly themeService: IThemeService,
 		@IViewDescriptorService public readonly viewDescriptorService: IViewDescriptorService,

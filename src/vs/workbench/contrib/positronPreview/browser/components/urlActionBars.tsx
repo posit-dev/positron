@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import React, { PropsWithChildren, useEffect } from 'react';
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
@@ -22,6 +22,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ITerminalInstance } from '../../../terminal/browser/terminal.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -43,6 +44,7 @@ const clear = localize('positron.preview.clear', "Clear the current URL");
 const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
 const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab");
+const interruptExecution = localize('positron.preview.interruptExecution', "Interrupt execution");
 
 /**
  * UrlActionBars component.
@@ -57,6 +59,24 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	const currentUri = props.preview.currentUri;
 
 	const urlInputRef = React.useRef<HTMLInputElement>(null);
+
+	// State hooks for interrupt button
+	const [interruptible, setInterruptible] = useState(false);
+	const [interrupting, setInterrupting] = useState(false);
+	// Track which terminal is running the app displayed in the viewer
+	const [sourceTerminal, setSourceTerminal] = useState<ITerminalInstance | undefined>(undefined);
+
+	// Handler for the interrupt button.
+	const interruptHandler = async () => {
+		// Set the interrupting flag to debounce the button.
+		setInterrupting(true);
+
+		// Send Ctrl+C to the source terminal
+		if (sourceTerminal && sourceTerminal.hasChildProcesses) {
+			// Send Ctrl+C (SIGINT) to the terminal
+			sourceTerminal.sendText('\x03', false);
+		}
+	};
 
 	// Handler for the navigate back button.
 	const navigateBackHandler = () => {
@@ -135,7 +155,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		}
 	};
 
-	// useEffect hook.
+	// useEffect hook for URL navigation updates.
 	useEffect(() => {
 		const disposables = new DisposableStore();
 		disposables.add(props.preview.onDidNavigate(e => {
@@ -163,6 +183,67 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 		}));
 		return () => disposables.dispose();
 	}, [props.preview]);
+
+	// useEffect hook to capture the source terminal when preview content changes.
+	useEffect(() => {
+		// Check if the preview has source information indicating it came from a terminal
+		const source = props.preview.source;
+		if (source && source.type === 'terminal') {
+			// Find the terminal with the matching process ID
+			const terminalId = parseInt(source.id, 10);
+
+			// Search through all terminals to find the one with the matching process ID
+			const terminal = services.terminalService.instances.find(
+				instance => instance.processId === terminalId
+			);
+
+			if (terminal) {
+				setSourceTerminal(terminal);
+				if (terminal.hasChildProcesses) {
+					setInterruptible(true);
+					setInterrupting(false);
+				}
+			}
+		}
+	}, [props.preview, services.terminalService]);
+
+	// useEffect hook to track the source terminal's child process state.
+	useEffect(() => {
+		if (!sourceTerminal) {
+			setInterruptible(false);
+			return;
+		}
+
+		const disposables = new DisposableStore();
+
+		// Set initial state based on source terminal
+		setInterruptible(sourceTerminal.hasChildProcesses);
+		setInterrupting(false);
+
+		// Listen to child process changes on the source terminal
+		disposables.add(
+			sourceTerminal.onDidChangeHasChildProcesses((hasChildProcesses: boolean) => {
+				setInterruptible(hasChildProcesses);
+				// Reset interrupting state when child processes stop
+				if (!hasChildProcesses) {
+					setInterrupting(false);
+					// Clear the source terminal when processes stop
+					setSourceTerminal(undefined);
+				}
+			})
+		);
+
+		// Listen for terminal disposal
+		disposables.add(
+			sourceTerminal.onDisposed(() => {
+				setInterruptible(false);
+				setInterrupting(false);
+				setSourceTerminal(undefined);
+			})
+		);
+
+		return () => disposables.dispose();
+	}, [sourceTerminal]);
 
 	// Render.
 	return (
@@ -193,6 +274,19 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 						</form>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						{interruptible && (
+							<>
+								<ActionBarButton
+									align='right'
+									ariaLabel={interruptExecution}
+									disabled={interrupting}
+									tooltip={interruptExecution}
+									onPressed={interruptHandler}>
+									<div className='action-bar-button-icon interrupt codicon codicon-positron-interrupt-runtime' />
+								</ActionBarButton>
+								<ActionBarSeparator />
+							</>
+						)}
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
