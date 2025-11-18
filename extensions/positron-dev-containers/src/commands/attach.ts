@@ -259,10 +259,11 @@ export async function stopContainer(treeItem?: DevContainerTreeItem): Promise<vo
 			}
 		);
 
-		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' stopped successfully", containerInfo.containerName));
-
 		// Refresh the tree view
 		await vscode.commands.executeCommand('remote-containers.explorerTargetsRefresh');
+
+		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' stopped successfully", containerInfo.containerName));
+
 	} catch (error) {
 		logger.error('Failed to stop container', error);
 		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to stop container: {0}', error));
@@ -355,10 +356,11 @@ export async function removeContainer(treeItem?: DevContainerTreeItem): Promise<
 			}
 		);
 
-		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' removed successfully", containerInfo.containerName));
-
 		// Refresh the tree view
 		await vscode.commands.executeCommand('remote-containers.explorerTargetsRefresh');
+
+		await vscode.window.showInformationMessage(vscode.l10n.t("Container '{0}' removed successfully", containerInfo.containerName));
+
 	} catch (error) {
 		logger.error('Failed to remove container', error);
 		await vscode.window.showErrorMessage(vscode.l10n.t('Failed to remove container: {0}', error));
