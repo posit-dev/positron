@@ -53,11 +53,13 @@ export interface IPositronPreviewService {
 	 * @param previewId The unique ID or handle of the preview.
 	 * @param extension The extension that is opening the URL.
 	 * @param uri The URI to open in the preview.
+	 * @param source Optional source information indicating what opened the preview.
 	 */
 	openUri(
 		previewId: string,
 		extension: WebviewExtensionDescription | undefined,
-		uri: URI): PreviewWebview;
+		uri: URI,
+		source?: { type: string; id: string }): PreviewWebview;
 
 	/**
 	 * Opens an HTML file in the preview pane.

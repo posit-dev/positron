@@ -228,9 +228,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 */
 	private createPreviewUrl(
 		previewId: string,
-		extension: WebviewExtensionDescription | undefined, uri: URI): PreviewUrl {
+		extension: WebviewExtensionDescription | undefined,
+		uri: URI,
+		source?: { type: string; id: string }): PreviewUrl {
 		const overlay = this.createWebview(POSITRON_PREVIEW_URL_VIEW_TYPE, uri, extension);
-		return new PreviewUrl(previewId, overlay, uri);
+		return new PreviewUrl(previewId, overlay, uri, source);
 	}
 
 	/**
@@ -259,8 +261,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	public openUri(
 		previewId: string,
 		extension: WebviewExtensionDescription,
-		uri: URI): PreviewWebview {
-		const preview = this.createPreviewUrl(previewId, extension, uri);
+		uri: URI,
+		source?: { type: string; id: string }): PreviewWebview {
+		const preview = this.createPreviewUrl(previewId, extension, uri, source);
 		this.makeActivePreview(preview);
 		return preview;
 	}
