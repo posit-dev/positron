@@ -101,16 +101,15 @@ class SeparatorRenderer<T> implements IListRenderer<IActionListItem<T>, ISeparat
 	renderTemplate(container: HTMLElement): ISeparatorTemplateData {
 		container.classList.add('separator');
 
-		const text = document.createElement('span');
-		container.append(text);
-
 		// --- Start Positron ---
 		// The upstream separator does not have an icon
-		// return { container, text };
 		const icon = document.createElement('div');
 		icon.className = 'icon';
 		container.append(icon);
+
+		const text = document.createElement('span');
 		text.className = 'separator-label';
+		container.append(text);
 
 		return { container, icon, text };
 		// --- End Positron ---
