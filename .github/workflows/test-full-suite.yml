@@ -53,20 +53,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  setup:
+    name: setup
+    if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
+    uses: ./.github/workflows/test-e2e-ubuntu-build.yml
+    secrets: inherit
+
   e2e-electron:
     name: e2e
+    needs: [setup]
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       grep: ""
       project: "e2e-electron"
-      display_name: "electron (ubuntu)"
+      display_name: "electron"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
       report_currents: false
       install_undetectable_interpreters: true
       install_license: false
       allow_soft_fail: false
+      upload_logs: false
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
 
   e2e-windows:
     name: e2e
@@ -82,18 +93,23 @@ jobs:
 
   e2e-chromium:
     name: e2e
+    needs: [setup]
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
-    uses: ./.github/workflows/test-e2e-ubuntu.yml
+    uses: ./.github/workflows/test-e2e-ubuntu-run.yml
     secrets: inherit
     with:
       grep: ""
       project: "e2e-chromium"
-      display_name: "chromium (ubuntu)"
+      display_name: "chromium"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,chromium/ubuntu' || 'chromium/ubuntu' }}
       report_currents: false
       install_undetectable_interpreters: true
       install_license: true
       allow_soft_fail: false
+      upload_logs: false
+      shards: 4
+      matrix: '{"shard":[1,2,3,4]}'
+      max_failures: 3  # 10 max failures / 4 shards = 2.5, rounded up to 3
 
   e2e-rhel:
     name: e2e
@@ -142,7 +158,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [e2e-electron, e2e-windows, e2e-chromium, unit-tests, integration-tests]
+      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
@@ -150,9 +166,10 @@ jobs:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v3.1.2
+        uses: midleman/slack-workflow-status@v3.1.3
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
+          filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
           notify_on: ${{ env.notify_on }}

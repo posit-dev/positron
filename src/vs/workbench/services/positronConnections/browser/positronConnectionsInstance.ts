@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
-import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionItem, IPositronConnectionEntry } from '../common/interfaces/positronConnectionsInstance.js';
+import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionItem, IPositronConnectionEntry, IPositronConnectionsEntriesChangedEvent } from '../common/interfaces/positronConnectionsInstance.js';
 import { ObjectSchema } from '../../languageRuntime/common/positronConnectionsComm.js';
 import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
@@ -51,9 +51,14 @@ class BaseConnectionsInstance extends Disposable {
 	}
 }
 
+class PositronConnectionsEntriesChangedEvent implements IPositronConnectionsEntriesChangedEvent {
+	entries: IPositronConnectionEntry[] | undefined;
+	error?: Error;
+}
+
 export class PositronConnectionsInstance extends BaseConnectionsInstance implements IPositronConnectionInstance {
 
-	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<IPositronConnectionEntry[]>());
+	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<PositronConnectionsEntriesChangedEvent>());
 	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
 	private readonly onDidChangeStatusEmitter = this._register(new Emitter<boolean>());
@@ -64,7 +69,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
-	private _entries: IPositronConnectionEntry[] = [];
+	private _entries: IPositronConnectionEntry[] | undefined = undefined;
 
 	private _expanded_entries: Set<string> = new Set();
 
@@ -78,7 +83,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 				let icon: string | undefined = await object.getIcon();
 				if (!icon || icon === '') {
 					icon = undefined;
-				} else if (!icon.startsWith("data:image/")) {
+				} else if (!icon.startsWith('data:image/')) {
 					// icon paths starting with data:image/ are assumed to be data URI's
 					// not file paths.
 					icon = FileAccess.uriToBrowserUri(URI.file(icon)).toString();
@@ -123,12 +128,14 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	}
 
 	async refreshEntries() {
+		let error: Error | undefined = undefined;
 		try {
 			this._entries = await flatten_children(await this.getChildren(), this._expanded_entries);
 		} catch (err) {
+			error = err;
 			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
 		}
-		this.onDidChangeEntriesEmitter.fire(this._entries);
+		this.onDidChangeEntriesEmitter.fire({ entries: this._entries, error });
 	}
 
 	readonly kind: string = 'database';
@@ -323,7 +330,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 		return [];
 	}
 
-	onDidChangeEntries: Event<IPositronConnectionEntry[]> = Event.None;
+	onDidChangeEntries: Event<IPositronConnectionsEntriesChangedEvent> = Event.None;
 
 	async refreshEntries() {
 		// Do nothing
@@ -389,6 +396,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		this._name = last_elt.name;
 		this._kind = last_elt.kind;
 		this._dtype = last_elt.dtype;
+		this._has_children = last_elt.has_children;
 	}
 
 	get id() {

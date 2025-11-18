@@ -316,7 +316,8 @@
 		"https://connect.posit.cloud",
 		"https://login.staging.posit.cloud",
 		"https://staging.connect.posit.cloud",
-		"https://posit.co"
+		"https://posit.co",
+		"https://support.posit.co"
 	],
 	"defaultChatAgent": {
 		"extensionId": "positron.positron-assistant",

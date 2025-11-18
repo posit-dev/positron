@@ -1382,6 +1382,19 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 	submenu: MenuId.PositronNotebookCellContext,
 	title: localize('positronNotebook.menu.editorContext.cell', 'Notebook Cell'),
 	group: '2_notebook',
-	when: ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+	when: ContextKeyExpr.and(
+		ContextKeyExpr.equals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+		// Only show these menu items when a notebook editor has focus to
+		// avoid these menu items showing up in other editors, such as the
+		// output panel (which is a monaco editor).
+		ContextKeyExpr.or(
+			POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED,
+			// Need to include this context key to ensure the menu shows up
+			// when right-clicking inside a cell editor. This is because the
+			// POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED key gets set to false
+			// when user is editing a cell.
+			POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED
+		)
+	),
 	order: 0
 });
