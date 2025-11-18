@@ -10,6 +10,7 @@ import { Log, makeLog } from '../spec-utils/log';
 import { Event } from '../spec-utils/event';
 import { escapeRegExCharacters } from '../spec-utils/strings';
 import { delay } from '../spec-common/async';
+import { CommandGenerationContext, GeneratedCommand } from '../spec-node/commandGeneration';
 
 export interface ContainerDetails {
 	Id: string;
@@ -53,6 +54,7 @@ export interface DockerCLIParameters {
 	env: NodeJS.ProcessEnv;
 	output: Log;
 	platformInfo: PlatformInfo;
+	commandGenerationContext?: CommandGenerationContext;
 }
 
 export interface PartialExecParameters {
@@ -83,6 +85,7 @@ interface DockerResolverParameters {
 		cliHost: CLIHost;
 		output: Log;
 	};
+	commandGenerationContext?: CommandGenerationContext;
 }
 
 export interface DockerComposeCLI {
@@ -192,7 +195,7 @@ export async function removeContainer(params: DockerCLIParameters | PartialExecP
 						eventsProcess!.stdout.on('data', () => {
 							resolve();
 							eventsProcess!.terminate();
-							removedSeenP = new Promise(() => {}); // safeguard in case we see the 'removal already in progress' error again
+							removedSeenP = new Promise(() => { }); // safeguard in case we see the 'removal already in progress' error again
 						});
 					});
 				}
@@ -261,6 +264,26 @@ export async function dockerBuildKitVersion(params: DockerCLIParameters | Partia
 
 export async function dockerCLI(params: DockerCLIParameters | PartialExecParameters | DockerResolverParameters, ...args: string[]) {
 	const partial = toExecParameters(params);
+
+	// Check if we're in command generation mode
+	const ctx = 'commandGenerationContext' in params ? params.commandGenerationContext : undefined;
+	if (ctx) {
+		// Generate command instead of executing
+		const command: GeneratedCommand = {
+			command: partial.cmd,
+			args: (partial.args || []).concat(args),
+			description: `Run: ${partial.cmd} ${args.join(' ')}`,
+			env: partial.env,
+		};
+		ctx.addCommand(command);
+		// Return a mock result for command generation mode
+		return {
+			stdout: Buffer.from(''),
+			stderr: Buffer.from(''),
+			cmdOutput: '',
+		};
+	}
+
 	return runCommandNoPty({
 		...partial,
 		args: (partial.args || []).concat(args),
@@ -278,6 +301,26 @@ export async function isPodman(params: PartialExecParameters) {
 
 export async function dockerPtyCLI(params: PartialPtyExecParameters | DockerResolverParameters | DockerCLIParameters, ...args: string[]) {
 	const partial = toPtyExecParameters(params);
+
+	// Check if we're in command generation mode
+	const ctx = 'commandGenerationContext' in params ? params.commandGenerationContext : undefined;
+	if (ctx) {
+		// Generate command instead of executing
+		const command: GeneratedCommand = {
+			command: partial.cmd,
+			args: (partial.args || []).concat(args),
+			description: `Run: ${partial.cmd} ${args.join(' ')}`,
+			env: partial.env,
+		};
+		ctx.addCommand(command);
+		// Return a mock result for command generation mode
+		return {
+			stdout: Buffer.from(''),
+			stderr: Buffer.from(''),
+			cmdOutput: '',
+		};
+	}
+
 	return runCommand({
 		...partial,
 		args: (partial.args || []).concat(args),

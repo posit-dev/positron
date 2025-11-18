@@ -28,6 +28,7 @@ import { ImageMetadataEntry, MergedDevContainerConfig } from './imageMetadata';
 import { getImageIndexEntryForPlatform, getManifest, getRef } from '../spec-configuration/containerCollectionsOCI';
 import { requestEnsureAuthenticated } from '../spec-configuration/httpOCIRegistry';
 import { configFileLabel, findDevContainer, hostFolderLabel } from './singleContainer';
+import { CommandGenerationContext } from './commandGeneration';
 
 export { getConfigFilePath, getDockerfilePath, isDockerFileConfig } from '../spec-configuration/configuration';
 export { uriToFsPath, parentURI } from '../spec-configuration/configurationCommonUtils';
@@ -123,6 +124,7 @@ export interface DockerResolverParameters {
 	buildxOutput: string | undefined;
 	buildxCacheTo: string | undefined;
 	platformInfo: PlatformInfo;
+	commandGenerationContext?: CommandGenerationContext;
 }
 
 export interface ResolverResult {
@@ -484,16 +486,16 @@ export async function runInitializeCommand(params: DockerResolverParameters, use
 			// doesn't get interleaved with the output of other commands.
 			const print = name ? 'end' : 'continuous';
 
-		await runCommand({
-			ptyExec: cliHost.ptyExec,
-			cmd: args[0],
-			args: args.slice(1),
-			env: dockerEnv,
-			output: infoOutput,
-			onDidInput,
-			print,
-		});
-		infoOutput.raw('\r\n');
+			await runCommand({
+				ptyExec: cliHost.ptyExec,
+				cmd: args[0],
+				args: args.slice(1),
+				env: dockerEnv,
+				output: infoOutput,
+				onDidInput,
+				print,
+			});
+			infoOutput.raw('\r\n');
 		}
 
 		let commands;

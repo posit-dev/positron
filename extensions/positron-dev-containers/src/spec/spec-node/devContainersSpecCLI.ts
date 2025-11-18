@@ -680,7 +680,7 @@ async function doBuild({
 			if (envFile) {
 				composeGlobalArgs.push('--env-file', envFile);
 			}
-			
+
 			const composeConfig = await readDockerComposeConfig(buildParams, composeFiles, envFile);
 			const projectName = await getProjectName(params, workspace, composeFiles, composeConfig);
 			const services = Object.keys(composeConfig.services || {});
@@ -1176,7 +1176,7 @@ async function outdated({
 			if (outputFormat === 'text') {
 				const rows = Object.keys(outdated.features).map(key => {
 					const value = outdated.features[key];
-					return [ getFeatureIdWithoutVersion(key), value.current, value.wanted, value.latest ]
+					return [getFeatureIdWithoutVersion(key), value.current, value.wanted, value.latest]
 						.map(v => v === undefined ? '-' : v);
 				});
 				const header = ['Feature', 'Current', 'Wanted', 'Latest'];
@@ -1259,7 +1259,7 @@ async function exec(args: ExecArgs) {
 	const result = await doExec(args);
 	const exitCode = typeof result.code === 'number' && (result.code || !result.signal) ? result.code :
 		typeof result.signal === 'number' && result.signal > 0 ? 128 + result.signal : // 128 + signal number convention: https://tldp.org/LDP/abs/html/exitcodes.html
-		typeof result.signal === 'string' && processSignals[result.signal] ? 128 + processSignals[result.signal]! : 1;
+			typeof result.signal === 'string' && processSignals[result.signal] ? 128 + processSignals[result.signal]! : 1;
 	await result.dispose();
 	process.exit(exitCode);
 }
@@ -1428,4 +1428,132 @@ async function readSecretsFromFile(params: { output?: Log; secretsFile?: string;
 			originalError: e
 		});
 	}
+}
+
+/**
+ * Generate docker build command for terminal execution (exported for extension use)
+ * This function generates the docker build/buildx command with all necessary arguments
+ */
+export async function generateDockerBuildCommand(options: {
+	dockerPath: string;
+	dockerfilePath: string;
+	contextPath: string;
+	imageName: string;
+	buildArgs?: Record<string, string>;
+	target?: string;
+	noCache?: boolean;
+	cacheFrom?: string[];
+	buildKitEnabled?: boolean;
+	additionalArgs?: string[];
+}): Promise<import('./commandGeneration').GeneratedCommand> {
+	const args: string[] = [];
+
+	if (options.buildKitEnabled) {
+		args.push('buildx', 'build');
+		args.push('--load'); // Load into normal docker images collection
+		args.push('--build-arg', 'BUILDKIT_INLINE_CACHE=1');
+	} else {
+		args.push('build');
+	}
+
+	args.push('-f', options.dockerfilePath);
+	args.push('-t', options.imageName);
+
+	if (options.target) {
+		args.push('--target', options.target);
+	}
+
+	if (options.noCache) {
+		args.push('--no-cache');
+		if (options.buildKitEnabled) {
+			args.push('--pull');
+		}
+	}
+
+	if (options.cacheFrom) {
+		for (const cacheFrom of options.cacheFrom) {
+			args.push('--cache-from', cacheFrom);
+		}
+	}
+
+	if (options.buildArgs) {
+		for (const [key, value] of Object.entries(options.buildArgs)) {
+			args.push('--build-arg', `${key}=${value}`);
+		}
+	}
+
+	if (options.additionalArgs) {
+		args.push(...options.additionalArgs);
+	}
+
+	args.push(options.contextPath);
+
+	return {
+		command: options.dockerPath,
+		args,
+		description: 'Building dev container image',
+	};
+}
+
+/**
+ * Generate docker create command for terminal execution
+ */
+export async function generateDockerCreateCommand(options: {
+	dockerPath: string;
+	imageName: string;
+	workspaceFolder: string;
+	remoteWorkspaceFolder: string;
+	containerUser?: string;
+	env?: Record<string, string>;
+	mounts?: string[];
+	labels?: Record<string, string>;
+	runArgs?: string[];
+}): Promise<import('./commandGeneration').GeneratedCommand> {
+	const args = ['create'];
+
+	// Add labels
+	if (options.labels) {
+		for (const [key, value] of Object.entries(options.labels)) {
+			args.push('--label', `${key}=${value}`);
+		}
+	}
+
+	// Add workspace mount
+	args.push('-v', `${options.workspaceFolder}:${options.remoteWorkspaceFolder}`);
+
+	// Add additional mounts
+	if (options.mounts) {
+		for (const mount of options.mounts) {
+			args.push('--mount', mount);
+		}
+	}
+
+	// Set working directory
+	args.push('-w', options.remoteWorkspaceFolder);
+
+	// Add user
+	if (options.containerUser) {
+		args.push('-u', options.containerUser);
+	}
+
+	// Add environment variables
+	if (options.env) {
+		for (const [key, value] of Object.entries(options.env)) {
+			args.push('-e', `${key}=${value}`);
+		}
+	}
+
+	// Add custom run args
+	if (options.runArgs) {
+		args.push(...options.runArgs);
+	}
+
+	// Add image name and command
+	args.push(options.imageName, 'sleep', 'infinity');
+
+	return {
+		command: options.dockerPath,
+		args,
+		description: 'Creating container',
+	};
 }

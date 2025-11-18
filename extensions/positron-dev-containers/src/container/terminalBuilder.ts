@@ -9,6 +9,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as jsonc from 'jsonc-parser';
 import { getLogger } from '../common/logger';
+import { Configuration } from '../common/configuration';
+import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
+import { formatCommandWithEcho, escapeShellArg } from '../spec/spec-node/commandGeneration';
 
 /**
  * Result from terminal build
@@ -33,6 +36,7 @@ export class TerminalBuilder {
 		noCache: boolean
 	): Promise<TerminalBuildResult> {
 		const logger = getLogger();
+		const config = Configuration.getInstance();
 
 		// Find the devcontainer.json file
 		const devcontainerPath = path.join(workspaceFolder, '.devcontainer', 'devcontainer.json');
@@ -41,19 +45,19 @@ export class TerminalBuilder {
 		}
 
 		// Read and parse the devcontainer.json (supports comments via JSONC)
-		const config = jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'));
+		const devContainerConfig = jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'));
 
 		// Determine the Dockerfile or image
 		const devcontainerDir = path.dirname(devcontainerPath);
 		let dockerfilePath: string | undefined;
 		let imageName: string | undefined;
 
-		if (config.build && config.build.dockerfile) {
-			dockerfilePath = path.join(devcontainerDir, config.build.dockerfile);
-		} else if (config.dockerFile) {
-			dockerfilePath = path.join(devcontainerDir, config.dockerFile);
-		} else if (config.image) {
-			imageName = config.image;
+		if (devContainerConfig.build && devContainerConfig.build.dockerfile) {
+			dockerfilePath = path.join(devcontainerDir, devContainerConfig.build.dockerfile);
+		} else if (devContainerConfig.dockerFile) {
+			dockerfilePath = path.join(devcontainerDir, devContainerConfig.dockerFile);
+		} else if (devContainerConfig.image) {
+			imageName = devContainerConfig.image;
 		} else {
 			// Default to Dockerfile in .devcontainer directory
 			const defaultDockerfile = path.join(devcontainerDir, 'Dockerfile');
@@ -76,6 +80,10 @@ export class TerminalBuilder {
 			throw new Error('No Dockerfile or image specified in devcontainer.json');
 		}
 
+		// Get settings from VS Code configuration
+		const dockerPath = config.getDockerPath();
+		const workspaceMountConsistency = config.getWorkspaceMountConsistency();
+
 		// Create a temporary script file to run in the terminal
 		const timestamp = Date.now();
 		const scriptPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.sh`);
@@ -91,70 +99,77 @@ export class TerminalBuilder {
 		// Remove existing container if rebuild
 		if (rebuild) {
 			scriptContent += 'echo "==> Removing existing containers..."\n';
-			scriptContent += `docker ps -a -q --filter "label=devcontainer.local_folder=${workspaceFolder}" | xargs docker rm -f 2>/dev/null || true\n\n`;
+			scriptContent += `${dockerPath} ps -a -q --filter "label=devcontainer.local_folder=${escapeShellArg(workspaceFolder)}" | xargs ${dockerPath} rm -f 2>/dev/null || true\n\n`;
 		}
 
-		// Build image if needed
+		// Generate build command using spec-node if we have a Dockerfile
 		if (dockerfilePath) {
-			const buildContext = config.build?.context ? path.join(devcontainerDir, config.build.context) : devcontainerDir;
-			scriptContent += 'echo "==> Building dev container image..."\n';
-			scriptContent += `docker build -t ${builtImageName}`;
-			if (noCache) {
-				scriptContent += ' --no-cache';
-			}
-			if (config.build?.args) {
-				for (const [key, value] of Object.entries(config.build.args)) {
-					scriptContent += ` --build-arg ${key}=${value}`;
-				}
-			}
-			scriptContent += ` -f "${dockerfilePath}" "${buildContext}"\n\n`;
+			const buildContext = devContainerConfig.build?.context ? path.join(devcontainerDir, devContainerConfig.build.context) : devcontainerDir;
+			const buildCmd = await generateDockerBuildCommand({
+				dockerPath,
+				dockerfilePath,
+				contextPath: buildContext,
+				imageName: builtImageName,
+				buildArgs: devContainerConfig.build?.args,
+				target: devContainerConfig.build?.target,
+				noCache,
+				cacheFrom: devContainerConfig.build?.cacheFrom ?
+					(Array.isArray(devContainerConfig.build.cacheFrom) ? devContainerConfig.build.cacheFrom : [devContainerConfig.build.cacheFrom]) :
+					undefined,
+				buildKitEnabled: config.getConfiguration().workspaceMountConsistency !== 'consistent', // Simple heuristic
+				additionalArgs: devContainerConfig.build?.options,
+			});
+			scriptContent += formatCommandWithEcho(buildCmd) + '\n\n';
 		} else {
 			scriptContent += `echo "==> Using image: ${imageName}"\n\n`;
 		}
 
-		// Create container (docker create outputs the container ID)
+		// Prepare mounts array
+		const mounts: string[] = [];
+		if (devContainerConfig.mounts) {
+			for (const mount of devContainerConfig.mounts) {
+				mounts.push(mount);
+			}
+		}
+
+		// Add workspace mount consistency if specified
+		if (workspaceMountConsistency && workspaceMountConsistency !== 'consistent') {
+			// This is handled in the volume mount, not as a separate mount
+		}
+
+		// Generate container create command using spec-node
+		const createCmd = await generateDockerCreateCommand({
+			dockerPath,
+			imageName: builtImageName,
+			workspaceFolder,
+			remoteWorkspaceFolder,
+			containerUser: devContainerConfig.remoteUser,
+			env: devContainerConfig.remoteEnv,
+			mounts,
+			labels: {
+				'devcontainer.local_folder': workspaceFolder,
+				'devcontainer.config_file': devcontainerPath,
+			},
+			runArgs: devContainerConfig.runArgs,
+		});
+
 		scriptContent += 'echo "==> Creating container..."\n';
-		scriptContent += `CONTAINER_ID=$(docker create`;
-		scriptContent += ` --label devcontainer.local_folder="${workspaceFolder}"`;
-		scriptContent += ` --label devcontainer.config_file="${devcontainerPath}"`;
-		scriptContent += ` -v "${workspaceFolder}:${remoteWorkspaceFolder}"`;
-
-		// Add mounts from config
-		if (config.mounts) {
-			for (const mount of config.mounts) {
-				scriptContent += ` --mount ${mount}`;
-			}
-		}
-
-		scriptContent += ` -w ${remoteWorkspaceFolder}`;
-
-		// Add remote user
-		if (config.remoteUser) {
-			scriptContent += ` -u ${config.remoteUser}`;
-		}
-
-		// Add environment variables
-		if (config.remoteEnv) {
-			for (const [key, value] of Object.entries(config.remoteEnv)) {
-				scriptContent += ` -e ${key}="${value}"`;
-			}
-		}
-
-		scriptContent += ` ${builtImageName} sleep infinity)\n`;
+		// Capture container ID from docker create
+		scriptContent += `CONTAINER_ID=$(${dockerPath} ${createCmd.args.join(' ')})\n`;
 		scriptContent += 'echo "Container ID: $CONTAINER_ID"\n\n';
 
 		// Start container
 		scriptContent += 'echo "==> Starting container..."\n';
-		scriptContent += 'docker start $CONTAINER_ID\n\n';
+		scriptContent += `${dockerPath} start $CONTAINER_ID\n\n`;
 
 		// Run post-create command if specified
-		if (config.postCreateCommand) {
+		if (devContainerConfig.postCreateCommand) {
 			scriptContent += 'echo "==> Running post-create command..."\n';
 			let postCreateCmd: string;
-			if (typeof config.postCreateCommand === 'string') {
-				postCreateCmd = config.postCreateCommand;
-			} else if (Array.isArray(config.postCreateCommand)) {
-				postCreateCmd = config.postCreateCommand.join(' ');
+			if (typeof devContainerConfig.postCreateCommand === 'string') {
+				postCreateCmd = devContainerConfig.postCreateCommand;
+			} else if (Array.isArray(devContainerConfig.postCreateCommand)) {
+				postCreateCmd = devContainerConfig.postCreateCommand.join(' ');
 			} else {
 				postCreateCmd = '';
 			}
@@ -162,14 +177,14 @@ export class TerminalBuilder {
 				// Escape the command properly for the script
 				const escapedCmd = postCreateCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
 				// Allow command to fail gracefully - permission errors on bind-mounted .git files are common
-				scriptContent += `docker exec $CONTAINER_ID sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
+				scriptContent += `${dockerPath} exec $CONTAINER_ID sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
 			}
 		}
 
 		// Save container ID and name
 		scriptContent += 'echo "==> Saving container info..."\n';
 		scriptContent += `echo "$CONTAINER_ID" > "${containerIdPath}"\n`;
-		scriptContent += `docker inspect -f '{{.Name}}' $CONTAINER_ID | sed 's/^\\///' > "${containerNamePath}"\n\n`;
+		scriptContent += `${dockerPath} inspect -f '{{.Name}}' $CONTAINER_ID | sed 's/^\\///' > "${containerNamePath}"\n\n`;
 
 		// Write marker file to indicate completion
 		scriptContent += 'echo "==> Container ready!"\n';
