@@ -182,6 +182,25 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 				});
 			}
 
+			// --- Start Positron ---
+			// Remove the moreModels action and add configureProviders action instead
+			const moreModelsIndex = additionalActions.findIndex(action => action.id === 'moreModels');
+			if (moreModelsIndex !== -1) {
+				additionalActions.splice(moreModelsIndex, 1);
+			}
+			additionalActions.push({
+				id: 'configureProviders',
+				label: localize('chat.configureProviders', "Configure Model Providers"),
+				enabled: true,
+				tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
+				class: undefined,
+				run: () => {
+					const commandId = 'positron-assistant.configureModels';
+					commandService.executeCommand(commandId);
+				}
+			});
+			// --- End Positron ---
+
 			return additionalActions;
 		}
 	};
