@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 
 // Other dependencies.
 import { WebviewPlotClient } from '../webviewPlotClient.js';
@@ -48,7 +48,7 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		};
 	}, [props.plotClient, props.visible]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		// If the client is not claimed, do nothing.
 		// This is to avoid activating the client when it isn't claimed, which could happen
 		// if the previous effect is cleaned up before this one runs.
