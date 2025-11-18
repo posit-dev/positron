@@ -9,6 +9,7 @@ import { test, tags } from '../_test.setup';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createWorkbenchFromPage } from '../../infra/workbench';
+const settingsPath = require('node:path').resolve(__dirname, '../../fixtures/settingsDocker.json');
 
 test.use({
 	suiteId: __filename
@@ -72,7 +73,7 @@ test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
 }, () => {
 
-	test.beforeAll(async ({ }) => {
+	test.beforeAll(async ({ settings }) => {
 
 		try {
 			sshKeyscan('127.0.0.1', 3456, '/tmp/known_hosts');
@@ -80,9 +81,12 @@ test.describe('Remote SSH', {
 			throw new Error(`ssh-keyscan failed: ${(err as Error).message}`);
 		}
 
+		await settings.set(JSON.parse(fs.readFileSync(settingsPath, 'utf8')));
+
 	});
 
 	test('Verify SSH connection into docker image', async function ({ app, python }) {
+
 
 		// Start waiting for *any* new window before we trigger the UI that opens it
 		const sshWinPromise = waitForAnyNewWindow(app.code.electronApp!, async () => {
@@ -97,7 +101,6 @@ test.describe('Remote SSH', {
 		// Grab the new window (no URL/title/selector filtering)
 		const sshWin = await sshWinPromise;
 
-
 		// Continue as before
 		await expect(sshWin.getByText('Enter password')).toBeVisible({ timeout: 60_000 });
 		await sshWin.keyboard.type('root');
@@ -109,7 +112,20 @@ test.describe('Remote SSH', {
 
 		const sshWorkbench = createWorkbenchFromPage(app.code, sshWin);
 
+		process.env.POSITRON_PY_VER_SEL = process.env.POSITRON_PY_REMOTE_VER_SEL!;
+		process.env.POSITRON_R_VER_SEL = process.env.POSITRON_R_REMOTE_VER_SEL!;
+
 		await sshWorkbench.sessions.start('python');
+
+		await sshWorkbench.console.pasteCodeToConsole('import sys; print(sys.executable)', true);
+
+		await sshWorkbench.console.waitForConsoleContents('/root/.venv/bin/python');
+
+		await sshWorkbench.sessions.start('r');
+
+		await sshWorkbench.console.pasteCodeToConsole('Sys.getenv("R_HOME")', true);
+
+		await sshWorkbench.console.waitForConsoleContents('/opt/R/4.4.0/lib/R');
 
 	});
 });
