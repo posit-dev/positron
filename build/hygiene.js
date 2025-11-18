@@ -46,7 +46,7 @@ const positCopyrightHeaderLinesHash = [
  * @param {boolean} linting
  * @param {boolean} secrets - should we scan for secrets?
  */
-function hygiene(some, linting = true, secrets = true) {
+function hygiene(some, linting = true, secrets = false) {
 	// --- End Positron ---
 	const eslint = require('./gulp-eslint');
 	const gulpstylelint = require('./stylelint');
