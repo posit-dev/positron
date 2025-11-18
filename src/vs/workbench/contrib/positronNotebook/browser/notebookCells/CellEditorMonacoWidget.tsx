@@ -209,7 +209,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			// Check if THIS cell is still the one being edited
 			// This prevents stale focus requests when user rapidly navigates between cells
 			const state = instance.selectionStateMachine.state.read(reader);
-			const shouldFocus = state.type === SelectionState.EditingSelection && state.selected === cell;
+			const shouldFocus = state.type === SelectionState.EditingSelection && state.active === cell;
 
 			if (!shouldFocus) {
 				return;

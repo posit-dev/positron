@@ -34,6 +34,7 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 	const environment = useEnvironment();
 	const selectionStatus = useObservedValue(cell.selectionStatus);
 	const executionStatus = useObservedValue(cell.executionStatus);
+	const isActiveCell = useObservedValue(cell.isActive);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -42,19 +43,20 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 		}
 	}, [cell, cellRef]);
 
-	// Focus management based on selection status
+	// Focus management: focus when this cell becomes the active cell
 	React.useLayoutEffect(() => {
 		if (!cellRef.current) {
 			return;
 		}
 
-		const status = selectionStatus;
-
-		if (status === CellSelectionStatus.Selected) {
-			// Cell is selected (not editing) - focus the cell container
+		/**
+		 * Focus the cell container element when this cell becomes the active cell,
+		 * except when in editing mode (the Monaco editor should have focus then).
+		 */
+		if (isActiveCell && selectionStatus !== CellSelectionStatus.Editing) {
 			cellRef.current.focus();
 		}
-	}, [selectionStatus, cellRef]);
+	}, [isActiveCell, selectionStatus, cellRef]);
 
 	// Manage context keys for this cell
 	const scopedContextKeyService = useCellContextKeys(cell, cellRef.current, environment, notebookInstance);
@@ -80,12 +82,19 @@ export function NotebookCellWrapper({ cell, children, hasError }: {
 			setAnnouncement('');
 		}
 
-		// Close any open markdown cell editors when clicking on a different cell
-		// This must happen before any early returns to ensure markdown cell editors
-		// always close when clicking outside them
-		for (const otherCell of cells) {
-			if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
-				otherCell.toggleEditor();
+		/**
+		 * Close other markdown cell editors when this cell is selected or enters edit mode
+		 * This ensures only one markdown cell editor is open at a time.
+		 *
+		 * Note: We do not want to close other editors when this cell is unselected,
+		 * as that would interfere with multi-cell selection -> editing transitions
+		 * where multiple cells become unselected.
+		 */
+		if (selectionStatus === CellSelectionStatus.Selected || selectionStatus === CellSelectionStatus.Editing) {
+			for (const otherCell of cells) {
+				if (otherCell !== cell && otherCell.isMarkdownCell() && otherCell.editorShown.get()) {
+					otherCell.toggleEditor();
+				}
 			}
 		}
 	}, [selectionStatus, cell, notebookInstance]);
