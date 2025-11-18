@@ -36,7 +36,9 @@ export function CellActionButton({ action, cell }: { action: MenuItemAction | Su
 		<ActionButton
 			key={action.id}
 			ariaLabel={action.label}
-			tooltip={action.tooltip}
+			hoverManager={instance.hoverManager}
+			// Match VSCode behavior: prefer tooltip but default to label
+			tooltip={action.tooltip && action.tooltip.length > 0 ? action.tooltip : action.label}
 			onPressed={() => handleActionClick(action)}
 		>
 			{action.item.icon ?

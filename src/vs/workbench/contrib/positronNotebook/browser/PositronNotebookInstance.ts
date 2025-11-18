@@ -44,6 +44,8 @@ import { isNotebookLanguageRuntimeSession } from '../../../services/runtimeSessi
 import { RuntimeNotebookKernel } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernel.js';
 import { ICellRange } from '../../notebook/common/notebookRange.js';
 import { IExtensionApiCellViewModel, IContextKeysNotebookViewCellsUpdateEvent, IExtensionApiNotebookViewModel, ContextKeysNotebookViewCellsSplice, IPositronCellViewModel, IPositronActiveNotebookEditor } from './IPositronNotebookEditor.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -298,6 +300,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	selectionStateMachine;
 	contextManager: PositronNotebookContextKeyManager;
 	visibleRanges: ICellRange[] = [];
+	hoverManager: PositronActionBarHoverManager;
 
 	/**
 	 * Status of kernel for the notebook.
@@ -392,6 +395,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IHoverService private readonly _hoverService: IHoverService,
 	) {
 		super();
 
@@ -473,6 +477,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this.contextManager = this._register(
 			this._instantiationService.createInstance(PositronNotebookContextKeyManager, this)
+		);
+
+		// Create hover manager for notebook action button tooltips
+		this.hoverManager = this._register(
+			new PositronActionBarHoverManager(false, this.configurationService, this._hoverService)
 		);
 
 		this.selectionStateMachine = this._register(

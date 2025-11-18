@@ -12,10 +12,14 @@ import { showCustomContextMenu } from '../../../../../../workbench/browser/posit
 import { buildMoreActionsMenuItems } from './actionBarMenuItems.js';
 import { ActionButton } from '../../utilityComponents/ActionButton.js';
 import { MenuItemAction, SubmenuItemAction } from '../../../../../../platform/actions/common/actions.js';
+import { Icon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
+import { Codicon } from '../../../../../../base/common/codicons.js';
 
 interface NotebookCellMoreActionsMenuProps {
 	menuActions: [string, (MenuItemAction | SubmenuItemAction)[]][]
 }
+
+const moreCellActions = localize('moreCellActions', 'More Cell Actions');
 
 /**
  * More actions dropdown menu component for notebook cells.
@@ -57,10 +61,11 @@ export function NotebookCellMoreActionsMenu({ menuActions }: NotebookCellMoreAct
 			ref={buttonRef}
 			aria-expanded={isMenuOpen}
 			aria-haspopup='menu'
-			ariaLabel={localize('moreActions', 'More actions')}
+			ariaLabel={moreCellActions}
+			tooltip={moreCellActions}
 			onPressed={showMoreActionsMenu}
 		>
-			<div className='button-icon codicon codicon-ellipsis' />
+			<Icon className='button-icon' icon={Codicon.ellipsis} />
 		</ActionButton>
 	);
 }
