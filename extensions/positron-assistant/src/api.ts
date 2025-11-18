@@ -7,7 +7,7 @@ import * as xml from './xml.js';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { isStreamingEditsEnabled, ParticipantID } from './participants.js';
-import { hasAttachedNotebookContext } from './tools/notebookUtils.js';
+import { hasAttachedNotebookContext, getAttachedNotebookContext, SerializedNotebookContext } from './tools/notebookUtils.js';
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE, TOOL_TAG_REQUIRES_NOTEBOOK } from './constants.js';
 import { isWorkspaceOpen } from './utils.js';
 import { PositronAssistantToolName } from './types.js';
@@ -58,7 +58,16 @@ export class PositronAssistantApi {
 		const activeSessions = await positron.runtime.getActiveSessions();
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 		const streamingEdits = isStreamingEditsEnabled();
-		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits }).content;
+
+		// Get notebook context if available, with error handling
+		let notebookContext: SerializedNotebookContext | undefined;
+		try {
+			notebookContext = await getAttachedNotebookContext(request);
+		} catch (err) {
+			log.error('[PositronAssistantApi] Error checking notebook context:', err);
+		}
+
+		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits, notebookContext }).content;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
