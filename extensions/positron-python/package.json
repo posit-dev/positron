@@ -735,6 +735,20 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "python.languageServer": {
+                    "type": "string",
+                    "description": "%python.languageServer.description%",
+                    "scope": "window",
+                    "enum": [
+                        "None"
+                    ],
+                    "enumDescriptions": [
+                        "%python.languageServer.noneDescription%"
+                    ],
+                    "tags": [
+                        "experimental"
+                    ]
+                },
                 "python.languageServerDebug": {
                     "default": false,
                     "description": "%python.languageServerDebug.description%",

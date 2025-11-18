@@ -18,18 +18,17 @@ runs:
 
     - name: Cache npm packages
       id: cache-npm
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: .npm-cache
-        key: >
-          npm-cache-${{ runner.os }}-${{
-            hashFiles('package-lock.json', 'build/package-lock.json', 'extensions/**/package-lock.json', 'remote/**/package-lock.json')
-          }}
+        key: npm-cache-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
         restore-keys: |
           npm-cache-${{ runner.os }}-
 
     - name: Cache ark binary
       id: cache-binaries-ark
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         # Cache both built/downloaded resources used by the extension and a repo-root dev build directory
@@ -43,6 +42,7 @@ runs:
 
     - name: Cache kallichore binary
       id: cache-binaries-kallichore
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
@@ -54,6 +54,7 @@ runs:
 
     - name: Cache Playwright browsers
       id: cache-playwright
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
@@ -66,6 +67,7 @@ runs:
 
     - name: Cache Electron binary
       id: cache-electron
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
@@ -78,6 +80,7 @@ runs:
 
     - name: Cache built-in extensions
       id: cache-builtins
+      continue-on-error: true
       uses: actions/cache@v4
       with:
         path: |
