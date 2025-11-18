@@ -153,7 +153,7 @@ jobs:
         shell: bash
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: "positron-build"
           path: /tmp/artifacts
@@ -164,9 +164,13 @@ jobs:
           if [ -f /tmp/artifacts/positron-build.tar.zst ]; then
             echo "Extracting zstd archive with parallel decompression"
             zstd -d -T0 --stdout /tmp/artifacts/positron-build.tar.zst | tar --no-same-owner --no-same-permissions -x -C /__w || true
+            echo "Cleaning up compressed archive to free disk space"
+            rm -f /tmp/artifacts/positron-build.tar.zst
           elif [ -f /tmp/artifacts/positron-build.tar.gz ]; then
             echo "Extracting gzip archive"
             tar --no-same-owner --no-same-permissions -xzf /tmp/artifacts/positron-build.tar.gz -C /__w || true
+            echo "Cleaning up compressed archive to free disk space"
+            rm -f /tmp/artifacts/positron-build.tar.gz
           else
             echo "No known build artifact found in /tmp/artifacts"; ls -la /tmp/artifacts || true; exit 1
           fi
@@ -179,7 +183,8 @@ jobs:
         run: |
           if [ -d /__w/positron/test/e2e/qa-example-content-cache ]; then
             rm -rf /tmp/qa-example-content-cache || true
-            cp -R /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
+            # Move instead of copy to avoid duplication
+            mv /__w/positron/test/e2e/qa-example-content-cache /tmp/qa-example-content-cache || true
             if [ -f /tmp/qa-example-content-cache/.cached-commit ]; then
               echo "✓ Seeded /tmp/qa-example-content-cache"
             fi
@@ -346,10 +351,10 @@ jobs:
           retention-days: 3
 
   merge-reports:
-    name: ${{ inputs.display_name || inputs.project || 'merge-reports' }}
-    if: ${{ always() }}
+    name: ${{ inputs.display_name }}
+    if: ${{ !cancelled() }}
     needs: [e2e-ubuntu-run]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4x
     steps:
       - uses: actions/checkout@v4
 
@@ -386,7 +391,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Download all blob reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: all-blob-reports
           pattern: blob-report-${{ inputs.project }}-*

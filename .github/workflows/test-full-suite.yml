@@ -55,6 +55,7 @@ concurrency:
 jobs:
   setup:
     name: setup
+    if: ${{ inputs.run_e2e_linux || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu-build.yml
     secrets: inherit
 
