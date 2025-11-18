@@ -156,7 +156,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
+      [setup, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
@@ -168,6 +168,6 @@ jobs:
         with:
           gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          slack_channel: "#positron-test-results"
+          slack_channel: "#test-slack-notifications"
           filter_jobs: "(e2e / ([^0-9]*)|unit|integration)$"
           notify_on: ${{ env.notify_on }}
