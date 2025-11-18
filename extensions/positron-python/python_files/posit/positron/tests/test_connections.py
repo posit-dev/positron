@@ -46,7 +46,7 @@ except ImportError:
 try:
     import google.cloud.bigquery
 
-    HAS_GOOGLE_BIGQUERY = True
+    HAS_GOOGLE_BIGQUERY = "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
 except ImportError:
     HAS_GOOGLE_BIGQUERY = False
 
