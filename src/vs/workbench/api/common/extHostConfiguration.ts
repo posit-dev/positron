@@ -201,12 +201,6 @@ export class ExtHostConfigProvider {
 						case 'enableCellCodeLens':
 							return false;
 					}
-				} else if (section === 'python') {
-					switch (key) {
-						// Force to 'Default' to disable the Jupyter extension's language clients.
-						case 'languageServer':
-							return 'Default';
-					}
 				}
 				// --- End Positron ---
 				this._validateConfigurationAccess(section ? `${section}.${key}` : key, overrides, extensionDescription?.identifier);
