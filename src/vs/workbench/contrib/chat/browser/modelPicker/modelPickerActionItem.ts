@@ -17,13 +17,20 @@ import { IContextKeyService } from '../../../../../platform/contextkey/common/co
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ChatEntitlement, IChatEntitlementService } from '../../../../services/chat/common/chatEntitlementService.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../common/modelPicker/modelPickerWidget.js';
+// --- Start Positron ---
+// Unused import removed
+// import { DEFAULT_MODEL_PICKER_CATEGORY } from '../../common/modelPicker/modelPickerWidget.js';
+// --- End Positron ---
 import { ManageModelsAction } from '../actions/manageModelsActions.js';
 import { IActionProvider } from '../../../../../base/browser/ui/dropdown/dropdown.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { MANAGE_CHAT_COMMAND_ID } from '../../common/constants.js';
 import { TelemetryTrustedValue } from '../../../../../platform/telemetry/common/telemetryUtils.js';
+
+// --- Start Positron ---
+import { getProviderIcon } from './providerIcons.js';
+// --- End Positron ---
 
 export interface IModelPickerDelegate {
 	readonly onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
@@ -44,33 +51,87 @@ type ChatModelChangeEvent = {
 	toModel: string | TelemetryTrustedValue<string>;
 };
 
-
 function modelDelegateToWidgetActionsProvider(delegate: IModelPickerDelegate, telemetryService: ITelemetryService): IActionWidgetDropdownActionProvider {
+	// --- Start Positron ---
+	// The entire body of this function has been replaced to group models by
+	// vendor with separators
 	return {
 		getActions: () => {
-			return delegate.getModels().map(model => {
-				return {
-					id: model.metadata.id,
-					enabled: true,
-					icon: model.metadata.statusIcon,
-					checked: model.identifier === delegate.getCurrentModel()?.identifier,
-					category: model.metadata.modelPickerCategory || DEFAULT_MODEL_PICKER_CATEGORY,
+			const models = delegate.getModels();
+			const actions: IActionWidgetDropdownAction[] = [];
+
+			// Group models by vendor
+			const modelsByVendor = new Map<string, typeof models>();
+			for (const model of models) {
+				const vendor = model.metadata.vendor;
+				if (!modelsByVendor.has(vendor)) {
+					modelsByVendor.set(vendor, []);
+				}
+				modelsByVendor.get(vendor)!.push(model);
+			}
+
+			// Sort vendors for consistent ordering
+			const sortedVendors = Array.from(modelsByVendor.entries())
+				.sort((a, b) => {
+					// Prioritize Copilot, then alphabetically
+					if (a[0] === 'copilot') { return -1; }
+					if (b[0] === 'copilot') { return 1; }
+					return a[0].localeCompare(b[0]);
+				});
+
+			let vendorOrder = 0;
+			for (const [vendor, vendorModels] of sortedVendors) {
+				// Add separator with provider name before each group
+				// Get provider display name from the first model in the group
+				const firstModel = vendorModels[0];
+				const providerName = firstModel.metadata.auth?.providerLabel ??
+					firstModel.metadata.providerName ??
+					vendor;
+
+				// Get provider icon based on vendor ID
+				const providerIcon = getProviderIcon(vendor);
+
+				// Use a special category prefix to indicate this is a separator
+				actions.push({
+					id: `separator-${vendor}`,
+					label: providerName,
+					enabled: false,
+					checked: false,
 					class: undefined,
-					description: model.metadata.detail,
-					tooltip: model.metadata.tooltip ?? model.metadata.name,
-					label: model.metadata.name,
-					run: () => {
-						const previousModel = delegate.getCurrentModel();
-						telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
-							fromModel: previousModel?.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(previousModel.identifier) : 'unknown',
-							toModel: model.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(model.identifier) : 'unknown'
-						});
-						delegate.setModel(model);
-					}
-				} satisfies IActionWidgetDropdownAction;
-			});
+					tooltip: '',
+					icon: providerIcon?.themeIcon,
+					category: { label: `__separator_${vendor}`, order: vendorOrder * 1000 - 1 },
+					run: () => { /* separator - no action */ }
+				} satisfies IActionWidgetDropdownAction);				// Add all models for this vendor
+				for (const model of vendorModels) {
+					actions.push({
+						id: model.metadata.id,
+						enabled: true,
+						icon: model.metadata.statusIcon,
+						checked: model.identifier === delegate.getCurrentModel()?.identifier,
+						category: { label: `vendor_${vendor}`, order: vendorOrder * 1000 },
+						class: undefined,
+						description: model.metadata.detail,
+						tooltip: model.metadata.tooltip ?? model.metadata.name,
+						label: model.metadata.name,
+						run: () => {
+							const previousModel = delegate.getCurrentModel();
+							telemetryService.publicLog2<ChatModelChangeEvent, ChatModelChangeClassification>('chat.modelChange', {
+								fromModel: previousModel?.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(previousModel.identifier) : 'unknown',
+								toModel: model.metadata.vendor === 'copilot' ? new TelemetryTrustedValue(model.identifier) : 'unknown'
+							});
+							delegate.setModel(model);
+						}
+					} satisfies IActionWidgetDropdownAction);
+				}
+
+				vendorOrder++;
+			}
+
+			return actions;
 		}
 	};
+	// --- End Positron ---
 }
 
 function getModelPickerActionBarActionProvider(commandService: ICommandService, chatEntitlementService: IChatEntitlementService, productService: IProductService): IActionProvider {
@@ -170,6 +231,26 @@ export class ModelPickerActionItem extends ActionWidgetDropdownActionViewItem {
 
 	protected override renderLabel(element: HTMLElement): IDisposable | null {
 		const domChildren = [];
+
+		// --- Start Positron ---
+		// Add provider icon if available
+		if (this.currentModel?.metadata.vendor) {
+			const providerIcon = getProviderIcon(this.currentModel.metadata.vendor);
+			if (providerIcon?.themeIcon) {
+				const iconId = providerIcon.themeIcon.id;
+				if (iconId.startsWith('data:image/svg+xml')) {
+					// Render SVG as background image
+					const iconElement = dom.$('span.provider-icon');
+					iconElement.style.backgroundImage = `url('${iconId}')`;
+					domChildren.push(iconElement);
+				} else {
+					// Regular codicon
+					domChildren.push(...renderLabelWithIcons(`\$(${iconId})`));
+				}
+			}
+		}
+		// --- End Positron ---
+
 		if (this.currentModel?.metadata.statusIcon) {
 			domChildren.push(...renderLabelWithIcons(`\$(${this.currentModel.metadata.statusIcon.id})`));
 		}

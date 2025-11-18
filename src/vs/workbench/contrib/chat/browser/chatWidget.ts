@@ -98,9 +98,7 @@ import { ILifecycleService } from '../../../services/lifecycle/common/lifecycle.
 import { katexContainerClassName } from '../../markdown/common/markedKatexExtension.js';
 
 // --- Start Positron ---
-import './media/positronChat.css';
 import { ILanguageModelsService } from '../common/languageModels.js';
-import { ChatActionBarControl } from './positron/chatActionBarControl.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -371,10 +369,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private readonly chatSuggestNextWidget: ChatSuggestNextWidget;
 	private historyList: WorkbenchList<IChatHistoryListItem> | undefined;
 
-	// --- Start Positron ---
-	private actionBarContainer?: ChatActionBarControl;
-	// --- End Positron ---
-
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
 	private requestInProgress: IContextKey<boolean>;
@@ -522,9 +516,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IChatSlashCommandService private readonly chatSlashCommandService: IChatSlashCommandService,
 		@IChatEditingService chatEditingService: IChatEditingService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
-		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 		@IPromptsService private readonly promptsService: IPromptsService,
 		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
+		// --- Start Positron ---
+		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		// --- End Positron ---
 		@IChatModeService private readonly chatModeService: IChatModeService,
 		@IChatLayoutService private readonly chatLayoutService: IChatLayoutService,
 		@IChatEntitlementService private readonly chatEntitlementService: IChatEntitlementService,
@@ -873,15 +869,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
-
-		// --- Start Positron ---
-		if (this.location === ChatAgentLocation.Chat) {
-			this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
-			this.actionBarContainer.render(this.container);
-			// When a provider is selected in the UI, update it in the language models service.
-			this.actionBarContainer.onProviderSelected((provider) => this.languageModelsService.currentProvider = provider);
-		}
-		// --- End Positron ---
 
 		// Do initial render
 		if (this.viewModel) {
@@ -2797,11 +2784,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		const chatSuggestNextWidgetHeight = this.chatSuggestNextWidget.height;
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
 		const lastItem = this.viewModel?.getItems().at(-1);
-
-		// --- Start Positron ---
-		const actionBarHeight = this.actionBarContainer?.height ?? 0;
-		const contentHeight = Math.max(0, height - inputHeight - chatSuggestNextWidgetHeight - actionBarHeight);
-		// --- End Positron ---
+		const contentHeight = Math.max(0, height - inputHeight - chatSuggestNextWidgetHeight);
 
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			this.listContainer.style.removeProperty('--chat-current-response-min-height');

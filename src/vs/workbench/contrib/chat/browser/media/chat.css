@@ -1373,6 +1373,18 @@ have to be updated for changes to the rules above, or to support more deeply nes
 		.codicon {
 			flex-shrink: 0;
 		}
+
+		/* --- Start Positron --- */
+		.provider-icon {
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-position: center;
+			width: 16px;
+			height: 16px;
+			display: inline-block;
+			margin-right: 6px;
+		}
+		/* --- End Positron --- */
 	}
 }
 
