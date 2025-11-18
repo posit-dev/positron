@@ -190,7 +190,7 @@ function getModelPickerActionBarActionProvider(commandService: ICommandService, 
 			}
 			additionalActions.push({
 				id: 'configureProviders',
-				label: localize('chat.configureProviders', "Configure Model Providers"),
+				label: localize('chat.configureProviders', "Configure Model Providers..."),
 				enabled: true,
 				tooltip: localize('chat.configureProviders.tooltip', "Add and Configure Language Model Providers"),
 				class: undefined,

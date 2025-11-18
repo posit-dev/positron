@@ -11,7 +11,7 @@ import { Toasts } from './dialog-toasts';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
-const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Configure Model Providers..."]';
+const ADD_MODEL_BUTTON = 'div.action-widget a[aria-label="Add and Configure Language Model Providers"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -71,6 +71,10 @@ export class Assistant {
 	}
 
 	async clickAddModelButton() {
+		const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_BUTTON).isVisible();
+		if (!addModelLinkIsVisible) {
+			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
+		}
 		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click();
 	}
 
@@ -80,6 +84,7 @@ export class Assistant {
 	}
 
 	async verifyAddModelButtonVisible() {
+		await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Configure Model Providers...');
 	}
