@@ -1,6 +1,6 @@
 {
 	"displayName": "Dev Containers",
-	"description": "Open any folder or repository inside a Docker container and take advantage of Visual Studio Code's full feature set.",
+	"description": "Open any folder or repository inside a Docker container and take advantage of Positron's full feature set.",
 	"capabilities.untrustedWorkspaces.description": "Opening a folder in a container requires workspace trust.",
 	"configuration.title": "Dev Containers",
 	"configuration.defaultExtensions.description": "Configures the list of extensions to always install while creating a container.",
