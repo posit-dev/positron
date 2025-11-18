@@ -14,6 +14,7 @@ databricks-sql-connector[pyarrow]==2.0.2
 duckdb==1.4.1
 fastcore==1.8.9; python_version == '3.9'
 fastcore==1.8.13; python_version >= '3.10'
+google-cloud-bigquery==3.38.0
 geopandas==1.0.1; python_version == '3.9'
 geopandas==1.1.1; python_version >= '3.10' and python_version < '3.14'
 haystack-ai==2.19.0

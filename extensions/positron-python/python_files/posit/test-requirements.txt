@@ -2,6 +2,7 @@ databricks-sql-connector[pyarrow]
 duckdb
 fastcore
 geopandas; python_version < '3.14'
+google-cloud-bigquery
 haystack-ai
 holoviews
 hvplot
