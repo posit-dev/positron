@@ -8,6 +8,7 @@ import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createWorkbenchFromPage } from '../../infra/workbench';
 
 test.use({
 	suiteId: __filename
@@ -96,6 +97,7 @@ test.describe('Remote SSH', {
 		// Grab the new window (no URL/title/selector filtering)
 		const sshWin = await sshWinPromise;
 
+
 		// Continue as before
 		await expect(sshWin.getByText('Enter password')).toBeVisible({ timeout: 60_000 });
 		await sshWin.keyboard.type('root');
@@ -105,6 +107,9 @@ test.describe('Remote SSH', {
 		await expect(alertLocator).toBeVisible({ timeout: 10_000 });
 		await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
 
+		const sshWorkbench = createWorkbenchFromPage(app.code, sshWin);
+
+		await sshWorkbench.sessions.start('python');
 
 	});
 });
