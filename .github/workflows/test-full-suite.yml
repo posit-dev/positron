@@ -158,7 +158,7 @@ jobs:
   slack-notify:
     if: always()
     needs:
-      [setup, e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
+      [e2e-electron, e2e-windows, e2e-chromium, e2e-rhel, e2e-chromium-rhel, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
