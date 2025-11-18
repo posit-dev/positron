@@ -143,6 +143,18 @@ export class PositronAssistantApi {
 }
 
 /**
+ * Copilot notebook tool names that should be disabled when Positron notebook mode is active.
+ * These tools conflict with Positron's specialized notebook tools.
+ */
+const COPILOT_NOTEBOOK_TOOLS = new Set([
+	'copilot_editNotebook',
+	'copilot_getNotebookSummary',
+	'copilot_runNotebookCell',
+	'copilot_readNotebookCellOutput',
+	'copilot_createNewJupyterNotebook',
+]);
+
+/**
  * Gets the set of enabled tools for a chat request.
  *
  * @param request The chat request to get enabled tools for.
@@ -339,6 +351,13 @@ export function getEnabledTools(
 		const alwaysIncludeCopilotTools = vscode.workspace.getConfiguration('positron.assistant').get('alwaysIncludeCopilotTools', false);
 		// Check if the tool is provided by Copilot.
 		const copilotTool = tool.source instanceof vscode.LanguageModelToolExtensionSource && tool.source.id === 'GitHub.copilot-chat';
+
+		// Disable Copilot notebook tools when Positron notebook mode is active
+		// to avoid conflicts with Positron's specialized notebook tools.
+		if (copilotTool && hasActiveNotebook && COPILOT_NOTEBOOK_TOOLS.has(tool.name)) {
+			continue;
+		}
+
 		// Check if the user is signed into Copilot.
 		let copilotEnabled;
 		try {
