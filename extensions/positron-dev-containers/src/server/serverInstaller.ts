@@ -405,21 +405,21 @@ export class ServerInstaller {
 				} else {
 					const errorMsg = `Command exited with code ${code}`;
 					this.logger.error(errorMsg);
-					
+
 					// Always log the full stderr for debugging
 					if (stderr) {
 						this.logger.error('--- Installation Script Output (stderr) ---');
 						this.logger.error(stderr);
 						this.logger.error('--- End Installation Script Output ---');
 					}
-					
+
 					// Also log stdout if it has content
 					if (stdout && stdout.trim()) {
 						this.logger.error('--- Installation Script Output (stdout) ---');
 						this.logger.error(stdout);
 						this.logger.error('--- End Installation Script Output ---');
 					}
-					
+
 					// Create a more descriptive error by extracting context from stderr/stdout
 					const errorContext = this.extractErrorContext(stderr, stdout);
 					reject(new Error(`${errorMsg}${errorContext ? ': ' + errorContext : ''}`));

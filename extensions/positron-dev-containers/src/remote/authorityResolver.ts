@@ -160,7 +160,7 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 
 			// Show a custom error message with action button to open logs
 			const fullMessage = `Failed to connect to container: ${shortMessage}`;
-			
+
 			// Show error message with action button to view extension logs
 			vscode.window.showErrorMessage(
 				fullMessage,

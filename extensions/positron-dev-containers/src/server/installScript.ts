@@ -138,7 +138,8 @@ else
 	# Try to download and extract, capturing detailed error information
 	if [ "\${DOWNLOAD_TOOL}" = "wget" ]; then
 		# wget provides better error messages with -S (show headers)
-		if ! wget -S -O - "\${DOWNLOAD_URL}" 2>&1 | tee /tmp/download.log | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>&1; then
+		# Redirect stderr to log file while keeping stdout clean for tar
+		if ! wget -S -O - "\${DOWNLOAD_URL}" 2>/tmp/download.log | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>&1; then
 			# Extract HTTP status from wget output
 			HTTP_STATUS=\$(grep -i "HTTP/" /tmp/download.log | tail -n1 | sed 's/.*HTTP\\/[^ ]* \\([0-9]*\\).*/\\1/' || echo "unknown")
 			case "\${HTTP_STATUS}" in
