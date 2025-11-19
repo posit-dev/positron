@@ -13,51 +13,72 @@ function formatError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function getAssistantSettings(): string {
-	// VS Code's API doesn't provide a way to iterate over keys so we maintain a list here
-	// Alternatively we could iterate on package.json
-	const settingKeys = [
-		'enable',
-		'toolDetails.enable',
-		'useAnthropicSdk',
-		'streamingEdits.enable',
-		'inlineCompletions.enable',
-		'inlineCompletionExcludes',
-		'gitIntegration.enable',
-		'showTokenUsage.enable',
-		'maxInputTokens',
-		'maxOutputTokens',
-		'followups.enable',
-		'consoleActions.enable',
-		'notebookMode.enable',
-		'toolErrors.propagate',
-		'alwaysIncludeCopilotTools',
-		'providerTimeout',
-		'maxConnectionAttempts',
-		'filterModels',
-		'preferredModel',
-		'defaultModels',
-		'providerVariables.bedrock',
-		'enabledProviders',
-	];
+/**
+ * Retrieves non-default settings for an extension.
+ * @param extensionId The full extension identifier (e.g., 'positron.positron-assistant')
+ * @param configPrefix The configuration prefix to filter by (e.g., 'positron.assistant')
+ * @param hiddenSettingKeys Optional array of setting keys not declared in package.json
+ * @returns Record of non-default settings with their values
+ */
+function getExtensionSettings(
+	extensionId: string,
+	configPrefix: string,
+	hiddenSettingKeys: string[] = []
+): Record<string, unknown> {
+	const extension = vscode.extensions.getExtension(extensionId);
+	const settingKeys: string[] = [];
 
-	const config = vscode.workspace.getConfiguration('positron.assistant');
+	if (extension?.packageJSON?.contributes?.configuration) {
+		const configurations = Array.isArray(extension.packageJSON.contributes.configuration)
+			? extension.packageJSON.contributes.configuration
+			: [extension.packageJSON.contributes.configuration];
+
+		for (const config of configurations) {
+			if (config.properties) {
+				for (const key of Object.keys(config.properties)) {
+					if (key.startsWith(configPrefix + '.')) {
+						settingKeys.push(key.substring(configPrefix.length + 1));
+					}
+				}
+			}
+		}
+	}
+
+	const allSettingKeys = [...settingKeys, ...hiddenSettingKeys];
+	const config = vscode.workspace.getConfiguration(configPrefix);
 	const settings: Record<string, unknown> = {};
 
-	for (const key of settingKeys) {
+	for (const key of allSettingKeys) {
 		const inspection = config.inspect(key);
 		const value = config.get(key);
 
 		if (inspection && value !== inspection.defaultValue) {
-			settings[`positron.assistant.${key}`] = value;
+			settings[`${configPrefix}.${key}`] = value;
 		}
 	}
 
-	if (Object.keys(settings).length === 0) {
+	return settings;
+}
+
+function getRelatedSettings(): string {
+	const assistantSettings = getExtensionSettings(
+		'positron.positron-assistant',
+		'positron.assistant',
+		['enabledProviders']
+	);
+
+	const copilotSettings = getExtensionSettings(
+		'github.copilot-chat',
+		'github.copilot'
+	);
+
+	const allSettings = { ...assistantSettings, ...copilotSettings };
+
+	if (Object.keys(allSettings).length === 0) {
 		return '\n  // No non-default settings configured';
 	}
 
-	return '\n' + Object.entries(settings)
+	return '\n' + Object.entries(allSettings)
 		.map(([key, value]) => `  "${key}": ${JSON.stringify(value, null, 2).split('\n').join('\n  ')}`)
 		.join(',\n');
 }
@@ -213,9 +234,11 @@ ${getVersionInfo()}
 
 ## Configuration Settings
 
-### Positron Assistant Settings (Non-Default)
+### Extension Settings
 
-\`\`\`json${getAssistantSettings()}
+Positron Assistant and GitHub Copilot settings:
+
+\`\`\`json${getRelatedSettings()}
 \`\`\`
 
 ## Language Model Providers

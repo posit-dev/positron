@@ -147,7 +147,8 @@ export async function resetAssistantState(context: vscode.ExtensionContext): Pro
 			progress.report({ message: vscode.l10n.t('Reloading window...') });
 
 			vscode.window.showInformationMessage(
-				vscode.l10n.t('Assistant state has been reset. The window will now reload.')
+				vscode.l10n.t('Assistant state has been reset. The window will now reload.'),
+				{ modal: true }
 			);
 
 			await vscode.commands.executeCommand('workbench.action.reloadWindow');
