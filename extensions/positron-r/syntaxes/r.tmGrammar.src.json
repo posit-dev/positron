@@ -265,7 +265,7 @@
 		},
 		"keywords-constant": {
 			"name": "constant.language",
-			"match": "(?:NA_character_|NA_integer_|NA_complex_|NA_real_|TRUE|FALSE|NULL|Inf|NaN|NA|T|F)\\b"
+			"match": "(?:NA_character_|NA_integer_|NA_complex_|NA_real_|TRUE|FALSE|NULL|Inf|NaN|NA)\\b"
 		},
 		"latex": {
 			"patterns": [
