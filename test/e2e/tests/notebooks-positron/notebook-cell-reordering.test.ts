@@ -39,7 +39,7 @@ test.describe('Notebook Cell Reordering', {
 		const cell2Content = await notebooksPositron.getCellContent(2);
 
 		// Select "Move cell down"
-		await notebooksPositron.selectFromMoreActionsMenu(0, 'Move cell down');
+		await notebooksPositron.triggerCellAction(0, 'Move cell down');
 
 		// Verify cell moved down by EXACTLY ONE position
 		await notebooksPositron.expectCellContentAtIndexToBe(0, cell1Content); // Former cell 1 is now at position 0

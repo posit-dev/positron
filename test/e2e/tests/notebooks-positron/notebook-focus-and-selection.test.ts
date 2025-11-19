@@ -301,4 +301,30 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: false });
 		await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: true, isActive: true });
 	});
+
+	test("Multi-select and insert cell above/below becomes the active cell", async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Start a new notebook with 5 cells and select cell 2
+		await notebooksPositron.newNotebook(5);
+		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+
+		// Multi-select up to cell 0 and verify anchor is cell 0
+		await keyboard.press('Shift+ArrowUp');
+		await keyboard.press('Shift+ArrowUp');
+		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, isActive: true });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true, isActive: false });
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, isActive: false });
+
+		// From cell action menu insert cell below and verify new cell is at index 1
+		await notebooksPositron.triggerCellAction(0, 'Insert code cell below')
+		await notebooksPositron.expectCellCountToBe(6);
+		// ISSUE: https://github.com/posit-dev/positron/issues/10651
+		// await notebooksPositron.expectCellIndexToBeSelected(1, { isActive: true, inEditMode: true });
+
+		// // Ensure we can type into the new cell
+		// await keyboard.type('print("New Below")');
+		// await notebooksPositron.expectCellContentAtIndexToContain(1, 'print("New Below")');
+	});
 })
