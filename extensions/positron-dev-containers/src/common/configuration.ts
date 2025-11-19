@@ -163,10 +163,13 @@ export class Configuration {
 				? `where ${configuredPath}`
 				: `which ${configuredPath}`;
 
-			const resolvedPath = execSync(whichCommand, {
+			const output = execSync(whichCommand, {
 				encoding: 'utf8',
 				env: process.env
-			}).trim().split('\n')[0]; // Take first result if multiple
+			});
+
+			// Split by line and take first result, handling both \r\n and \n
+			const resolvedPath = output.split(/\r?\n/)[0].trim();
 
 			if (resolvedPath) {
 				getLogger().debug(`Resolved docker path: ${configuredPath} -> ${resolvedPath}`);

@@ -256,7 +256,10 @@ export class DevContainerManager {
 
 			return undefined;
 		} catch (error) {
-			logger.error('Failed to find existing container', error);
+			logger.error('Failed to find existing container:', error instanceof Error ? error.message : String(error));
+			if (error instanceof Error && error.stack) {
+				logger.debug('Stack trace:', error.stack);
+			}
 			return undefined;
 		}
 	}
@@ -280,7 +283,7 @@ export class DevContainerManager {
 			} else {
 				logger.error('Failed to get container info', error);
 			}
-			throw new Error(`Failed to get container info: ${error}`);
+			throw new Error(`Failed to get container info: ${errorMsg}`);
 		}
 	}
 
@@ -303,7 +306,7 @@ export class DevContainerManager {
 			} else {
 				logger.error('Failed to inspect container details', error);
 			}
-			throw new Error(`Failed to inspect container details: ${error}`);
+			throw new Error(`Failed to inspect container details: ${errorMsg}`);
 		}
 	}
 
@@ -365,9 +368,31 @@ export class DevContainerManager {
 			const params = await this.createDockerParams();
 			await dockerCLI(params, 'start', containerId);
 			logger.info(`Container started: ${containerId}`);
-		} catch (error) {
-			logger.error('Failed to start container', error);
-			throw new Error(`Failed to start container: ${error}`);
+		} catch (error: any) {
+			let errorMsg = 'Unknown error';
+			if (error instanceof Error) {
+				errorMsg = error.message;
+			} else if (typeof error === 'object' && error !== null) {
+				// Handle docker command errors which have stdout/stderr/code
+				const parts: string[] = [];
+				if (error.message) {
+					parts.push(error.message);
+				}
+				if (error.stderr && Buffer.isBuffer(error.stderr)) {
+					const stderrText = error.stderr.toString().trim();
+					if (stderrText) {
+						parts.push(stderrText);
+					}
+				}
+				if (error.code !== undefined) {
+					parts.push(`Exit code: ${error.code}`);
+				}
+				errorMsg = parts.length > 0 ? parts.join(' - ') : JSON.stringify(error);
+			} else {
+				errorMsg = String(error);
+			}
+			logger.error(`Failed to start container: ${errorMsg}`, error);
+			throw new Error(`Failed to start container: ${errorMsg}`);
 		}
 	}
 
@@ -383,8 +408,9 @@ export class DevContainerManager {
 			await dockerCLI(params, 'stop', containerId);
 			logger.info(`Container stopped: ${containerId}`);
 		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
 			logger.error('Failed to stop container', error);
-			throw new Error(`Failed to stop container: ${error}`);
+			throw new Error(`Failed to stop container: ${errorMsg}`);
 		}
 	}
 
@@ -405,8 +431,9 @@ export class DevContainerManager {
 			await dockerCLI(params, ...args);
 			logger.info(`Container removed: ${containerId}`);
 		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
 			logger.error('Failed to remove container', error);
-			throw new Error(`Failed to remove container: ${error}`);
+			throw new Error(`Failed to remove container: ${errorMsg}`);
 		}
 	}
 
@@ -422,8 +449,9 @@ export class DevContainerManager {
 			const result = await dockerCLI(params, 'logs', '--tail', lines.toString(), containerId);
 			return result.stdout.toString();
 		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
 			logger.error('Failed to get container logs', error);
-			throw new Error(`Failed to get container logs: ${error}`);
+			throw new Error(`Failed to get container logs: ${errorMsg}`);
 		}
 	}
 
@@ -458,8 +486,9 @@ export class DevContainerManager {
 
 			return config;
 		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
 			logger.error('Failed to read configuration', error);
-			throw new Error(`Failed to read configuration: ${error}`);
+			throw new Error(`Failed to read configuration: ${errorMsg}`);
 		}
 	}
 
@@ -507,11 +536,18 @@ export class DevContainerManager {
 		}
 
 		try {
+			const config = getConfiguration();
+			const dockerPath = config.getDockerPath();
+			logger.debug(`Checking Docker availability with path: ${dockerPath}`);
 			const params = await this.createDockerParams();
 			await dockerCLI(params, 'version');
+			logger.debug('Docker is available');
 			return true;
 		} catch (error) {
-			logger.debug('Docker not available', error);
+			logger.warn('Docker not available:', error instanceof Error ? error.message : String(error));
+			if (error instanceof Error && error.stack) {
+				logger.debug('Stack trace:', error.stack);
+			}
 			return false;
 		}
 	}

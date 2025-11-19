@@ -304,8 +304,12 @@ export function plainExec(defaultCwd: string | undefined): ExecFunction {
 		const env = params.env ? { ...process.env, ...params.env } : process.env;
 		const exec = await findLocalWindowsExecutable(cmd, cwd, env, output);
 		// --- Start Positron ---
-		// Use shell:true for better PATH resolution and sandbox compatibility
-		const p = cp.spawn(exec, args, { cwd, env, stdio: stdio as any, windowsHide: true, shell: true });
+		// On Windows, when exec contains spaces (like "C:\Program Files\..."), we need to quote it
+		// Shell is needed for PATH resolution, but we must handle spaces in the executable path
+		const needsShell = process.platform === 'win32' && !path.isAbsolute(exec);
+		const spawnArgs = needsShell ? args : args;
+		const spawnCmd = needsShell ? exec : exec;
+		const p = cp.spawn(spawnCmd, spawnArgs, { cwd, env, stdio: stdio as any, windowsHide: true, shell: needsShell });
 		// --- End Positron ---
 
 		return {
@@ -599,7 +603,7 @@ export async function getLocalUsername() {
 export function getEntPasswdShellCommand(userNameOrId: string) {
 	const escapedForShell = userNameOrId.replace(/['\\]/g, '\\$&');
 	const escapedForRexExp = escapeRegExCharacters(userNameOrId)
-		.replaceAll('\'', '\\\'');
+		.replace(/'/g, '\\\'');
 	// Leading space makes sure we don't concatenate to arithmetic expansion (https://tldp.org/LDP/abs/html/dblparens.html).
 	return ` (command -v getent >/dev/null 2>&1 && getent passwd '${escapedForShell}' || grep -E '^${escapedForRexExp}|^[^:]*:[^:]*:${escapedForRexExp}:' /etc/passwd || true)`;
 }

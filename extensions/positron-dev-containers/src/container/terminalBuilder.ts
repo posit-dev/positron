@@ -24,6 +24,19 @@ export interface TerminalBuildResult {
 }
 
 /**
+ * Escapes a PowerShell argument properly
+ */
+function escapePowerShellArg(arg: string): string {
+	// If the argument contains spaces or special characters, wrap in single quotes
+	// Single quotes in PowerShell are literal strings (no variable expansion)
+	if (/[\s"'`$(){}[\]&|<>^]/.test(arg)) {
+		// Escape single quotes by doubling them, then wrap in single quotes
+		return `'${arg.replace(/'/g, "''")}'`;
+	}
+	return arg;
+}
+
+/**
  * Builds and runs dev containers using actual docker commands in a terminal
  */
 export class TerminalBuilder {
@@ -84,23 +97,63 @@ export class TerminalBuilder {
 		const dockerPath = config.getDockerPath();
 		const workspaceMountConsistency = config.getWorkspaceMountConsistency();
 
-		// Create a temporary script file to run in the terminal
+		// Determine platform-specific settings
+		const isWindows = os.platform() === 'win32';
 		const timestamp = Date.now();
-		const scriptPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.sh`);
+		const scriptExt = isWindows ? '.ps1' : '.sh';
+		const scriptPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}${scriptExt}`);
 		const markerPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.done`);
 		const containerIdPath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.id`);
 		const containerNamePath = path.join(os.tmpdir(), `devcontainer-build-${timestamp}.name`);
 
-		let scriptContent = '#!/bin/sh\nset -e\n\n';
-		// Add error trap to keep terminal open on failure
-		scriptContent += '# Trap errors to keep terminal open so user can see what failed\n';
-		scriptContent += 'trap \'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; read dummy\' ERR\n\n';
+		// Helper function to generate script content
+		const generateScriptContent = () => {
+			if (isWindows) {
+				return generatePowerShellScript();
+			} else {
+				return generateShellScript();
+			}
+		};
 
-		// Remove existing container if rebuild
-		if (rebuild) {
-			scriptContent += 'echo "==> Removing existing containers..."\n';
-			scriptContent += `${dockerPath} ps -a -q --filter "label=devcontainer.local_folder=${escapeShellArg(workspaceFolder)}" | xargs ${dockerPath} rm -f 2>/dev/null || true\n\n`;
-		}
+		const generateShellScript = () => {
+			let script = '#!/bin/sh\nset -e\n\n';
+			script += '# Trap errors to keep terminal open so user can see what failed\n';
+			script += 'trap \'echo ""; echo "==> ERROR: Build failed! Press Enter to close this terminal..."; read dummy\' ERR\n\n';
+
+			if (rebuild) {
+				script += 'echo "==> Removing existing containers..."\n';
+				script += `${dockerPath} ps -a -q --filter "label=devcontainer.local_folder=${escapeShellArg(workspaceFolder)}" | xargs ${dockerPath} rm -f 2>/dev/null || true\n\n`;
+			}
+
+			return script;
+		};
+
+		const generatePowerShellScript = () => {
+			let script = '$ErrorActionPreference = "Stop"\n\n';
+			script += '# Trap errors to keep terminal open so user can see what failed\n';
+			script += 'trap {\n';
+			script += '    Write-Host ""\n';
+			script += '    Write-Host "==> ERROR: Build failed!"\n';
+			script += '    Write-Host "Error: $_" -ForegroundColor Red\n';
+			script += '    Write-Host ""\n';
+			script += '    Write-Host "Press Enter to close this terminal..."\n';
+			script += '    Read-Host\n';
+			script += '    exit 1\n';
+			script += '}\n\n';
+
+			if (rebuild) {
+				script += 'Write-Host "==> Removing existing containers..."\n';
+				const filterArg = `label=devcontainer.local_folder=${workspaceFolder.replace(/\\/g, '\\\\')}`;
+				script += `$containers = & ${escapePowerShellArg(dockerPath)} ps -a -q --filter "${filterArg}"\n`;
+				script += 'if ($containers) {\n';
+				script += `    & ${escapePowerShellArg(dockerPath)} rm -f $containers 2>$null\n`;
+				script += '}\n\n';
+			}
+
+			return script;
+		};
+
+		let scriptContent = generateScriptContent();
 
 		// Generate build command using spec-node if we have a Dockerfile
 		if (dockerfilePath) {
@@ -119,9 +172,35 @@ export class TerminalBuilder {
 				buildKitEnabled: config.getConfiguration().workspaceMountConsistency !== 'consistent', // Simple heuristic
 				additionalArgs: devContainerConfig.build?.options,
 			});
-			scriptContent += formatCommandWithEcho(buildCmd) + '\n\n';
+
+			logger.debug(`Docker command: ${buildCmd.command}`);
+			logger.debug(`Docker args: ${JSON.stringify(buildCmd.args)}`);
+
+			// Format command for the appropriate platform
+			if (isWindows) {
+				scriptContent += 'Write-Host "==> ' + buildCmd.description + '"\n';
+				logger.debug(`Docker command: ${buildCmd.command}`);
+				logger.debug(`Docker args: ${JSON.stringify(buildCmd.args)}`);
+				scriptContent += `Write-Host "Running: ${buildCmd.command.replace(/\\/g, '\\\\')} ${buildCmd.args.join(' ')}" -ForegroundColor Cyan\n`;
+				// Build the full command line and execute via cmd.exe to avoid window spawning
+				// Escape quotes in the command line for cmd.exe
+				const cmdLine = `"${buildCmd.command}" ${buildCmd.args.map(arg => {
+					// For cmd.exe, we need to escape quotes and wrap args with spaces in quotes
+					if (arg.includes(' ') || arg.includes('"')) {
+						return `"${arg.replace(/"/g, '""')}"`;
+					}
+					return arg;
+				}).join(' ')}`;
+				scriptContent += `cmd /c "${cmdLine.replace(/"/g, '""')}"\n`;
+				scriptContent += 'if ($LASTEXITCODE -ne 0) {\n';
+				scriptContent += '    throw "Docker build failed with exit code $LASTEXITCODE"\n';
+				scriptContent += '}\n\n';
+			} else {
+				scriptContent += formatCommandWithEcho(buildCmd) + '\n\n';
+			}
 		} else {
-			scriptContent += `echo "==> Using image: ${imageName}"\n\n`;
+			const echoCmd = isWindows ? 'Write-Host' : 'echo';
+			scriptContent += `${echoCmd} "==> Using image: ${imageName}"\n\n`;
 		}
 
 		// Prepare mounts array
@@ -153,18 +232,42 @@ export class TerminalBuilder {
 			runArgs: devContainerConfig.runArgs,
 		});
 
-		scriptContent += 'echo "==> Creating container..."\n';
-		// Capture container ID from docker create
-		scriptContent += `CONTAINER_ID=$(${dockerPath} ${createCmd.args.join(' ')})\n`;
-		scriptContent += 'echo "Container ID: $CONTAINER_ID"\n\n';
+		if (isWindows) {
+			scriptContent += 'Write-Host "==> Creating container..."\n';
+			// Build command line and execute via cmd.exe to capture output and avoid window spawning
+			const createCmdLine = `"${dockerPath}" ${createCmd.args.map(arg => {
+				if (arg.includes(' ') || arg.includes('"')) {
+					return `"${arg.replace(/"/g, '""')}"`;
+				}
+				return arg;
+			}).join(' ')}`;
+			scriptContent += `$CONTAINER_ID = cmd /c "${createCmdLine.replace(/"/g, '""')}"\n`;
+			scriptContent += 'if ($LASTEXITCODE -ne 0) {\n';
+			scriptContent += '    throw "Failed to create container with exit code $LASTEXITCODE"\n';
+			scriptContent += '}\n';
+			scriptContent += '$CONTAINER_ID = $CONTAINER_ID.Trim()\n';
+			scriptContent += 'if (-not $CONTAINER_ID) {\n';
+			scriptContent += '    throw "Failed to create container - no container ID returned"\n';
+			scriptContent += '}\n';
+			scriptContent += 'Write-Host "Container ID: $CONTAINER_ID"\n\n';
 
-		// Start container
-		scriptContent += 'echo "==> Starting container..."\n';
-		scriptContent += `${dockerPath} start $CONTAINER_ID\n\n`;
+			scriptContent += 'Write-Host "==> Starting container..."\n';
+			// Use PowerShell's call operator (&) to execute docker directly
+			scriptContent += `& ${escapePowerShellArg(dockerPath)} start $CONTAINER_ID\n`;
+			scriptContent += 'if ($LASTEXITCODE -ne 0) {\n';
+			scriptContent += '    throw "Failed to start container with exit code $LASTEXITCODE"\n';
+			scriptContent += '}\n\n';
+		} else {
+			scriptContent += 'echo "==> Creating container..."\n';
+			scriptContent += `CONTAINER_ID=$(${dockerPath} ${createCmd.args.join(' ')})\n`;
+			scriptContent += 'echo "Container ID: $CONTAINER_ID"\n\n';
+
+			scriptContent += 'echo "==> Starting container..."\n';
+			scriptContent += `${dockerPath} start $CONTAINER_ID\n\n`;
+		}
 
 		// Run post-create command if specified
 		if (devContainerConfig.postCreateCommand) {
-			scriptContent += 'echo "==> Running post-create command..."\n';
 			let postCreateCmd: string;
 			if (typeof devContainerConfig.postCreateCommand === 'string') {
 				postCreateCmd = devContainerConfig.postCreateCommand;
@@ -174,38 +277,70 @@ export class TerminalBuilder {
 				postCreateCmd = '';
 			}
 			if (postCreateCmd) {
-				// Escape the command properly for the script
-				const escapedCmd = postCreateCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
-				// Allow command to fail gracefully - permission errors on bind-mounted .git files are common
-				scriptContent += `${dockerPath} exec $CONTAINER_ID sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
+				if (isWindows) {
+					scriptContent += 'Write-Host "==> Running post-create command..."\n';
+					const escapedCmd = postCreateCmd.replace(/"/g, '`"');
+					const execCmdLine = `"${dockerPath}" exec $CONTAINER_ID sh -c "${escapedCmd}"`;
+					scriptContent += `cmd /c "${execCmdLine.replace(/"/g, '""')}"\n`;
+					scriptContent += 'if ($LASTEXITCODE -ne 0) {\n';
+					scriptContent += '    Write-Host "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n';
+					scriptContent += '}\n\n';
+				} else {
+					scriptContent += 'echo "==> Running post-create command..."\n';
+					const escapedCmd = postCreateCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
+					scriptContent += `${dockerPath} exec $CONTAINER_ID sh -c "${escapedCmd}" || echo "Note: Post-create command had non-fatal errors (this is common with bind-mounted .git directories)"\n\n`;
+				}
 			}
 		}
 
 		// Save container ID and name
-		scriptContent += 'echo "==> Saving container info..."\n';
-		scriptContent += `echo "$CONTAINER_ID" > "${containerIdPath}"\n`;
-		scriptContent += `${dockerPath} inspect -f '{{.Name}}' $CONTAINER_ID | sed 's/^\\///' > "${containerNamePath}"\n\n`;
+		if (isWindows) {
+			scriptContent += 'Write-Host "==> Saving container info..."\n';
+			scriptContent += `$CONTAINER_ID | Out-File -FilePath "${containerIdPath}" -Encoding utf8 -NoNewline\n`;
+			const inspectCmdLine = `"${dockerPath}" inspect -f '{{.Name}}' $CONTAINER_ID`;
+			scriptContent += `$containerName = cmd /c "${inspectCmdLine.replace(/"/g, '""')}"\n`;
+			scriptContent += '$containerName = $containerName.Trim()\n';
+			scriptContent += 'if (-not $containerName) {\n';
+			scriptContent += '    throw "Failed to get container name"\n';
+			scriptContent += '}\n';
+			scriptContent += `$containerName.TrimStart('/') | Out-File -FilePath "${containerNamePath}" -Encoding utf8 -NoNewline\n\n`;
 
-		// Write marker file to indicate completion
-		scriptContent += 'echo "==> Container ready!"\n';
-		scriptContent += `echo "done" > "${markerPath}"\n`;
-		// Disable error trap since build succeeded and exit cleanly
-		scriptContent += 'trap - ERR\n';
-		scriptContent += 'exit 0\n';
+			scriptContent += 'Write-Host "==> Container ready!"\n';
+			scriptContent += `"done" | Out-File -FilePath "${markerPath}" -Encoding utf8\n`;
+			scriptContent += '$ErrorActionPreference = "Continue"\n';
+			scriptContent += 'exit 0\n';
+		} else {
+			scriptContent += 'echo "==> Saving container info..."\n';
+			scriptContent += `echo "$CONTAINER_ID" > "${containerIdPath}"\n`;
+			scriptContent += `${dockerPath} inspect -f '{{.Name}}' $CONTAINER_ID | sed 's/^\\///' > "${containerNamePath}"\n\n`;
+
+			scriptContent += 'echo "==> Container ready!"\n';
+			scriptContent += `echo "done" > "${markerPath}"\n`;
+			scriptContent += 'trap - ERR\n';
+			scriptContent += 'exit 0\n';
+		}
 
 		// Write the script file
 		fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
 		logger.debug(`Created build script: ${scriptPath}`);
 
-		// Create terminal and run the script (shellPath and shellArgs hide the command from display)
-		const terminal = vscode.window.createTerminal({
+		// Create terminal and run the script
+		const terminalOptions: vscode.TerminalOptions = {
 			name: 'Dev Container Build',
 			iconPath: new vscode.ThemeIcon('debug-console'),
-			shellPath: '/bin/sh',
-			shellArgs: [scriptPath]
-		});
+		};
+
+		const terminal = vscode.window.createTerminal(terminalOptions);
 		terminal.show();
+
+		// Send command to execute the script in the terminal
+		if (isWindows) {
+			// Use & to execute the script file in the current terminal session
+			terminal.sendText(`& '${scriptPath}'`);
+		} else {
+			terminal.sendText(`sh '${scriptPath}'`);
+		}
 
 		// Wait for the marker file to appear
 		logger.debug('Waiting for container build to complete...');
@@ -237,7 +372,8 @@ export class TerminalBuilder {
 			containerName = fs.readFileSync(containerNamePath, 'utf8').trim();
 			logger.info(`Container created: ${containerId} (${containerName})`);
 		} catch (error) {
-			throw new Error(`Failed to read container info: ${error}`);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw new Error(`Failed to read container info: ${errorMessage}`);
 		} finally {
 			// Clean up temporary files
 			try {
