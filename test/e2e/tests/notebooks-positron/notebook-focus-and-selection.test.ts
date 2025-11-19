@@ -236,7 +236,7 @@ test.describe('Notebook Focus and Selection', {
 		});
 	});
 
-	test("`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell)", async function ({ app }) {
+	test("`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell", async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.page.keyboard;
 
