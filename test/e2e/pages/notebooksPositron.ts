@@ -36,6 +36,8 @@ export class PositronNotebooks extends Notebooks {
 	// Editor action bar
 	editorActionBar = this.code.driver.page.locator('.editor-action-bar-container');
 	kernel: Kernel;
+	markdownButton = this.editorActionBar.getByRole('button', { name: 'Markdown' });
+	codeButton = this.editorActionBar.getByRole('button', { name: 'Code' });
 
 	// Cell action buttons, menus, tooltips, output, etc
 	moreActionsButtonAtIndex = (index: number) => this.cell.nth(index).getByRole('button', { name: /more actions/i });
@@ -589,11 +591,12 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async expectCellIndexToBeSelected(
 		expectedIndex: number,
-		options?: { isSelected?: boolean; inEditMode?: boolean; timeout?: number }
+		options?: { isSelected?: boolean; inEditMode?: boolean; isActive?: boolean; timeout?: number }
 	): Promise<void> {
 		const {
 			isSelected = true,
 			inEditMode = undefined,
+			isActive = undefined,
 		} = options ?? {};
 
 		await expect(async () => {
@@ -613,6 +616,12 @@ export class PositronNotebooks extends Notebooks {
 				isSelected
 					? expect(selectedIndices).toContain(expectedIndex)
 					: expect(selectedIndices).not.toContain(expectedIndex);
+
+				if (isActive !== undefined) {
+					isActive
+						? await expect(this.moreActionsButtonAtIndex(expectedIndex)).toBeVisible()
+						: await expect(this.moreActionsButtonAtIndex(expectedIndex)).toBeHidden();
+				}
 			});
 
 			await test.step(`Verify cell at index ${expectedIndex} is ${inEditMode ? '' : 'NOT '}in edit mode`, async () => {
