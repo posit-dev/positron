@@ -201,12 +201,6 @@ export class ExtHostConfigProvider {
 						case 'enableCellCodeLens':
 							return false;
 					}
-				} else if (section === 'python') {
-					switch (key) {
-						// Force to 'Default' to disable the Jupyter extension's language clients.
-						case 'languageServer':
-							return 'Default';
-					}
 				}
 				// --- End Positron ---
 				this._validateConfigurationAccess(section ? `${section}.${key}` : key, overrides, extensionDescription?.identifier);
@@ -273,6 +267,13 @@ export class ExtHostConfigProvider {
 			update: (key: string, value: unknown, extHostConfigurationTarget: ExtHostConfigurationTarget | boolean, scopeToLanguage?: boolean) => {
 				key = section ? `${section}.${key}` : key;
 				const target = parseConfigurationTarget(extHostConfigurationTarget);
+				// --- Start Positron ---
+				// The pyrefly extension has a hack that briefly overwrites this setting to refresh the language server,
+				// which would leave "python.languageServer": "" in user settings. We don't want that.
+				if (key === 'python.languageServer' && value === '') {
+					return this._proxy.$removeConfigurationOption(target, key, overrides, scopeToLanguage);
+				};
+				// --- End Positron ---
 				if (value !== undefined) {
 					return this._proxy.$updateConfigurationOption(target, key, value, overrides, scopeToLanguage);
 				} else {

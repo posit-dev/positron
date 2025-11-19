@@ -13,6 +13,11 @@
 	overflow: hidden; /* Clip content to respect rounded corners */
 }
 
+/* On hover, when NOT selected/editing: change border color to hover color */
+.positron-notebook-cell:not(.selected):not(.editing):hover .positron-cell-editor-monaco-widget {
+	border-color: var(--vscode-editorWidget-border);
+}
+
 /* Show focus outline with default VS Code focus color */
 .positron-cell-editor-monaco-widget:focus-within {
 	outline: 1px solid var(--vscode-focusBorder);

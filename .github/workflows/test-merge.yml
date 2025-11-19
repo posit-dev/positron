@@ -29,6 +29,7 @@ jobs:
       matrix: '{"shard":[1,2]}'
       workers: 2
       allow_soft_fail: true
+      max_failures: 5  # 10 max failures / 2 shards = 5
     secrets: inherit
 
   e2e-windows-electron:
@@ -58,6 +59,7 @@ jobs:
       matrix: '{"shard":[1,2]}'
       workers: 2
       allow_soft_fail: true
+      max_failures: 5  # 10 max failures / 2 shards = 5
     secrets: inherit
 
   unit-tests:

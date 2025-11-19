@@ -60,6 +60,14 @@ export interface IPositronNotebookCell extends Disposable, IPositronCellViewMode
 	readonly selectionStatus: ISettableObservable<CellSelectionStatus>;
 
 	/**
+	 * Whether this cell is the active cell.
+	 * The active cell is the single cell where keyboard actions take effect and where
+	 * UI elements like the run button and action bar are displayed.
+	 * A cell can be active while also being selected or editing.
+	 */
+	readonly isActive: ISettableObservable<boolean>;
+
+	/**
 	 * The content of the cell. This is the raw text of the cell.
 	 */
 	getContent(): string;
