@@ -8,6 +8,9 @@ import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createWorkbenchFromPage } from '../../infra/workbench';
+import { pythonDynamicPlot } from '../shared/plots.constants.js';
+const settingsPath = require('node:path').resolve(__dirname, '../../fixtures/settingsDocker.json');
 
 test.use({
 	suiteId: __filename
@@ -71,7 +74,7 @@ test.describe('Remote SSH', {
 	tag: [tags.REMOTE_SSH]
 }, () => {
 
-	test.beforeAll(async ({ }) => {
+	test.beforeAll(async ({ settings }) => {
 
 		try {
 			sshKeyscan('127.0.0.1', 3456, '/tmp/known_hosts');
@@ -79,33 +82,113 @@ test.describe('Remote SSH', {
 			throw new Error(`ssh-keyscan failed: ${(err as Error).message}`);
 		}
 
+		await settings.set(JSON.parse(fs.readFileSync(settingsPath, 'utf8')));
+
 	});
 
-	test('Verify SSH connection into docker image', async function ({ app, python }) {
+	test('Verify SSH connection into docker image', async function ({ app, python, runDockerCommand }) {
 
-		// Start waiting for *any* new window before we trigger the UI that opens it
-		const sshWinPromise = waitForAnyNewWindow(app.code.electronApp!, async () => {
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.selectQuickInputElementContaining('Connect to Host...');
-			await app.workbench.quickInput.selectQuickInputElementContaining('remote');
-		}, { timeout: 60_000 });
+		const sshWin = await test.step(`Connect to docker image`, async () => {
+			// Start waiting for *any* new window before we trigger the UI that opens it
+			const sshWinPromise = waitForAnyNewWindow(app.code.electronApp!, async () => {
+				await app.workbench.quickInput.waitForQuickInputOpened();
+				await app.workbench.quickInput.selectQuickInputElementContaining('Connect to Host...');
+				await app.workbench.quickInput.selectQuickInputElementContaining('remote');
+			}, { timeout: 60_000 });
 
-		// Kick off the action that reveals the quick input (if needed)
-		await app.code.driver.page.locator('.codicon-remote').click();
+			// Kick off the action that reveals the quick input (if needed)
+			await app.code.driver.page.locator('.codicon-remote').click();
 
-		// Grab the new window (no URL/title/selector filtering)
-		const sshWin = await sshWinPromise;
+			// Grab the new window (no URL/title/selector filtering)
+			const sshWin = await sshWinPromise;
 
-		// Continue as before
-		await expect(sshWin.getByText('Enter password')).toBeVisible({ timeout: 60_000 });
-		await sshWin.keyboard.type('root');
-		await sshWin.keyboard.press('Enter');
+			// Continue as before
+			await expect(sshWin.getByText('Enter password')).toBeVisible({ timeout: 60_000 });
+			await sshWin.keyboard.type('root');
+			await sshWin.keyboard.press('Enter');
 
-		const alertLocator = sshWin.locator('span', { hasText: 'Setting up SSH Host remote' });
-		await expect(alertLocator).toBeVisible({ timeout: 10_000 });
-		await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
+			const alertLocator = sshWin.locator('span', { hasText: 'Setting up SSH Host remote' });
+			await expect(alertLocator).toBeVisible({ timeout: 10_000 });
+			await expect(alertLocator).not.toBeVisible({ timeout: 60_000 });
 
+			return sshWin;
+		});
+
+		const sshWorkbench = await test.step(`Create a workbench instance from the remote page`, async () => {
+			const sshWorkbench = createWorkbenchFromPage(app.code, sshWin);
+
+			process.env.POSITRON_PY_VER_SEL = process.env.POSITRON_PY_REMOTE_VER_SEL!;
+			process.env.POSITRON_R_VER_SEL = process.env.POSITRON_R_REMOTE_VER_SEL!;
+
+			return sshWorkbench;
+		});
+
+
+		const pythonSession = await test.step(`Check that correct Python is being used`, async () => {
+			const pythonSession = await sshWorkbench.sessions.start('python');
+			await sshWorkbench.console.pasteCodeToConsole('import sys; print(sys.executable)', true);
+			await sshWorkbench.console.waitForConsoleContents('/root/.venv/bin/python');
+
+			return pythonSession;
+
+		});
+
+		await test.step(`Check that correct R is being used`, async () => {
+			await sshWorkbench.sessions.start('r');
+			await sshWorkbench.console.pasteCodeToConsole('Sys.getenv("R_HOME")', true);
+			await sshWorkbench.console.waitForConsoleContents('/opt/R/4.4.0/lib/R');
+		});
+
+		await test.step(`Check that plots work`, async () => {
+			await sshWorkbench.sessions.select(pythonSession.id);
+			await sshWorkbench.console.pasteCodeToConsole(pythonDynamicPlot, true);
+			await sshWorkbench.plots.waitForCurrentPlot();
+		});
+
+		await test.step(`Check that apps work`, async () => {
+			const viewer = sshWorkbench.viewer;
+			const fileName = 'Untitled-1';
+
+			await sshWorkbench.layouts.enterLayout('stacked');
+
+			await sshWorkbench.editors.newUntitledFile();
+			await sshWorkbench.editor.selectTabAndType(fileName, flaskAppCode);
+			await sshWin.keyboard.press('Enter');
+
+			await sshWorkbench.topActionBar.saveButton.click();
+
+			await sshWorkbench.quickInput.waitForQuickInputOpened();
+			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
+			await sshWorkbench.quickInput.type('test.py');
+			await sshWorkbench.quickInput.clickOkButton();
+
+			await sshWin.waitForTimeout(3000); // wait for file to be saved
+
+			await sshWorkbench.editor.pressPlay();
+
+			const viewerFrame = viewer.getViewerFrame();
+			const loginLocator = app.web
+				? viewerFrame.frameLocator('iframe').getByText('Hello, World!')
+				: viewerFrame.getByText('Hello, World!');
+
+			await expect(loginLocator).toBeVisible({ timeout: 60000 });
+		});
+
+		await test.step(`Clennup`, async () => {
+			await runDockerCommand('docker exec test rm /test.py', 'Remove test.py from container');
+		});
 
 	});
 });
 
+const flaskAppCode = `from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return 'Hello, World!'
+
+if __name__ == '__main__':
+    app.run(debug=True)
+`;
