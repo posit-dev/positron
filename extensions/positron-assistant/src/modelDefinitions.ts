@@ -81,6 +81,43 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			identifier: 'gemini-2.0-flash-exp',
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
+		{
+			name: 'Gemini 1.5 Flash 002',
+			identifier: 'gemini-1.5-flash-002',
+			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
+		},
+	]],
+	['snowflake-cortex', [
+		{
+			name: 'Claude 3.7 Sonnet',
+			identifier: 'claude-3-7-sonnet',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			maxOutputTokens: 4_096,
+		},
+		{
+			name: 'Claude 4 Sonnet',
+			identifier: 'claude-4-sonnet',
+			maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+			maxOutputTokens: 4_096,
+		},
+		// {
+		// 	name: 'Claude 4 Opus',
+		// 	identifier: 'claude-4-opus',
+		// 	maxInputTokens: 200_000, // Snowflake Cortex AI model context limit
+		// 	maxOutputTokens: 4_096,
+		// },
+		// {
+		// 	name: 'GPT-5',
+		// 	identifier: 'openai-gpt-5',
+		// 	maxInputTokens: 128_000, // Typical GPT-5 context window
+		// 	maxOutputTokens: 4_096,
+		// },
+		// {
+		// 	name: 'GPT-4.1',
+		// 	identifier: 'openai-gpt-4.1',
+		// 	maxInputTokens: 128_000, // GPT-4.1 context window
+		// 	maxOutputTokens: 4_096,
+		// },
 	]]
 ]);
 

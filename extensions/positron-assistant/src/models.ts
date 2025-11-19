@@ -903,6 +903,77 @@ class OpenAICompatibleLanguageModel extends OpenAILanguageModel implements posit
 	}
 }
 
+class SnowflakeLanguageModel extends OpenAILanguageModel {
+	protected aiProvider: OpenAIProvider;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'snowflake-cortex',
+			displayName: 'Snowflake Cortex'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		defaults: {
+			name: 'Snowflake Cortex',
+			model: 'claude-4-sonnet',
+			baseUrl: 'https://<account_identifier>.snowflakecomputing.com/api/v2/cortex/v1',
+			toolCalls: true,
+			completions: false,
+		}
+	};
+
+	constructor(
+		config: ModelConfig,
+		context?: vscode.ExtensionContext,
+	) {
+		super(config, context);
+		this.aiProvider = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this.baseUrl,
+			fetch: this.customFetch()
+		});
+	}
+
+	get providerName(): string {
+		return SnowflakeLanguageModel.source.provider.displayName;
+	}
+
+	get baseUrl(): string {
+		// Use the baseUrl from config or fallback to default
+		return this._config.baseUrl || SnowflakeLanguageModel.source.defaults.baseUrl!;
+	}
+
+	customFetch(): (input: RequestInfo, init?: RequestInit) => Promise<Response> {
+		return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+			// Intercept and modify request body to handle deprecated max_tokens parameter
+			if (init?.method === 'POST' && init?.body) {
+				try {
+					const bodyStr = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
+					const requestBody = JSON.parse(bodyStr);
+
+					// If max_tokens is present, rename it to max_completion_tokens, as max_tokens
+					// is deprecated for models hosted by Snowflake Cortex
+					if (requestBody.max_tokens !== undefined) {
+						requestBody.max_completion_tokens = requestBody.max_tokens;
+						delete requestBody.max_tokens;
+
+						// Update the request body with the modified content
+						init = {
+							...init,
+							body: JSON.stringify(requestBody)
+						};
+					}
+				} catch (error) {
+					// If we can't parse the body, just proceed with the original request
+					log.warn(`[${this.providerName}] Failed to parse request body for max_tokens handling: ${error}`);
+				}
+			}
+
+			return fetch(input, init);
+		};
+	}
+}
+
 class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected aiProvider: MistralProvider;
 
@@ -1483,6 +1554,7 @@ export function getLanguageModels() {
 		OpenAICompatibleLanguageModel,
 		OpenRouterLanguageModel,
 		PositLanguageModel,
+		SnowflakeLanguageModel,
 		VertexLanguageModel,
 	];
 	return languageModels;
