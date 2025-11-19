@@ -86,7 +86,7 @@ test.describe('Remote SSH', {
 
 	});
 
-	test('Verify SSH connection into docker image', async function ({ app, python }) {
+	test('Verify SSH connection into docker image', async function ({ app, python, runDockerCommand }) {
 
 		const sshWin = await test.step(`Connect to docker image`, async () => {
 			// Start waiting for *any* new window before we trigger the UI that opens it
@@ -145,6 +145,50 @@ test.describe('Remote SSH', {
 			await sshWorkbench.plots.waitForCurrentPlot();
 		});
 
+		await test.step(`Check that apps work`, async () => {
+			const viewer = sshWorkbench.viewer;
+			const fileName = 'Untitled-1';
+
+			await sshWorkbench.layouts.enterLayout('stacked');
+
+			await sshWorkbench.editors.newUntitledFile();
+			await sshWorkbench.editor.selectTabAndType(fileName, flaskAppCode);
+			await sshWin.keyboard.press('Enter');
+
+			await sshWorkbench.topActionBar.saveButton.click();
+
+			await sshWorkbench.quickInput.waitForQuickInputOpened();
+			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
+			await sshWorkbench.quickInput.type('test.py');
+			await sshWorkbench.quickInput.clickOkButton();
+
+			await sshWin.waitForTimeout(3000); // wait for file to be saved
+
+			await sshWorkbench.editor.pressPlay();
+
+			const viewerFrame = viewer.getViewerFrame();
+			const loginLocator = app.web
+				? viewerFrame.frameLocator('iframe').getByText('Hello, World!')
+				: viewerFrame.getByText('Hello, World!');
+
+			await expect(loginLocator).toBeVisible({ timeout: 60000 });
+		});
+
+		await test.step(`Clennup`, async () => {
+			await runDockerCommand('docker exec test rm /test.py', 'Remove test.py from container');
+		});
+
 	});
 });
 
+const flaskAppCode = `from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return 'Hello, World!'
+
+if __name__ == '__main__':
+    app.run(debug=True)
+`;
