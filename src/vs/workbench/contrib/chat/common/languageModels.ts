@@ -585,7 +585,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 		if (allVendors.length === 0) {
 			return;
 		}
-		// Re-resolve all vendors
 		const vendorPromises = allVendors.map(
 			vendor => this._resolveLanguageModels(vendor, true));
 
