@@ -207,7 +207,7 @@ export class PositronNotebooks extends Notebooks {
 	 * @param cellIndex - The index of the cell to act on
 	 * @param action - The action to perform from the More Actions menu
 	 */
-	async selectFromMoreActionsMenu(cellIndex: number, action: MoreActionsMenuItems): Promise<void> {
+	async triggerCellAction(cellIndex: number, action: MoreActionsMenuItems): Promise<void> {
 		await test.step(`Select action from More Actions menu: ${action}`, async () => {
 			await this.moreActionsButtonAtIndex(cellIndex).click();
 			await this.moreActionsOption(action).click();

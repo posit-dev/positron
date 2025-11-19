@@ -87,7 +87,7 @@ permissions:
 jobs:
   e2e-ubuntu-run:
     name: ${{ inputs.display_name || 'e2e-ubuntu-run' }}-${{ matrix.shard }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     runs-on: ubuntu-latest-8x
     strategy:
       fail-fast: false
@@ -500,6 +500,7 @@ jobs:
 
       - name: Clean up blob report artifacts
         if: success()
+        continue-on-error: true
         uses: geekyeggo/delete-artifact@v5
         with:
           name: blob-report-${{ inputs.project }}-*
