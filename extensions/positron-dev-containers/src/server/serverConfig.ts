@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 import { getLogger } from '../common/logger';
 
 /**
@@ -168,8 +169,8 @@ export class ServerConfigProvider {
 			const appRoot = vscode.env.appRoot;
 			const productPath = path.join(appRoot, 'product.json');
 
-
-			const product = require(productPath);
+			const productJson = fs.readFileSync(productPath, 'utf8');
+			const product = JSON.parse(productJson);
 			if (product.commit) {
 				return product.commit;
 			}
@@ -198,8 +199,8 @@ export class ServerConfigProvider {
 			const appRoot = vscode.env.appRoot;
 			const productPath = path.join(appRoot, 'product.json');
 
-
-			const product = require(productPath);
+			const productJson = fs.readFileSync(productPath, 'utf8');
+			const product = JSON.parse(productJson);
 			if (product.quality) {
 				return product.quality;
 			}

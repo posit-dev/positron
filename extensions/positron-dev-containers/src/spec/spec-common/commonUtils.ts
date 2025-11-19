@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as ptyType from 'node-pty';
 import { StringDecoder } from 'string_decoder';
+import { createRequire } from 'module';
 
 import { toErrorText } from './errors';
 import { Disposable, Event, NodeEventEmitter } from '../spec-utils/event';
@@ -527,12 +528,15 @@ export function isEarlierVersion(left: number[], right: number[]) {
 }
 
 export async function loadNativeModule<T>(moduleName: string): Promise<T | undefined> {
+	// Create a require function for dynamic module loading
+	const dynamicRequire = createRequire(__filename);
+
 	// Check NODE_PATH for Electron. Do this first to avoid loading a binary-incompatible version from the local node_modules during development.
 	if (process.env.NODE_PATH) {
 		for (const nodePath of process.env.NODE_PATH.split(path.delimiter)) {
 			if (nodePath) {
 				try {
-					return require(`${nodePath}/${moduleName}`);
+					return dynamicRequire(`${nodePath}/${moduleName}`);
 				} catch (err) {
 					// Not available.
 				}
@@ -540,7 +544,7 @@ export async function loadNativeModule<T>(moduleName: string): Promise<T | undef
 		}
 	}
 	try {
-		return require(moduleName);
+		return dynamicRequire(moduleName);
 	} catch (err) {
 		// Not available.
 	}
