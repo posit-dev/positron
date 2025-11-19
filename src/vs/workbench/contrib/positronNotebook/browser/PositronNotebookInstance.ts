@@ -836,12 +836,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.deleteCells([cell]);
 	}
 
-
 	/**
 	 * Deletes multiple cells from the notebook.
-	 * @param cellsToDelete Array of cells to delete
+	 * @param cells Array of cells to delete
 	 */
-	deleteCells(cellsToDelete: IPositronNotebookCell[]): void {
+	deleteCells(cells?: IPositronNotebookCell[]): void {
+		const cellsToDelete = cells || getSelectedCells(this.selectionStateMachine.state.get());
+
 		this._assertTextModel();
 
 		if (cellsToDelete.length === 0) {

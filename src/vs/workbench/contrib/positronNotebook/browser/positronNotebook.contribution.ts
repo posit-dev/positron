@@ -681,7 +681,7 @@ registerAction2(class extends CellAction2 {
 	}
 });
 
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.delete',
@@ -698,11 +698,11 @@ registerAction2(class extends CellAction2 {
 				primary: KeyCode.Backspace,
 				secondary: [KeyChord(KeyCode.KeyD, KeyCode.KeyD)]
 			}
-		}, { multiSelect: true, editMode: false });
+		});
 	}
 
-	override runCellAction(cell: IPositronNotebookCell, _notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
-		cell.delete();
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+		notebook.deleteCells();
 	}
 });
 
