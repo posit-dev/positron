@@ -34,7 +34,7 @@ export async function reopenInContainer(): Promise<void> {
 		// Check if workspace has dev container configuration
 		if (!Workspace.hasDevContainer(workspaceFolder)) {
 			await vscode.window.showErrorMessage(
-				vscode.l10n.t('No dev container configuration found. Create a .devcontainer/devcontainer.json file first.')
+				vscode.l10n.t('No dev container configuration found. Create a .devcontainer/devcontainer.json or .devcontainer.json file first.')
 			);
 			return;
 		}

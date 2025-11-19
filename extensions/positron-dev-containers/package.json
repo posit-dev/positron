@@ -343,12 +343,12 @@
       "editor/actions/left": [
         {
           "command": "remote-containers.reopenInContainer",
-          "when": "!hideConnectCommands && !remoteName && (resourceFilename == 'devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
+          "when": "!hideConnectCommands && !remoteName && (resourceFilename == 'devcontainer.json' || resourceFilename == '.devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
           "group": "devcontainer@1"
         },
         {
           "command": "remote-containers.rebuildContainer",
-          "when": "!hideRebuildCommands && remoteName =~ /^(dev-container|attached-container)$/ && (resourceFilename == 'devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
+          "when": "!hideRebuildCommands && remoteName =~ /^(dev-container|attached-container)$/ && (resourceFilename == 'devcontainer.json' || resourceFilename == '.devcontainer.json' || resourcePath =~ /\\.devcontainer[\\/\\\\].*[Dd]ockerfile/)",
           "group": "devcontainer@1"
         }
       ],

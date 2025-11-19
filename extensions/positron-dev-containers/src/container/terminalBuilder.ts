@@ -51,10 +51,14 @@ export class TerminalBuilder {
 		const logger = getLogger();
 		const config = Configuration.getInstance();
 
-		// Find the devcontainer.json file
-		const devcontainerPath = path.join(workspaceFolder, '.devcontainer', 'devcontainer.json');
+		// Find the devcontainer.json file - check both standard locations
+		let devcontainerPath = path.join(workspaceFolder, '.devcontainer', 'devcontainer.json');
 		if (!fs.existsSync(devcontainerPath)) {
-			throw new Error(`Dev container configuration not found: ${devcontainerPath}`);
+			// Try .devcontainer.json in workspace root
+			devcontainerPath = path.join(workspaceFolder, '.devcontainer.json');
+			if (!fs.existsSync(devcontainerPath)) {
+				throw new Error(`Dev container configuration not found. Expected at ${path.join(workspaceFolder, '.devcontainer', 'devcontainer.json')} or ${path.join(workspaceFolder, '.devcontainer.json')}`);
+			}
 		}
 
 		// Read and parse the devcontainer.json (supports comments via JSONC)
