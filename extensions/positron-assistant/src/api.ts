@@ -59,13 +59,8 @@ export class PositronAssistantApi {
 		const sessions = activeSessions.map(session => session.runtimeMetadata);
 		const streamingEdits = isStreamingEditsEnabled();
 
-		// Get notebook context if available, with error handling
-		let notebookContext: SerializedNotebookContext | undefined;
-		try {
-			notebookContext = await getAttachedNotebookContext(request);
-		} catch (err) {
-			log.error('[PositronAssistantApi] Error checking notebook context:', err);
-		}
+		// Get notebook context if available
+		const notebookContext = await getAttachedNotebookContext(request);
 
 		let prompt = PromptRenderer.renderModePrompt(mode, { sessions, request, streamingEdits, notebookContext }).content;
 
