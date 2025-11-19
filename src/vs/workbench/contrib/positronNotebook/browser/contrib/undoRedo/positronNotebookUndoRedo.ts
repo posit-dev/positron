@@ -52,10 +52,14 @@ class PositronNotebookUndoRedoContribution extends Disposable {
 		// Read context keys from the scoped context service that actually has these keys bound
 		const containerFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED.key) ?? false;
 		const cellEditorFocused = scopedContextKeyService.getContextKeyValue<boolean>(POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED.key) ?? false;
+		// If the notebook is empty, allow undo/redo since the container focus context key will be false.
+		// This enables undoing cell operations (cut and delete) that result in an empty notebook.
+		const emptyNotebook = instance.cells.get().length === 0;
 
-		// Handle undo/redo if either the container is focused OR a cell editor is focused
+		const shouldHandle = containerFocused || cellEditorFocused || emptyNotebook;
+		// Handle undo/redo if either the container is focused OR a cell editor is focused OR the notebook is empty
 		// This allows undo to work even when typing in a cell (common after adding a new cell)
-		return containerFocused || cellEditorFocused;
+		return shouldHandle;
 	}
 
 	private handleUndo(): boolean | Promise<void> {
