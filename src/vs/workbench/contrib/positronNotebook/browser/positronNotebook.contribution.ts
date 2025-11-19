@@ -693,7 +693,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.delete',
-			title: localize2('positronNotebook.cell.delete.description', "Delete the Selected Cell(s)"),
+			title: localize2('positronNotebook.cell.delete.description', "Delete Cell"),
 			icon: ThemeIcon.fromId('trash'),
 			menu: {
 				id: MenuId.PositronNotebookCellActionBarRight,
@@ -802,7 +802,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllAbove',
-			title: localize2('positronNotebook.cell.runAllAbove', "Run Above Cells"),
+			title: localize2('positronNotebook.cell.runAllAbove', "Run Cells Above"),
 			icon: ThemeIcon.fromId('run-above'),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
@@ -842,7 +842,7 @@ registerAction2(class extends CellAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.cell.runAllBelow',
-			title: localize2('positronNotebook.cell.runAllBelow', "Run Below Cells"),
+			title: localize2('positronNotebook.cell.runAllBelow', "Run Cells Below"),
 			icon: ThemeIcon.fromId('run-below'),
 			menu: [{
 				id: MenuId.PositronNotebookCellActionBarLeft,
