@@ -238,6 +238,7 @@ test.describe('Notebook Focus and Selection', {
 
 	test("`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell)", async function ({ app }) {
 		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
 
 		// Start a new notebook with 3 cells
 		await notebooksPositron.newNotebook(3);
@@ -249,10 +250,18 @@ test.describe('Notebook Focus and Selection', {
 		await notebooksPositron.expectCellCountToBe(4);
 		await notebooksPositron.expectCellIndexToBeSelected(2, { isActive: true, inEditMode: true });
 
+		// Ensure new code cell is editable
+		await keyboard.type('print("Hello, World!")');
+		await notebooksPositron.expectCellContentAtIndexToContain(2, 'print("Hello, World!")');
+
 		// Click the + Markdown button and verify the cell is inserted after the active cell
 		await notebooksPositron.markdownButton.click();
 		await notebooksPositron.expectCellCountToBe(5);
 		await notebooksPositron.expectCellIndexToBeSelected(3, { isActive: true, inEditMode: true });
+
+		// Ensure new markdown cell is editable
+		await keyboard.type('# Heading 1');
+		await notebooksPositron.expectCellContentAtIndexToContain(3, '# Heading 1');
 	});
 
 	test("Multi-select and deselect retains anchor/active cell", async function ({ app }) {
