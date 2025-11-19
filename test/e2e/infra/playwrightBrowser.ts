@@ -153,17 +153,7 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
 
-	const context = await measureAndLog(
-		() => browser.newContext({
-			recordVideo: options.videosPath
-				? {
-					dir: options.videosPath,
-					size: { width: 1920, height: 1080 }
-				} : undefined,
-		}),
-		'browser.newContext',
-		logger
-	);
+	const context = await measureAndLog(() => browser.newContext(), 'browser.newContext', logger);
 
 	if (tracing) {
 		try {
