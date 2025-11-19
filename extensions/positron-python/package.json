@@ -735,6 +735,20 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "python.languageServer": {
+                    "type": "string",
+                    "description": "%python.languageServer.description%",
+                    "scope": "window",
+                    "enum": [
+                        "None"
+                    ],
+                    "enumDescriptions": [
+                        "%python.languageServer.noneDescription%"
+                    ],
+                    "tags": [
+                        "experimental"
+                    ]
+                },
                 "python.languageServerDebug": {
                     "default": false,
                     "description": "%python.languageServerDebug.description%",
@@ -986,12 +1000,10 @@
             "type": "object"
         },
         "configurationDefaults": {
-            "pyright.disableLanguageServices": true,
-            "pyright.disableOrganizeImports": true,
-            "pyright.disablePullDiagnostics": true,
-            "python.analysis.autoImportCompletions": false,
-            "python.analysis.typeCheckingMode": "off",
-            "ruff.importStrategy": "useBundled"
+            "ruff.importStrategy": "useBundled",
+            "[python]": {
+                "editor.inlayHints.enabled": "offUnlessPressed"
+            }
         },
         "debuggers": [
             {

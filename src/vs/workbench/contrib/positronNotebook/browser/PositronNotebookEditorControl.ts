@@ -7,7 +7,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../base/common/observable.js';
 import { ICompositeCodeEditor, IEditor } from '../../../../editor/common/editorCommon.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
-import { getSelectedCells } from './selectionMachine.js';
+import { getActiveCell } from './selectionMachine.js';
 
 /**
  * The PositronNotebookEditorControl is used by features like inline chat, debugging, and outlines
@@ -36,10 +36,8 @@ export class PositronNotebookEditorControl extends Disposable implements ICompos
 		// Update the active code editor when the notebook selection state changes.
 		this._register(autorun(reader => {
 			const selectionStateMachine = this._notebookInstance.selectionStateMachine;
-			selectionStateMachine.state.read(reader);
-			// We currently assume that the first selected cell is the "active" one,
-			// but we should probably explicitly track the active cell in the selection state.
-			this._activeCodeEditor = getSelectedCells(selectionStateMachine.state.get())[0]?.editor;
+			const state = selectionStateMachine.state.read(reader);
+			this._activeCodeEditor = getActiveCell(state)?.editor;
 		}));
 	}
 

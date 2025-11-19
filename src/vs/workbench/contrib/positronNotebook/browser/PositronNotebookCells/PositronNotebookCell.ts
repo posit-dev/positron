@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, IReference } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ITextModel } from '../../../../../editor/common/model.js';
-import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { IResolvedTextEditorModel, ITextModelService } from '../../../../../editor/common/services/resolverService.js';
 import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
 import { CellKind, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, CellSelectionStatus, ExecutionStatus } from './IPositronNotebookCell.js';
@@ -29,9 +29,11 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	protected readonly _editor = observableValue<ICodeEditor | undefined>('cellEditor', undefined);
 	protected readonly _internalMetadata;
 	private readonly _editorFocusRequested = observableSignal<void>('editorFocusRequested');
+	private _modelRef: IReference<IResolvedTextEditorModel> | undefined;
 
 	public readonly executionStatus;
 	public readonly selectionStatus = observableValue<CellSelectionStatus, void>('cellSelectionStatus', CellSelectionStatus.Unselected);
+	public readonly isActive = observableValue('cellIsActive', false);
 	public readonly editorFocusRequested: IObservableSignal<void> = this._editorFocusRequested;
 
 	constructor(
@@ -110,13 +112,12 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	async getTextEditorModel(): Promise<ITextModel> {
-		// TODO: We aren't disposing cells when they're removed, so we're leaking references
-		//       to the notebook and cell text models. This stops notebook documents from ever
-		//       being disposed, which leaves their runtime sessions running.
-		//       We may also want to store and reuse a single reference for all calls to this method.
-		//       See: https://github.com/posit-dev/positron/issues/10215
-		const modelRef = this._register(await this._textModelService.createModelReference(this.uri));
-		return modelRef.object.textEditorModel;
+		// Cache and reuse a single model reference for the lifetime of this cell.
+		// This reference will be disposed when the cell is disposed.
+		if (!this._modelRef) {
+			this._modelRef = this._register(await this._textModelService.createModelReference(this.uri));
+		}
+		return this._modelRef.object.textEditorModel;
 	}
 
 	delete(): void {

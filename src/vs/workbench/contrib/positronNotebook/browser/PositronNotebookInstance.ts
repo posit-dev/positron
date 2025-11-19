@@ -22,7 +22,7 @@ import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IPositronNotebookCell } from './PositronNotebookCells/IPositronNotebookCell.js';
-import { CellSelectionType, getSelectedCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { CellSelectionType, getActiveCell, getSelectedCells, SelectionState, SelectionStateMachine, toCellRanges } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from './ContextKeysManager.js';
 import { IPositronNotebookService } from './positronNotebookService.js';
 import { IPositronNotebookInstance, KernelStatus, NotebookOperationType } from './IPositronNotebookInstance.js';
@@ -639,6 +639,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	override dispose() {
 
 		this._logService.debug(this._id, 'dispose');
+
+		this.cells.get().forEach(cell => cell.dispose());
+
 		this._positronNotebookService.unregisterInstance(this);
 		// Remove from the instance map
 		PositronNotebookInstance._instanceMap.delete(this.uri);
@@ -788,14 +791,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			const cellIndex = referenceCell.index;
 			index = cellIndex >= 0 ? cellIndex : undefined;
 		} else {
-			index = getSelectedCell(this.selectionStateMachine.state.get())?.index;
+			index = getActiveCell(this.selectionStateMachine.state.get())?.index;
 		}
 
 		if (index === undefined) {
 			return;
 		}
 
-		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), false);
+		this.addCell(type, index + (aboveOrBelow === 'above' ? 0 : 1), true);
 	}
 
 	/**
@@ -813,10 +816,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Deletes a single cell from the notebook.
-	 * @param cellToDelete The cell to delete. If not provided, deletes the currently selected cell
+	 * @param cellToDelete The cell to delete. If not provided, deletes the currently active cell
 	 */
 	deleteCell(cellToDelete?: IPositronNotebookCell): void {
-		const cell = cellToDelete ?? getSelectedCell(this.selectionStateMachine.state.get());
+		const cell = cellToDelete ?? getActiveCell(this.selectionStateMachine.state.get());
 
 		if (!cell) {
 			return;
@@ -1212,10 +1215,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				return existingCell;
 			}
 			const newCell = createNotebookCell(cell, this, this._instantiationService);
-			// TODO: We should be disposing cells when we're done with them.
-			//       We're currently holding onto notebook and cell text model references
-			//       so text models are never disposed
-			//       See: https://github.com/posit-dev/positron/issues/10215
 			newlyAddedCells.push(newCell);
 
 			return newCell;
@@ -1275,13 +1274,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Clears the output of a specific cell in the notebook.
-	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell.
+	 * @param cell The cell to clear outputs from. If not provided, uses the currently active cell.
 	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
 	 */
 	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
 		this._assertTextModel();
 
-		const targetCell = cell ?? getSelectedCell(this.selectionStateMachine.state.get());
+		const targetCell = cell ?? getActiveCell(this.selectionStateMachine.state.get());
 		if (!targetCell) {
 			return;
 		}
@@ -1325,7 +1324,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		switch (state.type) {
 			case SelectionState.EditingSelection:
 				// Focus the editor - enterEditor() already has idempotency checks
-				this.selectionStateMachine.enterEditor(state.selected);
+				this.selectionStateMachine.enterEditor(state.active);
 				break;
 
 			case SelectionState.SingleSelection:
@@ -1333,7 +1332,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				// Focus the first selected cell's container
 				// Optional chaining handles undefined containers gracefully
 				const cell = state.type === SelectionState.SingleSelection
-					? state.selected
+					? state.active
 					: state.selected[0];
 				cell.container?.focus();
 				break;
