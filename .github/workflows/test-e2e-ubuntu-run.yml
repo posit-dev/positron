@@ -330,58 +330,6 @@ jobs:
           # The merge-reports job will determine pass/fail based on the complete test results
           eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} --reporter=blob || true
 
-      - name: Analyze and clean up blob reports before upload
-        if: ${{ always() }}
-        run: |
-          if [ ! -d "blob-report" ]; then
-            echo "No blob-report directory found"
-            exit 0
-          fi
-
-          echo "====== BLOB REPORT SIZE ANALYSIS ======"
-
-          # Total size
-          TOTAL_SIZE=$(du -sh blob-report | cut -f1)
-          echo "Total blob report size: $TOTAL_SIZE"
-          echo ""
-
-          # Count and size by file type
-          echo "File breakdown:"
-          echo "  Traces (.zip):     $(find blob-report -name "*.zip" -type f | wc -l) files, $(du -ch blob-report/**/*.zip 2>/dev/null | tail -1 | cut -f1 || echo '0')"
-          echo "  Screenshots (.png): $(find blob-report -name "*.png" -type f | wc -l) files, $(du -ch blob-report/**/*.png 2>/dev/null | tail -1 | cut -f1 || echo '0')"
-          echo "  Videos (.webm):     $(find blob-report -name "*.webm" -type f | wc -l) files, $(du -ch blob-report/**/*.webm 2>/dev/null | tail -1 | cut -f1 || echo '0')"
-          echo "  JSON files:         $(find blob-report -name "*.json*" -type f | wc -l) files, $(du -ch blob-report/**/*.json* 2>/dev/null | tail -1 | cut -f1 || echo '0')"
-          echo ""
-
-          # Show largest 10 files
-          echo "Top 10 largest files:"
-          find blob-report -type f -exec du -h {} + | sort -rh | head -10
-          echo ""
-
-          # Directory structure sizes
-          echo "Size by directory:"
-          du -h blob-report/* | sort -rh | head -10
-          echo ""
-
-          echo "====== CLEANUP ======"
-
-          # Remove redundant report-*.zip files (these are compressed archives duplicating resources/)
-          # This is the main culprit - each is 2-3 GB!
-          REPORT_ZIPS=$(find blob-report -maxdepth 1 -name "report-*.zip" -type f)
-          if [ -n "$REPORT_ZIPS" ]; then
-            REPORT_SIZE=$(du -ch $REPORT_ZIPS | tail -1 | cut -f1)
-            echo "Removing report-*.zip files (redundant compressed archives): $REPORT_SIZE"
-            find blob-report -maxdepth 1 -name "report-*.zip" -type f -delete 2>/dev/null || true
-          else
-            echo "No report-*.zip files found (good!)"
-          fi
-
-
-          # Final size
-          FINAL_SIZE=$(du -sh blob-report | cut -f1)
-          echo ""
-          echo "Final blob report size: $FINAL_SIZE (was $TOTAL_SIZE)"
-
       - name: Upload Blob Report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

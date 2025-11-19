@@ -60,6 +60,18 @@ export function AttachLogsToReportFixture() {
 
 		if (!suiteId) { return; }
 
+		// In CI, only attach logs for failed/retried tests to reduce blob report size
+		const isCI = process.env.CI === 'true';
+		const shouldAttachLogs = !isCI ||
+			testInfo.status !== testInfo.expectedStatus ||
+			testInfo.retry ||
+			process.env.ATTACH_ALL_LOGS === 'true';
+
+		if (!shouldAttachLogs) {
+			// Skip log attachment for passing tests in CI
+			return;
+		}
+
 		const zipPath = path.join(logsPath, 'logs.zip');
 		const output = fs.createWriteStream(zipPath);
 		const archive = archiver('zip', { zlib: { level: 9 } });
@@ -70,8 +82,8 @@ export function AttachLogsToReportFixture() {
 
 		archive.pipe(output);
 
-		// add all log files to the archive
-		archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip'] });
+		// add all log files to the archive, but exclude trace files (they're handled separately)
+		archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip', 'trace-*.zip', '**/trace-*.zip'] });
 
 		// wait for the archive to finalize and the output stream to close
 		await new Promise((resolve, reject) => {
@@ -107,6 +119,7 @@ export function TracingFixture() {
 			testInfo.project.use.browserName &&
 			!isCommandLineRun
 		) {
+			// Browser-based tests use Playwright's built-in tracing (currently disabled with trace: 'off')
 			await use(app);
 		} else {
 			// start tracing
