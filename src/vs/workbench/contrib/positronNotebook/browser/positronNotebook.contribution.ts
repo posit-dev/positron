@@ -37,7 +37,7 @@ import { registerNotebookWidget } from './registerNotebookWidget.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { INotebookEditorOptions } from '../../notebook/browser/notebookBrowser.js';
 import { POSITRON_EXECUTE_CELL_COMMAND_ID, POSITRON_NOTEBOOK_EDITOR_ID, POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../common/positronNotebookCommon.js';
-import { getActiveCell, getEditingCell, getSelectedCells, SelectionState } from './selectionMachine.js';
+import { getActiveCell, getSelectedCells, SelectionState } from './selectionMachine.js';
 import { POSITRON_NOTEBOOK_CELL_CONTEXT_KEYS as CELL_CONTEXT_KEYS, POSITRON_NOTEBOOK_CELL_EDITOR_FOCUSED, POSITRON_NOTEBOOK_EDITOR_CONTAINER_FOCUSED } from './ContextKeysManager.js';
 import './contrib/undoRedo/positronNotebookUndoRedo.js';
 import { registerAction2, MenuId, Action2, IAction2Options, MenuRegistry } from '../../../../platform/actions/common/actions.js';
@@ -546,18 +546,6 @@ interface ICellActionOptions {
 	readonly editMode?: boolean;
 }
 
-function isCellActionBarAction(action: Action2) {
-	const menu = action.desc.menu;
-	if (!menu) {
-		return false;
-	}
-	const menus = Array.isArray(menu) ? menu : [menu];
-	return menus.some(({ id }) =>
-		id === MenuId.PositronNotebookCellActionBarLeft ||
-		id === MenuId.PositronNotebookCellActionBarRight ||
-		id === MenuId.PositronNotebookCellActionBarSubmenu);
-}
-
 abstract class CellAction2 extends Action2 {
 	constructor(
 		desc: Readonly<IAction2Options>,
@@ -573,6 +561,12 @@ abstract class CellAction2 extends Action2 {
 			return;
 		}
 
+		/**
+		 * Runs the cell action for each selected cell as an operation per cell
+		 * and not as a single operation on all selected cells. This means that
+		 * each cell action will be undoable/redoable individually and not as a
+		 * single transaction for all cells.
+		 */
 		if (this.options?.multiSelect) {
 			// Handle multiple selected cells
 			const selectedCells = getSelectedCells(activeNotebook.selectionStateMachine.state.get());
@@ -581,11 +575,9 @@ abstract class CellAction2 extends Action2 {
 				this.runCellAction(cell, activeNotebook, accessor);
 			}
 		} else {
-			// Handle single cell
+			// Handle single cell (the active cell which will also be the editing cell if in edit mode)
 			const state = activeNotebook.selectionStateMachine.state.get();
-			// Always check editing cell if actionBar is present (action bar items should work in edit mode).
-			// Otherwise, only check editing cell if editMode option is enabled.
-			const cell = getActiveCell(state) || ((isCellActionBarAction(this) || this.options?.editMode) ? getEditingCell(state) : undefined);
+			const cell = getActiveCell(state);
 			if (cell) {
 				this.runCellAction(cell, activeNotebook, accessor);
 			}
