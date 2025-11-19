@@ -311,7 +311,6 @@ class ConnectionsService:
         if not self.object_is_supported(obj):
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
-
         if safe_isinstance(obj, "sqlite3", "Connection"):
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
@@ -324,7 +323,7 @@ class ConnectionsService:
             return SnowflakeConnection(obj)
         elif safe_isinstance(obj, "databricks.sql.client", "Connection"):
             return DatabricksConnection(obj)
-        elif safe_isinstance(obj, "redshift_connector.core", "Connection"):
+        elif safe_isinstance(obj, "redshift_connector", "Connection"):
             return RedshiftConnection(obj)
         else:
             type_name = type(obj).__name__
@@ -345,6 +344,7 @@ class ConnectionsService:
                 )
                 or safe_isinstance(obj, "snowflake.connector", "SnowflakeConnection")
                 or safe_isinstance(obj, "databricks.sql.client", "Connection")
+                or safe_isinstance(obj, "redshift_connector", "Connection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -1472,8 +1472,15 @@ class RedshiftConnection(Connection):
         sql = f"SELECT * FROM {identifier} LIMIT 1000;"
 
         with self.conn.cursor() as cursor:
-            cursor.execute(sql)
-            frame = cursor.fetch_dataframe()
+            try:
+                cursor.execute(sql)
+                frame = cursor.fetch_dataframe()
+            except Exception as e:
+                # Rollback on error to avoid transaction issues
+                # for subsequent queries
+                self.conn.rollback()
+                raise e
+
         var_name = var_name or "conn"
         return frame, (
             f"with {var_name}.cursor() as cursor:\n"
@@ -1498,8 +1505,8 @@ class RedshiftConnection(Connection):
             cursor.close()
 
     def _qualify(self, identifier: str) -> str:
-        escaped = identifier.replace("`", "``")
-        return f"`{escaped}`"
+        escaped = identifier.replace('"', '""')
+        return f'"{escaped}"'
 
     def _make_code(self) -> str:
         return (
