@@ -75,7 +75,7 @@ export class Assistant {
 		if (!addModelLinkIsVisible) {
 			await this.code.driver.page.locator(MODEL_PICKER_DROPDOWN).click();
 		}
-		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click();
+		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click({ force: true });
 	}
 
 	async verifyAddModelLinkVisible() {
