@@ -408,12 +408,12 @@
                   },
                   "maxInputTokens": {
                     "type": "number",
-                    "minimum": 1,
+                    "minimum": 512,
                     "description": "Maximum input tokens for this model"
                   },
                   "maxOutputTokens": {
                     "type": "number",
-                    "minimum": 1,
+                    "minimum": 512,
                     "description": "Maximum output tokens for this model"
                   }
                 },
