@@ -25,6 +25,7 @@ import { TokenUsage } from './tokens.js';
 import { BedrockClient, FoundationModelSummary, InferenceProfileSummary, ListFoundationModelsCommand, ListInferenceProfilesCommand } from '@aws-sdk/client-bedrock';
 import { PositLanguageModel } from './posit.js';
 import { applyModelFilters } from './modelFilters';
+import { autoconfigureWithManagedCredentials, AWS_MANAGED_CREDENTIALS } from './pwb';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -268,7 +269,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
  * - Signed in indicates whether the model is configured and ready to use.
  * - Message provides additional information to be displayed to user in the configuration modal, if signed in.
  */
-type AutoconfigureResult = {
+export type AutoconfigureResult = {
 	signedIn: false;
 } | {
 	signedIn: true;
@@ -1268,33 +1269,11 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	}
 
 	static override async autoconfigure(): Promise<AutoconfigureResult> {
-		// Configure automatically if:
-		// - We are on PWB, and
-		// - Bedrock is enabled in settings, and
-		// - If managed credentials are available
-
-		if (!IS_RUNNING_ON_PWB) {
-			return { signedIn: false };
-		}
-		const bedrockEnabled = await getEnabledProviders().then(providers => providers.includes(AWSLanguageModel.source.provider.id));
-		if (!bedrockEnabled) {
-			return { signedIn: false };
-		}
-
-		// Pull PWB managed credentials from the environment
-		const awsTokenEnv = process.env['AWS_WEB_IDENTITY_TOKEN_FILE'];
-		if (!awsTokenEnv || !awsTokenEnv.includes('posit-workbench')) {
-			// PWB managed credentials not set
-			return { signedIn: false };
-		}
-
-		log.info(`[${this.source.provider.displayName}] Auto-configuring with managed credentials.`);
-		return {
-			signedIn: true,
-			// Displayed as "Amazon Bedrock has been automatically
-			// configured using AWS managed credentials" in the configuration modal UI
-			message: 'AWS managed credentials',
-		};
+		return autoconfigureWithManagedCredentials(
+			AWS_MANAGED_CREDENTIALS,
+			AWSLanguageModel.source.provider.id,
+			AWSLanguageModel.source.provider.displayName
+		);
 	}
 
 }
