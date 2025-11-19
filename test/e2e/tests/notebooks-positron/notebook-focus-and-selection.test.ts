@@ -235,4 +235,61 @@ test.describe('Notebook Focus and Selection', {
 			await notebooksPositron.expectCellIndexToBeSelected(3, { inEditMode: false });
 		});
 	});
-});
+
+	test("`+ Code` and `+ Markdown` buttons insert the cell after the active cell and make it the new active cell)", async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+
+		// Start a new notebook with 3 cells
+		await notebooksPositron.newNotebook(3);
+		await notebooksPositron.selectCellAtIndex(1);
+		await notebooksPositron.expectCellIndexToBeSelected(1, { isActive: true, inEditMode: true });
+
+		// Click the + Code button and verify the cell is inserted after the active cell
+		await notebooksPositron.codeButton.click();
+		await notebooksPositron.expectCellCountToBe(4);
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isActive: true, inEditMode: true });
+
+		// Click the + Markdown button and verify the cell is inserted after the active cell
+		await notebooksPositron.markdownButton.click();
+		await notebooksPositron.expectCellCountToBe(5);
+		await notebooksPositron.expectCellIndexToBeSelected(3, { isActive: true, inEditMode: true });
+	});
+
+	test("Multi-select and deselect retains anchor/active cell", async function ({ app }) {
+		const { notebooksPositron } = app.workbench;
+		const keyboard = app.code.driver.page.keyboard;
+
+		// Start a new notebook with 5 cells and select cell 2
+		await notebooksPositron.newNotebook(5);
+		await notebooksPositron.selectCellAtIndex(2, { editMode: false });
+
+		// Multi-select up to cell 0 and verify anchor is cell 0
+		await keyboard.press('Shift+ArrowUp');
+		await keyboard.press('Shift+ArrowUp');
+		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: true, isActive: true });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: true, isActive: false });
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, isActive: false });
+
+		// Deselect back down to cell 2 and verify anchor is cell 2
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, isActive: true });
+
+		// Multi-select down to cell 4 and verify anchor is cell 4
+		await keyboard.press('Shift+ArrowDown');
+		await keyboard.press('Shift+ArrowDown');
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true });
+		await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: true });
+		await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: true, isActive: true });
+
+		// Deslect with Escape key and verify anchor is cell 4
+		await keyboard.press('Escape');
+		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: true, isActive: true });
+	});
+})
