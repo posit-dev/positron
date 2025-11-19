@@ -37,7 +37,7 @@ export function getUserTokenLimits(): TokenLimits {
  * 1. User-configured default models for the provider
  * 2. Falls back to provider-specific default patterns
  *
- * @param provider The provider ID (e.g., 'anthropic-api', 'openai-compatible)
+ * @param provider The provider ID (e.g., 'anthropic-api', 'openai-compatible')
  * @param id The model ID to check
  * @param name Optional model display name to check against
  * @param defaultMatch Optional fallback pattern to match against (provider-specific)
