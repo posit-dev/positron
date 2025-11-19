@@ -282,15 +282,15 @@ test.describe('Notebook Focus and Selection', {
 		// Deselect back down to cell 2 and verify anchor is cell 2
 		await keyboard.press('Shift+ArrowDown');
 		await keyboard.press('Shift+ArrowDown');
-		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false });
-		await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: false });
+		await notebooksPositron.expectCellIndexToBeSelected(0, { isSelected: false, isActive: false });
+		await notebooksPositron.expectCellIndexToBeSelected(1, { isSelected: false, isActive: false });
 		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, isActive: true });
 
 		// Multi-select down to cell 4 and verify anchor is cell 4
 		await keyboard.press('Shift+ArrowDown');
 		await keyboard.press('Shift+ArrowDown');
-		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true });
-		await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: true });
+		await notebooksPositron.expectCellIndexToBeSelected(2, { isSelected: true, isActive: false });
+		await notebooksPositron.expectCellIndexToBeSelected(3, { isSelected: true, isActive: false });
 		await notebooksPositron.expectCellIndexToBeSelected(4, { isSelected: true, isActive: true });
 
 		// Deslect with Escape key and verify anchor is cell 4
