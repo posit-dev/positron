@@ -140,6 +140,8 @@ interface IChatInputPartOptions {
 	supportsChangingModes?: boolean;
 	dndContainer?: HTMLElement;
 	widgetViewKindTag: string;
+	setInputPlaceholder?: (placeholder: string) => void;
+	resetInputPlaceholder?: () => void;
 }
 
 export interface IWorkingSetEntry {
@@ -173,6 +175,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	private _onDidAcceptFollowup: Emitter<{ followup: IChatFollowup; response: IChatResponseViewModel | undefined }>;
 	readonly onDidAcceptFollowup: Event<{ followup: IChatFollowup; response: IChatResponseViewModel | undefined }>;
+
+	private _onDidChangeCustomPlaceholder: Emitter<void>;
+	readonly onDidChangeCustomPlaceholder: Event<void>;
 
 	private _onDidClickOverlay: Emitter<void>;
 	readonly onDidClickOverlay: Event<void>;
@@ -226,6 +231,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 	// --- Start Positron ---
 	private _runtimeContext: ChatRuntimeSessionContext | undefined;
+	private _customPlaceholder: string | undefined;
 	public get runtimeContext(): ChatRuntimeSessionContext | undefined {
 		return this._runtimeContext;
 	}
@@ -320,6 +326,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private chatModeKindKey: IContextKey<ChatModeKind>;
 	private withinEditSessionKey: IContextKey<boolean>;
 	private filePartOfEditSessionKey: IContextKey<boolean>;
+	// --- Start Positron ---
+	private _savedInputValue: string | undefined;
+	// --- End Positron ---
 
 	private modelWidget: ModelPickerActionItem | undefined;
 	private modeWidget: ModePickerActionItem | undefined;
@@ -451,6 +460,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this.onDidBlur = this._onDidBlur.event;
 		this._onDidClickOverlay = this._register(new Emitter<void>());
 		this.onDidClickOverlay = this._onDidClickOverlay.event;
+		this._onDidChangeCustomPlaceholder = this._register(new Emitter<void>());
+		this.onDidChangeCustomPlaceholder = this._onDidChangeCustomPlaceholder.event;
 		this._onDidChangeContext = this._register(new Emitter<{ removed?: IChatRequestVariableEntry[]; added?: IChatRequestVariableEntry[] }>());
 		this.onDidChangeContext = this._onDidChangeContext.event;
 		this._onDidAcceptFollowup = this._register(new Emitter<{ followup: IChatFollowup; response: IChatResponseViewModel | undefined }>());
@@ -891,6 +902,82 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		return new HistoryNavigator2(history, 50, historyKeyFn);
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Check if a language model provider is configured
+	 */
+	private _hasConfiguredProvider(): boolean {
+		const currentProvider = this.languageModelsService.currentProvider;
+		const currentModel = this._currentLanguageModel;
+
+		// If we have a current model selected, trust that regardless of available models list
+		if (currentProvider && currentModel) {
+			return true;
+		}
+
+		// Otherwise check if there are available models
+		const availableModels = this.languageModelsService.getLanguageModelIdsForCurrentProvider();
+		return !!currentProvider && availableModels.length > 0;
+	}
+
+	/**
+	 * Update the input editor's readonly state based on provider configuration
+	 */
+	private _updateInputReadonlyState(): void {
+		const hasProvider = this._hasConfiguredProvider();
+
+		if (this._inputEditor) {
+			const currentValue = this._inputEditor.getValue();
+
+			if (!hasProvider) {
+				// Save current input value if there is any
+				if (currentValue.trim()) {
+					this._savedInputValue = currentValue;
+					// Clear the input to show placeholder
+					this._inputEditor.setValue('');
+				}
+
+				this._inputEditor.updateOptions({
+					readOnly: true,
+					ariaLabel: localize('chatInput.noProviderAria', 'Chat input disabled. Please configure a language model provider to send messages.')
+				});
+			} else {
+				// Restore saved input value if we had one
+				if (this._savedInputValue && !currentValue.trim()) {
+					this._inputEditor.setValue(this._savedInputValue);
+					this._savedInputValue = undefined;
+				}
+
+				this._inputEditor.updateOptions({
+					readOnly: false,
+					ariaLabel: this._getAriaLabel()
+				});
+			}
+		}
+
+		// Update placeholder text through widget options if available
+		if (!hasProvider && this.options.setInputPlaceholder) {
+			this.options.setInputPlaceholder(localize('chatInput.noModelConfigured', 'Configure a language model to start chatting'));
+		} else if (hasProvider && this.options.resetInputPlaceholder) {
+			this.options.resetInputPlaceholder();
+		}
+	}
+
+	setInputPlaceholder(placeholder: string): void {
+		this._customPlaceholder = placeholder;
+		this._onDidChangeCustomPlaceholder.fire();
+	}
+
+	resetInputPlaceholder(): void {
+		this._customPlaceholder = undefined;
+		this._onDidChangeCustomPlaceholder.fire();
+	}
+
+	get customPlaceholder(): string | undefined {
+		return this._customPlaceholder;
+	}
+	// --- End Positron ---
 
 	private _getAriaLabel(): string {
 		const verbose = this.configurationService.getValue<boolean>(AccessibilityVerbositySettingId.Chat);
@@ -1353,7 +1440,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const options: IEditorConstructionOptions = getSimpleEditorOptions(this.configurationService);
 		options.overflowWidgetsDomNode = this.options.editorOverflowWidgetsDomNode;
 		options.pasteAs = EditorOptions.pasteAs.defaultValue;
-		options.readOnly = false;
+		// --- Start Positron ---
+		// Check if provider is configured to determine if input should be readonly
+		const hasProvider = this._hasConfiguredProvider();
+		options.readOnly = !hasProvider;
+		// --- End Positron ---
 		options.ariaLabel = this._getAriaLabel();
 		options.fontFamily = DEFAULT_FONT_FAMILY;
 		options.fontSize = 13;
@@ -1380,6 +1471,16 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		SuggestController.get(this._inputEditor)?.forceRenderingAbove();
 		options.overflowWidgetsDomNode?.classList.add('hideSuggestTextIcons');
 		this._inputEditorElement.classList.add('hideSuggestTextIcons');
+
+		// --- Start Positron ---
+		// Listen for provider changes to update input readonly state
+		this._register(this.languageModelsService.onDidChangeCurrentProvider(() => {
+			this._updateInputReadonlyState();
+		}));
+
+		// Set initial readonly state
+		this._updateInputReadonlyState();
+		// --- End Positron ---
 
 		this._register(this._inputEditor.onDidChangeModelContent(() => {
 			const currentHeight = Math.min(this._inputEditor.getContentHeight(), this.inputEditorMaxHeight);

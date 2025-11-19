@@ -2123,6 +2123,8 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			supportsChangingModes: this.viewOptions.supportsChangingModes,
 			dndContainer: this.viewOptions.dndContainer,
 			widgetViewKindTag: this.getWidgetViewKindTag(),
+			setInputPlaceholder: (placeholder: string) => this.setInputPlaceholder(placeholder),
+			resetInputPlaceholder: () => this.resetInputPlaceholder(),
 		};
 
 		if (this.viewModel?.editing) {
@@ -2290,10 +2292,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 
 		if (this._lockedToCodingAgent) {
 			const placeholder = localize('chat.input.placeholder.lockedToAgent', "Chat with {0}", this._lockedToCodingAgent);
-			this.viewModel.setInputPlaceholder(placeholder);
-			this.inputEditor.updateOptions({ placeholder });
-		} else if (this.viewModel.inputPlaceholder) {
-			this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
+			this.input.setInputPlaceholder(placeholder);
 		}
 
 		const renderImmediately = this.configurationService.getValue<boolean>('chat.experimental.renderMarkdownImmediately');
@@ -2304,11 +2303,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 			}
 
 			this.requestInProgress.set(this.viewModel.requestInProgress);
-
-			// Update the editor's placeholder text when it changes in the view model
-			if (events?.some(e => e?.kind === 'changePlaceholder')) {
-				this.inputEditor.updateOptions({ placeholder: this.viewModel.inputPlaceholder });
-			}
 
 			this.onDidChangeItems();
 			if (events?.some(e => e?.kind === 'addRequest') && this.visible) {
@@ -2380,14 +2374,12 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 	}
 
 	setInputPlaceholder(placeholder: string): void {
-		this.viewModel?.setInputPlaceholder(placeholder);
+		this.input.setInputPlaceholder(placeholder);
 	}
 
 	resetInputPlaceholder(): void {
-		this.viewModel?.resetInputPlaceholder();
-	}
-
-	setInput(value = ''): void {
+		this.input.resetInputPlaceholder();
+	} setInput(value = ''): void {
 		this.input.setValue(value, false);
 		this.refreshParsedInput();
 	}
@@ -2418,9 +2410,6 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		this._welcomeRenderScheduler.schedule();
 
 		// Reset to default placeholder
-		if (this.viewModel) {
-			this.viewModel.resetInputPlaceholder();
-		}
 		this.inputEditor.updateOptions({ placeholder: undefined });
 		this.renderer.updateOptions({ restorable: true, editable: true, noFooter: false, progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask });
 		this.tree.rerender();

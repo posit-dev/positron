@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MarkdownString } from '../../../../../base/common/htmlContent.js';
-import { Disposable, MutableDisposable, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { themeColorFromId } from '../../../../../base/common/themables.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -41,8 +41,6 @@ class InputEditorDecorations extends Disposable {
 
 	private readonly previouslyUsedAgents = new Set<string>();
 
-	private readonly viewModelDisposables = this._register(new MutableDisposable());
-
 	constructor(
 		private readonly widget: IChatWidget,
 		@ICodeEditorService private readonly codeEditorService: ICodeEditorService,
@@ -60,8 +58,8 @@ class InputEditorDecorations extends Disposable {
 		this.updateInputEditorDecorations();
 		this._register(this.widget.inputEditor.onDidChangeModelContent(() => this.updateInputEditorDecorations()));
 		this._register(this.widget.onDidChangeParsedInput(() => this.updateInputEditorDecorations()));
+		this._register(this.widget.input.onDidChangeCustomPlaceholder(() => this.updateInputEditorDecorations()));
 		this._register(this.widget.onDidChangeViewModel(() => {
-			this.registerViewModelListeners();
 			this.previouslyUsedAgents.clear();
 			this.updateInputEditorDecorations();
 		}));
@@ -79,16 +77,6 @@ class InputEditorDecorations extends Disposable {
 			// Trigger decoration update when mode or its properties change
 			this.updateInputEditorDecorations();
 		}));
-
-		this.registerViewModelListeners();
-	}
-
-	private registerViewModelListeners(): void {
-		this.viewModelDisposables.value = this.widget.viewModel?.onDidChange(e => {
-			if (e?.kind === 'changePlaceholder' || e?.kind === 'initialize') {
-				this.updateInputEditorDecorations();
-			}
-		});
 	}
 
 	private registeredDecorationTypes() {
@@ -132,10 +120,19 @@ class InputEditorDecorations extends Disposable {
 		}
 
 		if (!inputValue) {
-			const mode = this.widget.input.currentModeObs.get();
-			let description = mode.description.get();
-			if (this.configurationService.getValue<boolean>('chat.emptyChatState.enabled')) {
-				description = localize('chatPlaceholderHint', "Add context (#), extensions (@), commands (/)");
+			// Use custom placeholder if set (e.g., for model configuration messages)
+			let description = this.widget.input.customPlaceholder;
+
+			// Otherwise, use mode description or default placeholder
+			if (!description) {
+				const mode = this.widget.input.currentModeObs.get();
+				description = mode.description.get();
+				if (this.configurationService.getValue<boolean>('chat.emptyChatState.enabled')) {
+					description = localize('chatPlaceholderHint', "Add context (#), extensions (@), commands (/)");
+				} else {
+					// using placeholder
+					description = localize('chatInputPlaceholder', "Type your message here...");
+				}
 			}
 
 			const decoration: IDecorationOptions[] = [
@@ -148,7 +145,7 @@ class InputEditorDecorations extends Disposable {
 					},
 					renderOptions: {
 						after: {
-							contentText: viewModel.inputPlaceholder || (description ?? ''),
+							contentText: this.widget.input.customPlaceholder || (description ?? ''),
 							color: this.getPlaceholderColor()
 						}
 					}
