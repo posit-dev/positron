@@ -518,6 +518,11 @@
         "vendor": "posit-ai",
         "displayName": "Posit AI",
         "managementCommand": "positron-assistant.configureModels"
+      },
+      {
+        "vendor": "snowflake-cortex",
+        "displayName": "Snowflake Cortex",
+        "managementCommand": "positron-assistant.configureModels"
       }
     ],
     "languageModelTools": [
