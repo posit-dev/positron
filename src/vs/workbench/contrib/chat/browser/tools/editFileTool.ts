@@ -48,8 +48,12 @@ import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 // --- End Positron ---
 
 const codeInstructions = `
-The user is very smart and can understand how to apply your edits to their files, you just need to provide minimal hints.
-Avoid repeating existing code, instead use comments to represent regions of unchanged code. The user prefers that you are as concise as possible. For example:
+The edits will be automatically merged into the document and presented as a diff to the user.
+Provide a line before and after the changed code for context.
+Importantly, use // ...existing code... comments to skip unchanged sections larger than 2 lines.
+
+For example:
+
 // ...existing code...
 { changed code }
 // ...existing code...
@@ -65,6 +69,13 @@ class Person {
 		return this.age;
 	}
 }
+
+Comment syntax should match the file's language:
+- JavaScript/TypeScript: // ...existing code...
+- Python/R: # ...existing code...
+- HTML/XML: <!-- ...existing code... -->
+
+Notably, there are no markdown code fences or backticks like \`\`\`typescript or \`\`\`python.
 `;
 
 // --- Start Positron ---
