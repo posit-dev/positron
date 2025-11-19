@@ -365,19 +365,17 @@ jobs:
 
           echo "====== CLEANUP ======"
 
-          # Remove videos (webm files) - traces are more useful for debugging
-          VIDEO_COUNT=$(find blob-report -type f -name "*.webm" | wc -l)
-          if [ "$VIDEO_COUNT" -gt 0 ]; then
-            echo "Removing $VIDEO_COUNT video files..."
-            find blob-report -type f -name "*.webm" -delete 2>/dev/null || true
+          # Remove redundant report-*.zip files (these are compressed archives duplicating resources/)
+          # This is the main culprit - each is 2-3 GB!
+          REPORT_ZIPS=$(find blob-report -maxdepth 1 -name "report-*.zip" -type f)
+          if [ -n "$REPORT_ZIPS" ]; then
+            REPORT_SIZE=$(du -ch $REPORT_ZIPS | tail -1 | cut -f1)
+            echo "Removing report-*.zip files (redundant compressed archives): $REPORT_SIZE"
+            find blob-report -maxdepth 1 -name "report-*.zip" -type f -delete 2>/dev/null || true
+          else
+            echo "No report-*.zip files found (good!)"
           fi
 
-          # Remove screenshots from passing tests (keep only failures/retries for debugging)
-          SCREENSHOT_COUNT=$(find blob-report -type f -name "*.png" ! -path "*retry*" ! -path "*fail*" | wc -l)
-          if [ "$SCREENSHOT_COUNT" -gt 0 ]; then
-            echo "Removing $SCREENSHOT_COUNT screenshots from passing tests..."
-            find blob-report -type f -name "*.png" ! -path "*retry*" ! -path "*fail*" -delete 2>/dev/null || true
-          fi
 
           # Final size
           FINAL_SIZE=$(du -sh blob-report | cut -f1)
