@@ -65,8 +65,8 @@ test.describe('R Debugging', {
 		await debug.expectBrowserModeFrame(1);
 
 		// Verify call stack order
-		await debug.expectCallStackAtIndex(0, 'inner()inner()2:');
-		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)2:');
+		await debug.expectCallStackAtIndex(0, 'inner()inner(x)');
+		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)');
 		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
 
 		// Verify the call stack redirects to correct data frame(s)
@@ -269,4 +269,3 @@ async function verifyVariableInConsole(app: Application, name: string, expectedT
 		await expect(app.code.driver.page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
 	});
 }
-
