@@ -160,7 +160,11 @@ test.describe('Remote SSH', {
 			await sshWorkbench.quickInput.waitForQuickInputOpened();
 			await sshWin.keyboard.press('Backspace'); // clear any pre-filled text
 			await sshWorkbench.quickInput.type('test.py');
-			await sshWorkbench.quickInput.clickOkButton();
+
+			await expect(async () => {
+				await sshWorkbench.quickInput.clickOkButton();
+				await sshWorkbench.quickInput.waitForQuickInputClosed();
+			}).toPass({ timeout: 30000 });
 
 			await sshWin.waitForTimeout(3000); // wait for file to be saved
 
