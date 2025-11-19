@@ -3,7 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Code } from './code';
+import * as playwright from 'playwright';
+import { Code, createCodeFromPage } from './code';
 import { Modals } from '../pages/dialog-modals';
 import { Toasts } from '../pages/dialog-toasts';
 import { Popups } from '../pages/dialog-popups.js';
@@ -137,4 +138,9 @@ export class Workbench {
 		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
 		this.positConnect = new PositConnect(code);
 	}
+}
+
+export function createWorkbenchFromPage(parentCode: Code, page: playwright.Page): Workbench {
+	const code = createCodeFromPage(parentCode, page);
+	return new Workbench(code);
 }
