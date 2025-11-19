@@ -621,7 +621,6 @@
     "js-yaml": "^4.1.0",
     "jsonc-parser": "^3.2.1",
     "ncp": "^2.0.0",
-    "node-pty": "^1.0.0",
     "proxy-agent": "^6.5.0",
     "pull-stream": "^3.7.0",
     "recursive-readdir": "^2.2.3",

@@ -231,7 +231,6 @@ async function handlePendingRebuild(context: vscode.ExtensionContext): Promise<v
  * Register all commands
  */
 function registerCommands(context: vscode.ExtensionContext, devContainersTreeProvider: DevContainersTreeProvider | undefined, connectionManager: ConnectionManager): void {
-	const logger = getLogger();
 
 	// Core commands - Open/Reopen
 	registerCommand(context, 'remote-containers.reopenInContainer', ReopenCommands.reopenInContainer);
