@@ -68,6 +68,8 @@ export default defineConfig<ExtendedTestOptions>({
 	use: {
 		headless: false,
 		trace: 'off', // we are manually handling tracing in _test.setup.ts
+		video: 'off', // Videos are large and traces are more useful for debugging
+		screenshot: 'only-on-failure', // Only capture screenshots on failure
 		actionTimeout: 15000,
 		navigationTimeout: 15000,
 		currentsFixturesEnabled: !!process.env.CI,

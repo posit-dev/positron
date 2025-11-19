@@ -330,6 +330,60 @@ jobs:
           # The merge-reports job will determine pass/fail based on the complete test results
           eval SKIP_BOOTSTRAP=true $SKIP_CLONE_ARG npx playwright test --project ${{ inputs.project }} --workers ${{ inputs.workers }} $SHARD_ARG $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures ${{ inputs.max_failures }} --reporter=blob || true
 
+      - name: Analyze and clean up blob reports before upload
+        if: ${{ always() }}
+        run: |
+          if [ ! -d "blob-report" ]; then
+            echo "No blob-report directory found"
+            exit 0
+          fi
+
+          echo "====== BLOB REPORT SIZE ANALYSIS ======"
+
+          # Total size
+          TOTAL_SIZE=$(du -sh blob-report | cut -f1)
+          echo "Total blob report size: $TOTAL_SIZE"
+          echo ""
+
+          # Count and size by file type
+          echo "File breakdown:"
+          echo "  Traces (.zip):     $(find blob-report -name "*.zip" -type f | wc -l) files, $(du -ch blob-report/**/*.zip 2>/dev/null | tail -1 | cut -f1 || echo '0')"
+          echo "  Screenshots (.png): $(find blob-report -name "*.png" -type f | wc -l) files, $(du -ch blob-report/**/*.png 2>/dev/null | tail -1 | cut -f1 || echo '0')"
+          echo "  Videos (.webm):     $(find blob-report -name "*.webm" -type f | wc -l) files, $(du -ch blob-report/**/*.webm 2>/dev/null | tail -1 | cut -f1 || echo '0')"
+          echo "  JSON files:         $(find blob-report -name "*.json*" -type f | wc -l) files, $(du -ch blob-report/**/*.json* 2>/dev/null | tail -1 | cut -f1 || echo '0')"
+          echo ""
+
+          # Show largest 10 files
+          echo "Top 10 largest files:"
+          find blob-report -type f -exec du -h {} + | sort -rh | head -10
+          echo ""
+
+          # Directory structure sizes
+          echo "Size by directory:"
+          du -h blob-report/* | sort -rh | head -10
+          echo ""
+
+          echo "====== CLEANUP ======"
+
+          # Remove videos (webm files) - traces are more useful for debugging
+          VIDEO_COUNT=$(find blob-report -type f -name "*.webm" | wc -l)
+          if [ "$VIDEO_COUNT" -gt 0 ]; then
+            echo "Removing $VIDEO_COUNT video files..."
+            find blob-report -type f -name "*.webm" -delete 2>/dev/null || true
+          fi
+
+          # Remove screenshots from passing tests (keep only failures/retries for debugging)
+          SCREENSHOT_COUNT=$(find blob-report -type f -name "*.png" ! -path "*retry*" ! -path "*fail*" | wc -l)
+          if [ "$SCREENSHOT_COUNT" -gt 0 ]; then
+            echo "Removing $SCREENSHOT_COUNT screenshots from passing tests..."
+            find blob-report -type f -name "*.png" ! -path "*retry*" ! -path "*fail*" -delete 2>/dev/null || true
+          fi
+
+          # Final size
+          FINAL_SIZE=$(du -sh blob-report | cut -f1)
+          echo ""
+          echo "Final blob report size: $FINAL_SIZE (was $TOTAL_SIZE)"
+
       - name: Upload Blob Report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
