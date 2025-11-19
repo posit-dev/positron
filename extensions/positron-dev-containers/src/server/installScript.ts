@@ -133,8 +133,57 @@ else
 	# Download and extract server
 	DOWNLOAD_URL="${serverConfig.downloadUrl}"
 
-	if ! \${DOWNLOAD_CMD} "\${DOWNLOAD_URL}" 2>/dev/null | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>/dev/null; then
-		error "Failed to download or extract server from \${DOWNLOAD_URL}"
+	log "Attempting to download from: \${DOWNLOAD_URL}"
+
+	# Try to download and extract, capturing detailed error information
+	if [ "\${DOWNLOAD_TOOL}" = "wget" ]; then
+		# wget provides better error messages with -S (show headers)
+		if ! wget -S -O - "\${DOWNLOAD_URL}" 2>&1 | tee /tmp/download.log | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>&1; then
+			# Extract HTTP status from wget output
+			HTTP_STATUS=\$(grep -i "HTTP/" /tmp/download.log | tail -n1 | sed 's/.*HTTP\\/[^ ]* \\([0-9]*\\).*/\\1/' || echo "unknown")
+			case "\${HTTP_STATUS}" in
+				404)
+					error "File not found (HTTP 404): \${DOWNLOAD_URL}. This version may not be available yet or the URL may be incorrect."
+					;;
+				403)
+					error "Access forbidden (HTTP 403): \${DOWNLOAD_URL}. Check if the URL requires authentication or if access is restricted."
+					;;
+				5*)
+					error "Server error (HTTP \${HTTP_STATUS}): \${DOWNLOAD_URL}. The download server may be experiencing issues. Try again later."
+					;;
+				*)
+					log "Download or extraction failed. Last wget output:"
+					tail -10 /tmp/download.log >&2 || true
+					error "Failed to download or extract server from \${DOWNLOAD_URL} (HTTP status: \${HTTP_STATUS})"
+					;;
+			esac
+		fi
+	elif [ "\${DOWNLOAD_TOOL}" = "curl" ]; then
+		# curl with -v for verbose error information
+		HTTP_CODE=\$(curl -w "%{http_code}" -fsSL "\${DOWNLOAD_URL}" 2>/tmp/curl.err | tee /tmp/download.tar.gz | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>&1 || echo "000")
+		if [ "\${HTTP_CODE}" != "200" ] && [ "\${HTTP_CODE}" != "000" ]; then
+			case "\${HTTP_CODE}" in
+				404)
+					error "File not found (HTTP 404): \${DOWNLOAD_URL}. This version may not be available yet or the URL may be incorrect."
+					;;
+				403)
+					error "Access forbidden (HTTP 403): \${DOWNLOAD_URL}. Check if the URL requires authentication or if access is restricted."
+					;;
+				5*)
+					error "Server error (HTTP \${HTTP_CODE}): \${DOWNLOAD_URL}. The download server may be experiencing issues. Try again later."
+					;;
+				000)
+					log "Curl error output:"
+					cat /tmp/curl.err >&2 || true
+					error "Failed to connect or download from \${DOWNLOAD_URL}. Check network connectivity and URL."
+					;;
+				*)
+					log "Unexpected HTTP status. Curl error output:"
+					cat /tmp/curl.err >&2 || true
+					error "Failed to download server from \${DOWNLOAD_URL} (HTTP status: \${HTTP_CODE})"
+					;;
+			esac
+		fi
 	fi
 
 	# Verify installation

@@ -158,15 +158,24 @@ export class DevContainerAuthorityResolver implements vscode.RemoteAuthorityReso
 			// Extract the first meaningful line
 			const shortMessage = errorMessage.split('\n')[0];
 
-			// Show a single error notification with action to view logs
-			// This replaces VSCode's default error dialog
-			const fullMessage = `Failed to connect to container: ${shortMessage}. Check the "Dev Containers" output for details.`;
+			// Show a custom error message with action button to open logs
+			const fullMessage = `Failed to connect to container: ${shortMessage}`;
+			
+			// Show error message with action button to view extension logs
+			vscode.window.showErrorMessage(
+				fullMessage,
+				vscode.l10n.t('View Extension Logs')
+			).then(selection => {
+				if (selection === vscode.l10n.t('View Extension Logs')) {
+					this.logger.show();
+				}
+			});
 
-			// Show the output channel to help users debug
-			this.logger.show();
-
-			throw vscode.RemoteAuthorityResolverError.TemporarilyNotAvailable(
-				fullMessage
+			// Throw with handled=true to suppress VS Code's default error dialog
+			// since we're already showing our own custom dialog above
+			throw vscode.RemoteAuthorityResolverError.NotAvailable(
+				shortMessage,
+				true // handled - suppresses the default error dialog
 			);
 		}
 	}

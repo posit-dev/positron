@@ -519,9 +519,6 @@ export class ConnectionManager {
 		} else {
 			// Fallback if we can't extract log path
 			this.logger.warn('Could not extract log file path from error message');
-			await vscode.window.showErrorMessage(
-				vscode.l10n.t('Failed to install Positron server in container. Check the extension output for details.')
-			);
 		}
 	}
 
