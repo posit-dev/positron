@@ -1001,7 +1001,6 @@
         },
         "configurationDefaults": {
             "ruff.importStrategy": "useBundled",
-            "python.pyrefly.displayTypeErrors": "force-on",
             "[python]": {
                 "editor.inlayHints.enabled": "offUnlessPressed"
             }
