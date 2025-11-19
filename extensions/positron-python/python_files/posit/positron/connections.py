@@ -1353,7 +1353,9 @@ class RedshiftConnection(Connection):
         self.conn = conn
 
         try:
-            host, _ = conn._usock.getpeername()
+            # Unfortunatelly there's no public API to get the host, so we access the protected member.
+            # to at least provide some info in the connection display name.
+            host, _ = conn._usock.getpeername()  # noqa: SLF001
         except AttributeError:
             host = "<unknown>"
 
