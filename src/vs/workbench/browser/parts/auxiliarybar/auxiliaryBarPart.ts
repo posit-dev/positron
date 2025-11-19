@@ -243,13 +243,12 @@ export class AuxiliaryBarPart extends AbstractPaneCompositePart {
 	}
 
 	protected getCompositeBarPosition(): CompositeBarPosition {
-		switch (this.configuration.position) {
-			case ActivityBarPosition.TOP: return CompositeBarPosition.TOP;
-			case ActivityBarPosition.BOTTOM: return CompositeBarPosition.BOTTOM;
-			case ActivityBarPosition.HIDDEN: return CompositeBarPosition.TITLE;
-			case ActivityBarPosition.DEFAULT: return CompositeBarPosition.TITLE;
-			default: return CompositeBarPosition.TITLE;
-		}
+		// --- Start Positron ---
+		// Always keep the composite bar in the TITLE position for the auxiliary bar
+		// to avoid duplication when activity bar is at TOP/BOTTOM.
+		// See https://github.com/posit-dev/positron/issues/2951
+		return CompositeBarPosition.TITLE;
+		// --- End Positron ---
 	}
 
 	override toJSON(): object {
