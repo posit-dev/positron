@@ -559,7 +559,7 @@ const newCommands: ApiCommand[] = [
 	),
 	// -- execute code in console
 	new ApiCommand(
-		'positron.executeCodeInConsole', '_executeCodeInConsole', 'Execute code in the Positron console.',
+		'positron.executeCodeFromPosition', '_executeCodeInConsole', 'Execute code in the Positron console.',
 		[
 			ApiCommandArgument.String.with('languageId', 'The language ID of the code to execute'),
 			ApiCommandArgument.Uri.with('uri', 'The URI of the document to execute code from'),
