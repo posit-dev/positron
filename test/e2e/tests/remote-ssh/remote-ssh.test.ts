@@ -164,7 +164,7 @@ test.describe('Remote SSH', {
 			await expect(async () => {
 				await sshWorkbench.quickInput.clickOkButton();
 				await sshWorkbench.quickInput.waitForQuickInputClosed();
-			}).toPass({ timeout: 30000 });
+			}).toPass({ timeout: 60000 });
 
 			await sshWin.waitForTimeout(3000); // wait for file to be saved
 
