@@ -57,11 +57,6 @@ const builtInModelDefinitions = new Map<string, ModelDefinition[]>([
 			identifier: 'gemini-2.0-flash-exp',
 			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 		},
-		{
-			name: 'Gemini 1.5 Flash 002',
-			identifier: 'gemini-1.5-flash-002',
-			maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
-		},
 	]]
 ]);
 
