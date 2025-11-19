@@ -1461,7 +1461,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	/**
 	 * Pastes cells from the clipboard at the specified index.
-	 * @param index The position to paste cells at. If not provided, pastes after the last selected cell
+	 * @param index The position to paste cells at. If not provided, pastes after active cell or at end of notebook.
 	 */
 	pasteCells(index?: number): void {
 		if (!this.canPaste()) {
@@ -1518,13 +1518,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	/**
-	 * Pastes cells from the clipboard above the first selected cell.
+	 * Pastes cells from the clipboard above the active cell.
 	 */
 	pasteCellsAbove(): void {
-		const selection = getSelectedCells(this.selectionStateMachine.state.get());
-		if (selection.length > 0) {
-			const firstSelectedIndex = selection[0].index;
-			this.pasteCells(firstSelectedIndex);
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		if (activeCell) {
+			this.pasteCells(activeCell.index);
 		} else {
 			this.pasteCells(0);
 		}
@@ -1565,10 +1564,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	// Helper method to get insertion index
 	private getInsertionIndex(): number {
-		const selections = getSelectedCells(this.selectionStateMachine.state.get());
-		if (selections.length > 0) {
-			const lastSelectedIndex = selections[selections.length - 1].index;
-			return lastSelectedIndex + 1;
+		// Use the active cell position for determining insertion, or at the end if no active cell
+		const activeCell = getActiveCell(this.selectionStateMachine.state.get());
+		if (activeCell) {
+			return activeCell.index + 1;
 		}
 		return this.cells.get().length;
 	}

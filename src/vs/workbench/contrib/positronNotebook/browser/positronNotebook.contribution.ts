@@ -1065,7 +1065,7 @@ registerAction2(class extends NotebookAction2 {
 });
 
 // Paste cells command - V (Jupyter-style)
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCells',
@@ -1087,13 +1087,13 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCells();
 	}
 });
 
 // Paste cells above command - Shift+V (Jupyter-style)
-registerAction2(class extends CellAction2 {
+registerAction2(class extends NotebookAction2 {
 	constructor() {
 		super({
 			id: 'positronNotebook.pasteCellsAbove',
@@ -1115,7 +1115,7 @@ registerAction2(class extends CellAction2 {
 		});
 	}
 
-	override runCellAction(_cell: IPositronNotebookCell, notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
+	override runNotebookAction(notebook: IPositronNotebookInstance, _accessor: ServicesAccessor) {
 		notebook.pasteCellsAbove();
 	}
 });
