@@ -61,16 +61,16 @@ export function AttachLogsToReportFixture() {
 		if (!suiteId) { return; }
 
 		// In CI, only attach logs for failed/retried tests to reduce blob report size
-		const isCI = process.env.CI === 'true';
-		const shouldAttachLogs = !isCI ||
-			testInfo.status !== testInfo.expectedStatus ||
-			testInfo.retry ||
-			process.env.ATTACH_ALL_LOGS === 'true';
+		// const isCI = process.env.CI === 'true';
+		// const shouldAttachLogs = !isCI ||
+		// 	testInfo.status !== testInfo.expectedStatus ||
+		// 	testInfo.retry ||
+		// 	process.env.ATTACH_ALL_LOGS === 'true';
 
-		if (!shouldAttachLogs) {
-			// Skip log attachment for passing tests in CI
-			return;
-		}
+		// if (!shouldAttachLogs) {
+		// 	// Skip log attachment for passing tests in CI
+		// 	return;
+		// }
 
 		const zipPath = path.join(logsPath, 'logs.zip');
 		const output = fs.createWriteStream(zipPath);
